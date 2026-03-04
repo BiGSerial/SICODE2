@@ -5,7 +5,9 @@ namespace App\Http\Livewire\Dispatchs\Payment;
 use App\Exports\DispatchDesenhoStack;
 use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Models\Edp_depc\City;
+use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use App\Services\D5\D5WorkflowService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -371,6 +373,7 @@ class Stack extends Component
             foreach ($this->productions as $production) {
                 if (($production->status <= 2 || $this->forcar) && !$production->completed) {
                     $total++;
+                    $previousUserId = $production->user_id;
 
                     if ($analise = Analise::Where('production_id', $production->id)->first()) {
                         $analise->delete();
@@ -378,6 +381,20 @@ class Stack extends Component
 
                     if ($wpa = Wpa::Where('production_id', $production->id)->get()->last()) {
                         $wpa->update(['production_id' => null]);
+                    }
+
+                    if ($previousUserId) {
+                        $five = $production->note?->FiveNote
+                            ?? FiveNote::where('note_id', $production->note_id)->first();
+
+                        if ($five) {
+                            app(D5WorkflowService::class)->onProductionUnassigned(
+                                $five,
+                                $production,
+                                auth()->id(),
+                                $previousUserId
+                            );
+                        }
                     }
 
                     if (!$production->delete()) {
@@ -482,6 +499,7 @@ class Stack extends Component
                 $production = $this->productions->where('note_id', $note->id)->first();
 
                 if ($production) {
+                    $previousUserId = $production->user_id;
 
                     // $update = Production::find($production->id);
 
@@ -517,6 +535,17 @@ class Stack extends Component
                         //     'note_id' => $note->id,
                         //     'dd' => $this->additionalData[$key]
                         // ]);
+                        $five = $note->FiveNote ?? FiveNote::where('note_id', $note->id)->first();
+                        if ($five) {
+                            $five->productions()->syncWithoutDetaching([$production->id]);
+
+                            app(D5WorkflowService::class)->onProductionAssigned(
+                                $five,
+                                $production,
+                                auth()->id(),
+                                $previousUserId
+                            );
+                        }
                     } else {
 
                         // dd($production);
@@ -621,7 +650,20 @@ class Stack extends Component
 
     public function remove_att()
     {
+        $previousUserId = $this->production->user_id;
+
         if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
+            $five = $this->production->note?->FiveNote
+                ?? FiveNote::where('note_id', $this->production->note_id)->first();
+
+            if ($five && $previousUserId) {
+                app(D5WorkflowService::class)->onProductionUnassigned(
+                    $five,
+                    $this->production,
+                    auth()->id(),
+                    $previousUserId
+                );
+            }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

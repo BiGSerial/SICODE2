@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Components\FiveNote;
 use App\Models\Company;
 use App\Models\FiveNote;
 use App\Models\Note;
+use App\Services\D5\D5WorkflowService;
 use App\Traits\WildcardFormmater;
 use Livewire\Component;
 
@@ -159,10 +160,14 @@ class ManualCreate extends Component
 
     public function save()
     {
-
         $this->five->note_id = $this->note->id;
         $this->five->save();
 
+        app(D5WorkflowService::class)->onCreatedManual(
+            $this->five,
+            auth()->id(),
+            null
+        );
 
 
         $this->dispatchBrowserEvent('swal', [

@@ -61,8 +61,17 @@
                             <h6 class="five-title">Histórico de Produções</h6>
                             <div class="five-timeline">
                                 @forelse($five->productions as $p)
+                                    @php
+                                        $dotClass = 'is-assigned';
+
+                                        if ((bool) $p->completed || (int) $p->status === 5) {
+                                            $dotClass = 'is-finished';
+                                        } elseif ((int) $p->status === 4) {
+                                            $dotClass = 'is-paused';
+                                        }
+                                    @endphp
                                     <div class="five-timeline-item">
-                                        <div class="five-timeline-dot"></div>
+                                        <div class="five-timeline-dot {{ $dotClass }}"></div>
                                         <div class="five-timeline-content">
                                             <div class="five-row">
                                                 <span class="five-k">Serviço:</span>
@@ -228,9 +237,22 @@
             top: 4px;
             width: 10px;
             height: 10px;
-            background: #3b82f6;
             border-radius: 50%;
+        }
+
+        .five-modal .five-timeline-dot.is-assigned {
+            background: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, .15);
+        }
+
+        .five-modal .five-timeline-dot.is-paused {
+            background: #fbbf24;
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, .2);
+        }
+
+        .five-modal .five-timeline-dot.is-finished {
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, .18);
         }
 
         .five-modal .five-timeline-content {

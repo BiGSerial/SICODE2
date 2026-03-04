@@ -6,6 +6,7 @@ use App\Models\FiveNote;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use RuntimeException;
@@ -95,14 +96,16 @@ class UploadEvidence extends Component
         DB::beginTransaction();
         try {
             $dir = "evidences/{$this->origin}/{$this->type}";
+            $sequenceCache = [];
+
             foreach ($this->tempFiles as $t) {
-                $storedName = uniqid() . '.' . $t['extension'];
+                $storedName = $this->buildEvidenceStoredName($t, $sequenceCache);
                 $path = $t['file']->storeAs($dir, $storedName, $this->config['disk']);
 
                 $this->five->EvidenceFiles()->create([
                     'user_id'       => Auth::id(),
                     'original_name' => $t['original_name'],
-                    'stored_name'   => pathinfo($storedName, PATHINFO_FILENAME),
+                    'stored_name'   => $storedName,
                     'disk'          => $this->config['disk'],
                     'path'          => $path,
                     'mime'          => $t['file']->getMimeType(),
@@ -121,6 +124,61 @@ class UploadEvidence extends Component
             DB::rollBack();
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
         }
+    }
+
+    protected function buildEvidenceStoredName(array $tempFile, array &$sequenceCache): string
+    {
+        $originToken = $this->normalizeToken((string) $this->origin, 'origem');
+        $numberToken = $this->resolveNumberToken();
+        $prefix = "evidencia_{$originToken}_{$numberToken}";
+
+        if (!array_key_exists($prefix, $sequenceCache)) {
+            $sequenceCache[$prefix] = $this->nextSequenceForPrefix($prefix);
+        } else {
+            $sequenceCache[$prefix]++;
+        }
+
+        $seq = str_pad((string) $sequenceCache[$prefix], 3, '0', STR_PAD_LEFT);
+        $hash = substr(hash(
+            'sha256',
+            ($tempFile['original_name'] ?? '').'|'.microtime(true).'|'.random_int(1000, 9999)
+        ), 0, 12);
+        $ext = strtolower((string) ($tempFile['extension'] ?? 'bin'));
+
+        return "{$prefix}_{$seq}_{$hash}.{$ext}";
+    }
+
+    protected function resolveNumberToken(): string
+    {
+        $raw = (string) ($this->five?->note_d5
+            ?? $this->five?->note?->note
+            ?? $this->five?->note_id
+            ?? $this->five?->id
+            ?? 'sem_numero');
+
+        return $this->normalizeToken($raw, 'sem_numero');
+    }
+
+    protected function nextSequenceForPrefix(string $prefix): int
+    {
+        $current = $this->five?->EvidenceFiles()
+            ->where('origin', $this->origin)
+            ->where('stored_name', 'like', $prefix.'_%')
+            ->count() ?? 0;
+
+        return $current + 1;
+    }
+
+    protected function normalizeToken(string $value, string $fallback): string
+    {
+        $normalized = Str::of($value)
+            ->lower()
+            ->ascii()
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->value();
+
+        return $normalized !== '' ? $normalized : $fallback;
     }
 
     public function render() { return view('livewire.files.evidence.upload-evidence'); }

@@ -2,6 +2,7 @@
 
 namespace App\Exports\Partner;
 
+use App\Custom\Notestatus;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -47,15 +48,13 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             'CodificaÃ§Ã£o',
             'Despachado em',
             'Retorno Empreiteira',
-            'Atividade Atual',
+            'Etapa',
+            'Status',
         ];
 
-        if ($this->showAssignee()) {
-            $columns[] = 'Atribuido';
-            $columns[] = 'Empresa Atribuida';
-        }
-
-        $columns[] = 'Status';
+        $columns[] = 'Atribuido';
+        $columns[] = 'Empresa Atribuida';
+        $columns[] = 'Status Atribuicao';
         $columns[] = 'Timeline';
 
         $columns[] = 'Empresa';
@@ -81,16 +80,15 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             $five->codify,
             $dispatchAt,
             optional($five->completed_at)->format('d/m/Y H:i'),
+            $this->phaseLabel($five),
             $this->activityLabel($five),
         ];
 
-        if ($this->showAssignee()) {
-            $assignee = $this->resolveAssignee($five);
-            $row[] = $assignee['name'] ?? 'Sem atribuicao';
-            $row[] = $assignee['company'] ?? '-';
-        }
+        $assignee = $this->resolveAssignee($five);
+        $row[] = $assignee['name'] ?? 'Sem atribuicao';
+        $row[] = $assignee['company'] ?? '-';
+        $row[] = $assignee['status'] ?? 'Nao Atribuido';
 
-        $row[] = $this->resolveStatus($five);
         $row[] = $this->buildTimelineText($five);
         $row[] = optional($five->company)->name;
         $row[] = $five->isPassive ? 'Sim' : 'NÃ£o';
@@ -134,6 +132,10 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
 
     protected function resolveStatus($five): string
     {
+        if ((is_null($five->note_d5) || trim((string) $five->note_d5) === '') && !$five->visible_partner) {
+            return 'Aguardando Geracao de D5';
+        }
+
         if ($five->is_payed) {
             if ($five->is_archived) {
                 return 'Finalizada';
@@ -157,8 +159,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
 
     protected function showAssignee(): bool
     {
-        $statusFilter = (string) ($this->options['statusFilter'] ?? '');
-        return in_array($statusFilter, ['aguardando_fiscalizacao', 'aguardando_pagamento'], true);
+        return true;
     }
 
     protected function isTrackingMode(): bool
@@ -228,6 +229,10 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         if ($five->is_archived) {
             return 'finalizado';
         }
+
+        if ((is_null($five->note_d5) || trim((string) $five->note_d5) === '') && !$five->visible_partner) {
+            return 'aguardando_geracao_d5';
+        }
         if ($five->is_supervisioned) {
             return 'aguardando_pagamento';
         }
@@ -243,7 +248,19 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             'finalizado' => 'Finalizado',
             'aguardando_pagamento' => 'Aguardando Pagamento',
             'aguardando_fiscalizacao' => 'Aguardando Fiscalizacao',
+            'aguardando_geracao_d5' => 'Aguardando Geracao de D5',
             default => 'Aguardando Fornecedor',
+        };
+    }
+
+    protected function phaseLabel($five): string
+    {
+        return match ($this->activityKey($five)) {
+            'aguardando_pagamento', 'aguardando_geracao_d5' => 'Pagamento',
+            'aguardando_fiscalizacao' => 'Fiscalizacao',
+            'aguardando_fornecedor' => 'Fornecedor',
+            'finalizado' => 'Finalizado',
+            default => '---',
         };
     }
 
@@ -251,8 +268,8 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
     {
         $activityKey = $this->activityKey($five);
 
-        if (!in_array($activityKey, ['aguardando_fiscalizacao', 'aguardando_pagamento'], true)) {
-            return ['name' => null, 'company' => null];
+        if (!in_array($activityKey, ['aguardando_fiscalizacao', 'aguardando_pagamento', 'aguardando_geracao_d5'], true)) {
+            return ['name' => null, 'company' => null, 'status' => 'Nao Atribuido'];
         }
 
         $targetService = $activityKey === 'aguardando_fiscalizacao'
@@ -260,11 +277,12 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             : ($this->options['payment_service_id'] ?? null);
 
         if (!$targetService) {
-            return ['name' => null, 'company' => null];
+            return ['name' => null, 'company' => null, 'status' => 'Nao Atribuido'];
         }
 
         $productions = optional($five->note)->Productions ?? collect();
         $partnerReturnAt = $five->completed_at;
+        $strictPartnerWindow = $activityKey === 'aguardando_fiscalizacao' && ($partnerReturnAt instanceof Carbon);
 
         $candidates = $productions
             ->where('service_id', $targetService)
@@ -283,6 +301,10 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             })
             ->first();
 
+        if ($strictPartnerWindow && !$candidate) {
+            return ['name' => null, 'company' => null, 'status' => 'Nao Atribuido'];
+        }
+
         if (!$candidate) {
             $candidate = $productions
                 ->where('service_id', $targetService)
@@ -296,7 +318,18 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         return [
             'name' => $candidate?->User?->name,
             'company' => $candidate?->Company?->name,
+            'status' => $this->resolveAssignmentStatus($candidate?->status),
         ];
+    }
+
+    protected function resolveAssignmentStatus($status): string
+    {
+        try {
+            $meta = Notestatus::status(is_null($status) ? 1 : (int) $status);
+            return $meta->status ?? 'Nao Atribuido';
+        } catch (\Throwable $e) {
+            return 'Nao Atribuido';
+        }
     }
 
     protected function buildTimelineText($five): string

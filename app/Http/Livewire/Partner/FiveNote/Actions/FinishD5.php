@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Partner\FiveNote\Actions;
 
 use App\Models\EvidenceFile;
 use App\Models\FiveNote;
+use App\Services\D5\D5WorkflowService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -133,8 +134,10 @@ class FinishD5 extends Component
         DB::beginTransaction();
 
         try {
+            $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
             $this->five->done(null, $this->observations);
+            app(D5WorkflowService::class)->onPartnerCompleted($this->five, $fromStage, auth()->id());
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

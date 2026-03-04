@@ -16,6 +16,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -146,7 +147,20 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
     protected function applyBaseConstraints(Builder $query): void
     {
-        $query->where('visible_partner', true);
+        $query->where(function ($base) {
+            $base->where('visible_partner', true)
+                ->orWhere(function ($inner) {
+                    $inner->where(function ($noteD5) {
+                        $noteD5->whereNull('note_d5')
+                            ->orWhere('note_d5', '');
+                    })->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from('timeline_events as te')
+                            ->whereColumn('te.five_note_id', 'five_notes.id')
+                            ->where('te.event_type', 'd5_created_from_supervision');
+                    });
+                });
+        });
     }
 
     protected function applyFilters(Builder $query): void
@@ -155,17 +169,31 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
         switch ($statusFilter) {
             case 'aguardando_fornecedor':
-                $query->where('is_completed', false)
+                $query->where('visible_partner', true)
+                    ->where('is_completed', false)
                     ->where('is_archived', false);
                 break;
             case 'aguardando_fiscalizacao':
-                $query->where('is_completed', true)
-                    ->where('is_supervisioned', false)
-                    ->where('is_archived', false);
+                $query->where(function ($main) {
+                    $main->where('is_completed', true)
+                        ->where('is_supervisioned', false)
+                        ->where('is_archived', false);
+                });
                 break;
             case 'aguardando_pagamento':
-                $query->where('is_supervisioned', true)
-                    ->where('is_archived', false);
+                $query->where(function ($main) {
+                    $main->where(function ($q) {
+                        $q->where('is_supervisioned', true)
+                            ->where('is_archived', false);
+                    })->orWhere(function ($q) {
+                        $q->where('is_archived', false)
+                            ->where('visible_partner', false)
+                            ->where(function ($d5) {
+                                $d5->whereNull('note_d5')
+                                    ->orWhere('note_d5', '');
+                            });
+                    });
+                });
                 break;
             case 'finalizado':
                 $query->where('is_archived', true);
