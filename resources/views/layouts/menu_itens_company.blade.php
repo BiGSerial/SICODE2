@@ -1,3 +1,14 @@
+@if (request()->routeIs('partner.*'))
+    @php
+        $search_sections = [
+            [
+                'items' => [['label' => 'NOTAS/OV', 'route' => 'partner.search.notes', 'icon' => 'ri-search-eye-line']],
+            ],
+        ];
+    @endphp
+    <x-menu.dynamic-dropdown title="BUSCAR" :sections="$search_sections" id-prefix="buscar-partner" layout="inline" />
+@endif
+
 {{-- <li class="nav-item dropdown mx-2">
     <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
         aria-expanded="false">
