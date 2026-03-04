@@ -52,12 +52,13 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
     public function map($row): array
     {
         $adsInfomed = '';
+        $workForm = $row->Note->WorkForm ?: $row->Note->WorkFormAny;
 
         if ($row->partial) {
             $informed_at = $row->Note->Partials?->where('supervision_id', $row->user_id)->last()?->supervision_at ?? '';
         } else {
-            $informed_at = $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i') ?? '';
-            $adsForm = $row->Note->WorkForm?->Adsform;
+            $informed_at = $workForm?->informed_at?->format('d/m/Y H:i') ?? '';
+            $adsForm = $workForm?->Adsform;
             $adsInfomed = $adsForm
                 ? ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y H:i')
                 : '';
@@ -85,11 +86,11 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
             $row->completed_at ? $row->completed_at->format('d/m/Y') : '',
             $informed_at,
             $adsInfomed,
-            $row->Note->WorkForm?->Company?->name,
-            $row->Note->WorkForm?->informer,
-            $row->Note->WorkForm?->rejected ? 'REJEITADO' : 'NORMAL',
-            $row->Note->WorkForm?->rejected ? $row->Note->WorkForm?->Returnwork?->last()?->category : '',
-            $row->Note->WorkForm?->rejected ? $row->Note->WorkForm?->Returnwork?->last()?->text_obs : '',
+            $workForm?->Company?->name,
+            $workForm?->informer,
+            !$workForm ? 'NORMAL' : ($workForm->canceled ? 'CANCELADO' : ($workForm->rejected ? 'REJEITADO' : 'NORMAL')),
+            $workForm?->rejected ? $workForm?->Returnwork?->last()?->category : '',
+            $workForm?->rejected ? $workForm?->Returnwork?->last()?->text_obs : '',
 
             Notestatus::status($row->status)->status,
         ];

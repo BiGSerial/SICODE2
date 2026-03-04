@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class WorkReport extends Model
@@ -27,6 +28,9 @@ class WorkReport extends Model
         'approved',
         'rejected',
         'retry',
+        'canceled',
+        'canceled_at',
+        'canceled_by',
         'dd',
         'informer',
         'informed_at',
@@ -39,6 +43,8 @@ class WorkReport extends Model
     protected $casts = [
         'approved' => 'boolean',
         'rejected' => 'boolean',
+        'canceled' => 'boolean',
+        'canceled_at' => 'datetime',
         'informed_at' => 'datetime',
         'acceptance_accepted' => 'boolean',
         'acceptance_at' => 'datetime',
@@ -90,6 +96,11 @@ class WorkReport extends Model
     public function Adsform()
     {
         return $this->hasOne(Adsform::class);
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('canceled', false);
     }
 
 

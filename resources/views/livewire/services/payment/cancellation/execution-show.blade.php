@@ -237,9 +237,11 @@
             $isClosedRequest = in_array($requestStatusValue, ['DONE', 'REJECTED', 'ABORTED'], true);
             $canManageApproval = in_array($requestStatusValue, ['ASSIGNED', 'PAUSED'], true);
 
-            $requestedTarget = $cancellationRequest->scope?->value === \App\Enum\CancellationRequestScope::NOTE_FULL->value
-                ? 'Cancelar nota inteira e todas as ordens vinculadas.'
-                : 'Cancelar somente as ordens selecionadas nesta solicitação.';
+            $requestedTarget = match ($cancellationRequest->scope?->value ?? $cancellationRequest->scope) {
+                \App\Enum\CancellationRequestScope::NOTE_FULL->value => 'Cancelar nota inteira, ordens vinculadas e WorkForm (se existir).',
+                \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value => 'Cancelar somente o WorkForm da nota.',
+                default => 'Cancelar somente as ordens selecionadas nesta solicitação.',
+            };
 
             $closureType = $cancellationRequest->closure_type;
             $executantDecision = match ($closureType) {

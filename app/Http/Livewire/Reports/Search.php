@@ -122,7 +122,22 @@ class Search extends Component
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at',
+                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
+                    ]);
+                },
+
+                'WorkFormAny' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                        'Equipment:id,work_report_id',
+                        'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                    ])
+                    ->select([
+                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
+                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
                         'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
                     ]);
                 },
