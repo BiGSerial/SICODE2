@@ -61,11 +61,13 @@ class CreateGenFiles extends Component
         'cleanFiles' => 'closeAll',
     ];
 
-    public function mount(Note $note, string $service, ?ViabilityModel $viability = null)
+    public function mount(Note $note, string $service, $viability = null)
     {
         $this->note = $note;
         $this->service = $service;
-        $this->viability = $viability;
+        $this->viability = $viability instanceof ViabilityModel && $viability->exists
+            ? $viability
+            : null;
     }
 
     public function updatedFiles()
@@ -306,7 +308,7 @@ class CreateGenFiles extends Component
                     'noexists' => false,
                 ]);
 
-                if ($file && $this->viability) {
+                if ($file && mb_strtoupper(trim($this->service)) === 'VIABILIDADE' && $this->viability?->id) {
                     // Garante rastreabilidade da origem para aparecer em consultas de viabilidade
                     $this->viability->Files()->syncWithoutDetaching([$file->id]);
                 }
