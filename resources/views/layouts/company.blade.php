@@ -163,7 +163,8 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                         </a>
                     </li> --}}
                     <div class="d-flex align-items-end justify-content-between mx-2">
-                        <a href="{{ route('home') }}" class="d-flex align-items-end">
+                        <a href="{{ auth()->user()->onlyparner ? route('partner.main.viability') : route('home') }}"
+                            class="d-flex align-items-end">
                             <img src="{{ asset('img/EDP-Logo-white.svg') }}" class="align-middle" alt=""
                                 height="30">
                             <span class="d-none d-lg-block edp-text-iceblue-dark fw-bold fs-4">sicode</span>
@@ -178,7 +179,8 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                         </a>
                     </li> --}}
                     <div class="d-flex align-items-end justify-content-between mx-2">
-                        <a href="{{ route('home') }}" class="d-flex align-items-end">
+                        <a href="{{ auth()->user()->onlyparner ? route('partner.main.viability') : route('home') }}"
+                            class="d-flex align-items-end">
                             <span
                                 class="d-none d-lg-block text-white fw-bold fs-4">{{ isset(Auth()->user()->Employee->Contract->company->name) ? mb_strtolower(explode(' ', Auth()->user()->Employee->Contract->company->name)[0]) : '' }}</span>
                             <span class="d-none d-lg-block edp-text-green fw-bold fs-4">sicode</span>
