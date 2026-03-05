@@ -407,7 +407,11 @@
                                             dos ativos cadastrados e instalados.
                                         </div>
                                     </div>
-                                    @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
+                                    @livewire(
+                                        'files.manager.create-gen-files',
+                                        ['note' => $note, 'service' => 'INFORME DE OBRA'],
+                                        key('files_forms_' . $note->id)
+                                    )
                                 </div>
                             </div>
 
