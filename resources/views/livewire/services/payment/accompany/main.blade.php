@@ -180,6 +180,9 @@
                                         }
 
                                         $five = FiveStatus($list);
+                                        $adsForm = $list->Note->Adsform ?? $list->Note->WorkForm?->Adsform;
+                                        $isTacitAds = (bool) ($adsForm?->tacit ?? false);
+                                        $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                     @endphp
 
                                     @if ($partial)
@@ -232,6 +235,14 @@
                                                 data-bs-trigger="hover focus" data-bs-placement="top"
                                                 data-bs-title="Exibir Prioridade"
                                                 data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                        @endif
+                                        @if ($isTacitAds)
+                                            <div class="mt-1">
+                                                <span class="badge text-bg-dark">ADS TÁCITA</span>
+                                                <span class="badge {{ $tacitDelivered ? 'text-bg-success' : 'text-bg-danger' }}">
+                                                    {{ $tacitDelivered ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
+                                                </span>
+                                            </div>
                                         @endif
                                     </td>
                                     <td class="align-middle">

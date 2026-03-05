@@ -300,6 +300,9 @@
 
                             $attColorClass = getColorClass($item->att_at, 9);
                             $dispatchColorClass = getColorClass($item->dispatch_at, 30);
+                            $adsForm = $item->note?->Adsform ?? $item->note?->workform?->adsform;
+                            $isTacitAds = (bool) ($adsForm?->tacit ?? false);
+                            $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
 
                         @endphp
                         <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
@@ -348,7 +351,17 @@
                                 {{ $item->att_at?->diffInDays(Carbon::now()) }} dias
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                {{ $item->note?->workform?->adsform?->created_at ? $item->note?->workform?->adsform?->created_at?->diffInDays(Carbon::now()) . ' dias' : '' }}
+                                @if ($adsForm?->created_at)
+                                    <div>{{ $adsForm->created_at?->diffInDays(Carbon::now()) }} dias</div>
+                                @endif
+                                @if ($isTacitAds)
+                                    <div class="mt-1">
+                                        <span class="badge text-bg-dark">TÁCITA</span>
+                                        <span class="badge {{ $tacitDelivered ? 'text-bg-success' : 'text-bg-danger' }}">
+                                            {{ $tacitDelivered ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
+                                        </span>
+                                    </div>
+                                @endif
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 R$ {{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}

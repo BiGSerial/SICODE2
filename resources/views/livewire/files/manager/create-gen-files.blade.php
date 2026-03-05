@@ -114,7 +114,7 @@
                         </thead>
                         <tbody>
                             @foreach ($tempFiles as $index => $tempFile)
-                                <tr wire:key='{{ $tempFile['file']->getClientOriginalName() }}'>
+                                <tr wire:key='temp-file-{{ $index }}-{{ md5(($tempFile['original_name'] ?? '') . '-' . ($tempFile['uploadType'] ?? '') . '-' . ($tempFile['ext'] ?? '')) }}'>
                                     <td class="text-center align-middle">
                                         <i class="{{ FileIcon::getIcon($tempFile['ext'])->icon }} fs-4 my-0 py-0"></i>
                                     </td>

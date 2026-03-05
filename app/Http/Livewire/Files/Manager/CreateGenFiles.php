@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Files\Manager;
 
 use App\Models\File;
 use App\Models\Note;
+use App\Models\Viability as ViabilityModel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -47,6 +48,7 @@ class CreateGenFiles extends Component
     use WithFileUploads;
 
     public ?Note $note = null;
+    public ?ViabilityModel $viability = null;
     public bool $alertFile = false;
     public string $service;
     public $files = [];
@@ -59,15 +61,27 @@ class CreateGenFiles extends Component
         'cleanFiles' => 'closeAll',
     ];
 
-    public function mount(Note $note, string $service)
+    public function mount(Note $note, string $service, ?ViabilityModel $viability = null)
     {
         $this->note = $note;
         $this->service = $service;
+        $this->viability = $viability;
     }
 
     public function updatedFiles()
     {
         $this->validate();
+
+        if (!$this->uploadType) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione o tipo de envio antes de anexar arquivos.',
+                'timer'    => 2200,
+            ]);
+            $this->files = [];
+            return;
+        }
 
         if (count($this->files)) {
             foreach ($this->files as $file) {
@@ -126,6 +140,8 @@ class CreateGenFiles extends Component
         }
 
         $this->checkFilesExists();
+        // Libera o input para nova seleção e evita inconsistências visuais do Livewire
+        $this->files = [];
     }
 
     public function checkFilesExists()
@@ -278,7 +294,7 @@ class CreateGenFiles extends Component
             $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
 
             if (Storage::exists($caminho)) {
-                File::create([
+                $file = File::create([
                     'note_id' => $this->note->id,
                     'user_id' => Auth()->User()->id,
                     'service_id' => null,
@@ -289,6 +305,11 @@ class CreateGenFiles extends Component
                     'suspicious' => $saveFile['suspicious'],
                     'noexists' => false,
                 ]);
+
+                if ($file && $this->viability) {
+                    // Garante rastreabilidade da origem para aparecer em consultas de viabilidade
+                    $this->viability->Files()->syncWithoutDetaching([$file->id]);
+                }
             } else {
                 DB::rollback();
 
@@ -329,7 +350,7 @@ class CreateGenFiles extends Component
 
     protected $rules = [
 
-        'files.*' => 'nullable|file|mimes:jpg,png,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:10240',
+        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:10240',
     ];
 
 

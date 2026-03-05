@@ -480,6 +480,9 @@
                                 } else {
                                     $partial = null;
                                 }
+                                $adsForm = $list->Note->Adsform ?? $list->Note->WorkForm?->Adsform;
+                                $isTacitAds = (bool) ($adsForm?->tacit ?? false);
+                                $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
 
                             @endphp
                             <tr wire:key="line-{{ $list->id }}"
@@ -521,6 +524,14 @@
                                         <i class="ri-alert-fill text-danger align-middle"
                                             wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
                                             style="cursor: pointer;"></i>
+                                    @endif
+                                    @if ($isTacitAds)
+                                        <div class="mt-1">
+                                            <span class="badge text-bg-dark">ADS TÁCITA</span>
+                                            <span class="badge {{ $tacitDelivered ? 'text-bg-success' : 'text-bg-danger' }}">
+                                                {{ $tacitDelivered ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
+                                            </span>
+                                        </div>
                                     @endif
                                 </td>
                                 <td class="text-center align-middle">

@@ -36,7 +36,7 @@ class Partnersinform extends Component
     {
         try {
             $this->validate([
-                'uploadsfiles.*' => 'mimes:pdf,jpeg,png,xls,xlsx',
+                'uploadsfiles.*' => 'mimes:pdf,jpeg,png,webp,xls,xlsx',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
@@ -45,7 +45,7 @@ class Partnersinform extends Component
                 'title' => 'TIPO DE ARQUIVO NÃO PERMITIDO',
                 'html' => '<div class="card bg-primary text-white"><div class="card-body">
                     <p class="fw-bold">Existem arquivos com formatos não suportados, revise e tente novamente.</p>
-                    Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpg, .png, .xls ou .xlsx</span>
+                    Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpg, .png, .webp, .xls ou .xlsx</span>
                     </div></div>',
             ]);
 

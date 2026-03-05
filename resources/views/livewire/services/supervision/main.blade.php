@@ -215,6 +215,9 @@
                                         $lastWpa = $list->Wpas->last(); // 1 item (latest()->limit(1))
                                         $hasOld = $note->OldAds && $note->OldAds->isNotEmpty();
                                         $hasNew = (bool) $note->Adsform;
+                                        $adsForm = $note->Adsform ?? $workForm?->Adsform;
+                                        $isTacitAds = (bool) ($adsForm?->tacit ?? false);
+                                        $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                     @endphp
 
                                     <tr wire:key='prod-{{ $list->id }}'
@@ -286,6 +289,14 @@
                                                 <span class="text-success fw-bold">ATUAL</span>
                                             @else
                                                 <span class="text-danger fw-bold">NÃO</span>
+                                            @endif
+                                            @if ($isTacitAds)
+                                                <div class="mt-1">
+                                                    <span class="badge text-bg-dark">TÁCITA</span>
+                                                    <span class="badge {{ $tacitDelivered ? 'text-bg-success' : 'text-bg-danger' }}">
+                                                        {{ $tacitDelivered ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
+                                                    </span>
+                                                </div>
                                             @endif
                                         </td>
 

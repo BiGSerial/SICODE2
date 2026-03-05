@@ -289,7 +289,11 @@ class ReturnViability extends Component
 
         $this->viability = null;
         $this->reason = null;
+        $this->changes = null;
         $this->hasFile = false;
+        $this->hasFVTO = false;
+        $this->resetErrorBag();
+        $this->resetValidation();
 
 
         $this->emitUp('refresh_list');

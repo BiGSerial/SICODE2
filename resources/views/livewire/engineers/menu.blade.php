@@ -135,7 +135,13 @@
                             <a href="{{ route('engineers.ads.requests') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-file-add-line text-white fw-light fs-5"></i> <span>Solicitacoes ADS</span>
                             </a>
-                        </li>                    </div>
+                        </li>
+                        <li>
+                            <a href="{{ route('engineers.ads.situation') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-timer-flash-line text-white fw-light fs-5"></i> <span>Situação de ADS</span>
+                            </a>
+                        </li>
+                    </div>
                 </ul>
             </li>
             @endif

@@ -217,14 +217,14 @@ class Analise extends Component
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,jpg,png,gif,tiff,bmp,dwg,dxf,dwf,doc,docx,xls,xlsx,ppt,pptx'
+                'files.*' => 'mimes:pdf,jpeg,jpg,png,webp,gif,tiff,bmp,dwg,dxf,dwf,doc,docx,xls,xlsx,ppt,pptx'
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
-                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpeg, .jpg, .png, .gif, .tiff, .bmp, .dwg, .dxf, .dwf, .doc, .docx, .xls, .xlsx, .ppt, .pptx</span> </div></div>',
+                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpeg, .jpg, .png, .webp, .gif, .tiff, .bmp, .dwg, .dxf, .dwf, .doc, .docx, .xls, .xlsx, .ppt, .pptx</span> </div></div>',
 
             ]);
 

@@ -159,6 +159,7 @@ class InformAdsTacitReportService
         $search = trim((string) ($filters['search'] ?? ''));
         $dateIn = $filters['date_in'] ?? null;
         $dateOut = $filters['date_out'] ?? null;
+        $openFilter = $filters['openFilter'] ?? 'all';
         $companyIds = $filters['companyIds'] ?? [];
 
         $query = DB::table('work_reports as wr')
@@ -193,6 +194,10 @@ class InformAdsTacitReportService
 
         if (!empty($companyIds)) {
             $query->whereIn('wr.company_id', $companyIds);
+        }
+
+        if ($openFilter === 'open') {
+            $query->whereNull('af.tacit_delivered_at');
         }
 
         return $query;

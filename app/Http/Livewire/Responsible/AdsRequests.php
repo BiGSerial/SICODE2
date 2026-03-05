@@ -33,6 +33,7 @@ class AdsRequests extends Component
     public $historySearch = '';
     public $historyCompanyId;
     public bool $sqlSyncEnabled = true;
+    public bool $isProcessingRequests = false;
 
     public function mount()
     {
@@ -207,6 +208,10 @@ class AdsRequests extends Component
 
     public function processRequests()
     {
+        if ($this->isProcessingRequests) {
+            return;
+        }
+
         $cancelNotes = $this->getCancelablePreviewNotes();
         if ($cancelNotes) {
             $this->dispatchBrowserEvent('alertar', [
@@ -223,12 +228,26 @@ class AdsRequests extends Component
             return;
         }
 
-        $this->processRequestsInternal();
+        $this->isProcessingRequests = true;
+        try {
+            $this->processRequestsInternal();
+        } finally {
+            $this->isProcessingRequests = false;
+        }
     }
 
     public function confirmProcessRequests()
     {
-        $this->processRequestsInternal(true);
+        if ($this->isProcessingRequests) {
+            return;
+        }
+
+        $this->isProcessingRequests = true;
+        try {
+            $this->processRequestsInternal(true);
+        } finally {
+            $this->isProcessingRequests = false;
+        }
     }
 
     protected function processRequestsInternal(bool $force = false): void
@@ -239,6 +258,20 @@ class AdsRequests extends Component
                 'icon' => 'warning',
                 'title' => 'Nenhuma nota valida para processar.',
                 'timer' => 3000,
+            ]);
+            return;
+        }
+
+        $processableCount = collect($this->previewItems)
+            ->where('can_process', true)
+            ->count();
+
+        if ($processableCount === 0) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Nao foi possivel concluir a solicitacao',
+                'html' => $this->buildBlockedPreviewHtml(),
             ]);
             return;
         }
@@ -260,12 +293,29 @@ class AdsRequests extends Component
         $companyId = $this->companyId;
         $batchId = (string) Str::uuid();
         $created = 0;
+        $skippedDuplicates = 0;
         $mirrorFailures = [];
         $toMirror = [];
 
-        DB::transaction(function () use ($companyId, $batchId, &$created, &$toMirror) {
+        DB::transaction(function () use ($companyId, $batchId, &$created, &$skippedDuplicates, &$toMirror) {
             foreach ($this->previewItems as $item) {
                 if (!$item['can_process']) {
+                    continue;
+                }
+
+                $activeRequests = AdsRequest::query()
+                    ->where('note_id', $item['note_id'])
+                    ->where('company_id', $companyId)
+                    ->whereIn('status', $this->activeStatuses())
+                    ->lockForUpdate()
+                    ->orderByDesc('created_at')
+                    ->get();
+
+                $previousRequest = $activeRequests->first();
+                $shouldReschedule = !empty($item['will_cancel']);
+
+                if ($previousRequest && !$shouldReschedule) {
+                    $skippedDuplicates++;
                     continue;
                 }
 
@@ -273,17 +323,17 @@ class AdsRequests extends Component
                     ->where('note_id', $item['note_id'])
                     ->max('version');
 
-                $previousRequest = $this->getActiveRequestFor($item['note_id'], $companyId);
-
                 if ($previousRequest) {
-                    $previousRequest->update([
-                        'status' => AdsRequestStatus::CANCELED,
-                        'canceled_at' => now(),
-                        'superseded_by_id' => null,
-                    ]);
+                    foreach ($activeRequests as $activeRequest) {
+                        $activeRequest->update([
+                            'status' => AdsRequestStatus::CANCELED,
+                            'canceled_at' => now(),
+                            'superseded_by_id' => null,
+                        ]);
 
-                    if ($this->sqlSyncEnabled) {
-                        $this->syncCanceledToSqlServer($previousRequest);
+                        if ($this->sqlSyncEnabled) {
+                            $this->syncCanceledToSqlServer($activeRequest);
+                        }
                     }
                 }
 
@@ -326,7 +376,7 @@ class AdsRequests extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon' => 'success',
-            'title' => $created . ' solicitacao(oes) criada(s).',
+            'title' => $created . ' solicitacao(oes) criada(s).' . ($skippedDuplicates ? " {$skippedDuplicates} duplicada(s) ignorada(s)." : ''),
             'timer' => 3500,
         ]);
 
@@ -424,6 +474,32 @@ class AdsRequests extends Component
 
         return 'Existem solicitacoes em andamento que serao canceladas e reagendadas para as notas: <strong>' .
             implode(', ', $list) . $extra . '</strong>. Deseja continuar?';
+    }
+
+    protected function buildBlockedPreviewHtml(): string
+    {
+        $blocked = collect($this->previewItems)
+            ->filter(fn ($item) => empty($item['can_process']))
+            ->values();
+
+        if ($blocked->isEmpty()) {
+            return '<p class="mb-0">Nenhuma nota apta para processamento.</p>';
+        }
+
+        $items = $blocked
+            ->take(12)
+            ->map(function ($item) {
+                $note = e((string) ($item['note_number'] ?? '-'));
+                $message = e((string) ($item['message'] ?? 'Sem detalhe.'));
+                return "<li><strong>{$note}:</strong> {$message}</li>";
+            })
+            ->implode('');
+
+        $extra = $blocked->count() > 12
+            ? '<p class="mt-2 mb-0 text-muted">E mais '.($blocked->count() - 12).' nota(s) bloqueada(s).</p>'
+            : '';
+
+        return "<div class='text-start'><p class='mb-2'>Nenhuma nota da lista está apta. Motivos:</p><ul class='mb-0'>{$items}</ul>{$extra}</div>";
     }
 
     protected function parseNotesInput(): array

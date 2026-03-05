@@ -9,6 +9,11 @@ class PartnerController extends Controller
         return view('partner.main');
     }
 
+    public function searchNotes()
+    {
+        return view('partner.search_notes');
+    }
+
     public function viability()
     {
         return view('partner.viability');

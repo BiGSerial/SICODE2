@@ -16,6 +16,7 @@ class InformAdsTacitaReport extends Component
 
     public int $perPage = 50;
     public string $mode = 'note';
+    public string $openFilter = 'all';
     public ?string $date_in = null;
     public ?string $date_out = null;
     public ?string $search = null;
@@ -24,6 +25,7 @@ class InformAdsTacitaReport extends Component
 
     protected $queryString = [
         'mode' => ['except' => 'note', 'as' => 'm'],
+        'openFilter' => ['except' => 'all', 'as' => 'open'],
         'date_in' => ['except' => '', 'as' => 'din'],
         'date_out' => ['except' => '', 'as' => 'dout'],
         'search' => ['except' => '', 'as' => 'q'],
@@ -56,6 +58,7 @@ class InformAdsTacitaReport extends Component
     public function clearFilters(): void
     {
         $this->mode = 'note';
+        $this->openFilter = 'all';
         $this->search = null;
         $this->companyIds = [];
         $this->date_in = now()->startOfMonth()->format('Y-m-d');
@@ -90,6 +93,7 @@ class InformAdsTacitaReport extends Component
     {
         return [
             'mode' => $this->mode,
+            'openFilter' => $this->openFilter,
             'date_in' => $this->date_in,
             'date_out' => $this->date_out,
             'search' => $this->search,

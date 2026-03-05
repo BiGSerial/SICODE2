@@ -57,6 +57,9 @@ class Search extends Component
                 'Orders:id,note_id,ordem,statusSist',
                 'Orders.Operations:id,order_id,operacao,descOperacao,status,cenTrab,inicioPlanejado,fimPlanejado,inicioReal,fimReal',
 
+                // Protestos
+                'Protests:id,nota,tipoNota',
+
                 // Cancelamentos
                 'CancellationRequests' => function ($q) {
                     $q->with([
@@ -87,12 +90,20 @@ class Search extends Component
                         'Orders:id,ordem',
                         'Orders.Operations:id,order_id,operacao,status',
                         'User:id,name,email',
-                        'Engineer:id,name',
+                        'Engineer:id,name,email',
                         'Company:id,name',
-                        'Form:id,viability_id,responsible',
+                        'Form:id,viability_id,user_id,reason,description,changes,responsible,rejected,approved,historic,created_at,updated_at',
+                        'Form.User:id,name,email',
+                        'Form.Files:id,file_name,original_name,path,ext,user_id,created_at',
+                        'Form.Files.User:id,name',
+                        'Files:id,file_name,original_name,path,ext,user_id,created_at',
+                        'Files.User:id,name',
                     ])->select([
                         'id','note_id','user_id','engineer_id','company_id',
-                        'hired','tacit','hired_at','sended_at','returned_at'
+                        'hired','tacit','hired_at','sended_at','returned_at',
+                        'approved','rejected','completed','canceled',
+                        'engineer','engineer_at','completed_at','status',
+                        'init_at','tacit_at','visible_partner','value',
                     ]);
                 },
 
@@ -107,10 +118,12 @@ class Search extends Component
 
                         // CORRETO: devoluções também usam work_report_id
                         'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at'
+                        'changes','rejected','informed_at',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
                     ]);
                 },
 
@@ -197,6 +210,35 @@ class Search extends Component
         return redirect()->route('files.download', ['file' => $file->id]);
     }
 
+    public function updatedSelectedFiles($value)
+    {
+        if (!$this->lists) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $ids = collect(is_array($value) ? $value : $this->selectedFiles)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $this->selectedFiles = [];
+            return;
+        }
+
+        $validIds = File::query()
+            ->where('note_id', (int) $this->lists->id)
+            ->whereIn('id', $ids->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $this->selectedFiles = $validIds;
+    }
+
     /**
      * Download ZIP via HTTP
      */
@@ -212,9 +254,48 @@ class Search extends Component
             return;
         }
 
+        $selectedIds = collect($this->selectedFiles)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SELEÇÃO INVÁLIDA OU EXPIRADA',
+                'text'     => 'Atualize a lista de arquivos e selecione novamente.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
+        $selectedIds = File::query()
+            ->where('note_id', (int) $this->lists->id)
+            ->whereIn('id', $selectedIds->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $this->selectedFiles = $selectedIds;
+
+        if (empty($selectedIds)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SELEÇÃO INVÁLIDA OU EXPIRADA',
+                'text'     => 'Atualize a lista de arquivos e selecione novamente.',
+                'timer'    => 5000,
+            ]);
+            return;
+        }
+
         return redirect()->route('files.zip', [
-            'ids'  => implode(',', $this->selectedFiles),
+            'ids'  => implode(',', $selectedIds),
             'note' => $this->lists->note,
+            'note_id' => (int) $this->lists->id,
         ]);
     }
 

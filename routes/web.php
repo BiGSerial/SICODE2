@@ -76,6 +76,8 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/d5', 'control_d5')->name('d5');
         Route::get('/viability', 'control_viability')->name('viability');
         Route::get('/notes', 'control_notes')->name('notes');
+        Route::get('/workreports', 'control_workreports')->name('workreports');
+        Route::get('/ads_requests', 'control_ads_requests')->name('ads_requests');
     });
 
     Route::post('/change_pass', 'change_password')->name('change_pass');
@@ -179,6 +181,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/return_intern/list', 'return_intern_list')->middleware('can:management')->name('return_intern_list');
     Route::get('/workreports', 'workreports')->name('workreport');
     Route::get('/informe_ads_tacita', 'informeAdsTacita')->name('informe_ads_tacita');
+    Route::get('/ads_solicitadas', 'adsSolicitadas')->name('ads_solicitadas');
     Route::get('/rejeceted_workreports', 'rejectedWorkReports')->name('rejecetedWorkreport');
     Route::get('/search', 'search')->name('search');
     Route::get('/advancedsearch', 'advancedsearch')->name('advancedsearch');
@@ -264,6 +267,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/ads_situation', 'adsSituation')->name('ads.situation');
     Route::get('/cancelamentos/aprovacoes', 'cancellationApprovals')->name('cancellations.index');
     Route::get('/cancelamentos/aprovacoes/historico', 'cancellationApprovalsHistory')->name('cancellations.history');
     Route::get('/cancelamentos/aprovacoes/{request}', 'cancellationApprovalShow')->whereNumber('request')->name('cancellations.show');
@@ -286,6 +290,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
 // Partners Route's
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main.viability');
+    Route::get('/search-notes', 'searchNotes')->name('search.notes');
     Route::get('/todo-viability', 'viability')->name('todo.viability');
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
     Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
@@ -381,6 +386,7 @@ Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middlewar
 // Files Controller Manager
 Route::prefix('/files')->controller(FilesController::class)->name('files.')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::get('/files/{file}/preview', 'preview')->name('preview');
     Route::get('/files/{file}/download', 'download')->name('download');
     Route::get('/files/zip', 'zipSelected')->name('zip');
 });

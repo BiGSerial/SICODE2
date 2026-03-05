@@ -38,7 +38,7 @@ class Viability extends Component
     protected $rules = [
         'company_id' => 'required',
         'responsible_id' => 'required',
-        'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+        'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,webp,gif,bmp,tiff',
     ];
 
     protected $messages = [
@@ -46,7 +46,7 @@ class Viability extends Component
         'responsible_id.required' => 'Selecione o responsável',
         'toViabilities.*.temp_files.files.*.file' => 'O arquivo deve ser um documento',
         'toViabilities.*.temp_files.files.*.max' => 'O arquivo deve ter no máximo 10MB',
-        'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,gif,bmp,tiff',
+        'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,webp,gif,bmp,tiff',
     ];
 
     public function mount()
@@ -293,7 +293,7 @@ class Viability extends Component
 
                             if (Storage::exists($caminho)) {
 
-                                File::create([
+                                $createdFile = File::create([
                                     'note_id' => $note->id,
                                     'user_id' => Auth()->User()->id,
                                     'service_id' => null,
@@ -304,6 +304,11 @@ class Viability extends Component
                                     'suspicious' => 0,
                                     'noexists' => false,
                                 ]);
+
+                                if ($createdFile) {
+                                    // Mantem rastreabilidade do anexo pela origem da viabilidade
+                                    $viability->files()->syncWithoutDetaching([$createdFile->id]);
+                                }
                             } else {
                                 throw new Exception("Um ou mais arquivos não foram salvos corretamente", 1);
                             }

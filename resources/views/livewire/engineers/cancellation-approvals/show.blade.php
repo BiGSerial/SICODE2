@@ -54,6 +54,36 @@
                 min-height: 120px;
                 white-space: pre-wrap;
             }
+
+            .phase-timeline {
+                border-left: 3px solid #cbd5e1;
+                margin-left: .35rem;
+                padding-left: 1rem;
+            }
+
+            .phase-item {
+                position: relative;
+                padding-bottom: .9rem;
+            }
+
+            .phase-item::before {
+                content: "";
+                position: absolute;
+                left: -1.37rem;
+                top: .2rem;
+                width: .75rem;
+                height: .75rem;
+                border-radius: 999px;
+                background: #0f766e;
+                border: 2px solid #fff;
+                box-shadow: 0 0 0 2px #0f766e22;
+            }
+
+            .timeline-scroll {
+                max-height: 320px;
+                overflow-y: auto;
+                padding-right: .35rem;
+            }
         </style>
 
         @php
@@ -68,6 +98,18 @@
                 ->sortByDesc('created_at')
                 ->first();
             $approvalConclusionText = data_get($latestApprovalDecisionEvent, 'meta.reason') ?: $cancellationRequest->engineer_approval_reason;
+
+            $requestedTarget = $cancellationRequest->scope?->value === \App\Enum\CancellationRequestScope::NOTE_FULL->value
+                ? 'Cancelar nota inteira e todas as ordens vinculadas.'
+                : 'Cancelar somente as ordens selecionadas nesta solicitação.';
+
+            $timeline = collect([
+                ['label' => 'Solicitação criada', 'time' => $cancellationRequest->submitted_at, 'user' => $cancellationRequest->Requester?->name],
+                ['label' => 'Assumida para execução', 'time' => $cancellationRequest->assigned_at, 'user' => $cancellationRequest->Assignee?->name],
+                ['label' => 'Solicitação enviada ao engenheiro', 'time' => $cancellationRequest->engineer_approval_requested_at, 'user' => $cancellationRequest->EngineerApprovalRequester?->name],
+                ['label' => 'Decisão do engenheiro', 'time' => $cancellationRequest->engineer_approval_decided_at, 'user' => $cancellationRequest->EngineerApprovalDecider?->name],
+                ['label' => 'Encerramento da solicitação', 'time' => $cancellationRequest->closed_at, 'user' => $cancellationRequest->Closer?->name],
+            ])->filter(fn ($i) => !empty($i['time']))->values();
         @endphp
 
         <div class="oexterno-header d-flex align-items-center">
@@ -86,6 +128,7 @@
                         <div><strong>Nota:</strong> {{ $cancellationRequest->Note->note ?? '-' }}</div>
                         <div><strong>Cliente:</strong> {{ $cancellationRequest->Note->client ?? '-' }}</div>
                         <div><strong>Categoria:</strong> {{ $cancellationRequest->Category->name ?? '-' }}</div>
+                        <div><strong>O que cancelar:</strong> {{ $requestedTarget }}</div>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -112,22 +155,45 @@
             </div>
 
             <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Pedido do solicitante</div>
-                        <div class="mb-2 text-muted small">
-                            Texto original da solicitação de cancelamento.
+                <div class="col-12 col-md-9">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="oexterno-subcard">
+                                <div class="section-title">Pedido do solicitante</div>
+                                <div class="mb-2 text-muted small">
+                                    Texto original da solicitação de cancelamento.
+                                </div>
+                                <div class="text-block">{{ $cancellationRequest->description ?: 'Sem descrição informada.' }}</div>
+                            </div>
                         </div>
-                        <div class="text-block">{{ $cancellationRequest->description ?: 'Sem descrição informada.' }}</div>
+                        <div class="col-md-6">
+                            <div class="oexterno-subcard">
+                                <div class="section-title">Pedido do executante</div>
+                                <div class="mb-2 text-muted small">
+                                    Texto enviado pelo executante para solicitar aprovação ao engenheiro.
+                                </div>
+                                <div class="text-block">{{ $executantApprovalRequestText ?: 'Sem justificativa do executante.' }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-12 col-md-3">
                     <div class="oexterno-subcard">
-                        <div class="section-title">Pedido do executante</div>
-                        <div class="mb-2 text-muted small">
-                            Texto enviado pelo executante para solicitar aprovação ao engenheiro.
+                        <div class="section-title">Linha do tempo</div>
+                        <div class="timeline-scroll">
+                            <div class="phase-timeline">
+                                @forelse($timeline as $phase)
+                                    <div class="phase-item">
+                                        <div class="fw-semibold">{{ $phase['label'] }}</div>
+                                        <div class="small text-muted">
+                                            {{ optional($phase['time'])->format('d/m/Y H:i') }} · {{ $phase['user'] ?? 'Sistema' }}
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="text-muted">Sem interações registradas até o momento.</div>
+                                @endforelse
+                            </div>
                         </div>
-                        <div class="text-block">{{ $executantApprovalRequestText ?: 'Sem justificativa do executante.' }}</div>
                     </div>
                 </div>
             </div>

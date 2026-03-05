@@ -41,7 +41,7 @@ class Fileservices extends Component
         try {
 
             $this->validate([
-                'uploadsfiles.*' => 'mimes:pdf,jpeg,png',
+                'uploadsfiles.*' => 'mimes:pdf,jpeg,png,webp',
             ]);
 
         } catch (ValidationException $e) {
@@ -54,7 +54,7 @@ class Fileservices extends Component
                 'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
                 'html'     => '<div class="card bg-primary text-white"><div class="card-body">
                     <p class="fw-bold">Existem arquivos com formatos não suportados, revise e tente novamente.</p>
-                    Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpg ou .png</span>
+                    Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpg, .png ou .webp</span>
                     </div></div>',
 
             ]);

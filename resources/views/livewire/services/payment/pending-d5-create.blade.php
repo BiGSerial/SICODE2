@@ -329,11 +329,11 @@
                                 <textarea class="form-control" id="bulkD5Input" style="height: 260px;"
                                     placeholder="Cole aqui os valores (Nota e D5)"
                                     wire:model.debounce.500ms="bulkD5Input"></textarea>
-                                <label for="bulkD5Input">Cole os pares (Nota e D5)</label>
+                                <label for="bulkD5Input">Cole os pares (Nota/Ordem e D5)</label>
                             </div>
                             <div class="form-text">
                                 Separe com espaco, virgula, ponto e virgula, quebra de linha ou qualquer separador nao
-                                numerico. A sequencia sempre sera: <strong>Nota</strong> e <strong>Nota D5</strong>.
+                                numerico. A sequencia sempre sera: <strong>Nota ou Ordem</strong> e <strong>Nota D5</strong>.
                             </div>
                         </div>
                         <div class="col-12 col-lg-6">

@@ -69,14 +69,14 @@ class Viability extends Component
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,png,xls,xlsx',
+                'files.*' => 'mimes:pdf,jpeg,png,webp,xls,xlsx',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
-                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpp ou .png</span> </div></div>',
+                'html'     => '<div class="card bg-primary text-white"><div class="card-body">Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpg, .png ou .webp</span> </div></div>',
 
             ]);
 

@@ -1,6 +1,11 @@
 {
-    "appver": "1.31.0",
+    "appver": "1.31.1",
     "historic": [
+        {
+            "version": "1.31.1",
+            "description": "Search in Partner",
+            "date": "2026-03-05"
+        },
         {
             "version": "1.31.0",
             "description": "Refactored Hierarc User, Major Fixes",
