@@ -14,11 +14,6 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('config.ads_request_recipients') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-circle"></i> <span>ADS AUTO DESTINATÁRIOS</span>
-                        </a>
-                    </li>
-                    <li>
                         <a href="{{ route('config.system.status') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-circle"></i> <span>STATUS DO SERVIDOR</span>
                         </a>

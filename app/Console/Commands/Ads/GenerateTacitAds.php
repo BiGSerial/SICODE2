@@ -9,9 +9,11 @@ use App\Models\AdsRequestDefaultUser;
 use App\Models\Adsform;
 use App\Models\Edp_depc\BaseCosts;
 use App\Models\Production;
+use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkReport;
+use App\Notifications\SystemNotification;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -72,6 +74,8 @@ class GenerateTacitAds extends Command
             $requestsCreated = 0;
             $sqlMirrored = 0;
             $sqlMirrorFailures = 0;
+            $forcedDone = 0;
+            $doneNotified = 0;
             $skippedNoUser = 0;
             $skippedNoCompany = 0;
             $candidates = 0;
@@ -243,6 +247,11 @@ class GenerateTacitAds extends Command
                 }
             });
 
+            if (!$dryRun && !$testMode) {
+                $forcedDone = $this->forceDoneRequestsWithReadyUrl();
+                $doneNotified = $this->notifyDoneRequestsToRequester();
+            }
+
             $bar->finish();
             $this->newLine();
 
@@ -277,6 +286,8 @@ class GenerateTacitAds extends Command
                 } else {
                     $this->info("Solicitações espelhadas no SQL Server: {$sqlMirrored}");
                     $this->info("Falhas de espelhamento no SQL Server: {$sqlMirrorFailures}");
+                    $this->info("Solicitações forçadas para DONE: {$forcedDone}");
+                    $this->info("Notificações de ADS disponível enviadas: {$doneNotified}");
                 }
             }
 
@@ -398,5 +409,112 @@ class GenerateTacitAds extends Command
         }
 
         return $defaultRecipients;
+    }
+
+    private function forceDoneRequestsWithReadyUrl(): int
+    {
+        $forced = 0;
+        $threshold = now()->subHours(2);
+        $forceTag = '#ADS Liberada pelo Sistema (FORCE)';
+
+        $requests = AdsRequest::query()
+            ->whereIn('status', [
+                AdsRequestStatus::QUEUED->value,
+                AdsRequestStatus::IN_PROGRESS->value,
+                AdsRequestStatus::RETRY->value,
+            ])
+            ->where('created_at', '<=', $threshold)
+            ->get();
+
+        foreach ($requests as $request) {
+            $sqlRow = SqlAdsRequest::query()
+                ->where('sicode_id', $request->id)
+                ->latest('updated_at')
+                ->first();
+
+            if (!$sqlRow) {
+                continue;
+            }
+
+            if ($sqlRow->status === AdsRequestStatus::DONE->value || empty($sqlRow->url)) {
+                continue;
+            }
+
+            $doneAt = $sqlRow->completed_at ?? now();
+            $description = trim((string) ($sqlRow->description ?: ($request->description ?? '')));
+            if (!str_contains($description, $forceTag)) {
+                $description = trim($description . PHP_EOL . $forceTag);
+            }
+
+            DB::transaction(function () use ($request, $sqlRow, $doneAt, $description) {
+                $request->forceFill([
+                    'status' => AdsRequestStatus::DONE,
+                    'completed' => true,
+                    'completed_at' => $doneAt,
+                    'url' => $sqlRow->url,
+                    'description' => $description,
+                    'updated_at' => now(),
+                ]);
+                $request->timestamps = false;
+                $request->save();
+
+                $sqlRow->forceFill([
+                    'status' => AdsRequestStatus::DONE->value,
+                    'completed_at' => $doneAt,
+                    'description' => $description,
+                    'updated_at' => now(),
+                ]);
+                $sqlRow->timestamps = false;
+                $sqlRow->save();
+            });
+
+            $forced++;
+        }
+
+        return $forced;
+    }
+
+    private function notifyDoneRequestsToRequester(): int
+    {
+        $notified = 0;
+
+        $requests = AdsRequest::query()
+            ->with(['requestedBy:id,name', 'note:id,note'])
+            ->where('status', AdsRequestStatus::DONE->value)
+            ->whereNull('delivered_at')
+            ->get();
+
+        foreach ($requests as $request) {
+            $user = $request->requestedBy;
+            if (!$user) {
+                continue;
+            }
+
+            $noteNumber = $request->note?->note ?? $request->note_id;
+            $message = "A ADS da nota <strong>{$noteNumber}</strong> está disponível.";
+            $url = $request->url ?: null;
+
+            $user->notify(new SystemNotification(
+                'ADS disponível',
+                $message,
+                $url,
+                4,
+                [
+                    'ads_request_id' => $request->id,
+                    'note_id' => $request->note_id,
+                ]
+            ));
+
+            $request->forceFill([
+                'delivered_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $request->timestamps = false;
+            $request->save();
+
+            $notified++;
+        }
+
+        return $notified;
     }
 }

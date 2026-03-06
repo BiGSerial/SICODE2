@@ -29,7 +29,7 @@
                     </li>
                     <li class="mt-1">
                         <a href="{{ route('admin.control.ads_requests') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-list-ul fs-5 text-edp-verde"></i> <span>CONTROLE ADS SOLICITADAS</span>
+                            <i class="bi bi-list-ul fs-5 text-edp-verde"></i> <span>GERENCIAMENTO ADS</span>
                         </a>
                     </li>
                 </div>

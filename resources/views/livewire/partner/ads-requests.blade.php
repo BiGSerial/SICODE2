@@ -288,16 +288,12 @@
                             </td>
                             <td>{{ $request->description ?? '-' }}</td>
                             <td>
-                                @php
-                                    $linkDate = $request->completed_at ?? $request->updated_at ?? $request->created_at;
-                                    $daysSince = $linkDate ? now()->diffInDays($linkDate) : null;
-                                @endphp
-                                @if ($request->url && $daysSince !== null && $daysSince <= 3)
+                                @if ($request->url)
                                     <a href="{{ $request->url }}" class="btn btn-sm btn-outline-primary" target="_self">
                                         Baixar ADS
                                     </a>
-                                @elseif ($request->url && $daysSince !== null && $daysSince > 30)
-                                    <span class="text-muted">Link Expirado</span>
+                                @else
+                                    <span class="text-muted">Sem link</span>
                                 @endif
                             </td>
                             <td class="text-center">{{ $request->version }}</td>
