@@ -4,6 +4,7 @@ namespace App\Jobs\Engineers;
 
 use App\Exports\Partner\FiveNotesExport;
 use App\Models\FiveNote;
+use App\Models\Service;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Traits\WildcardFormmater;
@@ -15,6 +16,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -59,13 +61,19 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             $query->with([
                 'note.WorkForm.Orders',
                 'note.Orders',
+                'note.Productions.User',
+                'note.Productions.Company',
                 'company',
             ]);
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-five-notes-general.xlsx';
 
             $disk->makeDirectory('exports');
-            Excel::store(new FiveNotesExport(clone $query, $this->shouldUseHistoricExport()), $filePath, 'local');
+            Excel::store(
+                new FiveNotesExport(clone $query, $this->shouldUseHistoricExport(), $this->exportOptions()),
+                $filePath,
+                'local'
+            );
 
             if (!$disk->exists($filePath)) {
                 throw new \RuntimeException('Arquivo nao foi gerado.');
@@ -139,7 +147,20 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
     protected function applyBaseConstraints(Builder $query): void
     {
-        $query->where('visible_partner', true);
+        $query->where(function ($base) {
+            $base->where('visible_partner', true)
+                ->orWhere(function ($inner) {
+                    $inner->where(function ($noteD5) {
+                        $noteD5->whereNull('note_d5')
+                            ->orWhere('note_d5', '');
+                    })->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from('timeline_events as te')
+                            ->whereColumn('te.five_note_id', 'five_notes.id')
+                            ->where('te.event_type', 'd5_created_from_supervision');
+                    });
+                });
+        });
     }
 
     protected function applyFilters(Builder $query): void
@@ -148,17 +169,31 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
         switch ($statusFilter) {
             case 'aguardando_fornecedor':
-                $query->where('is_completed', false)
+                $query->where('visible_partner', true)
+                    ->where('is_completed', false)
                     ->where('is_archived', false);
                 break;
             case 'aguardando_fiscalizacao':
-                $query->where('is_completed', true)
-                    ->where('is_supervisioned', false)
-                    ->where('is_archived', false);
+                $query->where(function ($main) {
+                    $main->where('is_completed', true)
+                        ->where('is_supervisioned', false)
+                        ->where('is_archived', false);
+                });
                 break;
             case 'aguardando_pagamento':
-                $query->where('is_supervisioned', true)
-                    ->where('is_archived', false);
+                $query->where(function ($main) {
+                    $main->where(function ($q) {
+                        $q->where('is_supervisioned', true)
+                            ->where('is_archived', false);
+                    })->orWhere(function ($q) {
+                        $q->where('is_archived', false)
+                            ->where('visible_partner', false)
+                            ->where(function ($d5) {
+                                $d5->whereNull('note_d5')
+                                    ->orWhere('note_d5', '');
+                            });
+                    });
+                });
                 break;
             case 'finalizado':
                 $query->where('is_archived', true);
@@ -231,11 +266,23 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             }
         }
 
+        $query->orderByRaw('CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END');
+        $query->orderBy('completed_at', 'asc');
         $query->orderBy('dispatch_at', 'asc');
     }
 
     protected function shouldUseHistoricExport(): bool
     {
         return ($this->params['statusFilter'] ?? '') === 'finalizado';
+    }
+
+    protected function exportOptions(): array
+    {
+        return [
+            'd5_tracking' => true,
+            'statusFilter' => (string) ($this->params['statusFilter'] ?? ''),
+            'fiscalization_service_id' => Service::whereIn('service', ['Fiscalizacao', 'Fiscalização'])->value('uuid'),
+            'payment_service_id' => Service::where('service', 'Pagamento')->value('uuid'),
+        ];
     }
 }

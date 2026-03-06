@@ -49,6 +49,7 @@ class CreateGenFiles extends Component
 
     public ?Note $note = null;
     public ?ViabilityModel $viability = null;
+    public ?int $viabilityId = null;
     public bool $alertFile = false;
     public string $service;
     public $files = [];
@@ -61,13 +62,12 @@ class CreateGenFiles extends Component
         'cleanFiles' => 'closeAll',
     ];
 
-    public function mount(Note $note, string $service, $viability = null)
+    public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null)
     {
         $this->note = $note;
         $this->service = $service;
-        $this->viability = $viability instanceof ViabilityModel && $viability->exists
-            ? $viability
-            : null;
+        $this->viability = $viability;
+        $this->viabilityId = $viability_id ?: ($viability?->id ? (int) $viability->id : null);
     }
 
     public function updatedFiles()
@@ -308,9 +308,13 @@ class CreateGenFiles extends Component
                     'noexists' => false,
                 ]);
 
-                if ($file && mb_strtoupper(trim($this->service)) === 'VIABILIDADE' && $this->viability?->id) {
+                $targetViabilityId = $this->viabilityId ?: ($this->viability?->id ? (int) $this->viability->id : null);
+                if ($file && $targetViabilityId) {
                     // Garante rastreabilidade da origem para aparecer em consultas de viabilidade
-                    $this->viability->Files()->syncWithoutDetaching([$file->id]);
+                    $targetViability = ViabilityModel::find($targetViabilityId);
+                    if ($targetViability) {
+                        $targetViability->Files()->syncWithoutDetaching([$file->id]);
+                    }
                 }
             } else {
                 DB::rollback();

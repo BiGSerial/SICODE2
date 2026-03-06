@@ -112,6 +112,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
             $note?->note,
             $row->Orders ? implode("\n ", $row->Orders->pluck('ordem')->toArray()) : '',
             $note?->rubrica,
+            $row->canceled ? 'CANCELADO' : 'NORMAL',
             $row->Equipment ? $row->Equipment->count() : '',
             $row->changes ? 'SIM' : 'NAO',
             $row->team,
@@ -130,6 +131,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
             'Note',
             'Ordens',
             'Rubrica',
+            'Status Informe',
             'Equipamentos',
             'Alteracoes',
             'Equipe WPA',
@@ -159,7 +161,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:L1')->applyFromArray([
+                $event->sheet->getStyle('A1:M1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],
@@ -171,18 +173,18 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
                 ]);
 
                 $sheet = $event->sheet->getDelegate();
-                $sheet->getStyle('B:L')->getAlignment()->setWrapText(true);
+                $sheet->getStyle('B:M')->getAlignment()->setWrapText(true);
                 $sheet->getColumnDimension('F')->setWidth(30);
                 $sheet->getColumnDimension('J')->setWidth(30);
                 $sheet->getColumnDimension('K')->setWidth(30);
-                $sheet->getStyle('A:L')->getAlignment()
+                $sheet->getStyle('A:M')->getAlignment()
                     ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
                     ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
                 $sheet->getStyle('A:A')->getNumberFormat()->setFormatCode('0');
                 $sheet->getStyle('B:B')->getNumberFormat()->setFormatCode('0');
-                $sheet->getStyle('G:G')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $sheet->getStyle('H:H')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $sheet->getStyle('I:I')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $sheet->getStyle('J:J')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
                 $event->sheet->autoSize();
             },

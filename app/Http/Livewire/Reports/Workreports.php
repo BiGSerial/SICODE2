@@ -130,7 +130,7 @@ class Workreports extends Component
     {
         $this->filter = $this->loadFilters();
 
-        $query = WorkReport::Query();
+        $query = WorkReport::query()->active();
 
 
         // $query->where('company_id', Auth()->User()->Employee->Contract->company->id);

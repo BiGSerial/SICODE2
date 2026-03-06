@@ -83,14 +83,15 @@ class SmcListExport implements FromQuery, WithEvents, WithProperties, WithHeadin
     */
     public function map($row): array
     {
+        $workForm = $row->note->WorkForm ?: $row->note->WorkFormAny;
 
 
         $status = 'Aguardando Informe Final'; // default status
 
         if ($row->rejected) {
             $status = 'Rejeitado';
-        } elseif ($row->note->workform && $row->note->workform->exists()) {
-            $status = 'Concluído';
+        } elseif ($workForm && $workForm->exists()) {
+            $status = $workForm->canceled ? 'Cancelado' : 'Concluído';
         }
 
 
@@ -99,13 +100,13 @@ class SmcListExport implements FromQuery, WithEvents, WithProperties, WithHeadin
             implode("\n", $row->Orders->pluck('ordem')->toArray()),
             $row->note->rubrica,
             $row->BtzeroEquipment->count(),
-            $row->note->WorkForm?->team,
+            $workForm?->team,
             $row->created_at->format('Y-m-d'),
             $row->created_at->format('H:i'),
             $row->informed_at?->format('Y-m-d'),
             $row->informed_at?->format('H:i'),
-            $row->note->WorkForm?->informed_at?->format('Y-m-d'),
-            $row->note->WorkForm?->informed_at?->format('H:i'),
+            $workForm?->informed_at?->format('Y-m-d'),
+            $workForm?->informed_at?->format('H:i'),
             $status,
             $row->ReturnRamal->count(),
             $row->rejected_at?->format('Y-m-d'),

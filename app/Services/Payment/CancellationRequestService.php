@@ -40,7 +40,7 @@ class CancellationRequestService
 
             $ordersCollection = $this->resolveOrders($note, $scope, $orders);
 
-            if ($ordersCollection->isEmpty() && $scope !== CancellationRequestScope::NOTE_FULL->value) {
+            if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
             }
 
@@ -194,6 +194,10 @@ class CancellationRequestService
                     'canceled_at' => now(),
                     'canceled_by' => $user->id,
                 ]);
+
+                $this->cancelWorkForm($request->Note, $user);
+            } elseif ($request->scope === CancellationRequestScope::WORK_FORM_ONLY) {
+                $this->cancelWorkForm($request->Note, $user);
             } else {
                 $orders = $request->Orders()->get();
                 foreach ($orders as $order) {
@@ -582,7 +586,7 @@ class CancellationRequestService
 
             $ordersCollection = $this->resolveOrders($request->Note, $scope, $orders);
 
-            if ($ordersCollection->isEmpty() && $scope !== CancellationRequestScope::NOTE_FULL->value) {
+            if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
             }
 
@@ -642,10 +646,33 @@ class CancellationRequestService
             return $note->Orders()->where('canceled', false)->get();
         }
 
+        if ($scope === CancellationRequestScope::WORK_FORM_ONLY->value) {
+            if (!$note->WorkForm) {
+                throw new RuntimeException('A nota não possui WorkForm para cancelar.');
+            }
+
+            return new Collection();
+        }
+
         return Order::where('note_id', $note->id)
             ->whereIn('id', $orders)
             ->where('canceled', false)
             ->get();
+    }
+
+    private function cancelWorkForm(Note $note, User $actor): void
+    {
+        $workForm = $note->WorkForm;
+
+        if (!$workForm) {
+            return;
+        }
+
+        $workForm->update([
+            'canceled' => true,
+            'canceled_at' => now(),
+            'canceled_by' => $actor->id,
+        ]);
     }
 
     public function addEvidenceFiles(CancellationRequest $request, User $user, array $attachments, string $origin): void

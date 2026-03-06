@@ -7,6 +7,7 @@ use Livewire\{Component, WithPagination};
 use App\Services\Payment\NoteFilter;
 use App\Helpers\TextFormatter;
 use App\Services\Payment\BlockEvaluator;
+use App\Services\D5\D5WorkflowService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -245,6 +246,17 @@ class Main extends Component
                 'status'       => 2,
                 'productionId' => $production->id,
             ]);
+
+            if ($this->note->FiveNote) {
+                $this->note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
+
+                app(D5WorkflowService::class)->onProductionAssigned(
+                    $this->note->FiveNote,
+                    $production,
+                    auth()->id(),
+                    null
+                );
+            }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

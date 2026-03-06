@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FiveNote extends Model
 {
@@ -81,6 +82,11 @@ class FiveNote extends Model
     public function Comments()
     {
         return $this->morphMany(Comment::class, 'commentable');
+    }
+
+    public function timelineEvents(): HasMany
+    {
+        return $this->hasMany(TimelineEvent::class);
     }
 
     public function done(?string $responsible, ?string $comment = null)

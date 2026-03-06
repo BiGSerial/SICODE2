@@ -50,7 +50,8 @@ class PublicationExportControl implements FromQuery, WithEvents, WithProperties,
 
     public function map($row): array
     {
-        $orders = $row->Note->WorkForm?->Orders?->pluck('ordem')->toArray();
+        $workForm = $row->Note->WorkForm ?: $row->Note->WorkFormAny;
+        $orders = $workForm?->Orders?->pluck('ordem')->toArray();
 
         if ($orders) {
             $orders = implode(chr(10), $orders);
@@ -69,9 +70,9 @@ class PublicationExportControl implements FromQuery, WithEvents, WithProperties,
             (new DaysLeft($row->Note))->getLastDate(),
             $row->Note->RamalForm ? 'SIM' : 'NÃO',
             $row->Note->RamalForm?->created_at->format('d/m/Y H:i:s'),
-            $row->Note->WorkForm ? 'SIM' : 'NÃO',
-            $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
-            $row->Note->WorkForm && $row->Note->WorkForm->rejected ? 'REJEITADO' : 'NORMAL',
+            $workForm ? 'SIM'.($workForm->canceled ? ' (CANCELADO)' : '') : 'NÃO',
+            $workForm?->informed_at?->format('d/m/Y H:i:s'),
+            !$workForm ? 'NORMAL' : ($workForm->canceled ? 'CANCELADO' : ($workForm->rejected ? 'REJEITADO' : 'NORMAL')),
             (Notestatus::status($row->status))->status,
             isset($row->Company->name) ? $row->Company->name : '',
             isset($row->User->name) ? $row->User->name : '',

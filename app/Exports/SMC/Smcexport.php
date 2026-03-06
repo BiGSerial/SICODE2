@@ -85,26 +85,27 @@ class Smcexport implements FromQuery, WithEvents, WithProperties, WithHeadings, 
     */
     public function map($row): array
     {
+        $workForm = $row->WorkForm ?: $row->WorkFormAny;
 
         return [
             $row->note,
             $row->RamalForm ? $row->RamalForm ->Company->name : '',
             $row->RamalForm &&  $row->RamalForm->BtzeroEquipment ? $row->RamalForm->BtzeroEquipment->count() : '',
-            $row->WorkForm &&  $row->WorkForm->Equipment ? $row->WorkForm->Equipment->count() : '',
+            $workForm &&  $workForm->Equipment ? $workForm->Equipment->count() : '',
             $row->RamalForm ? $row->RamalForm->User->name : '',
             $row->RamalForm ? Carbon::parse($row->RamalForm->created_at)->format('d/m/Y') : '',
-            $row->WorkForm ? $row->WorkForm->informer : '',
-            $row->WorkForm ? Carbon::parse($row->WorkForm->informed_at)->format('d/m/Y') : '',
+            $workForm ? $workForm->informer : '',
+            $workForm ? Carbon::parse($workForm->informed_at)->format('d/m/Y') : '',
             $row->productions && isset($row->productions->last()->User) ? $row->productions->last()->User->name : '',
             $row->productions && isset($row->productions->last()->partial_at) ? $row->productions->last()->partial_at->format('d/m/Y') : 'Sem Dados',
             $row->productions && isset($row->productions->last()->completed_at) ? $row->productions->last()->completed_at->format('d/m/Y') : 'Não Publicado',
             $row->RamalForm ? $row->RamalForm->observation : '',
-            $row->WorkForm ? $row->WorkForm->observation : '',
+            $workForm ? $workForm->observation : '',
             $row->productions && isset($row->productions->last()->status) ? mb_strToUpper(Notestatus::status($row->productions->last()->status)->status) : 'Não Publicado',
             !$row->RamalForm ? 'NÃO INFORMADO' : ($row->RamalForm->rejected ? 'REJEITADO' : 'NORMAL'),
-            !$row->WorkForm ? 'NÃO INFORMADO' : ($row->WorkForm->rejected ? 'REJEITADO' : 'NORMAL'),
+            !$workForm ? 'NÃO INFORMADO' : ($workForm->canceled ? 'CANCELADO' : ($workForm->rejected ? 'REJEITADO' : 'NORMAL')),
             $row->RamalForm && $row->RamalForm->rejected && $row->RamalForm->ReturnRamal ? Carbon::parse($row->RamalForm->ReturnRamal->last()->created_at)->format('d/m/Y') : '',
-            $row->WorkForm && $row->WorkForm->rejected && $row->WorkForm->Returnwork ? Carbon::parse($row->WorkForm->Returnwork->last()->created_at)->format('d/m/Y') : '',
+            $workForm && $workForm->rejected && $workForm->Returnwork ? Carbon::parse($workForm->Returnwork->last()->created_at)->format('d/m/Y') : '',
         ];
     }
 

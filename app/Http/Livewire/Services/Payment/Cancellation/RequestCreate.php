@@ -84,7 +84,7 @@ class RequestCreate extends Component
             return;
         }
 
-        $note = Note::where('note', $this->noteSearch)->with('Orders')->first();
+        $note = Note::where('note', $this->noteSearch)->with('Orders', 'WorkForm')->first();
 
         if (!$note) {
             $this->addError('noteSearch', 'Nota não encontrada.');
@@ -103,6 +103,8 @@ class RequestCreate extends Component
 
         if ($note->canceled || $note->Orders->where('canceled', true)->count() > 0) {
             $this->scope = CancellationRequestScope::ORDERS_PARTIAL->value;
+        } elseif ($this->scope === CancellationRequestScope::WORK_FORM_ONLY->value && !$note->WorkForm) {
+            $this->scope = CancellationRequestScope::NOTE_FULL->value;
         }
     }
 
@@ -114,9 +116,11 @@ class RequestCreate extends Component
             ->value('name') ?? 'categoria não selecionada';
 
         $noteLabel = $this->note?->note ?: ($this->noteSearch ?: 'não informada');
-        $scopeDescription = $this->scope === CancellationRequestScope::NOTE_FULL->value
-            ? 'da nota'
-            : 'de ordens específicas da';
+        $scopeDescription = match ($this->scope) {
+            CancellationRequestScope::NOTE_FULL->value => 'da nota',
+            CancellationRequestScope::WORK_FORM_ONLY->value => 'somente do WorkForm da',
+            default => 'de ordens específicas da',
+        };
 
         $ordersSuffix = '';
         if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
@@ -239,11 +243,13 @@ class RequestCreate extends Component
 
         $noteCanceled = $this->note?->canceled ?? false;
         $hasCanceledOrders = $this->note && $this->note->Orders->where('canceled', true)->count() > 0;
+        $hasWorkForm = (bool) $this->note?->WorkForm;
 
         return view('livewire.services.payment.cancellation.request-create', [
             'categories' => $categories,
             'noteCanceled' => $noteCanceled,
             'hasCanceledOrders' => $hasCanceledOrders,
+            'hasWorkForm' => $hasWorkForm,
         ]);
     }
 }

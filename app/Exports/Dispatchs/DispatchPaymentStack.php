@@ -44,7 +44,7 @@ class DispatchPaymentStack implements
     public function query()
     {
         return $this->data
-            ->with(['Note.WorkForm.Orders.Operations', 'Note.Partials.Orders.Operations', 'Company', 'User', 'Notetimelines'])
+            ->with(['Note.WorkForm.Orders.Operations', 'Note.WorkFormAny.Orders.Operations', 'Note.Partials.Orders.Operations', 'Company', 'User', 'Notetimelines'])
             ->where('service_id', $this->service)
             ->orderBy('dispatch_at', 'asc');
     }
@@ -62,11 +62,15 @@ class DispatchPaymentStack implements
             $company = $row->note->partials->last()->company->name;
             $lastPaydate = $row->note->partials->last()->supervision_at;
         } else {
-            if ($row->note->WorkForm) {
-                $orders = implode("\n ", $row->note->WorkForm->orders?->pluck('ordem')->toArray());
-                $soma = $row->note->WorkForm?->orders?->sum('moaberto');
-                $company = $row->note->WorkForm->company->name;
-                $lastPaydate = $row->note->WorkForm->informed_at;
+            $workForm = $row->note->WorkForm ?: $row->note->WorkFormAny;
+            if ($workForm) {
+                $orders = implode("\n ", $workForm->orders?->pluck('ordem')->toArray());
+                $soma = $workForm?->orders?->sum('moaberto');
+                $company = $workForm->company->name;
+                $lastPaydate = $workForm->informed_at;
+                if ($workForm->canceled) {
+                    $company .= ' (CANCELADO)';
+                }
             } else {
                 $orders = '';
                 $soma = 0;

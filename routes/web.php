@@ -304,6 +304,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
     Route::get('/send_ads_form', 'sendAdsForm')->name('report.sendAdsForm');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/search_notes', 'searchNotes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
         Route::get('/list', 'partner_d5_list')->name('list');
