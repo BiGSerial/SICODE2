@@ -104,6 +104,8 @@
         ['route' => 'reports.productions', 'label' => 'RELATÓRIO DE PRODUÇÃO'],
         ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE'],
         ['route' => 'reports.return_intern_dashboard', 'label' => 'RELATORIO RETORNO INTERNO'],
+        ['route' => 'reports.cancellations_dashboard', 'label' => 'DASHBOARD CANCELAMENTOS'],
+        ['route' => 'reports.cancellations_list', 'label' => 'LISTA CANCELAMENTOS'],
         ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)'],
         ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA'],
     ];
