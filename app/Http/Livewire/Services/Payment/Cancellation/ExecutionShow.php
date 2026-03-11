@@ -35,6 +35,9 @@ class ExecutionShow extends Component
     public string $comment = '';
     public ?string $engineerId = null;
     public string $engineerReason = '';
+    public bool $showEngineerActionForm = false;
+    public string $engineerActionMode = 'request';
+    public bool $showDecisionForm = false;
 
     public $files = [];
     public array $tempFiles = [];
@@ -87,10 +90,42 @@ class ExecutionShow extends Component
             if (!trim($this->comment)) {
                 $this->comment = 'Não autorizado pelo engenheiro.';
             }
+            $this->showDecisionForm = true;
             return;
         }
 
         $this->action = $canFinalize ? 'DONE' : 'PAUSED';
+        if ($this->cancellationRequest->engineer_approval_status !== CancellationEngineerApprovalStatus::PENDING) {
+            $this->showEngineerActionForm = false;
+            $this->engineerActionMode = 'request';
+        }
+    }
+
+    public function prepareAction(string $action): void
+    {
+        if (!in_array($action, ['DONE', 'PAUSED', 'ABORTED'], true)) {
+            return;
+        }
+
+        $this->action = $action;
+        $this->showDecisionForm = true;
+    }
+
+    public function startEngineerRequest(): void
+    {
+        $this->engineerActionMode = 'request';
+        $this->showEngineerActionForm = true;
+    }
+
+    public function startEngineerChange(): void
+    {
+        $this->engineerActionMode = 'change';
+        $this->showEngineerActionForm = true;
+    }
+
+    public function cancelEngineerActionForm(): void
+    {
+        $this->showEngineerActionForm = false;
     }
 
     public function updatedFiles(): void
@@ -172,6 +207,7 @@ class ExecutionShow extends Component
             $this->action = 'DONE';
             $this->tempFiles = [];
             $this->files = [];
+            $this->showDecisionForm = false;
             $this->loadRequest();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -205,6 +241,8 @@ class ExecutionShow extends Component
 
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Aprovação enviada para o engenheiro.']);
             $this->engineerReason = '';
+            $this->showEngineerActionForm = false;
+            $this->engineerActionMode = 'request';
             $this->loadRequest();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -238,6 +276,8 @@ class ExecutionShow extends Component
 
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Engenheiro alterado com sucesso.']);
             $this->engineerReason = '';
+            $this->showEngineerActionForm = false;
+            $this->engineerActionMode = 'request';
             $this->loadRequest();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);

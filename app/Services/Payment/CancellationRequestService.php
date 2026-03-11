@@ -38,6 +38,23 @@ class CancellationRequestService
                 throw new RuntimeException('Nota já está cancelada.');
             }
 
+            if ($scope === CancellationRequestScope::NOTE_FULL->value) {
+                $hasOpenNoteFullRequest = CancellationRequest::query()
+                    ->where('note_id', $note->id)
+                    ->where('scope', CancellationRequestScope::NOTE_FULL->value)
+                    ->whereIn('status', [
+                        CancellationRequestStatus::DRAFT->value,
+                        CancellationRequestStatus::SUBMITTED->value,
+                        CancellationRequestStatus::ASSIGNED->value,
+                        CancellationRequestStatus::PAUSED->value,
+                    ])
+                    ->exists();
+
+                if ($hasOpenNoteFullRequest) {
+                    throw new RuntimeException('Já existe solicitação em aberto para cancelamento da nota inteira.');
+                }
+            }
+
             $ordersCollection = $this->resolveOrders($note, $scope, $orders);
 
             if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
@@ -66,6 +83,54 @@ class CancellationRequestService
                 'scope' => $scope,
                 'category_id' => $category->id,
                 'orders' => $ordersCollection->pluck('id')->all(),
+            ]);
+
+            return $request;
+        });
+    }
+
+    public function createRequestForBulkOrder(
+        Note $note,
+        Order $order,
+        CancellationCategory $category,
+        User $requestedBy,
+        ?string $description = null,
+        int $evidenceCount = 0
+    ): CancellationRequest {
+        return DB::transaction(function () use ($note, $order, $category, $requestedBy, $description, $evidenceCount) {
+            if ($note->canceled) {
+                throw new RuntimeException('Nota já está cancelada.');
+            }
+
+            if ((int) $order->note_id !== (int) $note->id) {
+                throw new RuntimeException('Ordem não pertence à nota informada.');
+            }
+
+            if ($order->canceled) {
+                throw new RuntimeException('Ordem já está cancelada.');
+            }
+
+            if ($category->require_evidence && $evidenceCount < max(1, (int) $category->min_evidence_files)) {
+                throw new RuntimeException('Quantidade mínima de evidências não atendida.');
+            }
+
+            $request = CancellationRequest::create([
+                'note_id' => $note->id,
+                'scope' => CancellationRequestScope::ORDERS_PARTIAL,
+                'category_id' => $category->id,
+                'requested_by' => $requestedBy->id,
+                'description' => $description,
+                'status' => CancellationRequestStatus::SUBMITTED,
+                'submitted_at' => now(),
+            ]);
+
+            $request->Orders()->sync([$order->id]);
+
+            $this->logEvent($request, $requestedBy, 'submitted', [
+                'scope' => CancellationRequestScope::ORDERS_PARTIAL->value,
+                'category_id' => $category->id,
+                'orders' => [$order->id],
+                'bulk' => true,
             ]);
 
             return $request;
