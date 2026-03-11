@@ -79,6 +79,7 @@ class ExportProductionJob implements ShouldQueue
                     'productions.partial',
                     'productions.partial_at',
                     'productions.dfive',
+                    'productions.supervision_by_partner_photos',
                 ])
                 ->where('productions.rejected', false)
                 // completed?

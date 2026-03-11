@@ -629,6 +629,16 @@
                                         @endif
                                     </div>
 
+                                    <div class="col-md-5">
+                                        <label class="form-label">Fiscalização se deu por fotos da parceira? <span class="text-danger">*</span></label>
+                                        <select class="form-select border border-secondary"
+                                            wire:model.defer="supervisionByPartnerPhotos">
+                                            <option value="" selected>Selecione</option>
+                                            <option value="1">SIM</option>
+                                            <option value="0">NÃO</option>
+                                        </select>
+                                    </div>
+
                                     @if ($production->dfive)
                                         <div class="col-md-5">
                                             <div class="card card-warning">

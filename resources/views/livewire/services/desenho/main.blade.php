@@ -2,28 +2,106 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
 @endphp
-<div>
+<div class="desenho-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
-    <div class="row justify-content-between">
-        <div class="mb-3 col-3">
-            <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
-                id="search" placeholder="Buscar">
+    <style>
+        .desenho-page {
+            --des-bg: #f6f7fb;
+            --des-surface: #ffffff;
+            --des-ink: #1f2933;
+            --des-muted: #6b7280;
+            --des-accent: #0f766e;
+            --des-border: #e5e7eb;
+            background: radial-gradient(circle at 8% 0%, #ecfeff, transparent 38%),
+                radial-gradient(circle at 92% 8%, #e0f2fe, transparent 30%),
+                var(--des-bg);
+            padding: 1rem 0 1.5rem;
+        }
+
+        .desenho-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 72%);
+            color: #f8fafc;
+            border-radius: 0.55rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
+            margin-bottom: 1rem;
+        }
+
+        .desenho-header h5 {
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .desenho-header .meta {
+            color: rgba(248, 250, 252, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .filter-strip {
+            background: var(--des-surface);
+            border: 1px solid var(--des-border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+            margin-bottom: 1rem;
+        }
+
+        .table-card {
+            background: var(--des-surface);
+            border: 1px solid var(--des-border);
+            border-radius: 0.45rem;
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+            overflow: hidden;
+        }
+
+        .table-card .table thead th {
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .desenho-tabs .nav-link {
+            border-radius: 0.4rem 0.4rem 0 0;
+        }
+    </style>
+
+    <div class="container-fluid">
+        <div class="desenho-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2">
+            <div>
+                <h5>{{ mb_strtoupper($service->service) }}</h5>
+                <div class="meta">Acompanhamento de producao</div>
+            </div>
+            <div class="meta">
+                Ordenacao: Prioridade, D5, Tipo, Prazo Real, ID
+            </div>
         </div>
-        <div class="mb-3">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
+
+        <div class="filter-strip">
+            <div class="row justify-content-between align-items-end g-2">
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label for="search" class="form-label mb-1">Buscar</label>
+                    <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
+                        id="search" placeholder="Buscar por nota, pedido, rubrica...">
+                </div>
+                <div class="col-12 col-md-auto">
+                    <div class="btn-group" role="group" aria-label="Tipo da nota">
+                        <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value="1"
+                            id="note-type-1">
+                        <label class="btn btn-outline-primary" for="note-type-1">Nota</label>
+
+                        <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value="2"
+                            id="note-type-2">
+                        <label class="btn btn-outline-primary" for="note-type-2">OV</label>
+
+                        <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value=""
+                            id="note-type-all">
+                        <label class="btn btn-outline-primary" for="note-type-all">Ambos</label>
+                    </div>
+                </div>
             </div>
         </div>
         {{-- <div class="btn-group mb-3">
@@ -94,8 +172,8 @@
         </div>
     @endcan --}}
 
-    <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+    <nav class="desenho-tabs mb-2">
+        <div class="nav nav-tabs border-0" id="nav-tab" role="tablist">
             <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
                 type="button" role="tab" aria-controls="nav-home" aria-selected="true"
                 wire:click.prevent="$emit('refresh_accomany')">Produção</button>
@@ -122,7 +200,7 @@
                     </div>
                 </div>
             @endif
-            <dic class="card">
+            <div class="table-card card border-0">
 
                 @if (!$lists->count())
                     <div class="card-body">
@@ -136,7 +214,7 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
+                    <h4 class="card-header fw-bold text-bg-dark">ACOMPANHAMENTO -
                         {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
                             @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                                 ({{ $sts->value }})
@@ -145,8 +223,8 @@
                     </h4>
 
                     <div class="table-responsive">
-                        <table class="table table-sm table-striped table-condensed">
-                            <thead class="table-dark">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
                                 <tr>
                                     <th scope="col" class="fw-bold">Note</th>
                                     <th scope="col" class="fw-bold">Files</th>
@@ -322,7 +400,7 @@
                 @endif
 
 
-            </dic>
+            </div>
             @if ($lists->count())
                 <div class="row">
                     <div class="col-6">
@@ -344,6 +422,8 @@
         </div>
     </div>
 
+
+    </div>
 
     <!-- Modal -->
     <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"

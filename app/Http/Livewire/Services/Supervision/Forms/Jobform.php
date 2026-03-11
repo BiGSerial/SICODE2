@@ -27,6 +27,7 @@ class Jobform extends Component
 
 
     public $d5 = 2;
+    public $supervisionByPartnerPhotos = '';
 
     public $return = [
         // 'note' => '',
@@ -166,6 +167,10 @@ class Jobform extends Component
                 $this->analise = new Analise();
             }
 
+            $this->supervisionByPartnerPhotos = is_null($this->production->supervision_by_partner_photos)
+                ? ''
+                : ($this->production->supervision_by_partner_photos ? '1' : '0');
+
             $this->status();
 
             $this->dispatchBrowserEvent('showModal', [
@@ -278,6 +283,16 @@ class Jobform extends Component
 
     public function to_finish()
     {
+        if (!in_array((string) $this->supervisionByPartnerPhotos, ['0', '1'], true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => '<div class="card"><div class="card-body text-start">Informe se a fiscalização se deu por fotos da parceira.</div></div>',
+            ]);
+
+            return;
+        }
 
         if ($this->production->dfive == true) {
             $this->validate([
@@ -437,6 +452,7 @@ class Jobform extends Component
                 'postes_u'     => $this->analise ? $this->analise->postes : null,
                 'completed'    => true,
                 'priority'     => false,
+                'supervision_by_partner_photos' => (string) $this->supervisionByPartnerPhotos === '1',
 
             ]);
 
@@ -646,6 +662,7 @@ class Jobform extends Component
         $this->five = null;
         $this->production = null;
         $this->lastReturnwork = null;
+        $this->supervisionByPartnerPhotos = '';
         $this->return = [
             'reason' => '',
             'description' => '',
