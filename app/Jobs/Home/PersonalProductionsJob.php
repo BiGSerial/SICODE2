@@ -62,7 +62,7 @@ class PersonalProductionsJob implements ShouldQueue
                     'dt_note','dispatch_at','att_at','completed_at',
                     'odi','odd','ods','eo','iproject','cad','cadastro',
                     'postes_c','postes_u','stopped','d5','confirmed','status','completed',
-                    'partial','partial_at',
+                    'partial','partial_at','supervision_by_partner_photos',
                 ])
                 ->where('rejected', false)
                 // ESCOPANDO PARA O USUÁRIO DA DASHBOARD

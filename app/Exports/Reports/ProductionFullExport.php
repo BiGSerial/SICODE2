@@ -35,7 +35,7 @@ class ProductionFullExport implements FromArray, WithEvents, WithProperties, Wit
     {
         return [
             'Nota', 'Rubrica', 'Municipio', 'Serviço', 'Empreiteira', 'DataStatus', 'HoraStatus', 'Despachado_Em',
-            'Despachado_Hora', 'Finalizado_Em', 'Finalizado_Hora', 'Tempo_reacao', 'Tempo_Execucao', 'Status'
+            'Despachado_Hora', 'Finalizado_Em', 'Finalizado_Hora', 'Tempo_reacao', 'Tempo_Execucao', 'Status', 'Fiscalização por Fotos da Parceira'
         ];
     }
 
@@ -44,7 +44,7 @@ class ProductionFullExport implements FromArray, WithEvents, WithProperties, Wit
         return [
             AfterSheet::class => function (AfterSheet $event) {
             // Define o estilo para a primeira linha
-            $event->sheet->getStyle('A1:N1')->applyFromArray([
+            $event->sheet->getStyle('A1:O1')->applyFromArray([
                 'font' => [
                 'bold'  => true,
                 'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)

@@ -238,10 +238,11 @@ class Main extends Component
                     ->orderBy('type_note', 'desc');
             }])
             ->orderBy('priority', 'desc')
-            ->orderBy('notes.is45', 'desc')
             ->orderBy('d5', 'desc')
-            ->orderBy('notes.dt_status')
-            ->select('productions.*', 'notes.dt_status', 'notes.is45', 'notes.type_note')
+            ->orderBy('notes.type_note', 'desc')
+            ->orderBy('notes.days_left', 'asc')
+            ->orderBy('productions.id', 'asc')
+            ->select('productions.*', 'notes.dt_status', 'notes.is45', 'notes.type_note', 'notes.days_left')
             ->paginate($this->perPage);
 
     }

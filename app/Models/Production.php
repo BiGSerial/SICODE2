@@ -58,6 +58,7 @@ class Production extends Model
         'cad',
         'partial',
         'ma', //Meio Ambiente
+        'supervision_by_partner_photos',
     ];
 
     protected $casts = [
@@ -67,6 +68,7 @@ class Production extends Model
         'd5'     => 'boolean',
         'cad'    => 'boolean',
         'partial' => 'boolean',
+        'supervision_by_partner_photos' => 'boolean',
         'completed'   => 'boolean',
         'confirmed'   => 'boolean',
         'returned'    => 'boolean',

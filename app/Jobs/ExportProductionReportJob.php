@@ -172,6 +172,7 @@ class ExportProductionReportJob implements ShouldQueue
             'Tempo_reacao' => $production && $production->dispatch_at && $production->dt_note ? Carbon::Parse($production->dt_note)->diff(Carbon::parse($production->dispatch_at))->format('%d dias, %h horas e %i minutos') : '',
             'Tempo_Execucao' => $production && $production->dispatch_at && $production->completed_at ? Carbon::Parse($production->dispatch_at)->diff(Carbon::parse($production->completed_at))->format('%d dias, %h horas e %i minutos') : '',
             'Status' => $production ? Notestatus::status($production->status)->status : 'Na Pilha',
+            'Fiscalizacao_por_fotos_parceira' => is_null($production?->supervision_by_partner_photos) ? '' : ($production->supervision_by_partner_photos ? 'SIM' : 'NÃO'),
         ];
     }
 
