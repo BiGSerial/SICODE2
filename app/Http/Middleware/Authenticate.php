@@ -34,7 +34,12 @@ class Authenticate extends Middleware
             return true;
         }
 
-        return in_array($name, ['logout'], true);
+        return in_array($name, [
+            'logout',
+            'pdf.checklist',
+            'pdf.checklistFiscal',
+            'protests.print',
+        ], true);
     }
 
     /**

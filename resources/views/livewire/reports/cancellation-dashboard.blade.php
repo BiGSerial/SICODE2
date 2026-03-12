@@ -159,6 +159,28 @@
             </div>
         </div>
 
+        <div class="panel p-3 mb-3">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Visão</label>
+                    <select class="form-select form-select-sm" wire:model="visibilityMode">
+                        @foreach($visibilityOptions as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label small mb-1">Solicitante (um ou mais)</label>
+                    <select class="form-select form-select-sm" wire:model="requesterIds" multiple size="4">
+                        @foreach($requesterOptions as $requester)
+                            <option value="{{ $requester->id }}">{{ $requester->name }}</option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted">Dica: segure `Ctrl` para múltipla seleção.</small>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-3 mb-3">
             <div class="col-md-3 col-sm-6">
                 <div class="metric-card">
@@ -316,6 +338,47 @@
                                         <tr>
                                             <td>{{ $idx + 1 }}</td>
                                             <td>{{ $row->requester_name }}</td>
+                                            <td class="text-end">{{ (int) $row->total }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted">Sem dados para o período.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="chart-card h-100">
+                    <div class="chart-card-header">
+                        <h6 class="mb-0"><i class="ri-user-settings-line me-2"></i>Executantes no período</h6>
+                    </div>
+                    <div class="chart-card-body">
+                        <div class="d-flex align-items-center justify-content-between p-3 rounded border mb-3 bg-light">
+                            <div>
+                                <div class="small text-muted">Executante líder do período</div>
+                                <div class="fw-bold fs-5">{{ $principalExecutor }}</div>
+                            </div>
+                            <span class="badge bg-success fs-6">{{ $principalExecutorTotal }}</span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm rank-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Executante</th>
+                                        <th class="text-end">Demandas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($topExecutors as $idx => $row)
+                                        <tr>
+                                            <td>{{ $idx + 1 }}</td>
+                                            <td>{{ $row->executor_name }}</td>
                                             <td class="text-end">{{ (int) $row->total }}</td>
                                         </tr>
                                     @empty

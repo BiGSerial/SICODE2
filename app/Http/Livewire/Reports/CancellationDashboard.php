@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Reports;
 
 use App\Enum\CancellationRequestScope;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -14,6 +15,8 @@ class CancellationDashboard extends Component
     public string $categoryId = '';
     public string $scope = '';
     public string $status = '';
+    public string $visibilityMode = 'HIERARCHY';
+    public array $requesterIds = [];
 
     protected $queryString = [
         'dt_in' => ['except' => '', 'as' => 'de'],
@@ -21,6 +24,7 @@ class CancellationDashboard extends Component
         'categoryId' => ['except' => '', 'as' => 'cat'],
         'scope' => ['except' => '', 'as' => 'tipo'],
         'status' => ['except' => '', 'as' => 'sts'],
+        'visibilityMode' => ['except' => 'HIERARCHY', 'as' => 'vis'],
     ];
 
     public function mount(): void
@@ -29,6 +33,46 @@ class CancellationDashboard extends Component
             $this->dt_out = now()->toDateString();
             $this->dt_in = now()->subDays(29)->toDateString();
         }
+
+        if ((Auth::user()?->superadm || Auth::user()?->management) && !request()->has('vis')) {
+            $this->visibilityMode = 'ALL';
+        }
+    }
+
+    protected function visibleRequesterIds(): ?array
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return [];
+        }
+
+        if ($this->visibilityMode === 'ALL') {
+            return null;
+        }
+
+        if ($this->visibilityMode === 'SUCCESSION') {
+            return $user->descendantsQuery(
+                includeSelf: true,
+                includeDelegations: false,
+                includeDelegatesTreesForPrincipal: true
+            )->pluck('users.id')->unique()->values()->all();
+        }
+
+        return $user->descendantsQuery(
+            includeSelf: true,
+            includeDelegations: true,
+            includeDelegatesTreesForPrincipal: false
+        )->pluck('users.id')->unique()->values()->all();
+    }
+
+    protected function selectedRequesterIds(): array
+    {
+        return collect($this->requesterIds)
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
     }
 
     protected function getDateRange(): array
@@ -59,9 +103,13 @@ class CancellationDashboard extends Component
     protected function baseQuery()
     {
         [$start, $end] = $this->getDateRange();
+        $visibleRequesterIds = $this->visibleRequesterIds();
+        $selectedRequesterIds = $this->selectedRequesterIds();
 
         return DB::table('cancellation_requests as cr')
             ->whereBetween(DB::raw('COALESCE(cr.submitted_at, cr.created_at)'), [$start, $end])
+            ->when($visibleRequesterIds !== null, fn ($q) => $q->whereIn('cr.requested_by', $visibleRequesterIds))
+            ->when(count($selectedRequesterIds), fn ($q) => $q->whereIn('cr.requested_by', $selectedRequesterIds))
             ->when($this->categoryId !== '', fn ($q) => $q->where('cr.category_id', (int) $this->categoryId))
             ->when($this->scope !== '', fn ($q) => $q->where('cr.scope', $this->scope))
             ->when($this->status !== '', fn ($q) => $q->where('cr.status', $this->status));
@@ -317,6 +365,17 @@ class CancellationDashboard extends Component
             ->get();
     }
 
+    protected function buildTopExecutors()
+    {
+        return $this->baseQuery()
+            ->leftJoin('users as assignee', 'assignee.id', '=', 'cr.assigned_to')
+            ->selectRaw('COALESCE(assignee.name, "Sem executante") as executor_name, COUNT(*) as total')
+            ->groupBy('executor_name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+    }
+
     protected function buildCharts(): array
     {
         return [
@@ -366,9 +425,19 @@ class CancellationDashboard extends Component
         $summary = $this->buildSummary();
         $charts = $this->buildCharts();
         $topRequesters = $this->buildTopRequesters();
+        $topExecutors = $this->buildTopExecutors();
+        $topExecutor = $topExecutors->first();
         $categories = DB::table('cancellation_categories')
             ->orderBy('name')
             ->pluck('name', 'id');
+        $visibleRequesterIds = $this->visibleRequesterIds();
+        $requesterOptions = DB::table('users as u')
+            ->join('cancellation_requests as cr', 'cr.requested_by', '=', 'u.id')
+            ->when($visibleRequesterIds !== null, fn ($q) => $q->whereIn('u.id', $visibleRequesterIds))
+            ->select('u.id', 'u.name')
+            ->distinct()
+            ->orderByRaw('LOWER(u.name)')
+            ->get();
 
         $this->dispatchCharts($charts);
 
@@ -379,7 +448,16 @@ class CancellationDashboard extends Component
             'categoryChart' => $charts['category'],
             'statusChart' => $charts['status'],
             'topRequesters' => $topRequesters,
+            'topExecutors' => $topExecutors,
+            'principalExecutor' => $topExecutor->executor_name ?? '-',
+            'principalExecutorTotal' => (int) ($topExecutor->total ?? 0),
             'categories' => $categories,
+            'requesterOptions' => $requesterOptions,
+            'visibilityOptions' => [
+                ['value' => 'ALL', 'label' => 'Tudo'],
+                ['value' => 'HIERARCHY', 'label' => 'Minha hierarquia'],
+                ['value' => 'SUCCESSION', 'label' => 'Linha de sucessão'],
+            ],
         ]);
     }
 }

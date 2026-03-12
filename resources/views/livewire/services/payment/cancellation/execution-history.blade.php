@@ -65,7 +65,7 @@
         <div class="oexterno-header">
             <div class="d-flex flex-column">
                 <h2>Histórico</h2>
-                <span class="meta">Somente solicitações finalizadas por você.</span>
+                <span class="meta">Solicitações encerradas com filtros de visão hierárquica e solicitante.</span>
             </div>
         </div>
 
@@ -74,10 +74,24 @@
                 <strong class="me-auto">Filtros</strong>
                 <input type="date" class="form-control w-auto" wire:model="dateFrom" />
                 <input type="date" class="form-control w-auto" wire:model="dateTo" />
+                <select class="form-select w-auto" wire:model="visibilityMode">
+                    @foreach($visibilityOptions as $option)
+                        <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                    @endforeach
+                </select>
             </div>
             <textarea class="form-control mb-3" rows="2"
                 placeholder="Notas/Ordens (separe por vírgula, espaço ou linha)"
                 wire:model.debounce.600ms="multiSearch"></textarea>
+            <div class="mb-3">
+                <label class="form-label small mb-1">Solicitante (um ou mais)</label>
+                <select class="form-select" wire:model="requesterIds" multiple size="4">
+                    @foreach($requesterOptions as $requester)
+                        <option value="{{ $requester->id }}">{{ $requester->name }}</option>
+                    @endforeach
+                </select>
+                <small class="text-muted">Dica: segure `Ctrl` para múltipla seleção.</small>
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-sm table-striped">
@@ -86,6 +100,8 @@
                             <th>#</th>
                             <th>Nota</th>
                             <th>Ordens</th>
+                            <th>Solicitante</th>
+                            <th>Executor</th>
                             <th>Categoria</th>
                             <th>Status</th>
                             <th>Encerrado em</th>
@@ -104,6 +120,8 @@
                                 <td>{{ $request->id }}</td>
                                 <td>{{ $request->Note->note ?? '-' }}</td>
                                 <td>{{ $request->Orders->pluck('ordem')->implode(', ') }}</td>
+                                <td>{{ $request->Requester->name ?? '-' }}</td>
+                                <td>{{ $request->Closer->name ?? '-' }}</td>
                                 <td>{{ $request->Category->name ?? '-' }}</td>
                                 <td>
                                     <span class="badge {{ $request->status?->badgeClass() ?? 'bg-secondary' }}">
@@ -121,7 +139,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">Nenhum registro encontrado.</td>
+                                <td colspan="10" class="text-center">Nenhum registro encontrado.</td>
                             </tr>
                         @endforelse
                     </tbody>

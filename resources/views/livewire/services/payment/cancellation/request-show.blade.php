@@ -253,11 +253,32 @@
                 })
                 ->values();
 
+            $approvalStepDate = $cancellationRequest->engineer_approval_decided_at
+                ?? $cancellationRequest->engineer_approval_requested_at;
+
             $progressChecks = [
-                ['ok' => $cancellationRequest->submitted_at !== null, 'label' => 'Solicitacao criada'],
-                ['ok' => $cancellationRequest->assigned_to !== null, 'label' => 'Execucao atribuida'],
-                ['ok' => $cancellationRequest->requires_engineer_approval ? ($cancellationRequest->engineer_approval_status !== null) : true, 'label' => 'Regra de aprovacao avaliada'],
-                ['ok' => $isClosedRequest, 'label' => 'Fluxo finalizado'],
+                [
+                    'ok' => $cancellationRequest->submitted_at !== null,
+                    'label' => 'Solicitacao criada',
+                    'date' => optional($cancellationRequest->submitted_at)->format('d/m/Y H:i') ?? '-',
+                ],
+                [
+                    'ok' => $cancellationRequest->assigned_to !== null,
+                    'label' => 'Execucao atribuida',
+                    'date' => optional($cancellationRequest->assigned_at)->format('d/m/Y H:i') ?? '-',
+                ],
+                [
+                    'ok' => $cancellationRequest->requires_engineer_approval ? ($cancellationRequest->engineer_approval_status !== null) : true,
+                    'label' => 'Regra de aprovacao avaliada',
+                    'date' => $cancellationRequest->requires_engineer_approval
+                        ? (optional($approvalStepDate)->format('d/m/Y H:i') ?? '-')
+                        : 'Nao aplicavel',
+                ],
+                [
+                    'ok' => $isClosedRequest,
+                    'label' => 'Fluxo finalizado',
+                    'date' => optional($cancellationRequest->closed_at)->format('d/m/Y H:i') ?? '-',
+                ],
             ];
 
             $orderSummary = $cancellationRequest->Orders->pluck('ordem')->filter()->values();
@@ -370,7 +391,10 @@
                         @foreach($progressChecks as $check)
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <i class="{{ $check['ok'] ? 'ri-checkbox-circle-fill text-success' : 'ri-time-line text-warning' }}"></i>
-                                <span class="fw-semibold">{{ $check['label'] }}</span>
+                                <div>
+                                    <div class="fw-semibold">{{ $check['label'] }}</div>
+                                    <div class="small text-muted">Data: {{ $check['date'] }}</div>
+                                </div>
                             </div>
                         @endforeach
                         <div class="small text-muted mt-2">

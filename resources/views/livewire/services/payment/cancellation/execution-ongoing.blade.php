@@ -82,14 +82,39 @@
                 <button class="btn btn-outline-secondary btn-sm" wire:click="exportUserList">
                     Exportar lista
                 </button>
+                <button class="btn btn-outline-success btn-sm" wire:click="openBulkCloseModal"
+                    @disabled(count($selected) < 1)>
+                    Encerrar em massa
+                </button>
+                <button class="btn btn-outline-warning btn-sm" wire:click="openBulkReopenModal"
+                    @disabled(count($selected) < 1)>
+                    Reabrir em massa
+                </button>
                 <button class="btn btn-outline-primary btn-sm" wire:click="goBulkReview"
                     @disabled(count($selected) < 2)>
-                    Revisar seleção
+                    Revisar em lote
                 </button>
             </div>
-            <textarea class="form-control mb-3" rows="2"
-                placeholder="Notas/Ordens (separe por vírgula, espaço ou linha)"
-                wire:model.debounce.600ms="multiSearch"></textarea>
+            <div class="row g-2 mb-3">
+                <div class="col-md-8">
+                    <textarea class="form-control" rows="2"
+                        placeholder="Notas/Ordens (separe por vírgula, espaço ou linha)"
+                        wire:model.debounce.600ms="multiSearch"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" wire:model="scopeFilter">
+                        <option value="ALL">Todos os escopos</option>
+                        @foreach($scopes as $scope)
+                            <option value="{{ $scope->value }}">{{ $scope->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted">
+                        Encerramento em lote só é permitido para solicitações do mesmo escopo (Nota inteira ou WorkForm).
+                    </small>
+                </div>
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-sm table-striped">
@@ -103,6 +128,7 @@
                             <th>#</th>
                             <th>Nota</th>
                             <th>Ordens</th>
+                            <th>Escopo</th>
                             <th>Categoria</th>
                             <th>Status</th>
                             <th>Aprovação Eng.</th>
@@ -120,6 +146,11 @@
                                 <td>{{ $request->id }}</td>
                                 <td>{{ $request->Note->note ?? '-' }}</td>
                                 <td>{{ $request->Orders->pluck('ordem')->implode(', ') }}</td>
+                                <td>
+                                    <span class="badge {{ $request->scope?->badgeClass() ?? 'bg-secondary' }}">
+                                        {{ $request->scope?->label() ?? $request->scope }}
+                                    </span>
+                                </td>
                                 <td>{{ $request->Category->name ?? '-' }}</td>
                                 <td>
                                     <span class="badge {{ $request->status?->badgeClass() ?? 'bg-secondary' }}">
@@ -145,7 +176,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center">Nenhuma solicitação atribuída.</td>
+                                <td colspan="10" class="text-center">Nenhuma solicitação atribuída.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -155,4 +186,97 @@
         </div>
 
     </div>
+
+    <div wire:ignore.self class="modal fade" id="bulkCloseModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Encerrar em massa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Definição</label>
+                        <select class="form-select" wire:model="bulkActionType">
+                            <option value="DONE">Finalizar com o processo definido</option>
+                            <option value="ENGINEER_APPROVAL">Enviar para aprovação do engenheiro</option>
+                        </select>
+                    </div>
+
+                    @if($bulkActionType === 'ENGINEER_APPROVAL')
+                        <div class="mb-3">
+                            <label class="form-label">Engenheiro</label>
+                            <select class="form-select" wire:model="bulkEngineerId">
+                                <option value="">Selecione</option>
+                                @foreach($engineers as $engineer)
+                                    <option value="{{ $engineer->id }}">{{ \Illuminate\Support\Str::title(\Illuminate\Support\Str::lower($engineer->name)) }}</option>
+                                @endforeach
+                            </select>
+                            @error('bulkEngineerId')<span class="text-danger small">{{ $message }}</span>@enderror
+                        </div>
+                    @endif
+
+                    <div class="mb-1">
+                        <label class="form-label">Texto de encerramento (obrigatório)</label>
+                        <textarea class="form-control" rows="4" wire:model.defer="bulkComment"></textarea>
+                        @error('bulkComment')<span class="text-danger small">{{ $message }}</span>@enderror
+                    </div>
+
+                    @if($bulkActionType === 'DONE')
+                        <div class="small text-muted mt-2">
+                            Será adicionado ao final do texto: <strong>Finalizado em Lote X obras</strong>.
+                        </div>
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" wire:click="runBulkCloseAction">Confirmar ação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="bulkReopenModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Abrir em massa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Texto de abertura (obrigatório)</label>
+                    <textarea class="form-control" rows="4" wire:model.defer="bulkReopenComment"></textarea>
+                    @error('bulkReopenComment')<span class="text-danger small">{{ $message }}</span>@enderror
+                    <div class="small text-muted mt-2">Permitido apenas para solicitações pausadas.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-warning" wire:click="runBulkReopenAction">Confirmar ação</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const closeModalElement = document.getElementById('bulkCloseModal');
+        const reopenModalElement = document.getElementById('bulkReopenModal');
+
+        window.addEventListener('bulk-close-modal-show', () => {
+            bootstrap.Modal.getOrCreateInstance(closeModalElement).show();
+        });
+
+        window.addEventListener('bulk-close-modal-hide', () => {
+            bootstrap.Modal.getOrCreateInstance(closeModalElement).hide();
+        });
+
+        window.addEventListener('bulk-reopen-modal-show', () => {
+            bootstrap.Modal.getOrCreateInstance(reopenModalElement).show();
+        });
+
+        window.addEventListener('bulk-reopen-modal-hide', () => {
+            bootstrap.Modal.getOrCreateInstance(reopenModalElement).hide();
+        });
+    });
+</script>

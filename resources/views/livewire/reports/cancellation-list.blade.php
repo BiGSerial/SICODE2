@@ -10,7 +10,12 @@
                     radial-gradient(circle at 90% 15%, #ecfeff, transparent 35%),
                     var(--ri-bg);
                 padding: 1.5rem 0;
-                font-family: var(--bs-body-font-family);
+                font-family: var(--bs-body-font-family, var(--bs-font-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif));
+            }
+
+            .ri-page,
+            .ri-page * {
+                font-family: var(--bs-body-font-family, var(--bs-font-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif)) !important;
             }
 
             .ri-header {
@@ -60,21 +65,18 @@
                     <label class="form-label small mb-1">Status</label>
                     <select class="form-select form-select-sm" wire:model="status">
                         <option value="">Todos</option>
-                        <option value="SUBMITTED">Enviado</option>
-                        <option value="ASSIGNED">Em execução</option>
-                        <option value="PAUSED">Pausado</option>
-                        <option value="DONE">Concluído</option>
-                        <option value="REJECTED">Rejeitado</option>
-                        <option value="ABORTED">Abortado</option>
+                        @foreach($statusOptions as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Tipo</label>
                     <select class="form-select form-select-sm" wire:model="scope">
                         <option value="">Todos</option>
-                        <option value="NOTE_FULL">Nota inteira</option>
-                        <option value="ORDERS_PARTIAL">Ordens específicas</option>
-                        <option value="WORK_FORM_ONLY">Somente WorkForm</option>
+                        @foreach($scopeOptions as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -91,6 +93,23 @@
                     <input type="text" class="form-control form-control-sm" placeholder="Ex: 12345, 8899001"
                         wire:model.debounce.500ms="search">
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Visão</label>
+                    <select class="form-select form-select-sm" wire:model="visibilityMode">
+                        @foreach($visibilityOptions as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label small mb-1">Solicitante (um ou mais)</label>
+                    <select class="form-select form-select-sm" wire:model="requesterIds" multiple size="4">
+                        @foreach($requesterOptions as $requester)
+                            <option value="{{ $requester->id }}">{{ $requester->name }}</option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted">Dica: segure `Ctrl` para múltipla seleção.</small>
+                </div>
             </div>
         </div>
 
@@ -104,6 +123,7 @@
                             <th>Categoria</th>
                             <th>Tipo</th>
                             <th>Status</th>
+                            <th>Aguardando</th>
                             <th>Solicitante</th>
                             <th>Executor</th>
                             <th>Engenheiro</th>
@@ -121,16 +141,26 @@
                             <tr>
                                 <td>{{ $row->id }}</td>
                                 <td>{{ $row->note_number ?: '-' }}</td>
-                                <td>{{ $row->category_name ?: '-' }}</td>
-                                <td>{{ $row->scope ?: '-' }}</td>
-                                <td><span class="badge bg-secondary">{{ $row->status }}</span></td>
+                                <td><span class="badge bg-dark">{{ $row->category_name ?: '-' }}</span></td>
+                                <td><span class="badge {{ $row->scope_badge_class }}">{{ $row->scope_label }}</span></td>
+                                <td><span class="badge {{ $row->status_badge_class }}">{{ $row->status_label }}</span></td>
+                                <td>
+                                    @if($row->waiting_label)
+                                        <span class="badge {{ $row->waiting_badge_class }}">{{ $row->waiting_label }}</span>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
                                 <td>{{ $row->requester_name ?: '-' }}</td>
                                 <td>{{ $row->assignee_name ?: '-' }}</td>
                                 <td>{{ $row->engineer_name ?: '-' }}</td>
                                 <td>{{ optional(\Carbon\Carbon::parse($row->opened_at))->format('d/m/Y H:i') }}</td>
                                 <td>{{ $row->closed_at ? \Carbon\Carbon::parse($row->closed_at)->format('d/m/Y H:i') : '-' }}</td>
                                 <td>{{ $row->exec_human }}</td>
-                                <td>{{ $row->eng_human }}</td>
+                                <td>
+                                    <div><span class="badge {{ $row->engineer_approval_badge_class }}">{{ $row->engineer_approval_label }}</span></div>
+                                    <div class="small text-muted mt-1">{{ $row->eng_human }}</div>
+                                </td>
                                 <td>{{ $row->close_human }}</td>
                                 <td>{{ $row->final_human }}</td>
                                 <td>
@@ -142,7 +172,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="15" class="text-center text-muted">Nenhum cancelamento encontrado no período.</td>
+                                <td colspan="16" class="text-center text-muted">Nenhum cancelamento encontrado no período.</td>
                             </tr>
                         @endforelse
                     </tbody>
