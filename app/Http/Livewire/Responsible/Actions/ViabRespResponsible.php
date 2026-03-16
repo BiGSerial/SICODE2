@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Responsible\Actions;
 
 use App\Models\Production;
+use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
@@ -230,6 +231,17 @@ class ViabRespResponsible extends Component
                         ]);
 
                         if ($this->service) {
+                            if (Reclaim::hasActiveForService($this->viability->note_id, $this->service)) {
+                                DB::rollBack();
+                                $this->dispatchBrowserEvent('swal', [
+                                    'position' => 'center',
+                                    'icon'     => 'warning',
+                                    'title'    => 'RECLAIM JÁ EM ANDAMENTO',
+                                    'html'     => 'Já existe retorno interno ativo para esta obra e serviço.',
+                                    'timer'    => 5000,
+                                ]);
+                                return;
+                            }
 
                             $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->latest()->first();
 

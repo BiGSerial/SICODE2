@@ -78,6 +78,19 @@ class Approveaction extends Component
             DB::beginTransaction();
 
             try {
+                if (Reclaim::hasActiveForService($this->list->id, $this->service_s)) {
+                    DB::rollBack();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'RECLAIM JÁ EM ANDAMENTO',
+                        'html'     => 'Já existe retorno interno ativo para esta obra e serviço.',
+                        'timer'    => 5000,
+                    ]);
+
+                    return;
+                }
 
                 if ($this->lastUser) {
 

@@ -151,6 +151,20 @@ class Responserpartners extends Component
                 // Acrescenta decisão da Empreiteira a mensagem postada.
                 // $this->responser .= "\n\n >> EMPRESA CONTRATANTE CONCORDA COM O RESULTADO DA VIABILIDADE FEITO PELA PARECEIRA. <<";
 
+                $targetServiceId = $this->production ? $this->production->service_id : $this->service;
+                if ($targetServiceId && Reclaim::hasActiveForService($this->note->id, $targetServiceId)) {
+                    DB::rollBack();
+
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'RECLAIM JÁ EM ANDAMENTO',
+                        'html'     => 'Já existe retorno interno ativo para esta obra e serviço.',
+                        'timer'    => 5000,
+                    ]);
+
+                    return;
+                }
 
                 if ($this->production) {
 

@@ -42,9 +42,7 @@
         <div class="oexterno-card p-3">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <strong class="me-auto">Consulta em massa</strong>
-                <button class="btn btn-outline-success btn-sm"
-                    onclick="if(!confirm('Assumir todas as solicitações selecionadas?')){event.stopImmediatePropagation();}"
-                    wire:click="claimSelected">
+                <button class="btn btn-outline-success btn-sm" wire:click="claimSelected">
                     Assumir selecionadas
                 </button>
             </div>
@@ -57,11 +55,14 @@
                     <thead>
                         <tr>
                             <th>
-                                <input type="checkbox" class="form-check-input" wire:model="selectAll" wire:click="setSelectAll">
+                                <input type="checkbox" class="form-check-input"
+                                    wire:model="selectAll"
+                                    wire:change="setSelectAll(@json($requests->pluck('id')->all()))">
                             </th>
                             <th>#</th>
                             <th>Nota</th>
                             <th>Ordens</th>
+                            <th>Escopo</th>
                             <th>Categoria</th>
                             <th>Solicitante</th>
                             <th>Solicitado em</th>
@@ -77,6 +78,11 @@
                                 <td>{{ $request->id }}</td>
                                 <td>{{ $request->Note->note ?? '-' }}</td>
                                 <td>{{ $request->Orders->pluck('ordem')->implode(', ') }}</td>
+                                <td>
+                                    <span class="badge {{ $request->scope?->badgeClass() ?? 'bg-secondary' }}">
+                                        {{ $request->scope?->label() ?? $request->scope }}
+                                    </span>
+                                </td>
                                 <td>{{ $request->Category->name ?? '-' }}</td>
                                 <td>{{ $request->Requester->name ?? '-' }}</td>
                                 <td>{{ optional($request->submitted_at)->format('d/m/Y H:i') }}</td>
@@ -86,13 +92,34 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">Nenhuma solicitação disponível.</td>
+                                <td colspan="9" class="text-center">Nenhuma solicitação disponível.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            {{ $requests->links() }}
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+                <div class="small text-muted">
+                    Total: <strong>{{ $requests->total() }}</strong>
+                    @if($requests->total() > 0)
+                        | Exibindo {{ $requests->firstItem() }}-{{ $requests->lastItem() }}
+                    @endif
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="small text-muted mb-0">Por página</label>
+                    <select class="form-select form-select-sm w-auto" wire:model="perPage">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="150">150</option>
+                        <option value="200">200</option>
+                        <option value="250">250</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-2">
+                {{ $requests->links() }}
+            </div>
         </div>
     </div>
 </div>

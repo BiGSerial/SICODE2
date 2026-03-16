@@ -217,6 +217,40 @@ class CancellationRequestService
         });
     }
 
+    public function reopenRequest(CancellationRequest $request, User $user, string $reason): CancellationRequest
+    {
+        return DB::transaction(function () use ($request, $user, $reason) {
+            $request->refresh();
+
+            if ($request->status !== CancellationRequestStatus::PAUSED) {
+                throw new RuntimeException('Solicitação não está pausada para reabertura.');
+            }
+
+            if ($request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+                throw new RuntimeException('Somente o responsável pode reabrir.');
+            }
+
+            $reopenReason = trim((string) $reason);
+            if ($reopenReason === '') {
+                throw new RuntimeException('Informe o motivo da reabertura.');
+            }
+
+            $request->update([
+                'status' => CancellationRequestStatus::ASSIGNED,
+            ]);
+
+            $this->logEvent($request, $user, 'reopened', ['reason' => $reopenReason]);
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação de cancelamento reaberta',
+                "A solicitação #{$request->id} foi reaberta por {$user->name}. Motivo: {$reopenReason}",
+                'info'
+            );
+
+            return $request;
+        });
+    }
+
     public function finalizeDone(CancellationRequest $request, User $user): CancellationRequest
     {
         return DB::transaction(function () use ($request, $user) {

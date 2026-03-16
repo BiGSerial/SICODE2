@@ -2,15 +2,13 @@
 
 namespace App\Helpers;
 
+use App\Support\Notifications\UserNotificationData;
+
 class NotifyStatus
 {
     public static function getStatus($status)
     {
-        if (!$status) {
-            $status = 0;
-        }
-
-        switch ((int)$status) {
+        switch (UserNotificationData::normalizeStatus($status)) {
             case 0:
                 return (object) [
                     'status' => 'Erro',
@@ -53,8 +51,8 @@ class NotifyStatus
 
             case 5:
                 return (object) [
-                    'status' => 'Download',
-                    'icon' => 'ri-file-download-fill',
+                    'status' => 'Falha',
+                    'icon' => 'bi bi-x-octagon',
                     'color' => 'text-danger',
                     'bgcolor' => 'text-bg-danger'
                 ];

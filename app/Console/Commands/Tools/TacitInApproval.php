@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Tools;
 
 use App\Models\Production;
+use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\ViabilityApproval;
@@ -76,6 +77,9 @@ class TacitInApproval extends Command
                                  */
                                 if ($approval->reclaims->isEmpty() && !$approval->note->files()->where('file_name', 'like', 'PROJETO%')->where('service_id', $this->serviceId)->exists()) {
 
+                                    if (Reclaim::hasActiveForService($approval->note_id, $this->serviceId)) {
+                                        continue;
+                                    }
 
                                     $production = null;
 
@@ -163,6 +167,10 @@ class TacitInApproval extends Command
                                         $approval->tacit = true;
                                         $approval->save();
 
+                                        if (Reclaim::hasActiveForService($approval->note_id, $this->serviceId)) {
+                                            continue;
+                                        }
+
                                         $production = null;
 
                                         // Verifica se já existe uma produção finalizada para o mesmo serviço e nota
@@ -228,6 +236,10 @@ class TacitInApproval extends Command
                                         $approval->save();
 
                                     } elseif (!$approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
+                                        if (Reclaim::hasActiveForService($approval->note_id, $this->serviceId)) {
+                                            continue;
+                                        }
+
                                         $production = null;
 
                                         // Verifica se já existe uma produção finalizada para o mesmo serviço e nota
