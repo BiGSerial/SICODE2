@@ -5,8 +5,9 @@ namespace App\Http\Livewire\Responsible\Actions;
 use App\Helpers\TextValidator;
 use App\Models\Note;
 use App\Models\Notetimeline;
-use App\Models\Service;
 use App\Models\Production;
+use App\Models\Reclaim;
+use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Exists;
 use Livewire\Component;
@@ -261,6 +262,20 @@ class RejectProject extends Component
 
 
             DB::beginTransaction();
+
+            if (Reclaim::hasActiveForService($this->note->id, $this->service)) {
+                DB::rollBack();
+
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'RECLAIM JÁ EM ANDAMENTO',
+                    'html'     => 'Já existe uma atividade de retorno interno em aberto para esta obra e serviço.',
+                    'timer'    => 4000,
+                ]);
+
+                return;
+            }
 
             $production = null;
 

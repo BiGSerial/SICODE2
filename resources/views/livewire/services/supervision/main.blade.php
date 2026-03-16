@@ -234,7 +234,7 @@
                                             @if ($dfive?->is_completed && !$dfive?->is_supervisioned)
                                                 <span class="badge text-bg-success fs-6 copy-text"
                                                     data-value="{{ $note->note }}" style="cursor:pointer;"
-                                                    wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $note->FiveNote->id }})">
+                                                    wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $note->id }})">
                                                     D5 {{ $note->note }}
                                                 </span>
                                             @else
@@ -387,7 +387,7 @@
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
-    @livewire('components.five-note.view-d5', key('ViewD5'))
+    @livewire('components.d5.d5details', key('ViewD5Details'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
     </div>
 </div>

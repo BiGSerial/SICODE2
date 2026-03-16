@@ -586,7 +586,7 @@
                             <dd class="col-sm-8 text-white text-uppercase">
                                 @if ($lists->FiveNote)
                                     <span class="fw-bold" style="cursor:pointer"
-                                        wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $lists->FiveNote->id }})">
+                                        wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $lists->id }})">
                                         {{ $lists->FiveNote?->note_d5 ?? 'A GERAR D5' }}
                                         @if ($lists->FiveNote?->visible_partner && $lists->FiveNote?->is_completed)
                                             <small>( {{ $lists->FiveNote?->completed_at?->format('d/m/Y H:i') }}
@@ -1517,5 +1517,5 @@
     @livewire('components.workform.view-reason-return', key('WorkReturnsReason'))
     @livewire('components.workform.acceptance-info', key('WorkAcceptanceInfo'))
     @livewire('components.ramalform.view-reason-return', key('RamalReturnsReason'))
-    @livewire('components.five-note.view-d5', key('view_d5'))
+    @livewire('components.d5.d5details', key('view_d5_details'))
 </div>

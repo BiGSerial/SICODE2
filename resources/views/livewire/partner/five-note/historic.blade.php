@@ -260,7 +260,7 @@
                                         </td>
                                         <td class="text-center">
                                             <button class="btn btn-sm btn-primary"
-                                                wire:click="$emitTo('partner.five-note.actions.view-d5', 'getInfoResponse', {{ $five->id }})">
+                                                wire:click="$emitTo('components.d5.d5details', 'openD5Details', {{ $five->note_id }})">
                                                 <i class="ri-eye-line"></i>
                                             </button>
                                         </td>
@@ -327,5 +327,5 @@
     </div>
 
     {{-- LIVEWIRE COMPONENTS --}}
-    @livewire('partner.five-note.actions.view-d5', key('view-d5'))
+    @livewire('components.d5.d5details', key('partner-view-d5-details'))
 </div>

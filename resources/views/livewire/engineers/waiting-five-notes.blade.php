@@ -399,7 +399,7 @@
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-primary p-1"
-                                            wire:click="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})">
+                                            wire:click="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->note_id }})">
                                             Visualizar
                                         </button>
                                     </td>
@@ -467,7 +467,7 @@
         </div>
 
         {{-- Modals --}}
-        @livewire('components.five-note.view-d5', key('five-note'))
+        @livewire('components.d5.d5details', key('five-note-details'))
         @livewire('components.five-note.manual-create', key('manual-create-five'))
         @livewire('components.five-note.edit-d5', key('edit-five-note'))
     </div>

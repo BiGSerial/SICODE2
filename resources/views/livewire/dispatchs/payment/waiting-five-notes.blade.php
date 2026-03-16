@@ -150,7 +150,7 @@
                             'text-center',
                             'table-success' => $list->is_supervisioned,
                             'passive-row' => $list->isPassive,
-                        ]) wire:dblclick="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})"
+                        ]) wire:dblclick="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->note_id }})"
                             style="cursor: pointer;">
                             <td><input class="form-check-input border border-1 border-primary " type="checkbox"
                                     value="{{ $list->id }}" wire:model.defer="selected">
@@ -356,7 +356,7 @@
     </div>
 
     {{-- Modals --}}
-    @livewire('components.five-note.view-d5', key('five-note'))
+    @livewire('components.d5.d5details', key('five-note-details'))
     @livewire('components.five-note.manual-create', key('manual-create-five'))
     @livewire('components.five-note.edit-d5', key('edit-five-note'))
 

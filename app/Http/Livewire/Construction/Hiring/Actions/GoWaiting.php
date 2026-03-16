@@ -147,6 +147,9 @@ class GoWaiting extends Component
             foreach ($this->productions as $production) {
 
                 if ($production) {
+                    if (Reclaim::hasActiveForService($production['note']['id'], $this->service_s)) {
+                        continue;
+                    }
 
                     $waiting = HiringWaiting::Create([
                         'note_id' => $production['note']['id'],
