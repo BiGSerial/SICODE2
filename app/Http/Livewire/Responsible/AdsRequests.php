@@ -565,12 +565,8 @@ class AdsRequests extends Component
 
     public function getActiveRequestsProperty()
     {
-        $visibleUserIds = $this->visibleUserIds();
         $query = AdsRequest::query()
             ->with(['note', 'company', 'requestedBy'])
-            ->when($visibleUserIds !== null, function ($q) use ($visibleUserIds) {
-                $q->whereIn('requested_by', $visibleUserIds);
-            })
             ->whereNotIn('status', [
                 AdsRequestStatus::DONE->value,
                 AdsRequestStatus::CANCELED->value,
@@ -663,12 +659,8 @@ class AdsRequests extends Component
 
     public function getHistoryRequestsProperty()
     {
-        $visibleUserIds = $this->visibleUserIds();
         $query = AdsRequest::query()
             ->with(['note', 'company', 'requestedBy'])
-            ->when($visibleUserIds !== null, function ($q) use ($visibleUserIds) {
-                $q->whereIn('requested_by', $visibleUserIds);
-            })
             ->whereIn('status', [
                 AdsRequestStatus::DONE->value,
                 AdsRequestStatus::FAILED->value,
@@ -744,14 +736,4 @@ class AdsRequests extends Component
         return $rows->keyBy('sicode_id');
     }
 
-    protected function visibleUserIds(): ?\Illuminate\Support\Collection
-    {
-        $user = auth()->user();
-
-        if (!$user || $user->superadm) {
-            return null;
-        }
-
-        return $user->descendantsQuery(true)->pluck('users.id');
-    }
 }
