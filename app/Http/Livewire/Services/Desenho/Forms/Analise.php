@@ -110,11 +110,8 @@ class Analise extends Component
     public $order_input_company = '';
     public $order_input_client = '';
 
-    public $proportionality_ok;
-
-    public $proportionality_value;
-
     public $designer_note;
+    public $riRequest = null;
 
     public $rejectedFindings = [];
 
@@ -176,6 +173,7 @@ class Analise extends Component
 
         $this->production = Production::find($productionId);
         $this->note       = Note::find($noteId);
+        $this->loadRiRequestContext();
         $this->loadProjectReviewDraft();
 
         // Verficando a existencia de uma analise ja atriobuida para esta produção
@@ -273,10 +271,6 @@ class Analise extends Component
             ->first();
 
         if ($latestCycle) {
-            $this->proportionality_ok = is_null($latestCycle->proportionality_ok) ? null : (bool) $latestCycle->proportionality_ok;
-            $this->proportionality_value = is_null($latestCycle->proportionality_value)
-                ? null
-                : number_format((float) $latestCycle->proportionality_value, 2, ',', '.');
             $this->designer_note = $latestCycle->designer_note;
 
             if ($latestCycle->Orders->count()) {
@@ -315,6 +309,45 @@ class Analise extends Component
         $this->projectReviewLastSnapshot = $this->buildProjectReviewSnapshot();
     }
 
+    private function loadRiRequestContext(): void
+    {
+        $this->riRequest = null;
+
+        if (!$this->production || !$this->production->d5) {
+            return;
+        }
+
+        $reclaim = $this->production->Reclaim()
+            ->with(['Subcategory.Category', 'Comments.User'])
+            ->first();
+
+        if (!$reclaim) {
+            $reclaim = Reclaim::query()
+                ->with(['Subcategory.Category', 'Comments.User'])
+                ->where('note_id', $this->production->note_id)
+                ->where('service_id', $this->production->service_id)
+                ->latest('id')
+                ->first();
+        }
+
+        if (!$reclaim) {
+            return;
+        }
+
+        $requestComment = $reclaim->Comments
+            ->sortBy('created_at')
+            ->first();
+
+        $this->riRequest = [
+            'category' => $reclaim->category ?: '---',
+            'subcategory' => optional($reclaim->Subcategory)->subcategory ?: optional($reclaim->Subcategory)->name ?: '---',
+            'subcategory_group' => optional(optional($reclaim->Subcategory)->Category)->category ?: optional(optional($reclaim->Subcategory)->Category)->name ?: '---',
+            'message' => $requestComment?->message ?: null,
+            'requested_by' => optional($requestComment?->User)->name ?: null,
+            'requested_at' => $requestComment?->created_at ? date('d/m/Y H:i', strtotime($requestComment->created_at)) : null,
+        ];
+    }
+
     public function getRequiresProjectReviewProperty(): bool
     {
         if (!$this->production) {
@@ -322,6 +355,29 @@ class Analise extends Component
         }
 
         return !$this->production->partial && !$this->production->d5 && !$this->production->dfive;
+    }
+
+    public function getShouldSendToProjectReviewProperty(): bool
+    {
+        if (!$this->requiresProjectReview) {
+            return false;
+        }
+
+        if ($this->isConclusionDirectCloseWithoutProjectReview()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function isConclusionDirectCloseWithoutProjectReview(): bool
+    {
+        $conclusion = mb_strtoupper(trim((string) $this->conclusion));
+        return in_array($conclusion, [
+            'RETORNADO LEVANTAMENTO',
+            'ARQUIVADO',
+            'DEPENDE DE ORGAO EXTERNO',
+        ], true);
     }
 
     // OPERAÇÕES COM ARQUIVOS
@@ -454,6 +510,37 @@ class Analise extends Component
     public function updatedPreresult()
     {
         $this->postes     = ($this->analise?->postes && $this->analise?->postes > 0) ? $this->analise->postes : (($this->production->postes_u && $this->production->postes_u > 0) ? $this->production->postes_u : $this->note->postes);
+        $this->updatedConclusion();
+    }
+
+    public function updatedEo(): void
+    {
+        $this->updatedConclusion();
+    }
+
+    public function updatedIproject(): void
+    {
+        $this->updatedConclusion();
+    }
+
+    public function updatedCad(): void
+    {
+        $this->updatedConclusion();
+    }
+
+    public function updatedCadastro(): void
+    {
+        $this->updatedConclusion();
+    }
+
+    public function updatedPostes(): void
+    {
+        $this->updatedConclusion();
+    }
+
+    public function updatedPostesC(): void
+    {
+        $this->updatedConclusion();
     }
 
     public function updatedConclusion()
@@ -575,8 +662,6 @@ class Analise extends Component
             'locked' => false,
         ];
 
-        $this->recalculateProportionalityFromOrders();
-
         $this->order_input_number = '';
         $this->order_input_total = '';
         $this->order_input_company = '';
@@ -599,7 +684,6 @@ class Analise extends Component
         if (isset($this->reviewOrders[$index])) {
             unset($this->reviewOrders[$index]);
             $this->reviewOrders = array_values($this->reviewOrders);
-            $this->recalculateProportionalityFromOrders();
         }
     }
 
@@ -710,26 +794,15 @@ class Analise extends Component
             ];
         })->all();
 
-        $normalizedProportionalityValue = $this->normalizeBrNumber($this->proportionality_value);
-        if (is_null($normalizedProportionalityValue)) {
-            $normalizedProportionalityValue = $this->estimateProportionalityFromOrders($normalizedOrders);
-        }
-        $this->proportionality_value = is_null($normalizedProportionalityValue)
-            ? null
-            : number_format((float) $normalizedProportionalityValue, 2, '.', '');
-
         $this->validate([
             'reviewOrders' => 'required|array|min:1',
             'reviewOrders.*.order_number' => 'required|string|max:100',
             'reviewOrders.*.total_cost' => 'required|numeric|min:0',
             'reviewOrders.*.company_cost' => 'required|numeric|min:0',
             'reviewOrders.*.client_cost' => 'required|numeric|min:0',
-            'proportionality_ok' => 'required|boolean',
-            'proportionality_value' => 'nullable|numeric|min:0',
         ], [
             'reviewOrders.required' => 'Adicione pelo menos uma ordem.',
             'reviewOrders.*.order_number.required' => 'Informe o número da ordem.',
-            'proportionality_ok.required' => 'Informe a proporcionalidade aplicada.',
         ]);
 
         $orderNumbers = [];
@@ -777,16 +850,21 @@ class Analise extends Component
 
     private function autofillCostTuple(?float $total, ?float $company, ?float $client): array
     {
-        if (!is_null($company) && !is_null($client)) {
-            $total = round($company + $client, 2);
-        }
-
         if (!is_null($total) && !is_null($company) && is_null($client)) {
             $client = round($total - $company, 2);
         }
 
         if (!is_null($total) && !is_null($client) && is_null($company)) {
             $company = round($total - $client, 2);
+        }
+
+        if (!is_null($total) && !is_null($company) && !is_null($client)) {
+            $company = min($company, $total);
+            $client = round($total - $company, 2);
+        }
+
+        if (is_null($total) && !is_null($company) && !is_null($client)) {
+            $total = round($company + $client, 2);
         }
 
         if (!is_null($company) && $company < 0) {
@@ -802,7 +880,7 @@ class Analise extends Component
         return [$total, $company, $client];
     }
 
-    private function estimateProportionalityFromOrders(array $orders): ?float
+    private function estimateProportionalityFromOrders(array $orders): float
     {
         $sumCompany = 0.0;
         $sumClient = 0.0;
@@ -821,14 +899,15 @@ class Analise extends Component
 
         $base = $sumCompany + $sumClient;
         if ($base <= 0) {
-            return null;
+            // Default contratual: 100% cliente e 0% empresa.
+            return 0.0;
         }
 
         $pct = round(($sumCompany / $base) * 100, 2);
         return max(0, min(100, $pct));
     }
 
-    private function recalculateProportionalityFromOrders(): void
+    private function estimateClientSharePercentFromOrders(): float
     {
         $normalizedOrders = collect($this->reviewOrders)->map(function ($row) {
             return [
@@ -837,8 +916,8 @@ class Analise extends Component
             ];
         })->all();
 
-        $pct = $this->estimateProportionalityFromOrders($normalizedOrders);
-        $this->proportionality_value = is_null($pct) ? null : number_format((float) $pct, 2, ',', '.');
+        $companyPct = $this->estimateProportionalityFromOrders($normalizedOrders);
+        return max(0, min(100, round(100 - $companyPct, 2)));
     }
 
     private function isRejectedProjectReviewResubmission(): bool
@@ -864,8 +943,6 @@ class Analise extends Component
 
         return [
             'orders' => $orders,
-            'proportionality_ok' => is_null($this->proportionality_ok) ? null : (bool) $this->proportionality_ok,
-            'proportionality_value' => $this->normalizeBrNumber($this->proportionality_value),
         ];
     }
 
@@ -957,7 +1034,19 @@ class Analise extends Component
             return;
         }
 
-        if ($this->requiresProjectReview) {
+        if ($this->requiresProjectReview && !$this->isConclusionDirectCloseWithoutProjectReview()) {
+            if (!is_array($this->reviewOrders) || !count($this->reviewOrders)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'ORDENS OBRIGATÓRIAS',
+                    'html'     => 'Para esta conclusão, é obrigatório informar ao menos uma ordem para análise.',
+                ]);
+                return;
+            }
+        }
+
+        if ($this->shouldSendToProjectReview) {
             try {
                 $this->validateProjectReviewPayload();
             } catch (ValidationException $e) {
@@ -988,13 +1077,21 @@ class Analise extends Component
 
 
 
-        if ($this->requiresProjectReview) {
+        if ($this->shouldSendToProjectReview) {
+            $clientSharePct = $this->estimateClientSharePercentFromOrders();
+            $highClientShareWarning = $clientSharePct > 90
+                ? "<div class='alert alert-warning mt-2 mb-0'>
+                        Custo cliente em <strong>{$clientSharePct}%</strong>. Aguarde a aprovação do projeto antes de alterar no SAP.
+                   </div>"
+                : '';
+
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENVIO PARA ANÁLISE DE PROJETO',
                 'msg'   => "Você está prestes enviar <strong>{$this->note->note}</strong> para análise de projeto.
                     <div class='card'>
                         <div class='card-body'>
                             Após o envio, a nota ficará em <strong>Em Análise</strong> até decisão do analista.
+                            {$highClientShareWarning}
                             <h4 class='text-center'>DESEJA CONTINUAR?</h4>
                         </div>
                     </div>
@@ -1030,11 +1127,55 @@ class Analise extends Component
 
     public function goFinish()
     {
-        DB::beginTransaction();
+        // Existem duas instâncias desse componente (finish/review).
+        // Apenas o contexto de encerramento deve efetivar o envio.
+        if ($this->modalContext !== 'finish') {
+            return;
+        }
+
+        $productionId = $this->production->id ?? $this->analise->production_id ?? null;
+        if (!$productionId) {
+            // Evita alertas espúrios quando o evento chega fora do fluxo ativo.
+            if (!$this->view_form) {
+                return;
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ATIVIDADE NÃO IDENTIFICADA',
+                'html'     => 'Não foi possível identificar a atividade para envio. Reabra o formulário e tente novamente.',
+            ]);
+            return;
+        }
+
+        $this->production = Production::find($productionId);
+        if (!$this->production) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ATIVIDADE NÃO ENCONTRADA',
+                'html'     => 'A atividade selecionada não está mais disponível. Atualize a tela e tente novamente.',
+            ]);
+            return;
+        }
+
+        $this->note = Note::find($this->production->note_id);
+        if (!$this->note) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'NOTA NÃO ENCONTRADA',
+                'html'     => 'A nota vinculada à atividade não foi encontrada. Atualize a tela e tente novamente.',
+            ]);
+            return;
+        }
 
         try {
+            DB::beginTransaction();
             $cycle = null;
-            if ($this->requiresProjectReview) {
+            $sendToProjectReview = $this->shouldSendToProjectReview;
+            if ($sendToProjectReview) {
                 $this->validateProjectReviewPayload();
                 $hasProjectReviewChanges = $this->hasProjectReviewPayloadChanges();
 
@@ -1045,8 +1186,6 @@ class Analise extends Component
                     'round_number' => $nextRound,
                     'submitted_by' => auth()->id(),
                     'submitted_at' => now(),
-                    'proportionality_ok' => (bool) $this->proportionality_ok,
-                    'proportionality_value' => $this->proportionality_value !== '' ? $this->proportionality_value : null,
                     'designer_note' => null,
                     'decision' => 'PENDING',
                 ]);
@@ -1065,8 +1204,8 @@ class Analise extends Component
             }
 
             $chk = $this->production->update([
-                'status'       => $this->requiresProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
-                'completed_at' => $this->requiresProjectReview ? null : date('Y-m-d H:i:s'),
+                'status'       => $sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
+                'completed_at' => $sendToProjectReview ? null : date('Y-m-d H:i:s'),
                 'postes_p'     => (int) $this->postes,
                 'postes_u'     => $this->postes ? (int) $this->postes : 0,
                 'cadastro'     => $this->cadastro ? true : false,
@@ -1074,7 +1213,7 @@ class Analise extends Component
                 'eo'           => $this->eo ? true : false,
                 'cad'          => $this->cad ? true : false,
                 'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
-                'completed'    => $this->requiresProjectReview ? false : true,
+                'completed'    => $sendToProjectReview ? false : true,
                 'confirmed'    => false,
                 'priority'     => false,
                 'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
@@ -1088,10 +1227,10 @@ class Analise extends Component
                     'service_id' => $this->production->service_id,
                     'user_id'    => Auth()->User()->id,
                     'production_id' => $this->production->id,
-                    'info'       => $this->requiresProjectReview
+                    'info'       => $sendToProjectReview
                         ? "Usuário {$user} enviou a Nota/OV para Análise de Projeto (rodada {$cycle->round_number})."
                         : "Usuário {$user} encerrou a Nota/OV.",
-                    'status'     => $this->requiresProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
+                    'status'     => $sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
                 ]);
 
                 //Encerrar RI Caso existir
@@ -1104,13 +1243,7 @@ class Analise extends Component
                             'completed_at' => date('Y-m-d H:i:s'),
                         ]);
 
-                        if ($d5->Viabilities->count()) {
-                            foreach ($d5->Viabilities as $viab) {
-                                $viab->update([
-                                    'status' => 13
-                                ]);
-                            }
-                        }
+                        $d5->Viabilities()->update(['status' => 13]);
                     }
                 }
 
@@ -1143,34 +1276,31 @@ class Analise extends Component
 
                 //     }
                 // }
-
-
-
                 DB::commit();
-
-                $this->emitTo('files.manager.create-prod-files', 'saveFiles');
-
-                // if ($this->hasFile) {
-                //     $this->emitTo('files.manager.create-prod-files', 'saveFiles');
-                // } else {
-                //     $this->clean();
-                //     $this->dispatchBrowserEvent('hideModal');
-                //     $this->emit('refresh_accomany');
-                // }
-
+            } else {
+                throw new \RuntimeException('Não foi possível atualizar a atividade.');
             }
-
         } catch (\Throwable $th) {
-            DB::rollback();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            report($th);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'NÃO ENVIADO',
-                'html'     => 'Não conseguimos enviar a atividade para análise, tente novamente.<br>'.$th->getMessage(),
+                'html'     => 'Não conseguimos enviar a atividade para análise. Revise os dados e tente novamente.',
             ]);
 
             return;
+        }
+
+        try {
+            $this->emitTo('files.manager.create-prod-files', 'saveFiles');
+        } catch (\Throwable $th) {
+            report($th);
+            $this->toContinue();
         }
     }
 
@@ -1182,8 +1312,8 @@ class Analise extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => $this->requiresProjectReview ? 'ENVIADO PARA ANÁLISE' : 'ENCERRADO COM SUCESSO',
-            'html'     => $this->requiresProjectReview
+            'title'    => $this->shouldSendToProjectReview ? 'ENVIADO PARA ANÁLISE' : 'ENCERRADO COM SUCESSO',
+            'html'     => $this->shouldSendToProjectReview
                 ? 'Nota/OV enviada para Análise de Projeto com sucesso.'
                 : 'Nota/OV encerrada com sucesso.',
             'timer'   => 2500,
@@ -1216,9 +1346,8 @@ class Analise extends Component
         $this->order_input_company = '';
         $this->order_input_client = '';
         $this->projectReviewLastSnapshot = null;
-        $this->proportionality_ok = null;
-        $this->proportionality_value = null;
         $this->designer_note = null;
+        $this->riRequest = null;
         $this->rejectedFindings = [];
         $this->reviewMessages = [];
         $this->newContestationMessage = null;
@@ -1265,9 +1394,8 @@ class Analise extends Component
         $this->order_input_company = '';
         $this->order_input_client = '';
         $this->projectReviewLastSnapshot = null;
-        $this->proportionality_ok = null;
-        $this->proportionality_value = null;
         $this->designer_note = '';
+        $this->riRequest = null;
         $this->rejectedFindings = [];
         $this->reviewMessages = [];
         $this->newContestationMessage = '';

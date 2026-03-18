@@ -33,7 +33,6 @@ class QueueListExport implements FromArray, WithHeadings, WithTitle, ShouldAutoS
             'Custo total',
             'Custo empresa',
             'Custo cliente',
-            'Proporcionalidade aplicada',
             'Status',
             'Quando foi enviado',
             'Analista',

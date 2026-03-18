@@ -149,14 +149,6 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
             $companyCostsText = $orders->map(fn ($o) => number_format((float) $o->company_cost, 2, ',', '.'))->implode(' | ');
             $clientCostsText = $orders->map(fn ($o) => number_format((float) $o->client_cost, 2, ',', '.'))->implode(' | ');
 
-            $proportionality = '---';
-            if (!is_null($cycle?->proportionality_ok)) {
-                $proportionality = $cycle->proportionality_ok ? 'Sim' : 'Não';
-                if (!is_null($cycle->proportionality_value)) {
-                    $proportionality .= ' (' . number_format((float) $cycle->proportionality_value, 2, ',', '.') . '%)';
-                }
-            }
-
             $latestDecidedCycle = collect($production->ProjectReviewCycles)
                 ->first(function ($c) {
                     return !is_null($c->decided_at);
@@ -170,7 +162,6 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
                 $totalsText !== '' ? $totalsText : '---',
                 $companyCostsText !== '' ? $companyCostsText : '---',
                 $clientCostsText !== '' ? $clientCostsText : '---',
-                $proportionality,
                 Notestatus::status((int) $production->status)->status,
                 $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---',
                 $latestDecidedCycle?->DecidedBy?->name ?? '---',

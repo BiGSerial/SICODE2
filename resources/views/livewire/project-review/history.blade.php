@@ -53,7 +53,6 @@
                             <th>Custo total</th>
                             <th>Custo empresa</th>
                             <th>Custo cliente</th>
-                            <th>Proporcionalidade aplicada</th>
                             <th>Status</th>
                             <th>Analista</th>
                             <th>Quando foi enviado</th>
@@ -121,16 +120,6 @@
                                         ---
                                     @endif
                                 </td>
-                                <td>
-                                    @if (is_null($cycle?->proportionality_ok))
-                                        ---
-                                    @else
-                                        {{ $cycle->proportionality_ok ? 'Sim' : 'Não' }}
-                                        @if (!is_null($cycle->proportionality_value))
-                                            ({{ number_format((float) $cycle->proportionality_value, 2, ',', '.') }}%)
-                                        @endif
-                                    @endif
-                                </td>
                                 <td><span class="badge {{ $status->colorbg }}">{{ $status->status }}</span></td>
                                 <td>{{ $cycle?->DecidedBy?->name ?? '---' }}</td>
                                 <td>{{ $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---' }}</td>
@@ -139,7 +128,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="12" class="text-center text-muted">Sem registros.</td></tr>
+                            <tr><td colspan="11" class="text-center text-muted">Sem registros.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -299,9 +299,44 @@
                 </div>
             </section>
 
-            @if ($this->requiresProjectReview)
+            @if ($production->d5 && $riRequest)
+                <section id="ri-request" class="mb-4">
+                    <h2 class="h5 mb-3">2. Solicitação Original da RI</h2>
+                    <div class="card-soft border-warning">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="small text-muted">Categoria RI</div>
+                                    <div class="fw-semibold">{{ $riRequest['category'] ?? '---' }}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="small text-muted">Subcategoria</div>
+                                    <div class="fw-semibold">{{ $riRequest['subcategory_group'] ?? '---' }} / {{ $riRequest['subcategory'] ?? '---' }}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="small text-muted">Solicitado por</div>
+                                    <div class="fw-semibold">
+                                        {{ $riRequest['requested_by'] ?? '---' }}
+                                        @if (!empty($riRequest['requested_at']))
+                                            <span class="text-muted">({{ $riRequest['requested_at'] }})</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (!empty($riRequest['message']))
+                                <hr>
+                                <div class="small text-muted mb-1">Descrição da solicitação</div>
+                                <div class="border rounded p-2 bg-light" style="white-space: pre-line;">{{ $riRequest['message'] }}</div>
+                            @endif
+                        </div>
+                    </div>
+                </section>
+            @endif
+
+            @if ($this->shouldSendToProjectReview)
                 <section id="project-review-data" class="mb-4">
-                    <h2 class="h5 mb-3">2. Dados para Análise de Projeto</h2>
+                    <h2 class="h5 mb-3">{{ $production->d5 ? '3' : '2' }}. Dados para Análise de Projeto</h2>
                     <div class="card-soft">
                         <div class="card-body">
                             <h6 class="mb-3">Ordens e Valores</h6>
@@ -406,36 +441,13 @@
                                 </table>
                             </div>
 
-                            <div class="row g-3 mt-3 no-edge">
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Proporcionalidade aplicada</label>
-                                    <select class="form-select @error('proportionality_ok') is-invalid @enderror" wire:model.defer="proportionality_ok">
-                                        <option value="">Selecione...</option>
-                                        <option value="1">Sim</option>
-                                        <option value="0">Não</option>
-                                    </select>
-                                    @error('proportionality_ok')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Valor aplicado (%)</label>
-                                    <input type="text"
-                                        class="form-control @error('proportionality_value') is-invalid @enderror"
-                                        wire:model.defer="proportionality_value" inputmode="decimal" data-br-money data-proportionality-field>
-                                    @error('proportionality_value')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    <div id="proportionality-estimate-hint" class="form-text text-muted"></div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </section>
             @endif
 
             <section id="resultado-desenho" class="mb-4">
-                <h2 class="h5 mb-3">{{ $this->requiresProjectReview ? '3' : '2' }}. Resultado do Desenho</h2>
+                <h2 class="h5 mb-3">{{ ($production->d5 || $this->shouldSendToProjectReview) ? '3' : '2' }}. Resultado do Desenho</h2>
                 <div class="card-soft">
                     <div class="card-body">
                         <form>
@@ -462,7 +474,7 @@
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Postes</label>
                                     <input type="number" min="0" max="300" class="form-control @error('postes') is-invalid @enderror"
-                                        wire:model.defer="postes" @disabled(($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') || in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
+                                        wire:model="postes" @disabled(($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') || in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
                                     @error('postes')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -491,19 +503,19 @@
                             <div class="row g-3 mt-2 no-edge">
                                 @if (($preresult === 'NORMAL' || $preresult === 'REVALIDACAO') && !$production->d5)
                                     <div class="col-auto form-check ms-2">
-                                        <input class="form-check-input @error('eo') is-invalid @enderror" type="checkbox" wire:model.defer="eo" id="eoCheck">
+                                        <input class="form-check-input @error('eo') is-invalid @enderror" type="checkbox" wire:model="eo" id="eoCheck">
                                         <label class="form-check-label" for="eoCheck">EO</label>
                                     </div>
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input @error('iproject') is-invalid @enderror" type="checkbox" wire:model.defer="iproject" id="ipCheck">
+                                        <input class="form-check-input @error('iproject') is-invalid @enderror" type="checkbox" wire:model="iproject" id="ipCheck">
                                         <label class="form-check-label" for="ipCheck">iProject</label>
                                     </div>
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input @error('cad') is-invalid @enderror" type="checkbox" wire:model.defer="cad" id="cadCheck">
+                                        <input class="form-check-input @error('cad') is-invalid @enderror" type="checkbox" wire:model="cad" id="cadCheck">
                                         <label class="form-check-label" for="cadCheck">AutoCad</label>
                                     </div>
                                     <div class="col-auto form-check">
-                                        <input class="form-check-input @error('cadastro') is-invalid @enderror" type="checkbox" wire:model.defer="cadastro" id="cadCadastroCheck">
+                                        <input class="form-check-input @error('cadastro') is-invalid @enderror" type="checkbox" wire:model="cadastro" id="cadCadastroCheck">
                                         <label class="form-check-label" for="cadCadastroCheck">Cadastro</label>
                                     </div>
                                 @endif
@@ -511,7 +523,7 @@
                                 @if ($cadastro)
                                     <div class="col-md-3">
                                         <label class="form-label fw-semibold">Postes Cadastro</label>
-                                        <input type="number" min="0" max="300" class="form-control @error('postes_c') is-invalid @enderror" wire:model.defer="postes_c">
+                                        <input type="number" min="0" max="300" class="form-control @error('postes_c') is-invalid @enderror" wire:model="postes_c">
                                         @error('postes_c')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
@@ -523,9 +535,9 @@
                 </div>
             </section>
 
-            @if ($production->status === 31)
+            @if ($production->status === 31 && $this->shouldSendToProjectReview)
                 <section id="project-review-rejected" class="mb-4">
-                    <h2 class="h5 mb-3 text-danger">{{ $this->requiresProjectReview ? '4' : '3' }}. Apontamentos da Reprovação</h2>
+                    <h2 class="h5 mb-3 text-danger">{{ $this->shouldSendToProjectReview ? '4' : '3' }}. Apontamentos da Reprovação</h2>
                     <div class="card border-danger shadow-sm">
                         <div class="card-body">
                             @php
@@ -628,7 +640,7 @@
             @endif
 
             <section id="arquivos-info" class="mb-5">
-                <h2 class="h5 mb-3">{{ $this->requiresProjectReview ? '5' : '4' }}. Arquivos & Informações</h2>
+                <h2 class="h5 mb-3">{{ $this->shouldSendToProjectReview ? '5' : '4' }}. Arquivos & Informações</h2>
                 <div class="card-soft">
                     <div class="card-body">
                         @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => $needFiles], key('production_' . $production->id))
@@ -654,7 +666,7 @@
                 <div class="container d-flex justify-content-end gap-2">
                     <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
                     <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
-                    <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">{{ $this->requiresProjectReview ? 'Enviar para análise' : 'Encerrar' }}</button>
+                    <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">{{ $this->shouldSendToProjectReview ? 'Enviar para análise' : 'Encerrar' }}</button>
                 </div>
             </footer>
         @endif
@@ -715,7 +727,16 @@
             });
         }
 
-        function applyAutoFillCosts(scopeEl) {
+        function roundMoney(value) {
+            return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+        }
+
+        function writeInputValue(input, value) {
+            if (!input) return;
+            input.value = value === null ? '' : formatBrMoney(value);
+        }
+
+        function applyAutoFillCosts(scopeEl, changedField = null) {
             if (!scopeEl || scopeEl.dataset.orderCalcLock === '1') return;
 
             const totalInput = scopeEl.querySelector('[data-order-field="total"]');
@@ -727,27 +748,112 @@
             let company = parseBrMoney(companyInput.value);
             let client = parseBrMoney(clientInput.value);
 
+            const prevCompanyRatio = (() => {
+                const prev = parseFloat(scopeEl.dataset.companyRatio || '');
+                return Number.isFinite(prev) ? Math.max(0, Math.min(1, prev)) : 0;
+            })();
+
+            const lockedTotalEditRatio = (() => {
+                const locked = parseFloat(scopeEl.dataset.totalEditCompanyRatio || '');
+                return Number.isFinite(locked) ? Math.max(0, Math.min(1, locked)) : null;
+            })();
+
             let changed = false;
 
-            if (company !== null && client !== null) {
-                const computedTotal = +(company + client).toFixed(2);
-                if (total === null || Math.abs(total - computedTotal) > 0.009) {
-                    total = computedTotal;
-                    totalInput.value = formatBrMoney(total);
+            if (changedField === 'total') {
+                if (total !== null) {
+                    if (company !== null && client !== null) {
+                        const ratioBase = company + client;
+                        const ratioCompany = lockedTotalEditRatio !== null
+                            ? lockedTotalEditRatio
+                            : (ratioBase > 0 ? (company / ratioBase) : prevCompanyRatio);
+
+                        company = roundMoney(total * ratioCompany);
+                        client = roundMoney(total - company);
+                        writeInputValue(companyInput, company);
+                        writeInputValue(clientInput, client);
+                        changed = true;
+                    } else if (company !== null && client === null) {
+                        client = roundMoney(total - company);
+                        if (client < 0) {
+                            company = total;
+                            client = 0;
+                            writeInputValue(companyInput, company);
+                        }
+                        writeInputValue(clientInput, client);
+                        changed = true;
+                    } else if (client !== null && company === null) {
+                        company = roundMoney(total - client);
+                        if (company < 0) {
+                            client = total;
+                            company = 0;
+                            writeInputValue(clientInput, client);
+                        }
+                        writeInputValue(companyInput, company);
+                        changed = true;
+                    } else {
+                        company = 0;
+                        client = total;
+                        writeInputValue(companyInput, company);
+                        writeInputValue(clientInput, client);
+                        changed = true;
+                    }
+                }
+            } else if (changedField === 'company') {
+                if (company !== null && total !== null) {
+                    if (company > total) {
+                        company = total;
+                        writeInputValue(companyInput, company);
+                    }
+                    client = roundMoney(total - company);
+                    writeInputValue(clientInput, client);
+                    changed = true;
+                } else if (company !== null && client !== null && total === null) {
+                    total = roundMoney(company + client);
+                    writeInputValue(totalInput, total);
                     changed = true;
                 }
+            } else if (changedField === 'client') {
+                if (client !== null && total !== null) {
+                    if (client > total) {
+                        client = total;
+                        writeInputValue(clientInput, client);
+                    }
+                    company = roundMoney(total - client);
+                    writeInputValue(companyInput, company);
+                    changed = true;
+                } else if (client !== null && company !== null && total === null) {
+                    total = roundMoney(company + client);
+                    writeInputValue(totalInput, total);
+                    changed = true;
+                }
+            } else if (company !== null && client !== null && total === null) {
+                total = roundMoney(company + client);
+                writeInputValue(totalInput, total);
+                changed = true;
             } else if (total !== null && company !== null && client === null) {
-                const computedClient = +(total - company).toFixed(2);
-                if (computedClient >= 0) {
-                    clientInput.value = formatBrMoney(computedClient);
-                    changed = true;
-                }
+                client = roundMoney(total - company);
+                if (client < 0) client = 0;
+                writeInputValue(clientInput, client);
+                changed = true;
             } else if (total !== null && client !== null && company === null) {
-                const computedCompany = +(total - client).toFixed(2);
-                if (computedCompany >= 0) {
-                    companyInput.value = formatBrMoney(computedCompany);
-                    changed = true;
-                }
+                company = roundMoney(total - client);
+                if (company < 0) company = 0;
+                writeInputValue(companyInput, company);
+                changed = true;
+            } else if (total !== null && company === null && client === null) {
+                company = 0;
+                client = total;
+                writeInputValue(companyInput, company);
+                writeInputValue(clientInput, client);
+                changed = true;
+            }
+
+            const base = (company ?? 0) + (client ?? 0);
+            if (base > 0) {
+                scopeEl.dataset.companyRatio = String((company ?? 0) / base);
+            } else {
+                scopeEl.dataset.companyRatio = '0';
             }
 
             if (changed) {
@@ -760,79 +866,73 @@
             }
         }
 
+        function syncOrderRatios() {
+            document.querySelectorAll('[data-order-calc-scope]').forEach(function(scopeEl) {
+                const companyInput = scopeEl.querySelector('[data-order-field="company"]');
+                const clientInput = scopeEl.querySelector('[data-order-field="client"]');
+                if (!companyInput || !clientInput) return;
+
+                const company = parseBrMoney(companyInput.value);
+                const client = parseBrMoney(clientInput.value);
+                const base = (company ?? 0) + (client ?? 0);
+                scopeEl.dataset.companyRatio = base > 0 ? String((company ?? 0) / base) : '0';
+            });
+        }
+
         function bindOrderAutoFill() {
             document.querySelectorAll('[data-order-calc-scope]').forEach(function(scopeEl) {
                 if (scopeEl.dataset.orderCalcBound === '1') return;
                 scopeEl.dataset.orderCalcBound = '1';
+                scopeEl.dataset.companyRatio = scopeEl.dataset.companyRatio || '0';
 
-                const handler = function(e) {
+                const rememberField = function(e) {
                     if (!e.target || !e.target.matches('[data-order-field]')) return;
-                    applyAutoFillCosts(scopeEl);
+                    const field = e.target.getAttribute('data-order-field') || '';
+                    scopeEl.dataset.lastEditedField = field;
+
+                    if (field === 'total') {
+                        const companyInput = scopeEl.querySelector('[data-order-field="company"]');
+                        const clientInput = scopeEl.querySelector('[data-order-field="client"]');
+                        const company = parseBrMoney(companyInput?.value);
+                        const client = parseBrMoney(clientInput?.value);
+                        const base = (company ?? 0) + (client ?? 0);
+
+                        if (base > 0) {
+                            scopeEl.dataset.totalEditCompanyRatio = String((company ?? 0) / base);
+                        } else {
+                            scopeEl.dataset.totalEditCompanyRatio = scopeEl.dataset.companyRatio || '0';
+                        }
+                    }
                 };
 
-                scopeEl.addEventListener('input', handler);
-                scopeEl.addEventListener('change', handler);
-                scopeEl.addEventListener('blur', handler, true);
-            });
-        }
+                const recalcHandler = function(e) {
+                    if (!e.target || !e.target.matches('[data-order-field]')) return;
+                    const changedField = e.target.getAttribute('data-order-field') || scopeEl.dataset.lastEditedField || null;
+                    applyAutoFillCosts(scopeEl, changedField);
+                };
 
-        function updateProportionalityEstimate() {
-            const rows = document.querySelectorAll('tr[data-order-calc-scope="row"]');
-            const hint = document.getElementById('proportionality-estimate-hint');
-            if (!hint) return;
-
-            let sumCompany = 0;
-            let sumClient = 0;
-
-            rows.forEach(function(row) {
-                const company = parseBrMoney(row.querySelector('[data-order-field="company"]')?.value);
-                const client = parseBrMoney(row.querySelector('[data-order-field="client"]')?.value);
-                if (company !== null && client !== null) {
-                    sumCompany += company;
-                    sumClient += client;
-                }
+                scopeEl.addEventListener('focusin', rememberField);
+                scopeEl.addEventListener('input', recalcHandler);
+                scopeEl.addEventListener('change', recalcHandler);
+                scopeEl.addEventListener('blur', recalcHandler, true);
+                scopeEl.addEventListener('focusout', function(e) {
+                    if (!e.target || !e.target.matches('[data-order-field="total"]')) return;
+                    delete scopeEl.dataset.totalEditCompanyRatio;
+                });
             });
 
-            const base = sumCompany + sumClient;
-            if (base <= 0) {
-                hint.textContent = '';
-                return;
-            }
-
-            const pctCompany = Math.max(0, Math.min(100, +(sumCompany / base * 100).toFixed(2)));
-            const pctClient = +(100 - pctCompany).toFixed(2);
-
-            hint.textContent = `Previsão automática: ${formatBrMoney(pctCompany)}% empresa | ${formatBrMoney(pctClient)}% cliente`;
-        }
-
-        function bindProportionalityEstimate() {
-            if (document.body.dataset.proportionalityGlobalBound !== '1') {
-                document.body.dataset.proportionalityGlobalBound = '1';
-                document.addEventListener('input', function(e) {
-                    if (!e.target) return;
-                    if (e.target.matches('[data-order-field="total"], [data-order-field="company"], [data-order-field="client"]')) {
-                        updateProportionalityEstimate();
-                    }
-                });
-                document.addEventListener('change', function(e) {
-                    if (!e.target) return;
-                    if (e.target.matches('[data-order-field="total"], [data-order-field="company"], [data-order-field="client"]')) {
-                        updateProportionalityEstimate();
-                    }
-                });
-            }
-
-            updateProportionalityEstimate();
+            syncOrderRatios();
+            document.querySelectorAll('[data-order-calc-scope]').forEach(function(scopeEl) {
+                applyAutoFillCosts(scopeEl);
+            });
         }
 
         document.addEventListener('livewire:load', function() {
             bindBrMoneyMasks();
             bindOrderAutoFill();
-            bindProportionalityEstimate();
             Livewire.hook('message.processed', function() {
                 bindBrMoneyMasks();
                 bindOrderAutoFill();
-                bindProportionalityEstimate();
             });
         });
 

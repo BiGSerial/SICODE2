@@ -553,12 +553,24 @@
                     window.__skipAnaliseClean = false;
                     return;
                 }
+
+                if (modalId === 'analise_form') {
+                    Livewire.emit('analise_modal_hidden');
+                }
+
                 Livewire.emitTo('services.desenho.forms.analise', 'analise_clean');
             });
         }
 
         bindAnaliseModalClean('analise_form');
         bindAnaliseModalClean('analise_review_form');
+
+        document.addEventListener('livewire:load', function() {
+            // Reforço de retomada após refresh completo da página.
+            setTimeout(function() {
+                Livewire.emitTo('services.desenho.main', 'force_check_open');
+            }, 350);
+        });
 
         document.addEventListener('click', function(e) {
             const trigger = e.target.closest('#go-finish-from-review-btn');

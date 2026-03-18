@@ -216,7 +216,6 @@
                             <th>Custo total</th>
                             <th>Custo empresa</th>
                             <th>Custo cliente</th>
-                            <th>Proporcionalidade aplicada</th>
                             <th>Status</th>
                             <th>Tipo</th>
                             <th>Quando foi enviado</th>
@@ -287,16 +286,6 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @if (is_null($cycle?->proportionality_ok))
-                                        ---
-                                    @else
-                                        {{ $cycle->proportionality_ok ? 'Sim' : 'Não' }}
-                                        @if (!is_null($cycle->proportionality_value))
-                                            ({{ number_format((float) $cycle->proportionality_value, 2, ',', '.') }}%)
-                                        @endif
-                                    @endif
-                                </td>
-                                <td>
                                     @php
                                         $status = \App\Custom\Notestatus::status($prod->status);
                                         $latestRound = (int) ($prod->latest_round_number ?? ($cycle?->round_number ?? 1));
@@ -320,7 +309,7 @@
                                 <td><button class="btn btn-sm btn-outline-primary" wire:click="openReview({{ $prod->id }})">Abrir</button></td>
                             </tr>
                         @empty
-                            <tr><td colspan="13" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
+                            <tr><td colspan="12" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -355,7 +344,7 @@
                                 </div>
 
                                 <div class="card card-soft mb-3">
-                                    <div class="card-header">Ordens, Valores e Proporcionalidade</div>
+                                    <div class="card-header">Ordens e Valores</div>
                                     <div class="card-body small">
                                         @php
                                             $cyclesAsc = ($selectedProduction?->ProjectReviewCycles ?? collect())
@@ -401,13 +390,6 @@
 
                                             $sumNet = round($sumIncrease - $sumEconomy, 2);
                                         @endphp
-                                        <div class="mb-2">
-                                            <strong>Proporcionalidade:</strong>
-                                            {{ is_null($selectedCycle->proportionality_ok) ? '---' : ($selectedCycle->proportionality_ok ? 'Sim' : 'Não') }}
-                                            @if (!is_null($selectedCycle->proportionality_value))
-                                                ({{ number_format((float) $selectedCycle->proportionality_value, 2, ',', '.') }}%)
-                                            @endif
-                                        </div>
                                         <div class="fw-semibold mb-1">Histórico por ordem</div>
                                         <div class="table-responsive border rounded" style="max-height: 240px;">
                                             <table class="table table-sm mb-0">
