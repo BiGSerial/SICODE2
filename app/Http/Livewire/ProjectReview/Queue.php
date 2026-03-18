@@ -185,7 +185,6 @@ class Queue extends Component
     {
         return ProjectReviewSubcategory::with('Category', 'Items')
             ->where('active', true)
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }
@@ -194,7 +193,6 @@ class Queue extends Component
     {
         return ProjectReviewCategory::query()
             ->where('active', true)
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }
@@ -209,7 +207,6 @@ class Queue extends Component
             ->where('active', true)
             ->where('category_id', $this->selectedCategoryId)
             ->with('Category')
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }
@@ -223,7 +220,6 @@ class Queue extends Component
         return ProjectReviewItem::query()
             ->where('active', true)
             ->where('subcategory_id', $this->selectedSubcategoryId)
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }

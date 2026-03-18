@@ -1,40 +1,104 @@
-<div class="card mt-4">
-    <h4 class="card-header mb-3 edp-bg-sprucegreen-70 text-edp-verde">Categorias - Análise de Projetos</h4>
-    <div class="card-body">
+<div class="prc-page mt-4">
+    <style>
+        .prc-page {
+            --prc-bg: #f6f7fb;
+            --prc-surface: #ffffff;
+            --prc-ink: #1f2933;
+            --prc-muted: #6b7280;
+            --prc-accent: #0f766e;
+            --prc-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--prc-bg);
+            padding: 1rem;
+        }
+
+        .prc-main-card {
+            background: var(--prc-surface);
+            border: 1px solid var(--prc-border);
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        .prc-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            padding: 1rem 1.25rem;
+        }
+
+        .prc-header h4 {
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .prc-section-title {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: var(--prc-muted);
+        }
+
+        .prc-table-wrap {
+            background: var(--prc-surface);
+            border: 1px solid var(--prc-border);
+            border-radius: 0;
+            overflow: hidden;
+        }
+
+        .prc-table-wrap .table {
+            margin-bottom: 0;
+        }
+
+        .prc-table-wrap .table td {
+            padding: 0.6rem 0.75rem;
+            color: var(--prc-ink);
+        }
+    </style>
+    <div class="card prc-main-card">
+        <h4 class="prc-header">Categorias - Análise de Projetos</h4>
+        <div class="card-body p-4">
         <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-md-9">
                 <label class="form-label">Nova categoria</label>
-                <input type="text" class="form-control" wire:model.defer="category_name" placeholder="Ex: POSTE">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Ordem</label>
-                <input type="number" min="0" class="form-control" wire:model.defer="category_sort">
+                <input type="text" class="form-control border border-secondary" wire:model.defer="category_name"
+                    placeholder="Ex: POSTE">
             </div>
             <div class="col-md-3 d-flex align-items-end">
                 <div class="d-flex w-100 gap-2">
-                    <button class="btn btn-primary w-100" wire:click="saveCategory">Salvar categoria</button>
-                    <button class="btn btn-outline-secondary w-100" wire:click="openBulkModal('category')">Massa</button>
+                    <button class="btn btn-primary w-100" wire:click="saveCategory" title="Salvar categoria" aria-label="Salvar categoria">
+                        <i class="ri-save-3-line"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary w-100" wire:click="openBulkModal('category')" title="Inserção em massa" aria-label="Inserção em massa de categorias">
+                        <i class="ri-file-copy-2-line"></i>
+                    </button>
                 </div>
             </div>
         </div>
 
         <div class="row g-3">
             <div class="col-md-4">
-                <h6 class="mb-2">Categorias</h6>
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <h6 class="mb-2 prc-section-title">Categorias</h6>
+                <div class="table-responsive prc-table-wrap" style="max-height: 300px; overflow-y: auto;">
                     <table class="table table-sm table-hover">
                         <tbody>
                             @forelse ($categories as $cat)
-                                <tr class="{{ (int) $category_id === (int) $cat->id ? 'table-primary' : '' }}" style="cursor:pointer;"
-                                    wire:click="$set('category_id', {{ $cat->id }})">
+                                <tr wire:key="pr-cat-{{ $cat->id }}"
+                                    class="{{ (int) $category_id === (int) $cat->id ? 'table-primary' : '' }}" style="cursor:pointer;"
+                                    wire:click="selectCategory({{ $cat->id }})">
                                     <td>
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <span>{{ $cat->sort_order }} - {{ $cat->name }}</span>
+                                            <span>{{ $cat->name }}</span>
                                             <div class="d-flex gap-2">
-                                                <button class="btn btn-sm btn-outline-secondary" wire:click.stop="toggleCategory({{ $cat->id }})">
-                                                    {{ $cat->active ? 'Ativa' : 'Inativa' }}
+                                                <button class="btn btn-sm {{ $cat->active ? 'btn-outline-success' : 'btn-outline-secondary' }}"
+                                                    wire:click.stop="toggleCategory({{ $cat->id }})"
+                                                    title="{{ $cat->active ? 'Desativar categoria' : 'Ativar categoria' }}"
+                                                    aria-label="{{ $cat->active ? 'Desativar categoria' : 'Ativar categoria' }}">
+                                                    <i class="{{ $cat->active ? 'ri-toggle-fill' : 'ri-toggle-line' }}"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" wire:click.stop="removeCategory({{ $cat->id }})">X</button>
+                                                <button class="btn btn-sm btn-outline-danger" wire:click.stop="removeCategory({{ $cat->id }})" title="Remover categoria" aria-label="Remover categoria">
+                                                    <i class="ri-delete-bin-6-line"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </td>
@@ -48,37 +112,45 @@
             </div>
 
             <div class="col-md-4">
-                <h6 class="mb-2">Subcategorias</h6>
+                <h6 class="mb-2 prc-section-title">Subcategorias</h6>
                 <div class="row g-2 mb-2">
-                    <div class="col-12">
-                        <input type="text" class="form-control" wire:model.defer="subcategory_name" @disabled(!$category_id)
+                    <div class="col-12 col-md-8">
+                        <input type="text" class="form-control border border-secondary" wire:model.defer="subcategory_name"
+                            @disabled(!$category_id)
                             placeholder="Ex: ESTRUTURA PRIMÁRIA">
                     </div>
-                    <div class="col-8">
-                        <input type="number" min="0" class="form-control" wire:model.defer="subcategory_sort" @disabled(!$category_id)>
-                    </div>
-                    <div class="col-4">
+                    <div class="col-12 col-md-4 d-flex align-items-end">
                         <div class="d-flex w-100 gap-2">
-                            <button class="btn btn-primary w-100" wire:click="saveSubcategory" @disabled(!$category_id)>Salvar</button>
-                            <button class="btn btn-outline-secondary w-100" wire:click="openBulkModal('subcategory')" @disabled(!$category_id)>Massa</button>
+                            <button class="btn btn-primary w-100" wire:click="saveSubcategory" @disabled(!$category_id) title="Salvar subcategoria" aria-label="Salvar subcategoria">
+                                <i class="ri-save-3-line"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary w-100" wire:click="openBulkModal('subcategory')" @disabled(!$category_id) title="Inserção em massa" aria-label="Inserção em massa de subcategorias">
+                                <i class="ri-file-copy-2-line"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <div class="table-responsive prc-table-wrap" style="max-height: 300px; overflow-y: auto;">
                     <table class="table table-sm table-hover">
                         <tbody>
                             @forelse ($subcategories as $sub)
-                                <tr class="{{ (int) $subcategory_id === (int) $sub->id ? 'table-primary' : '' }}" style="cursor:pointer;"
-                                    wire:click="$set('subcategory_id', {{ $sub->id }})">
+                                <tr wire:key="pr-sub-{{ $sub->id }}"
+                                    class="{{ (int) $subcategory_id === (int) $sub->id ? 'table-primary' : '' }}" style="cursor:pointer;"
+                                    wire:click="selectSubcategory({{ $sub->id }})">
                                     <td>
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <span>{{ $sub->sort_order }} - {{ $sub->name }}</span>
+                                            <span>{{ $sub->name }}</span>
                                             <div class="d-flex gap-2">
-                                                <button class="btn btn-sm btn-outline-secondary" wire:click.stop="toggleSubcategory({{ $sub->id }})">
-                                                    {{ $sub->active ? 'Ativa' : 'Inativa' }}
+                                                <button class="btn btn-sm {{ $sub->active ? 'btn-outline-success' : 'btn-outline-secondary' }}"
+                                                    wire:click.stop="toggleSubcategory({{ $sub->id }})"
+                                                    title="{{ $sub->active ? 'Desativar subcategoria' : 'Ativar subcategoria' }}"
+                                                    aria-label="{{ $sub->active ? 'Desativar subcategoria' : 'Ativar subcategoria' }}">
+                                                    <i class="{{ $sub->active ? 'ri-toggle-fill' : 'ri-toggle-line' }}"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" wire:click.stop="removeSubcategory({{ $sub->id }})">X</button>
+                                                <button class="btn btn-sm btn-outline-danger" wire:click.stop="removeSubcategory({{ $sub->id }})" title="Remover subcategoria" aria-label="Remover subcategoria">
+                                                    <i class="ri-delete-bin-6-line"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </td>
@@ -92,36 +164,43 @@
             </div>
 
             <div class="col-md-4">
-                <h6 class="mb-2">Itens</h6>
+                <h6 class="mb-2 prc-section-title">Itens</h6>
                 <div class="row g-2 mb-2">
-                    <div class="col-12">
-                        <input type="text" class="form-control" wire:model.defer="item_name" @disabled(!$subcategory_id)
+                    <div class="col-12 col-md-8">
+                        <input type="text" class="form-control border border-secondary" wire:model.defer="item_name"
+                            @disabled(!$subcategory_id)
                             placeholder="Ex: ISOLADOR">
                     </div>
-                    <div class="col-4">
-                        <input type="number" min="0" class="form-control" wire:model.defer="item_sort" @disabled(!$subcategory_id)>
-                    </div>
-                    <div class="col-8">
+                    <div class="col-12 col-md-4 d-flex align-items-end">
                         <div class="d-flex w-100 gap-2">
-                            <button class="btn btn-primary w-100" wire:click="saveItem" @disabled(!$subcategory_id)>Salvar item</button>
-                            <button class="btn btn-outline-secondary w-100" wire:click="openBulkModal('item')" @disabled(!$subcategory_id)>Massa</button>
+                            <button class="btn btn-primary w-100" wire:click="saveItem" @disabled(!$subcategory_id) title="Salvar item" aria-label="Salvar item">
+                                <i class="ri-save-3-line"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary w-100" wire:click="openBulkModal('item')" @disabled(!$subcategory_id) title="Inserção em massa" aria-label="Inserção em massa de itens">
+                                <i class="ri-file-copy-2-line"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <div class="table-responsive prc-table-wrap" style="max-height: 300px; overflow-y: auto;">
                     <table class="table table-sm table-hover">
                         <tbody>
                             @forelse ($items as $item)
-                                <tr>
+                                <tr wire:key="pr-item-{{ $item->id }}">
                                     <td>
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <span>{{ $item->sort_order }} - {{ $item->name }}</span>
+                                            <span>{{ $item->name }}</span>
                                             <div class="d-flex gap-2">
-                                                <button class="btn btn-sm btn-outline-secondary" wire:click="toggleItem({{ $item->id }})">
-                                                    {{ $item->active ? 'Ativo' : 'Inativo' }}
+                                                <button class="btn btn-sm {{ $item->active ? 'btn-outline-success' : 'btn-outline-secondary' }}"
+                                                    wire:click="toggleItem({{ $item->id }})"
+                                                    title="{{ $item->active ? 'Desativar item' : 'Ativar item' }}"
+                                                    aria-label="{{ $item->active ? 'Desativar item' : 'Ativar item' }}">
+                                                    <i class="{{ $item->active ? 'ri-toggle-fill' : 'ri-toggle-line' }}"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" wire:click="removeItem({{ $item->id }})">X</button>
+                                                <button class="btn btn-sm btn-outline-danger" wire:click="removeItem({{ $item->id }})" title="Remover item" aria-label="Remover item">
+                                                    <i class="ri-delete-bin-6-line"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </td>
@@ -136,7 +215,7 @@
         </div>
     </div>
 
-    <div wire:ignore.self class="modal fade" id="projectReviewBulkModal" tabindex="-1" aria-hidden="true">
+        <div wire:ignore.self class="modal fade" id="projectReviewBulkModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-bg-dark">
@@ -162,10 +241,15 @@
                         placeholder="Exemplo:&#10;POSTE&#10;REDE PRIMÁRIA&#10;REDE SECUNDÁRIA"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" wire:click="saveBulk">Inserir</button>
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal" title="Cancelar" aria-label="Cancelar">
+                        <i class="ri-close-line"></i>
+                    </button>
+                    <button class="btn btn-primary" wire:click="saveBulk" title="Inserir" aria-label="Inserir">
+                        <i class="ri-check-line"></i>
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </div>

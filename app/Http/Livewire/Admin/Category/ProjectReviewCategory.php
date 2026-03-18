@@ -14,15 +14,12 @@ class ProjectReviewCategory extends Component
     public $subcategory_id;
 
     public $category_name;
-    public $category_sort = 0;
     public $category_active = true;
 
     public $subcategory_name;
-    public $subcategory_sort = 0;
     public $subcategory_active = true;
 
     public $item_name;
-    public $item_sort = 0;
     public $item_active = true;
 
     public string $bulk_target = '';
@@ -31,7 +28,6 @@ class ProjectReviewCategory extends Component
     public function getCategoriesProperty()
     {
         return ProjectReviewCategoryModel::query()
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }
@@ -44,7 +40,6 @@ class ProjectReviewCategory extends Component
 
         return ProjectReviewSubcategory::query()
             ->where('category_id', $this->category_id)
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }
@@ -57,7 +52,6 @@ class ProjectReviewCategory extends Component
 
         return ProjectReviewItem::query()
             ->where('subcategory_id', $this->subcategory_id)
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
     }
@@ -66,7 +60,6 @@ class ProjectReviewCategory extends Component
     {
         $this->validate([
             'category_name' => 'required|string|max:191',
-            'category_sort' => 'nullable|integer|min:0',
         ]);
 
         ProjectReviewCategoryModel::updateOrCreate(
@@ -74,13 +67,12 @@ class ProjectReviewCategory extends Component
                 'name' => mb_strtoupper(trim((string) $this->category_name)),
             ],
             [
-                'sort_order' => (int) $this->category_sort,
+                'sort_order' => 0,
                 'active' => (bool) $this->category_active,
             ]
         );
 
-        $this->reset(['category_name', 'category_sort']);
-        $this->category_sort = 0;
+        $this->reset(['category_name']);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -95,7 +87,6 @@ class ProjectReviewCategory extends Component
         $this->validate([
             'category_id' => 'required|exists:project_review_categories,id',
             'subcategory_name' => 'required|string|max:191',
-            'subcategory_sort' => 'nullable|integer|min:0',
         ]);
 
         ProjectReviewSubcategory::updateOrCreate(
@@ -104,13 +95,12 @@ class ProjectReviewCategory extends Component
                 'name' => mb_strtoupper(trim((string) $this->subcategory_name)),
             ],
             [
-                'sort_order' => (int) $this->subcategory_sort,
+                'sort_order' => 0,
                 'active' => (bool) $this->subcategory_active,
             ]
         );
 
-        $this->reset(['subcategory_name', 'subcategory_sort']);
-        $this->subcategory_sort = 0;
+        $this->reset(['subcategory_name']);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -125,7 +115,6 @@ class ProjectReviewCategory extends Component
         $this->validate([
             'subcategory_id' => 'required|exists:project_review_subcategories,id',
             'item_name' => 'required|string|max:191',
-            'item_sort' => 'nullable|integer|min:0',
         ]);
 
         $subcategoryId = (int) $this->subcategory_id;
@@ -141,20 +130,19 @@ class ProjectReviewCategory extends Component
 
         if ($existing) {
             $existing->update([
-                'sort_order' => (int) $this->item_sort,
+                'sort_order' => 0,
                 'active' => (bool) $this->item_active,
             ]);
         } else {
             ProjectReviewItem::create([
                 'subcategory_id' => $subcategoryId,
                 'name' => $incomingName,
-                'sort_order' => (int) $this->item_sort,
+                'sort_order' => 0,
                 'active' => (bool) $this->item_active,
             ]);
         }
 
-        $this->reset(['item_name', 'item_sort']);
-        $this->item_sort = 0;
+        $this->reset(['item_name']);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -233,11 +221,10 @@ class ProjectReviewCategory extends Component
             return [$this->normalizeCompareKey((string) $name) => true];
         })->all();
 
-        $sort = (int) (ProjectReviewCategoryModel::query()->max('sort_order') ?? 0);
         $inserted = 0;
         $skipped = 0;
 
-        DB::transaction(function () use ($parsed, &$existingKeys, &$sort, &$inserted, &$skipped) {
+        DB::transaction(function () use ($parsed, &$existingKeys, &$inserted, &$skipped) {
             foreach ($parsed as $row) {
                 if (isset($existingKeys[$row['key']])) {
                     $skipped++;
@@ -246,7 +233,7 @@ class ProjectReviewCategory extends Component
 
                 ProjectReviewCategoryModel::create([
                     'name' => $row['name'],
-                    'sort_order' => ++$sort,
+                    'sort_order' => 0,
                     'active' => true,
                 ]);
 
@@ -270,11 +257,10 @@ class ProjectReviewCategory extends Component
             return [$this->normalizeCompareKey((string) $name) => true];
         })->all();
 
-        $sort = (int) (ProjectReviewSubcategory::query()->where('category_id', $categoryId)->max('sort_order') ?? 0);
         $inserted = 0;
         $skipped = 0;
 
-        DB::transaction(function () use ($parsed, $categoryId, &$existingKeys, &$sort, &$inserted, &$skipped) {
+        DB::transaction(function () use ($parsed, $categoryId, &$existingKeys, &$inserted, &$skipped) {
             foreach ($parsed as $row) {
                 if (isset($existingKeys[$row['key']])) {
                     $skipped++;
@@ -284,7 +270,7 @@ class ProjectReviewCategory extends Component
                 ProjectReviewSubcategory::create([
                     'category_id' => $categoryId,
                     'name' => $row['name'],
-                    'sort_order' => ++$sort,
+                    'sort_order' => 0,
                     'active' => true,
                 ]);
 
@@ -308,11 +294,10 @@ class ProjectReviewCategory extends Component
             return [$this->normalizeCompareKey((string) $name) => true];
         })->all();
 
-        $sort = (int) (ProjectReviewItem::query()->where('subcategory_id', $subcategoryId)->max('sort_order') ?? 0);
         $inserted = 0;
         $skipped = 0;
 
-        DB::transaction(function () use ($parsed, $subcategoryId, &$existingKeys, &$sort, &$inserted, &$skipped) {
+        DB::transaction(function () use ($parsed, $subcategoryId, &$existingKeys, &$inserted, &$skipped) {
             foreach ($parsed as $row) {
                 if (isset($existingKeys[$row['key']])) {
                     $skipped++;
@@ -322,7 +307,7 @@ class ProjectReviewCategory extends Component
                 ProjectReviewItem::create([
                     'subcategory_id' => $subcategoryId,
                     'name' => $row['name'],
-                    'sort_order' => ++$sort,
+                    'sort_order' => 0,
                     'active' => true,
                 ]);
 
@@ -480,5 +465,16 @@ class ProjectReviewCategory extends Component
             'subcategories' => $this->subcategories,
             'items' => $this->items,
         ]);
+    }
+
+    public function selectCategory(int $id): void
+    {
+        $this->category_id = $id;
+        $this->subcategory_id = null;
+    }
+
+    public function selectSubcategory(int $id): void
+    {
+        $this->subcategory_id = $id;
     }
 }
