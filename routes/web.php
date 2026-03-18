@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -286,6 +286,13 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
 
     });
 
+});
+
+Route::prefix('/project-review')->controller(ProjectReviewController::class)->middleware('auth')->middleware(['can:engineer'])->name('project_review.')->group(function () {
+    Route::get('/list', 'list')->name('list');
+    Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/history', 'history')->name('history');
+    Route::get('/categories', 'categories')->name('categories');
 });
 
 

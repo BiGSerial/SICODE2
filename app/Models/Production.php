@@ -13,6 +13,9 @@ class Production extends Model
 {
     use HasFactory;
 
+    public const STATUS_IN_PROJECT_REVIEW = 30;
+    public const STATUS_REJECTED_PROJECT_REVIEW = 31;
+
     protected $fillable = [
         'note_id',
         'service_id',
@@ -157,6 +160,16 @@ class Production extends Model
     public function Notetimelines()
     {
         return $this->hasMany(Notetimeline::class);
+    }
+
+    public function ProjectReviewCycles()
+    {
+        return $this->hasMany(ProjectReviewCycle::class)->orderBy('round_number');
+    }
+
+    public function ProjectReviewMessages()
+    {
+        return $this->hasMany(ProjectReviewMessage::class);
     }
 
     public function fiveNotes(): MorphToMany

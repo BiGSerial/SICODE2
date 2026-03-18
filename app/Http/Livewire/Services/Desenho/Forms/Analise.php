@@ -3,12 +3,15 @@
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
 use App\Helpers\SelectOptions;
-use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production, Reclaim};
+use App\Models\{Analise as ModelsAnalise, File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim};
+use App\Notifications\SystemNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Illuminate\Support\Collection;
 
 class Analise extends Component
 {
@@ -100,6 +103,27 @@ class Analise extends Component
 
     public $preresult;
 
+    public $reviewOrders = [];
+    public $projectReviewLastSnapshot = null;
+    public $order_input_number = '';
+    public $order_input_total = '';
+    public $order_input_company = '';
+    public $order_input_client = '';
+
+    public $proportionality_ok;
+
+    public $proportionality_value;
+
+    public $designer_note;
+
+    public $rejectedFindings = [];
+
+    public $reviewMessages = [];
+
+    public $newContestationMessage;
+    public bool $viewOnlyProjectReview = false;
+    public string $modalContext = 'finish';
+
 
     // Files
     public $files = [];
@@ -120,19 +144,39 @@ class Analise extends Component
         'hasFile',
         'savedFiles',
         'continue' => 'toContinue',
+        'projectReviewMessageCreated' => '$refresh',
+        'goToFinishFlow' => 'goToFinishFlow',
+        'openFinishModalFromReview' => 'openFinishModalFromReview',
+        'openFinishConfirmation' => 'openFinishConfirmation',
 
     ];
 
+    public function mount(string $modalContext = 'finish'): void
+    {
+        $this->modalContext = $modalContext;
+    }
+
     public function openAnalise($data)
     {
+        $isViewOnlyRequest = (bool) ($data['viewOnlyProjectReview'] ?? false);
+        if ($this->modalContext === 'review' && !$isViewOnlyRequest) {
+            return;
+        }
+
+        if ($this->modalContext === 'finish' && $isViewOnlyRequest) {
+            return;
+        }
+
         $this->clean();
         $this->clean_form();
 
         $productionId = $data['productionId'];
         $noteId       = $data['noteId'];
+        $this->viewOnlyProjectReview = $isViewOnlyRequest;
 
         $this->production = Production::find($productionId);
         $this->note       = Note::find($noteId);
+        $this->loadProjectReviewDraft();
 
         // Verficando a existencia de uma analise ja atriobuida para esta produção
         $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
@@ -165,33 +209,34 @@ class Analise extends Component
 
             $time = 0;
 
-            if ($this->production->status === 4) {
-                $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
+            if ($this->production->status !== Production::STATUS_REJECTED_PROJECT_REVIEW) {
+                if ($this->production->status === 4) {
+                    $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
-                if ($hist) {
-                    $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
-                    $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
+                    if ($hist) {
+                        $time = (Carbon::parse($hist->created_at))->diffInSeconds(Carbon::now());
+                        $hist->update(['return_stop' => date('Y-m-d H:i:s')]);
+                    }
                 }
-
-            }
-            // Coloca nota em andamento
-            $update = $this->production->update([
-                'status'  => 3,
-                'stopped' => $this->production->stopped + $time,
-            ]);
-
-            if ($update && $this->production->status !== 3) {
-                // Registra Movimento Nota
-                $user = Auth()->User()->name;
-
-                Notetimeline::Create([
-                    'note_id'      => $this->note->id,
-                    'service_id'   => $this->production->service_id,
-                    'user_id'      => Auth()->User()->id,
-                    'info'         => "Usuário {$user} iniciou a Nota/OV.",
-                    'status'       => 3,
-                    'productionId' => $this->production->id,
+                // Coloca nota em andamento
+                $update = $this->production->update([
+                    'status'  => 3,
+                    'stopped' => $this->production->stopped + $time,
                 ]);
+
+                if ($update && $this->production->status !== 3) {
+                    // Registra Movimento Nota
+                    $user = Auth()->User()->name;
+
+                    Notetimeline::Create([
+                        'note_id'      => $this->note->id,
+                        'service_id'   => $this->production->service_id,
+                        'user_id'      => Auth()->User()->id,
+                        'info'         => "Usuário {$user} iniciou a Nota/OV.",
+                        'status'       => 3,
+                        'productionId' => $this->production->id,
+                    ]);
+                }
             }
 
             if ($this->production->d5) {
@@ -209,6 +254,74 @@ class Analise extends Component
 
             $this->view_form = true;
         }
+    }
+
+    private function loadProjectReviewDraft(): void
+    {
+        if (!$this->production) {
+            return;
+        }
+
+        $latestCycle = $this->production->ProjectReviewCycles()
+            ->with([
+                'Orders',
+                'Findings.Subcategory.Category',
+                'Findings.Item',
+                'Messages.User',
+            ])
+            ->latest('round_number')
+            ->first();
+
+        if ($latestCycle) {
+            $this->proportionality_ok = is_null($latestCycle->proportionality_ok) ? null : (bool) $latestCycle->proportionality_ok;
+            $this->proportionality_value = is_null($latestCycle->proportionality_value)
+                ? null
+                : number_format((float) $latestCycle->proportionality_value, 2, ',', '.');
+            $this->designer_note = $latestCycle->designer_note;
+
+            if ($latestCycle->Orders->count()) {
+                $this->reviewOrders = $latestCycle->Orders->map(function ($order) {
+                    return [
+                        'order_number' => $order->order_number,
+                        'total_cost' => number_format((float) $order->total_cost, 2, ',', '.'),
+                        'company_cost' => number_format((float) $order->company_cost, 2, ',', '.'),
+                        'client_cost' => number_format((float) $order->client_cost, 2, ',', '.'),
+                        'locked' => true,
+                    ];
+                })->toArray();
+            }
+
+            if ($this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
+                $findings = $latestCycle->Findings
+                    ->filter(function ($finding) {
+                        return in_array((string) $finding->origin, ['PROJETO', 'AMBOS'], true);
+                    })
+                    ->values();
+
+                $this->rejectedFindings = $this->mapRejectedFindingsForView($findings);
+
+                $this->reviewMessages = $latestCycle->Messages()
+                    ->with('User')
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id')
+                    ->get();
+            }
+        }
+
+        if (!count($this->reviewOrders)) {
+            $this->reviewOrders = [];
+        }
+
+        $this->projectReviewLastSnapshot = $this->buildProjectReviewSnapshot();
+    }
+
+    public function getRequiresProjectReviewProperty(): bool
+    {
+        if (!$this->production) {
+            return false;
+        }
+
+        return !$this->production->partial && !$this->production->d5 && !$this->production->dfive;
     }
 
     // OPERAÇÕES COM ARQUIVOS
@@ -349,9 +462,6 @@ class Analise extends Component
         if ($this->preresult !== 'NORMAL' && $this->preresult !== 'REVALIDACAO') {
             $this->iproject = $this->eo = $this->cadastro = false;
             $this->postes   = 1;
-            $this->odi      = '';
-            $this->odd      = '';
-            $this->ods      = '';
         }
 
         // if ($this->conclusion === 'ARQUIVADO' || $this->conclusion === 'RETORNADO LEVANTAMENTO') {
@@ -364,18 +474,6 @@ class Analise extends Component
 
 
         $this->info = '';
-
-        if (trim($this->odi) != '') {
-            $this->info .= 'ODI/DR - ' . $this->odi . "\n";
-        }
-
-        if (trim($this->odi) != '') {
-            $this->info .= 'ODD/PEP - ' . $this->odd . "\n";
-        }
-
-        if (trim($this->odi) != '') {
-            $this->info .= 'ODS - ' . $this->ods . "\n";
-        }
 
         if (trim($this->postes) != '') {
             $this->info .= 'POSTES - ' . $this->postes . "\n";
@@ -424,6 +522,360 @@ class Analise extends Component
             'info'       => $this->info,
             'preresult'  => $this->preresult,
         ]);
+    }
+
+    public function addOrderToList(): void
+    {
+        $this->validate([
+            'order_input_number' => 'required|string|max:100',
+        ], [
+            'order_input_number.required' => 'Informe o número da ordem.',
+        ]);
+
+        $total = $this->normalizeBrNumber($this->order_input_total);
+        $company = $this->normalizeBrNumber($this->order_input_company);
+        $client = $this->normalizeBrNumber($this->order_input_client);
+
+        [$total, $company, $client] = $this->autofillCostTuple($total, $company, $client);
+
+        $this->order_input_total = is_null($total) ? '' : number_format($total, 2, ',', '.');
+        $this->order_input_company = is_null($company) ? '' : number_format($company, 2, ',', '.');
+        $this->order_input_client = is_null($client) ? '' : number_format($client, 2, ',', '.');
+
+        if (is_null($total) || $total < 0) {
+            $this->addError('order_input_total', 'Informe um custo total válido.');
+            return;
+        }
+
+        if (is_null($company) || $company < 0) {
+            $this->addError('order_input_company', 'Informe um custo empresa válido.');
+            return;
+        }
+
+        if (is_null($client) || $client < 0) {
+            $this->addError('order_input_client', 'Informe um custo cliente válido.');
+            return;
+        }
+
+        $newNumber = trim((string) $this->order_input_number);
+        $exists = collect($this->reviewOrders)->contains(function ($row) use ($newNumber) {
+            return trim((string) ($row['order_number'] ?? '')) === $newNumber;
+        });
+
+        if ($exists) {
+            $this->addError('order_input_number', 'Número de ordem já adicionado nesta submissão.');
+            return;
+        }
+
+        $this->reviewOrders[] = [
+            'order_number' => $newNumber,
+            'total_cost' => number_format($total, 2, ',', '.'),
+            'company_cost' => number_format($company, 2, ',', '.'),
+            'client_cost' => number_format($client, 2, ',', '.'),
+            'locked' => false,
+        ];
+
+        $this->recalculateProportionalityFromOrders();
+
+        $this->order_input_number = '';
+        $this->order_input_total = '';
+        $this->order_input_company = '';
+        $this->order_input_client = '';
+    }
+
+    public function removeReviewOrder(int $index): void
+    {
+        if ($this->isRejectedProjectReviewResubmission() && !empty($this->reviewOrders[$index]['locked'])) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Ordem existente não pode ser removida',
+                'html' => 'Em reprovação, ordens já enviadas só podem ter valores ajustados.',
+                'timer' => 2800,
+            ]);
+            return;
+        }
+
+        if (isset($this->reviewOrders[$index])) {
+            unset($this->reviewOrders[$index]);
+            $this->reviewOrders = array_values($this->reviewOrders);
+            $this->recalculateProportionalityFromOrders();
+        }
+    }
+
+    public function addContestationMessage(): void
+    {
+        if (!$this->production || $this->production->status !== Production::STATUS_REJECTED_PROJECT_REVIEW) {
+            return;
+        }
+
+        $message = trim((string) $this->newContestationMessage);
+        if ($message === '') {
+            return;
+        }
+
+        $latestCycle = $this->production->ProjectReviewCycles()->latest('round_number')->first();
+        if (!$latestCycle) {
+            return;
+        }
+
+        ProjectReviewMessage::create([
+            'production_id' => $this->production->id,
+            'cycle_id' => $latestCycle->id,
+            'user_id' => auth()->id(),
+            'message' => $message,
+        ]);
+
+        $recipientIds = collect()
+            ->push((int) ($latestCycle->decided_by ?? 0))
+            ->merge(
+                $latestCycle->Messages()
+                    ->where('user_id', '!=', auth()->id())
+                    ->pluck('user_id')
+            )
+            ->filter(fn ($id) => (int) $id > 0)
+            ->unique()
+            ->values();
+
+        if ($recipientIds->isNotEmpty()) {
+            $recipients = \App\Models\User::whereIn('id', $recipientIds)->get();
+
+            foreach ($recipients as $recipient) {
+                $recipient->notify(new SystemNotification(
+                    titulo: 'Novo comentário na Análise de Projeto',
+                    mensagem: 'Novo comentário do desenhista na nota <strong>' . ($this->production->Note->note ?? '-') . '</strong>.',
+                    link: route('project_review.list'),
+                    status: 2,
+                    extras: []
+                ));
+            }
+        }
+
+        $this->newContestationMessage = '';
+        $this->reviewMessages = $latestCycle->Messages()
+            ->with('User')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    public function goToFinishFlow(): void
+    {
+        $this->viewOnlyProjectReview = false;
+
+        $this->dispatchBrowserEvent('projectReviewGoToFinish');
+    }
+
+    public function openFinishModalFromReview(): void
+    {
+        if (!$this->production) {
+            return;
+        }
+
+        $this->viewOnlyProjectReview = false;
+        $this->dispatchBrowserEvent('switchToFinishModal');
+    }
+
+    public function openFinishConfirmation(): void
+    {
+        if (!$this->production) {
+            return;
+        }
+
+        $this->to_finish($this->production);
+    }
+
+    private function validateProjectReviewPayload(): void
+    {
+        $normalizedOrders = collect($this->reviewOrders)->map(function ($row) {
+            $total = $this->normalizeBrNumber($row['total_cost'] ?? null);
+            $company = $this->normalizeBrNumber($row['company_cost'] ?? null);
+            $client = $this->normalizeBrNumber($row['client_cost'] ?? null);
+            [$total, $company, $client] = $this->autofillCostTuple($total, $company, $client);
+
+            return [
+                'order_number' => trim((string) ($row['order_number'] ?? '')),
+                'total_cost' => $total,
+                'company_cost' => $company,
+                'client_cost' => $client,
+            ];
+        })->all();
+
+        $this->reviewOrders = collect($normalizedOrders)->map(function ($row) {
+            return [
+                'order_number' => $row['order_number'],
+                'total_cost' => is_null($row['total_cost']) ? '' : number_format((float) $row['total_cost'], 2, '.', ''),
+                'company_cost' => is_null($row['company_cost']) ? '' : number_format((float) $row['company_cost'], 2, '.', ''),
+                'client_cost' => is_null($row['client_cost']) ? '' : number_format((float) $row['client_cost'], 2, '.', ''),
+            ];
+        })->all();
+
+        $normalizedProportionalityValue = $this->normalizeBrNumber($this->proportionality_value);
+        if (is_null($normalizedProportionalityValue)) {
+            $normalizedProportionalityValue = $this->estimateProportionalityFromOrders($normalizedOrders);
+        }
+        $this->proportionality_value = is_null($normalizedProportionalityValue)
+            ? null
+            : number_format((float) $normalizedProportionalityValue, 2, '.', '');
+
+        $this->validate([
+            'reviewOrders' => 'required|array|min:1',
+            'reviewOrders.*.order_number' => 'required|string|max:100',
+            'reviewOrders.*.total_cost' => 'required|numeric|min:0',
+            'reviewOrders.*.company_cost' => 'required|numeric|min:0',
+            'reviewOrders.*.client_cost' => 'required|numeric|min:0',
+            'proportionality_ok' => 'required|boolean',
+            'proportionality_value' => 'nullable|numeric|min:0',
+        ], [
+            'reviewOrders.required' => 'Adicione pelo menos uma ordem.',
+            'reviewOrders.*.order_number.required' => 'Informe o número da ordem.',
+            'proportionality_ok.required' => 'Informe a proporcionalidade aplicada.',
+        ]);
+
+        $orderNumbers = [];
+        foreach ($this->reviewOrders as $index => $row) {
+            $number = trim((string) ($row['order_number'] ?? ''));
+            if ($number === '') {
+                continue;
+            }
+
+            if (in_array($number, $orderNumbers, true)) {
+                $this->addError("reviewOrders.{$index}.order_number", 'Número de ordem duplicado nesta submissão.');
+            }
+            $orderNumbers[] = $number;
+        }
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            throw ValidationException::withMessages($this->getErrorBag()->toArray());
+        }
+    }
+
+    private function normalizeBrNumber($value): ?float
+    {
+        if (is_null($value)) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $raw = str_replace(' ', '', $raw);
+
+        if (str_contains($raw, ',')) {
+            $raw = str_replace('.', '', $raw);
+            $raw = str_replace(',', '.', $raw);
+        }
+
+        if (!is_numeric($raw)) {
+            return null;
+        }
+
+        return (float) $raw;
+    }
+
+    private function autofillCostTuple(?float $total, ?float $company, ?float $client): array
+    {
+        if (!is_null($company) && !is_null($client)) {
+            $total = round($company + $client, 2);
+        }
+
+        if (!is_null($total) && !is_null($company) && is_null($client)) {
+            $client = round($total - $company, 2);
+        }
+
+        if (!is_null($total) && !is_null($client) && is_null($company)) {
+            $company = round($total - $client, 2);
+        }
+
+        if (!is_null($company) && $company < 0) {
+            $company = null;
+        }
+        if (!is_null($client) && $client < 0) {
+            $client = null;
+        }
+        if (!is_null($total) && $total < 0) {
+            $total = null;
+        }
+
+        return [$total, $company, $client];
+    }
+
+    private function estimateProportionalityFromOrders(array $orders): ?float
+    {
+        $sumCompany = 0.0;
+        $sumClient = 0.0;
+
+        foreach ($orders as $row) {
+            $company = $row['company_cost'] ?? null;
+            $client = $row['client_cost'] ?? null;
+
+            if (is_null($company) || is_null($client)) {
+                continue;
+            }
+
+            $sumCompany += (float) $company;
+            $sumClient += (float) $client;
+        }
+
+        $base = $sumCompany + $sumClient;
+        if ($base <= 0) {
+            return null;
+        }
+
+        $pct = round(($sumCompany / $base) * 100, 2);
+        return max(0, min(100, $pct));
+    }
+
+    private function recalculateProportionalityFromOrders(): void
+    {
+        $normalizedOrders = collect($this->reviewOrders)->map(function ($row) {
+            return [
+                'company_cost' => $this->normalizeBrNumber($row['company_cost'] ?? null),
+                'client_cost' => $this->normalizeBrNumber($row['client_cost'] ?? null),
+            ];
+        })->all();
+
+        $pct = $this->estimateProportionalityFromOrders($normalizedOrders);
+        $this->proportionality_value = is_null($pct) ? null : number_format((float) $pct, 2, ',', '.');
+    }
+
+    private function isRejectedProjectReviewResubmission(): bool
+    {
+        return $this->requiresProjectReview
+            && (int) ($this->production->status ?? 0) === Production::STATUS_REJECTED_PROJECT_REVIEW;
+    }
+
+    private function buildProjectReviewSnapshot(): array
+    {
+        $orders = collect($this->reviewOrders)
+            ->map(function ($row) {
+                return [
+                    'order_number' => trim((string) ($row['order_number'] ?? '')),
+                    'total_cost' => $this->normalizeBrNumber($row['total_cost'] ?? null),
+                    'company_cost' => $this->normalizeBrNumber($row['company_cost'] ?? null),
+                    'client_cost' => $this->normalizeBrNumber($row['client_cost'] ?? null),
+                ];
+            })
+            ->sortBy('order_number')
+            ->values()
+            ->all();
+
+        return [
+            'orders' => $orders,
+            'proportionality_ok' => is_null($this->proportionality_ok) ? null : (bool) $this->proportionality_ok,
+            'proportionality_value' => $this->normalizeBrNumber($this->proportionality_value),
+        ];
+    }
+
+    private function hasProjectReviewPayloadChanges(): bool
+    {
+        if (!$this->isRejectedProjectReviewResubmission()) {
+            return true;
+        }
+
+        return $this->buildProjectReviewSnapshot() !== (array) $this->projectReviewLastSnapshot;
     }
 
     public function to_pause()
@@ -505,6 +957,20 @@ class Analise extends Component
             return;
         }
 
+        if ($this->requiresProjectReview) {
+            try {
+                $this->validateProjectReviewPayload();
+            } catch (ValidationException $e) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'DADOS DA ANÁLISE INCOMPLETOS',
+                    'html'     => collect($e->errors())->flatten()->take(3)->implode('<br>'),
+                ]);
+                return;
+            }
+        }
+
 
 
         if (!$this->hasFile && SelectOptions::verifyNeedFilesReclaims($this->conclusion)) {
@@ -522,25 +988,44 @@ class Analise extends Component
 
 
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'ENCERRAMENTO DE SERVIÇO',
-            'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
-                <div class='card'>
-                    <div class='card-body'>
-                        Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
-                        Uma vez encerrado, essa operação nao poderá ser desfeita.
-                        <h4 class='text-center'>DESEJA CONTINAR COM O ENCERRAMENTO DO SERVIÇO?</h4>
+        if ($this->requiresProjectReview) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENVIO PARA ANÁLISE DE PROJETO',
+                'msg'   => "Você está prestes enviar <strong>{$this->note->note}</strong> para análise de projeto.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Após o envio, a nota ficará em <strong>Em Análise</strong> até decisão do analista.
+                            <h4 class='text-center'>DESEJA CONTINUAR?</h4>
+                        </div>
                     </div>
-                </div>
-            ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Continue!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_goFinish',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Ação Cancelada.',
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_goFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
 
-        ]);
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'ENCERRAMENTO DE SERVIÇO',
+                'msg'   => "Você está prestes encerrar <strong>{$this->note->note}</strong>.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.
+                            <h4 class='text-center'>DESEJA CONTINUAR?</h4>
+                        </div>
+                    </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Continue!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_goFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
+            ]);
+        }
     }
 
     public function goFinish()
@@ -548,20 +1033,48 @@ class Analise extends Component
         DB::beginTransaction();
 
         try {
+            $cycle = null;
+            if ($this->requiresProjectReview) {
+                $this->validateProjectReviewPayload();
+                $hasProjectReviewChanges = $this->hasProjectReviewPayloadChanges();
+
+                $nextRound = ((int) $this->production->ProjectReviewCycles()->max('round_number')) + 1;
+
+                $cycle = ProjectReviewCycle::create([
+                    'production_id' => $this->production->id,
+                    'round_number' => $nextRound,
+                    'submitted_by' => auth()->id(),
+                    'submitted_at' => now(),
+                    'proportionality_ok' => (bool) $this->proportionality_ok,
+                    'proportionality_value' => $this->proportionality_value !== '' ? $this->proportionality_value : null,
+                    'designer_note' => null,
+                    'decision' => 'PENDING',
+                ]);
+
+                if ($hasProjectReviewChanges) {
+                    foreach (array_values($this->reviewOrders) as $index => $row) {
+                        $cycle->Orders()->create([
+                            'order_number' => trim((string) $row['order_number']),
+                            'total_cost' => (float) $row['total_cost'],
+                            'company_cost' => (float) $row['company_cost'],
+                            'client_cost' => (float) $row['client_cost'],
+                            'sort_order' => $index,
+                        ]);
+                    }
+                }
+            }
+
             $chk = $this->production->update([
-                'status'       => 5,
-                'completed_at' => date('Y-m-d H:i:s'),
+                'status'       => $this->requiresProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
+                'completed_at' => $this->requiresProjectReview ? null : date('Y-m-d H:i:s'),
                 'postes_p'     => (int) $this->postes,
-                'odi'          => $this->odi ? trim($this->odi) : null,
-                'odd'          => $this->odd ? trim($this->odd) : null,
-                'ods'          => $this->ods ? trim($this->ods) : null,
                 'postes_u'     => $this->postes ? (int) $this->postes : 0,
                 'cadastro'     => $this->cadastro ? true : false,
                 'iproject'     => $this->iproject ? true : false,
                 'eo'           => $this->eo ? true : false,
                 'cad'          => $this->cad ? true : false,
                 'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
-                'completed'    => true,
+                'completed'    => $this->requiresProjectReview ? false : true,
                 'confirmed'    => false,
                 'priority'     => false,
                 'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
@@ -574,8 +1087,11 @@ class Analise extends Component
                     'note_id'    => $this->note->id,
                     'service_id' => $this->production->service_id,
                     'user_id'    => Auth()->User()->id,
-                    'info'       => "Usuário {$user} encerrou a Nota/OV.",
-                    'status'     => 5,
+                    'production_id' => $this->production->id,
+                    'info'       => $this->requiresProjectReview
+                        ? "Usuário {$user} enviou a Nota/OV para Análise de Projeto (rodada {$cycle->round_number})."
+                        : "Usuário {$user} encerrou a Nota/OV.",
+                    'status'     => $this->requiresProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
                 ]);
 
                 //Encerrar RI Caso existir
@@ -650,8 +1166,8 @@ class Analise extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
-                'title'    => 'NÃO FINALIZADO',
-                'html'     => 'Não COnseguimos encerrar a atividade, tente novamente.<br>'.$th->getMessage(),
+                'title'    => 'NÃO ENVIADO',
+                'html'     => 'Não conseguimos enviar a atividade para análise, tente novamente.<br>'.$th->getMessage(),
             ]);
 
             return;
@@ -666,8 +1182,10 @@ class Analise extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => 'ENCERRADO COM SUCESSO',
-            'html'     => 'Nota/OV encerrada com sucesso.',
+            'title'    => $this->requiresProjectReview ? 'ENVIADO PARA ANÁLISE' : 'ENCERRADO COM SUCESSO',
+            'html'     => $this->requiresProjectReview
+                ? 'Nota/OV enviada para Análise de Projeto com sucesso.'
+                : 'Nota/OV encerrada com sucesso.',
             'timer'   => 2500,
         ]);
 
@@ -692,6 +1210,19 @@ class Analise extends Component
         $this->view_form   = false;
         $this->postes        = null;
         $this->postes_c      = null;
+        $this->reviewOrders = [];
+        $this->order_input_number = '';
+        $this->order_input_total = '';
+        $this->order_input_company = '';
+        $this->order_input_client = '';
+        $this->projectReviewLastSnapshot = null;
+        $this->proportionality_ok = null;
+        $this->proportionality_value = null;
+        $this->designer_note = null;
+        $this->rejectedFindings = [];
+        $this->reviewMessages = [];
+        $this->newContestationMessage = null;
+        $this->viewOnlyProjectReview = false;
 
 
     }
@@ -728,11 +1259,90 @@ class Analise extends Component
         $this->iproject      = false;
         $this->eo            = false;
         $this->cad           = false;
+        $this->reviewOrders = [];
+        $this->order_input_number = '';
+        $this->order_input_total = '';
+        $this->order_input_company = '';
+        $this->order_input_client = '';
+        $this->projectReviewLastSnapshot = null;
+        $this->proportionality_ok = null;
+        $this->proportionality_value = null;
+        $this->designer_note = '';
+        $this->rejectedFindings = [];
+        $this->reviewMessages = [];
+        $this->newContestationMessage = '';
+        $this->viewOnlyProjectReview = false;
 
     }
 
     public function render()
     {
         return view('livewire.services.desenho.forms.analise');
+    }
+
+    private function mapRejectedFindingsForView(Collection $findings): array
+    {
+        return $findings->map(function ($finding) {
+            return [
+                'id' => (int) $finding->id,
+                'category_name' => optional(optional($finding->Subcategory)->Category)->name ?: 'Sem categoria',
+                'subcategory_name' => optional($finding->Subcategory)->name ?: 'Sem subcategoria',
+                'item_id' => $finding->item_id ? (int) $finding->item_id : null,
+                'item_name' => optional($finding->Item)->name ?: 'Estrutura sem item',
+                'action_type' => $finding->action_type,
+                'quantity' => $finding->quantity,
+                'origin' => $finding->origin,
+                'note' => $finding->note,
+            ];
+        })->values()->all();
+    }
+
+    public function downloadFile(int $fileId)
+    {
+        if (!$this->production) {
+            return null;
+        }
+
+        $file = File::query()
+            ->where('id', $fileId)
+            ->where('note_id', $this->production->note_id)
+            ->first();
+
+        if (!$file) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Arquivo não encontrado',
+                'html' => 'O arquivo selecionado não está disponível para esta nota.',
+                'timer' => 2600,
+            ]);
+            return null;
+        }
+
+        if (!$file->path || !Storage::exists($file->path)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Arquivo indisponível',
+                'html' => 'Não foi possível localizar o arquivo no storage. Atualize a lista e tente novamente.',
+                'timer' => 3200,
+            ]);
+            return null;
+        }
+
+        $downloadName = $file->original_name ?: ($file->file_name . ($file->ext ? '.' . $file->ext : ''));
+        try {
+            return Storage::download($file->path, $downloadName);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'Erro ao baixar arquivo',
+                'html' => 'O arquivo não pôde ser lido no storage.',
+                'timer' => 3200,
+            ]);
+            return null;
+        }
     }
 }

@@ -1,0 +1,554 @@
+<?php
+
+namespace App\Http\Livewire\ProjectReview;
+
+use App\Custom\Notestatus;
+use App\Jobs\Reports\ExportProjectReviewGovernanceJob;
+use App\Models\Company;
+use App\Models\Production;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Livewire\Component;
+
+class GovernanceDashboard extends Component
+{
+    public ?string $period_from = null;
+    public ?string $period_to = null;
+    public string $company_id = '';
+    public string $user_id = '';
+    public string $final_status = '';
+    public string $rejection_filter = 'all'; // all|with|without
+
+    public ?string $finalized_from = null;
+    public ?string $finalized_to = null;
+    public ?string $approved_from = null;
+    public ?string $approved_to = null;
+    public ?string $rejected_from = null;
+    public ?string $rejected_to = null;
+
+    public function mount(): void
+    {
+        $this->period_from = now()->startOfMonth()->toDateString();
+        $this->period_to = now()->toDateString();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->period_from = now()->startOfMonth()->toDateString();
+        $this->period_to = now()->toDateString();
+        $this->company_id = '';
+        $this->user_id = '';
+        $this->final_status = '';
+        $this->rejection_filter = 'all';
+        $this->finalized_from = null;
+        $this->finalized_to = null;
+        $this->approved_from = null;
+        $this->approved_to = null;
+        $this->rejected_from = null;
+        $this->rejected_to = null;
+    }
+
+    public function exportReport(): void
+    {
+        ExportProjectReviewGovernanceJob::dispatch($this->filters(), (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportação iniciada',
+            'html' => "<div class='card'><div class='card-body'>
+                <p>Seu relatório está sendo gerado.</p>
+                <p class='mb-0'><strong>Você será notificado quando o download estiver pronto.</strong></p>
+            </div></div>",
+            'timer' => 5000,
+        ]);
+    }
+
+    public function getCompaniesProperty()
+    {
+        return Company::query()->orderBy('name')->get(['id', 'name']);
+    }
+
+    public function getUsersProperty()
+    {
+        return User::query()->withTrashed()->orderBy('name')->get(['id', 'name']);
+    }
+
+    public function getStatusOptionsProperty(): array
+    {
+        return [
+            Production::STATUS_IN_PROJECT_REVIEW => Notestatus::status(Production::STATUS_IN_PROJECT_REVIEW)->status,
+            Production::STATUS_REJECTED_PROJECT_REVIEW => Notestatus::status(Production::STATUS_REJECTED_PROJECT_REVIEW)->status,
+            5 => Notestatus::status(5)->status,
+        ];
+    }
+
+    private function baseProductionsQuery()
+    {
+        $query = Production::query()
+            ->whereHas('ProjectReviewCycles');
+
+        if ($this->company_id !== '') {
+            $query->where('company_id', $this->company_id);
+        }
+
+        if ($this->user_id !== '') {
+            $query->where('user_id', $this->user_id);
+        }
+
+        if ($this->final_status !== '') {
+            $query->where('status', (int) $this->final_status);
+        }
+
+        if ($this->period_from || $this->period_to) {
+            $query->whereHas('ProjectReviewCycles', function ($q) {
+                if ($this->period_from) {
+                    $q->whereDate('submitted_at', '>=', $this->period_from);
+                }
+                if ($this->period_to) {
+                    $q->whereDate('submitted_at', '<=', $this->period_to);
+                }
+            });
+        }
+
+        if ($this->finalized_from || $this->finalized_to) {
+            if ($this->finalized_from) {
+                $query->whereDate('completed_at', '>=', $this->finalized_from);
+            }
+            if ($this->finalized_to) {
+                $query->whereDate('completed_at', '<=', $this->finalized_to);
+            }
+        }
+
+        if ($this->approved_from || $this->approved_to) {
+            $query->whereHas('ProjectReviewCycles', function ($q) {
+                $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS']);
+                if ($this->approved_from) {
+                    $q->whereDate('decided_at', '>=', $this->approved_from);
+                }
+                if ($this->approved_to) {
+                    $q->whereDate('decided_at', '<=', $this->approved_to);
+                }
+            });
+        }
+
+        if ($this->rejected_from || $this->rejected_to) {
+            $query->whereHas('ProjectReviewCycles', function ($q) {
+                $q->where('decision', 'REJECTED');
+                if ($this->rejected_from) {
+                    $q->whereDate('decided_at', '>=', $this->rejected_from);
+                }
+                if ($this->rejected_to) {
+                    $q->whereDate('decided_at', '<=', $this->rejected_to);
+                }
+            });
+        }
+
+        if ($this->rejection_filter === 'with') {
+            $query->whereHas('ProjectReviewCycles', fn($q) => $q->where('decision', 'REJECTED'));
+        }
+
+        if ($this->rejection_filter === 'without') {
+            $query->whereDoesntHave('ProjectReviewCycles', fn($q) => $q->where('decision', 'REJECTED'));
+        }
+
+        return $query;
+    }
+
+    private function findingsBaseQuery()
+    {
+        $productionIds = $this->baseProductionsQuery()->pluck('id');
+
+        return DB::table('project_review_findings as f')
+            ->join('project_review_cycles as cy', 'cy.id', '=', 'f.cycle_id')
+            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+            ->whereIn('p.id', $productionIds);
+    }
+
+    private function metrics(): array
+    {
+        $productionQuery = $this->baseProductionsQuery();
+        $productionIds = (clone $productionQuery)->pluck('id');
+
+        if ($productionIds->isEmpty()) {
+            return [
+                'summary' => [
+                    'total_productions' => 0,
+                    'with_rejection' => 0,
+                    'without_rejection' => 0,
+                    'first_pass_approval_pct' => 0,
+                    'avg_send_to_decision_hours' => 0,
+                    'avg_reject_to_resubmit_hours' => 0,
+                    'avg_total_until_final_approval_hours' => 0,
+                    'planned_total_cost' => 0,
+                    'revised_total_cost' => 0,
+                    'economy_total_cost' => 0,
+                    'increase_total_cost' => 0,
+                    'net_variation_cost' => 0,
+                    'maintained_orders_count' => 0,
+                ],
+                'charts' => [
+                    'categories' => ['labels' => [], 'data' => []],
+                    'subcategories' => ['labels' => [], 'data' => []],
+                    'items' => ['labels' => [], 'data' => []],
+                    'users_error_count' => ['labels' => [], 'data' => []],
+                    'users_error_pct' => ['labels' => [], 'data' => []],
+                    'companies' => ['labels' => [], 'data' => []],
+                    'origins' => ['labels' => [], 'data' => []],
+                    'status' => ['labels' => [], 'data' => []],
+                    'rejections_per_production' => ['labels' => [], 'data' => []],
+                ],
+                'tables' => [
+                    'top_items' => collect(),
+                    'top_subcategories' => collect(),
+                    'top_categories' => collect(),
+                    'top_users' => collect(),
+                    'user_error_percent' => collect(),
+                    'top_companies' => collect(),
+                    'origins' => collect(),
+                    'rejections_per_production' => collect(),
+                ],
+            ];
+        }
+
+        $findingsBase = $this->findingsBaseQuery();
+
+        $topCategories = (clone $findingsBase)
+            ->join('project_review_subcategories as s', 's.id', '=', 'f.subcategory_id')
+            ->join('project_review_categories as c', 'c.id', '=', 's.category_id')
+            ->selectRaw('c.name as label, COUNT(*) as total')
+            ->groupBy('c.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        $topSubcategories = (clone $findingsBase)
+            ->join('project_review_subcategories as s', 's.id', '=', 'f.subcategory_id')
+            ->selectRaw('s.name as label, COUNT(*) as total')
+            ->groupBy('s.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        $topItems = (clone $findingsBase)
+            ->join('project_review_items as i', 'i.id', '=', 'f.item_id')
+            ->join('project_review_subcategories as s', 's.id', '=', 'f.subcategory_id')
+            ->join('project_review_categories as c', 'c.id', '=', 's.category_id')
+            ->selectRaw('c.name as category, s.name as subcategory, i.name as item, COUNT(*) as total')
+            ->groupBy('c.name', 's.name', 'i.name')
+            ->orderByDesc('total')
+            ->limit(15)
+            ->get();
+
+        $topUsers = (clone $findingsBase)
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->selectRaw('u.name as label, COUNT(*) as total')
+            ->groupBy('u.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        $userErrorPercent = DB::table('project_review_cycles as cy')
+            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->whereIn('p.id', $productionIds)
+            ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
+            ->selectRaw("
+                u.name as user_name,
+                SUM(CASE WHEN cy.decision = 'REJECTED' THEN 1 ELSE 0 END) as rejected_cycles,
+                COUNT(*) as total_cycles,
+                ROUND((SUM(CASE WHEN cy.decision = 'REJECTED' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0)) * 100, 2) as error_pct
+            ")
+            ->groupBy('u.name')
+            ->orderByDesc('rejected_cycles')
+            ->orderByDesc('error_pct')
+            ->limit(15)
+            ->get();
+
+        $mainErrorByUser = (clone $findingsBase)
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->join('project_review_subcategories as s', 's.id', '=', 'f.subcategory_id')
+            ->leftJoin('project_review_categories as c', 'c.id', '=', 's.category_id')
+            ->leftJoin('project_review_items as i', 'i.id', '=', 'f.item_id')
+            ->selectRaw("
+                u.name as user_name,
+                COALESCE(c.name, 'Sem categoria') as category_name,
+                COALESCE(s.name, 'Sem subcategoria') as subcategory_name,
+                COALESCE(i.name, 'Estrutura sem item') as item_name,
+                COUNT(*) as total
+            ")
+            ->groupBy('u.name', 'c.name', 's.name', 'i.name')
+            ->orderBy('u.name')
+            ->orderByDesc('total')
+            ->get()
+            ->groupBy('user_name')
+            ->map(function ($rows) {
+                $top = $rows->first();
+                if (!$top) {
+                    return '---';
+                }
+
+                return "{$top->category_name} / {$top->subcategory_name} / {$top->item_name}";
+            });
+
+        $userErrorPercent = $userErrorPercent->map(function ($row) use ($mainErrorByUser) {
+            $row->main_error = $mainErrorByUser->get($row->user_name, '---');
+            return $row;
+        });
+
+        $topCompanies = (clone $findingsBase)
+            ->leftJoin('companies as co', 'co.id', '=', 'p.company_id')
+            ->selectRaw("COALESCE(co.name, 'Sem empresa') as label, COUNT(*) as total")
+            ->groupBy('co.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        $origins = (clone $findingsBase)
+            ->selectRaw('f.origin as label, COUNT(*) as total')
+            ->groupBy('f.origin')
+            ->orderByDesc('total')
+            ->get();
+
+        $statusDistribution = DB::table('productions as p')
+            ->whereIn('p.id', $productionIds)
+            ->selectRaw('p.status as status, COUNT(*) as total')
+            ->groupBy('p.status')
+            ->orderByDesc('total')
+            ->get()
+            ->map(function ($row) {
+                return (object) [
+                    'label' => Notestatus::status((int) $row->status)->status,
+                    'total' => (int) $row->total,
+                ];
+            });
+
+        $rejectionsPerProduction = DB::table('project_review_cycles as cy')
+            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+            ->leftJoin('notes as n', 'n.id', '=', 'p.note_id')
+            ->whereIn('p.id', $productionIds)
+            ->where('cy.decision', 'REJECTED')
+            ->selectRaw("COALESCE(n.note, CONCAT('PROD #', p.id)) as label, COUNT(*) as total")
+            ->groupBy('p.id', 'n.note')
+            ->orderByDesc('total')
+            ->limit(15)
+            ->get();
+
+        $totalProductions = $productionIds->count();
+        $withRejection = DB::table('project_review_cycles')
+            ->whereIn('production_id', $productionIds)
+            ->where('decision', 'REJECTED')
+            ->distinct('production_id')
+            ->count('production_id');
+
+        $firstPassDen = DB::table('project_review_cycles')
+            ->whereIn('production_id', $productionIds)
+            ->where('round_number', 1)
+            ->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
+            ->count();
+
+        $firstPassNum = DB::table('project_review_cycles')
+            ->whereIn('production_id', $productionIds)
+            ->where('round_number', 1)
+            ->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS'])
+            ->count();
+
+        $avgSendToDecisionHours = (float) DB::table('project_review_cycles')
+            ->whereIn('production_id', $productionIds)
+            ->whereNotNull('submitted_at')
+            ->whereNotNull('decided_at')
+            ->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
+            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, submitted_at, decided_at)) as avg_hours')
+            ->value('avg_hours');
+
+        $avgRejectToResubmitHours = (float) DB::table('project_review_cycles as c1')
+            ->join('project_review_cycles as c2', function ($join) {
+                $join->on('c1.production_id', '=', 'c2.production_id')
+                    ->on('c2.round_number', '=', DB::raw('c1.round_number + 1'));
+            })
+            ->whereIn('c1.production_id', $productionIds)
+            ->where('c1.decision', 'REJECTED')
+            ->whereNotNull('c1.decided_at')
+            ->whereNotNull('c2.submitted_at')
+            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, c1.decided_at, c2.submitted_at)) as avg_hours')
+            ->value('avg_hours');
+
+        $avgTotalUntilFinalApprovalHours = (float) DB::table('project_review_cycles as c')
+            ->joinSub(
+                DB::table('project_review_cycles')
+                    ->whereIn('production_id', $productionIds)
+                    ->selectRaw('production_id, MIN(submitted_at) as first_submitted_at')
+                    ->groupBy('production_id'),
+                'first_cycle',
+                function ($join) {
+                    $join->on('first_cycle.production_id', '=', 'c.production_id');
+                }
+            )
+            ->whereIn('c.production_id', $productionIds)
+            ->whereIn('c.decision', ['APPROVED', 'APPROVED_WITH_REMARKS'])
+            ->whereNotNull('c.decided_at')
+            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, first_cycle.first_submitted_at, c.decided_at)) as avg_hours')
+            ->value('avg_hours');
+
+        $costSummary = $this->buildCostVariationSummary($productionIds);
+
+        return [
+            'summary' => [
+                'total_productions' => $totalProductions,
+                'with_rejection' => $withRejection,
+                'without_rejection' => max(0, $totalProductions - $withRejection),
+                'first_pass_approval_pct' => $firstPassDen > 0 ? round(($firstPassNum / $firstPassDen) * 100, 2) : 0,
+                'avg_send_to_decision_hours' => round($avgSendToDecisionHours ?: 0, 2),
+                'avg_reject_to_resubmit_hours' => round($avgRejectToResubmitHours ?: 0, 2),
+                'avg_total_until_final_approval_hours' => round($avgTotalUntilFinalApprovalHours ?: 0, 2),
+                'planned_total_cost' => round($costSummary['planned_total_cost'], 2),
+                'revised_total_cost' => round($costSummary['revised_total_cost'], 2),
+                'economy_total_cost' => round($costSummary['economy_total_cost'], 2),
+                'increase_total_cost' => round($costSummary['increase_total_cost'], 2),
+                'net_variation_cost' => round($costSummary['net_variation_cost'], 2),
+                'maintained_orders_count' => (int) $costSummary['maintained_orders_count'],
+            ],
+            'charts' => [
+                'categories' => $this->toChartData($topCategories),
+                'subcategories' => $this->toChartData($topSubcategories),
+                'items' => $this->toChartData($topItems->map(fn($r) => (object) ['label' => $r->item, 'total' => $r->total])),
+                'users_error_count' => $this->toChartData($topUsers),
+                'users_error_pct' => [
+                    'labels' => $userErrorPercent->pluck('user_name')->values()->all(),
+                    'data' => $userErrorPercent->pluck('error_pct')->map(fn($v) => (float) $v)->values()->all(),
+                ],
+                'companies' => $this->toChartData($topCompanies),
+                'origins' => $this->toChartData($origins),
+                'status' => $this->toChartData($statusDistribution),
+                'rejections_per_production' => $this->toChartData($rejectionsPerProduction),
+            ],
+            'tables' => [
+                'top_items' => $topItems,
+                'top_subcategories' => $topSubcategories,
+                'top_categories' => $topCategories,
+                'top_users' => $topUsers,
+                'user_error_percent' => $userErrorPercent,
+                'top_companies' => $topCompanies,
+                'origins' => $origins,
+                'rejections_per_production' => $rejectionsPerProduction,
+            ],
+        ];
+    }
+
+    private function toChartData($rows): array
+    {
+        return [
+            'labels' => collect($rows)->pluck('label')->values()->all(),
+            'data' => collect($rows)->pluck('total')->map(fn($v) => (int) $v)->values()->all(),
+        ];
+    }
+
+    private function buildCostVariationSummary($productionIds): array
+    {
+        if (collect($productionIds)->isEmpty()) {
+            return [
+                'planned_total_cost' => 0,
+                'revised_total_cost' => 0,
+                'economy_total_cost' => 0,
+                'increase_total_cost' => 0,
+                'net_variation_cost' => 0,
+                'maintained_orders_count' => 0,
+            ];
+        }
+
+        $rows = DB::table('project_review_orders as o')
+            ->join('project_review_cycles as cy', 'cy.id', '=', 'o.cycle_id')
+            ->whereIn('cy.production_id', $productionIds)
+            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost')
+            ->orderBy('cy.production_id')
+            ->orderBy('o.order_number')
+            ->orderBy('cy.round_number')
+            ->get();
+
+        $planned = 0.0;
+        $revised = 0.0;
+        $economy = 0.0;
+        $increase = 0.0;
+        $maintainedCount = 0;
+
+        $rows->groupBy('production_id')->each(function ($productionRows) use (&$planned, &$revised, &$economy, &$increase, &$maintainedCount) {
+            $byRound = collect($productionRows)->groupBy('round_number');
+            if ($byRound->isEmpty()) {
+                return;
+            }
+
+            $firstRound = (int) $byRound->keys()->min();
+            $lastRound = (int) $byRound->keys()->max();
+
+            $firstMap = collect($byRound->get($firstRound, collect()))
+                ->groupBy('order_number')
+                ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
+
+            $lastMap = collect($byRound->get($lastRound, collect()))
+                ->groupBy('order_number')
+                ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
+
+            $planned += (float) $firstMap->sum();
+            $revised += (float) $lastMap->sum();
+
+            $allOrders = $firstMap->keys()->merge($lastMap->keys())->unique();
+            foreach ($allOrders as $orderNumber) {
+                $first = (float) ($firstMap->get($orderNumber, 0));
+                $last = (float) ($lastMap->get($orderNumber, 0));
+                $delta = round($last - $first, 2);
+
+                if ($delta > 0) {
+                    $increase += $delta;
+                } elseif ($delta < 0) {
+                    $economy += abs($delta);
+                } else {
+                    $maintainedCount++;
+                }
+            }
+        });
+
+        return [
+            'planned_total_cost' => $planned,
+            'revised_total_cost' => $revised,
+            'economy_total_cost' => $economy,
+            'increase_total_cost' => $increase,
+            'net_variation_cost' => $revised - $planned,
+            'maintained_orders_count' => $maintainedCount,
+        ];
+    }
+
+    public function render()
+    {
+        $metrics = $this->metrics();
+
+        return view('livewire.project-review.governance-dashboard', [
+            'companies' => $this->companies,
+            'users' => $this->users,
+            'statusOptions' => $this->statusOptions,
+            'summary' => $metrics['summary'],
+            'charts' => $metrics['charts'],
+            'tables' => $metrics['tables'],
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function filters(): array
+    {
+        return [
+            'period_from' => $this->period_from,
+            'period_to' => $this->period_to,
+            'company_id' => $this->company_id,
+            'user_id' => $this->user_id,
+            'final_status' => $this->final_status,
+            'rejection_filter' => $this->rejection_filter,
+            'finalized_from' => $this->finalized_from,
+            'finalized_to' => $this->finalized_to,
+            'approved_from' => $this->approved_from,
+            'approved_to' => $this->approved_to,
+            'rejected_from' => $this->rejected_from,
+            'rejected_to' => $this->rejected_to,
+        ];
+    }
+}

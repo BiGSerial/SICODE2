@@ -95,7 +95,6 @@ class Main extends Component
         if ($check) {
 
             $this->emit('open_analise_draw', ['productionId' => $check->id, 'noteId' => $check->note_id]);
-
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'analise_form',
             ]);
@@ -146,6 +145,20 @@ class Main extends Component
                 'id' => 'analise_form',
             ]);
         }
+    }
+
+    public function openProjectReviewReadonly(int $production, int $note): void
+    {
+        $this->analise = [
+            'productionId' => $production,
+            'noteId' => $note,
+            'viewOnlyProjectReview' => true,
+        ];
+
+        $this->emit('open_analise_draw', $this->analise);
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => 'analise_review_form',
+        ]);
     }
 
     public function filter_save()
@@ -213,6 +226,10 @@ class Main extends Component
             })
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where('completed', false)
+            ->where(function ($q) {
+                $q->whereNull('productions.status')
+                    ->orWhere('productions.status', '!=', Production::STATUS_IN_PROJECT_REVIEW);
+            })
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {
                     $query->whereRelation('Note', 'note', 'like', '%' . $s . '%')

@@ -281,6 +281,13 @@
                                                     wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
                                                     {{ $list->Note->note }}
                                                 </span>
+                                            @elseif ($list->status === 31)
+                                                <span class="badge text-bg-danger fs-6" style="cursor: pointer;"
+                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="Abrir análise de projeto">
+                                                    {{ $list->Note->note }}
+                                                </span>
                                             @else
                                                 {{ $list->Note->note }}
                                             @endif
@@ -379,13 +386,15 @@
                                                             style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
                                                             wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
                                                     </span>
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Transferir.">
-                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                    </span>
+                                                    @if ($list->status !== 31)
+                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                            data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                            data-bs-title="Transferir.">
+                                                            <i class="ri-exchange-fill m-0 align-middle text-primary"
+                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                                wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                                        </span>
+                                                    @endif
                                                 @endif
                                             @endif
                                         </td>
@@ -434,16 +443,35 @@
                     <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
                         {{ mb_strtoupper($service->service) }}
                     </h1>
-                    {{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
                 </div>
                 <div class="modal-body">
-                    @livewire('services.desenho.forms.analise', key('desenho-form'))
+                    @livewire('services.desenho.forms.analise', ['modalContext' => 'finish'], key('desenho-form-finish'))
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
+            </div>
+        </div>
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="analise_review_form" data-bs-backdrop="static" data-bs-keyboard="false"
+        tabindex="-1" aria-labelledby="reviewStaticBackdropLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+            <div class="modal-content h-100">
+                <div class="modal-header text-bg-success">
+                    <h1 class="modal-title fs-5 text-center" id="reviewStaticBackdropLabel">
+                        {{ mb_strtoupper($service->service) }}
+                    </h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @livewire('services.desenho.forms.analise', ['modalContext' => 'review'], key('desenho-form-review'))
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="go-finish-from-review-btn">
+                        Ir para encerramento
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        Fechar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -483,6 +511,8 @@
 
 @push('script')
     <script>
+        window.__skipAnaliseClean = false;
+
         const copyTextCells = document.querySelectorAll('.copy-text');
 
         copyTextCells.forEach(cell => {
@@ -515,9 +545,46 @@
             myModal.hide();
         })
 
-        // Monitor modal close event for analise_form
-        document.getElementById('analise_form').addEventListener('hidden.bs.modal', function(event) {
-            Livewire.emitTo('services.desenho.forms.analise', 'analise_clean');
+        function bindAnaliseModalClean(modalId) {
+            const modalEl = document.getElementById(modalId);
+            if (!modalEl) return;
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                if (window.__skipAnaliseClean) {
+                    window.__skipAnaliseClean = false;
+                    return;
+                }
+                Livewire.emitTo('services.desenho.forms.analise', 'analise_clean');
+            });
+        }
+
+        bindAnaliseModalClean('analise_form');
+        bindAnaliseModalClean('analise_review_form');
+
+        document.addEventListener('click', function(e) {
+            const trigger = e.target.closest('#go-finish-from-review-btn');
+            if (!trigger) return;
+
+            const reviewModalEl = document.getElementById('analise_review_form');
+            const finishModalEl = document.getElementById('analise_form');
+            if (!reviewModalEl || !finishModalEl) return;
+
+            // Fecha o modal atual e reabre no modo de encerramento.
+            window.__skipAnaliseClean = true;
+
+            const onHidden = function() {
+                reviewModalEl.removeEventListener('hidden.bs.modal', onHidden);
+
+                Livewire.emitTo('services.desenho.forms.analise', 'goToFinishFlow');
+
+                setTimeout(function() {
+                    const reopen = bootstrap.Modal.getOrCreateInstance(finishModalEl);
+                    reopen.show();
+                }, 180);
+            };
+
+            reviewModalEl.addEventListener('hidden.bs.modal', onHidden);
+            const modal = bootstrap.Modal.getOrCreateInstance(reviewModalEl);
+            modal.hide();
         });
     </script>
 @endpush

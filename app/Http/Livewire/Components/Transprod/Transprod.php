@@ -27,6 +27,17 @@ class Transprod extends Component
     {
         $this->production = $production->load('User', 'Note', 'Service');
 
+        if ($this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TRANSFERÊNCIA BLOQUEADA',
+                'html'     => 'Produção reprovada na análise de projeto. Corrija e reenvie antes de transferir.',
+                'timer'    => 4000,
+            ]);
+            return;
+        }
+
         if ($this->production) {
             $this->transfer_view = true;
         }
@@ -53,6 +64,16 @@ class Transprod extends Component
 
     public function transfer_prod()
     {
+        if ($this->production && $this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TRANSFERÊNCIA BLOQUEADA',
+                'html'     => 'Produção reprovada na análise de projeto. Corrija e reenvie antes de transferir.',
+                'timer'    => 4000,
+            ]);
+            return;
+        }
 
         $url = route('services.accompany', ['service' => $this->production->service_id]);
 

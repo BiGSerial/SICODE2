@@ -220,7 +220,30 @@ class Notestatus
                 'colorbg' => 'text-bg-secondary',
                 'color'   => 'secondary',
             ],
+            // 30
+            [
+                'status'  => 'Em Análise de Projeto',
+                'icon'    => 'ri-search-eye-line',
+                'colorbg' => 'text-bg-dark',
+                'color'   => 'dark',
+            ],
+            // 31
+            [
+                'status'  => 'Reprovado na Análise',
+                'icon'    => 'ri-close-circle-line',
+                'colorbg' => 'text-bg-danger',
+                'color'   => 'danger',
+            ],
         ];
+
+        if (!isset($status[$sts])) {
+            return (object) [
+                'status' => 'Status Desconhecido',
+                'icon' => 'ri-question-line',
+                'colorbg' => 'text-bg-secondary',
+                'color' => 'secondary',
+            ];
+        }
 
         return (object) $status[$sts];
     }
