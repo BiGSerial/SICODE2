@@ -162,7 +162,7 @@
 
 
 
-@if ($menu_projeto || $menu_construcao || Auth()->user()->can('engineer'))
+@if ($menu_projeto || $menu_construcao || Auth()->user()->can('management'))
     <x-menu.activities-dropdown
         :menu-projeto="$menu_projeto"
         :menu-construcao="$menu_construcao"

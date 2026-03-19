@@ -24,7 +24,7 @@
 
     $showProjeto = $projectDispatchItems->isNotEmpty() || $projectServiceItems->isNotEmpty();
     $showConstrucao = $constructionDispatchItems->isNotEmpty() || $constructionServiceItems->isNotEmpty();
-    $showProjectReviewShortcut = auth()->user()->can('engineer');
+    $showProjectReviewShortcut = auth()->user()->can('management');
 
     $buildDispatchItems = fn($items) => $items
         ->map(fn($service) => [
