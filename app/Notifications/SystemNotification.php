@@ -54,7 +54,7 @@ class SystemNotification extends Notification implements ShouldQueue
      */
     public function toDatabase($notifiable)
     {
-        return $this->payload->toDatabase();
+        return $this->resolvePayload()->toDatabase();
     }
 
     /**
@@ -64,8 +64,24 @@ class SystemNotification extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
-        return [
-            //
-        ];
+        return $this->resolvePayload()->toDatabase();
+    }
+
+    private function resolvePayload(): UserNotificationContract
+    {
+        if (isset($this->payload) && $this->payload instanceof UserNotificationContract) {
+            return $this->payload;
+        }
+
+        // Fallback para notificações antigas desserializadas da fila sem o campo payload.
+        $this->payload = UserNotificationData::fromLegacy(
+            'Notificação',
+            '',
+            null,
+            3,
+            []
+        );
+
+        return $this->payload;
     }
 }

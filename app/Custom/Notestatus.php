@@ -236,15 +236,13 @@ class Notestatus
             ],
         ];
 
-        if (!isset($status[$sts])) {
-            return (object) [
-                'status' => 'Status Desconhecido',
-                'icon' => 'ri-question-line',
-                'colorbg' => 'text-bg-secondary',
-                'color' => 'secondary',
-            ];
-        }
+        $fallback = [
+            'status' => 'Status Desconhecido',
+            'icon' => 'ri-question-line',
+            'colorbg' => 'text-bg-secondary',
+            'color' => 'secondary',
+        ];
 
-        return (object) $status[$sts];
+        return (object) ($status[$sts] ?? $fallback);
     }
 }

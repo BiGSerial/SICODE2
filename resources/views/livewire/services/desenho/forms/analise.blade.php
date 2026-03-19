@@ -42,6 +42,33 @@
         .back-to-top {
             display: none !important;
         }
+
+        .order-guide-card {
+            border: 1px solid #bfdbfe;
+            background: linear-gradient(135deg, #eff6ff, #f0fdfa);
+            border-radius: .85rem;
+            padding: .95rem 1rem;
+        }
+
+        .order-guide-card h6 {
+            color: #1e3a8a;
+            margin-bottom: .35rem;
+        }
+
+        .order-guide-card p {
+            margin-bottom: .4rem;
+            color: #1f2937;
+        }
+
+        .order-guide-card ul {
+            margin: 0;
+            padding-left: 1.15rem;
+        }
+
+        .order-guide-card li {
+            margin-bottom: .2rem;
+            color: #374151;
+        }
     </style>
 
     @if ($view_form)
@@ -337,14 +364,30 @@
             @if ($this->shouldSendToProjectReview)
                 <section id="project-review-data" class="mb-4">
                     <h2 class="h5 mb-3">{{ $production->d5 ? '3' : '2' }}. Dados para Análise de Projeto</h2>
-                    <div class="card-soft">
+                        <div class="card-soft">
                         <div class="card-body">
                             <h6 class="mb-3">Ordens e Valores</h6>
+                            <div class="order-guide-card mb-3 small">
+                                <h6>Instruções de Uso: Como Informar as Ordens</h6>
+                                <p class="mb-2">Para evitar erro no envio, siga este padrão:</p>
+                                <ul>
+                                    <li>Digite <strong>apenas 1 número de ordem</strong> por vez.</li>
+                                    <li>Preencha os valores da mesma ordem e clique em <strong>Adicionar</strong>.</li>
+                                    <li>Se houver outra ordem, repita em um novo lançamento.</li>
+                                </ul>
+                                <p class="mt-2 mb-0">
+                                    Exemplo correto: <code>123456</code>.<br>
+                                    Exemplo incorreto: <code>123456 789012</code>, <code>123456,789012</code>, <code>123456;789012</code>.
+                                </p>
+                            </div>
                             <div class="row g-2 mb-2 align-items-end no-edge" data-order-calc-scope="new">
                                 <div class="col-md-3">
                                     <label class="form-label">Número da ordem</label>
                                     <input type="text" class="form-control @error('order_input_number') is-invalid @enderror"
-                                        wire:model.defer="order_input_number">
+                                        wire:model.defer="order_input_number" data-order-number-field>
+                                    <div class="invalid-feedback d-none" data-order-number-feedback>
+                                        Informe somente uma ordem por campo.
+                                    </div>
                                     @error('order_input_number')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -374,7 +417,8 @@
                                     @enderror
                                 </div>
                                 <div class="col-md-3">
-                                    <button type="button" class="btn btn-outline-primary w-100" wire:click="addOrderToList">
+                                    <button type="button" class="btn btn-outline-primary w-100" wire:click="addOrderToList"
+                                        data-order-add-button>
                                         <i class="ri-add-line"></i> Adicionar
                                     </button>
                                 </div>
@@ -927,12 +971,47 @@
             });
         }
 
+        function hasMultipleNumericValues(rawValue) {
+            if (rawValue === null || rawValue === undefined) return false;
+            const matches = String(rawValue).match(/\d+/g) || [];
+            return matches.length > 1;
+        }
+
+        function bindOrderNumberGuard() {
+            document.querySelectorAll('[data-order-number-field]').forEach(function(input) {
+                if (input.dataset.orderNumberBound === '1') return;
+                input.dataset.orderNumberBound = '1';
+
+                const scopeEl = input.closest('[data-order-calc-scope="new"]') || document;
+                const feedback = scopeEl.querySelector('[data-order-number-feedback]');
+                const addButton = scopeEl.querySelector('[data-order-add-button]');
+
+                const validate = function() {
+                    const invalid = hasMultipleNumericValues(input.value);
+                    input.classList.toggle('is-invalid', invalid);
+                    if (feedback) {
+                        feedback.classList.toggle('d-none', !invalid);
+                    }
+                    if (addButton) {
+                        addButton.disabled = invalid;
+                    }
+                };
+
+                input.addEventListener('input', validate);
+                input.addEventListener('change', validate);
+                input.addEventListener('blur', validate);
+                validate();
+            });
+        }
+
         document.addEventListener('livewire:load', function() {
             bindBrMoneyMasks();
             bindOrderAutoFill();
+            bindOrderNumberGuard();
             Livewire.hook('message.processed', function() {
                 bindBrMoneyMasks();
                 bindOrderAutoFill();
+                bindOrderNumberGuard();
             });
         });
 

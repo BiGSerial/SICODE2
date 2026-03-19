@@ -645,6 +645,11 @@ class Analise extends Component
         }
 
         $newNumber = trim((string) $this->order_input_number);
+        if ($this->hasMultipleNumericValues($newNumber)) {
+            $this->addError('order_input_number', 'Informe somente uma ordem por campo (não use dois números separados por espaço, vírgula, ponto e vírgula etc.).');
+            return;
+        }
+
         $exists = collect($this->reviewOrders)->contains(function ($row) use ($newNumber) {
             return trim((string) ($row['order_number'] ?? '')) === $newNumber;
         });
@@ -812,6 +817,11 @@ class Analise extends Component
                 continue;
             }
 
+            if ($this->hasMultipleNumericValues($number)) {
+                $this->addError("reviewOrders.{$index}.order_number", 'Informe somente uma ordem por campo.');
+                continue;
+            }
+
             if (in_array($number, $orderNumbers, true)) {
                 $this->addError("reviewOrders.{$index}.order_number", 'Número de ordem duplicado nesta submissão.');
             }
@@ -846,6 +856,16 @@ class Analise extends Component
         }
 
         return (float) $raw;
+    }
+
+    private function hasMultipleNumericValues(?string $value): bool
+    {
+        if (is_null($value)) {
+            return false;
+        }
+
+        preg_match_all('/\d+/', $value, $matches);
+        return count($matches[0] ?? []) > 1;
     }
 
     private function autofillCostTuple(?float $total, ?float $company, ?float $client): array
