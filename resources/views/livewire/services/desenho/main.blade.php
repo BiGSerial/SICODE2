@@ -288,6 +288,13 @@
                                                     title="Abrir análise de projeto">
                                                     {{ $list->Note->note }}
                                                 </span>
+                                            @elseif ($list->status === 32)
+                                                <span class="badge text-bg-success fs-6" style="cursor: pointer;"
+                                                    wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="Finalizar no SAP">
+                                                    {{ $list->Note->note }}
+                                                </span>
                                             @else
                                                 {{ $list->Note->note }}
                                             @endif
@@ -386,7 +393,7 @@
                                                             style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
                                                             wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
                                                     </span>
-                                                    @if ($list->status !== 31)
+                                                    @if (!in_array((int) $list->status, [31, 32], true))
                                                         <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                             data-bs-title="Transferir.">

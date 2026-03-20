@@ -13,6 +13,21 @@ use Livewire\Component;
 
 class Usuario extends Component
 {
+    private const LOCKABLE_PERMISSIONS = [
+        'superadm',
+        'admin',
+        'management',
+        'engineer',
+        'responsible',
+        'operator',
+        'user',
+        'btzero',
+        'onlyparner',
+        'can_dispatch',
+        'analyst',
+        'contract',
+    ];
+
     public $user;
     public ?User $userCompany = null;
     public $companyList;
@@ -65,6 +80,20 @@ class Usuario extends Component
         'user.responsible' => 'boolean',
         'user.btzero' => 'boolean',
         'user.can_dispatch' => 'boolean',
+        'user.analyst' => 'boolean',
+        'user.permission_locks' => 'nullable|array',
+        'user.permission_locks.superadm' => 'boolean',
+        'user.permission_locks.admin' => 'boolean',
+        'user.permission_locks.management' => 'boolean',
+        'user.permission_locks.engineer' => 'boolean',
+        'user.permission_locks.responsible' => 'boolean',
+        'user.permission_locks.operator' => 'boolean',
+        'user.permission_locks.user' => 'boolean',
+        'user.permission_locks.btzero' => 'boolean',
+        'user.permission_locks.onlyparner' => 'boolean',
+        'user.permission_locks.can_dispatch' => 'boolean',
+        'user.permission_locks.analyst' => 'boolean',
+        'user.permission_locks.contract' => 'boolean',
         'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 
@@ -113,6 +142,7 @@ class Usuario extends Component
             $this->contractList = Contract::where('company_id', $this->user->company_id)->get();
             $this->company = isset($this->user->Employee->Contract->company->id) ? $this->user->Employee->Contract->company->id : '';
             $this->contract = isset($this->user->Employee->Contract->id) ? $this->user->Employee->Contract->id : '';
+            $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'userModal',
@@ -134,6 +164,7 @@ class Usuario extends Component
 
 
         $this->user = new User();
+        $this->user->permission_locks = $this->normalizePermissionLocks([]);
 
         $this->temporaryPassword = Hash::make(123456);
         $this->temporaryFirstPass = 1;
@@ -238,6 +269,30 @@ class Usuario extends Component
 
     public function Save()
     {
+        $actor = auth()->user();
+        $isSuperAdm = (bool) ($actor?->superadm);
+        $actorLocks = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
+        $originalUser = null;
+        if ($this->user?->id) {
+            $originalUser = User::withTrashed()->find($this->user->id);
+        }
+        $existingLocks = $this->normalizePermissionLocks((array) ($originalUser?->permission_locks ?? []));
+        $incomingLocks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
+        $effectiveLocks = $isSuperAdm ? $incomingLocks : $existingLocks;
+
+        if (!$isSuperAdm) {
+            foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+                if (!empty($actorLocks[$permission])) {
+                    if ($originalUser) {
+                        $this->user->{$permission} = (bool) $originalUser->{$permission};
+                    } else {
+                        $this->user->{$permission} = false;
+                    }
+                }
+            }
+        }
+
+        $this->user->permission_locks = $effectiveLocks;
 
         if ($this->temporaryFirstPass) {
             $this->user->password = $this->temporaryPassword;
@@ -287,6 +342,17 @@ class Usuario extends Component
 
         $this->closeAll();
 
+    }
+
+    private function normalizePermissionLocks(array $locks): array
+    {
+        $normalized = [];
+
+        foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+            $normalized[$permission] = (bool) ($locks[$permission] ?? false);
+        }
+
+        return $normalized;
     }
 
     public function resetPassword()

@@ -27,12 +27,15 @@ class Transprod extends Component
     {
         $this->production = $production->load('User', 'Note', 'Service');
 
-        if ($this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
+        if (in_array((int) $this->production->status, [
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'TRANSFERÊNCIA BLOQUEADA',
-                'html'     => 'Produção reprovada na análise de projeto. Corrija e reenvie antes de transferir.',
+                'html'     => 'Produção em tratativa de análise de projeto. Conclua o fluxo antes de transferir.',
                 'timer'    => 4000,
             ]);
             return;
@@ -64,12 +67,15 @@ class Transprod extends Component
 
     public function transfer_prod()
     {
-        if ($this->production && $this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
+        if ($this->production && in_array((int) $this->production->status, [
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'TRANSFERÊNCIA BLOQUEADA',
-                'html'     => 'Produção reprovada na análise de projeto. Corrija e reenvie antes de transferir.',
+                'html'     => 'Produção em tratativa de análise de projeto. Conclua o fluxo antes de transferir.',
                 'timer'    => 4000,
             ]);
             return;

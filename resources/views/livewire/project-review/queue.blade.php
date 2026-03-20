@@ -146,6 +146,63 @@
             padding: 1.25rem 1.25rem 1.75rem 1.25rem;
         }
 
+        .cat-card {
+            border: 1px solid #dbeafe !important;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        }
+
+        .cat-card > .card-header {
+            background: linear-gradient(135deg, #eff6ff, #eef2ff);
+        }
+
+        .subcat-card {
+            border: 1px solid #e5e7eb !important;
+            background: #f8fafc;
+        }
+
+        .subcat-card > .card-header {
+            background: #f1f5f9;
+        }
+
+        .origin-card {
+            border: 1px solid #e5e7eb;
+            border-radius: .6rem;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .origin-head {
+            padding: .45rem .65rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 700;
+            font-size: .82rem;
+            letter-spacing: .02em;
+        }
+
+        .origin-head.origin-levantamento {
+            background: #fff7ed;
+            color: #9a3412;
+        }
+
+        .origin-head.origin-projeto {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .origin-head.origin-ambos {
+            background: #ecfdf5;
+            color: #065f46;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
         @media (min-width: 992px) {
             .project-review-modal-body {
                 padding: 1.5rem 1.75rem 2rem 1.75rem;
@@ -161,7 +218,7 @@
             </div>
             <div class="col-12 col-lg-6">
                 <div class="row g-2">
-                    <div class="col-12 col-md-5">
+                    <div class="col-12 col-md-4">
                         <div class="filter-card">
                         <label class="form-label">Empresa</label>
                         <select class="form-select" wire:model="company_id">
@@ -172,7 +229,18 @@
                         </select>
                         </div>
                     </div>
-                    <div class="col-12 col-md-7">
+                    <div class="col-12 col-md-4">
+                        <div class="filter-card">
+                        <label class="form-label">Custo (51%+)</label>
+                        <select class="form-select" wire:model="cost_share_filter">
+                            <option value="">Todos</option>
+                            <option value="client_51">Cliente</option>
+                            <option value="company_51">Empresa</option>
+                            <option value="both_51">Cliente ou Empresa (Ambos)</option>
+                        </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
                         <div class="filter-card">
                         <label class="form-label">Buscar</label>
                         <input type="text" class="form-control" wire:model.debounce.500ms="search" placeholder="Nota, pedido, descrição...">
@@ -232,20 +300,29 @@
                                         return $c->Orders->count() > 0;
                                     })?->Orders ?? collect();
                                 }
+                                $orders = collect($orders)
+                                    ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
+                                    ->values();
+                                $hasDraft = in_array((int) $prod->id, $draftProductionIds, true);
                             @endphp
-                            <tr>
+                            <tr wire:key="pr-queue-row-{{ $prod->id }}">
                                 <td>
                                     <input type="checkbox" class="form-check-input"
                                         wire:model="selectedProductionIds" value="{{ $prod->id }}">
                                 </td>
-                                <td>{{ $prod->Note->note ?? '---' }}</td>
+                                <td>
+                                    {{ $prod->Note->note ?? '---' }}
+                                    @if($hasDraft)
+                                        <span class="badge text-bg-warning ms-1">Rascunho</span>
+                                    @endif
+                                </td>
                                 <td>{{ $prod->User->name ?? '---' }}</td>
                                 <td>{{ $prod->Company->name ?? '---' }}</td>
                                 <td class="align-top">
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1"><strong>{{ $ord->order_number }}</strong></div>
+                                                <div class="small border px-2 py-1" wire:key="pr-queue-order-{{ $prod->id }}-{{ $ord->id }}"><strong>{{ $ord->order_number }}</strong></div>
                                             @endforeach
                                         </div>
                                     @else
@@ -256,7 +333,7 @@
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1">{{ number_format((float) $ord->total_cost, 2, ',', '.') }}</div>
+                                                <div class="small border px-2 py-1" wire:key="pr-queue-total-{{ $prod->id }}-{{ $ord->id }}">{{ number_format((float) $ord->total_cost, 2, ',', '.') }}</div>
                                             @endforeach
                                         </div>
                                     @else
@@ -267,7 +344,7 @@
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1">{{ number_format((float) $ord->company_cost, 2, ',', '.') }}</div>
+                                                <div class="small border px-2 py-1" wire:key="pr-queue-company-{{ $prod->id }}-{{ $ord->id }}">{{ number_format((float) $ord->company_cost, 2, ',', '.') }}</div>
                                             @endforeach
                                         </div>
                                     @else
@@ -278,7 +355,7 @@
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1">{{ number_format((float) $ord->client_cost, 2, ',', '.') }}</div>
+                                                <div class="small border px-2 py-1" wire:key="pr-queue-client-{{ $prod->id }}-{{ $ord->id }}">{{ number_format((float) $ord->client_cost, 2, ',', '.') }}</div>
                                             @endforeach
                                         </div>
                                     @else
@@ -314,7 +391,11 @@
                     </tbody>
                 </table>
             </div>
-            <div class="card-body">{{ $lists->links() }}</div>
+            <div class="card-body">
+                @if($lists instanceof \Illuminate\Contracts\Pagination\Paginator || $lists instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+                    {{ $lists->links() }}
+                @endif
+            </div>
         </div>
     </div>
 
@@ -575,6 +656,7 @@
                                             <div class="summary-pill"><strong>Total:</strong> {{ $totalRows }}</div>
                                             <div class="summary-pill"><strong>Conformes:</strong> {{ $conformRows }}</div>
                                             <div class="summary-pill"><strong>Pendentes:</strong> {{ $pendingRows }}</div>
+                                            <div class="summary-pill"><strong>Rascunho:</strong> {{ $draftSavedAt ?: 'ainda não salvo' }}</div>
                                         </div>
 
                                         <div class="row g-3">
@@ -587,7 +669,7 @@
                                                             <select class="form-select" wire:model="selectedCategoryId">
                                                                 <option value="">Selecione</option>
                                                                 @foreach ($categories as $cat)
-                                                                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                                                    <option value="{{ data_get($cat, 'id') }}">{{ data_get($cat, 'name') }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </div>
@@ -596,7 +678,7 @@
                                                             <select class="form-select" wire:model="selectedSubcategoryId">
                                                                 <option value="">Selecione</option>
                                                                 @foreach ($availableSubcategories as $sub)
-                                                                    <option value="{{ $sub->id }}">{{ $sub->name }}</option>
+                                                                    <option value="{{ data_get($sub, 'id') }}">{{ data_get($sub, 'name') }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </div>
@@ -637,8 +719,8 @@
                                                                     <tbody>
                                                                         @foreach ($availableItems as $item)
                                                                             <tr>
-                                                                                <td>{{ $item->name }}</td>
-                                                                                <td><button type="button" class="btn btn-sm btn-outline-primary w-100" wire:click="addItemToFindings({{ $item->id }})">Adicionar</button></td>
+                                                                                <td>{{ data_get($item, 'name') }}</td>
+                                                                                <td><button type="button" class="btn btn-sm btn-outline-primary w-100" wire:click="addItemToFindings({{ data_get($item, 'id') }})">Adicionar</button></td>
                                                                             </tr>
                                                                         @endforeach
                                                                     </tbody>
@@ -657,17 +739,19 @@
                                                         @php
                                                             $catCollapsed = $collapsedCategories[$category['category_key']] ?? false;
                                                         @endphp
-                                                        <div class="card border mb-2">
+                                                        <div class="card cat-card mb-2">
                                                             <div class="card-header d-flex justify-content-between align-items-center py-2 gap-2">
                                                                 <button type="button" class="btn btn-link text-decoration-none p-0 group-head-btn"
                                                                     wire:click="toggleCategoryGroup('{{ $category['category_key'] }}')">
-                                                                    {{ $catCollapsed ? '+' : '-' }} {{ $category['category_name'] }}
+                                                                    <i class="ri-arrow-{{ $catCollapsed ? 'right' : 'down' }}-s-line"></i>
+                                                                    {{ $category['category_name'] }}
                                                                 </button>
                                                                 <div class="d-flex align-items-center gap-2">
                                                                     <span class="badge text-bg-light">{{ count($category['subcategories']) }} subcategoria(s)</span>
-                                                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                                                        wire:click="removeCategoryGroup('{{ $category['category_key'] }}')">
-                                                                        Remover categoria
+                                                                    <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
+                                                                        wire:click="removeCategoryGroup('{{ $category['category_key'] }}')"
+                                                                        title="Remover categoria">
+                                                                        <i class="ri-delete-bin-line"></i>
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -677,82 +761,103 @@
                                                                         @php
                                                                             $subCollapsed = $collapsedSubcategories[$subcategory['subcategory_key']] ?? false;
                                                                         @endphp
-                                                                        <div class="card border mb-2">
+                                                                        <div class="card subcat-card mb-2">
                                                                             <div class="card-header d-flex justify-content-between align-items-center py-2 gap-2">
                                                                                 <button type="button" class="btn btn-link text-decoration-none p-0 group-head-btn"
                                                                                     wire:click="toggleSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')">
-                                                                                    {{ $subCollapsed ? '+' : '-' }} {{ $subcategory['subcategory_name'] }}
+                                                                                    <i class="ri-arrow-{{ $subCollapsed ? 'right' : 'down' }}-s-line"></i>
+                                                                                    {{ $subcategory['subcategory_name'] }}
                                                                                 </button>
                                                                                 <div class="d-flex align-items-center gap-2">
-                                                                                    <select class="form-select form-select-sm" style="width:180px;"
-                                                                                        wire:change="setGroupOrigin('{{ $subcategory['subcategory_key'] }}', $event.target.value)">
-                                                                                        <option value="PROJETO" {{ $subcategory['origin'] === 'PROJETO' ? 'selected' : '' }}>Projeto</option>
-                                                                                        <option value="LEVANTAMENTO" {{ $subcategory['origin'] === 'LEVANTAMENTO' ? 'selected' : '' }}>Levantamento</option>
-                                                                                        <option value="AMBOS" {{ $subcategory['origin'] === 'AMBOS' ? 'selected' : '' }}>Ambos</option>
-                                                                                    </select>
-                                                                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                                                                        wire:click="removeSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')">
-                                                                                        Remover subcategoria
+                                                                                    <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
+                                                                                        wire:click="removeSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')"
+                                                                                        title="Remover subcategoria">
+                                                                                        <i class="ri-delete-bin-line"></i>
                                                                                     </button>
                                                                                 </div>
                                                                             </div>
                                                                             @if (!$subCollapsed)
                                                                                 <div class="card-body pt-2">
-                                                                                    <div class="table-responsive">
-                                                                                        <table class="table table-sm align-middle mb-0">
-                                                                                            <thead>
-                                                                                        <tr>
-                                                                                            <th>Ação</th>
-                                                                                            <th style="width: 90px;">Qtd.</th>
-                                                                                            <th>Conforme</th>
-                                                                                            <th style="min-width: 420px;">Observação</th>
-                                                                                            <th style="width:100px;"></th>
-                                                                                        </tr>
-                                                                                    </thead>
-                                                                                    <tbody>
-                                                                                                @foreach($subcategory['rows'] as $row)
-                                                                                                    @php
-                                                                                                        $idx = $row['index'];
-                                                                                                    @endphp
-                                                                                                    <tr>
-                                                                                                        <td>
-                                                                                                            @if($row['item_name'])
-                                                                                                                <span class="badge text-bg-light">{{ $row['action_type'] ?? 'FALTA' }}</span>
-                                                                                                                {{ $row['item_name'] }}
-                                                                                                            @else
-                                                                                                                ---
-                                                                                                            @endif
-                                                                                                        </td>
-                                                                                                        <td>
-                                                                                                            <input type="number" min="1" class="form-control form-control-sm"
-                                                                                                                wire:model.defer="findingRows.{{ $idx }}.quantity"
-                                                                                                                @disabled(!$row['item_name'])>
-                                                                                                        </td>
-                                                                                                        <td>
-                                                                                                            <div class="form-check">
-                                                                                                                <input class="form-check-input" type="checkbox"
-                                                                                                                    wire:model.defer="findingRows.{{ $idx }}.is_conform"
-                                                                                                                    id="row-conform-{{ $idx }}">
-                                                                                                                <label class="form-check-label small" for="row-conform-{{ $idx }}">
-                                                                                                                    Em conformidade
-                                                                                                                </label>
-                                                                                                            </div>
-                                                                                                        </td>
-                                                                                                        <td>
-                                                                                                            <textarea class="form-control form-control-sm"
-                                                                                                                rows="2"
-                                                                                                                wire:model.defer="findingRows.{{ $idx }}.note">
-                                                                                                            </textarea>
-                                                                                                        </td>
-                                                                                                        <td>
-                                                                                                            <button type="button" class="btn btn-sm btn-outline-danger w-100"
-                                                                                                                wire:click="removeFindingRow({{ $idx }})">Remover</button>
-                                                                                                        </td>
-                                                                                                    </tr>
-                                                                                                @endforeach
-                                                                                            </tbody>
-                                                                                        </table>
-                                                                                    </div>
+                                                                                    @foreach($subcategory['origins'] as $originGroup)
+                                                                                        @php
+                                                                                            $originClass = match ($originGroup['origin']) {
+                                                                                                'LEVANTAMENTO' => 'origin-levantamento',
+                                                                                                'AMBOS' => 'origin-ambos',
+                                                                                                default => 'origin-projeto',
+                                                                                            };
+                                                                                        @endphp
+                                                                                        <div class="origin-card mb-2">
+                                                                                            <div class="origin-head {{ $originClass }}">
+                                                                                                {{ $originGroup['origin'] }}
+                                                                                            </div>
+                                                                                            <div class="table-responsive">
+                                                                                                <table class="table table-sm align-middle mb-0">
+                                                                                                    <thead>
+                                                                                                        <tr>
+                                                                                                            <th style="width: 150px;">Origem</th>
+                                                                                                            <th>Ação</th>
+                                                                                                            <th style="width: 90px;">Qtd.</th>
+                                                                                                            <th>Conforme</th>
+                                                                                                            <th style="min-width: 420px;">Observação</th>
+                                                                                                            <th style="width:100px;"></th>
+                                                                                                        </tr>
+                                                                                                    </thead>
+                                                                                                    <tbody>
+                                                                                                        @foreach($originGroup['rows'] as $row)
+                                                                                                            @php
+                                                                                                                $idx = $row['index'];
+                                                                                                            @endphp
+                                                                                                            <tr>
+                                                                                                                <td>
+                                                                                                                    <select class="form-select form-select-sm" wire:model="findingRows.{{ $idx }}.origin">
+                                                                                                                        <option value="LEVANTAMENTO">Levantamento</option>
+                                                                                                                        <option value="PROJETO">Projeto</option>
+                                                                                                                        <option value="AMBOS">Ambos</option>
+                                                                                                                    </select>
+                                                                                                                </td>
+                                                                                                                <td>
+                                                                                                                    @if($row['item_name'])
+                                                                                                                        <span class="badge text-bg-light">{{ $row['action_type'] ?? 'FALTA' }}</span>
+                                                                                                                        {{ $row['item_name'] }}
+                                                                                                                    @else
+                                                                                                                        ---
+                                                                                                                    @endif
+                                                                                                                </td>
+                                                                                                                <td>
+                                                                                                                    <input type="number" min="1" class="form-control form-control-sm"
+                                                                                                                        wire:model.defer="findingRows.{{ $idx }}.quantity"
+                                                                                                                        @disabled(!$row['item_name'])>
+                                                                                                                </td>
+                                                                                                                <td>
+                                                                                                                    <div class="form-check">
+                                                                                                                        <input class="form-check-input" type="checkbox"
+                                                                                                                            wire:model.defer="findingRows.{{ $idx }}.is_conform"
+                                                                                                                            id="row-conform-{{ $idx }}">
+                                                                                                                        <label class="form-check-label small" for="row-conform-{{ $idx }}">
+                                                                                                                            Em conformidade
+                                                                                                                        </label>
+                                                                                                                    </div>
+                                                                                                                </td>
+                                                                                                                <td>
+                                                                                                                    <textarea class="form-control form-control-sm"
+                                                                                                                        rows="2"
+                                                                                                                        wire:model.defer="findingRows.{{ $idx }}.note">
+                                                                                                                    </textarea>
+                                                                                                                </td>
+                                                                                                                <td>
+                                                                                                                    <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
+                                                                                                                        wire:click="removeFindingRow({{ $idx }})"
+                                                                                                                        title="Remover item">
+                                                                                                                        <i class="ri-delete-bin-line"></i>
+                                                                                                                    </button>
+                                                                                                                </td>
+                                                                                                            </tr>
+                                                                                                        @endforeach
+                                                                                                    </tbody>
+                                                                                                </table>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    @endforeach
                                                                                 </div>
                                                                             @endif
                                                                         </div>
@@ -772,13 +877,28 @@
                         </div>
                     @endif
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        Fechar
-                    </button>
-                    <button class="btn btn-success" wire:click="approve">Aprovar sem ressalvas</button>
-                    <button class="btn btn-primary" wire:click="approveWithRemarks">Aprovar com ressalvas</button>
-                    <button class="btn btn-danger" wire:click="reject">Reprovar</button>
+                <div class="modal-footer justify-content-between">
+                    <div class="d-flex flex-column align-items-start" style="min-width: 280px;">
+                        <label class="form-label fw-semibold mb-1">Precisa liberar no SAP?</label>
+                        <select class="form-select form-select-sm @error('requiresSapRelease') is-invalid @enderror"
+                            wire:model.defer="requiresSapRelease">
+                            <option value="">Selecione...</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NAO">Não</option>
+                        </select>
+                        @error('requiresSapRelease')
+                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <button type="button" class="btn btn-outline-info" wire:click="saveDraftManually">Salvar rascunho</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Fechar
+                        </button>
+                        <button class="btn btn-success" wire:click="approve">Aprovar sem ressalvas</button>
+                        <button class="btn btn-primary" wire:click="approveWithRemarks">Aprovar com ressalvas</button>
+                        <button class="btn btn-danger" wire:click="reject">Reprovar</button>
+                    </div>
                 </div>
             </div>
         </div>

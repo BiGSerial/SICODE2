@@ -288,7 +288,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
 
 });
 
-Route::prefix('/project-review')->controller(ProjectReviewController::class)->middleware('auth')->middleware(['can:management'])->name('project_review.')->group(function () {
+Route::prefix('/project-review')->controller(ProjectReviewController::class)->middleware('auth')->middleware(['can:analyst'])->name('project_review.')->group(function () {
     Route::get('/list', 'list')->name('list');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/history', 'history')->name('history');

@@ -100,6 +100,7 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
     {
         $search = trim((string) ($this->filters['search'] ?? ''));
         $companyId = (string) ($this->filters['company_id'] ?? '');
+        $costShareFilter = (string) ($this->filters['cost_share_filter'] ?? '');
         $tab = (string) ($this->filters['tab'] ?? 'pending');
 
         $query = Production::query()
@@ -135,7 +136,31 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
             $query->where('company_id', $companyId);
         }
 
-        return $query->orderByDesc('id')->get()->map(function ($production) {
+        if (in_array($costShareFilter, ['client_51', 'company_51', 'both_51'], true)) {
+            $query->whereHas('ProjectReviewCycles.Orders', function ($orderQuery) use ($costShareFilter) {
+                $ratioExprClient = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
+                $ratioExprCompany = '(project_review_orders.company_cost / NULLIF(project_review_orders.total_cost, 0))';
+
+                $orderQuery->where('project_review_orders.total_cost', '>', 0);
+
+                if ($costShareFilter === 'client_51') {
+                    $orderQuery->whereRaw("{$ratioExprClient} >= 0.51");
+                    return;
+                }
+
+                if ($costShareFilter === 'company_51') {
+                    $orderQuery->whereRaw("{$ratioExprCompany} >= 0.51");
+                    return;
+                }
+
+                $orderQuery->where(function ($q) use ($ratioExprClient, $ratioExprCompany) {
+                    $q->whereRaw("{$ratioExprClient} >= 0.51")
+                        ->orWhereRaw("{$ratioExprCompany} >= 0.51");
+                });
+            });
+        }
+
+        return $query->orderBy('id', 'asc')->get()->map(function ($production) {
             $cycle = collect($production->ProjectReviewCycles)->sortByDesc('round_number')->first();
             $orders = $cycle?->Orders ?? collect();
             if ($orders->isEmpty()) {
@@ -143,6 +168,9 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
                     return $c->Orders->count() > 0;
                 })?->Orders ?? collect();
             }
+            $orders = collect($orders)
+                ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
+                ->values();
 
             $ordersText = $orders->pluck('order_number')->filter()->implode(' | ');
             $totalsText = $orders->map(fn ($o) => number_format((float) $o->total_cost, 2, ',', '.'))->implode(' | ');

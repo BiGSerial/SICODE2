@@ -15,6 +15,7 @@ class Production extends Model
 
     public const STATUS_IN_PROJECT_REVIEW = 30;
     public const STATUS_REJECTED_PROJECT_REVIEW = 31;
+    public const STATUS_RELEASED_TO_FINISH = 32;
 
     protected $fillable = [
         'note_id',

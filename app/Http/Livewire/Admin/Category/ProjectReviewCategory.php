@@ -5,6 +5,8 @@ namespace App\Http\Livewire\Admin\Category;
 use App\Models\ProjectReviewCategory as ProjectReviewCategoryModel;
 use App\Models\ProjectReviewItem;
 use App\Models\ProjectReviewSubcategory;
+use App\Models\Service;
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -24,6 +26,12 @@ class ProjectReviewCategory extends Component
 
     public string $bulk_target = '';
     public string $bulk_payload = '';
+    public ?string $selectedProjectReviewSurveyServiceId = null;
+
+    public function mount(): void
+    {
+        $this->selectedProjectReviewSurveyServiceId = SystemSetting::getValue('project_review_survey_service_id');
+    }
 
     public function getCategoriesProperty()
     {
@@ -54,6 +62,26 @@ class ProjectReviewCategory extends Component
             ->where('subcategory_id', $this->subcategory_id)
             ->orderBy('name')
             ->get();
+    }
+
+    public function getServiceOptionsProperty()
+    {
+        return Service::query()
+            ->orderBy('service')
+            ->get(['uuid', 'service']);
+    }
+
+    public function updatedSelectedProjectReviewSurveyServiceId($value): void
+    {
+        $value = $value ?: null;
+
+        if ($value !== null && !Service::query()->where('uuid', $value)->exists()) {
+            $this->selectedProjectReviewSurveyServiceId = null;
+            SystemSetting::setValue('project_review_survey_service_id', null);
+            return;
+        }
+
+        SystemSetting::setValue('project_review_survey_service_id', $value);
     }
 
     public function saveCategory(): void
@@ -464,6 +492,7 @@ class ProjectReviewCategory extends Component
             'categories' => $this->categories,
             'subcategories' => $this->subcategories,
             'items' => $this->items,
+            'serviceOptions' => $this->serviceOptions,
         ]);
     }
 

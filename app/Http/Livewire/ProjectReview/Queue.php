@@ -11,6 +11,7 @@ use App\Models\ProjectReviewCategory;
 use App\Models\ProjectReviewCycle;
 use App\Models\ProjectReviewItem;
 use App\Models\ProjectReviewMessage;
+use App\Models\ProjectReviewDraft;
 use App\Models\ProjectReviewSubcategory;
 use App\Models\User;
 use App\Notifications\SystemNotification;
@@ -27,6 +28,7 @@ class Queue extends Component
 
     public string $search = '';
     public string $company_id = '';
+    public string $cost_share_filter = '';
     public string $tab = 'pending';
     public string $mode = 'pending';
     public bool $selectPage = false;
@@ -37,6 +39,7 @@ class Queue extends Component
     public ?ProjectReviewCycle $selectedCycle = null;
 
     public string $analystNote = '';
+    public string $requiresSapRelease = '';
     public array $findingRows = [];
     public string $newReply = '';
     public ?int $selectedCategoryId = null;
@@ -46,6 +49,10 @@ class Queue extends Component
     public array $collapsedGroups = [];
     public array $collapsedCategories = [];
     public array $collapsedSubcategories = [];
+    public array $taxonomySubcategories = [];
+    public array $taxonomyCategories = [];
+    public array $draftProductionIds = [];
+    public ?string $draftSavedAt = null;
 
     protected $listeners = [
         'refresh_list' => '$refresh',
@@ -56,6 +63,7 @@ class Queue extends Component
     {
         $this->mode = $mode;
         $this->tab = $mode === 'history' ? 'history' : 'pending';
+        $this->loadTaxonomy();
     }
 
     public function updatingSearch(): void
@@ -65,6 +73,12 @@ class Queue extends Component
     }
 
     public function updatingCompanyId(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingCostShareFilter(): void
     {
         $this->clearBulkSelection();
         $this->resetPage();
@@ -95,7 +109,13 @@ class Queue extends Component
     {
         $query = $this->baseListQuery();
 
-        return $query->orderByDesc('id')->paginate(30);
+        $lists = $query
+            ->orderBy('id', 'asc')
+            ->paginate(30);
+
+        $this->syncDraftFlagsForPage($lists);
+
+        return $lists;
     }
 
     public function exportList(): void
@@ -143,7 +163,7 @@ class Queue extends Component
             $query->where('status', Production::STATUS_IN_PROJECT_REVIEW)
                 ->where('completed', false);
         } else {
-            $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW])
+            $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
                 ->whereHas('ProjectReviewCycles', function ($q) {
                     $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
                 });
@@ -162,6 +182,31 @@ class Queue extends Component
             $query->where('company_id', $this->company_id);
         }
 
+        $costFilter = $this->cost_share_filter;
+        if (in_array($costFilter, ['client_51', 'company_51', 'both_51'], true)) {
+            $query->whereHas('ProjectReviewCycles.Orders', function ($orderQuery) use ($costFilter) {
+                $ratioExprClient = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
+                $ratioExprCompany = '(project_review_orders.company_cost / NULLIF(project_review_orders.total_cost, 0))';
+
+                $orderQuery->where('project_review_orders.total_cost', '>', 0);
+
+                if ($costFilter === 'client_51') {
+                    $orderQuery->whereRaw("{$ratioExprClient} >= 0.51");
+                    return;
+                }
+
+                if ($costFilter === 'company_51') {
+                    $orderQuery->whereRaw("{$ratioExprCompany} >= 0.51");
+                    return;
+                }
+
+                $orderQuery->where(function ($q) use ($ratioExprClient, $ratioExprCompany) {
+                    $q->whereRaw("{$ratioExprClient} >= 0.51")
+                        ->orWhereRaw("{$ratioExprCompany} >= 0.51");
+                });
+            });
+        }
+
         return $query;
     }
 
@@ -170,6 +215,7 @@ class Queue extends Component
         return [
             'search' => $this->search,
             'company_id' => $this->company_id,
+            'cost_share_filter' => $this->cost_share_filter,
             'tab' => $this->tab,
         ];
     }
@@ -183,18 +229,12 @@ class Queue extends Component
 
     public function getSubcategoriesProperty()
     {
-        return ProjectReviewSubcategory::with('Category', 'Items')
-            ->where('active', true)
-            ->orderBy('name')
-            ->get();
+        return collect($this->taxonomySubcategories);
     }
 
     public function getCategoriesProperty()
     {
-        return ProjectReviewCategory::query()
-            ->where('active', true)
-            ->orderBy('name')
-            ->get();
+        return collect($this->taxonomyCategories);
     }
 
     public function getAvailableSubcategoriesProperty()
@@ -203,12 +243,10 @@ class Queue extends Component
             return collect();
         }
 
-        return ProjectReviewSubcategory::query()
-            ->where('active', true)
-            ->where('category_id', $this->selectedCategoryId)
-            ->with('Category')
-            ->orderBy('name')
-            ->get();
+        return $this->subcategories
+            ->where('category_id', (int) $this->selectedCategoryId)
+            ->sortBy('name')
+            ->values();
     }
 
     public function getAvailableItemsProperty()
@@ -217,33 +255,48 @@ class Queue extends Component
             return collect();
         }
 
-        return ProjectReviewItem::query()
-            ->where('active', true)
-            ->where('subcategory_id', $this->selectedSubcategoryId)
-            ->orderBy('name')
-            ->get();
+        $subcategory = $this->subcategories->firstWhere('id', (int) $this->selectedSubcategoryId);
+        if (!$subcategory) {
+            return collect();
+        }
+
+        $items = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
+
+        return collect($items)
+            ->filter(fn ($item) => (bool) data_get($item, 'active', false))
+            ->sortBy(fn ($item) => (string) data_get($item, 'name', ''))
+            ->values();
     }
 
     public function getFindingsTreeProperty()
     {
         $subcategories = $this->subcategories->keyBy('id');
+        $originSort = ['LEVANTAMENTO' => 1, 'PROJETO' => 2, 'AMBOS' => 3];
 
         $flat = collect($this->findingRows)
             ->map(function ($row, $index) use ($subcategories) {
                 $subcategory = $subcategories->get((int) ($row['subcategory_id'] ?? 0));
+                $items = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
+                $selectedItem = collect($items)
+                    ->firstWhere('id', (int) ($row['item_id'] ?? 0));
+                $categoryName = data_get($subcategory, 'Category.name', data_get($subcategory, 'category.name', 'Sem categoria'));
+                $origin = (string) ($row['origin'] ?? 'PROJETO');
+                if (!in_array($origin, ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)) {
+                    $origin = 'PROJETO';
+                }
 
                 return [
                     'index' => $index,
                     'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
-                    'subcategory_name' => $subcategory?->name ?? 'Subcategoria não encontrada',
-                    'category_name' => $subcategory?->Category?->name ?? 'Sem categoria',
+                    'subcategory_name' => data_get($subcategory, 'name', 'Subcategoria não encontrada'),
+                    'category_name' => $categoryName,
                     'item_id' => $row['item_id'] ?? null,
-                    'item_name' => $row['item_name'] ?? ($subcategory?->Items?->firstWhere('id', (int) ($row['item_id'] ?? 0))?->name ?? null),
-                    'origin' => (string) ($row['origin'] ?? 'PROJETO'),
+                    'item_name' => $row['item_name'] ?? data_get($selectedItem, 'name'),
+                    'origin' => $origin,
                     'action_type' => $row['action_type'] ?? null,
                     'quantity' => $row['quantity'] ?? null,
                     'note' => $row['note'] ?? null,
-                    'category_key' => 'cat_' . md5((string) ($subcategory?->Category?->name ?? 'sem-categoria')),
+                    'category_key' => 'cat_' . md5((string) ($categoryName ?: 'sem-categoria')),
                     'subcategory_key' => 'sub_' . (int) ($row['subcategory_id'] ?? 0),
                 ];
             })
@@ -251,19 +304,28 @@ class Queue extends Component
 
         return $flat
             ->groupBy('category_name')
-            ->map(function ($categoryRows, $categoryName) {
+            ->map(function ($categoryRows, $categoryName) use ($originSort) {
                 return [
                     'category_name' => $categoryName,
                     'category_key' => 'cat_' . md5((string) $categoryName),
                     'subcategories' => $categoryRows
                         ->groupBy('subcategory_key')
-                        ->map(function ($subRows) {
+                        ->map(function ($subRows) use ($originSort) {
                             $first = $subRows->first();
                             return [
                                 'subcategory_name' => $first['subcategory_name'],
                                 'subcategory_key' => $first['subcategory_key'],
-                                'origin' => $first['origin'],
-                                'rows' => $subRows->values()->all(),
+                                'origins' => collect($subRows)
+                                    ->groupBy('origin')
+                                    ->sortBy(fn ($rows, $origin) => $originSort[$origin] ?? 99)
+                                    ->map(function ($rows, $origin) {
+                                        return [
+                                            'origin' => $origin,
+                                            'rows' => $rows->values()->all(),
+                                        ];
+                                    })
+                                    ->values()
+                                    ->all(),
                             ];
                         })
                         ->values()
@@ -349,7 +411,32 @@ class Queue extends Component
             }
         }
 
+        $this->restoreDraft();
+
         $this->dispatchBrowserEvent('showModal', ['id' => 'projectReviewModal']);
+    }
+
+    public function saveDraftManually(): void
+    {
+        $saved = $this->persistDraft();
+        if (!$saved) {
+            return;
+        }
+
+        $this->dispatchBrowserEvent('hideModal');
+        $this->resetReviewForm();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Rascunho salvo',
+            'timer' => 1600,
+        ]);
+    }
+
+    public function saveDraftSilently(): void
+    {
+        $this->persistDraft();
     }
 
     public function saveAnalystFiles(): void
@@ -410,6 +497,7 @@ class Queue extends Component
         $alreadyExists = collect($this->findingRows)->contains(function ($row) use ($itemId) {
             return (int) ($row['subcategory_id'] ?? 0) === (int) $this->selectedSubcategoryId
                 && (int) ($row['item_id'] ?? 0) === $itemId
+                && (string) ($row['origin'] ?? 'PROJETO') === $this->selectedOrigin
                 && (string) ($row['action_type'] ?? '') === $this->selectedActionType;
         });
 
@@ -420,26 +508,13 @@ class Queue extends Component
         $this->findingRows[] = [
             'subcategory_id' => (int) $this->selectedSubcategoryId,
             'item_id' => $itemId,
-            'item_name' => $item->name,
+            'item_name' => data_get($item, 'name'),
             'origin' => $this->selectedOrigin,
             'action_type' => $this->selectedActionType,
             'quantity' => 1,
             'note' => '',
             'is_conform' => false,
         ];
-    }
-
-    public function setGroupOrigin(string $groupKey, string $origin): void
-    {
-        if (!in_array($origin, ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)) {
-            return;
-        }
-
-        foreach ($this->findingRows as $i => $row) {
-            if ('sub_' . (int) ($row['subcategory_id'] ?? 0) === $groupKey) {
-                $this->findingRows[$i]['origin'] = $origin;
-            }
-        }
     }
 
     public function toggleCategoryGroup(string $categoryKey): void
@@ -482,7 +557,8 @@ class Queue extends Component
         $this->findingRows = collect($this->findingRows)
             ->reject(function ($row) use ($categoryKey, $subcategoriesById) {
                 $subcategory = $subcategoriesById->get((int) ($row['subcategory_id'] ?? 0));
-                $rowCategoryKey = 'cat_' . md5((string) ($subcategory?->Category?->name ?? 'sem-categoria'));
+                $rowCategoryName = data_get($subcategory, 'Category.name', data_get($subcategory, 'category.name', 'sem-categoria'));
+                $rowCategoryKey = 'cat_' . md5((string) $rowCategoryName);
                 return $rowCategoryKey === $categoryKey;
             })
             ->values()
@@ -603,12 +679,14 @@ class Queue extends Component
             return;
         }
 
+        // Evita bloquear a reprovação por erros antigos (ex.: requiresSapRelease).
+        $this->resetValidation();
+
         $pendingRows = collect($this->findingRows)
             ->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))
-            ->values()
-            ->all();
+            ->values();
 
-        if (count($pendingRows) === 0) {
+        if ($pendingRows->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'warning',
@@ -623,63 +701,110 @@ class Queue extends Component
             'analystNote' => 'nullable|string|max:5000',
         ]);
 
+        $subcategoriesById = $this->subcategories->keyBy(fn ($subcategory) => (int) data_get($subcategory, 'id'));
+        $validItemIdsBySubcategory = $subcategoriesById->map(function ($subcategory) {
+            $items = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
+            return collect($items)->pluck('id')->map(fn ($id) => (int) $id)->flip();
+        });
+
+        $pendingSubcategoryIds = $pendingRows
+            ->pluck('subcategory_id')
+            ->filter(fn ($id) => !empty($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $dbSubcategoryIds = ProjectReviewSubcategory::query()
+            ->whereIn('id', $pendingSubcategoryIds->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+
+        $pendingItemIds = $pendingRows
+            ->pluck('item_id')
+            ->filter(fn ($id) => !empty($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $dbItemsById = ProjectReviewItem::query()
+            ->whereIn('id', $pendingItemIds->all())
+            ->get(['id', 'subcategory_id'])
+            ->keyBy('id');
+
         $seen = [];
-        foreach ($this->findingRows as $index => $row) {
-            if ((bool) ($row['is_conform'] ?? false)) {
-                continue;
-            }
+        foreach ($pendingRows as $index => $row) {
+            $rowIndex = (int) $index;
 
             if (empty($row['subcategory_id'])) {
-                $this->addError("findingRows.{$index}.subcategory_id", 'Subcategoria inválida.');
+                $this->addError("findingRows.{$rowIndex}.subcategory_id", 'Subcategoria inválida.');
                 continue;
             }
 
-            if (!ProjectReviewSubcategory::query()->where('id', (int) $row['subcategory_id'])->exists()) {
-                $this->addError("findingRows.{$index}.subcategory_id", 'Subcategoria não encontrada.');
+            $subcategoryId = (int) $row['subcategory_id'];
+            $subcategoryExists = $subcategoriesById->has($subcategoryId) || $dbSubcategoryIds->has($subcategoryId);
+            if (!$subcategoryExists) {
+                $this->addError("findingRows.{$rowIndex}.subcategory_id", 'Subcategoria não encontrada.');
             }
 
-            if (!empty($row['item_id']) && !ProjectReviewItem::query()->where('id', (int) $row['item_id'])->exists()) {
-                $this->addError("findingRows.{$index}.item_id", 'Item não encontrado.');
+            if (!empty($row['item_id'])) {
+                $itemId = (int) $row['item_id'];
+                $allowedItems = $validItemIdsBySubcategory->get($subcategoryId);
+                $itemIsAllowedByActiveTaxonomy = $allowedItems && $allowedItems->has($itemId);
+                $dbItem = $dbItemsById->get($itemId);
+                $itemIsValidByDatabase = $dbItem && (int) $dbItem->subcategory_id === $subcategoryId;
+
+                if (!$itemIsAllowedByActiveTaxonomy && !$itemIsValidByDatabase) {
+                    $this->addError("findingRows.{$rowIndex}.item_id", 'Item não encontrado para a subcategoria selecionada.');
+                }
             }
 
             if (!in_array((string) ($row['origin'] ?? ''), ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)) {
-                $this->addError("findingRows.{$index}.origin", 'Origem inválida.');
+                $this->addError("findingRows.{$rowIndex}.origin", 'Origem inválida.');
             }
 
             if (!empty($row['action_type']) && !in_array((string) $row['action_type'], ['FALTA', 'ADICIONAR', 'REMOVER'], true)) {
-                $this->addError("findingRows.{$index}.action_type", 'Movimento inválido.');
+                $this->addError("findingRows.{$rowIndex}.action_type", 'Movimento inválido.');
             }
 
             if (!is_null($row['quantity']) && ((int) $row['quantity'] < 1)) {
-                $this->addError("findingRows.{$index}.quantity", 'Quantidade inválida.');
+                $this->addError("findingRows.{$rowIndex}.quantity", 'Quantidade inválida.');
             }
 
             if (!empty($row['item_id']) && empty($row['action_type'])) {
-                $this->addError("findingRows.{$index}.action_type", 'Selecione FALTA/ADICIONAR/REMOVER antes de adicionar item.');
+                $this->addError("findingRows.{$rowIndex}.action_type", 'Selecione FALTA/ADICIONAR/REMOVER antes de adicionar item.');
             }
 
             if (!empty($row['item_id']) && empty($row['quantity'])) {
-                $this->addError("findingRows.{$index}.quantity", 'Informe a quantidade.');
+                $this->addError("findingRows.{$rowIndex}.quantity", 'Informe a quantidade.');
             }
 
-            $key = (string) $row['subcategory_id'] . ':' . (string) ($row['item_id'] ?? 'null');
+            $key = (string) $row['subcategory_id']
+                . ':' . (string) ($row['item_id'] ?? 'null')
+                . ':' . (string) ($row['origin'] ?? 'PROJETO')
+                . ':' . (string) ($row['action_type'] ?? '');
             if (isset($seen[$key]) && !empty($row['item_id'])) {
-                $this->addError("findingRows.{$index}.item_id", 'Item duplicado na mesma subcategoria nesta análise.');
+                $this->addError("findingRows.{$rowIndex}.item_id", 'Item duplicado com a mesma ação na mesma subcategoria e origem nesta análise.');
             }
             $seen[$key] = true;
         }
 
         if ($this->getErrorBag()->isNotEmpty()) {
+            $firstError = (string) collect($this->getErrorBag()->all())->first();
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Não foi possível reprovar',
+                'html' => $firstError !== '' ? $firstError : 'Existem inconsistências na análise. Revise os itens e tente novamente.',
+                'timer' => 4200,
+            ]);
             return;
         }
 
         DB::transaction(function () {
             $this->selectedCycle->Findings()->delete();
 
-            $rowsToPersist = collect($this->findingRows)
-                ->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))
-                ->values();
-
+            $rowsToPersist = collect($this->findingRows)->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))->values();
             foreach ($rowsToPersist as $row) {
                 $this->selectedCycle->Findings()->create([
                     'subcategory_id' => (int) $row['subcategory_id'],
@@ -722,6 +847,8 @@ class Queue extends Component
                     extras: []
                 ));
             }
+
+            $this->clearDraft();
         });
 
         $this->closeModalSuccess('Projeto reprovado com sucesso.');
@@ -773,6 +900,8 @@ class Queue extends Component
             return;
         }
 
+        $this->resetValidation();
+
         $rules = [
             'analystNote' => 'nullable|string|max:5000',
         ];
@@ -780,10 +909,14 @@ class Queue extends Component
         if ($decision === 'APPROVED_WITH_REMARKS') {
             $rules['analystNote'] = 'required|string|min:5|max:5000';
         }
+        if (in_array($decision, ['APPROVED', 'APPROVED_WITH_REMARKS'], true)) {
+            $rules['requiresSapRelease'] = 'required|in:SIM,NAO';
+        }
 
         $this->validate($rules);
+        $requiresSapRelease = $this->requiresSapRelease === 'SIM';
 
-        DB::transaction(function () use ($decision) {
+        DB::transaction(function () use ($decision, $requiresSapRelease) {
             $this->selectedCycle->update([
                 'decision' => $decision,
                 'decided_by' => auth()->id(),
@@ -792,8 +925,8 @@ class Queue extends Component
             ]);
 
             $this->selectedProduction->update([
-                'status' => 5,
-                'completed' => true,
+                'status' => $requiresSapRelease ? Production::STATUS_RELEASED_TO_FINISH : 5,
+                'completed' => $requiresSapRelease ? false : true,
                 'completed_at' => now(),
                 'confirmed' => false,
             ]);
@@ -803,24 +936,34 @@ class Queue extends Component
                 'service_id' => $this->selectedProduction->service_id,
                 'production_id' => $this->selectedProduction->id,
                 'user_id' => auth()->id(),
-                'info' => $decision === 'APPROVED_WITH_REMARKS'
-                    ? 'Projeto aprovado com ressalvas na Análise de Projeto.'
-                    : 'Projeto aprovado na Análise de Projeto.',
-                'status' => 5,
+                'info' => $requiresSapRelease
+                    ? 'Projeto aprovado na Análise de Projeto e liberado para finalização no SAP.'
+                    : ($decision === 'APPROVED_WITH_REMARKS'
+                        ? 'Projeto aprovado com ressalvas na Análise de Projeto.'
+                        : 'Projeto aprovado na Análise de Projeto.'),
+                'status' => $requiresSapRelease ? Production::STATUS_RELEASED_TO_FINISH : 5,
             ]);
 
             if ($this->selectedProduction->User) {
                 $this->selectedProduction->User->notify(new SystemNotification(
-                    titulo: 'Projeto Aprovado na Análise',
-                    mensagem: 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi aprovada na análise de projeto.',
+                    titulo: $requiresSapRelease ? 'Projeto Liberado para Finalização no SAP' : 'Projeto Aprovado na Análise',
+                    mensagem: $requiresSapRelease
+                        ? 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi aprovada e retornou para você finalizar no SAP.'
+                        : 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi aprovada na análise de projeto.',
                     link: route('services.accompany', ['service' => $this->selectedProduction->service_id]),
                     status: 1,
                     extras: []
                 ));
             }
+
+            $this->clearDraft();
         });
 
-        $this->closeModalSuccess('Projeto aprovado com sucesso.');
+        $this->closeModalSuccess(
+            $requiresSapRelease
+                ? 'Projeto liberado para finalização no SAP com sucesso.'
+                : 'Projeto aprovado com sucesso.'
+        );
     }
 
     private function closeModalSuccess(string $message): void
@@ -842,6 +985,7 @@ class Queue extends Component
         $this->drawingProduction = null;
         $this->selectedCycle = null;
         $this->analystNote = '';
+        $this->requiresSapRelease = '';
         $this->findingRows = [];
         $this->newReply = '';
         $this->selectedCategoryId = null;
@@ -851,6 +995,8 @@ class Queue extends Component
         $this->collapsedGroups = [];
         $this->collapsedCategories = [];
         $this->collapsedSubcategories = [];
+        $this->draftSavedAt = null;
+        $this->resetValidation();
     }
 
     private function resolveDrawingProduction(Production $production): ?Production
@@ -932,10 +1078,126 @@ class Queue extends Component
         $this->selectedProductionIds = [];
     }
 
+    private function syncDraftFlagsForPage($paginator): void
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            $this->draftProductionIds = [];
+            return;
+        }
+
+        $productionIds = collect($paginator->items())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        if (empty($productionIds)) {
+            $this->draftProductionIds = [];
+            return;
+        }
+
+        $this->draftProductionIds = ProjectReviewDraft::query()
+            ->where('user_id', $userId)
+            ->whereIn('production_id', $productionIds)
+            ->whereHas('Cycle', function ($q) {
+                $q->where('decision', 'PENDING');
+            })
+            ->distinct()
+            ->pluck('production_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    private function restoreDraft(): void
+    {
+        if (!$this->selectedProduction || !$this->selectedCycle || !auth()->id()) {
+            return;
+        }
+
+        $draft = ProjectReviewDraft::query()
+            ->where('production_id', $this->selectedProduction->id)
+            ->where('cycle_id', $this->selectedCycle->id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (!$draft) {
+            return;
+        }
+
+        $payload = (array) ($draft->payload ?? []);
+
+        $this->findingRows = is_array($payload['findingRows'] ?? null) ? $payload['findingRows'] : $this->findingRows;
+        $this->analystNote = (string) ($payload['analystNote'] ?? $this->analystNote);
+        $this->collapsedGroups = is_array($payload['collapsedGroups'] ?? null) ? $payload['collapsedGroups'] : $this->collapsedGroups;
+        $this->collapsedCategories = is_array($payload['collapsedCategories'] ?? null) ? $payload['collapsedCategories'] : $this->collapsedCategories;
+        $this->collapsedSubcategories = is_array($payload['collapsedSubcategories'] ?? null) ? $payload['collapsedSubcategories'] : $this->collapsedSubcategories;
+        $this->selectedCategoryId = isset($payload['selectedCategoryId']) ? (int) $payload['selectedCategoryId'] : $this->selectedCategoryId;
+        $this->selectedSubcategoryId = isset($payload['selectedSubcategoryId']) ? (int) $payload['selectedSubcategoryId'] : $this->selectedSubcategoryId;
+        $this->selectedOrigin = (string) ($payload['selectedOrigin'] ?? $this->selectedOrigin);
+        $this->selectedActionType = (string) ($payload['selectedActionType'] ?? $this->selectedActionType);
+        $this->draftSavedAt = optional($draft->updated_at)->format('d/m/Y H:i:s');
+    }
+
+    private function persistDraft(): bool
+    {
+        if (!$this->selectedProduction || !$this->selectedCycle || !auth()->id()) {
+            return false;
+        }
+
+        if ($this->selectedCycle->decision !== 'PENDING') {
+            return false;
+        }
+
+        $payload = [
+            'findingRows' => array_values($this->findingRows),
+            'analystNote' => $this->analystNote,
+            'collapsedGroups' => $this->collapsedGroups,
+            'collapsedCategories' => $this->collapsedCategories,
+            'collapsedSubcategories' => $this->collapsedSubcategories,
+            'selectedCategoryId' => $this->selectedCategoryId,
+            'selectedSubcategoryId' => $this->selectedSubcategoryId,
+            'selectedOrigin' => $this->selectedOrigin,
+            'selectedActionType' => $this->selectedActionType,
+        ];
+
+        ProjectReviewDraft::query()->updateOrCreate(
+            [
+                'production_id' => $this->selectedProduction->id,
+                'cycle_id' => $this->selectedCycle->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'payload' => $payload,
+            ]
+        );
+
+        $this->draftSavedAt = now()->format('d/m/Y H:i:s');
+
+        return true;
+    }
+
+    private function clearDraft(): void
+    {
+        if (!$this->selectedProduction || !$this->selectedCycle || !auth()->id()) {
+            return;
+        }
+
+        ProjectReviewDraft::query()
+            ->where('production_id', $this->selectedProduction->id)
+            ->where('cycle_id', $this->selectedCycle->id)
+            ->where('user_id', auth()->id())
+            ->delete();
+    }
+
     public function render()
     {
+        $lists = $this->selectedProduction ? collect() : $this->lists;
+
         return view('livewire.project-review.queue', [
-            'lists' => $this->lists,
+            'lists' => $lists,
             'companies' => $this->companies,
             'categories' => $this->categories,
             'subcategories' => $this->subcategories,
@@ -943,5 +1205,27 @@ class Queue extends Component
             'availableItems' => $this->availableItems,
             'findingsTree' => $this->findingsTree,
         ]);
+    }
+
+    private function loadTaxonomy(): void
+    {
+        $this->taxonomySubcategories = ProjectReviewSubcategory::query()
+            ->with([
+                'Category:id,name,active',
+                'Items' => function ($q) {
+                    $q->select('id', 'subcategory_id', 'name', 'active')
+                        ->orderBy('name');
+                },
+            ])
+            ->where('active', true)
+            ->orderBy('name')
+            ->get()
+            ->all();
+
+        $this->taxonomyCategories = ProjectReviewCategory::query()
+            ->where('active', true)
+            ->orderBy('name')
+            ->get()
+            ->all();
     }
 }

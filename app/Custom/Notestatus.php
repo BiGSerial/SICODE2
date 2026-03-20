@@ -234,6 +234,13 @@ class Notestatus
                 'colorbg' => 'text-bg-danger',
                 'color'   => 'danger',
             ],
+            // 32
+            [
+                'status'  => 'Liberado Pra Finalizar',
+                'icon'    => 'ri-checkbox-circle-line',
+                'colorbg' => 'text-bg-success',
+                'color'   => 'success',
+            ],
         ];
 
         $fallback = [

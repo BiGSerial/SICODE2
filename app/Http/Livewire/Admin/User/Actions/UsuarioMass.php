@@ -12,6 +12,21 @@ use Livewire\Component;
 
 class UsuarioMass extends Component
 {
+    private const LOCKABLE_PERMISSIONS = [
+        'superadm',
+        'admin',
+        'management',
+        'engineer',
+        'responsible',
+        'operator',
+        'user',
+        'btzero',
+        'onlyparner',
+        'can_dispatch',
+        'analyst',
+        'contract',
+    ];
+
     public $users = null;
     public $companyList;
     public $company;
@@ -34,6 +49,7 @@ class UsuarioMass extends Component
         'btzero' => false,
         'onlyparner' => false,
         'contract' => false,
+        'analyst' => false,
     ];
 
 
@@ -61,6 +77,7 @@ class UsuarioMass extends Component
         'permissions.contract' => 'boolean',
         'permissions.responsible' => 'boolean',
         'permissions.btzero' => 'boolean',
+        'permissions.analyst' => 'boolean',
         'user.can_dispatch' => 'boolean',
         'temporaryServices.*.service'  => 'boolean',
         'temporaryServices.*.dispatch'  => 'boolean',
@@ -164,6 +181,9 @@ class UsuarioMass extends Component
 
     public function Save()
     {
+        $actor = auth()->user();
+        $isSuperAdm = (bool) ($actor?->superadm);
+        $actorLocks = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
 
         if ($this->users->count()) {
 
@@ -208,16 +228,23 @@ class UsuarioMass extends Component
 
 
                     $user->company_id  = $this->company;
-                    $user->superadm = $this->permissions['superadm'];
-                    $user->admin = $this->permissions['admin'];
-                    $user->management = $this->permissions['management'];
-                    $user->engineer = $this->permissions['engineer'];
-                    $user->responsible = $this->permissions['responsible'];
-                    $user->operator = $this->permissions['operator'];
-                    $user->user = $this->permissions['user'];
-                    $user->btzero = $this->permissions['btzero'];
-                    $user->contract = $this->permissions['contract'];
-                    $user->onlyparner = $this->permissions['onlyparner'];
+                    $locks = $this->normalizePermissionLocks((array) ($user->permission_locks ?? []));
+
+                    foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+                        if (!array_key_exists($permission, $this->permissions)) {
+                            continue;
+                        }
+
+                        if (!$isSuperAdm && !empty($actorLocks[$permission])) {
+                            continue;
+                        }
+
+                        $user->{$permission} = (bool) $this->permissions[$permission];
+                    }
+
+                    if (auth()->user()?->superadm) {
+                        $user->permission_locks = $locks;
+                    }
                 }
 
 
@@ -320,6 +347,7 @@ class UsuarioMass extends Component
             'btzero' => false,
             'onlyparner' => false,
             'contract' => false,
+            'analyst' => false,
         ];
 
 
@@ -338,5 +366,16 @@ class UsuarioMass extends Component
 
 
         return view('livewire.admin.user.actions.usuario-mass');
+    }
+
+    private function normalizePermissionLocks(array $locks): array
+    {
+        $normalized = [];
+
+        foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+            $normalized[$permission] = (bool) ($locks[$permission] ?? false);
+        }
+
+        return $normalized;
     }
 }

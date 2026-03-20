@@ -249,7 +249,6 @@
                                                                             <tr>
                                                                                 <th>Ação</th>
                                                                                 <th>Qtd.</th>
-                                                                                <th>Origem</th>
                                                                                 <th>Observação</th>
                                                                             </tr>
                                                                         </thead>
@@ -264,7 +263,6 @@
                                                                                         @endif
                                                                                     </td>
                                                                                     <td>{{ data_get($finding, 'quantity') ?? '---' }}</td>
-                                                                                    <td>{{ data_get($finding, 'origin') ?? '---' }}</td>
                                                                                     <td>{{ data_get($finding, 'note') ?: '---' }}</td>
                                                                                 </tr>
                                                                             @endforeach
@@ -490,6 +488,7 @@
                 </section>
             @endif
 
+            @if (!$this->isSapReleaseFinalizeFlow)
             <section id="resultado-desenho" class="mb-4">
                 <h2 class="h5 mb-3">{{ ($production->d5 || $this->shouldSendToProjectReview) ? '3' : '2' }}. Resultado do Desenho</h2>
                 <div class="card-soft">
@@ -578,6 +577,21 @@
                     </div>
                 </div>
             </section>
+            @else
+            <section id="sap-release-flow" class="mb-4">
+                <h2 class="h5 mb-3">2. Finalização no SAP</h2>
+                <div class="card-soft border-success">
+                    <div class="card-body">
+                        <div class="alert alert-success mb-0">
+                            <strong>Liberado para finalizar.</strong><br>
+                            Esta nota já foi aprovada na Análise de Projeto com necessidade de liberação no SAP.
+                            Neste fluxo, não é necessário ajustar campos técnicos de desenho.
+                            Se precisar, apenas anexe novo arquivo e registre informações adicionais antes de finalizar.
+                        </div>
+                    </div>
+                </div>
+            </section>
+            @endif
 
             @if ($production->status === 31 && $this->shouldSendToProjectReview)
                 <section id="project-review-rejected" class="mb-4">
@@ -624,7 +638,6 @@
                                                                             <th>Item</th>
                                                                             <th>Ação</th>
                                                                             <th>Qtd.</th>
-                                                                            <th>Origem</th>
                                                                             <th>Observação</th>
                                                                         </tr>
                                                                     </thead>
@@ -640,7 +653,6 @@
                                                                                                             @endif
                                                                                                         </td>
                                                                                                         <td>{{ data_get($finding, 'quantity') ?? '---' }}</td>
-                                                                                                        <td>{{ data_get($finding, 'origin') ?? '---' }}</td>
                                                                                                         <td>{{ data_get($finding, 'note') ?: '---' }}</td>
                                                                                                     </tr>
                                                                                                 @endforeach
@@ -684,7 +696,7 @@
             @endif
 
             <section id="arquivos-info" class="mb-5">
-                <h2 class="h5 mb-3">{{ $this->shouldSendToProjectReview ? '5' : '4' }}. Arquivos & Informações</h2>
+                <h2 class="h5 mb-3">{{ $this->isSapReleaseFinalizeFlow ? '3' : ($this->shouldSendToProjectReview ? '5' : '4') }}. Arquivos & Informações</h2>
                 <div class="card-soft">
                     <div class="card-body">
                         @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => $needFiles], key('production_' . $production->id))
@@ -708,9 +720,15 @@
         @if (!$viewOnlyProjectReview)
             <footer id="encerramento-actions" class="bg-white py-3 border-top">
                 <div class="container d-flex justify-content-end gap-2">
-                    <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
-                    <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
-                    <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">{{ $this->shouldSendToProjectReview ? 'Enviar para análise' : 'Encerrar' }}</button>
+                    @if ($this->isSapReleaseFinalizeFlow)
+                        <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">
+                            Finalizar no SAP
+                        </button>
+                    @else
+                        <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                        <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
+                        <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">{{ $this->shouldSendToProjectReview ? 'Enviar para análise' : 'Encerrar' }}</button>
+                    @endif
                 </div>
             </footer>
         @endif

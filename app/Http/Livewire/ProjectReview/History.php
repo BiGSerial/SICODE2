@@ -43,7 +43,7 @@ class History extends Component
                 },
             ])
             ->withMax('ProjectReviewCycles as latest_round_number', 'round_number')
-            ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW])
+            ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
             ->whereHas('ProjectReviewCycles', function ($q) {
                 $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
             })

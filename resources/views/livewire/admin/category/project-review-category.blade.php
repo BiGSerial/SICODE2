@@ -19,6 +19,12 @@
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
         }
 
+        .prc-config-card {
+            background: var(--prc-surface);
+            border: 1px solid var(--prc-border);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
         .prc-header {
             background: linear-gradient(120deg, #0f172a, #0f766e 70%);
             color: #f8fafc;
@@ -55,6 +61,24 @@
             color: var(--prc-ink);
         }
     </style>
+    <div class="card prc-config-card mb-3">
+        <div class="card-body">
+            <h6 class="prc-section-title mb-2">Configuração de Levantamento</h6>
+            <div class="form-floating mb-2">
+                <select class="form-select border border-secondary" wire:model="selectedProjectReviewSurveyServiceId"
+                    id="projectReviewSurveyService">
+                    <option value="">Detectar automaticamente por nome (Levantamento)</option>
+                    @foreach ($serviceOptions as $service)
+                        <option value="{{ $service->uuid }}">{{ $service->service }}</option>
+                    @endforeach
+                </select>
+                <label for="projectReviewSurveyService">Serviço de levantamento (Análise de Projetos)</label>
+            </div>
+            <div class="small text-muted">
+                Define qual serviço será usado para localizar o último levantador nos relatórios da análise.
+            </div>
+        </div>
+    </div>
     <div class="card prc-main-card">
         <h4 class="prc-header">Categorias - Análise de Projetos</h4>
         <div class="card-body p-4">

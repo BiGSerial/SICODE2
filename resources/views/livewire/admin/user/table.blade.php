@@ -202,6 +202,7 @@
                             <option value="operator">Operador</option>
                             <option value="user">Usuario</option>
                             <option value="onlyparner">Empreiteira</option>
+                            <option value="analyst">Analista</option>
                         </select>
                         <label for="roleFilter">Perfil</label>
                     </div>
@@ -288,6 +289,9 @@
                                     }
                                     if ($theUser->onlyparner) {
                                         $roles[] = 'Empreiteira';
+                                    }
+                                    if ($theUser->analyst) {
+                                        $roles[] = 'Analista';
                                     }
                                 @endphp
                                 <tr class="text-center @if ($theUser->trashed()) table-danger @endif" wire:key="user-row-{{ $theUser->id }}">

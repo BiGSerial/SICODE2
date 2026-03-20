@@ -207,7 +207,10 @@ class Analise extends Component
 
             $time = 0;
 
-            if ($this->production->status !== Production::STATUS_REJECTED_PROJECT_REVIEW) {
+            if (!in_array((int) $this->production->status, [
+                Production::STATUS_REJECTED_PROJECT_REVIEW,
+                Production::STATUS_RELEASED_TO_FINISH,
+            ], true)) {
                 if ($this->production->status === 4) {
                     $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
@@ -286,11 +289,7 @@ class Analise extends Component
             }
 
             if ($this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
-                $findings = $latestCycle->Findings
-                    ->filter(function ($finding) {
-                        return in_array((string) $finding->origin, ['PROJETO', 'AMBOS'], true);
-                    })
-                    ->values();
+                $findings = $latestCycle->Findings->values();
 
                 $this->rejectedFindings = $this->mapRejectedFindingsForView($findings);
 
@@ -363,11 +362,20 @@ class Analise extends Component
             return false;
         }
 
+        if ($this->isSapReleaseFinalizeFlow) {
+            return false;
+        }
+
         if ($this->isConclusionDirectCloseWithoutProjectReview()) {
             return false;
         }
 
         return true;
+    }
+
+    public function getIsSapReleaseFinalizeFlowProperty(): bool
+    {
+        return (int) ($this->production->status ?? 0) === Production::STATUS_RELEASED_TO_FINISH;
     }
 
     private function isConclusionDirectCloseWithoutProjectReview(): bool
@@ -1026,6 +1034,7 @@ class Analise extends Component
         $this->save_info();
         $this->production = $production;
         $this->note       = Note::find($this->production->note_id);
+        $isSapReleaseFinalizeFlow = $this->isSapReleaseFinalizeFlow;
 
 
 
@@ -1042,7 +1051,7 @@ class Analise extends Component
         //     return;
         // }
 
-        if (!$this->conclusion) {
+        if (!$isSapReleaseFinalizeFlow && !$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -1054,7 +1063,11 @@ class Analise extends Component
             return;
         }
 
-        if ($this->requiresProjectReview && !$this->isConclusionDirectCloseWithoutProjectReview()) {
+        if (
+            !$isSapReleaseFinalizeFlow
+            && $this->requiresProjectReview
+            && !$this->isConclusionDirectCloseWithoutProjectReview()
+        ) {
             if (!is_array($this->reviewOrders) || !count($this->reviewOrders)) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -1082,7 +1095,11 @@ class Analise extends Component
 
 
 
-        if (!$this->hasFile && SelectOptions::verifyNeedFilesReclaims($this->conclusion)) {
+        if (
+            !$isSapReleaseFinalizeFlow
+            && !$this->hasFile
+            && SelectOptions::verifyNeedFilesReclaims($this->conclusion)
+        ) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -1097,7 +1114,25 @@ class Analise extends Component
 
 
 
-        if ($this->shouldSendToProjectReview) {
+        if ($isSapReleaseFinalizeFlow) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title' => 'FINALIZAÇÃO NO SAP',
+                'msg'   => "Você está prestes a finalizar <strong>{$this->note->note}</strong> após liberação da Análise de Projeto.
+                    <div class='card'>
+                        <div class='card-body'>
+                            Este fluxo não altera as datas da produção.
+                            <h4 class='text-center'>DESEJA CONTINUAR?</h4>
+                        </div>
+                    </div>
+                ",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Finalizar',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'confirm_goFinish',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Ação Cancelada.',
+            ]);
+        } elseif ($this->shouldSendToProjectReview) {
             $clientSharePct = $this->estimateClientSharePercentFromOrders();
             $highClientShareWarning = $clientSharePct > 90
                 ? "<div class='alert alert-warning mt-2 mb-0'>
@@ -1194,8 +1229,9 @@ class Analise extends Component
         try {
             DB::beginTransaction();
             $cycle = null;
+            $isSapReleaseFinalizeFlow = $this->isSapReleaseFinalizeFlow;
             $sendToProjectReview = $this->shouldSendToProjectReview;
-            if ($sendToProjectReview) {
+            if (!$isSapReleaseFinalizeFlow && $sendToProjectReview) {
                 $this->validateProjectReviewPayload();
                 $hasProjectReviewChanges = $this->hasProjectReviewPayloadChanges();
 
@@ -1223,21 +1259,31 @@ class Analise extends Component
                 }
             }
 
-            $chk = $this->production->update([
-                'status'       => $sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
-                'completed_at' => $sendToProjectReview ? null : date('Y-m-d H:i:s'),
-                'postes_p'     => (int) $this->postes,
-                'postes_u'     => $this->postes ? (int) $this->postes : 0,
-                'cadastro'     => $this->cadastro ? true : false,
-                'iproject'     => $this->iproject ? true : false,
-                'eo'           => $this->eo ? true : false,
-                'cad'          => $this->cad ? true : false,
-                'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
-                'completed'    => $sendToProjectReview ? false : true,
-                'confirmed'    => false,
-                'priority'     => false,
-                'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
-            ]);
+            if ($isSapReleaseFinalizeFlow) {
+                $chk = $this->production->update([
+                    'status' => 5,
+                    'completed' => true,
+                    'confirmed' => false,
+                    'priority' => false,
+                    'status_note' => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
+                ]);
+            } else {
+                $chk = $this->production->update([
+                    'status'       => $sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
+                    'completed_at' => $sendToProjectReview ? null : date('Y-m-d H:i:s'),
+                    'postes_p'     => (int) $this->postes,
+                    'postes_u'     => $this->postes ? (int) $this->postes : 0,
+                    'cadastro'     => $this->cadastro ? true : false,
+                    'iproject'     => $this->iproject ? true : false,
+                    'eo'           => $this->eo ? true : false,
+                    'cad'          => $this->cad ? true : false,
+                    'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
+                    'completed'    => $sendToProjectReview ? false : true,
+                    'confirmed'    => false,
+                    'priority'     => false,
+                    'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
+                ]);
+            }
 
             if ($chk) {
                 $user = Auth()->User()->name;
@@ -1247,10 +1293,14 @@ class Analise extends Component
                     'service_id' => $this->production->service_id,
                     'user_id'    => Auth()->User()->id,
                     'production_id' => $this->production->id,
-                    'info'       => $sendToProjectReview
-                        ? "Usuário {$user} enviou a Nota/OV para Análise de Projeto (rodada {$cycle->round_number})."
-                        : "Usuário {$user} encerrou a Nota/OV.",
-                    'status'     => $sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
+                    'info'       => $isSapReleaseFinalizeFlow
+                        ? "Usuário {$user} finalizou a Nota/OV no SAP após liberação da Análise de Projeto."
+                        : ($sendToProjectReview
+                            ? "Usuário {$user} enviou a Nota/OV para Análise de Projeto (rodada {$cycle->round_number})."
+                            : "Usuário {$user} encerrou a Nota/OV."),
+                    'status'     => $isSapReleaseFinalizeFlow
+                        ? 5
+                        : ($sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5),
                 ]);
 
                 //Encerrar RI Caso existir
@@ -1332,10 +1382,14 @@ class Analise extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => $this->shouldSendToProjectReview ? 'ENVIADO PARA ANÁLISE' : 'ENCERRADO COM SUCESSO',
-            'html'     => $this->shouldSendToProjectReview
-                ? 'Nota/OV enviada para Análise de Projeto com sucesso.'
-                : 'Nota/OV encerrada com sucesso.',
+            'title'    => $this->isSapReleaseFinalizeFlow
+                ? 'FINALIZADO NO SAP'
+                : ($this->shouldSendToProjectReview ? 'ENVIADO PARA ANÁLISE' : 'ENCERRADO COM SUCESSO'),
+            'html'     => $this->isSapReleaseFinalizeFlow
+                ? 'Nota/OV finalizada no SAP com sucesso.'
+                : ($this->shouldSendToProjectReview
+                    ? 'Nota/OV enviada para Análise de Projeto com sucesso.'
+                    : 'Nota/OV encerrada com sucesso.'),
             'timer'   => 2500,
         ]);
 

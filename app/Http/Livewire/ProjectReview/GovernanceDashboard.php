@@ -12,6 +12,8 @@ use Livewire\Component;
 
 class GovernanceDashboard extends Component
 {
+    private const USER_REPRESENTATIVITY_LIMIT = 8;
+
     public ?string $period_from = null;
     public ?string $period_to = null;
     public string $company_id = '';
@@ -195,7 +197,6 @@ class GovernanceDashboard extends Component
                     'users_error_pct' => ['labels' => [], 'data' => []],
                     'companies' => ['labels' => [], 'data' => []],
                     'origins' => ['labels' => [], 'data' => []],
-                    'status' => ['labels' => [], 'data' => []],
                     'rejections_per_production' => ['labels' => [], 'data' => []],
                 ],
                 'tables' => [
@@ -205,6 +206,7 @@ class GovernanceDashboard extends Component
                     'top_users' => collect(),
                     'user_error_percent' => collect(),
                     'top_companies' => collect(),
+                    'company_error_summary' => collect(),
                     'origins' => collect(),
                     'rejections_per_production' => collect(),
                 ],
@@ -242,11 +244,13 @@ class GovernanceDashboard extends Component
 
         $topUsers = (clone $findingsBase)
             ->join('users as u', 'u.id', '=', 'p.user_id')
-            ->selectRaw('u.name as label, COUNT(*) as total')
+            ->selectRaw("u.name as label, SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) as total")
             ->groupBy('u.name')
             ->orderByDesc('total')
             ->limit(10)
             ->get();
+
+        $usersRepresentativity = $this->buildUsersRepresentativity($findingsBase, self::USER_REPRESENTATIVITY_LIMIT);
 
         $userErrorPercent = DB::table('project_review_cycles as cy')
             ->join('productions as p', 'p.id', '=', 'cy.production_id')
@@ -296,40 +300,85 @@ class GovernanceDashboard extends Component
             return $row;
         });
 
-        $topCompanies = (clone $findingsBase)
+        $companyErrorTotals = (clone $findingsBase)
             ->leftJoin('companies as co', 'co.id', '=', 'p.company_id')
-            ->selectRaw("COALESCE(co.name, 'Sem empresa') as label, COUNT(*) as total")
+            ->selectRaw("COALESCE(co.name, 'Sem empresa') as label, SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) as total")
             ->groupBy('co.name')
-            ->orderByDesc('total')
-            ->limit(10)
             ->get();
+
+        $topCompanies = collect($companyErrorTotals)
+            ->sortByDesc('total')
+            ->take(10)
+            ->values();
 
         $origins = (clone $findingsBase)
-            ->selectRaw('f.origin as label, COUNT(*) as total')
+            ->selectRaw("f.origin as label, SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) as total")
             ->groupBy('f.origin')
             ->orderByDesc('total')
+            ->havingRaw('SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) > 0')
             ->get();
 
-        $statusDistribution = DB::table('productions as p')
+        $companyAnalysisCount = DB::table('project_review_cycles as cy')
+            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+            ->leftJoin('companies as co', 'co.id', '=', 'p.company_id')
             ->whereIn('p.id', $productionIds)
-            ->selectRaw('p.status as status, COUNT(*) as total')
-            ->groupBy('p.status')
+            ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
+            ->selectRaw("COALESCE(co.name, 'Sem empresa') as company_name, COUNT(*) as total_analysis")
+            ->groupBy('co.name')
+            ->pluck('total_analysis', 'company_name');
+
+        $mainErrorByCompany = (clone $findingsBase)
+            ->leftJoin('companies as co', 'co.id', '=', 'p.company_id')
+            ->join('project_review_subcategories as s', 's.id', '=', 'f.subcategory_id')
+            ->leftJoin('project_review_categories as c', 'c.id', '=', 's.category_id')
+            ->leftJoin('project_review_items as i', 'i.id', '=', 'f.item_id')
+            ->selectRaw("
+                COALESCE(co.name, 'Sem empresa') as company_name,
+                COALESCE(c.name, 'Sem categoria') as category_name,
+                COALESCE(s.name, 'Sem subcategoria') as subcategory_name,
+                COALESCE(i.name, 'Estrutura sem item') as item_name,
+                SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) as total
+            ")
+            ->groupBy('co.name', 'c.name', 's.name', 'i.name')
+            ->orderBy('company_name')
             ->orderByDesc('total')
             ->get()
-            ->map(function ($row) {
+            ->groupBy('company_name')
+            ->map(function ($rows) {
+                $top = $rows->first();
+                if (!$top) {
+                    return '---';
+                }
+                return "{$top->category_name} / {$top->subcategory_name} / {$top->item_name}";
+            });
+
+        $companyErrorSummary = collect($companyErrorTotals)
+            ->sortByDesc('total')
+            ->values()
+            ->map(function ($row) use ($companyAnalysisCount, $mainErrorByCompany) {
+                $analysisCount = (int) ($companyAnalysisCount[$row->label] ?? 0);
+                $errors = (int) $row->total;
                 return (object) [
-                    'label' => Notestatus::status((int) $row->status)->status,
-                    'total' => (int) $row->total,
+                    'company_name' => $row->label,
+                    'error_total' => $errors,
+                    'analysis_total' => $analysisCount,
+                    'errors_per_analysis' => $analysisCount > 0 ? round($errors / $analysisCount, 2) : 0,
+                    'main_error' => $mainErrorByCompany->get($row->label, '---'),
                 ];
             });
 
-        $rejectionsPerProduction = DB::table('project_review_cycles as cy')
+        $rejectionsPerProduction = DB::table('project_review_findings as f')
+            ->join('project_review_cycles as cy', 'cy.id', '=', 'f.cycle_id')
             ->join('productions as p', 'p.id', '=', 'cy.production_id')
             ->leftJoin('notes as n', 'n.id', '=', 'p.note_id')
             ->whereIn('p.id', $productionIds)
             ->where('cy.decision', 'REJECTED')
-            ->selectRaw("COALESCE(n.note, CONCAT('PROD #', p.id)) as label, COUNT(*) as total")
+            ->selectRaw("
+                COALESCE(n.note, CONCAT('PROD #', p.id)) as label,
+                SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) as total
+            ")
             ->groupBy('p.id', 'n.note')
+            ->havingRaw('SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) > 0')
             ->orderByDesc('total')
             ->limit(15)
             ->get();
@@ -411,15 +460,11 @@ class GovernanceDashboard extends Component
             'charts' => [
                 'categories' => $this->toChartData($topCategories),
                 'subcategories' => $this->toChartData($topSubcategories),
-                'items' => $this->toChartData($topItems->map(fn($r) => (object) ['label' => $r->item, 'total' => $r->total])),
+                'items' => $this->toChartData($topItems->map(fn($r) => (object) ['label' => "{$r->subcategory} - {$r->item}", 'total' => $r->total])),
                 'users_error_count' => $this->toChartData($topUsers),
-                'users_error_pct' => [
-                    'labels' => $userErrorPercent->pluck('user_name')->values()->all(),
-                    'data' => $userErrorPercent->pluck('error_pct')->map(fn($v) => (float) $v)->values()->all(),
-                ],
+                'users_error_pct' => $usersRepresentativity,
                 'companies' => $this->toChartData($topCompanies),
                 'origins' => $this->toChartData($origins),
-                'status' => $this->toChartData($statusDistribution),
                 'rejections_per_production' => $this->toChartData($rejectionsPerProduction),
             ],
             'tables' => [
@@ -429,6 +474,7 @@ class GovernanceDashboard extends Component
                 'top_users' => $topUsers,
                 'user_error_percent' => $userErrorPercent,
                 'top_companies' => $topCompanies,
+                'company_error_summary' => $companyErrorSummary,
                 'origins' => $origins,
                 'rejections_per_production' => $rejectionsPerProduction,
             ],
@@ -514,6 +560,47 @@ class GovernanceDashboard extends Component
             'increase_total_cost' => $increase,
             'net_variation_cost' => $revised - $planned,
             'maintained_orders_count' => $maintainedCount,
+        ];
+    }
+
+    private function buildUsersRepresentativity($findingsBase, int $limit = 8): array
+    {
+        $rows = (clone $findingsBase)
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->selectRaw("u.name as label, SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) as total")
+            ->groupBy('u.name')
+            ->havingRaw('SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) > 0')
+            ->orderByDesc('total')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return ['labels' => [], 'data' => []];
+        }
+
+        $totalErrors = (float) $rows->sum('total');
+        if ($totalErrors <= 0) {
+            return ['labels' => [], 'data' => []];
+        }
+
+        $topRows = $rows->take($limit)->values();
+        $remainingTotal = (float) $rows->slice($limit)->sum('total');
+
+        $labels = [];
+        $data = [];
+
+        foreach ($topRows as $row) {
+            $labels[] = $row->label;
+            $data[] = round((((float) $row->total) / $totalErrors) * 100, 2);
+        }
+
+        if ($remainingTotal > 0) {
+            $labels[] = 'Outros';
+            $data[] = round(($remainingTotal / $totalErrors) * 100, 2);
+        }
+
+        return [
+            'labels' => $labels,
+            'data' => $data,
         ];
     }
 

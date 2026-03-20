@@ -46,6 +46,37 @@
             height: 100% !important;
             display: block;
         }
+
+        .cost-flow {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .cost-flow .symbol {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #64748b;
+            text-align: center;
+        }
+
+        .cost-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: .7rem;
+            padding: .75rem;
+        }
+
+        @media (max-width: 992px) {
+            .cost-flow {
+                grid-template-columns: 1fr;
+            }
+
+            .cost-flow .symbol {
+                display: none;
+            }
+        }
     </style>
 
     <div class="container-fluid">
@@ -148,10 +179,44 @@
         </div>
 
         <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="card-soft p-3"><small>Valor planejado total</small><h5 class="mb-0">R$ {{ number_format((float) $summary['planned_total_cost'], 2, ',', '.') }}</h5></div></div>
-            <div class="col-md-3"><div class="card-soft p-3"><small>Valor revisado total</small><h5 class="mb-0">R$ {{ number_format((float) $summary['revised_total_cost'], 2, ',', '.') }}</h5></div></div>
-            <div class="col-md-3"><div class="card-soft p-3"><small>Economia total</small><h5 class="mb-0 text-success">R$ {{ number_format((float) $summary['economy_total_cost'], 2, ',', '.') }}</h5></div></div>
-            <div class="col-md-3"><div class="card-soft p-3"><small>Aumento total</small><h5 class="mb-0 text-danger">R$ {{ number_format((float) $summary['increase_total_cost'], 2, ',', '.') }}</h5></div></div>
+            <div class="col-12">
+                <div class="card-soft p-3">
+                    <h6 class="mb-2">Composição do valor revisado</h6>
+                    <div class="cost-flow">
+                        <div class="cost-box">
+                            <small class="text-muted">Valor planejado</small>
+                            <h5 class="mb-0">R$ {{ number_format((float) $summary['planned_total_cost'], 2, ',', '.') }}</h5>
+                        </div>
+                        <div class="symbol">+</div>
+                        <div class="cost-box">
+                            <small class="text-muted">Somatório de acréscimos</small>
+                            <h5 class="mb-0 text-danger">R$ {{ number_format((float) $summary['increase_total_cost'], 2, ',', '.') }}</h5>
+                        </div>
+                        <div class="symbol">-</div>
+                        <div class="cost-box">
+                            <small class="text-muted">Somatório de reduções</small>
+                            <h5 class="mb-0 text-success">R$ {{ number_format((float) $summary['economy_total_cost'], 2, ',', '.') }}</h5>
+                        </div>
+                        <div class="symbol">=</div>
+                        <div class="cost-box">
+                            <small class="text-muted">Valor revisado total</small>
+                            <h5 class="mb-0">R$ {{ number_format((float) $summary['revised_total_cost'], 2, ',', '.') }}</h5>
+                        </div>
+                    </div>
+                    <div class="mt-2 d-flex flex-wrap gap-3">
+                        <div>
+                            <small class="text-muted d-block">Diferença líquida (acréscimos - reduções)</small>
+                            <strong class="{{ ((float) $summary['net_variation_cost']) >= 0 ? 'text-danger' : 'text-success' }}">
+                                R$ {{ number_format((float) $summary['net_variation_cost'], 2, ',', '.') }}
+                            </strong>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block">Ordens sem alteração de custo</small>
+                            <strong>{{ (int) $summary['maintained_orders_count'] }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="row g-3">
@@ -168,19 +233,16 @@
                 <div class="card-soft p-3 chart-card" wire:ignore><h6>Usuários com mais erros (qtd)</h6><div class="chart-wrap"><canvas id="prChartUsersCount"></canvas></div></div>
             </div>
             <div class="col-lg-6">
-                <div class="card-soft p-3 chart-card" wire:ignore><h6>% erro por usuário</h6><div class="chart-wrap"><canvas id="prChartUsersPct"></canvas></div></div>
+                <div class="card-soft p-3 chart-card" wire:ignore><h6>% representatividade por usuário (Top 8 + Outros)</h6><div class="chart-wrap"><canvas id="prChartUsersPct"></canvas></div></div>
             </div>
             <div class="col-lg-6">
                 <div class="card-soft p-3 chart-card" wire:ignore><h6>Empresas com mais erros</h6><div class="chart-wrap"><canvas id="prChartCompanies"></canvas></div></div>
             </div>
             <div class="col-lg-6">
-                <div class="card-soft p-3 chart-card" wire:ignore><h6>Origem dos erros</h6><div class="chart-wrap"><canvas id="prChartOrigins"></canvas></div></div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card-soft p-3 chart-card" wire:ignore><h6>Status final</h6><div class="chart-wrap"><canvas id="prChartStatus"></canvas></div></div>
+                <div class="card-soft p-3 chart-card" wire:ignore><h6>Origem dos erros (volume de itens)</h6><div class="chart-wrap"><canvas id="prChartOrigins"></canvas></div></div>
             </div>
             <div class="col-12">
-                <div class="card-soft p-3 chart-card" wire:ignore><h6>Reprovações por production</h6><div class="chart-wrap"><canvas id="prChartRejections"></canvas></div></div>
+                <div class="card-soft p-3 chart-card" wire:ignore><h6>Top 15 obras com mais itens errados</h6><div class="chart-wrap"><canvas id="prChartRejections"></canvas></div></div>
             </div>
         </div>
 
@@ -216,6 +278,37 @@
                                     <td>{{ $row->total_cycles }}</td>
                                     <td>{{ $row->error_pct }}%</td>
                                     <td>{{ $row->main_error ?? '---' }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card-soft p-3">
+                    <h6>Empresas no período (erros x análises)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Empresa</th>
+                                    <th>Erros</th>
+                                    <th>Análises</th>
+                                    <th>Erros/Análise</th>
+                                    <th>Principal erro</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @forelse($tables['company_error_summary'] as $row)
+                                <tr>
+                                    <td>{{ $row->company_name }}</td>
+                                    <td>{{ $row->error_total }}</td>
+                                    <td>{{ $row->analysis_total }}</td>
+                                    <td>{{ $row->errors_per_analysis }}</td>
+                                    <td>{{ $row->main_error }}</td>
                                 </tr>
                             @empty
                                 <tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>
@@ -268,6 +361,7 @@
                 const canvas = document.getElementById(id);
                 if (!canvas || !window.Chart) return;
                 const color = barColorsByKey(key);
+                const isPercent = key === 'users_pct';
 
                 const wrapper = canvas.closest('.chart-wrap');
                 if (wrapper) {
@@ -298,8 +392,12 @@
                         scales: horizontal ? {
                             x: {
                                 beginAtZero: true,
+                                suggestedMax: isPercent ? 100 : undefined,
                                 ticks: {
-                                    precision: 0
+                                    precision: isPercent ? 2 : 0,
+                                    callback: function(value) {
+                                        return isPercent ? value + '%' : value;
+                                    }
                                 }
                             },
                             y: {
@@ -311,7 +409,10 @@
                             y: {
                                 beginAtZero: true,
                                 ticks: {
-                                    precision: 0
+                                    precision: isPercent ? 2 : 0,
+                                    callback: function(value) {
+                                        return isPercent ? value + '%' : value;
+                                    }
                                 }
                             },
                             x: {
@@ -362,7 +463,6 @@
                 upsertBar('prChartUsersPct', 'users_pct', payload.users_error_pct?.labels, payload.users_error_pct?.data, true);
                 upsertBar('prChartCompanies', 'companies', payload.companies?.labels, payload.companies?.data, true);
                 upsertDoughnut('prChartOrigins', 'origins', payload.origins?.labels, payload.origins?.data);
-                upsertDoughnut('prChartStatus', 'status', payload.status?.labels, payload.status?.data);
                 upsertBar('prChartRejections', 'rejections', payload.rejections_per_production?.labels, payload.rejections_per_production?.data, true);
             }
 

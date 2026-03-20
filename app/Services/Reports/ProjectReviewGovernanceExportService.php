@@ -4,6 +4,8 @@ namespace App\Services\Reports;
 
 use App\Custom\Notestatus;
 use App\Models\Production;
+use App\Models\Service;
+use App\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,7 @@ class ProjectReviewGovernanceExportService
         return [
             $this->sheetProductions($productionIds),
             $this->sheetRejectionsDetail($productionIds),
+            $this->sheetFindingsOriginDetail($productionIds),
             $this->sheetUsers($productionIds),
             $this->sheetCategories($productionIds),
             $this->sheetSubcategories($productionIds),
@@ -214,12 +217,15 @@ class ProjectReviewGovernanceExportService
     {
         $headings = [
             'Production ID', 'Nota', 'Rodada', 'Data reprovação', 'Categoria', 'Subcategoria',
-            'Item', 'Ação', 'Origem', 'Quantidade', 'Observação', 'Analista', 'Laudo técnico'
+            'Item', 'Ação', 'Origem', 'Quantidade', 'Observação', 'Analista', 'Laudo técnico',
+            'Última produção levantamento', 'Último levantador'
         ];
 
         if ($productionIds->isEmpty()) {
             return ['title' => 'Reprovações Detalhe', 'headings' => $headings, 'rows' => []];
         }
+
+        $surveyByNote = $this->latestSurveyByNote($productionIds);
 
         $rows = $this->findingsBase($productionIds)
             ->leftJoin('notes as n', 'n.id', '=', 'p.note_id')
@@ -229,6 +235,7 @@ class ProjectReviewGovernanceExportService
             ->where('cy.decision', 'REJECTED')
             ->selectRaw("
                 p.id as production_id,
+                p.note_id as note_id,
                 COALESCE(n.note, '-') as note_number,
                 cy.round_number,
                 cy.decided_at as rejected_at,
@@ -245,24 +252,83 @@ class ProjectReviewGovernanceExportService
             ->leftJoin('users as u', 'u.id', '=', 'cy.decided_by')
             ->orderByDesc('cy.decided_at')
             ->get()
-            ->map(fn ($r) => [
-                $r->production_id,
-                $r->note_number,
-                $r->round_number,
-                $r->rejected_at,
-                $r->category_name,
-                $r->subcategory_name,
-                $r->item_name,
-                $r->action_type,
-                $r->origin_name,
-                $r->quantity,
-                $r->note,
-                $r->analyst_name,
-                $r->analyst_note,
-            ])
+            ->map(function ($r) use ($surveyByNote) {
+                $survey = $surveyByNote->get((int) $r->note_id);
+
+                return [
+                    $r->production_id,
+                    $r->note_number,
+                    $r->round_number,
+                    $r->rejected_at,
+                    $r->category_name,
+                    $r->subcategory_name,
+                    $r->item_name,
+                    $r->action_type,
+                    $r->origin_name,
+                    $r->quantity,
+                    $r->note,
+                    $r->analyst_name,
+                    $r->analyst_note,
+                    $survey->production_id ?? '-',
+                    $survey->user_name ?? '-',
+                ];
+            })
             ->all();
 
         return ['title' => 'Reprovações Detalhe', 'headings' => $headings, 'rows' => $rows];
+    }
+
+    private function latestSurveyByNote(Collection $productionIds): Collection
+    {
+        if ($productionIds->isEmpty()) {
+            return collect();
+        }
+
+        $noteIds = Production::query()
+            ->whereIn('id', $productionIds)
+            ->pluck('note_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($noteIds->isEmpty()) {
+            return collect();
+        }
+
+        $surveyServiceId = $this->resolveSurveyServiceId();
+
+        $query = DB::table('productions as p')
+            ->leftJoin('users as u', 'u.id', '=', 'p.user_id')
+            ->whereIn('p.note_id', $noteIds)
+            ->selectRaw("
+                p.note_id,
+                p.id as production_id,
+                COALESCE(u.name, '-') as user_name
+            ")
+            ->orderByDesc('p.id');
+
+        if ($surveyServiceId) {
+            $query->where('p.service_id', $surveyServiceId);
+        } else {
+            $query->join('services as sv', 'sv.uuid', '=', 'p.service_id')
+                ->whereRaw('LOWER(sv.service) like ?', ['%levantamento%']);
+        }
+
+        return $query->get()
+            ->groupBy('note_id')
+            ->map(fn ($rows) => $rows->first());
+    }
+
+    private function resolveSurveyServiceId(): ?string
+    {
+        $configured = SystemSetting::getValue('project_review_survey_service_id');
+        if ($configured && Service::query()->where('uuid', $configured)->exists()) {
+            return $configured;
+        }
+
+        return Service::query()
+            ->whereRaw('LOWER(service) like ?', ['%levantamento%'])
+            ->value('uuid');
     }
 
     private function sheetUsers(Collection $productionIds): array
@@ -319,6 +385,79 @@ class ProjectReviewGovernanceExportService
         ])->all();
 
         return ['title' => 'Usuários', 'headings' => $headings, 'rows' => $data];
+    }
+
+    private function sheetFindingsOriginDetail(Collection $productionIds): array
+    {
+        $headings = [
+            'Projeto',
+            'Production ID',
+            'Origem',
+            'Categoria',
+            'Subcategoria',
+            'Item',
+            'Desenhista',
+            'Levantador',
+            'Quando terminou',
+            'SLA enviado em',
+            'SLA decidido em',
+            'SLA horas',
+            'Analista',
+        ];
+
+        if ($productionIds->isEmpty()) {
+            return ['title' => 'Erros por Origem', 'headings' => $headings, 'rows' => []];
+        }
+
+        $surveyByNote = $this->latestSurveyByNote($productionIds);
+
+        $rows = $this->findingsBase($productionIds)
+            ->leftJoin('notes as n', 'n.id', '=', 'p.note_id')
+            ->join('project_review_subcategories as s', 's.id', '=', 'f.subcategory_id')
+            ->join('project_review_categories as c', 'c.id', '=', 's.category_id')
+            ->leftJoin('project_review_items as i', 'i.id', '=', 'f.item_id')
+            ->leftJoin('users as ud', 'ud.id', '=', 'p.user_id')
+            ->leftJoin('users as ua', 'ua.id', '=', 'cy.decided_by')
+            ->where('cy.decision', 'REJECTED')
+            ->selectRaw("
+                p.id as production_id,
+                p.note_id as note_id,
+                p.completed_at as completed_at,
+                COALESCE(n.note, '-') as note_number,
+                COALESCE(f.origin, '-') as origin_name,
+                COALESCE(c.name, '-') as category_name,
+                COALESCE(s.name, '-') as subcategory_name,
+                COALESCE(i.name, 'Estrutura sem item') as item_name,
+                COALESCE(ud.name, '-') as designer_name,
+                cy.submitted_at as sla_submitted_at,
+                cy.decided_at as sla_decided_at,
+                COALESCE(ua.name, '-') as analyst_name,
+                TIMESTAMPDIFF(HOUR, cy.submitted_at, cy.decided_at) as sla_hours
+            ")
+            ->orderByDesc('cy.decided_at')
+            ->get()
+            ->map(function ($r) use ($surveyByNote) {
+                $survey = $surveyByNote->get((int) $r->note_id);
+
+                return [
+                    $r->note_number,
+                    $r->production_id,
+                    $r->origin_name,
+                    $r->category_name,
+                    $r->subcategory_name,
+                    $r->item_name,
+                    $r->designer_name,
+                    $survey->user_name ?? '-',
+                    $r->completed_at,
+                    $r->sla_submitted_at,
+                    $r->sla_decided_at,
+                    is_null($r->sla_hours) ? null : (int) $r->sla_hours,
+                    $r->analyst_name,
+                ];
+            })
+            ->all();
+
+        return ['title' => 'Erros por Origem', 'headings' => $headings, 'rows' => $rows];
     }
 
     private function sheetCategories(Collection $productionIds): array
