@@ -24,6 +24,7 @@
 
     $showProjeto = $projectDispatchItems->isNotEmpty() || $projectServiceItems->isNotEmpty();
     $showConstrucao = $constructionDispatchItems->isNotEmpty() || $constructionServiceItems->isNotEmpty();
+    $showProjectReviewShortcut = auth()->user()->can('analyst');
 
     $buildDispatchItems = fn($items) => $items
         ->map(fn($service) => [
@@ -49,6 +50,14 @@
         ->all();
 
     $nodes = collect([
+        $showProjectReviewShortcut
+            ? [
+                'kind' => 'item',
+                'label' => 'ANÁLISE PROJETO',
+                'route' => 'project_review.list',
+                'icon' => 'ri-file-search-line',
+            ]
+            : null,
         $showProjeto
             ? [
                 'kind' => 'group',
@@ -105,7 +114,7 @@
         ->all();
 @endphp
 
-@if ($showProjeto || $showConstrucao)
+@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut)
     <x-menu.dynamic-dropdown
         title="ATIVIDADES"
         :nodes="$nodes"

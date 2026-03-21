@@ -43,6 +43,8 @@ class Main extends Component
         'refresh_accomany'   => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
+        'analise_modal_hidden' => 'enforceActiveProductionModal',
+        'force_check_open' => 'checkOpen',
     ];
 
     public function mount($service)
@@ -89,17 +91,32 @@ class Main extends Component
 
     public function checkOpen()
     {
+        $this->openActiveProductionModal(true);
+    }
 
-        $check = Production::Where('service_id', $this->service->uuid)->where('user_id', Auth()->User()->id)->where('status', 3)->first();
+    public function enforceActiveProductionModal()
+    {
+        $this->openActiveProductionModal(false);
+    }
 
-        if ($check) {
+    private function openActiveProductionModal(bool $showLimitWarning): bool
+    {
+        $check = Production::where('service_id', $this->service->uuid)
+            ->where('user_id', Auth()->user()->id)
+            ->where('status', 3)
+            ->first();
 
-            $this->emit('open_analise_draw', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+        if (!$check) {
+            return false;
+        }
 
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'analise_form',
-            ]);
+        $this->emit('open_analise_draw', ['productionId' => $check->id, 'noteId' => $check->note_id]);
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => 'analise_form',
+        ]);
+        $this->emit('refresh_accomany');
 
+        if ($showLimitWarning) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'info',
@@ -111,9 +128,9 @@ class Main extends Component
                     </p>
                 ",
             ]);
-
         }
 
+        return true;
     }
 
     public function go_to_analise()
@@ -146,6 +163,20 @@ class Main extends Component
                 'id' => 'analise_form',
             ]);
         }
+    }
+
+    public function openProjectReviewReadonly(int $production, int $note): void
+    {
+        $this->analise = [
+            'productionId' => $production,
+            'noteId' => $note,
+            'viewOnlyProjectReview' => true,
+        ];
+
+        $this->emit('open_analise_draw', $this->analise);
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => 'analise_review_form',
+        ]);
     }
 
     public function filter_save()
@@ -213,6 +244,10 @@ class Main extends Component
             })
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where('completed', false)
+            ->where(function ($q) {
+                $q->whereNull('productions.status')
+                    ->orWhere('productions.status', '!=', Production::STATUS_IN_PROJECT_REVIEW);
+            })
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {
                     $query->whereRelation('Note', 'note', 'like', '%' . $s . '%')

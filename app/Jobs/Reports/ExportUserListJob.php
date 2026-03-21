@@ -41,6 +41,7 @@ class ExportUserListJob implements ShouldQueue
         'operator',
         'user',
         'onlyparner',
+        'analyst',
     ];
 
     public function __construct(array $params, string $userId)

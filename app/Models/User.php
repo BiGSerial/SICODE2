@@ -56,6 +56,8 @@ class User extends Authenticatable
         'responsible',
         'btzero',
         'can_dispatch',
+        'analyst',
+        'permission_locks',
     ];
 
     /**
@@ -91,6 +93,8 @@ class User extends Authenticatable
         'responsible'  => 'boolean',
         'btzero'       => 'boolean',
         'can_dispatch' => 'boolean',
+        'analyst'      => 'boolean',
+        'permission_locks' => 'array',
 
         ];
 

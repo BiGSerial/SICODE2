@@ -220,8 +220,36 @@ class Notestatus
                 'colorbg' => 'text-bg-secondary',
                 'color'   => 'secondary',
             ],
+            // 30
+            [
+                'status'  => 'Em Análise de Projeto',
+                'icon'    => 'ri-search-eye-line',
+                'colorbg' => 'text-bg-dark',
+                'color'   => 'dark',
+            ],
+            // 31
+            [
+                'status'  => 'Reprovado na Análise',
+                'icon'    => 'ri-close-circle-line',
+                'colorbg' => 'text-bg-danger',
+                'color'   => 'danger',
+            ],
+            // 32
+            [
+                'status'  => 'Liberado Pra Finalizar',
+                'icon'    => 'ri-checkbox-circle-line',
+                'colorbg' => 'text-bg-success',
+                'color'   => 'success',
+            ],
         ];
 
-        return (object) $status[$sts];
+        $fallback = [
+            'status' => 'Status Desconhecido',
+            'icon' => 'ri-question-line',
+            'colorbg' => 'text-bg-secondary',
+            'color' => 'secondary',
+        ];
+
+        return (object) ($status[$sts] ?? $fallback);
     }
 }

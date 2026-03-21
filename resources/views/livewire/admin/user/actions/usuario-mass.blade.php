@@ -50,12 +50,6 @@
                                             @endif
                                         </select>
                                     </div>
-                                    <div class="col-md-2 d-flex align-items-end">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="contractMass" wire:model.defer="permissions.contract">
-                                            <label class="form-check-label" for="contractMass">Terceirizado</label>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -79,6 +73,10 @@
                                     <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massUser" wire:model.defer="permissions.user"><label class="form-check-label" for="massUser">Usuario</label></div></div>
                                     <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massBtzero" wire:model.defer="permissions.btzero"><label class="form-check-label" for="massBtzero">BTzero</label></div></div>
                                     <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massOnlypartner" wire:model.defer="permissions.onlyparner"><label class="form-check-label" for="massOnlypartner">Empreiteira (visão exclusiva)</label></div></div>
+                                    @if (Auth()->user()->superadm)
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massAnalyst" wire:model.defer="permissions.analyst"><label class="form-check-label" for="massAnalyst">Analista</label></div></div>
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="contractMass" wire:model.defer="permissions.contract"><label class="form-check-label" for="contractMass">Terceirizado</label></div></div>
+                                    @endif
                                 </div>
                             </div>
                         </div>

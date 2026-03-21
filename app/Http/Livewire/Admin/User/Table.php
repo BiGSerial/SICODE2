@@ -59,6 +59,7 @@ class Table extends Component
         'operator',
         'user',
         'onlyparner',
+        'analyst',
     ];
 
     protected $listeners = [
