@@ -48,6 +48,23 @@
                         <label for="end_date" class="mr-2 fw-semibold">Data de Fim</label>
                         <input type="date" id="end_date" class="form-control w-100" wire:model="dt_out">
                     </div>
+
+                    {{-- EXPORTAÇÃO POR --}}
+                    <div class="col-md-4 col-12 mb-2">
+                        <label for="export_by" class="mr-2 fw-semibold">Exportar por</label>
+                        <select id="export_by" class="form-select w-100" wire:model="export_by">
+                            <option value="note">Nota</option>
+                            <option value="order">Ordem</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4 col-12 mb-2">
+                        <label for="amount_basis" class="mr-2 fw-semibold">Base monetária</label>
+                        <select id="amount_basis" class="form-select w-100" wire:model="amount_basis">
+                            <option value="moa">MOA - Mão de Obra em Aberto</option>
+                            <option value="mop">MOP - Mão de Obra Prevista</option>
+                        </select>
+                    </div>
                 </div>
             </form>
         </div>
@@ -80,7 +97,7 @@
 
                     <div class="modern-card-growth growth-positive">
                         <i class="ri-check-line me-1"></i>
-                        Entregue no período filtrado
+                        Entregue no período filtrado ({{ $summary['amountBasisLabel'] ?? 'MOA' }})
                     </div>
                 </div>
             </div>
@@ -111,7 +128,7 @@
 
                     <div class="modern-card-growth growth-negative">
                         <i class="ri-arrow-down-line me-1"></i>
-                        Potencialmente não executado
+                        Potencialmente não executado ({{ $summary['amountBasisLabel'] ?? 'MOA' }})
                     </div>
                 </div>
             </div>
@@ -141,7 +158,7 @@
                     </div>
 
                     <div class="modern-card-growth text-danger fw-semibold" style="font-size:.9rem;">
-                        Multa estimada (1% s/ Não Realizado)
+                        Multa estimada (1% s/ Não Realizado {{ $summary['amountBasisLabel'] ?? 'MOA' }})
                     </div>
                 </div>
             </div>
@@ -274,7 +291,7 @@
         <div class="chart-card-header d-flex justify-content-between align-items-start">
             <h5 class="chart-card-title mb-0 d-flex align-items-center gap-2">
                 <i class="ri-bar-chart-line"></i>
-                <span>Conclusões Diárias (Realizado x Não Realizado)</span>
+                <span>Conclusões Diárias (Realizado x Não Realizado x Prevista)</span>
             </h5>
             <span class="badge bg-primary">
                 {{ $summary['periodLabel'] ?? '' }}
@@ -285,7 +302,7 @@
                 <x-grafico.apex :chart="$chartDaily" chartId="chartDaily" class="w-100" />
             </div>
             <div class="small text-muted mt-2">
-                Barras = Quantidade de viabilidades concluídas.<br>
+                Barras = Quantidade diária (Realizado, Não Realizado e Conclusão Prevista).<br>
                 Linhas = Valor financeiro associado (R$).
             </div>
         </div>
@@ -352,7 +369,7 @@
                                 <tr>
                                     <th>Nota</th>
                                     <th>Empreiteira</th>
-                                    <th class="text-end">Valor MMO</th>
+                                    <th class="text-end">Valor {{ $summary['amountBasisLabel'] ?? 'MOA' }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -361,7 +378,7 @@
                                         <td class="fw-semibold">{{ $row->Note->note ?? 'N/A' }}</td>
                                         <td>{{ $row->Company->name ?? 'N/A' }}</td>
                                         <td class="text-end">
-                                            R$ {{ number_format($row->value ?? 0, 2, ',', '.') }}
+                                            R$ {{ number_format($row->money_base ?? 0, 2, ',', '.') }}
                                         </td>
                                     </tr>
                                 @endforeach
@@ -415,7 +432,7 @@
                                 <tr>
                                     <th>Nota</th>
                                     <th>Empreiteira</th>
-                                    <th class="text-end">Valor MMO</th>
+                                    <th class="text-end">Valor {{ $summary['amountBasisLabel'] ?? 'MOA' }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -424,7 +441,7 @@
                                         <td class="fw-semibold">{{ $row->Note->note ?? 'N/A' }}</td>
                                         <td>{{ $row->Company->name ?? 'N/A' }}</td>
                                         <td class="text-end">
-                                            R$ {{ number_format($row->value ?? 0, 2, ',', '.') }}
+                                            R$ {{ number_format($row->money_base ?? 0, 2, ',', '.') }}
                                         </td>
                                     </tr>
                                 @endforeach

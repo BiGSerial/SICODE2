@@ -23,6 +23,8 @@ class Viabreports extends Component
     // período atual da tela
     public $dt_in;
     public $dt_out;
+    public string $export_by = 'note';
+    public string $amount_basis = 'moa';
 
     public $perPage = 15;
 
@@ -33,6 +35,8 @@ class Viabreports extends Component
         'company_ids' => ['except' => []],
         'dt_in'       => ['except' => ''],
         'dt_out'      => ['except' => ''],
+        'export_by'   => ['except' => 'note'],
+        'amount_basis'=> ['except' => 'moa'],
     ];
 
     public function mount()
@@ -90,6 +94,23 @@ class Viabreports extends Component
         $this->refreshCharts();
     }
 
+    public function updatedExportBy()
+    {
+        if (!in_array($this->export_by, ['note', 'order'], true)) {
+            $this->export_by = 'note';
+        }
+    }
+
+    public function updatedAmountBasis()
+    {
+        if (!in_array($this->amount_basis, ['moa', 'mop'], true)) {
+            $this->amount_basis = 'moa';
+        }
+
+        $this->bumpCharts();
+        $this->refreshCharts();
+    }
+
     /**
      * Botão "Limpar filtros"
      *
@@ -99,6 +120,8 @@ class Viabreports extends Component
     public function resetFilters()
     {
         $this->company_ids = [];
+        $this->amount_basis = 'moa';
+        $this->export_by = 'note';
 
         $this->dt_in  = Carbon::now()->startOfMonth()->format('Y-m-d');
         $this->dt_out = Carbon::now()->endOfMonth()->format('Y-m-d');
@@ -113,7 +136,7 @@ class Viabreports extends Component
     protected function applyCompanyFilter($query)
     {
         if (!empty($this->company_ids) && is_array($this->company_ids)) {
-            $query->whereIn('company_id', $this->company_ids);
+            $query->whereIn('viabilities.company_id', $this->company_ids);
         }
 
         return $query;
@@ -127,6 +150,11 @@ class Viabreports extends Component
         return "COALESCE(returned_at, completed_at)";
     }
 
+    protected function predictedDateExpr(): string
+    {
+        return "TIMESTAMPADD(DAY, (7 + COALESCE(vdays.total_days, 0)), viabilities.sended_at)";
+    }
+
     /**
      * Base: concluídas
      */
@@ -136,8 +164,52 @@ class Viabreports extends Component
             ->where('completed', true);
 
         $this->applyCompanyFilter($q);
+        $this->applyMonetaryJoin($q);
 
         return $q;
+    }
+
+    protected function applyMonetaryJoin($query)
+    {
+        if ($this->amount_basis !== 'mop') {
+            return $query;
+        }
+
+        $query->leftJoinSub(
+            DB::table('order_viability as ov')
+                ->join('orders as o', 'o.id', '=', 'ov.order_id')
+                ->selectRaw('ov.viability_id, SUM(COALESCE(o.service_cost, 0)) as total_service_cost')
+                ->groupBy('ov.viability_id'),
+            'mop_costs',
+            function ($join) {
+                $join->on('mop_costs.viability_id', '=', 'viabilities.id');
+            }
+        );
+
+        return $query;
+    }
+
+    protected function monetaryAmountSql(): string
+    {
+        return $this->amount_basis === 'mop'
+            ? 'COALESCE(mop_costs.total_service_cost, 0)'
+            : 'COALESCE(viabilities.value, 0)';
+    }
+
+    protected function sumMonetary($query): float
+    {
+        if ($this->amount_basis === 'mop') {
+            return round((float) $query->sum(DB::raw('COALESCE(mop_costs.total_service_cost, 0)')), 2);
+        }
+
+        return round((float) $query->sum('viabilities.value'), 2);
+    }
+
+    protected function amountBasisLabel(): string
+    {
+        return $this->amount_basis === 'mop'
+            ? 'MOP - Mão de Obra Prevista'
+            : 'MOA - Mão de Obra em Aberto';
     }
 
     /**
@@ -199,11 +271,11 @@ class Viabreports extends Component
 
         $realizedValueQ = (clone $this->realizedClosedQuery());
         $this->applyCloseDateRange($realizedValueQ, $start, $end);
-        $realizedValue = $realizedValueQ->sum('value');
+        $realizedValue = $this->sumMonetary($realizedValueQ);
 
         $notRealizedValueQ = (clone $this->notRealizedClosedQuery());
         $this->applyCloseDateRange($notRealizedValueQ, $start, $end);
-        $notRealizedValue = $notRealizedValueQ->sum('value');
+        $notRealizedValue = $this->sumMonetary($notRealizedValueQ);
 
         $penaltyValue = $notRealizedValue * 0.01;
 
@@ -236,6 +308,7 @@ class Viabreports extends Component
             'penaltyValue'       => $penaltyValue,
             'avgCloseTimeHours'  => round($avgHours, 1),
             'avgCloseTimeDays'   => round($avgDays, 1),
+            'amountBasisLabel'   => $this->amountBasisLabel(),
         ];
     }
 
@@ -368,27 +441,65 @@ class Viabreports extends Component
         $start = Carbon::parse($this->dt_in)->startOfDay();
         $end   = Carbon::parse($this->dt_out)->endOfDay();
 
-        $realizadoDaily = (clone $this->realizedClosedQuery());
-        $this->applyCloseDateRange($realizadoDaily, $start, $end);
+        $realizadoDaily = Viability::query()
+            ->whereNotNull('viabilities.returned_at')
+            ->whereBetween('viabilities.returned_at', [$start, $end]);
+        $this->applyCompanyFilter($realizadoDaily);
+        $this->applyMonetaryJoin($realizadoDaily);
 
         $realizadoRows = $realizadoDaily
             ->selectRaw('
-                DATE(' . $this->closeDateExpr() . ') as dia_ref,
-                SUM(value) as valor_real,
+                DATE(viabilities.returned_at) as dia_ref,
+                SUM(' . $this->monetaryAmountSql() . ') as valor_real,
                 COUNT(*)   as qtd_real
             ')
             ->groupBy('dia_ref')
             ->get()
             ->keyBy('dia_ref');
 
-        $naoDaily = (clone $this->notRealizedClosedQuery());
-        $this->applyCloseDateRange($naoDaily, $start, $end);
+        $naoDaily = Viability::query()
+            ->where('viabilities.tacit', true)
+            ->whereNotNull('viabilities.tacit_at')
+            ->whereBetween('viabilities.tacit_at', [$start, $end]);
+        $this->applyCompanyFilter($naoDaily);
+        $this->applyMonetaryJoin($naoDaily);
 
         $naoRows = $naoDaily
             ->selectRaw('
-                DATE(' . $this->closeDateExpr() . ') as dia_ref,
-                SUM(value) as valor_nao,
+                DATE(viabilities.tacit_at) as dia_ref,
+                SUM(' . $this->monetaryAmountSql() . ') as valor_nao,
                 COUNT(*)   as qtd_nao
+            ')
+            ->groupBy('dia_ref')
+            ->get()
+            ->keyBy('dia_ref');
+
+        $previsaoDaily = Viability::query()
+            ->leftJoinSub(
+                DB::table('daysviabs')
+                    ->selectRaw('viability_id, SUM(days) as total_days')
+                    ->groupBy('viability_id'),
+                'vdays',
+                function ($join) {
+                    $join->on('vdays.viability_id', '=', 'viabilities.id');
+                }
+            )
+            ->whereNull('viabilities.returned_at')
+            ->where('viabilities.canceled', false)
+            ->where('viabilities.completed', false)
+            ->where('viabilities.approved', false)
+            ->where('viabilities.rejected', false)
+            ->whereNotNull('viabilities.sended_at')
+            ->whereRaw($this->predictedDateExpr() . ' >= ?', [now()])
+            ->whereBetween(DB::raw($this->predictedDateExpr()), [$start, $end]);
+        $this->applyCompanyFilter($previsaoDaily);
+        $this->applyMonetaryJoin($previsaoDaily);
+
+        $previsaoRows = $previsaoDaily
+            ->selectRaw('
+                DATE(' . $this->predictedDateExpr() . ') as dia_ref,
+                SUM(' . $this->monetaryAmountSql() . ') as valor_prev,
+                COUNT(*)   as qtd_prev
             ')
             ->groupBy('dia_ref')
             ->get()
@@ -397,8 +508,10 @@ class Viabreports extends Component
         $labels         = [];
         $dataQtdReal    = [];
         $dataQtdNao     = [];
+        $dataQtdPrev    = [];
         $dataValorReal  = [];
         $dataValorNao   = [];
+        $dataValorPrev  = [];
 
         $cursor = $start->copy();
         while ($cursor->lessThanOrEqualTo($end)) {
@@ -406,8 +519,10 @@ class Viabreports extends Component
             $labels[]        = $cursor->format('d/m/Y');
             $dataQtdReal[]   = $realizadoRows[$key]->qtd_real    ?? 0;
             $dataQtdNao[]    = $naoRows[$key]->qtd_nao           ?? 0;
+            $dataQtdPrev[]   = $previsaoRows[$key]->qtd_prev     ?? 0;
             $dataValorReal[] = $realizadoRows[$key]->valor_real  ?? 0;
             $dataValorNao[]  = $naoRows[$key]->valor_nao         ?? 0;
+            $dataValorPrev[] = $previsaoRows[$key]->valor_prev   ?? 0;
             $cursor->addDay();
         }
 
@@ -435,6 +550,15 @@ class Viabreports extends Component
                         'yAxisID'         => 'yLeft',
                     ],
                     [
+                        'type'            => 'bar',
+                        'label'           => 'Qtd Conclusão Prevista',
+                        'data'            => $dataQtdPrev,
+                        'backgroundColor' => 'rgba(13,110,253,0.25)',
+                        'borderColor'     => '#0d6efd',
+                        'borderWidth'     => 1,
+                        'yAxisID'         => 'yLeft',
+                    ],
+                    [
                         'type'            => 'line',
                         'label'           => 'Valor Realizado (R$)',
                         'data'            => $dataValorReal,
@@ -454,6 +578,16 @@ class Viabreports extends Component
                         'fill'            => false,
                         'yAxisID'         => 'yRight',
                     ],
+                    [
+                        'type'            => 'line',
+                        'label'           => 'Valor Conclusão Prevista (R$)',
+                        'data'            => $dataValorPrev,
+                        'borderColor'     => '#0d6efd',
+                        'backgroundColor' => 'rgba(13,110,253,0.1)',
+                        'tension'         => 0.1,
+                        'fill'            => false,
+                        'yAxisID'         => 'yRight',
+                    ],
                 ],
             ],
             'options' => [
@@ -463,7 +597,7 @@ class Viabreports extends Component
                     'legend' => ['position' => 'top'],
                     'title'  => [
                         'display' => true,
-                        'text'    => 'Conclusões Diárias (Realizado x Não Realizado)',
+                        'text'    => 'Conclusões Diárias (Realizado x Não Realizado x Prevista)',
                     ],
                 ],
                 'scales' => [
@@ -509,7 +643,7 @@ class Viabreports extends Component
             ->selectRaw('
                 DATE_FORMAT(' . $this->closeDateExpr() . ', "%Y-%m") as ym_ref,
                 COUNT(*) as qtd_real,
-                SUM(value) as val_real
+                SUM(' . $this->monetaryAmountSql() . ') as val_real
             ')
             ->groupBy('ym_ref')
             ->get()
@@ -523,7 +657,7 @@ class Viabreports extends Component
             ->selectRaw('
                 DATE_FORMAT(' . $this->closeDateExpr() . ', "%Y-%m") as ym_ref,
                 COUNT(*) as qtd_nao,
-                SUM(value) as val_nao
+                SUM(' . $this->monetaryAmountSql() . ') as val_nao
             ')
             ->groupBy('ym_ref')
             ->get()
@@ -630,7 +764,7 @@ class Viabreports extends Component
         $realQ = (clone $this->realizedClosedQuery());
         $this->applyCloseDateRange($realQ, $start, $end);
         $realQ = $realQ
-            ->selectRaw('company_id, SUM(value) as total_realizado')
+            ->selectRaw('company_id, SUM(' . $this->monetaryAmountSql() . ') as total_realizado')
             ->groupBy('company_id')
             ->get()
             ->keyBy('company_id');
@@ -638,7 +772,7 @@ class Viabreports extends Component
         $naoQ = (clone $this->notRealizedClosedQuery());
         $this->applyCloseDateRange($naoQ, $start, $end);
         $naoQ = $naoQ
-            ->selectRaw('company_id, SUM(value) as total_nao')
+            ->selectRaw('company_id, SUM(' . $this->monetaryAmountSql() . ') as total_nao')
             ->groupBy('company_id')
             ->get()
             ->keyBy('company_id');
@@ -686,8 +820,8 @@ class Viabreports extends Component
         $data = (clone $this->realizedClosedQuery());
         $this->applyCloseDateRange($data, $start, $end);
 
-        return (new \App\Exports\Engineers\ResumeViabilityQueryExport($data))
-            ->download(date('YmdHis') . '_EngineersRealized.xlsx');
+        return (new \App\Exports\Engineers\ResumeViabilityQueryExport($data, $this->export_by, $this->amount_basis))
+            ->download(date('YmdHis') . '_EngineersRealized_' . $this->export_by . '_' . $this->amount_basis . '.xlsx');
     }
 
     public function exportExcelNotRealized()
@@ -698,8 +832,8 @@ class Viabreports extends Component
         $data = (clone $this->notRealizedClosedQuery());
         $this->applyCloseDateRange($data, $start, $end);
 
-        return (new \App\Exports\Engineers\ResumeViabilityQueryExport($data))
-            ->download(date('YmdHis') . '_EngineersNotRealized.xlsx');
+        return (new \App\Exports\Engineers\ResumeViabilityQueryExport($data, $this->export_by, $this->amount_basis))
+            ->download(date('YmdHis') . '_EngineersNotRealized_' . $this->export_by . '_' . $this->amount_basis . '.xlsx');
     }
 
     /**
@@ -712,6 +846,9 @@ class Viabreports extends Component
 
         $q = (clone $this->realizedClosedQuery());
         $this->applyCloseDateRange($q, $start, $end);
+        $q->select('viabilities.*')
+            ->with(['Note:id,note', 'Company:id,name'])
+            ->addSelect(DB::raw($this->monetaryAmountSql() . ' as money_base'));
 
         return $q->paginate($this->perPage, ['*'], 'realizedPage');
     }
@@ -723,6 +860,9 @@ class Viabreports extends Component
 
         $q = (clone $this->notRealizedClosedQuery());
         $this->applyCloseDateRange($q, $start, $end);
+        $q->select('viabilities.*')
+            ->with(['Note:id,note', 'Company:id,name'])
+            ->addSelect(DB::raw($this->monetaryAmountSql() . ' as money_base'));
 
         return $q->paginate($this->perPage, ['*'], 'notRealizedPage');
     }

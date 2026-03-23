@@ -11,22 +11,49 @@ class Menu extends Component
     public function mount(): void
     {
         $route = request()->route()?->getName();
-        $map = [
-            'engineers.validation' => 'analises',
-            'engineers.viability' => 'viabilidade',
-            'engineers.informes' => 'informes',
-            'engineers.inform_obra' => 'informes',
-            'engineers.inform_list' => 'informes',
-            'engineers.ads.requests' => 'informes',
-            'engineers.ads.situation' => 'informes',
-            'engineers.parciais' => 'parciais',
-            'engineers.d5' => 'd5',
-            'engineers.cancellations.index' => 'cancellations',
-            'engineers.cancellations.history' => 'cancellations',
-            'engineers.cancellations.show' => 'cancellations',
-        ];
+        if (!$route) {
+            $this->onlySection = null;
+            return;
+        }
 
-        $this->onlySection = $map[$route] ?? null;
+        $this->onlySection = match (true) {
+            $route === 'engineers.validation',
+            str_starts_with($route, 'engineers.analises.') => 'analises',
+
+            in_array($route, [
+                'engineers.main',
+                'engineers.viability',
+                'engineers.viability_waiting',
+                'engineers.viab_list',
+                'engineers.rejecte_viab',
+                'engineers.intern_return',
+                'engineers.justified_viab',
+                'engineers.viab_hist',
+                'engineers.viabilityreports',
+            ], true) => 'viabilidade',
+
+            in_array($route, [
+                'engineers.informes',
+                'engineers.inform_obra',
+                'engineers.inform_list',
+                'engineers.ads.requests',
+                'engineers.ads.situation',
+                'engineers.dashboard.conclusion_inform',
+            ], true) => 'informes',
+
+            in_array($route, [
+                'engineers.parciais',
+                'engineers.info.parcial',
+                'engineers.hist.parcial',
+            ], true) => 'parciais',
+
+            $route === 'engineers.d5',
+            $route === 'engineers.dfive.waiting' => 'd5',
+
+            str_starts_with($route, 'engineers.cancellations.') => 'cancellations',
+
+            default => null,
+        };
     }
 
     public function render()

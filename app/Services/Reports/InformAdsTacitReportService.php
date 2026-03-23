@@ -159,8 +159,10 @@ class InformAdsTacitReportService
         $search = trim((string) ($filters['search'] ?? ''));
         $dateIn = $filters['date_in'] ?? null;
         $dateOut = $filters['date_out'] ?? null;
+        $dateField = $filters['dateField'] ?? 'ads_created_at';
         $openFilter = $filters['openFilter'] ?? 'all';
         $companyIds = $filters['companyIds'] ?? [];
+        $dateColumn = $this->resolveDateColumn((string) $dateField);
 
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
@@ -178,11 +180,11 @@ class InformAdsTacitReportService
             ->where('o.statusSist', 'not like', 'ENC%');
 
         if ($dateIn) {
-            $query->whereDate('wr.created_at', '>=', $dateIn);
+            $query->whereDate($dateColumn, '>=', $dateIn);
         }
 
         if ($dateOut) {
-            $query->whereDate('wr.created_at', '<=', $dateOut);
+            $query->whereDate($dateColumn, '<=', $dateOut);
         }
 
         if ($search !== '') {
@@ -198,9 +200,19 @@ class InformAdsTacitReportService
 
         if ($openFilter === 'open') {
             $query->whereNull('af.tacit_delivered_at');
+        } elseif ($openFilter === 'delivered') {
+            $query->whereNotNull('af.tacit_delivered_at');
         }
 
         return $query;
+    }
+
+    private function resolveDateColumn(string $dateField): string
+    {
+        return match ($dateField) {
+            'tacit_delivered_at' => 'af.tacit_delivered_at',
+            default => 'af.created_at',
+        };
     }
 
     private function asCarbon(mixed $value): ?Carbon

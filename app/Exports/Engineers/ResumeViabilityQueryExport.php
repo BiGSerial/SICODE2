@@ -4,6 +4,7 @@ namespace App\Exports\Engineers;
 
 use App\Models\Viability;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -23,11 +24,15 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
      * basta injetar um Builder no construtor.
      */
     protected $baseQuery;
+    protected string $exportBy;
+    protected string $amountBasis;
 
-    public function __construct($baseQuery = null)
+    public function __construct($baseQuery = null, string $exportBy = 'note', string $amountBasis = 'moa')
     {
         // se não vier, usa todo o modelo Viability
         $this->baseQuery = $baseQuery ?: Viability::query();
+        $this->exportBy = in_array($exportBy, ['note', 'order'], true) ? $exportBy : 'note';
+        $this->amountBasis = in_array($amountBasis, ['moa', 'mop'], true) ? $amountBasis : 'moa';
     }
 
     /**
@@ -35,8 +40,19 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
      */
     public function query()
     {
-        return $this->baseQuery
-        ->with(['Note', 'Orders', 'Justification', 'Engineer']);
+        // O export chama query() mais de uma vez (count/chunks). Clonar evita
+        // acumular joins repetidos e colisão de alias (ex.: "ov").
+        $query = clone $this->baseQuery;
+
+        if ($this->exportBy === 'order') {
+            return $query
+                ->leftJoin('order_viability as ov', 'ov.viability_id', '=', 'viabilities.id')
+                ->leftJoin('orders as o', 'o.id', '=', 'ov.order_id')
+                ->select('viabilities.*', 'o.ordem as export_ordem', DB::raw('COALESCE(o.service_cost, 0) as export_service_cost'))
+                ->with(['Note', 'Justification', 'Engineer']);
+        }
+
+        return $query->with(['Note', 'Orders', 'Justification', 'Engineer']);
     }
 
     /**
@@ -44,10 +60,30 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
      */
     public function map($viab): array
     {
-        return [
+        $orderRef = $this->exportBy === 'order'
+            ? ($viab->export_ordem ?? optional($viab->Order)->ordem ?? '')
+            : ($viab->Orders?->pluck('ordem')->implode("\n") ?? '');
+
+        $serviceCostByOrder = $this->exportBy === 'order'
+            ? (float) ($viab->export_service_cost ?? 0)
+            : null;
+
+        $baseAmount = $this->amountBasis === 'mop'
+            ? ($this->exportBy === 'order'
+                ? $serviceCostByOrder
+                : (float) ($viab->Orders?->sum(fn ($order) => (float) ($order->service_cost ?? 0)) ?? 0))
+            : (float) ($viab->value ?? 0);
+
+        $row = [
             $viab->Note?->note,
-            // ordens concatenadas
-            $viab->Orders?->pluck('ordem')->implode("\n"),
+            $orderRef,
+        ];
+
+        if ($this->exportBy === 'order') {
+            $row[] = number_format($serviceCostByOrder ?? 0, 2, ',', '.');
+        }
+
+        $row = array_merge($row, [
             $viab->Note?->rubrica,
             $viab->Note?->lexp,
             optional($viab->hired_at)->format('d/m/Y'),
@@ -67,10 +103,13 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
                 !$viab->Justification->granted && $viab->Justification->dismissed => 'Indeferido',
                 default => 'Pendente',
             },
-            number_format($viab->value, 2, ',', '.'),
-            number_format($viab->value * 0.01, 2, ',', '.'),
+            $this->amountBasisLabel(),
+            number_format($baseAmount, 2, ',', '.'),
+            number_format($baseAmount * 0.01, 2, ',', '.'),
             $viab->Engineer?->name,
-        ];
+        ]);
+
+        return $row;
     }
 
     /**
@@ -78,11 +117,17 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
      */
     public function headings(): array
     {
-        return [
+        $headings = [
             'Note/OV','Ordem/DR','Rubrica','Município','Contratado Em','Enviado Em',
             'PrazoViabilidade','Vencido Em','Prazo Justificativa','Justificado Em',
-            'Resultado','Valor MOA','Penalidade','Responsável',
+            'Resultado','Base Monetária','Valor ' . strtoupper($this->amountBasis),'Penalidade','Responsável',
         ];
+
+        if ($this->exportBy === 'order') {
+            array_splice($headings, 2, 0, ['Service Cost Ordem']);
+        }
+
+        return $headings;
     }
 
     /**
@@ -111,9 +156,12 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
+                $lastColumn = $this->exportBy === 'order' ? 'P' : 'O';
+                $valueColumn = $this->exportBy === 'order' ? 'N' : 'M';
+                $penaltyColumn = $this->exportBy === 'order' ? 'O' : 'N';
 
                 // cabeçalho azul
-                $sheet->getStyle('A1:N1')->applyFromArray([
+                $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                         'color'    => ['argb' => 'FF0000FF'],
@@ -126,19 +174,26 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
                 // formata colunas numéricas e moeda
                 $sheet->getStyle('A')->getNumberFormat()->setFormatCode('0');
                 $sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
-                $sheet->getStyle('L')->getNumberFormat()->setFormatCode('R$ #.##0,00');
-                $sheet->getStyle('M')->getNumberFormat()->setFormatCode('R$ #.##0,00');
+                if ($this->exportBy === 'order') {
+                    $sheet->getStyle('C')->getNumberFormat()->setFormatCode('R$ #.##0,00');
+                }
+                $sheet->getStyle($valueColumn)->getNumberFormat()->setFormatCode('R$ #.##0,00');
+                $sheet->getStyle($penaltyColumn)->getNumberFormat()->setFormatCode('R$ #.##0,00');
 
                 // quebra de linha na coluna B
                 $sheet->getStyle('B')->getAlignment()->setWrapText(true);
 
                 // alinhamento
-                $sheet->getStyle('A1:N1000')->getAlignment()
+                $sheet->getStyle("A1:{$lastColumn}1000")->getAlignment()
                       ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
                       ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
                 // autosize apenas para as colunas necessárias
-                foreach (['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'] as $col) {
+                $autoSizeColumns = $this->exportBy === 'order'
+                    ? ['A', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P']
+                    : ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
+
+                foreach ($autoSizeColumns as $col) {
                     $sheet->getColumnDimension($col)->setAutoSize(true);
                 }
 
@@ -154,5 +209,12 @@ class ResumeViabilityQueryExport implements FromQuery, WithMapping, WithHeadings
     public function chunkSize(): int
     {
         return 1000;
+    }
+
+    private function amountBasisLabel(): string
+    {
+        return $this->amountBasis === 'mop'
+            ? 'MOP - Mão de Obra Prevista'
+            : 'MOA - Mão de Obra em Aberto';
     }
 }
