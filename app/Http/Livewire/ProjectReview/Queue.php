@@ -57,6 +57,7 @@ class Queue extends Component
     protected $listeners = [
         'refresh_list' => '$refresh',
         'savedFiles' => 'onFilesSaved',
+        'openReviewFromNotification' => 'openReviewFromNotification',
     ];
 
     public function mount(string $mode = 'pending'): void
@@ -413,6 +414,16 @@ class Queue extends Component
         $this->restoreDraft();
 
         $this->dispatchBrowserEvent('showModal', ['id' => 'projectReviewModal']);
+    }
+
+    public function openReviewFromNotification($productionId): void
+    {
+        $id = (int) $productionId;
+        if ($id <= 0) {
+            return;
+        }
+
+        $this->openReview($id);
     }
 
     public function saveDraftManually(): void

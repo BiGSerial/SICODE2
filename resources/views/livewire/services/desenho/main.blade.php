@@ -103,6 +103,26 @@
                     </div>
                 </div>
             </div>
+
+            @if (count($statusFilterOptions))
+                <div class="mt-3">
+                    <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
+                        @foreach ($statusFilterOptions as $statusOption)
+                            @php
+                                $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
+                            @endphp
+                            <button type="button"
+                                class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
+                                wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
+                                {{ $statusOption['label'] }}
+                                <span class="badge text-bg-light ms-1">
+                                    {{ $statusOption['count'] }}
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
         {{-- <div class="btn-group mb-3">
             <div class="dropdown mx-1">
@@ -577,12 +597,38 @@
                     return;
                 }
 
-                if (modalId === 'analise_form') {
-                    Livewire.emit('analise_modal_hidden');
-                }
-
                 Livewire.emitTo('services.desenho.forms.analise', 'analise_clean');
+                cleanupModalArtifacts();
+                clearProjectReviewQueryParams();
             });
+        }
+
+        function cleanupModalArtifacts() {
+            const hasVisibleModal = !!document.querySelector('.modal.show');
+            if (hasVisibleModal) return;
+
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        }
+
+        function clearProjectReviewQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            let changed = false;
+
+            ['open_project_review', 'production', 'note', 'focus'].forEach(function(key) {
+                if (params.has(key)) {
+                    params.delete(key);
+                    changed = true;
+                }
+            });
+
+            if (!changed) return;
+
+            const nextQuery = params.toString();
+            const nextUrl = `${window.location.pathname}${nextQuery ? '?' + nextQuery : ''}${window.location.hash || ''}`;
+            window.history.replaceState({}, document.title, nextUrl);
         }
 
         bindAnaliseModalClean('analise_form');
@@ -600,17 +646,33 @@
             const noteId = parseInt(params.get('note') || '', 10);
 
             if (shouldOpenReview && Number.isInteger(productionId) && productionId > 0) {
-                Livewire.emitTo('services.desenho.main', 'openProjectReviewFromNotification', productionId,
-                    Number.isInteger(noteId) && noteId > 0 ? noteId : 0);
+                const safeNoteId = Number.isInteger(noteId) && noteId > 0 ? noteId : 0;
+                const openFromNotification = function() {
+                    Livewire.emitTo('services.desenho.main', 'openProjectReviewFromNotification', productionId, safeNoteId);
+                };
 
-                params.delete('open_project_review');
-                params.delete('production');
-                params.delete('note');
-
-                const nextQuery = params.toString();
-                const nextUrl = `${window.location.pathname}${nextQuery ? '?' + nextQuery : ''}${window.location.hash || ''}`;
-                window.history.replaceState({}, document.title, nextUrl);
+                openFromNotification();
+                setTimeout(openFromNotification, 350);
             }
+
+            clearProjectReviewQueryParams();
+        });
+
+        window.addEventListener('openProjectReviewModalFromServer', function(e) {
+            const payload = e.detail?.payload;
+            if (!payload || !payload.productionId) return;
+
+            const openReviewModal = function() {
+                Livewire.emitTo('services.desenho.forms.analise', 'open_analise_draw', payload);
+                const modalEl = document.getElementById('analise_review_form');
+                if (!modalEl) return;
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            };
+
+            openReviewModal();
+            setTimeout(openReviewModal, 250);
+            setTimeout(openReviewModal, 700);
         });
 
         document.addEventListener('click', function(e) {
@@ -638,6 +700,11 @@
             reviewModalEl.addEventListener('hidden.bs.modal', onHidden);
             const modal = bootstrap.Modal.getOrCreateInstance(reviewModalEl);
             modal.hide();
+        });
+
+        window.addEventListener('hideModal', function() {
+            cleanupModalArtifacts();
+            clearProjectReviewQueryParams();
         });
     </script>
 @endpush
