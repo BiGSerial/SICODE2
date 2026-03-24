@@ -67,14 +67,14 @@
         }
 
         .analysis-items-scroll {
-            max-height: 360px;
-            overflow: auto;
+            max-height: none;
+            overflow: visible;
         }
 
         .analysis-findings-scroll {
-            max-height: 620px;
-            overflow: auto;
-            padding-right: 2px;
+            max-height: none;
+            overflow: visible;
+            padding-right: 0;
         }
 
         .step-title {

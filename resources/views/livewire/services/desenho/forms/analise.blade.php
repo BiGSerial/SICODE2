@@ -84,7 +84,15 @@
                 </div>
             </div>
 
-            @if ($viewOnlyProjectReview && $production && $production->status === \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW)
+            @if (
+                $viewOnlyProjectReview &&
+                    $production &&
+                    in_array((int) $production->status, [
+                        \App\Models\Production::STATUS_IN_PROJECT_REVIEW,
+                        \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW,
+                        \App\Models\Production::STATUS_RELEASED_TO_FINISH,
+                    ], true)
+            )
                 <div class="row g-3">
                     <div class="col-lg-5">
                         <div class="card-soft mb-3">
@@ -373,6 +381,12 @@
                                     <li>Preencha os valores da mesma ordem e clique em <strong>Adicionar</strong>.</li>
                                     <li>Se houver outra ordem, repita em um novo lançamento.</li>
                                 </ul>
+                                @if ($production && (int) $production->status === \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW)
+                                    <p class="mt-2 mb-0 text-danger fw-semibold">
+                                        Em retorno para encerramento, não adicione nova ordem para corrigir valor.
+                                        Basta ajustar os valores da ordem já exibida na tela.
+                                    </p>
+                                @endif
                                 <p class="mt-2 mb-0">
                                     Exemplo correto: <code>123456</code>.<br>
                                     Exemplo incorreto: <code>123456 789012</code>, <code>123456,789012</code>, <code>123456;789012</code>.

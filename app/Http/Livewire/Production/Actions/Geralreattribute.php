@@ -161,8 +161,7 @@ class Geralreattribute extends Component
 
         $serviceName = mb_strtolower((string) ($production->Service->service ?? ''));
         $isDrawingService = str_contains($serviceName, 'desenho');
-        $isPendingReview = (int) ($production->status ?? 0) === Production::STATUS_IN_PROJECT_REVIEW
-            && !(bool) ($production->completed ?? false);
+        $isPendingReview = (int) ($production->status ?? 0) === Production::STATUS_IN_PROJECT_REVIEW;
 
         $pendingCycle = $production->ProjectReviewCycles->first();
         $pendingCycleId = $pendingCycle?->id;

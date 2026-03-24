@@ -45,6 +45,7 @@ class Main extends Component
         'confirm_getAnalise' => 'go_to_analise',
         'analise_modal_hidden' => 'enforceActiveProductionModal',
         'force_check_open' => 'checkOpen',
+        'openProjectReviewFromNotification' => 'openProjectReviewFromNotification',
     ];
 
     public function mount($service)
@@ -59,6 +60,31 @@ class Main extends Component
 
     public function goTransferProd($prod_id)
     {
+        $production = Production::query()
+            ->where('id', $prod_id)
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', Auth()->id())
+            ->first();
+
+        if (!$production) {
+            return;
+        }
+
+        if (in_array((int) $production->status, [
+            Production::STATUS_IN_PROJECT_REVIEW,
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TRANSFERÊNCIA BLOQUEADA',
+                'html'     => 'Esta atividade está em tratativa de Análise de Projeto e não pode ser transferida.',
+                'timer'    => 3800,
+            ]);
+            return;
+        }
+
         $this->emit('transfer_production', $prod_id);
     }
 
@@ -143,9 +169,24 @@ class Main extends Component
 
     public function getAnalise($production, $note)
     {
+        $productionModel = Production::query()
+            ->where('id', $production)
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', Auth()->id())
+            ->first();
+
+        if (!$productionModel) {
+            return;
+        }
+
+        if ((int) $productionModel->status === Production::STATUS_IN_PROJECT_REVIEW) {
+            $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id);
+            return;
+        }
+
         $this->analise = ['productionId' => $production, 'noteId' => $note];
 
-        if ($this->limit_pause === Production::Where('status', 4)->Where('service_id', $this->service->uuid)->Where('user_id', Auth()->User()->id)->count() && (Production::find($production))->status != 4) {
+        if ($this->limit_pause === Production::Where('status', 4)->Where('service_id', $this->service->uuid)->Where('user_id', Auth()->User()->id)->count() && $productionModel->status != 4) {
             $this->dispatchBrowserEvent('alertar', [
                 'title'         => 'AVISO DE LIMITE DE PAUSA',
                 'msg'           => "Você ja atingiu o limite de pausa neste serviço, ao iniciar esta nota, você não poderá colocar esta NOTA/OV em espera. \n Tem certeza que deseja continuar?",
@@ -165,11 +206,63 @@ class Main extends Component
         }
     }
 
+    public function openProjectReviewFromNotification(int $production, int $note): void
+    {
+        $productionModel = Production::query()
+            ->where('id', $production)
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', Auth()->id())
+            ->first();
+
+        if (!$productionModel) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ATIVIDADE NÃO DISPONÍVEL',
+                'html'     => 'A atividade indicada na notificação não está disponível para sua pilha atual.',
+                'timer'    => 3400,
+            ]);
+            return;
+        }
+
+        $status = (int) $productionModel->status;
+        if (in_array($status, [Production::STATUS_IN_PROJECT_REVIEW, Production::STATUS_REJECTED_PROJECT_REVIEW], true)) {
+            $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id);
+            return;
+        }
+
+        $this->getAnalise($productionModel->id, (int) $productionModel->note_id);
+    }
+
     public function openProjectReviewReadonly(int $production, int $note): void
     {
+        $productionModel = Production::query()
+            ->where('id', $production)
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', Auth()->id())
+            ->first();
+
+        if (
+            !$productionModel
+            || !in_array((int) $productionModel->status, [
+                Production::STATUS_IN_PROJECT_REVIEW,
+                Production::STATUS_REJECTED_PROJECT_REVIEW,
+                Production::STATUS_RELEASED_TO_FINISH,
+            ], true)
+        ) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'VISUALIZAÇÃO INDISPONÍVEL',
+                'html'     => 'A atividade não está disponível para visualização da Análise de Projeto.',
+                'timer'    => 3200,
+            ]);
+            return;
+        }
+
         $this->analise = [
-            'productionId' => $production,
-            'noteId' => $note,
+            'productionId' => $productionModel->id,
+            'noteId' => $productionModel->note_id,
             'viewOnlyProjectReview' => true,
         ];
 
@@ -243,10 +336,13 @@ class Main extends Component
                 return $q->where('user_id', Auth()->user()->id);
             })
             ->join('notes', 'productions.note_id', '=', 'notes.id')
-            ->where('completed', false)
             ->where(function ($q) {
-                $q->whereNull('productions.status')
-                    ->orWhere('productions.status', '!=', Production::STATUS_IN_PROJECT_REVIEW);
+                $q->where('productions.completed', false)
+                    ->orWhereIn('productions.status', [
+                        Production::STATUS_IN_PROJECT_REVIEW,
+                        Production::STATUS_REJECTED_PROJECT_REVIEW,
+                        Production::STATUS_RELEASED_TO_FINISH,
+                    ]);
             })
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {

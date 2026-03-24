@@ -281,6 +281,13 @@
                                                     wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
                                                     {{ $list->Note->note }}
                                                 </span>
+                                            @elseif ($list->status === 30)
+                                                <span class="badge text-bg-warning fs-6" style="cursor: pointer;"
+                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="Análise de projeto em andamento">
+                                                    {{ $list->Note->note }}
+                                                </span>
                                             @elseif ($list->status === 31)
                                                 <span class="badge text-bg-danger fs-6" style="cursor: pointer;"
                                                     wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
@@ -385,15 +392,15 @@
                                         </td>
                                         <td class="fw-bold fs-5 {{ $tableRowClass }}">
                                             @if (!$list->block)
-                                                @if (!$list->completed)
+                                                @if (!$list->completed || in_array((int) $list->status, [30, 31, 32], true))
                                                     <span class="d-inline-block" data-bs-toggle="tooltip"
                                                         data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Iniciar.">
-                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
+                                                        data-bs-title="{{ (int) $list->status === 30 ? 'Abrir chat da análise.' : 'Iniciar.' }}">
+                                                        <i class="{{ (int) $list->status === 30 ? 'ri-chat-1-line text-warning' : 'ri-play-circle-line text-success' }} m-0 align-middle"
+                                                            style="cursor: pointer;"
+                                                            wire:click.prevent="{{ (int) $list->status === 30 ? 'openProjectReviewReadonly' : 'getAnalise' }}({{ $list->id }}, {{ $list->Note->id }})"></i>
                                                     </span>
-                                                    @if (!in_array((int) $list->status, [31, 32], true))
+                                                    @if (!in_array((int) $list->status, [30, 31, 32], true))
                                                         <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                             data-bs-title="Transferir.">
@@ -577,6 +584,24 @@
             setTimeout(function() {
                 Livewire.emitTo('services.desenho.main', 'force_check_open');
             }, 350);
+
+            const params = new URLSearchParams(window.location.search);
+            const shouldOpenReview = params.get('open_project_review');
+            const productionId = parseInt(params.get('production') || '', 10);
+            const noteId = parseInt(params.get('note') || '', 10);
+
+            if (shouldOpenReview && Number.isInteger(productionId) && productionId > 0) {
+                Livewire.emitTo('services.desenho.main', 'openProjectReviewFromNotification', productionId,
+                    Number.isInteger(noteId) && noteId > 0 ? noteId : 0);
+
+                params.delete('open_project_review');
+                params.delete('production');
+                params.delete('note');
+
+                const nextQuery = params.toString();
+                const nextUrl = `${window.location.pathname}${nextQuery ? '?' + nextQuery : ''}${window.location.hash || ''}`;
+                window.history.replaceState({}, document.title, nextUrl);
+            }
         });
 
         document.addEventListener('click', function(e) {

@@ -160,8 +160,7 @@ class Queue extends Component
             ->withMax('ProjectReviewCycles as latest_round_number', 'round_number');
 
         if ($this->tab === 'pending') {
-            $query->where('status', Production::STATUS_IN_PROJECT_REVIEW)
-                ->where('completed', false);
+            $query->where('status', Production::STATUS_IN_PROJECT_REVIEW);
         } else {
             $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
                 ->whereHas('ProjectReviewCycles', function ($q) {
@@ -603,7 +602,6 @@ class Queue extends Component
             ])
             ->whereIn('id', $ids->all())
             ->where('status', Production::STATUS_IN_PROJECT_REVIEW)
-            ->where('completed', false)
             ->get();
 
         if ($productions->isEmpty()) {
@@ -635,9 +633,6 @@ class Queue extends Component
 
                 $production->update([
                     'status' => 5,
-                    'completed' => true,
-                    'completed_at' => now(),
-                    'confirmed' => false,
                 ]);
 
                 Notetimeline::create([
@@ -825,8 +820,6 @@ class Queue extends Component
 
             $this->selectedProduction->update([
                 'status' => Production::STATUS_REJECTED_PROJECT_REVIEW,
-                'completed' => false,
-                'completed_at' => null,
             ]);
 
             Notetimeline::create([
@@ -841,8 +834,8 @@ class Queue extends Component
             if ($this->selectedProduction->User) {
                 $this->selectedProduction->User->notify(new SystemNotification(
                     titulo: 'Projeto Reprovado na Análise',
-                    mensagem: 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi reprovada e retornou para correção.',
-                    link: route('services.accompany', ['service' => $this->selectedProduction->service_id]),
+                    mensagem: 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi reprovada. Clique para abrir a conversa da análise.',
+                    link: $this->buildDrawingChatLink($this->selectedProduction),
                     status: 4,
                     extras: []
                 ));
@@ -875,8 +868,8 @@ class Queue extends Component
         if ($this->selectedProduction->User && $this->selectedProduction->User->id !== auth()->id()) {
             $this->selectedProduction->User->notify(new SystemNotification(
                 titulo: 'Novo comentário na Análise de Projeto',
-                mensagem: 'O analista comentou na nota <strong>' . ($this->selectedProduction->Note->note ?? '-') . '</strong>.',
-                link: route('services.production', ['service' => $this->selectedProduction->service_id, 'prod' => $this->selectedProduction->id]),
+                mensagem: 'O analista comentou na nota <strong>' . ($this->selectedProduction->Note->note ?? '-') . '</strong>. Clique para abrir o chat.',
+                link: $this->buildDrawingChatLink($this->selectedProduction),
                 status: 2,
                 extras: []
             ));
@@ -926,9 +919,6 @@ class Queue extends Component
 
             $this->selectedProduction->update([
                 'status' => $requiresSapRelease ? Production::STATUS_RELEASED_TO_FINISH : 5,
-                'completed' => $requiresSapRelease ? false : true,
-                'completed_at' => now(),
-                'confirmed' => false,
             ]);
 
             Notetimeline::create([
@@ -948,9 +938,9 @@ class Queue extends Component
                 $this->selectedProduction->User->notify(new SystemNotification(
                     titulo: $requiresSapRelease ? 'Projeto Liberado para Finalização no SAP' : 'Projeto Aprovado na Análise',
                     mensagem: $requiresSapRelease
-                        ? 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi aprovada e retornou para você finalizar no SAP.'
+                        ? 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi liberada para finalização no SAP.'
                         : 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi aprovada na análise de projeto.',
-                    link: route('services.accompany', ['service' => $this->selectedProduction->service_id]),
+                    link: $this->buildDrawingChatLink($this->selectedProduction),
                     status: 1,
                     extras: []
                 ));
@@ -1190,6 +1180,17 @@ class Queue extends Component
             ->where('cycle_id', $this->selectedCycle->id)
             ->where('user_id', auth()->id())
             ->delete();
+    }
+
+    private function buildDrawingChatLink(Production $production): string
+    {
+        return route('services.production', [
+            'service' => $production->service_id,
+            'prod' => $production->id,
+            'open_project_review' => 1,
+            'production' => $production->id,
+            'note' => $production->note_id,
+        ]);
     }
 
     public function render()

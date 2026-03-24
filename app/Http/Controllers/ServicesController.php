@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Production;
 use App\Models\Service;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,28 @@ class ServicesController extends Controller
         return view('services.' . $service->folder . '.accompany', [
             'service' => $service,
         ]);
+    }
+
+    public function production(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->firstOrFail();
+        $production = Production::query()
+            ->where('id', $request->route('prod'))
+            ->where('service_id', $service->uuid)
+            ->firstOrFail();
+
+        // Rota dedicada para abrir uma produção específica a partir de notificações.
+        // Para Desenho, redireciona para a fila principal com abertura direta do chat/view.
+        if ($service->folder === 'desenho') {
+            return redirect()->route('services.main', [
+                'service' => $service->uuid,
+                'open_project_review' => 1,
+                'production' => $production->id,
+                'note' => $production->note_id,
+            ]);
+        }
+
+        return redirect()->route('services.main', ['service' => $service->uuid]);
     }
 
     public function historic(Request $request)

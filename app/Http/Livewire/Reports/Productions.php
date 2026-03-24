@@ -193,12 +193,7 @@ class Productions extends Component
         $query = Production::query();
         $query->where('rejected', false);
 
-        if (!$this->complete) {
-            $column = 'completed_at';
-            $query->where('completed', true);
-        } else {
-            $column = 'completed_at';
-        }
+        $column = 'completed_at';
 
         if (auth()->user()->contract) {
             $query->where('company_id', auth()->user()->employee->contract->company_id);
@@ -208,13 +203,14 @@ class Productions extends Component
             $startDate = Carbon::parse($this->monthYear)->startOfMonth();
             $endDate = Carbon::parse($this->monthYear)->endOfMonth();
             $query->where(function ($q) use ($column, $startDate, $endDate) {
-                if ($this->complete) {
-                    $q->whereBetween($column, [$startDate, $endDate])
-                        ->orWhere('completed', false);
-                } else {
-                    $q->whereBetween($column, [$startDate, $endDate]);
-                }
+                $q->where(function ($done) use ($column, $startDate, $endDate) {
+                    $done->where('completed', true)
+                        ->whereBetween($column, [$startDate, $endDate]);
+                });
 
+                if ($this->complete) {
+                    $q->orWhere('completed', false);
+                }
             });
 
         }
@@ -229,27 +225,35 @@ class Productions extends Component
         if ($this->dt_init) {
 
             $query->where(function ($q) use ($column) {
-                if ($this->complete) {
-                    $q->where($column, '>=', date('Y-m-d 0:00:00', strtotime($this->dt_init)))
-                        ->orWhere('completed', false);
-                } else {
-                    $q->where($column, '>=', date('Y-m-d 0:00:00', strtotime($this->dt_init)));
-                }
+                $q->where(function ($done) use ($column) {
+                    $done->where('completed', true)
+                        ->where($column, '>=', date('Y-m-d 0:00:00', strtotime($this->dt_init)));
+                });
 
+                if ($this->complete) {
+                    $q->orWhere('completed', false);
+                }
             });
 
         }
 
         if ($this->dt_end) {
             $query->where(function ($q) use ($column) {
-                if ($this->complete) {
-                    $q->where($column, '<=', date('Y-m-d 23:59:59', strtotime($this->dt_end)))
-                        ->orWhere('completed', false);
-                } else {
-                    $q->where($column, '<=', date('Y-m-d 23:59:59', strtotime($this->dt_end)));
-                }
+                $q->where(function ($done) use ($column) {
+                    $done->where('completed', true)
+                        ->where($column, '<=', date('Y-m-d 23:59:59', strtotime($this->dt_end)));
+                });
 
+                if ($this->complete) {
+                    $q->orWhere('completed', false);
+                }
             });
+        }
+
+        if (!$this->monthYear && !$this->dt_init && !$this->dt_end) {
+            if (!$this->complete) {
+                $query->where('completed', true);
+            }
         }
 
         if ($this->company) {

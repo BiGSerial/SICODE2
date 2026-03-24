@@ -17,3 +17,23 @@
 @section('content')
     @livewire('project-review.queue', ['mode' => 'pending'])
 @endsection
+
+@push('script')
+    <script>
+        document.addEventListener('livewire:load', function() {
+            const params = new URLSearchParams(window.location.search);
+            const productionId = parseInt(params.get('production') || '', 10);
+
+            if (Number.isInteger(productionId) && productionId > 0) {
+                Livewire.emitTo('project-review.queue', 'openReview', productionId);
+
+                params.delete('production');
+                params.delete('focus');
+
+                const nextQuery = params.toString();
+                const nextUrl = `${window.location.pathname}${nextQuery ? '?' + nextQuery : ''}${window.location.hash || ''}`;
+                window.history.replaceState({}, document.title, nextUrl);
+            }
+        });
+    </script>
+@endpush
