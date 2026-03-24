@@ -102,7 +102,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
 
 Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/', 'main')->name('main');
-    Route::get('/production/{prod}')->name('production');
+    Route::get('/production/{prod}', 'production')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/waiting_d5_create', 'waiting_d5_create')->name('waiting_d5_create');

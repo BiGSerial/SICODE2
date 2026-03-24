@@ -17,3 +17,43 @@
 @section('content')
     @livewire('project-review.queue', ['mode' => 'pending'])
 @endsection
+
+@push('script')
+    <script>
+        const tryOpenProjectReviewFromUrl = function() {
+            const params = new URLSearchParams(window.location.search);
+            const productionId = parseInt(params.get('production') || '', 10);
+
+            if (Number.isInteger(productionId) && productionId > 0) {
+                let attempts = 0;
+                const maxAttempts = 8;
+
+                const openModal = function() {
+                    attempts += 1;
+                    Livewire.emitTo('project-review.queue', 'openReviewFromNotification', productionId);
+                    Livewire.emit('openReviewFromNotification', productionId);
+
+                    const modalEl = document.getElementById('projectReviewModal');
+                    const isOpen = modalEl && modalEl.classList.contains('show');
+                    if (!isOpen && attempts < maxAttempts) {
+                        setTimeout(openModal, 250);
+                    }
+                };
+
+                openModal();
+
+                params.delete('production');
+                params.delete('focus');
+
+                const nextQuery = params.toString();
+                const nextUrl = `${window.location.pathname}${nextQuery ? '?' + nextQuery : ''}${window.location.hash || ''}`;
+                window.history.replaceState({}, document.title, nextUrl);
+            }
+        };
+
+        document.addEventListener('livewire:load', tryOpenProjectReviewFromUrl);
+        document.addEventListener('livewire:init', function() {
+            setTimeout(tryOpenProjectReviewFromUrl, 120);
+        });
+    </script>
+@endpush

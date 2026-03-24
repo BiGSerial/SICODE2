@@ -64,16 +64,10 @@ class Dashboard extends Component
     public function exportToExcel()
     {
         $params = [
-            'complete'    => false, // dashboard exporta apenas concluídos (igual baseQuery)
-            'd5'          => false, // dashboard exclui D5 (igual baseQuery)
             'service'     => $this->selectedService ? [$this->selectedService] : [], // UUID(s)
             'dt_init'     => $this->dt_in,   // 'Y-m-d'
             'dt_end'      => $this->dt_out,  // 'Y-m-d'
-            // opcional: se quiser também mandar monthYear
-            // 'monthYear' => $this->selectedMonth, // 'YYYY-MM'
-            // opcional: search/multisearch (mantive simples)
-            // 'search'      => null,
-            // 'multisearch' => [],
+            'monthYear'   => $this->selectedMonth, // referência visual do período no dashboard
         ];
 
         PersonalProductionsJob::dispatch($params, auth()->id());

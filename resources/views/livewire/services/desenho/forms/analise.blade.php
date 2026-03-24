@@ -69,10 +69,32 @@
             margin-bottom: .2rem;
             color: #374151;
         }
+
+        .chat-stream {
+            max-height: 240px;
+            overflow: auto;
+            border: 1px solid var(--oe-border);
+            border-radius: .75rem;
+            padding: .5rem;
+            background: #f8fafc;
+        }
+
+        .chat-bubble {
+            max-width: 90%;
+            border-radius: .75rem;
+            padding: .5rem .65rem;
+            border: 1px solid var(--oe-border);
+            background: #fff;
+        }
+
+        .chat-bubble.mine {
+            background: #ecfeff;
+            border-color: #99f6e4;
+        }
     </style>
 
     @if ($view_form)
-        <main class="container my-4 flex-grow-1">
+        <main class="container-fluid px-3 px-lg-4 my-4 flex-grow-1">
             <div class="form-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h4 class="mb-0">Finalização de Desenho</h4>
@@ -84,7 +106,15 @@
                 </div>
             </div>
 
-            @if ($viewOnlyProjectReview && $production && $production->status === \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW)
+            @if (
+                $viewOnlyProjectReview &&
+                    $production &&
+                    in_array((int) $production->status, [
+                        \App\Models\Production::STATUS_IN_PROJECT_REVIEW,
+                        \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW,
+                        \App\Models\Production::STATUS_RELEASED_TO_FINISH,
+                    ], true)
+            )
                 <div class="row g-3">
                     <div class="col-lg-5">
                         <div class="card-soft mb-3">
@@ -180,23 +210,25 @@
                         <div class="card-soft">
                             <div class="card-body">
                                 <h6 class="mb-2">Chat de comentários com o analista</h6>
-                                <textarea class="form-control mb-2" rows="2" wire:model.defer="newContestationMessage" placeholder="Escreva sua mensagem"></textarea>
-                                <button type="button" class="btn btn-outline-primary btn-sm" wire:click="addContestationMessage">
-                                    Enviar mensagem
-                                </button>
-
-                                @if (count($reviewMessages))
-                                    <div class="mt-3">
-                                        @foreach ($reviewMessages as $msg)
-                                            <div class="border rounded p-2 mb-1 {{ $msg->user_id === auth()->id() ? 'bg-light' : '' }}">
+                                <div class="chat-stream mb-2">
+                                    @forelse ($reviewMessages as $msg)
+                                        @php
+                                            $mine = $msg->user_id === auth()->id();
+                                        @endphp
+                                        <div class="d-flex mb-2 {{ $mine ? 'justify-content-end' : 'justify-content-start' }}">
+                                            <div class="chat-bubble {{ $mine ? 'mine' : '' }}">
                                                 <div class="small text-muted">
                                                     {{ optional($msg->User)->name }} - {{ date('d/m/Y H:i', strtotime($msg->created_at)) }}
                                                 </div>
                                                 <div>{{ $msg->message }}</div>
                                             </div>
-                                        @endforeach
-                                    </div>
-                                @endif
+                                        </div>
+                                    @empty
+                                        <div class="small text-muted">Sem mensagens ainda nesta rodada.</div>
+                                    @endforelse
+                                </div>
+                                <textarea class="form-control mt-2" rows="2" wire:model.defer="newContestationMessage" placeholder="Escreva uma mensagem"></textarea>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" wire:click="addContestationMessage">Enviar mensagem</button>
                             </div>
                         </div>
                     </div>
@@ -373,6 +405,12 @@
                                     <li>Preencha os valores da mesma ordem e clique em <strong>Adicionar</strong>.</li>
                                     <li>Se houver outra ordem, repita em um novo lançamento.</li>
                                 </ul>
+                                @if ($production && (int) $production->status === \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW)
+                                    <p class="mt-2 mb-0 text-danger fw-semibold">
+                                        Em retorno para encerramento, não adicione nova ordem para corrigir valor.
+                                        Basta ajustar os valores da ordem já exibida na tela.
+                                    </p>
+                                @endif
                                 <p class="mt-2 mb-0">
                                     Exemplo correto: <code>123456</code>.<br>
                                     Exemplo incorreto: <code>123456 789012</code>, <code>123456,789012</code>, <code>123456;789012</code>.
@@ -673,23 +711,25 @@
 
                             <hr>
                             <h6>Chat de comentários com o analista</h6>
-                            <textarea class="form-control mb-2" rows="2" wire:model.defer="newContestationMessage" placeholder="Escreva sua mensagem"></textarea>
-                            <button type="button" class="btn btn-outline-primary btn-sm" wire:click="addContestationMessage">
-                                Enviar mensagem
-                            </button>
-
-                            @if (count($reviewMessages))
-                                <div class="mt-3">
-                                    @foreach ($reviewMessages as $msg)
-                                        <div class="border rounded p-2 mb-1 {{ $msg->user_id === auth()->id() ? 'bg-light' : '' }}">
+                            <div class="chat-stream mb-2">
+                                @forelse ($reviewMessages as $msg)
+                                    @php
+                                        $mine = $msg->user_id === auth()->id();
+                                    @endphp
+                                    <div class="d-flex mb-2 {{ $mine ? 'justify-content-end' : 'justify-content-start' }}">
+                                        <div class="chat-bubble {{ $mine ? 'mine' : '' }}">
                                             <div class="small text-muted">
                                                 {{ optional($msg->User)->name }} - {{ date('d/m/Y H:i', strtotime($msg->created_at)) }}
                                             </div>
                                             <div>{{ $msg->message }}</div>
                                         </div>
-                                    @endforeach
-                                </div>
-                            @endif
+                                    </div>
+                                @empty
+                                    <div class="small text-muted">Sem mensagens ainda nesta rodada.</div>
+                                @endforelse
+                            </div>
+                            <textarea class="form-control mt-2" rows="2" wire:model.defer="newContestationMessage" placeholder="Escreva uma mensagem"></textarea>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" wire:click="addContestationMessage">Enviar mensagem</button>
                         </div>
                     </div>
                 </section>
@@ -719,13 +759,27 @@
 
         @if (!$viewOnlyProjectReview)
             <footer id="encerramento-actions" class="bg-white py-3 border-top">
-                <div class="container d-flex justify-content-end gap-2">
+                @php
+                    $isAnalysisProduction = in_array((int) ($production->status ?? 0), [
+                        \App\Models\Production::STATUS_IN_PROJECT_REVIEW,
+                        \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW,
+                        \App\Models\Production::STATUS_RELEASED_TO_FINISH,
+                    ], true);
+                @endphp
+                <div class="container-fluid px-3 px-lg-4 d-flex justify-content-end gap-2">
                     @if ($this->isSapReleaseFinalizeFlow)
                         <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">
                             Finalizar no SAP
                         </button>
                     @else
-                        <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                        @if (!(bool) ($production->completed ?? false) && !$isAnalysisProduction)
+                            <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                        @endif
+                        @if ($isAnalysisProduction)
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                Fechar
+                            </button>
+                        @endif
                         <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
                         <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">{{ $this->shouldSendToProjectReview ? 'Enviar para análise' : 'Encerrar' }}</button>
                     @endif

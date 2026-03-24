@@ -103,6 +103,26 @@
                     </div>
                 </div>
             </div>
+
+            @if (count($statusFilterOptions))
+                <div class="mt-3">
+                    <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
+                        @foreach ($statusFilterOptions as $statusOption)
+                            @php
+                                $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
+                            @endphp
+                            <button type="button"
+                                class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
+                                wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
+                                {{ $statusOption['label'] }}
+                                <span class="badge text-bg-light ms-1">
+                                    {{ $statusOption['count'] }}
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
         {{-- <div class="btn-group mb-3">
             <div class="dropdown mx-1">
@@ -267,6 +287,9 @@
                                 @foreach ($lists as $list)
                                     @php
                                         $dstatus = getDaysStatus($list->note);
+                                        $isProjectReviewTracked =
+                                            in_array((int) $list->status, [30, 31, 32], true) &&
+                                            (bool) ($list->has_project_review_cycle ?? false);
 
                                         $tableRowClass = '';
                                         if ($list->priority) {
@@ -276,23 +299,30 @@
                                     <tr class="align-middle">
                                         <td class="fw-bold {{ $tableRowClass }}">
 
-                                            @if ($list->d5)
-                                                <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
-                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
+                                            @if ($isProjectReviewTracked && (int) $list->status === 30)
+                                                <span class="badge text-bg-warning fs-6" style="cursor: pointer;"
+                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="Análise de projeto em andamento">
                                                     {{ $list->Note->note }}
                                                 </span>
-                                            @elseif ($list->status === 31)
+                                            @elseif ($isProjectReviewTracked && (int) $list->status === 31)
                                                 <span class="badge text-bg-danger fs-6" style="cursor: pointer;"
                                                     wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
                                                     data-bs-toggle="tooltip" data-bs-placement="top"
                                                     title="Abrir análise de projeto">
                                                     {{ $list->Note->note }}
                                                 </span>
-                                            @elseif ($list->status === 32)
+                                            @elseif ($isProjectReviewTracked && (int) $list->status === 32)
                                                 <span class="badge text-bg-success fs-6" style="cursor: pointer;"
-                                                    wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"
+                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
                                                     data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="Finalizar no SAP">
+                                                    title="Abrir análise de projeto">
+                                                    {{ $list->Note->note }}
+                                                </span>
+                                            @elseif ($list->d5)
+                                                <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
+                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
                                                     {{ $list->Note->note }}
                                                 </span>
                                             @else
@@ -385,15 +415,19 @@
                                         </td>
                                         <td class="fw-bold fs-5 {{ $tableRowClass }}">
                                             @if (!$list->block)
-                                                @if (!$list->completed)
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Iniciar.">
-                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                    </span>
-                                                    @if (!in_array((int) $list->status, [31, 32], true))
+                                                @if (!$list->completed || $isProjectReviewTracked)
+                                                    @if ($isProjectReviewTracked && (int) $list->status === 30)
+                                                        {{-- Em Análise de Projeto: sem ícones de ação para evitar reencerramento por engano. --}}
+                                                    @else
+                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                            data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                            data-bs-title="Iniciar.">
+                                                            <i class="ri-play-circle-line text-success m-0 align-middle"
+                                                                style="cursor: pointer;"
+                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
+                                                        </span>
+                                                    @endif
+                                                    @if (!$isProjectReviewTracked)
                                                         <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                             data-bs-title="Transferir.">
@@ -472,9 +506,11 @@
                     @livewire('services.desenho.forms.analise', ['modalContext' => 'review'], key('desenho-form-review'))
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="go-finish-from-review-btn">
-                        Ir para encerramento
-                    </button>
+                    @if ($reviewCanFinish)
+                        <button type="button" class="btn btn-primary" id="go-finish-from-review-btn">
+                            Ir para encerramento
+                        </button>
+                    @endif
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         Fechar
                     </button>
@@ -561,12 +597,38 @@
                     return;
                 }
 
-                if (modalId === 'analise_form') {
-                    Livewire.emit('analise_modal_hidden');
-                }
-
                 Livewire.emitTo('services.desenho.forms.analise', 'analise_clean');
+                cleanupModalArtifacts();
+                clearProjectReviewQueryParams();
             });
+        }
+
+        function cleanupModalArtifacts() {
+            const hasVisibleModal = !!document.querySelector('.modal.show');
+            if (hasVisibleModal) return;
+
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        }
+
+        function clearProjectReviewQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            let changed = false;
+
+            ['open_project_review', 'production', 'note', 'focus'].forEach(function(key) {
+                if (params.has(key)) {
+                    params.delete(key);
+                    changed = true;
+                }
+            });
+
+            if (!changed) return;
+
+            const nextQuery = params.toString();
+            const nextUrl = `${window.location.pathname}${nextQuery ? '?' + nextQuery : ''}${window.location.hash || ''}`;
+            window.history.replaceState({}, document.title, nextUrl);
         }
 
         bindAnaliseModalClean('analise_form');
@@ -577,6 +639,40 @@
             setTimeout(function() {
                 Livewire.emitTo('services.desenho.main', 'force_check_open');
             }, 350);
+
+            const params = new URLSearchParams(window.location.search);
+            const shouldOpenReview = params.get('open_project_review');
+            const productionId = parseInt(params.get('production') || '', 10);
+            const noteId = parseInt(params.get('note') || '', 10);
+
+            if (shouldOpenReview && Number.isInteger(productionId) && productionId > 0) {
+                const safeNoteId = Number.isInteger(noteId) && noteId > 0 ? noteId : 0;
+                const openFromNotification = function() {
+                    Livewire.emitTo('services.desenho.main', 'openProjectReviewFromNotification', productionId, safeNoteId);
+                };
+
+                openFromNotification();
+                setTimeout(openFromNotification, 350);
+            }
+
+            clearProjectReviewQueryParams();
+        });
+
+        window.addEventListener('openProjectReviewModalFromServer', function(e) {
+            const payload = e.detail?.payload;
+            if (!payload || !payload.productionId) return;
+
+            const openReviewModal = function() {
+                Livewire.emitTo('services.desenho.forms.analise', 'open_analise_draw', payload);
+                const modalEl = document.getElementById('analise_review_form');
+                if (!modalEl) return;
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            };
+
+            openReviewModal();
+            setTimeout(openReviewModal, 250);
+            setTimeout(openReviewModal, 700);
         });
 
         document.addEventListener('click', function(e) {
@@ -604,6 +700,11 @@
             reviewModalEl.addEventListener('hidden.bs.modal', onHidden);
             const modal = bootstrap.Modal.getOrCreateInstance(reviewModalEl);
             modal.hide();
+        });
+
+        window.addEventListener('hideModal', function() {
+            cleanupModalArtifacts();
+            clearProjectReviewQueryParams();
         });
     </script>
 @endpush

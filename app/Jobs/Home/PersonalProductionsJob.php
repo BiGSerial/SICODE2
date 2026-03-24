@@ -37,14 +37,12 @@ class PersonalProductionsJob implements ShouldQueue
 
     public function handle(): void
     {
-        $user         = User::find($this->userId);
+        $ownerId      = (int) $this->userId;
+        $user         = User::find($ownerId);
         $filePath     = null;
         $serviceLabel = '';
 
         try {
-            $includeOpen = (bool)($this->params['complete'] ?? false); // dashboard: false
-            $wantD5      = (bool)($this->params['d5'] ?? false);       // dashboard: false
-
             // Intervalo (vem como 'Y-m-d'); normaliza para timestamps completos
             $start = isset($this->params['dt_init']) ? date('Y-m-d 00:00:00', strtotime($this->params['dt_init'])) : null;
             $end   = isset($this->params['dt_end']) ? date('Y-m-d 23:59:59', strtotime($this->params['dt_end'])) : null;
@@ -54,7 +52,8 @@ class PersonalProductionsJob implements ShouldQueue
                 $serviceLabel = Service::whereIn('uuid', $this->params['service'])->first()?->service ?? '';
             }
 
-            // Query no mesmo padrão do ExportProductionJob — só que **pessoal** e com filtros da dashboard
+            // Escopo fixo do dashboard pessoal:
+            // user_id do usuário logado + concluídas + sem rejeitadas + sem D5.
             $query = Production::query()
                 ->select([
                     'id','user_id','company_id','service_id','dispatch_by',
@@ -64,27 +63,20 @@ class PersonalProductionsJob implements ShouldQueue
                     'postes_c','postes_u','stopped','d5','confirmed','status','completed',
                     'partial','partial_at','supervision_by_partner_photos',
                 ])
+                ->where('user_id', $ownerId)
+                ->where('completed', true)
                 ->where('rejected', false)
-                // ESCOPANDO PARA O USUÁRIO DA DASHBOARD
-                ->where('user_id', $this->userId)
-                // dashboard: apenas concluídos?
-                ->when(!$includeOpen, fn ($q) => $q->where('completed', true))
-                // dashboard: exclui D5?
-                ->when(!$wantD5, fn ($q) => $q->where('d5', false))
+                ->where('d5', false)
                 // serviço por UUID (productions.service_id armazena UUID)
                 ->when(!empty($this->params['service'] ?? []), fn ($q) => $q->whereIn('service_id', $this->params['service']))
                 // intervalo de datas (completed_at)
-                ->when($start || $end, function ($q) use ($start, $end, $includeOpen) {
-                    $q->where(function ($w) use ($start, $end, $includeOpen) {
+                ->when($start || $end, function ($q) use ($start, $end) {
+                    $q->where(function ($w) use ($start, $end) {
                         if ($start) {
                             $w->where('completed_at', '>=', $start);
                         }
                         if ($end) {
                             $w->where('completed_at', '<=', $end);
-                        }
-                        if ($includeOpen) {
-                            // mantém compatibilidade com sua referência (OR abre OS não concluídas)
-                            $w->orWhere('completed', false);
                         }
                     });
                 })
@@ -134,7 +126,7 @@ class PersonalProductionsJob implements ShouldQueue
 
             // Caminho/nome do arquivo (por usuário)
             $serviceSuffix = $serviceLabel ? '_' . preg_replace('/\s+/', '_', $serviceLabel) : '';
-            $dir           = "exports/users/{$this->userId}";
+            $dir           = "exports/users/{$ownerId}";
             $filePath      = "{$dir}/" . now()->format('YmdHis') . "{$serviceSuffix}_my_productions.xlsx";
             $disk          = Storage::disk('local');
             $disk->makeDirectory($dir);

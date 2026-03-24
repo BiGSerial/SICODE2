@@ -114,7 +114,7 @@
         </div>
 
         <div class="row g-3 mb-3">
-            <div class="col-12 col-md-6 col-xl-3">
+            <div class="col-12 col-md-6 col-xl-2">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Modo de listagem</label>
                     <select class="form-select border border-secondary" wire:model="mode">
@@ -123,25 +123,35 @@
                     </select>
                 </div>
             </div>
-            <div class="col-12 col-md-6 col-xl-3">
+            <div class="col-12 col-md-6 col-xl-2">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Filtro de status</label>
                     <select class="form-select border border-secondary" wire:model="openFilter">
                         <option value="all">Todos</option>
                         <option value="open">Somente EM ABERTO</option>
+                        <option value="delivered">Somente FINALIZADOS (entregues)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <div class="iat-filter-card">
+                    <label class="form-label small text-muted">Filtrar data por</label>
+                    <select class="form-select border border-secondary" wire:model="dateField">
+                        <option value="ads_created_at">ADS Criada</option>
+                        <option value="tacit_delivered_at">ADS tácita entregue</option>
                     </select>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
-                    <label class="form-label small text-muted">Data inicial (entrega do informe)</label>
+                    <label class="form-label small text-muted">Data inicial</label>
                     <input type="date" class="form-control border border-secondary" wire:model.lazy="date_in"
                         max="{{ date('Y-m-d') }}">
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
-                    <label class="form-label small text-muted">Data final (entrega do informe)</label>
+                    <label class="form-label small text-muted">Data final</label>
                     <input type="date" class="form-control border border-secondary" wire:model.lazy="date_out"
                         max="{{ date('Y-m-d') }}">
                 </div>

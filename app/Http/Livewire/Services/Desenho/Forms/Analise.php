@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
 use App\Helpers\SelectOptions;
-use App\Models\{Analise as ModelsAnalise, File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim};
+use App\Models\{File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim, User};
 use App\Notifications\SystemNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -119,6 +119,7 @@ class Analise extends Component
 
     public $newContestationMessage;
     public bool $viewOnlyProjectReview = false;
+    public bool $allowProjectReviewHistory = false;
     public string $modalContext = 'finish';
 
 
@@ -170,17 +171,31 @@ class Analise extends Component
         $productionId = $data['productionId'];
         $noteId       = $data['noteId'];
         $this->viewOnlyProjectReview = $isViewOnlyRequest;
+        $this->allowProjectReviewHistory = (bool) ($data['allowProjectReviewHistory'] ?? false);
 
         $this->production = Production::find($productionId);
         $this->note       = Note::find($noteId);
+
+        if ($isViewOnlyRequest && !$this->canOpenProjectReviewReadonly()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'VISUALIZAÇÃO INDISPONÍVEL',
+                'html'     => 'A atividade não está em um status válido para visualização da Análise de Projeto.',
+                'timer'    => 3200,
+            ]);
+            return;
+        }
+
         $this->loadRiRequestContext();
         $this->loadProjectReviewDraft();
 
-        // Verficando a existencia de uma analise ja atriobuida para esta produção
-        $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
+        // Amarra a produção à análise: sempre resolve pelo vínculo da produção.
+        // Se não existir, cria apenas uma vez e reutiliza.
+        $this->analise = $this->production->Analise()->firstOrCreate([]);
+        $analysisAlreadyExists = (bool) $this->analise->wasRecentlyCreated === false;
 
-
-        if ($this->analise) {
+        if ($analysisAlreadyExists) {
 
             $this->conclusion = $this->analise->conclusion;
             $this->info       = $this->analise->info;
@@ -197,20 +212,16 @@ class Analise extends Component
 
         } else {
             $this->clean_form();
-            // ModelsAnalise::Create(['production_id' => $productionId]);
-            $this->production->Analise()->create();
-            $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
-            $this->postes     = $this->note->postes;
+            $this->postes = $this->note->postes;
         }
 
         if ($this->production && $this->note) {
 
             $time = 0;
 
-            if (!in_array((int) $this->production->status, [
-                Production::STATUS_REJECTED_PROJECT_REVIEW,
-                Production::STATUS_RELEASED_TO_FINISH,
-            ], true)) {
+            $isProjectReviewReturnStatus = $this->isProjectReviewTracked();
+
+            if (!(bool) $this->production->completed && !$isProjectReviewReturnStatus) {
                 if ($this->production->status === 4) {
                     $hist = Notetimeline::where('note_id', $this->production->note_id)->Where('service_id', $this->production->service_id)->where('status', 4)->orderBy('created_at', 'DESC')->first();
 
@@ -240,7 +251,7 @@ class Analise extends Component
                 }
             }
 
-            if ($this->production->d5) {
+            if ($this->production->d5 && blank($this->conclusion)) {
 
                 if ($this->production->Reclaim?->category && ($this->production->Reclaim?->category != 'LIBERAR EO')) {
                     $this->conclusion = $this->production->Reclaim->category;
@@ -288,7 +299,11 @@ class Analise extends Component
                 })->toArray();
             }
 
-            if ($this->production->status === Production::STATUS_REJECTED_PROJECT_REVIEW) {
+            if (in_array((int) $this->production->status, [
+                Production::STATUS_IN_PROJECT_REVIEW,
+                Production::STATUS_REJECTED_PROJECT_REVIEW,
+                Production::STATUS_RELEASED_TO_FINISH,
+            ], true)) {
                 $findings = $latestCycle->Findings->values();
 
                 $this->rejectedFindings = $this->mapRejectedFindingsForView($findings);
@@ -702,7 +717,10 @@ class Analise extends Component
 
     public function addContestationMessage(): void
     {
-        if (!$this->production || $this->production->status !== Production::STATUS_REJECTED_PROJECT_REVIEW) {
+        if (
+            !$this->production
+            || !$this->isProjectReviewTracked()
+        ) {
             return;
         }
 
@@ -735,13 +753,13 @@ class Analise extends Component
             ->values();
 
         if ($recipientIds->isNotEmpty()) {
-            $recipients = \App\Models\User::whereIn('id', $recipientIds)->get();
+            $recipients = User::whereIn('id', $recipientIds)->get();
 
             foreach ($recipients as $recipient) {
                 $recipient->notify(new SystemNotification(
                     titulo: 'Novo comentário na Análise de Projeto',
                     mensagem: 'Novo comentário do desenhista na nota <strong>' . ($this->production->Note->note ?? '-') . '</strong>.',
-                    link: route('project_review.list'),
+                    link: $this->buildProjectReviewChatLinkForRecipient($recipient),
                     status: 2,
                     extras: []
                 ));
@@ -951,7 +969,8 @@ class Analise extends Component
     private function isRejectedProjectReviewResubmission(): bool
     {
         return $this->requiresProjectReview
-            && (int) ($this->production->status ?? 0) === Production::STATUS_REJECTED_PROJECT_REVIEW;
+            && (int) ($this->production->status ?? 0) === Production::STATUS_REJECTED_PROJECT_REVIEW
+            && $this->isProjectReviewTracked();
     }
 
     private function buildProjectReviewSnapshot(): array
@@ -985,6 +1004,17 @@ class Analise extends Component
 
     public function to_pause()
     {
+        if ((bool) ($this->production->completed ?? false)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'PAUSA BLOQUEADA',
+                'html'     => 'Atividades já concluídas não podem ser pausadas.',
+                'timer'    => 2800,
+            ]);
+            return;
+        }
+
         $this->save_info();
 
         $this->count = Production::Where('status', 4)->Where('service_id', $this->production->service_id)->Where('user_id', Auth()->User()->id)->count();
@@ -1035,6 +1065,20 @@ class Analise extends Component
         $this->production = $production;
         $this->note       = Note::find($this->production->note_id);
         $isSapReleaseFinalizeFlow = $this->isSapReleaseFinalizeFlow;
+
+        if (
+            (int) $this->production->status === Production::STATUS_IN_PROJECT_REVIEW
+            && $this->isProjectReviewTracked()
+        ) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ENCERRAMENTO BLOQUEADO',
+                'html'     => 'A atividade está em Análise de Projeto. Aguarde o retorno do analista para encerrar.',
+                'timer'    => 3800,
+            ]);
+            return;
+        }
 
 
 
@@ -1226,11 +1270,28 @@ class Analise extends Component
             return;
         }
 
+        if (
+            (int) $this->production->status === Production::STATUS_IN_PROJECT_REVIEW
+            && $this->isProjectReviewTracked()
+        ) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ENCERRAMENTO BLOQUEADO',
+                'html'     => 'A atividade está em Análise de Projeto. Aguarde o retorno do analista para encerrar.',
+                'timer'    => 3800,
+            ]);
+            return;
+        }
+
         try {
             DB::beginTransaction();
             $cycle = null;
             $isSapReleaseFinalizeFlow = $this->isSapReleaseFinalizeFlow;
             $sendToProjectReview = $this->shouldSendToProjectReview;
+            $completedAtReference = (bool) ($this->production->completed ?? false)
+                ? ($this->production->completed_at ?? now())
+                : now();
             if (!$isSapReleaseFinalizeFlow && $sendToProjectReview) {
                 $this->validateProjectReviewPayload();
                 $hasProjectReviewChanges = $this->hasProjectReviewPayloadChanges();
@@ -1263,6 +1324,7 @@ class Analise extends Component
                 $chk = $this->production->update([
                     'status' => 5,
                     'completed' => true,
+                    'completed_at' => $completedAtReference,
                     'confirmed' => false,
                     'priority' => false,
                     'status_note' => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
@@ -1270,7 +1332,7 @@ class Analise extends Component
             } else {
                 $chk = $this->production->update([
                     'status'       => $sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5,
-                    'completed_at' => $sendToProjectReview ? null : date('Y-m-d H:i:s'),
+                    'completed_at' => $completedAtReference,
                     'postes_p'     => (int) $this->postes,
                     'postes_u'     => $this->postes ? (int) $this->postes : 0,
                     'cadastro'     => $this->cadastro ? true : false,
@@ -1278,7 +1340,7 @@ class Analise extends Component
                     'eo'           => $this->eo ? true : false,
                     'cad'          => $this->cad ? true : false,
                     'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
-                    'completed'    => $sendToProjectReview ? false : true,
+                    'completed'    => true,
                     'confirmed'    => false,
                     'priority'     => false,
                     'status_note'  => ($this->note->nstats != $this->production->status_note) ? $this->note->nstats : $this->production->status_note,
@@ -1426,6 +1488,7 @@ class Analise extends Component
         $this->reviewMessages = [];
         $this->newContestationMessage = null;
         $this->viewOnlyProjectReview = false;
+        $this->allowProjectReviewHistory = false;
 
 
     }
@@ -1474,12 +1537,71 @@ class Analise extends Component
         $this->reviewMessages = [];
         $this->newContestationMessage = '';
         $this->viewOnlyProjectReview = false;
+        $this->allowProjectReviewHistory = false;
 
     }
 
     public function render()
     {
         return view('livewire.services.desenho.forms.analise');
+    }
+
+    private function canOpenProjectReviewReadonly(): bool
+    {
+        if (!$this->production) {
+            return false;
+        }
+
+        if (!in_array((int) $this->production->status, [
+            Production::STATUS_IN_PROJECT_REVIEW,
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true)) {
+            return $this->allowProjectReviewHistory
+                && $this->production->ProjectReviewCycles()->exists();
+        }
+
+        return $this->production->ProjectReviewCycles()->exists();
+    }
+
+    private function isProjectReviewTracked(): bool
+    {
+        if (!$this->production) {
+            return false;
+        }
+
+        if (!in_array((int) $this->production->status, [
+            Production::STATUS_IN_PROJECT_REVIEW,
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true)) {
+            return false;
+        }
+
+        return $this->production->ProjectReviewCycles()->exists();
+    }
+
+    private function buildProjectReviewChatLinkForRecipient(User $recipient): string
+    {
+        if (!$this->production) {
+            return route('project_review.list');
+        }
+
+        $isProductionOwner = (string) $recipient->id === (string) $this->production->user_id;
+        if ($isProductionOwner) {
+            return route('services.production', [
+                'service' => $this->production->service_id,
+                'prod' => $this->production->id,
+                'open_project_review' => 1,
+                'production' => $this->production->id,
+                'note' => $this->production->note_id,
+            ]);
+        }
+
+        return route('project_review.list', [
+            'production' => $this->production->id,
+            'focus' => 'chat',
+        ]);
     }
 
     private function mapRejectedFindingsForView(Collection $findings): array
