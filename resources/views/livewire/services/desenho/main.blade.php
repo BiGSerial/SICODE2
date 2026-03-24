@@ -267,6 +267,9 @@
                                 @foreach ($lists as $list)
                                     @php
                                         $dstatus = getDaysStatus($list->note);
+                                        $isProjectReviewTracked =
+                                            in_array((int) $list->status, [30, 31, 32], true) &&
+                                            (bool) ($list->has_project_review_cycle ?? false);
 
                                         $tableRowClass = '';
                                         if ($list->priority) {
@@ -276,30 +279,30 @@
                                     <tr class="align-middle">
                                         <td class="fw-bold {{ $tableRowClass }}">
 
-                                            @if ($list->d5)
-                                                <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
-                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
-                                                    {{ $list->Note->note }}
-                                                </span>
-                                            @elseif ($list->status === 30)
+                                            @if ($isProjectReviewTracked && (int) $list->status === 30)
                                                 <span class="badge text-bg-warning fs-6" style="cursor: pointer;"
                                                     wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
                                                     data-bs-toggle="tooltip" data-bs-placement="top"
                                                     title="Análise de projeto em andamento">
                                                     {{ $list->Note->note }}
                                                 </span>
-                                            @elseif ($list->status === 31)
+                                            @elseif ($isProjectReviewTracked && (int) $list->status === 31)
                                                 <span class="badge text-bg-danger fs-6" style="cursor: pointer;"
                                                     wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
                                                     data-bs-toggle="tooltip" data-bs-placement="top"
                                                     title="Abrir análise de projeto">
                                                     {{ $list->Note->note }}
                                                 </span>
-                                            @elseif ($list->status === 32)
+                                            @elseif ($isProjectReviewTracked && (int) $list->status === 32)
                                                 <span class="badge text-bg-success fs-6" style="cursor: pointer;"
-                                                    wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"
+                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
                                                     data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="Finalizar no SAP">
+                                                    title="Abrir análise de projeto">
+                                                    {{ $list->Note->note }}
+                                                </span>
+                                            @elseif ($list->d5)
+                                                <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
+                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
                                                     {{ $list->Note->note }}
                                                 </span>
                                             @else
@@ -392,15 +395,19 @@
                                         </td>
                                         <td class="fw-bold fs-5 {{ $tableRowClass }}">
                                             @if (!$list->block)
-                                                @if (!$list->completed || in_array((int) $list->status, [30, 31, 32], true))
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="{{ (int) $list->status === 30 ? 'Abrir chat da análise.' : 'Iniciar.' }}">
-                                                        <i class="{{ (int) $list->status === 30 ? 'ri-chat-1-line text-warning' : 'ri-play-circle-line text-success' }} m-0 align-middle"
-                                                            style="cursor: pointer;"
-                                                            wire:click.prevent="{{ (int) $list->status === 30 ? 'openProjectReviewReadonly' : 'getAnalise' }}({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                    </span>
-                                                    @if (!in_array((int) $list->status, [30, 31, 32], true))
+                                                @if (!$list->completed || $isProjectReviewTracked)
+                                                    @if ($isProjectReviewTracked && (int) $list->status === 30)
+                                                        {{-- Em Análise de Projeto: sem ícones de ação para evitar reencerramento por engano. --}}
+                                                    @else
+                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                            data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                            data-bs-title="Iniciar.">
+                                                            <i class="ri-play-circle-line text-success m-0 align-middle"
+                                                                style="cursor: pointer;"
+                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
+                                                        </span>
+                                                    @endif
+                                                    @if (!$isProjectReviewTracked)
                                                         <span class="d-inline-block" data-bs-toggle="tooltip"
                                                             data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                             data-bs-title="Transferir.">
@@ -479,9 +486,11 @@
                     @livewire('services.desenho.forms.analise', ['modalContext' => 'review'], key('desenho-form-review'))
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="go-finish-from-review-btn">
-                        Ir para encerramento
-                    </button>
+                    @if ($reviewCanFinish)
+                        <button type="button" class="btn btn-primary" id="go-finish-from-review-btn">
+                            Ir para encerramento
+                        </button>
+                    @endif
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         Fechar
                     </button>

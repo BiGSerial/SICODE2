@@ -739,7 +739,9 @@
                             Finalizar no SAP
                         </button>
                     @else
-                        <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                        @if (!(bool) ($production->completed ?? false))
+                            <button class="btn btn-warning" wire:click.prevent="to_pause">Pausar</button>
+                        @endif
                         <button class="btn btn-primary" wire:click.prevent="save_info">Salvar</button>
                         <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">{{ $this->shouldSendToProjectReview ? 'Enviar para análise' : 'Encerrar' }}</button>
                     @endif

@@ -38,6 +38,7 @@ class Main extends Component
     public $production;
 
     public $note;
+    public bool $reviewCanFinish = false;
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
@@ -70,11 +71,7 @@ class Main extends Component
             return;
         }
 
-        if (in_array((int) $production->status, [
-            Production::STATUS_IN_PROJECT_REVIEW,
-            Production::STATUS_REJECTED_PROJECT_REVIEW,
-            Production::STATUS_RELEASED_TO_FINISH,
-        ], true)) {
+        if ($this->isProjectReviewTracked($production)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -169,6 +166,8 @@ class Main extends Component
 
     public function getAnalise($production, $note)
     {
+        $this->reviewCanFinish = false;
+
         $productionModel = Production::query()
             ->where('id', $production)
             ->where('service_id', $this->service->uuid)
@@ -179,7 +178,10 @@ class Main extends Component
             return;
         }
 
-        if ((int) $productionModel->status === Production::STATUS_IN_PROJECT_REVIEW) {
+        if (
+            $this->isProjectReviewTracked($productionModel)
+            && (int) $productionModel->status === Production::STATUS_IN_PROJECT_REVIEW
+        ) {
             $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id);
             return;
         }
@@ -225,16 +227,15 @@ class Main extends Component
             return;
         }
 
-        $status = (int) $productionModel->status;
-        if (in_array($status, [Production::STATUS_IN_PROJECT_REVIEW, Production::STATUS_REJECTED_PROJECT_REVIEW], true)) {
-            $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id);
+        if ($this->hasProjectReviewCycle($productionModel)) {
+            $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id, true);
             return;
         }
 
         $this->getAnalise($productionModel->id, (int) $productionModel->note_id);
     }
 
-    public function openProjectReviewReadonly(int $production, int $note): void
+    public function openProjectReviewReadonly(int $production, int $note, bool $allowHistory = false): void
     {
         $productionModel = Production::query()
             ->where('id', $production)
@@ -242,14 +243,12 @@ class Main extends Component
             ->where('user_id', Auth()->id())
             ->first();
 
-        if (
-            !$productionModel
-            || !in_array((int) $productionModel->status, [
-                Production::STATUS_IN_PROJECT_REVIEW,
-                Production::STATUS_REJECTED_PROJECT_REVIEW,
-                Production::STATUS_RELEASED_TO_FINISH,
-            ], true)
-        ) {
+        $canOpenReadonly = $productionModel
+            && ($allowHistory
+                ? $this->hasProjectReviewCycle($productionModel)
+                : $this->isProjectReviewTracked($productionModel));
+
+        if (!$canOpenReadonly) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -260,10 +259,16 @@ class Main extends Component
             return;
         }
 
+        $this->reviewCanFinish = in_array((int) $productionModel->status, [
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true);
+
         $this->analise = [
             'productionId' => $productionModel->id,
             'noteId' => $productionModel->note_id,
             'viewOnlyProjectReview' => true,
+            'allowProjectReviewHistory' => $allowHistory,
         ];
 
         $this->emit('open_analise_draw', $this->analise);
@@ -338,11 +343,15 @@ class Main extends Component
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where(function ($q) {
                 $q->where('productions.completed', false)
-                    ->orWhereIn('productions.status', [
-                        Production::STATUS_IN_PROJECT_REVIEW,
-                        Production::STATUS_REJECTED_PROJECT_REVIEW,
-                        Production::STATUS_RELEASED_TO_FINISH,
-                    ]);
+                    ->orWhere(function ($reviewQuery) {
+                        $reviewQuery
+                            ->whereIn('productions.status', [
+                                Production::STATUS_IN_PROJECT_REVIEW,
+                                Production::STATUS_REJECTED_PROJECT_REVIEW,
+                                Production::STATUS_RELEASED_TO_FINISH,
+                            ])
+                            ->whereHas('ProjectReviewCycles');
+                    });
             })
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {
@@ -369,11 +378,13 @@ class Main extends Component
                     ->orderBy('type_note', 'desc');
             }])
             ->orderBy('priority', 'desc')
+            ->orderByRaw('CASE WHEN productions.status = ? THEN 1 ELSE 0 END ASC', [Production::STATUS_IN_PROJECT_REVIEW])
             ->orderBy('d5', 'desc')
             ->orderBy('notes.type_note', 'desc')
             ->orderBy('notes.days_left', 'asc')
             ->orderBy('productions.id', 'asc')
             ->select('productions.*', 'notes.dt_status', 'notes.is45', 'notes.type_note', 'notes.days_left')
+            ->withExists(['ProjectReviewCycles as has_project_review_cycle'])
             ->paginate($this->perPage);
 
     }
@@ -383,5 +394,23 @@ class Main extends Component
         return view('livewire.services.desenho.main', [
             'lists' => $this->lists,
         ]);
+    }
+
+    private function isProjectReviewTracked(Production $production): bool
+    {
+        if (!in_array((int) $production->status, [
+            Production::STATUS_IN_PROJECT_REVIEW,
+            Production::STATUS_REJECTED_PROJECT_REVIEW,
+            Production::STATUS_RELEASED_TO_FINISH,
+        ], true)) {
+            return false;
+        }
+
+        return $this->hasProjectReviewCycle($production);
+    }
+
+    private function hasProjectReviewCycle(Production $production): bool
+    {
+        return $production->ProjectReviewCycles()->exists();
     }
 }
