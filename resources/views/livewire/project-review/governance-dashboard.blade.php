@@ -173,6 +173,14 @@
         </div>
 
         <div class="row g-3 mb-3">
+            <div class="col-md-2"><div class="card-soft p-3"><small>Enviadas para análise</small><h5 class="mb-0">{{ $summary['cycles_submitted_count'] }}</h5></div></div>
+            <div class="col-md-2"><div class="card-soft p-3"><small>Reprovadas</small><h5 class="mb-0 text-danger">{{ $summary['cycles_rejected_count'] }}</h5></div></div>
+            <div class="col-md-2"><div class="card-soft p-3"><small>Aprovadas (total)</small><h5 class="mb-0 text-success">{{ $summary['cycles_approved_count'] }}</h5></div></div>
+            <div class="col-md-3"><div class="card-soft p-3"><small>Aprovadas com ressalvas</small><h5 class="mb-0">{{ $summary['cycles_approved_with_remarks_count'] }}</h5></div></div>
+            <div class="col-md-3"><div class="card-soft p-3"><small>Aprovadas sem ressalvas</small><h5 class="mb-0">{{ $summary['cycles_approved_without_remarks_count'] }}</h5></div></div>
+        </div>
+
+        <div class="row g-3 mb-3">
             <div class="col-md-4"><div class="card-soft p-3"><small>Tempo médio envio > análise (h)</small><h5 class="mb-0">{{ $summary['avg_send_to_decision_hours'] }}</h5></div></div>
             <div class="col-md-4"><div class="card-soft p-3"><small>Tempo médio reprovação > reenvio (h)</small><h5 class="mb-0">{{ $summary['avg_reject_to_resubmit_hours'] }}</h5></div></div>
             <div class="col-md-4"><div class="card-soft p-3"><small>Tempo médio total até aprovação final (h)</small><h5 class="mb-0">{{ $summary['avg_total_until_final_approval_hours'] }}</h5></div></div>
@@ -213,6 +221,49 @@
                         <div>
                             <small class="text-muted d-block">Ordens sem alteração de custo</small>
                             <strong>{{ (int) $summary['maintained_orders_count'] }}</strong>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <div class="cost-box">
+                                <small class="text-muted d-block">Planejado empresa</small>
+                                <strong>R$ {{ number_format((float) $summary['planned_company_total_cost'], 2, ',', '.') }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="cost-box">
+                                <small class="text-muted d-block">Planejado cliente</small>
+                                <strong>R$ {{ number_format((float) $summary['planned_client_total_cost'], 2, ',', '.') }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="cost-box">
+                                <small class="text-muted d-block">Revisado empresa</small>
+                                <strong>R$ {{ number_format((float) $summary['revised_company_total_cost'], 2, ',', '.') }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="cost-box">
+                                <small class="text-muted d-block">Revisado cliente</small>
+                                <strong>R$ {{ number_format((float) $summary['revised_client_total_cost'], 2, ',', '.') }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 d-flex flex-wrap gap-3">
+                        <div>
+                            <small class="text-muted d-block">Ganho custo empresa (planejado - revisado)</small>
+                            @php $companyGain = -1 * ((float) $summary['company_net_variation_cost']); @endphp
+                            <strong class="{{ $companyGain >= 0 ? 'text-success' : 'text-danger' }}">
+                                R$ {{ number_format($companyGain, 2, ',', '.') }}
+                            </strong>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block">Ganho custo cliente (planejado - revisado)</small>
+                            @php $clientGain = -1 * ((float) $summary['client_net_variation_cost']); @endphp
+                            <strong class="{{ $clientGain >= 0 ? 'text-success' : 'text-danger' }}">
+                                R$ {{ number_format($clientGain, 2, ',', '.') }}
+                            </strong>
                         </div>
                     </div>
                 </div>
@@ -309,6 +360,37 @@
                                     <td>{{ $row->analysis_total }}</td>
                                     <td>{{ $row->errors_per_analysis }}</td>
                                     <td>{{ $row->main_error }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card-soft p-3">
+                    <h6>Histórico temporal da análise (por dia)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Dia</th>
+                                    <th>Enviadas</th>
+                                    <th>Reprovadas</th>
+                                    <th>Aprovadas com ressalvas</th>
+                                    <th>Aprovadas sem ressalvas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @forelse($tables['timeline'] as $row)
+                                <tr>
+                                    <td>{{ \Carbon\Carbon::parse($row->day)->format('d/m/Y') }}</td>
+                                    <td>{{ (int) $row->submitted }}</td>
+                                    <td>{{ (int) $row->rejected }}</td>
+                                    <td>{{ (int) $row->approved_with_remarks }}</td>
+                                    <td>{{ (int) $row->approved_without_remarks }}</td>
                                 </tr>
                             @empty
                                 <tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>

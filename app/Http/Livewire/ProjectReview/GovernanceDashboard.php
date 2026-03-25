@@ -178,12 +178,23 @@ class GovernanceDashboard extends Component
                     'total_productions' => 0,
                     'with_rejection' => 0,
                     'without_rejection' => 0,
+                    'cycles_submitted_count' => 0,
+                    'cycles_rejected_count' => 0,
+                    'cycles_approved_count' => 0,
+                    'cycles_approved_with_remarks_count' => 0,
+                    'cycles_approved_without_remarks_count' => 0,
                     'first_pass_approval_pct' => 0,
                     'avg_send_to_decision_hours' => 0,
                     'avg_reject_to_resubmit_hours' => 0,
                     'avg_total_until_final_approval_hours' => 0,
                     'planned_total_cost' => 0,
                     'revised_total_cost' => 0,
+                    'planned_company_total_cost' => 0,
+                    'planned_client_total_cost' => 0,
+                    'revised_company_total_cost' => 0,
+                    'revised_client_total_cost' => 0,
+                    'company_net_variation_cost' => 0,
+                    'client_net_variation_cost' => 0,
                     'economy_total_cost' => 0,
                     'increase_total_cost' => 0,
                     'net_variation_cost' => 0,
@@ -198,6 +209,10 @@ class GovernanceDashboard extends Component
                     'companies' => ['labels' => [], 'data' => []],
                     'origins' => ['labels' => [], 'data' => []],
                     'rejections_per_production' => ['labels' => [], 'data' => []],
+                    'timeline_submitted' => ['labels' => [], 'data' => []],
+                    'timeline_rejected' => ['labels' => [], 'data' => []],
+                    'timeline_approved_with_remarks' => ['labels' => [], 'data' => []],
+                    'timeline_approved_without_remarks' => ['labels' => [], 'data' => []],
                 ],
                 'tables' => [
                     'top_items' => collect(),
@@ -209,8 +224,20 @@ class GovernanceDashboard extends Component
                     'company_error_summary' => collect(),
                     'origins' => collect(),
                     'rejections_per_production' => collect(),
+                    'timeline' => collect(),
                 ],
             ];
+        }
+
+        $cyclesBase = DB::table('project_review_cycles as cy')
+            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+            ->whereIn('p.id', $productionIds);
+
+        if ($this->period_from) {
+            $cyclesBase->whereDate('cy.submitted_at', '>=', $this->period_from);
+        }
+        if ($this->period_to) {
+            $cyclesBase->whereDate('cy.submitted_at', '<=', $this->period_to);
         }
 
         $findingsBase = $this->findingsBaseQuery();
@@ -252,10 +279,10 @@ class GovernanceDashboard extends Component
 
         $usersRepresentativity = $this->buildUsersRepresentativity($findingsBase, self::USER_REPRESENTATIVITY_LIMIT);
 
-        $userErrorPercent = DB::table('project_review_cycles as cy')
-            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+        $cyclesForDecisionStats = $this->applyDecisionDateFilters((clone $cyclesBase));
+
+        $userErrorPercent = (clone $cyclesForDecisionStats)
             ->join('users as u', 'u.id', '=', 'p.user_id')
-            ->whereIn('p.id', $productionIds)
             ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
             ->selectRaw("
                 u.name as user_name,
@@ -318,10 +345,8 @@ class GovernanceDashboard extends Component
             ->havingRaw('SUM(CASE WHEN f.item_id IS NULL THEN 0 ELSE COALESCE(f.quantity, 1) END) > 0')
             ->get();
 
-        $companyAnalysisCount = DB::table('project_review_cycles as cy')
-            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+        $companyAnalysisCount = (clone $cyclesForDecisionStats)
             ->leftJoin('companies as co', 'co.id', '=', 'p.company_id')
-            ->whereIn('p.id', $productionIds)
             ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
             ->selectRaw("COALESCE(co.name, 'Sem empresa') as company_name, COUNT(*) as total_analysis")
             ->groupBy('co.name')
@@ -390,6 +415,24 @@ class GovernanceDashboard extends Component
             ->distinct('production_id')
             ->count('production_id');
 
+        $cyclesSubmittedCount = (clone $cyclesBase)
+            ->whereNotNull('cy.submitted_at')
+            ->count();
+
+        $cyclesRejectedCount = (clone $this->applyRejectedDateFilter((clone $cyclesBase)))
+            ->where('cy.decision', 'REJECTED')
+            ->count();
+
+        $cyclesApprovedWithRemarksCount = (clone $this->applyApprovedDateFilter((clone $cyclesBase)))
+            ->where('cy.decision', 'APPROVED_WITH_REMARKS')
+            ->count();
+
+        $cyclesApprovedWithoutRemarksCount = (clone $this->applyApprovedDateFilter((clone $cyclesBase)))
+            ->where('cy.decision', 'APPROVED')
+            ->count();
+
+        $cyclesApprovedCount = $cyclesApprovedWithRemarksCount + $cyclesApprovedWithoutRemarksCount;
+
         $firstPassDen = DB::table('project_review_cycles')
             ->whereIn('production_id', $productionIds)
             ->where('round_number', 1)
@@ -402,11 +445,9 @@ class GovernanceDashboard extends Component
             ->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS'])
             ->count();
 
-        $avgSendToDecisionHours = (float) DB::table('project_review_cycles')
-            ->whereIn('production_id', $productionIds)
+        $avgSendToDecisionHours = (float) (clone $cyclesForDecisionStats)
             ->whereNotNull('submitted_at')
             ->whereNotNull('decided_at')
-            ->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
             ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, submitted_at, decided_at)) as avg_hours')
             ->value('avg_hours');
 
@@ -440,18 +481,30 @@ class GovernanceDashboard extends Component
             ->value('avg_hours');
 
         $costSummary = $this->buildCostVariationSummary($productionIds);
+        $timeline = $this->buildProjectReviewTimeline($cyclesBase);
 
         return [
             'summary' => [
                 'total_productions' => $totalProductions,
                 'with_rejection' => $withRejection,
                 'without_rejection' => max(0, $totalProductions - $withRejection),
+                'cycles_submitted_count' => $cyclesSubmittedCount,
+                'cycles_rejected_count' => $cyclesRejectedCount,
+                'cycles_approved_count' => $cyclesApprovedCount,
+                'cycles_approved_with_remarks_count' => $cyclesApprovedWithRemarksCount,
+                'cycles_approved_without_remarks_count' => $cyclesApprovedWithoutRemarksCount,
                 'first_pass_approval_pct' => $firstPassDen > 0 ? round(($firstPassNum / $firstPassDen) * 100, 2) : 0,
                 'avg_send_to_decision_hours' => round($avgSendToDecisionHours ?: 0, 2),
                 'avg_reject_to_resubmit_hours' => round($avgRejectToResubmitHours ?: 0, 2),
                 'avg_total_until_final_approval_hours' => round($avgTotalUntilFinalApprovalHours ?: 0, 2),
                 'planned_total_cost' => round($costSummary['planned_total_cost'], 2),
                 'revised_total_cost' => round($costSummary['revised_total_cost'], 2),
+                'planned_company_total_cost' => round($costSummary['planned_company_total_cost'], 2),
+                'planned_client_total_cost' => round($costSummary['planned_client_total_cost'], 2),
+                'revised_company_total_cost' => round($costSummary['revised_company_total_cost'], 2),
+                'revised_client_total_cost' => round($costSummary['revised_client_total_cost'], 2),
+                'company_net_variation_cost' => round($costSummary['company_net_variation_cost'], 2),
+                'client_net_variation_cost' => round($costSummary['client_net_variation_cost'], 2),
                 'economy_total_cost' => round($costSummary['economy_total_cost'], 2),
                 'increase_total_cost' => round($costSummary['increase_total_cost'], 2),
                 'net_variation_cost' => round($costSummary['net_variation_cost'], 2),
@@ -466,6 +519,10 @@ class GovernanceDashboard extends Component
                 'companies' => $this->toChartData($topCompanies),
                 'origins' => $this->toChartData($origins),
                 'rejections_per_production' => $this->toChartData($rejectionsPerProduction),
+                'timeline_submitted' => $this->toChartData($timeline->map(fn ($row) => (object) ['label' => $row->day, 'total' => $row->submitted])),
+                'timeline_rejected' => $this->toChartData($timeline->map(fn ($row) => (object) ['label' => $row->day, 'total' => $row->rejected])),
+                'timeline_approved_with_remarks' => $this->toChartData($timeline->map(fn ($row) => (object) ['label' => $row->day, 'total' => $row->approved_with_remarks])),
+                'timeline_approved_without_remarks' => $this->toChartData($timeline->map(fn ($row) => (object) ['label' => $row->day, 'total' => $row->approved_without_remarks])),
             ],
             'tables' => [
                 'top_items' => $topItems,
@@ -477,6 +534,7 @@ class GovernanceDashboard extends Component
                 'company_error_summary' => $companyErrorSummary,
                 'origins' => $origins,
                 'rejections_per_production' => $rejectionsPerProduction,
+                'timeline' => $timeline,
             ],
         ];
     }
@@ -495,6 +553,12 @@ class GovernanceDashboard extends Component
             return [
                 'planned_total_cost' => 0,
                 'revised_total_cost' => 0,
+                'planned_company_total_cost' => 0,
+                'planned_client_total_cost' => 0,
+                'revised_company_total_cost' => 0,
+                'revised_client_total_cost' => 0,
+                'company_net_variation_cost' => 0,
+                'client_net_variation_cost' => 0,
                 'economy_total_cost' => 0,
                 'increase_total_cost' => 0,
                 'net_variation_cost' => 0,
@@ -505,7 +569,7 @@ class GovernanceDashboard extends Component
         $rows = DB::table('project_review_orders as o')
             ->join('project_review_cycles as cy', 'cy.id', '=', 'o.cycle_id')
             ->whereIn('cy.production_id', $productionIds)
-            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost')
+            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost, o.company_cost, o.client_cost')
             ->orderBy('cy.production_id')
             ->orderBy('o.order_number')
             ->orderBy('cy.round_number')
@@ -513,11 +577,15 @@ class GovernanceDashboard extends Component
 
         $planned = 0.0;
         $revised = 0.0;
+        $plannedCompany = 0.0;
+        $plannedClient = 0.0;
+        $revisedCompany = 0.0;
+        $revisedClient = 0.0;
         $economy = 0.0;
         $increase = 0.0;
         $maintainedCount = 0;
 
-        $rows->groupBy('production_id')->each(function ($productionRows) use (&$planned, &$revised, &$economy, &$increase, &$maintainedCount) {
+        $rows->groupBy('production_id')->each(function ($productionRows) use (&$planned, &$revised, &$plannedCompany, &$plannedClient, &$revisedCompany, &$revisedClient, &$economy, &$increase, &$maintainedCount) {
             $byRound = collect($productionRows)->groupBy('round_number');
             if ($byRound->isEmpty()) {
                 return;
@@ -529,13 +597,29 @@ class GovernanceDashboard extends Component
             $firstMap = collect($byRound->get($firstRound, collect()))
                 ->groupBy('order_number')
                 ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
+            $firstCompanyMap = collect($byRound->get($firstRound, collect()))
+                ->groupBy('order_number')
+                ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
+            $firstClientMap = collect($byRound->get($firstRound, collect()))
+                ->groupBy('order_number')
+                ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
 
             $lastMap = collect($byRound->get($lastRound, collect()))
                 ->groupBy('order_number')
                 ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
+            $lastCompanyMap = collect($byRound->get($lastRound, collect()))
+                ->groupBy('order_number')
+                ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
+            $lastClientMap = collect($byRound->get($lastRound, collect()))
+                ->groupBy('order_number')
+                ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
 
             $planned += (float) $firstMap->sum();
             $revised += (float) $lastMap->sum();
+            $plannedCompany += (float) $firstCompanyMap->sum();
+            $plannedClient += (float) $firstClientMap->sum();
+            $revisedCompany += (float) $lastCompanyMap->sum();
+            $revisedClient += (float) $lastClientMap->sum();
 
             $allOrders = $firstMap->keys()->merge($lastMap->keys())->unique();
             foreach ($allOrders as $orderNumber) {
@@ -556,11 +640,72 @@ class GovernanceDashboard extends Component
         return [
             'planned_total_cost' => $planned,
             'revised_total_cost' => $revised,
+            'planned_company_total_cost' => $plannedCompany,
+            'planned_client_total_cost' => $plannedClient,
+            'revised_company_total_cost' => $revisedCompany,
+            'revised_client_total_cost' => $revisedClient,
+            'company_net_variation_cost' => $revisedCompany - $plannedCompany,
+            'client_net_variation_cost' => $revisedClient - $plannedClient,
             'economy_total_cost' => $economy,
             'increase_total_cost' => $increase,
             'net_variation_cost' => $revised - $planned,
             'maintained_orders_count' => $maintainedCount,
         ];
+    }
+
+    private function buildProjectReviewTimeline($cyclesBase)
+    {
+        $timeline = (clone $cyclesBase)
+            ->selectRaw("
+                DATE(cy.submitted_at) as submitted_day,
+                DATE(cy.decided_at) as decided_day,
+                cy.decision
+            ")
+            ->get()
+            ->reduce(function ($carry, $row) {
+                $submittedDay = $row->submitted_day;
+                $decidedDay = $row->decided_day;
+
+                if ($submittedDay) {
+                    if (!isset($carry[$submittedDay])) {
+                        $carry[$submittedDay] = [
+                            'day' => $submittedDay,
+                            'submitted' => 0,
+                            'rejected' => 0,
+                            'approved_with_remarks' => 0,
+                            'approved_without_remarks' => 0,
+                        ];
+                    }
+                    $carry[$submittedDay]['submitted']++;
+                }
+
+                if ($decidedDay) {
+                    if (!isset($carry[$decidedDay])) {
+                        $carry[$decidedDay] = [
+                            'day' => $decidedDay,
+                            'submitted' => 0,
+                            'rejected' => 0,
+                            'approved_with_remarks' => 0,
+                            'approved_without_remarks' => 0,
+                        ];
+                    }
+
+                    if ($row->decision === 'REJECTED') {
+                        $carry[$decidedDay]['rejected']++;
+                    } elseif ($row->decision === 'APPROVED_WITH_REMARKS') {
+                        $carry[$decidedDay]['approved_with_remarks']++;
+                    } elseif ($row->decision === 'APPROVED') {
+                        $carry[$decidedDay]['approved_without_remarks']++;
+                    }
+                }
+
+                return $carry;
+            }, []);
+
+        return collect($timeline)
+            ->sortKeys()
+            ->map(fn ($row) => (object) $row)
+            ->values();
     }
 
     private function buildUsersRepresentativity($findingsBase, int $limit = 8): array
@@ -602,6 +747,62 @@ class GovernanceDashboard extends Component
             'labels' => $labels,
             'data' => $data,
         ];
+    }
+
+    private function applyApprovedDateFilter($query)
+    {
+        if ($this->approved_from) {
+            $query->whereDate('cy.decided_at', '>=', $this->approved_from);
+        }
+        if ($this->approved_to) {
+            $query->whereDate('cy.decided_at', '<=', $this->approved_to);
+        }
+
+        return $query;
+    }
+
+    private function applyRejectedDateFilter($query)
+    {
+        if ($this->rejected_from) {
+            $query->whereDate('cy.decided_at', '>=', $this->rejected_from);
+        }
+        if ($this->rejected_to) {
+            $query->whereDate('cy.decided_at', '<=', $this->rejected_to);
+        }
+
+        return $query;
+    }
+
+    private function applyDecisionDateFilters($query)
+    {
+        $hasApprovedFilter = (bool) ($this->approved_from || $this->approved_to);
+        $hasRejectedFilter = (bool) ($this->rejected_from || $this->rejected_to);
+
+        if (!$hasApprovedFilter && !$hasRejectedFilter) {
+            return $query;
+        }
+
+        $query->where(function ($q) use ($hasApprovedFilter, $hasRejectedFilter) {
+            if ($hasApprovedFilter) {
+                $q->orWhere(function ($approved) {
+                    $approved->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS']);
+                    $this->applyApprovedDateFilter($approved);
+                });
+            } else {
+                $q->orWhereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS']);
+            }
+
+            if ($hasRejectedFilter) {
+                $q->orWhere(function ($rejected) {
+                    $rejected->where('cy.decision', 'REJECTED');
+                    $this->applyRejectedDateFilter($rejected);
+                });
+            } else {
+                $q->orWhere('cy.decision', 'REJECTED');
+            }
+        });
+
+        return $query;
     }
 
     public function render()

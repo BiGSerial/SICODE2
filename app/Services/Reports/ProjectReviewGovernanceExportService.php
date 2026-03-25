@@ -35,13 +35,14 @@ class ProjectReviewGovernanceExportService
             $this->sheetProductions($productionIds),
             $this->sheetRejectionsDetail($productionIds),
             $this->sheetFindingsOriginDetail($productionIds),
-            $this->sheetUsers($productionIds),
+            $this->sheetUsers($productionIds, $filters),
             $this->sheetCategories($productionIds),
             $this->sheetSubcategories($productionIds),
             $this->sheetItems($productionIds),
             $this->sheetCompanies($productionIds),
             $this->sheetOrigins($productionIds),
-            $this->sheetSla($productionIds),
+            $this->sheetTimeline($productionIds, $filters),
+            $this->sheetSla($productionIds, $filters),
             $this->sheetCosts($productionIds),
         ];
     }
@@ -131,7 +132,10 @@ class ProjectReviewGovernanceExportService
         $headings = [
             'Production ID', 'Nota', 'Desenhista', 'Empresa', 'Status final', 'Rodadas',
             'Qtd reprovações', 'Aprovado na 1ª rodada', 'Último envio', 'Última decisão', 'Principais motivos',
-            'Analista (última decisão)', 'Laudo técnico (última decisão)', 'Valor planejado', 'Valor revisado', 'Economia', 'Aumento', 'Saldo'
+            'Analista (última decisão)', 'Laudo técnico (última decisão)',
+            'Valor planejado', 'Valor revisado',
+            'Planejado empresa', 'Planejado cliente', 'Revisado empresa', 'Revisado cliente',
+            'Economia', 'Aumento', 'Saldo total', 'Ganho empresa', 'Ganho cliente'
         ];
 
         if ($productionIds->isEmpty()) {
@@ -183,9 +187,15 @@ class ProjectReviewGovernanceExportService
             $cost = $costByProduction->get((int) $row->production_id, [
                 'planned_total_cost' => 0,
                 'revised_total_cost' => 0,
+                'planned_company_total_cost' => 0,
+                'planned_client_total_cost' => 0,
+                'revised_company_total_cost' => 0,
+                'revised_client_total_cost' => 0,
                 'economy_total_cost' => 0,
                 'increase_total_cost' => 0,
                 'net_variation_cost' => 0,
+                'company_net_variation_cost' => 0,
+                'client_net_variation_cost' => 0,
             ]);
 
             return [
@@ -204,9 +214,15 @@ class ProjectReviewGovernanceExportService
                 $row->last_analyst_note ?: '---',
                 round((float) $cost['planned_total_cost'], 2),
                 round((float) $cost['revised_total_cost'], 2),
+                round((float) $cost['planned_company_total_cost'], 2),
+                round((float) $cost['planned_client_total_cost'], 2),
+                round((float) $cost['revised_company_total_cost'], 2),
+                round((float) $cost['revised_client_total_cost'], 2),
                 round((float) $cost['economy_total_cost'], 2),
                 round((float) $cost['increase_total_cost'], 2),
                 round((float) $cost['net_variation_cost'], 2),
+                round((float) (-1 * $cost['company_net_variation_cost']), 2),
+                round((float) (-1 * $cost['client_net_variation_cost']), 2),
             ];
         })->all();
 
@@ -331,17 +347,15 @@ class ProjectReviewGovernanceExportService
             ->value('uuid');
     }
 
-    private function sheetUsers(Collection $productionIds): array
+    private function sheetUsers(Collection $productionIds, array $filters): array
     {
         $headings = ['Usuário', 'Reprovações', 'Análises', '% erro', 'Principal tipo de erro'];
         if ($productionIds->isEmpty()) {
             return ['title' => 'Usuários', 'headings' => $headings, 'rows' => []];
         }
 
-        $rows = DB::table('project_review_cycles as cy')
-            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+        $rows = $this->applyDecisionDateFilters($this->cyclesBase($productionIds, $filters), $filters)
             ->join('users as u', 'u.id', '=', 'p.user_id')
-            ->whereIn('p.id', $productionIds)
             ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
             ->selectRaw("
                 u.name as user_name,
@@ -530,18 +544,41 @@ class ProjectReviewGovernanceExportService
         return ['title' => 'Origens', 'headings' => $headings, 'rows' => $rows];
     }
 
-    private function sheetSla(Collection $productionIds): array
+    private function sheetTimeline(Collection $productionIds, array $filters): array
+    {
+        $headings = ['Dia', 'Enviadas', 'Reprovadas', 'Aprovadas com ressalvas', 'Aprovadas sem ressalvas'];
+        if ($productionIds->isEmpty()) {
+            return ['title' => 'Histórico Temporal', 'headings' => $headings, 'rows' => []];
+        }
+
+        $timeline = $this->buildProjectReviewTimeline($this->cyclesBase($productionIds, $filters));
+
+        return [
+            'title' => 'Histórico Temporal',
+            'headings' => $headings,
+            'rows' => $timeline->map(fn ($row) => [
+                $row->day,
+                (int) $row->submitted,
+                (int) $row->rejected,
+                (int) $row->approved_with_remarks,
+                (int) $row->approved_without_remarks,
+            ])->all(),
+        ];
+    }
+
+    private function sheetSla(Collection $productionIds, array $filters): array
     {
         $headings = ['Métrica', 'Valor'];
         if ($productionIds->isEmpty()) {
             return ['title' => 'SLA', 'headings' => $headings, 'rows' => []];
         }
 
-        $avgSendToDecisionHours = (float) DB::table('project_review_cycles')
-            ->whereIn('production_id', $productionIds)
+        $cyclesBase = $this->cyclesBase($productionIds, $filters);
+        $cyclesForDecisionStats = $this->applyDecisionDateFilters(clone $cyclesBase, $filters);
+
+        $avgSendToDecisionHours = (float) (clone $cyclesForDecisionStats)
             ->whereNotNull('submitted_at')
             ->whereNotNull('decided_at')
-            ->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
             ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, submitted_at, decided_at)) as avg_hours')
             ->value('avg_hours');
 
@@ -579,6 +616,22 @@ class ProjectReviewGovernanceExportService
             ->distinct('production_id')
             ->count('production_id');
 
+        $cyclesSubmittedCount = (clone $cyclesBase)
+            ->whereNotNull('cy.submitted_at')
+            ->count();
+
+        $cyclesRejectedCount = $this->applyRejectedDateFilter((clone $cyclesBase), $filters)
+            ->where('cy.decision', 'REJECTED')
+            ->count();
+
+        $cyclesApprovedWithRemarksCount = $this->applyApprovedDateFilter((clone $cyclesBase), $filters)
+            ->where('cy.decision', 'APPROVED_WITH_REMARKS')
+            ->count();
+
+        $cyclesApprovedWithoutRemarksCount = $this->applyApprovedDateFilter((clone $cyclesBase), $filters)
+            ->where('cy.decision', 'APPROVED')
+            ->count();
+
         return [
             'title' => 'SLA',
             'headings' => $headings,
@@ -586,6 +639,11 @@ class ProjectReviewGovernanceExportService
                 ['Total de productions', $totalProductions],
                 ['Productions com reprovação', $withRejection],
                 ['Productions sem reprovação', max(0, $totalProductions - $withRejection)],
+                ['Enviadas para análise', (int) $cyclesSubmittedCount],
+                ['Reprovadas', (int) $cyclesRejectedCount],
+                ['Aprovadas com ressalvas', (int) $cyclesApprovedWithRemarksCount],
+                ['Aprovadas sem ressalvas', (int) $cyclesApprovedWithoutRemarksCount],
+                ['Aprovadas (total)', (int) ($cyclesApprovedWithRemarksCount + $cyclesApprovedWithoutRemarksCount)],
                 ['Tempo médio envio > análise (h)', round($avgSendToDecisionHours ?: 0, 2)],
                 ['Tempo médio reprovação > reenvio (h)', round($avgRejectToResubmitHours ?: 0, 2)],
                 ['Tempo médio total até aprovação final (h)', round($avgTotalUntilFinalApprovalHours ?: 0, 2)],
@@ -608,6 +666,12 @@ class ProjectReviewGovernanceExportService
             'rows' => [
                 ['Valor planejado total', round((float) $summary['planned_total_cost'], 2)],
                 ['Valor revisado total', round((float) $summary['revised_total_cost'], 2)],
+                ['Planejado empresa', round((float) $summary['planned_company_total_cost'], 2)],
+                ['Planejado cliente', round((float) $summary['planned_client_total_cost'], 2)],
+                ['Revisado empresa', round((float) $summary['revised_company_total_cost'], 2)],
+                ['Revisado cliente', round((float) $summary['revised_client_total_cost'], 2)],
+                ['Ganho custo empresa (planejado - revisado)', round((float) (-1 * $summary['company_net_variation_cost']), 2)],
+                ['Ganho custo cliente (planejado - revisado)', round((float) (-1 * $summary['client_net_variation_cost']), 2)],
                 ['Economia total', round((float) $summary['economy_total_cost'], 2)],
                 ['Aumento total', round((float) $summary['increase_total_cost'], 2)],
                 ['Saldo (Aumento - Economia)', round((float) $summary['net_variation_cost'], 2)],
@@ -617,7 +681,7 @@ class ProjectReviewGovernanceExportService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{planned_total_cost:float,revised_total_cost:float,economy_total_cost:float,increase_total_cost:float,net_variation_cost:float,maintained_orders_count:int}>
+     * @return \Illuminate\Support\Collection<int, array{planned_total_cost:float,revised_total_cost:float,planned_company_total_cost:float,planned_client_total_cost:float,revised_company_total_cost:float,revised_client_total_cost:float,company_net_variation_cost:float,client_net_variation_cost:float,economy_total_cost:float,increase_total_cost:float,net_variation_cost:float,maintained_orders_count:int}>
      */
     private function buildCostVariationByProduction(Collection $productionIds): Collection
     {
@@ -628,7 +692,7 @@ class ProjectReviewGovernanceExportService
         $rows = DB::table('project_review_orders as o')
             ->join('project_review_cycles as cy', 'cy.id', '=', 'o.cycle_id')
             ->whereIn('cy.production_id', $productionIds)
-            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost')
+            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost, o.company_cost, o.client_cost')
             ->orderBy('cy.production_id')
             ->orderBy('o.order_number')
             ->orderBy('cy.round_number')
@@ -639,6 +703,10 @@ class ProjectReviewGovernanceExportService
         $rows->groupBy(fn ($r) => (int) $r->production_id)->each(function ($productionRows, $productionId) use (&$result) {
             $planned = 0.0;
             $revised = 0.0;
+            $plannedCompany = 0.0;
+            $plannedClient = 0.0;
+            $revisedCompany = 0.0;
+            $revisedClient = 0.0;
             $economy = 0.0;
             $increase = 0.0;
             $maintainedCount = 0;
@@ -651,13 +719,29 @@ class ProjectReviewGovernanceExportService
                 $firstMap = collect($byRound->get($firstRound, collect()))
                     ->groupBy('order_number')
                     ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
+                $firstCompanyMap = collect($byRound->get($firstRound, collect()))
+                    ->groupBy('order_number')
+                    ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
+                $firstClientMap = collect($byRound->get($firstRound, collect()))
+                    ->groupBy('order_number')
+                    ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
 
                 $lastMap = collect($byRound->get($lastRound, collect()))
                     ->groupBy('order_number')
                     ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
+                $lastCompanyMap = collect($byRound->get($lastRound, collect()))
+                    ->groupBy('order_number')
+                    ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
+                $lastClientMap = collect($byRound->get($lastRound, collect()))
+                    ->groupBy('order_number')
+                    ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
 
                 $planned += (float) $firstMap->sum();
                 $revised += (float) $lastMap->sum();
+                $plannedCompany += (float) $firstCompanyMap->sum();
+                $plannedClient += (float) $firstClientMap->sum();
+                $revisedCompany += (float) $lastCompanyMap->sum();
+                $revisedClient += (float) $lastClientMap->sum();
 
                 $allOrders = $firstMap->keys()->merge($lastMap->keys())->unique();
                 foreach ($allOrders as $orderNumber) {
@@ -678,6 +762,12 @@ class ProjectReviewGovernanceExportService
             $result[(int) $productionId] = [
                 'planned_total_cost' => $planned,
                 'revised_total_cost' => $revised,
+                'planned_company_total_cost' => $plannedCompany,
+                'planned_client_total_cost' => $plannedClient,
+                'revised_company_total_cost' => $revisedCompany,
+                'revised_client_total_cost' => $revisedClient,
+                'company_net_variation_cost' => $revisedCompany - $plannedCompany,
+                'client_net_variation_cost' => $revisedClient - $plannedClient,
                 'economy_total_cost' => $economy,
                 'increase_total_cost' => $increase,
                 'net_variation_cost' => $revised - $planned,
@@ -695,11 +785,144 @@ class ProjectReviewGovernanceExportService
         return [
             'planned_total_cost' => (float) $byProduction->sum('planned_total_cost'),
             'revised_total_cost' => (float) $byProduction->sum('revised_total_cost'),
+            'planned_company_total_cost' => (float) $byProduction->sum('planned_company_total_cost'),
+            'planned_client_total_cost' => (float) $byProduction->sum('planned_client_total_cost'),
+            'revised_company_total_cost' => (float) $byProduction->sum('revised_company_total_cost'),
+            'revised_client_total_cost' => (float) $byProduction->sum('revised_client_total_cost'),
+            'company_net_variation_cost' => (float) $byProduction->sum('company_net_variation_cost'),
+            'client_net_variation_cost' => (float) $byProduction->sum('client_net_variation_cost'),
             'economy_total_cost' => (float) $byProduction->sum('economy_total_cost'),
             'increase_total_cost' => (float) $byProduction->sum('increase_total_cost'),
             'net_variation_cost' => (float) $byProduction->sum('net_variation_cost'),
             'maintained_orders_count' => (int) $byProduction->sum('maintained_orders_count'),
         ];
+    }
+
+    private function cyclesBase(Collection $productionIds, array $filters)
+    {
+        $query = DB::table('project_review_cycles as cy')
+            ->join('productions as p', 'p.id', '=', 'cy.production_id')
+            ->whereIn('p.id', $productionIds);
+
+        if (!empty($filters['period_from'])) {
+            $query->whereDate('cy.submitted_at', '>=', $filters['period_from']);
+        }
+        if (!empty($filters['period_to'])) {
+            $query->whereDate('cy.submitted_at', '<=', $filters['period_to']);
+        }
+
+        return $query;
+    }
+
+    private function applyApprovedDateFilter($query, array $filters)
+    {
+        if (!empty($filters['approved_from'])) {
+            $query->whereDate('cy.decided_at', '>=', $filters['approved_from']);
+        }
+        if (!empty($filters['approved_to'])) {
+            $query->whereDate('cy.decided_at', '<=', $filters['approved_to']);
+        }
+
+        return $query;
+    }
+
+    private function applyRejectedDateFilter($query, array $filters)
+    {
+        if (!empty($filters['rejected_from'])) {
+            $query->whereDate('cy.decided_at', '>=', $filters['rejected_from']);
+        }
+        if (!empty($filters['rejected_to'])) {
+            $query->whereDate('cy.decided_at', '<=', $filters['rejected_to']);
+        }
+
+        return $query;
+    }
+
+    private function applyDecisionDateFilters($query, array $filters)
+    {
+        $hasApprovedFilter = !empty($filters['approved_from']) || !empty($filters['approved_to']);
+        $hasRejectedFilter = !empty($filters['rejected_from']) || !empty($filters['rejected_to']);
+
+        if (!$hasApprovedFilter && !$hasRejectedFilter) {
+            return $query;
+        }
+
+        $query->where(function ($q) use ($hasApprovedFilter, $hasRejectedFilter, $filters) {
+            if ($hasApprovedFilter) {
+                $q->orWhere(function ($approved) use ($filters) {
+                    $approved->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS']);
+                    $this->applyApprovedDateFilter($approved, $filters);
+                });
+            } else {
+                $q->orWhereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS']);
+            }
+
+            if ($hasRejectedFilter) {
+                $q->orWhere(function ($rejected) use ($filters) {
+                    $rejected->where('cy.decision', 'REJECTED');
+                    $this->applyRejectedDateFilter($rejected, $filters);
+                });
+            } else {
+                $q->orWhere('cy.decision', 'REJECTED');
+            }
+        });
+
+        return $query;
+    }
+
+    private function buildProjectReviewTimeline($cyclesBase): Collection
+    {
+        $timeline = (clone $cyclesBase)
+            ->selectRaw("
+                DATE(cy.submitted_at) as submitted_day,
+                DATE(cy.decided_at) as decided_day,
+                cy.decision
+            ")
+            ->get()
+            ->reduce(function ($carry, $row) {
+                $submittedDay = $row->submitted_day;
+                $decidedDay = $row->decided_day;
+
+                if ($submittedDay) {
+                    if (!isset($carry[$submittedDay])) {
+                        $carry[$submittedDay] = [
+                            'day' => $submittedDay,
+                            'submitted' => 0,
+                            'rejected' => 0,
+                            'approved_with_remarks' => 0,
+                            'approved_without_remarks' => 0,
+                        ];
+                    }
+                    $carry[$submittedDay]['submitted']++;
+                }
+
+                if ($decidedDay) {
+                    if (!isset($carry[$decidedDay])) {
+                        $carry[$decidedDay] = [
+                            'day' => $decidedDay,
+                            'submitted' => 0,
+                            'rejected' => 0,
+                            'approved_with_remarks' => 0,
+                            'approved_without_remarks' => 0,
+                        ];
+                    }
+
+                    if ($row->decision === 'REJECTED') {
+                        $carry[$decidedDay]['rejected']++;
+                    } elseif ($row->decision === 'APPROVED_WITH_REMARKS') {
+                        $carry[$decidedDay]['approved_with_remarks']++;
+                    } elseif ($row->decision === 'APPROVED') {
+                        $carry[$decidedDay]['approved_without_remarks']++;
+                    }
+                }
+
+                return $carry;
+            }, []);
+
+        return collect($timeline)
+            ->sortKeys()
+            ->map(fn ($row) => (object) $row)
+            ->values();
     }
 
     /**
