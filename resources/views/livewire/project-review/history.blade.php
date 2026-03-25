@@ -397,69 +397,106 @@
                                     <div class="card-header">Estrutura da análise (histórico)</div>
                                     <div class="card-body">
                                         @php
-                                            $tree = collect($selectedCycle->Findings)->groupBy(fn($f) => optional(optional($f->Subcategory)->Category)->name ?: 'Sem categoria');
+                                            $historyFilteredFindings = collect($this->filteredHistoryFindings ?? [])->values();
                                         @endphp
 
-                                        @forelse($tree as $catName => $catRows)
-                                            @php($catId = 'hist_cat_' . md5($catName))
-                                            <div class="card border mb-2">
-                                                <div class="card-header d-flex justify-content-between align-items-center">
-                                                    <button class="btn btn-link text-decoration-none p-0 fw-semibold"
-                                                        data-bs-toggle="collapse" data-bs-target="#{{ $catId }}">
-                                                        {{ $catName }}
-                                                    </button>
-                                                    <span class="badge bg-light text-dark">{{ $catRows->count() }} item(ns)</span>
-                                                </div>
-                                                <div class="collapse show" id="{{ $catId }}">
-                                                    <div class="card-body py-2">
-                                                        @foreach($catRows->groupBy(fn($f) => optional($f->Subcategory)->name ?: 'Sem subcategoria') as $subName => $subRows)
-                                                            @php($subId = 'hist_sub_' . md5($catName . '_' . $subName))
-                                                            <div class="border rounded mb-2">
-                                                                <div class="px-2 py-1 border-bottom d-flex justify-content-between align-items-center">
-                                                                    <button class="btn btn-link text-decoration-none p-0 fw-semibold"
-                                                                        data-bs-toggle="collapse" data-bs-target="#{{ $subId }}">
-                                                                        {{ $subName }}
-                                                                    </button>
-                                                                    <span class="small text-muted">{{ $subRows->count() }} apontamento(s)</span>
-                                                                </div>
-                                                                <div class="collapse show" id="{{ $subId }}">
-                                                                    <div class="table-responsive">
-                                                                        <table class="table table-sm mb-0">
-                                                                            <thead class="table-light">
-                                                                                <tr>
-                                                                                    <th>Ação</th>
-                                                                                    <th>Qtd.</th>
-                                                                                    <th>Origem</th>
-                                                                                    <th>Observação</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody>
-                                                                                @foreach($subRows as $f)
-                                                                                    <tr>
-                                                                                        <td>
-                                                                                            @if($f->item_id)
-                                                                                                {{ $f->action_type ?? 'FALTA' }} {{ optional($f->Item)->name }}
-                                                                                            @else
-                                                                                                ---
-                                                                                            @endif
-                                                                                        </td>
-                                                                                        <td>{{ $f->quantity ?? '---' }}</td>
-                                                                                        <td>{{ $f->origin ?? '---' }}</td>
-                                                                                        <td>{{ $f->note ?: '---' }}</td>
-                                                                                    </tr>
-                                                                                @endforeach
-                                                                            </tbody>
-                                                                        </table>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                        @if ($historyFilteredFindings->count() > 0)
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label mb-1">Filtrar por ref:</label>
+                                                    <select class="form-select form-select-sm" wire:model="selectedHistoryPointFilter">
+                                                        <option value="">Todas as refs</option>
+                                                        @foreach ($this->availableHistoryPoints as $ref)
+                                                            <option value="{{ $ref }}">{{ $ref }}</option>
                                                         @endforeach
-                                                    </div>
+                                                    </select>
                                                 </div>
                                             </div>
-                                        @empty
+
+                                            @php
+                                                $pointsTree = $historyFilteredFindings->groupBy(function ($f) {
+                                                    $label = trim((string) ($f->point_label ?? ''));
+                                                    return $label !== '' ? mb_strtoupper($label, 'UTF-8') : 'SEM REFERENCIA';
+                                                });
+                                            @endphp
+
+                                            @foreach($pointsTree as $pointLabel => $pointRows)
+                                                @php($pointId = 'hist_point_' . md5($pointLabel))
+                                                <div class="card border-primary-subtle mb-2">
+                                                    <div class="card-header bg-primary-subtle d-flex justify-content-between align-items-center">
+                                                        <button class="btn btn-link text-decoration-none p-0 fw-semibold text-primary"
+                                                            data-bs-toggle="collapse" data-bs-target="#{{ $pointId }}">
+                                                            Ref: {{ $pointLabel }}
+                                                        </button>
+                                                        <span class="badge bg-primary">{{ $pointRows->count() }} item(ns)</span>
+                                                    </div>
+                                                    <div class="collapse show" id="{{ $pointId }}">
+                                                        <div class="card-body py-2">
+                                                            @foreach($pointRows->groupBy(fn($f) => optional(optional($f->Subcategory)->Category)->name ?: 'Sem categoria') as $catName => $catRows)
+                                                                @php($catId = 'hist_cat_' . md5($pointLabel . '_' . $catName))
+                                                                <div class="card border mb-2">
+                                                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                                                        <button class="btn btn-link text-decoration-none p-0 fw-semibold"
+                                                                            data-bs-toggle="collapse" data-bs-target="#{{ $catId }}">
+                                                                            {{ $catName }}
+                                                                        </button>
+                                                                        <span class="badge bg-light text-dark">{{ $catRows->count() }} item(ns)</span>
+                                                                    </div>
+                                                                    <div class="collapse show" id="{{ $catId }}">
+                                                                        <div class="card-body py-2">
+                                                                            @foreach($catRows->groupBy(fn($f) => optional($f->Subcategory)->name ?: 'Sem subcategoria') as $subName => $subRows)
+                                                                                @php($subId = 'hist_sub_' . md5($pointLabel . '_' . $catName . '_' . $subName))
+                                                                                <div class="border rounded mb-2">
+                                                                                    <div class="px-2 py-1 border-bottom d-flex justify-content-between align-items-center">
+                                                                                        <button class="btn btn-link text-decoration-none p-0 fw-semibold"
+                                                                                            data-bs-toggle="collapse" data-bs-target="#{{ $subId }}">
+                                                                                            {{ $subName }}
+                                                                                        </button>
+                                                                                        <span class="small text-muted">{{ $subRows->count() }} apontamento(s)</span>
+                                                                                    </div>
+                                                                                    <div class="collapse show" id="{{ $subId }}">
+                                                                                        <div class="table-responsive">
+                                                                                            <table class="table table-sm mb-0">
+                                                                                                <thead class="table-light">
+                                                                                                    <tr>
+                                                                                                        <th>Ação</th>
+                                                                                                        <th>Qtd.</th>
+                                                                                                        <th>Origem</th>
+                                                                                                        <th>Observação</th>
+                                                                                                    </tr>
+                                                                                                </thead>
+                                                                                                <tbody>
+                                                                                                    @foreach($subRows as $f)
+                                                                                                        <tr>
+                                                                                                            <td>
+                                                                                                                @if($f->item_id)
+                                                                                                                    {{ $f->action_type ?? 'FALTA' }} {{ optional($f->Item)->name }}
+                                                                                                                @else
+                                                                                                                    ---
+                                                                                                                @endif
+                                                                                                            </td>
+                                                                                                            <td>{{ $f->quantity ?? '---' }}</td>
+                                                                                                            <td>{{ $f->origin ?? '---' }}</td>
+                                                                                                            <td>{{ $f->note ?: '---' }}</td>
+                                                                                                        </tr>
+                                                                                                    @endforeach
+                                                                                                </tbody>
+                                                                                            </table>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            @endforeach
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        @else
                                             <div class="alert alert-light border mb-0">Sem apontamentos registrados nesta rodada.</div>
-                                        @endforelse
+                                        @endif
                                     </div>
                                 </div>
                             </div>

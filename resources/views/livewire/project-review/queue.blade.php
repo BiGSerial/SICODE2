@@ -286,6 +286,7 @@
                             <th>Custo cliente</th>
                             <th>Status</th>
                             <th>Tipo</th>
+                            <th>Prazo Real</th>
                             <th>Quando foi enviado</th>
                             <th></th>
                         </tr>
@@ -382,11 +383,41 @@
                                         <span class="badge text-bg-secondary">Inicial</span>
                                     @endif
                                 </td>
+                                @php
+                                    $daysLeft = is_numeric(data_get($prod, 'Note.days_left')) ? (int) data_get($prod, 'Note.days_left') : null;
+                                    $prazoRealClass = 'text-bg-secondary';
+                                    $prazoRealValue = '---';
+
+                                    if (!is_null($daysLeft)) {
+                                        $prazoRealValue = (string) (30 - $daysLeft);
+                                        if ($daysLeft < 0) {
+                                            $prazoRealClass = 'text-bg-secondary';
+                                        } elseif ($daysLeft < 6) {
+                                            $prazoRealClass = 'text-bg-danger';
+                                        } elseif ($daysLeft < 10) {
+                                            $prazoRealClass = 'text-bg-warning';
+                                        } else {
+                                            $prazoRealClass = 'text-bg-success';
+                                        }
+                                    }
+                                @endphp
+                                <td class="text-center {{ $prazoRealClass }}" tabindex="0"
+                                    data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                    data-bs-placement="top" data-bs-title="Prazo Real"
+                                    data-bs-content="
+                                        <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
+                                        <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
+                                        <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
+                                        <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
+                                        <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
+                                    ">
+                                    {{ $prazoRealValue }}
+                                </td>
                                 <td>{{ $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---' }}</td>
                                 <td><button class="btn btn-sm btn-outline-primary" wire:click="openReview({{ $prod->id }})">Abrir</button></td>
                             </tr>
                         @empty
-                            <tr><td colspan="12" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
+                            <tr><td colspan="13" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -665,6 +696,12 @@
                                                     <div class="card-header">Seleção</div>
                                                     <div class="card-body">
                                                         <div class="mb-2">
+                                                            <label class="form-label">Ref: (referência textual)</label>
+                                                            <input type="text" class="form-control"
+                                                                wire:model.defer="selectedPointLabel"
+                                                                placeholder="Ex.: P1, P2, Poste 10-15, Trecho A">
+                                                        </div>
+                                                        <div class="mb-2">
                                                             <label class="form-label">Categoria</label>
                                                             <select class="form-select" wire:model="selectedCategoryId">
                                                                 <option value="">Selecione</option>
@@ -734,136 +771,201 @@
                                             </div>
 
                                             <div class="col-12">
+                                                <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
+                                                    <div>
+                                                        <label class="form-label mb-1">Filtrar por ref:</label>
+                                                        <select class="form-select form-select-sm" wire:model="selectedPointFilter">
+                                                            <option value="">Todas</option>
+                                                            @foreach($this->availablePointLabels as $pointLabel)
+                                                                <option value="{{ $pointLabel }}">{{ $pointLabel }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="small text-muted">
+                                                        Dica: o mesmo item pode se repetir em refs diferentes.
+                                                    </div>
+                                                </div>
+                                                @if ($duplicateMode !== '')
+                                                    <div class="alert alert-info d-flex flex-wrap align-items-end gap-2 py-2">
+                                                        <div class="flex-grow-1" style="min-width: 280px;">
+                                                            <label class="form-label mb-1">
+                                                                Nome da ref: para duplicar
+                                                            </label>
+                                                            <input type="text" class="form-control form-control-sm"
+                                                                wire:model.defer="duplicatePointLabel"
+                                                                placeholder="Ex.: P2, Trecho B, Poste 10-15">
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-primary"
+                                                            wire:click="confirmDuplicate">
+                                                            Confirmar duplicação
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                            wire:click="cancelDuplicate">
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                @endif
                                                 <div class="analysis-findings-scroll">
-                                                    @forelse($findingsTree as $category)
+                                                    @forelse($findingsTree as $pointGroup)
                                                         @php
-                                                            $catCollapsed = $collapsedCategories[$category['category_key']] ?? false;
+                                                            $pointRenameKey = 'rename_' . md5($pointGroup['point_label']);
                                                         @endphp
-                                                        <div class="card cat-card mb-2">
+                                                        <div class="card border-primary mb-2">
                                                             <div class="card-header d-flex justify-content-between align-items-center py-2 gap-2">
-                                                                <button type="button" class="btn btn-link text-decoration-none p-0 group-head-btn"
-                                                                    wire:click="toggleCategoryGroup('{{ $category['category_key'] }}')">
-                                                                    <i class="ri-arrow-{{ $catCollapsed ? 'right' : 'down' }}-s-line"></i>
-                                                                    {{ $category['category_name'] }}
-                                                                </button>
+                                                                <div class="fw-semibold">
+                                                                    Ref: {{ $pointGroup['point_label'] }}
+                                                                </div>
                                                                 <div class="d-flex align-items-center gap-2">
-                                                                    <span class="badge text-bg-light">{{ count($category['subcategories']) }} subcategoria(s)</span>
-                                                                    <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
-                                                                        wire:click="removeCategoryGroup('{{ $category['category_key'] }}')"
-                                                                        title="Remover categoria">
-                                                                        <i class="ri-delete-bin-line"></i>
+                                                                    <input type="text" class="form-control form-control-sm"
+                                                                        style="width: 180px;"
+                                                                        wire:model.defer="pointRenameInputs.{{ $pointRenameKey }}"
+                                                                        placeholder="Renomear ref:">
+                                                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                        wire:click="renamePointGroup('{{ addslashes($pointGroup['point_label']) }}', '{{ $pointRenameKey }}')"
+                                                                        title="Salvar novo nome da ref">
+                                                                        Salvar nome
+                                                                    </button>
+                                                                    <span class="badge text-bg-primary">
+                                                                        {{ count($pointGroup['categories']) }} categoria(s)
+                                                                    </span>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                        wire:click="requestDuplicatePointGroup('{{ addslashes($pointGroup['point_label']) }}')"
+                                                                        title="Duplicar grupo da ref">
+                                                                        Duplicar grupo
                                                                     </button>
                                                                 </div>
                                                             </div>
-                                                            @if (!$catCollapsed)
-                                                                <div class="card-body py-2">
-                                                                    @foreach($category['subcategories'] as $subcategory)
-                                                                        @php
-                                                                            $subCollapsed = $collapsedSubcategories[$subcategory['subcategory_key']] ?? false;
-                                                                        @endphp
-                                                                        <div class="card subcat-card mb-2">
-                                                                            <div class="card-header d-flex justify-content-between align-items-center py-2 gap-2">
-                                                                                <button type="button" class="btn btn-link text-decoration-none p-0 group-head-btn"
-                                                                                    wire:click="toggleSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')">
-                                                                                    <i class="ri-arrow-{{ $subCollapsed ? 'right' : 'down' }}-s-line"></i>
-                                                                                    {{ $subcategory['subcategory_name'] }}
+                                                            <div class="card-body py-2">
+                                                                @foreach($pointGroup['categories'] as $category)
+                                                                    @php
+                                                                        $catCollapsed = $collapsedCategories[$category['category_key']] ?? false;
+                                                                    @endphp
+                                                                    <div class="card cat-card mb-2">
+                                                                        <div class="card-header d-flex justify-content-between align-items-center py-2 gap-2">
+                                                                            <button type="button" class="btn btn-link text-decoration-none p-0 group-head-btn"
+                                                                                wire:click="toggleCategoryGroup('{{ $category['category_key'] }}')">
+                                                                                <i class="ri-arrow-{{ $catCollapsed ? 'right' : 'down' }}-s-line"></i>
+                                                                                {{ $category['category_name'] }}
+                                                                            </button>
+                                                                            <div class="d-flex align-items-center gap-2">
+                                                                                <span class="badge text-bg-light">{{ count($category['subcategories']) }} subcategoria(s)</span>
+                                                                                <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
+                                                                                    wire:click="removeCategoryGroup('{{ $category['category_key'] }}')"
+                                                                                    title="Remover categoria">
+                                                                                    <i class="ri-delete-bin-line"></i>
                                                                                 </button>
-                                                                                <div class="d-flex align-items-center gap-2">
-                                                                                    <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
-                                                                                        wire:click="removeSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')"
-                                                                                        title="Remover subcategoria">
-                                                                                        <i class="ri-delete-bin-line"></i>
-                                                                                    </button>
-                                                                                </div>
                                                                             </div>
-                                                                            @if (!$subCollapsed)
-                                                                                <div class="card-body pt-2">
-                                                                                    @foreach($subcategory['origins'] as $originGroup)
-                                                                                        @php
-                                                                                            $originClass = match ($originGroup['origin']) {
-                                                                                                'LEVANTAMENTO' => 'origin-levantamento',
-                                                                                                'AMBOS' => 'origin-ambos',
-                                                                                                default => 'origin-projeto',
-                                                                                            };
-                                                                                        @endphp
-                                                                                        <div class="origin-card mb-2">
-                                                                                            <div class="origin-head {{ $originClass }}">
-                                                                                                {{ $originGroup['origin'] }}
-                                                                                            </div>
-                                                                                            <div class="table-responsive">
-                                                                                                <table class="table table-sm align-middle mb-0">
-                                                                                                    <thead>
-                                                                                                        <tr>
-                                                                                                            <th style="width: 150px;">Origem</th>
-                                                                                                            <th>Ação</th>
-                                                                                                            <th style="width: 90px;">Qtd.</th>
-                                                                                                            <th>Conforme</th>
-                                                                                                            <th style="min-width: 420px;">Observação</th>
-                                                                                                            <th style="width:100px;"></th>
-                                                                                                        </tr>
-                                                                                                    </thead>
-                                                                                                    <tbody>
-                                                                                                        @foreach($originGroup['rows'] as $row)
-                                                                                                            @php
-                                                                                                                $idx = $row['index'];
-                                                                                                            @endphp
-                                                                                                            <tr>
-                                                                                                                <td>
-                                                                                                                    <select class="form-select form-select-sm" wire:model="findingRows.{{ $idx }}.origin">
-                                                                                                                        <option value="LEVANTAMENTO">Levantamento</option>
-                                                                                                                        <option value="PROJETO">Projeto</option>
-                                                                                                                        <option value="AMBOS">Ambos</option>
-                                                                                                                    </select>
-                                                                                                                </td>
-                                                                                                                <td>
-                                                                                                                    @if($row['item_name'])
-                                                                                                                        <span class="badge text-bg-light">{{ $row['action_type'] ?? 'FALTA' }}</span>
-                                                                                                                        {{ $row['item_name'] }}
-                                                                                                                    @else
-                                                                                                                        ---
-                                                                                                                    @endif
-                                                                                                                </td>
-                                                                                                                <td>
-                                                                                                                    <input type="number" min="1" class="form-control form-control-sm"
-                                                                                                                        wire:model.defer="findingRows.{{ $idx }}.quantity"
-                                                                                                                        @disabled(!$row['item_name'])>
-                                                                                                                </td>
-                                                                                                                <td>
-                                                                                                                    <div class="form-check">
-                                                                                                                        <input class="form-check-input" type="checkbox"
-                                                                                                                            wire:model.defer="findingRows.{{ $idx }}.is_conform"
-                                                                                                                            id="row-conform-{{ $idx }}">
-                                                                                                                        <label class="form-check-label small" for="row-conform-{{ $idx }}">
-                                                                                                                            Em conformidade
-                                                                                                                        </label>
-                                                                                                                    </div>
-                                                                                                                </td>
-                                                                                                                <td>
-                                                                                                                    <textarea class="form-control form-control-sm"
-                                                                                                                        rows="2"
-                                                                                                                        wire:model.defer="findingRows.{{ $idx }}.note">
-                                                                                                                    </textarea>
-                                                                                                                </td>
-                                                                                                                <td>
-                                                                                                                    <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
-                                                                                                                        wire:click="removeFindingRow({{ $idx }})"
-                                                                                                                        title="Remover item">
-                                                                                                                        <i class="ri-delete-bin-line"></i>
-                                                                                                                    </button>
-                                                                                                                </td>
-                                                                                                            </tr>
-                                                                                                        @endforeach
-                                                                                                    </tbody>
-                                                                                                </table>
+                                                                        </div>
+                                                                        @if (!$catCollapsed)
+                                                                            <div class="card-body py-2">
+                                                                                @foreach($category['subcategories'] as $subcategory)
+                                                                                    @php
+                                                                                        $subCollapsed = $collapsedSubcategories[$subcategory['subcategory_key']] ?? false;
+                                                                                    @endphp
+                                                                                    <div class="card subcat-card mb-2">
+                                                                                        <div class="card-header d-flex justify-content-between align-items-center py-2 gap-2">
+                                                                                            <button type="button" class="btn btn-link text-decoration-none p-0 group-head-btn"
+                                                                                                wire:click="toggleSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')">
+                                                                                                <i class="ri-arrow-{{ $subCollapsed ? 'right' : 'down' }}-s-line"></i>
+                                                                                                {{ $subcategory['subcategory_name'] }}
+                                                                                            </button>
+                                                                                            <div class="d-flex align-items-center gap-2">
+                                                                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                                                                    wire:click="removeSubcategoryGroup('{{ $subcategory['subcategory_key'] }}')"
+                                                                                                    title="Remover subcategoria">
+                                                                                                    Excluir
+                                                                                                </button>
                                                                                             </div>
                                                                                         </div>
-                                                                                    @endforeach
-                                                                                </div>
-                                                                            @endif
-                                                                        </div>
-                                                                    @endforeach
-                                                                </div>
-                                                            @endif
+                                                                                        @if (!$subCollapsed)
+                                                                                            <div class="card-body pt-2">
+                                                                                                @foreach($subcategory['origins'] as $originGroup)
+                                                                                                    @php
+                                                                                                        $originClass = match ($originGroup['origin']) {
+                                                                                                            'LEVANTAMENTO' => 'origin-levantamento',
+                                                                                                            'AMBOS' => 'origin-ambos',
+                                                                                                            default => 'origin-projeto',
+                                                                                                        };
+                                                                                                    @endphp
+                                                                                                    <div class="origin-card mb-2">
+                                                                                                        <div class="origin-head {{ $originClass }}">
+                                                                                                            {{ $originGroup['origin'] }}
+                                                                                                        </div>
+                                                                                                        <div class="table-responsive">
+                                                                                                            <table class="table table-sm align-middle mb-0">
+                                                                                                                <thead>
+                                                                                                                    <tr>
+                                                                                                                        <th style="width: 150px;">Origem</th>
+                                                                                                                        <th>Ação</th>
+                                                                                                                        <th style="width: 90px;">Qtd.</th>
+                                                                                                                        <th>Conforme</th>
+                                                                                                                        <th style="min-width: 420px;">Observação</th>
+                                                                                                                        <th style="width:100px;"></th>
+                                                                                                                    </tr>
+                                                                                                                </thead>
+                                                                                                                <tbody>
+                                                                                                                    @foreach($originGroup['rows'] as $row)
+                                                                                                                        @php $idx = $row['index']; @endphp
+                                                                                                                        <tr>
+                                                                                                                            <td>
+                                                                                                                                <select class="form-select form-select-sm" wire:model="findingRows.{{ $idx }}.origin">
+                                                                                                                                    <option value="LEVANTAMENTO">Levantamento</option>
+                                                                                                                                    <option value="PROJETO">Projeto</option>
+                                                                                                                                    <option value="AMBOS">Ambos</option>
+                                                                                                                                </select>
+                                                                                                                            </td>
+                                                                                                                            <td>
+                                                                                                                                @if($row['item_name'])
+                                                                                                                                    <span class="badge text-bg-light">{{ $row['action_type'] ?? 'FALTA' }}</span>
+                                                                                                                                    {{ $row['item_name'] }}
+                                                                                                                                @else
+                                                                                                                                    ---
+                                                                                                                                @endif
+                                                                                                                            </td>
+                                                                                                                            <td>
+                                                                                                                                <input type="number" min="1" class="form-control form-control-sm"
+                                                                                                                                    wire:model.defer="findingRows.{{ $idx }}.quantity"
+                                                                                                                                    @disabled(!$row['item_name'])>
+                                                                                                                            </td>
+                                                                                                                            <td>
+                                                                                                                                <div class="form-check">
+                                                                                                                                    <input class="form-check-input" type="checkbox"
+                                                                                                                                        wire:model.defer="findingRows.{{ $idx }}.is_conform"
+                                                                                                                                        id="row-conform-{{ $idx }}">
+                                                                                                                                    <label class="form-check-label small" for="row-conform-{{ $idx }}">
+                                                                                                                                        Em conformidade
+                                                                                                                                    </label>
+                                                                                                                                </div>
+                                                                                                                            </td>
+                                                                                                                            <td>
+                                                                                                                                <textarea class="form-control form-control-sm"
+                                                                                                                                    rows="2"
+                                                                                                                                    wire:model.defer="findingRows.{{ $idx }}.note">
+                                                                                                                                </textarea>
+                                                                                                                            </td>
+                                                                                                                            <td>
+                                                                                                                                <button type="button" class="btn btn-sm btn-outline-danger icon-btn"
+                                                                                                                                    wire:click="removeFindingRow({{ $idx }})"
+                                                                                                                                    title="Excluir item">
+                                                                                                                                    <i class="ri-delete-bin-line"></i>
+                                                                                                                                </button>
+                                                                                                                            </td>
+                                                                                                                        </tr>
+                                                                                                                    @endforeach
+                                                                                                                </tbody>
+                                                                                                            </table>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                @endforeach
+                                                                                            </div>
+                                                                                        @endif
+                                                                                    </div>
+                                                                                @endforeach
+                                                                            </div>
+                                                                        @endif
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
                                                         </div>
                                                     @empty
                                                         <div class="alert alert-light border">Nenhum apontamento adicionado.</div>

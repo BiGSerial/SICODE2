@@ -241,65 +241,98 @@
                                     Exibição somente dos itens pendentes (sem conformidade), com observações do analista.
                                 </small>
 
-                                @if (count($rejectedFindings))
+                                @php
+                                    $filteredFindings = collect($this->filteredRejectedFindings ?? [])->values();
+                                @endphp
+                                @if ($filteredFindings->count() > 0)
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-5">
+                                            <label class="form-label mb-1">Filtrar por ref:</label>
+                                            <select class="form-select form-select-sm" wire:model="selectedReviewPointFilter">
+                                                <option value="">Todas as refs</option>
+                                                @foreach ($this->availableReviewPoints as $point)
+                                                    <option value="{{ $point }}">{{ $point }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
                                     @php
-                                        $findingsTree = collect($rejectedFindings)->groupBy(function ($finding) {
-                                            return data_get($finding, 'category_name') ?: 'Sem categoria';
-                                        });
+                                        $pointsTree = $filteredFindings->groupBy(fn($finding) => data_get($finding, 'point_label') ?: 'SEM REFERENCIA');
                                     @endphp
 
-                                    @foreach ($findingsTree as $catName => $catRows)
+                                    @foreach ($pointsTree as $pointLabel => $pointRows)
                                         @php
-                                            $catId = 'readonly_cat_' . md5($catName);
+                                            $pointId = 'readonly_point_' . md5($pointLabel);
+                                            $findingsTree = $pointRows->groupBy(function ($finding) {
+                                                return data_get($finding, 'category_name') ?: 'Sem categoria';
+                                            });
                                         @endphp
-                                        <div class="card mb-2">
-                                            <div class="card-header d-flex justify-content-between align-items-center">
-                                                <button class="btn btn-link text-decoration-none p-0 fw-semibold text-danger"
-                                                    data-bs-toggle="collapse" data-bs-target="#{{ $catId }}">
-                                                    {{ $catName }}
+                                        <div class="card mb-2 border-primary-subtle">
+                                            <div class="card-header d-flex justify-content-between align-items-center bg-primary-subtle">
+                                                <button class="btn btn-link text-decoration-none p-0 fw-semibold text-primary"
+                                                    data-bs-toggle="collapse" data-bs-target="#{{ $pointId }}">
+                                                    Ref: {{ $pointLabel }}
                                                 </button>
-                                                <span class="badge bg-light text-dark">{{ $catRows->count() }} item(ns)</span>
+                                                <span class="badge bg-primary">{{ $pointRows->count() }} item(ns)</span>
                                             </div>
-                                            <div class="collapse show" id="{{ $catId }}">
+                                            <div class="collapse show" id="{{ $pointId }}">
                                                 <div class="card-body py-2">
-                                                    @foreach ($catRows->groupBy(fn($f) => data_get($f, 'subcategory_name') ?: 'Sem subcategoria') as $subName => $subRows)
+                                                    @foreach ($findingsTree as $catName => $catRows)
                                                         @php
-                                                            $subId = 'readonly_sub_' . md5($catName . '_' . $subName);
+                                                            $catId = 'readonly_cat_' . md5($pointLabel . '_' . $catName);
                                                         @endphp
-                                                        <div class="border rounded mb-2">
-                                                            <div class="px-2 py-1 border-bottom d-flex justify-content-between align-items-center">
-                                                                <button class="btn btn-link text-decoration-none p-0 fw-semibold"
-                                                                    data-bs-toggle="collapse" data-bs-target="#{{ $subId }}">
-                                                                    {{ $subName }}
+                                                        <div class="card mb-2">
+                                                            <div class="card-header d-flex justify-content-between align-items-center">
+                                                                <button class="btn btn-link text-decoration-none p-0 fw-semibold text-danger"
+                                                                    data-bs-toggle="collapse" data-bs-target="#{{ $catId }}">
+                                                                    {{ $catName }}
                                                                 </button>
-                                                                <span class="small text-muted">{{ $subRows->count() }} apontamento(s)</span>
+                                                                <span class="badge bg-light text-dark">{{ $catRows->count() }} item(ns)</span>
                                                             </div>
-                                                            <div class="collapse show" id="{{ $subId }}">
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-sm mb-0">
-                                                                        <thead class="table-light">
-                                                                            <tr>
-                                                                                <th>Ação</th>
-                                                                                <th>Qtd.</th>
-                                                                                <th>Observação</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            @foreach ($subRows as $finding)
-                                                                                <tr>
-                                                                                    <td>
-                                                                                        @if (data_get($finding, 'item_id'))
-                                                                                            {{ data_get($finding, 'action_type') ?? 'FALTA' }} {{ data_get($finding, 'item_name') }}
-                                                                                        @else
-                                                                                            ---
-                                                                                        @endif
-                                                                                    </td>
-                                                                                    <td>{{ data_get($finding, 'quantity') ?? '---' }}</td>
-                                                                                    <td>{{ data_get($finding, 'note') ?: '---' }}</td>
-                                                                                </tr>
-                                                                            @endforeach
-                                                                        </tbody>
-                                                                    </table>
+                                                            <div class="collapse show" id="{{ $catId }}">
+                                                                <div class="card-body py-2">
+                                                                    @foreach ($catRows->groupBy(fn($f) => data_get($f, 'subcategory_name') ?: 'Sem subcategoria') as $subName => $subRows)
+                                                                        @php
+                                                                            $subId = 'readonly_sub_' . md5($pointLabel . '_' . $catName . '_' . $subName);
+                                                                        @endphp
+                                                                        <div class="border rounded mb-2">
+                                                                            <div class="px-2 py-1 border-bottom d-flex justify-content-between align-items-center">
+                                                                                <button class="btn btn-link text-decoration-none p-0 fw-semibold"
+                                                                                    data-bs-toggle="collapse" data-bs-target="#{{ $subId }}">
+                                                                                    {{ $subName }}
+                                                                                </button>
+                                                                                <span class="small text-muted">{{ $subRows->count() }} apontamento(s)</span>
+                                                                            </div>
+                                                                            <div class="collapse show" id="{{ $subId }}">
+                                                                                <div class="table-responsive">
+                                                                                    <table class="table table-sm mb-0">
+                                                                                        <thead class="table-light">
+                                                                                            <tr>
+                                                                                                <th>Ação</th>
+                                                                                                <th>Qtd.</th>
+                                                                                                <th>Observação</th>
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody>
+                                                                                            @foreach ($subRows as $finding)
+                                                                                                <tr>
+                                                                                                    <td>
+                                                                                                        @if (data_get($finding, 'item_id'))
+                                                                                                            {{ data_get($finding, 'action_type') ?? 'FALTA' }} {{ data_get($finding, 'item_name') }}
+                                                                                                        @else
+                                                                                                            ---
+                                                                                                        @endif
+                                                                                                    </td>
+                                                                                                    <td>{{ data_get($finding, 'quantity') ?? '---' }}</td>
+                                                                                                    <td>{{ data_get($finding, 'note') ?: '---' }}</td>
+                                                                                                </tr>
+                                                                                            @endforeach
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -637,65 +670,98 @@
                     <div class="card border-danger shadow-sm">
                         <div class="card-body">
                             @php
-                                $findingsTree = collect($rejectedFindings)->groupBy(function ($finding) {
-                                    return data_get($finding, 'category_name') ?: 'Sem categoria';
-                                });
+                                $filteredFindings = collect($this->filteredRejectedFindings ?? [])->values();
                             @endphp
-
-                            @forelse ($findingsTree as $catName => $catRows)
+                            @if ($filteredFindings->count() > 0)
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label mb-1">Filtrar por ref:</label>
+                                        <select class="form-select form-select-sm" wire:model="selectedReviewPointFilter">
+                                            <option value="">Todas as refs</option>
+                                            @foreach ($this->availableReviewPoints as $point)
+                                                <option value="{{ $point }}">{{ $point }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                @php
+                                    $pointsTree = $filteredFindings->groupBy(fn($finding) => data_get($finding, 'point_label') ?: 'SEM REFERENCIA');
+                                @endphp
+                                @foreach ($pointsTree as $pointLabel => $pointRows)
                                     @php
-                                        $catId = 'cat_' . md5($catName);
+                                        $pointId = 'point_' . md5($pointLabel);
+                                        $findingsTree = $pointRows->groupBy(function ($finding) {
+                                            return data_get($finding, 'category_name') ?: 'Sem categoria';
+                                        });
                                     @endphp
-                                    <div class="card mb-2">
-                                        <div class="card-header d-flex justify-content-between align-items-center">
-                                            <button class="btn btn-link text-decoration-none p-0 fw-semibold text-danger"
-                                                data-bs-toggle="collapse" data-bs-target="#{{ $catId }}">
-                                                {{ $catName }}
+                                    <div class="card mb-2 border-primary-subtle">
+                                        <div class="card-header d-flex justify-content-between align-items-center bg-primary-subtle">
+                                            <button class="btn btn-link text-decoration-none p-0 fw-semibold text-primary"
+                                                data-bs-toggle="collapse" data-bs-target="#{{ $pointId }}">
+                                                Ref: {{ $pointLabel }}
                                             </button>
-                                            <span class="badge bg-light text-dark">{{ $catRows->count() }} item(ns)</span>
+                                            <span class="badge bg-primary">{{ $pointRows->count() }} item(ns)</span>
                                         </div>
-                                        <div class="collapse show" id="{{ $catId }}">
+                                        <div class="collapse show" id="{{ $pointId }}">
                                             <div class="card-body py-2">
-                                                @foreach ($catRows->groupBy(fn($f) => data_get($f, 'subcategory_name') ?: 'Sem subcategoria') as $subName => $subRows)
+                                                @foreach ($findingsTree as $catName => $catRows)
                                                     @php
-                                                        $subId = 'sub_' . md5($catName . '_' . $subName);
+                                                        $catId = 'cat_' . md5($pointLabel . '_' . $catName);
                                                     @endphp
-                                                    <div class="border rounded mb-2">
-                                                        <div class="px-2 py-1 border-bottom d-flex justify-content-between align-items-center">
-                                                            <button class="btn btn-link text-decoration-none p-0 fw-semibold"
-                                                                data-bs-toggle="collapse" data-bs-target="#{{ $subId }}">
-                                                                {{ $subName }}
+                                                    <div class="card mb-2">
+                                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                                            <button class="btn btn-link text-decoration-none p-0 fw-semibold text-danger"
+                                                                data-bs-toggle="collapse" data-bs-target="#{{ $catId }}">
+                                                                {{ $catName }}
                                                             </button>
-                                                            <span class="small text-muted">{{ $subRows->count() }} apontamento(s)</span>
+                                                            <span class="badge bg-light text-dark">{{ $catRows->count() }} item(ns)</span>
                                                         </div>
-                                                        <div class="collapse show" id="{{ $subId }}">
-                                                            <div class="table-responsive">
-                                                                <table class="table table-sm mb-0">
-                                                                    <thead class="table-light">
-                                                                        <tr>
-                                                                            <th>Item</th>
-                                                                            <th>Ação</th>
-                                                                            <th>Qtd.</th>
-                                                                            <th>Observação</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        @foreach ($subRows as $finding)
-                                                                                                    <tr>
-                                                                                                        <td>{{ data_get($finding, 'item_name') ?: 'Estrutura sem item' }}</td>
-                                                                                                        <td>
-                                                                                                            @if (data_get($finding, 'item_id'))
-                                                                                                                {{ data_get($finding, 'action_type') ?? 'FALTA' }} {{ data_get($finding, 'item_name') }}
-                                                                                                            @else
-                                                                                                                ---
-                                                                                                            @endif
-                                                                                                        </td>
-                                                                                                        <td>{{ data_get($finding, 'quantity') ?? '---' }}</td>
-                                                                                                        <td>{{ data_get($finding, 'note') ?: '---' }}</td>
-                                                                                                    </tr>
-                                                                                                @endforeach
-                                                                    </tbody>
-                                                                </table>
+                                                        <div class="collapse show" id="{{ $catId }}">
+                                                            <div class="card-body py-2">
+                                                                @foreach ($catRows->groupBy(fn($f) => data_get($f, 'subcategory_name') ?: 'Sem subcategoria') as $subName => $subRows)
+                                                                    @php
+                                                                        $subId = 'sub_' . md5($pointLabel . '_' . $catName . '_' . $subName);
+                                                                    @endphp
+                                                                    <div class="border rounded mb-2">
+                                                                        <div class="px-2 py-1 border-bottom d-flex justify-content-between align-items-center">
+                                                                            <button class="btn btn-link text-decoration-none p-0 fw-semibold"
+                                                                                data-bs-toggle="collapse" data-bs-target="#{{ $subId }}">
+                                                                                {{ $subName }}
+                                                                            </button>
+                                                                            <span class="small text-muted">{{ $subRows->count() }} apontamento(s)</span>
+                                                                        </div>
+                                                                        <div class="collapse show" id="{{ $subId }}">
+                                                                            <div class="table-responsive">
+                                                                                <table class="table table-sm mb-0">
+                                                                                    <thead class="table-light">
+                                                                                        <tr>
+                                                                                            <th>Item</th>
+                                                                                            <th>Ação</th>
+                                                                                            <th>Qtd.</th>
+                                                                                            <th>Observação</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        @foreach ($subRows as $finding)
+                                                                                            <tr>
+                                                                                                <td>{{ data_get($finding, 'item_name') ?: 'Estrutura sem item' }}</td>
+                                                                                                <td>
+                                                                                                    @if (data_get($finding, 'item_id'))
+                                                                                                        {{ data_get($finding, 'action_type') ?? 'FALTA' }} {{ data_get($finding, 'item_name') }}
+                                                                                                    @else
+                                                                                                        ---
+                                                                                                    @endif
+                                                                                                </td>
+                                                                                                <td>{{ data_get($finding, 'quantity') ?? '---' }}</td>
+                                                                                                <td>{{ data_get($finding, 'note') ?: '---' }}</td>
+                                                                                            </tr>
+                                                                                        @endforeach
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                @endforeach
                                                             </div>
                                                         </div>
                                                     </div>
@@ -703,11 +769,12 @@
                                             </div>
                                         </div>
                                     </div>
-                            @empty
+                                @endforeach
+                            @else
                                 <div class="alert alert-warning mb-0">
                                     Não há pendências tratáveis para Projeto/Ambos nesta reprovação.
                                 </div>
-                            @endforelse
+                            @endif
 
                             <hr>
                             <h6>Chat de comentários com o analista</h6>

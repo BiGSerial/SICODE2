@@ -16,6 +16,7 @@ use App\Models\ProjectReviewSubcategory;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -44,8 +45,14 @@ class Queue extends Component
     public string $newReply = '';
     public ?int $selectedCategoryId = null;
     public ?int $selectedSubcategoryId = null;
+    public string $selectedPointLabel = 'P1';
+    public string $selectedPointFilter = '';
+    public array $pointRenameInputs = [];
     public string $selectedOrigin = 'PROJETO';
     public string $selectedActionType = 'FALTA';
+    public string $duplicateMode = '';
+    public string $duplicateReference = '';
+    public string $duplicatePointLabel = '';
     public array $collapsedGroups = [];
     public array $collapsedCategories = [];
     public array $collapsedSubcategories = [];
@@ -237,6 +244,26 @@ class Queue extends Component
         return collect($this->taxonomyCategories);
     }
 
+    public function getAvailablePointLabelsProperty()
+    {
+        return collect($this->findingRows)
+            ->map(fn ($row) => $this->normalizePointLabel($row['point_label'] ?? ''))
+            ->filter(fn ($label) => $label !== '')
+            ->unique()
+            ->sort()
+            ->values();
+    }
+
+    public function updatedSelectedPointFilter(): void
+    {
+        $this->selectedPointFilter = $this->normalizePointLabel($this->selectedPointFilter);
+    }
+
+    public function updatedSelectedPointLabel(): void
+    {
+        $this->selectedPointLabel = $this->normalizePointLabel($this->selectedPointLabel);
+    }
+
     public function getAvailableSubcategoriesProperty()
     {
         if (!$this->selectedCategoryId) {
@@ -274,6 +301,13 @@ class Queue extends Component
         $originSort = ['LEVANTAMENTO' => 1, 'PROJETO' => 2, 'AMBOS' => 3];
 
         $flat = collect($this->findingRows)
+            ->filter(function ($row) {
+                if ($this->selectedPointFilter === '') {
+                    return true;
+                }
+
+                return $this->normalizePointLabel($row['point_label'] ?? '') === $this->selectedPointFilter;
+            })
             ->map(function ($row, $index) use ($subcategories) {
                 $subcategory = $subcategories->get((int) ($row['subcategory_id'] ?? 0));
                 $items = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
@@ -284,9 +318,12 @@ class Queue extends Component
                 if (!in_array($origin, ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)) {
                     $origin = 'PROJETO';
                 }
+                $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
 
                 return [
                     'index' => $index,
+                    'point_label' => $pointLabel,
+                    'point_key' => 'point_' . md5($pointLabel),
                     'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
                     'subcategory_name' => data_get($subcategory, 'name', 'Subcategoria não encontrada'),
                     'category_name' => $categoryName,
@@ -297,31 +334,41 @@ class Queue extends Component
                     'quantity' => $row['quantity'] ?? null,
                     'note' => $row['note'] ?? null,
                     'category_key' => 'cat_' . md5((string) ($categoryName ?: 'sem-categoria')),
-                    'subcategory_key' => 'sub_' . (int) ($row['subcategory_id'] ?? 0),
+                    'subcategory_key' => 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)),
                 ];
             })
             ->values();
 
-        return $flat
-            ->groupBy('category_name')
-            ->map(function ($categoryRows, $categoryName) use ($originSort) {
+        $grouped = $flat
+            ->groupBy('point_label')
+            ->map(function ($pointRows, $pointLabel) use ($originSort) {
                 return [
-                    'category_name' => $categoryName,
-                    'category_key' => 'cat_' . md5((string) $categoryName),
-                    'subcategories' => $categoryRows
-                        ->groupBy('subcategory_key')
-                        ->map(function ($subRows) use ($originSort) {
-                            $first = $subRows->first();
+                    'point_label' => $pointLabel,
+                    'point_key' => 'point_' . md5((string) $pointLabel),
+                    'categories' => $pointRows
+                        ->groupBy('category_name')
+                        ->map(function ($categoryRows, $categoryName) use ($originSort, $pointLabel) {
                             return [
-                                'subcategory_name' => $first['subcategory_name'],
-                                'subcategory_key' => $first['subcategory_key'],
-                                'origins' => collect($subRows)
-                                    ->groupBy('origin')
-                                    ->sortBy(fn ($rows, $origin) => $originSort[$origin] ?? 99)
-                                    ->map(function ($rows, $origin) {
+                                'category_name' => $categoryName,
+                                'category_key' => 'cat_' . md5((string) $pointLabel . '|' . (string) $categoryName),
+                                'subcategories' => $categoryRows
+                                    ->groupBy('subcategory_key')
+                                    ->map(function ($subRows) use ($originSort) {
+                                        $first = $subRows->first();
                                         return [
-                                            'origin' => $origin,
-                                            'rows' => $rows->values()->all(),
+                                            'subcategory_name' => $first['subcategory_name'],
+                                            'subcategory_key' => $first['subcategory_key'],
+                                            'origins' => collect($subRows)
+                                                ->groupBy('origin')
+                                                ->sortBy(fn ($rows, $origin) => $originSort[$origin] ?? 99)
+                                                ->map(function ($rows, $origin) {
+                                                    return [
+                                                        'origin' => $origin,
+                                                        'rows' => $rows->values()->all(),
+                                                    ];
+                                                })
+                                                ->values()
+                                                ->all(),
                                         ];
                                     })
                                     ->values()
@@ -332,8 +379,24 @@ class Queue extends Component
                         ->all(),
                 ];
             })
+            ->sortBy(fn ($group) => $group['point_label'] ?? '')
             ->values()
             ->all();
+
+        $activeRenameKeys = [];
+        foreach ($grouped as $group) {
+            $label = (string) ($group['point_label'] ?? '');
+            $key = 'rename_' . md5($label);
+            $activeRenameKeys[] = $key;
+            if (!array_key_exists($key, $this->pointRenameInputs) || trim((string) $this->pointRenameInputs[$key]) === '') {
+                $this->pointRenameInputs[$key] = $label;
+            }
+        }
+        $this->pointRenameInputs = collect($this->pointRenameInputs)
+            ->only($activeRenameKeys)
+            ->all();
+
+        return $grouped;
     }
 
     public function updatedSelectedCategoryId(): void
@@ -373,6 +436,7 @@ class Queue extends Component
         if ($this->selectedCycle) {
             $this->findingRows = $this->selectedCycle->Findings->map(function ($f) {
                 return [
+                    'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
                     'subcategory_id' => (int) $f->subcategory_id,
                     'item_id' => $f->item_id ? (int) $f->item_id : null,
                     'item_name' => optional($f->Item)->name,
@@ -397,6 +461,7 @@ class Queue extends Component
                 if ($previousRejectedCycle) {
                     $this->findingRows = $previousRejectedCycle->Findings->map(function ($f) {
                         return [
+                            'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
                             'subcategory_id' => (int) $f->subcategory_id,
                             'item_id' => $f->item_id ? (int) $f->item_id : null,
                             'item_name' => optional($f->Item)->name,
@@ -412,6 +477,10 @@ class Queue extends Component
         }
 
         $this->restoreDraft();
+
+        if ($this->selectedPointLabel === '') {
+            $this->selectedPointLabel = $this->normalizePointLabel($this->availablePointLabels->first() ?? '');
+        }
 
         $this->dispatchBrowserEvent('showModal', ['id' => 'projectReviewModal']);
     }
@@ -481,7 +550,10 @@ class Queue extends Component
             return;
         }
 
+        $pointLabel = $this->normalizePointLabel($this->selectedPointLabel);
+
         $this->findingRows[] = [
+            'point_label' => $pointLabel,
             'subcategory_id' => (int) $this->selectedSubcategoryId,
             'item_id' => null,
             'item_name' => null,
@@ -499,16 +571,19 @@ class Queue extends Component
             return;
         }
 
+        $pointLabel = $this->normalizePointLabel($this->selectedPointLabel);
+
         $item = $this->availableItems->firstWhere('id', $itemId);
         if (!$item) {
             return;
         }
 
-        $alreadyExists = collect($this->findingRows)->contains(function ($row) use ($itemId) {
+        $alreadyExists = collect($this->findingRows)->contains(function ($row) use ($itemId, $pointLabel) {
             return (int) ($row['subcategory_id'] ?? 0) === (int) $this->selectedSubcategoryId
                 && (int) ($row['item_id'] ?? 0) === $itemId
                 && (string) ($row['origin'] ?? 'PROJETO') === $this->selectedOrigin
-                && (string) ($row['action_type'] ?? '') === $this->selectedActionType;
+                && (string) ($row['action_type'] ?? '') === $this->selectedActionType
+                && $this->normalizePointLabel($row['point_label'] ?? '') === $pointLabel;
         });
 
         if ($alreadyExists) {
@@ -516,6 +591,7 @@ class Queue extends Component
         }
 
         $this->findingRows[] = [
+            'point_label' => $pointLabel,
             'subcategory_id' => (int) $this->selectedSubcategoryId,
             'item_id' => $itemId,
             'item_name' => data_get($item, 'name'),
@@ -550,14 +626,218 @@ class Queue extends Component
         }
     }
 
+    public function requestDuplicateFindingRow(int $index): void
+    {
+        if (!isset($this->findingRows[$index])) {
+            return;
+        }
+
+        $this->duplicateMode = 'row';
+        $this->duplicateReference = (string) $index;
+        $this->duplicatePointLabel = $this->normalizePointLabel($this->findingRows[$index]['point_label'] ?? '');
+    }
+
+    public function requestDuplicateSubcategoryGroup(string $subcategoryKey): void
+    {
+        $firstRow = collect($this->findingRows)->first(function ($row) use ($subcategoryKey) {
+            $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+            return 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)) === $subcategoryKey;
+        });
+
+        if (!$firstRow) {
+            return;
+        }
+
+        $this->duplicateMode = 'subcategory';
+        $this->duplicateReference = $subcategoryKey;
+        $this->duplicatePointLabel = $this->normalizePointLabel($firstRow['point_label'] ?? '');
+    }
+
+    public function requestDuplicatePointGroup(string $pointLabel): void
+    {
+        $normalizedPointLabel = $this->normalizePointLabel($pointLabel);
+        $hasRows = collect($this->findingRows)->contains(function ($row) use ($normalizedPointLabel) {
+            return $this->normalizePointLabel($row['point_label'] ?? '') === $normalizedPointLabel;
+        });
+
+        if (!$hasRows) {
+            return;
+        }
+
+        $this->duplicateMode = 'point';
+        $this->duplicateReference = $normalizedPointLabel;
+        $this->duplicatePointLabel = $normalizedPointLabel;
+    }
+
+    public function renamePointGroup(string $sourcePointLabel, string $inputKey): void
+    {
+        $sourceNormalized = $this->normalizePointLabel($sourcePointLabel);
+        $targetRaw = (string) ($this->pointRenameInputs[$inputKey] ?? '');
+        $targetNormalized = $this->normalizePointLabel($targetRaw);
+
+        if ($targetNormalized === '') {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Informe a ref:',
+                'timer' => 2200,
+            ]);
+            return;
+        }
+
+        $this->findingRows = collect($this->findingRows)
+            ->map(function ($row) use ($sourceNormalized, $targetNormalized) {
+                if ($this->normalizePointLabel($row['point_label'] ?? '') === $sourceNormalized) {
+                    $row['point_label'] = $targetNormalized;
+                }
+                return $row;
+            })
+            ->values()
+            ->all();
+
+        $this->selectedPointLabel = $targetNormalized;
+        $this->selectedPointFilter = '';
+        $this->pointRenameInputs = [];
+    }
+
+    public function cancelDuplicate(): void
+    {
+        $this->duplicateMode = '';
+        $this->duplicateReference = '';
+        $this->duplicatePointLabel = '';
+    }
+
+    public function confirmDuplicate(): void
+    {
+        $targetPointLabel = $this->normalizePointLabel($this->duplicatePointLabel);
+        if ($targetPointLabel === '') {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Informe o nome da ref:',
+                'timer' => 2200,
+            ]);
+            return;
+        }
+
+        if ($this->duplicateMode === 'row') {
+            if (!is_numeric($this->duplicateReference)) {
+                return;
+            }
+            $this->duplicateFindingRow((int) $this->duplicateReference, $targetPointLabel);
+        } elseif ($this->duplicateMode === 'subcategory') {
+            if ($this->duplicateReference === '') {
+                return;
+            }
+            $this->duplicateSubcategoryGroup($this->duplicateReference, $targetPointLabel);
+        } elseif ($this->duplicateMode === 'point') {
+            if ($this->duplicateReference === '') {
+                return;
+            }
+            $this->duplicatePointGroup($this->duplicateReference, $targetPointLabel);
+        } else {
+            return;
+        }
+
+        $this->selectedPointLabel = $targetPointLabel;
+        $this->selectedPointFilter = '';
+        $this->cancelDuplicate();
+    }
+
+    public function duplicateFindingRow(int $index, ?string $targetPointLabel = null): void
+    {
+        if (!isset($this->findingRows[$index])) {
+            return;
+        }
+
+        $sourceRow = $this->findingRows[$index];
+        $cloneRow = [
+            'point_label' => $this->normalizePointLabel($targetPointLabel ?? ($sourceRow['point_label'] ?? '')),
+            'subcategory_id' => (int) ($sourceRow['subcategory_id'] ?? 0),
+            'item_id' => empty($sourceRow['item_id']) ? null : (int) $sourceRow['item_id'],
+            'item_name' => $sourceRow['item_name'] ?? null,
+            'origin' => (string) ($sourceRow['origin'] ?? 'PROJETO'),
+            'action_type' => $sourceRow['action_type'] ?? null,
+            'quantity' => empty($sourceRow['quantity']) ? null : (int) $sourceRow['quantity'],
+            'note' => (string) ($sourceRow['note'] ?? ''),
+            'is_conform' => false,
+        ];
+
+        array_splice($this->findingRows, $index + 1, 0, [$cloneRow]);
+        $this->findingRows = array_values($this->findingRows);
+    }
+
     public function removeSubcategoryGroup(string $subcategoryKey): void
     {
         $this->findingRows = collect($this->findingRows)
             ->reject(function ($row) use ($subcategoryKey) {
-                return 'sub_' . (int) ($row['subcategory_id'] ?? 0) === $subcategoryKey;
+                $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+                return 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)) === $subcategoryKey;
             })
             ->values()
             ->all();
+    }
+
+    public function duplicateSubcategoryGroup(string $subcategoryKey, ?string $targetPointLabel = null): void
+    {
+        $rowsToDuplicate = collect($this->findingRows)
+            ->filter(function ($row) use ($subcategoryKey) {
+                $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+                return 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)) === $subcategoryKey;
+            })
+            ->map(function ($row) use ($targetPointLabel) {
+                return [
+                    'point_label' => $this->normalizePointLabel($targetPointLabel ?? ($row['point_label'] ?? '')),
+                    'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
+                    'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
+                    'item_name' => $row['item_name'] ?? null,
+                    'origin' => (string) ($row['origin'] ?? 'PROJETO'),
+                    'action_type' => $row['action_type'] ?? null,
+                    'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
+                    'note' => (string) ($row['note'] ?? ''),
+                    'is_conform' => false,
+                ];
+            })
+            ->values()
+            ->all();
+
+        if (empty($rowsToDuplicate)) {
+            return;
+        }
+
+        $this->findingRows = array_values(array_merge($this->findingRows, $rowsToDuplicate));
+    }
+
+    public function duplicatePointGroup(string $sourcePointLabel, ?string $targetPointLabel = null): void
+    {
+        $sourceNormalized = $this->normalizePointLabel($sourcePointLabel);
+        $targetNormalized = $this->normalizePointLabel($targetPointLabel ?? $sourcePointLabel);
+
+        $rowsToDuplicate = collect($this->findingRows)
+            ->filter(function ($row) use ($sourceNormalized) {
+                return $this->normalizePointLabel($row['point_label'] ?? '') === $sourceNormalized;
+            })
+            ->map(function ($row) use ($targetNormalized) {
+                return [
+                    'point_label' => $targetNormalized,
+                    'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
+                    'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
+                    'item_name' => $row['item_name'] ?? null,
+                    'origin' => (string) ($row['origin'] ?? 'PROJETO'),
+                    'action_type' => $row['action_type'] ?? null,
+                    'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
+                    'note' => (string) ($row['note'] ?? ''),
+                    'is_conform' => false,
+                ];
+            })
+            ->values()
+            ->all();
+
+        if (empty($rowsToDuplicate)) {
+            return;
+        }
+
+        $this->findingRows = array_values(array_merge($this->findingRows, $rowsToDuplicate));
     }
 
     public function removeCategoryGroup(string $categoryKey): void
@@ -568,7 +848,8 @@ class Queue extends Component
             ->reject(function ($row) use ($categoryKey, $subcategoriesById) {
                 $subcategory = $subcategoriesById->get((int) ($row['subcategory_id'] ?? 0));
                 $rowCategoryName = data_get($subcategory, 'Category.name', data_get($subcategory, 'category.name', 'sem-categoria'));
-                $rowCategoryKey = 'cat_' . md5((string) $rowCategoryName);
+                $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+                $rowCategoryKey = 'cat_' . md5((string) $pointLabel . '|' . (string) $rowCategoryName);
                 return $rowCategoryKey === $categoryKey;
             })
             ->values()
@@ -741,6 +1022,11 @@ class Queue extends Component
         $seen = [];
         foreach ($pendingRows as $index => $row) {
             $rowIndex = (int) $index;
+            $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+
+            if ($pointLabel === '') {
+                $this->addError("findingRows.{$rowIndex}.point_label", 'Informe a ref: (agrupador).');
+            }
 
             if (empty($row['subcategory_id'])) {
                 $this->addError("findingRows.{$rowIndex}.subcategory_id", 'Subcategoria inválida.');
@@ -788,7 +1074,8 @@ class Queue extends Component
             $key = (string) $row['subcategory_id']
                 . ':' . (string) ($row['item_id'] ?? 'null')
                 . ':' . (string) ($row['origin'] ?? 'PROJETO')
-                . ':' . (string) ($row['action_type'] ?? '');
+                . ':' . (string) ($row['action_type'] ?? '')
+                . ':' . $pointLabel;
             if (isset($seen[$key]) && !empty($row['item_id'])) {
                 $this->addError("findingRows.{$rowIndex}.item_id", 'Item duplicado com a mesma ação na mesma subcategoria e origem nesta análise.');
             }
@@ -812,14 +1099,20 @@ class Queue extends Component
 
             $rowsToPersist = collect($this->findingRows)->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))->values();
             foreach ($rowsToPersist as $row) {
-                $this->selectedCycle->Findings()->create([
+                $payload = [
                     'subcategory_id' => (int) $row['subcategory_id'],
                     'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
                     'origin' => (string) $row['origin'],
                     'action_type' => $row['action_type'] ?? null,
                     'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
                     'note' => trim((string) ($row['note'] ?? '')) ?: null,
-                ]);
+                ];
+
+                if ($this->hasPointLabelColumn()) {
+                    $payload['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
+                }
+
+                $this->selectedCycle->Findings()->create($payload);
             }
 
             $this->selectedCycle->update([
@@ -991,6 +1284,12 @@ class Queue extends Component
         $this->newReply = '';
         $this->selectedCategoryId = null;
         $this->selectedSubcategoryId = null;
+        $this->selectedPointLabel = 'P1';
+        $this->selectedPointFilter = '';
+        $this->pointRenameInputs = [];
+        $this->duplicateMode = '';
+        $this->duplicateReference = '';
+        $this->duplicatePointLabel = '';
         $this->selectedOrigin = 'PROJETO';
         $this->selectedActionType = 'FALTA';
         $this->collapsedGroups = [];
@@ -1131,12 +1430,21 @@ class Queue extends Component
         $payload = (array) ($draft->payload ?? []);
 
         $this->findingRows = is_array($payload['findingRows'] ?? null) ? $payload['findingRows'] : $this->findingRows;
+        $this->findingRows = collect($this->findingRows)->map(function ($row) {
+            if (!is_array($row)) {
+                return $row;
+            }
+            $row['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
+            return $row;
+        })->all();
         $this->analystNote = (string) ($payload['analystNote'] ?? $this->analystNote);
         $this->collapsedGroups = is_array($payload['collapsedGroups'] ?? null) ? $payload['collapsedGroups'] : $this->collapsedGroups;
         $this->collapsedCategories = is_array($payload['collapsedCategories'] ?? null) ? $payload['collapsedCategories'] : $this->collapsedCategories;
         $this->collapsedSubcategories = is_array($payload['collapsedSubcategories'] ?? null) ? $payload['collapsedSubcategories'] : $this->collapsedSubcategories;
         $this->selectedCategoryId = isset($payload['selectedCategoryId']) ? (int) $payload['selectedCategoryId'] : $this->selectedCategoryId;
         $this->selectedSubcategoryId = isset($payload['selectedSubcategoryId']) ? (int) $payload['selectedSubcategoryId'] : $this->selectedSubcategoryId;
+        $this->selectedPointLabel = $this->normalizePointLabel((string) ($payload['selectedPointLabel'] ?? $this->selectedPointLabel));
+        $this->selectedPointFilter = $this->normalizePointLabel((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
         $this->selectedOrigin = (string) ($payload['selectedOrigin'] ?? $this->selectedOrigin);
         $this->selectedActionType = (string) ($payload['selectedActionType'] ?? $this->selectedActionType);
         $this->draftSavedAt = optional($draft->updated_at)->format('d/m/Y H:i:s');
@@ -1153,13 +1461,21 @@ class Queue extends Component
         }
 
         $payload = [
-            'findingRows' => array_values($this->findingRows),
+            'findingRows' => array_values(collect($this->findingRows)->map(function ($row) {
+                if (!is_array($row)) {
+                    return $row;
+                }
+                $row['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
+                return $row;
+            })->all()),
             'analystNote' => $this->analystNote,
             'collapsedGroups' => $this->collapsedGroups,
             'collapsedCategories' => $this->collapsedCategories,
             'collapsedSubcategories' => $this->collapsedSubcategories,
             'selectedCategoryId' => $this->selectedCategoryId,
             'selectedSubcategoryId' => $this->selectedSubcategoryId,
+            'selectedPointLabel' => $this->normalizePointLabel($this->selectedPointLabel),
+            'selectedPointFilter' => $this->normalizePointLabel($this->selectedPointFilter),
             'selectedOrigin' => $this->selectedOrigin,
             'selectedActionType' => $this->selectedActionType,
         ];
@@ -1202,6 +1518,34 @@ class Queue extends Component
             'production' => $production->id,
             'note' => $production->note_id,
         ]);
+    }
+
+    private function normalizePointLabel(?string $value): string
+    {
+        $label = trim((string) $value);
+        if ($label === '') {
+            return 'SEM PONTO';
+        }
+
+        return mb_substr(mb_strtoupper($label, 'UTF-8'), 0, 120);
+    }
+
+    private function hasPointLabelColumn(): bool
+    {
+        static $hasColumn = null;
+        if (!is_null($hasColumn)) {
+            return $hasColumn;
+        }
+
+        try {
+            $hasColumn = Schema::hasTable('project_review_findings')
+                && Schema::hasColumn('project_review_findings', 'point_label');
+        } catch (\Throwable $e) {
+            report($e);
+            $hasColumn = false;
+        }
+
+        return $hasColumn;
     }
 
     public function render()

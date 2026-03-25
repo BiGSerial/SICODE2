@@ -440,7 +440,8 @@ class Main extends Component
 
         $partial = Note::whereIn('id', $this->selected)->whereHas('Partials', function ($q) {
             $q->where('allow', true)
-                ->where('supervision', false);
+                ->where('supervision', false)
+                ->where('deny', false);
         })->count();
 
 
