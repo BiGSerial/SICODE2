@@ -22,6 +22,7 @@ class History extends Component
     public ?string $to = null;
     public ?ProjectReviewCycle $selectedCycle = null;
     public ?Production $selectedProduction = null;
+    public string $selectedHistoryPointFilter = '';
 
     public function getRowsProperty()
     {
@@ -94,8 +95,43 @@ class History extends Component
         $this->selectedCycle = $this->selectedProduction->ProjectReviewCycles
             ->firstWhere('decision', 'REJECTED')
             ?: $this->selectedProduction->ProjectReviewCycles->first();
+        $this->selectedHistoryPointFilter = '';
 
         $this->dispatchBrowserEvent('showModal', ['id' => 'historyProjectReviewModal']);
+    }
+
+    public function getAvailableHistoryPointsProperty()
+    {
+        return collect($this->selectedCycle?->Findings ?? [])
+            ->map(fn ($f) => $this->normalizePointLabel($f->point_label ?? ''))
+            ->filter(fn ($label) => $label !== '')
+            ->unique()
+            ->sort()
+            ->values();
+    }
+
+    public function getFilteredHistoryFindingsProperty()
+    {
+        $findings = collect($this->selectedCycle?->Findings ?? []);
+        if ($this->selectedHistoryPointFilter === '') {
+            return $findings;
+        }
+
+        return $findings
+            ->filter(function ($f) {
+                return $this->normalizePointLabel($f->point_label ?? '') === $this->selectedHistoryPointFilter;
+            })
+            ->values();
+    }
+
+    private function normalizePointLabel(?string $value): string
+    {
+        $label = trim((string) $value);
+        if ($label === '') {
+            return 'SEM REFERENCIA';
+        }
+
+        return mb_substr(mb_strtoupper($label, 'UTF-8'), 0, 120);
     }
 
     public function downloadProductionFile(int $fileId)

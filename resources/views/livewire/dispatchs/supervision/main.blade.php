@@ -3,116 +3,319 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
-<div>
+<div class="supervision-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
     <x-showselected :count="$selected" />
 
-    <div class="row mb-3 justify-content-end align-middle">
-        <div class="col-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
-        </div>
+    <style>
+        .supervision-page {
+            --sp-bg: #f6f7fb;
+            --sp-surface: #ffffff;
+            --sp-ink: #1f2933;
+            --sp-muted: #6b7280;
+            --sp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--sp-bg);
+            padding: 1.5rem 0;
+        }
 
-        <div class="col-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="text"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
+        .supervision-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1rem;
+        }
 
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <label for="search" class="form-label"> </label>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
+        .supervision-header h2 {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
 
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'supervision', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            {{-- @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region')) --}}
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
-        </div>
+        .supervision-meta {
+            color: rgba(248, 250, 252, 0.8);
+            font-size: 0.9rem;
+        }
 
-        <div class="mb-3">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus()">
-                    {{ Notestatus::status(1)->status }}
-                    @if ($not_assigned)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
+        .filter-shell {
+            background: var(--sp-surface);
+            border: 1px solid var(--sp-border);
+            border-radius: 0.9rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .filter-shell h6 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            color: var(--sp-muted);
+            margin-bottom: 0.65rem;
+        }
+
+        .summary-bar {
+            background: var(--sp-surface);
+            border: 1px solid var(--sp-border);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+            margin-bottom: 1rem;
+        }
+
+        .summary-item {
+            color: var(--sp-muted);
+            font-size: 0.92rem;
+        }
+
+        .summary-item strong {
+            color: var(--sp-ink);
+        }
+
+        .table-card {
+            background: var(--sp-surface);
+            border: 1px solid var(--sp-border);
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        .table-card .card-header {
+            padding: 0.9rem 1.25rem;
+        }
+
+        .table-card .table-responsive {
+            padding: 0;
+        }
+
+        .table-card .table thead th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+
+        .table-card .sup-table {
+            border-collapse: separate;
+            border-spacing: 0 0.45rem;
+            margin: 0;
+        }
+
+        .table-card .sup-table thead th {
+            border: 0;
+            background: #1f2937;
+            color: #f8fafc;
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .table-card .sup-table tbody tr {
+            transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+        .table-card .sup-table tbody tr:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        }
+
+        .table-card .sup-table tbody td {
+            font-size: 0.9rem;
+            vertical-align: middle;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            padding-top: 0.6rem;
+            padding-bottom: 0.6rem;
+        }
+
+        /* Mantem cores de prioridade da linha quando vierem do backend */
+        .table-card .sup-table tbody td.table-primary,
+        .table-card .sup-table tbody td.table-warning,
+        .table-card .sup-table tbody td.table-success,
+        .table-card .sup-table tbody td.table-danger {
+            border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        /* Aplica fundo neutro somente quando a celula nao tiver classe de cor */
+        .table-card .sup-table tbody td:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger) {
+            background: #f8fafc;
+        }
+
+        .table-card .sup-table tbody td:first-child {
+            border-left: 1px solid #e2e8f0;
+            border-top-left-radius: 0.7rem;
+            border-bottom-left-radius: 0.7rem;
+        }
+
+        .table-card .sup-table tbody td:last-child {
+            border-right: 1px solid #e2e8f0;
+            border-top-right-radius: 0.7rem;
+            border-bottom-right-radius: 0.7rem;
+        }
+
+        .table-card .sup-table .row-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 66px;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            border: 1px solid transparent;
+        }
+
+        .table-card .sup-table .chip-partial {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+
+        .table-card .sup-table .chip-final {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
+            color: #065f46;
+        }
+
+        .table-card .sup-table .chip-neutral {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #3730a3;
+        }
+
+        .table-card .sup-table .chip-muted {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #334155;
+        }
+    </style>
+
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="supervision-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>LISTA PARA {{ mb_strtoupper($service->service) }}</h2>
+                <div class="supervision-meta">
+                    @if ($service->Status->count())
+                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                            ({{ $sts->value }})
+                        @endforeach
                     @endif
-                </button>
-
+                </div>
             </div>
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
-                    Somente D5
-                    @if ($filter_d5)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
-
-            </div>
-        </div>
-
-    </div>
-
-
-    <div class="row">
-
-        @if (!$lists->count())
-            {{-- <div class="col-6">
-                @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div> --}}
-        @elseif ($lists->count())
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-        @endif
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
+            <div class="text-lg-end">
                 @if ($update)
-                    Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
+                    <div class="supervision-meta">Ultima Atualizacao</div>
+                    <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
                 @endif
-            </span>
+            </div>
         </div>
 
-    </div>
+        <div class="filter-shell mb-3">
+            <div class="card-body p-3 p-lg-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-2">
+                        <h6>Paginacao</h6>
+                        <div class="form-floating">
+                            <select wire:model="perPage" class="form-select border border-secondary" id="perPage">
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                            </select>
+                            <label for="perPage">Registros por pagina</label>
+                        </div>
+                    </div>
 
-    <div class="card">
+                    <div class="col-12 col-lg-3">
+                        <h6>Busca</h6>
+                        <div class="position-relative">
+                            <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary pe-5"
+                                id="search" placeholder="Buscar">
+                            <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                                data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                                <i class="ri-checkbox-multiple-blank-line"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-3">
+                        <h6>Tipo de Nota</h6>
+                        <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
+                            <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1" id="typeNote1">
+                            <label class="btn btn-outline-primary" for="typeNote1">Nota</label>
+                            <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="2" id="typeNote2">
+                            <label class="btn btn-outline-primary" for="typeNote2">OV</label>
+                            <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="" id="typeNote3">
+                            <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-4">
+                        <h6>Acoes Rapidas</h6>
+                        <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+                            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
+                                {{ Notestatus::status(1)->status }}
+                                @if ($not_assigned)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
+                                Somente D5
+                                @if ($filter_d5)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#add_mass_dds">
+                                <i class="ri-checkbox-multiple-fill"></i> Att DD
+                            </button>
+                            <button class="btn btn-primary" wire:click.prevent='go_att_mass'>
+                                <i class="ri-checkbox-multiple-fill"></i> Atribuir
+                            </button>
+                            <button class="btn btn-primary" wire:click.prevent='export_excel'>
+                                <i class="ri-file-excel-2-line"></i> Exportar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'supervision', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                    @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-bar">
+            <div class="row align-items-center g-2">
+                <div class="col-12 col-lg-6">
+                    @if ($lists->count())
+                        {{ $lists->links() }}
+                    @endif
+                </div>
+                <div class="col-12 col-lg-6 text-lg-end">
+                    <div class="summary-item">
+                        Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
+                        <strong>{{ $lists->lastItem() }}</strong> de
+                        <strong>{{ $lists->total() }}</strong> registros.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <div class="table-card">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -124,7 +327,7 @@
                 </h4>
             </div>
         @else
-            <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
+            <div class="card-header fw-bold text-bg-secondary">
                 <div class="row">
                     <div class="col">
                         <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
@@ -135,27 +338,11 @@
                             @endif
                         </h4>
                     </div>
-                    <div class="col-3 d-flex justify-content-end">
-                        <span data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Adicionar numeração DD em Massa"> <button class="btn btn-sm btn-success me-2"
-                                data-bs-toggle="modal" data-bs-target="#add_mass_dds"><i
-                                    class="ri-checkbox-multiple-fill"></i> Att
-                                DD</button></span>
-
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'
-                            data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Atribuir Notas em Massa"><i class="ri-checkbox-multiple-fill"></i>
-                            Atribuir</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'
-                            data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Exportar as Notas SELECIONADAS para o EXCEL"><i
-                                class="ri-file-excel-2-line"></i> Exportar</button>
-                    </div>
                 </div>
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-condensed table-striped table-hover">
+                <table class="table table-sm table-condensed table-hover mb-0 sup-table">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -195,6 +382,11 @@
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
                                 $partial = $e['isPartial'];
+                                $latestValidPartial = $list->Partials
+                                    ?->where('allow', true)
+                                    ->where('deny', false)
+                                    ->sortByDesc('created_at')
+                                    ->first();
 
                                 if ($list->FiveNote) {
                                     $dateFive = Carbon::parse($list->FiveNote->completed_at);
@@ -214,12 +406,17 @@
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                <td
-                                    class="fw-bold text-center @if ($partial) table-warning @else table-success @endif">
-                                    {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                <td class="text-center {{ $rowClass }}">
+                                    <span class="row-chip {{ $partial ? 'chip-partial' : 'chip-final' }}">
+                                        {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                    </span>
                                 </td>
                                 <td class="fw-bold text-primary text-center {{ $rowClass }}">
-                                    {{ $list->Adsform || $list->OldAds->isNotEmpty() ? 'SIM' : '' }}
+                                    @if ($list->Adsform || $list->OldAds->isNotEmpty())
+                                        <span class="row-chip chip-neutral">SIM</span>
+                                    @else
+                                        <span class="row-chip chip-muted">---</span>
+                                    @endif
                                 </td>
                                 <td class="fw-bold text-primary text-center {{ $rowClass }}">
                                     @if ($list->OldAds->isNotEmpty())
@@ -250,8 +447,8 @@
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
-                                    @elseif ($list->Partials->count())
-                                        @foreach ($list->Partials->last()->Orders as $order)
+                                    @elseif ($latestValidPartial)
+                                        @foreach ($latestValidPartial->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
                                     @else
@@ -262,7 +459,11 @@
                                     {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}
                                 </td>
                                 <td class="fw-bold text-danger {{ $rowClass }} text-center">
-                                    {{ $list->mmgd ? 'MMGD' : '' }}
+                                    @if ($list->mmgd)
+                                        <span class="row-chip chip-neutral">MMGD</span>
+                                    @else
+                                        <span class="row-chip chip-muted">---</span>
+                                    @endif
                                 </td>
                                 <td class="fw-bold text-primary {{ $rowClass }} text-center">
                                     {{ isset($list->postes) ? $list->postes : '---' }}
@@ -270,8 +471,8 @@
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->WorkForm)
                                         {{ Carbon::parse($list->WorkForm->informed_at)?->format('d/m/Y') }}
-                                    @elseif ($list->Partials)
-                                        {{ $list->Partials?->last()?->created_at?->format('d/m/Y') }}
+                                    @elseif ($latestValidPartial)
+                                        {{ $latestValidPartial->created_at?->format('d/m/Y') }}
                                     @endif
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
@@ -327,21 +528,20 @@
                                             Carbon::now(),
                                             false,
                                         );
-                                    } elseif ($list->Partials) {
-                                        $days_left = $list->Partials
-                                            ?->last()
-                                            ?->created_at?->diffInDays(Carbon::now(), false);
+                                    } elseif ($latestValidPartial) {
+                                        $days_left = $latestValidPartial->created_at?->diffInDays(Carbon::now(), false);
                                     }
                                 @endphp
-                                <td scope="col"
-                                    class="text-center
+                                <td scope="col" class="text-center {{ $rowClass }}">
+                                    <span class="badge
                                         @if ($days_left <= 20) text-bg-success
                                         @elseif ($days_left >= 28)
-                                        text-bg-danger
+                                            text-bg-danger
                                         @else
-                                        text-bg-warning @endif
-                                    ">
-                                    {{ $days_left }}
+                                            text-bg-warning
+                                        @endif">
+                                        {{ $days_left }}
+                                    </span>
                                 </td>
                                 <td scope="col" class="text-center text-bg-info">
                                     @if ($dateFive)
@@ -396,18 +596,21 @@
             </div>
 
         @endif
-        </dic>
     </div>
-    <div class="row">
-        <div class="col-6">
-            {{ $lists->links() }}
+    <div class="summary-bar mt-3">
+        <div class="row align-items-center g-2">
+            <div class="col-12 col-lg-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-12 col-lg-6 text-lg-end">
+                <div class="summary-item">
+                    Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
+                    <strong>{{ $lists->lastItem() }}</strong> de
+                    <strong>{{ $lists->total() }}</strong> registros.
+                </div>
+            </div>
         </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
-        </div>
+    </div>
     </div>
 
 
@@ -604,7 +807,5 @@
 
 
     {{-- END MODALS --}}
-
-
 
 </div>

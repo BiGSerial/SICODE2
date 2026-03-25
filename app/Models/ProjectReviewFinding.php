@@ -11,6 +11,7 @@ class ProjectReviewFinding extends Model
 
     protected $fillable = [
         'cycle_id',
+        'point_label',
         'subcategory_id',
         'item_id',
         'origin',

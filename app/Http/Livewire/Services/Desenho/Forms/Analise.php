@@ -114,6 +114,7 @@ class Analise extends Component
     public $riRequest = null;
 
     public $rejectedFindings = [];
+    public string $selectedReviewPointFilter = '';
 
     public $reviewMessages = [];
 
@@ -1487,6 +1488,7 @@ class Analise extends Component
         $this->rejectedFindings = [];
         $this->reviewMessages = [];
         $this->newContestationMessage = null;
+        $this->selectedReviewPointFilter = '';
         $this->viewOnlyProjectReview = false;
         $this->allowProjectReviewHistory = false;
 
@@ -1536,6 +1538,7 @@ class Analise extends Component
         $this->rejectedFindings = [];
         $this->reviewMessages = [];
         $this->newContestationMessage = '';
+        $this->selectedReviewPointFilter = '';
         $this->viewOnlyProjectReview = false;
         $this->allowProjectReviewHistory = false;
 
@@ -1607,8 +1610,14 @@ class Analise extends Component
     private function mapRejectedFindingsForView(Collection $findings): array
     {
         return $findings->map(function ($finding) {
+            $pointLabel = trim((string) ($finding->point_label ?? ''));
+            if ($pointLabel === '') {
+                $pointLabel = 'Sem ponto';
+            }
+
             return [
                 'id' => (int) $finding->id,
+                'point_label' => $pointLabel,
                 'category_name' => optional(optional($finding->Subcategory)->Category)->name ?: 'Sem categoria',
                 'subcategory_name' => optional($finding->Subcategory)->name ?: 'Sem subcategoria',
                 'item_id' => $finding->item_id ? (int) $finding->item_id : null,
@@ -1619,6 +1628,30 @@ class Analise extends Component
                 'note' => $finding->note,
             ];
         })->values()->all();
+    }
+
+    public function getAvailableReviewPointsProperty(): array
+    {
+        return collect($this->rejectedFindings)
+            ->map(fn ($row) => trim((string) data_get($row, 'point_label', '')))
+            ->filter(fn ($label) => $label !== '')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    public function getFilteredRejectedFindingsProperty(): array
+    {
+        $filter = trim((string) $this->selectedReviewPointFilter);
+        if ($filter === '') {
+            return $this->rejectedFindings;
+        }
+
+        return collect($this->rejectedFindings)
+            ->filter(fn ($row) => (string) data_get($row, 'point_label', '') === $filter)
+            ->values()
+            ->all();
     }
 
     public function downloadFile(int $fileId)
