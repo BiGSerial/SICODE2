@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Enum\ProtestJobStatus;
+use App\Jobs\Protests\ExportMonitoringProtestJobsJob;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -418,7 +419,26 @@ class Monitoring extends Component
 
     public function exportToExcel(): void
     {
-        // TODO: implementar exportação usando baseQuery()->get()
+        $filters = [
+            'search' => $this->search,
+            'userViewer' => $this->userViewer,
+            'onlySelectedUser' => $this->onlySelectedUser,
+            'typeNote' => $this->typeNote,
+            'slaFilter' => $this->slaFilter,
+            'showOnlyBtzero' => $this->showOnlyBtzero,
+            'hideBtzero' => $this->hideBtzero,
+            'deadlineCardFilter' => $this->deadlineCardFilter,
+        ];
+
+        ExportMonitoringProtestJobsJob::dispatch($filters, (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO INICIADA',
+            'text'     => 'A exportação foi iniciada, você receberá uma notificação quando estiver pronta.',
+            'timer'    => 5000,
+        ]);
     }
 
     public function render()

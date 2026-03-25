@@ -256,7 +256,7 @@ class Queue extends Component
 
     public function updatedSelectedPointFilter(): void
     {
-        $this->selectedPointFilter = $this->normalizePointLabel($this->selectedPointFilter);
+        $this->selectedPointFilter = $this->normalizePointFilter($this->selectedPointFilter);
     }
 
     public function updatedSelectedPointLabel(): void
@@ -1444,7 +1444,13 @@ class Queue extends Component
         $this->selectedCategoryId = isset($payload['selectedCategoryId']) ? (int) $payload['selectedCategoryId'] : $this->selectedCategoryId;
         $this->selectedSubcategoryId = isset($payload['selectedSubcategoryId']) ? (int) $payload['selectedSubcategoryId'] : $this->selectedSubcategoryId;
         $this->selectedPointLabel = $this->normalizePointLabel((string) ($payload['selectedPointLabel'] ?? $this->selectedPointLabel));
-        $this->selectedPointFilter = $this->normalizePointLabel((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
+        $this->selectedPointFilter = $this->normalizePointFilter((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
+        if (
+            $this->selectedPointFilter === 'SEM PONTO'
+            && !collect($this->findingRows)->contains(fn ($row) => $this->normalizePointLabel($row['point_label'] ?? '') === 'SEM PONTO')
+        ) {
+            $this->selectedPointFilter = '';
+        }
         $this->selectedOrigin = (string) ($payload['selectedOrigin'] ?? $this->selectedOrigin);
         $this->selectedActionType = (string) ($payload['selectedActionType'] ?? $this->selectedActionType);
         $this->draftSavedAt = optional($draft->updated_at)->format('d/m/Y H:i:s');
@@ -1475,7 +1481,7 @@ class Queue extends Component
             'selectedCategoryId' => $this->selectedCategoryId,
             'selectedSubcategoryId' => $this->selectedSubcategoryId,
             'selectedPointLabel' => $this->normalizePointLabel($this->selectedPointLabel),
-            'selectedPointFilter' => $this->normalizePointLabel($this->selectedPointFilter),
+            'selectedPointFilter' => $this->normalizePointFilter($this->selectedPointFilter),
             'selectedOrigin' => $this->selectedOrigin,
             'selectedActionType' => $this->selectedActionType,
         ];
@@ -1528,6 +1534,16 @@ class Queue extends Component
         }
 
         return mb_substr(mb_strtoupper($label, 'UTF-8'), 0, 120);
+    }
+
+    private function normalizePointFilter(?string $value): string
+    {
+        $filter = trim((string) $value);
+        if ($filter === '') {
+            return '';
+        }
+
+        return $this->normalizePointLabel($filter);
     }
 
     private function hasPointLabelColumn(): bool

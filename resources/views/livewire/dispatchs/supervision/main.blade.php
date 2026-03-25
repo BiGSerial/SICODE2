@@ -192,6 +192,54 @@
             border-color: #cbd5e1;
             color: #334155;
         }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.9rem;
+        }
+
+        .control-card {
+            background: linear-gradient(160deg, #ffffff, #f8fafc);
+            border: 1px solid #dbe3ef;
+            border-radius: 0.9rem;
+            padding: 0.85rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .control-card h6 {
+            margin-bottom: 0.55rem;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .quick-actions .btn {
+            min-height: 42px;
+            border-radius: 0.65rem;
+            font-weight: 600;
+        }
+
+        .filters-row {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 0.85rem;
+            padding: 0.7rem;
+            justify-content: flex-end;
+        }
+
+        @media (min-width: 992px) {
+            .control-grid {
+                grid-template-columns: 1fr 1fr 1fr 1.25fr;
+            }
+
+            .quick-actions {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+        }
     </style>
 
     <div class="container-fluid px-3 px-lg-4">
@@ -216,8 +264,8 @@
 
         <div class="filter-shell mb-3">
             <div class="card-body p-3 p-lg-4">
-                <div class="row g-3 align-items-end">
-                    <div class="col-12 col-lg-2">
+                <div class="control-grid">
+                    <div class="control-card">
                         <h6>Paginacao</h6>
                         <div class="form-floating">
                             <select wire:model="perPage" class="form-select border border-secondary" id="perPage">
@@ -231,7 +279,7 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-lg-3">
+                    <div class="control-card">
                         <h6>Busca</h6>
                         <div class="position-relative">
                             <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary pe-5"
@@ -243,7 +291,7 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-lg-3">
+                    <div class="control-card">
                         <h6>Tipo de Nota</h6>
                         <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
                             <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote" value="1" id="typeNote1">
@@ -255,9 +303,9 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-lg-4">
+                    <div class="control-card">
                         <h6>Acoes Rapidas</h6>
-                        <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+                        <div class="quick-actions">
                             <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
                                 {{ Notestatus::status(1)->status }}
                                 @if ($not_assigned)
@@ -289,11 +337,14 @@
                     </div>
                 </div>
 
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'supervision', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
+                <div class="filters-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
+                    <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'supervision', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                        @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
+                    </div>
                 </div>
             </div>
         </div>
@@ -350,21 +401,19 @@
                                     wire:click="setSelectAll()" @disabled($this->checkAllSelect($lists))>
                             </th>
                             <th scope="col" class="fw-bold text-center">Tipo</th>
-                            <th scope="col" class="fw-bold text-center">ADS</th>
-                            <th scope="col" class="fw-bold text-center">Dt ADS</th>
                             <th scope="col" class="fw-bold text-center">Note</th>
                             <th scope="col" class="fw-bold text-center">Ordem</th>
                             <th scope="col" class="fw-bold text-center">DD</th>
                             <th scope="col" class="fw-bold text-center">MMGD</th>
                             <th scope="col" class="fw-bold text-center">Postes</th>
                             <th scope="col" class="fw-bold text-center">Informado Em</th>
+                            <th scope="col" class="fw-bold text-center">Dt ADS</th>
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">MOA</th>
+                            <th scope="col" class="fw-bold text-center">Custo</th>
                             <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
-                            <th scope="col" class="fw-bold text-center">Dias Informe</th>
                             <th scope="col" class="fw-bold text-center">Dias D5</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
                             <th scope="col" class="fw-bold text-center"></th>
@@ -393,6 +442,34 @@
                                 } else {
                                     $dateFive = null;
                                 }
+
+                                $adsAt = null;
+                                $adsDate = null;
+                                if ($list->OldAds->isNotEmpty()) {
+                                    $adsDate = $list->OldAds->last()->date;
+                                    $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
+                                } elseif ($list->Adsform) {
+                                    $adsDate = $list->Adsform->created_at;
+                                    $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
+                                }
+                                $isTacitAds = (bool) ($list->Adsform?->tacit ?? false);
+
+                                $informedDate = null;
+                                if ($list->WorkForm) {
+                                    $informedDate = $list->WorkForm->informed_at;
+                                } elseif ($latestValidPartial) {
+                                    $informedDate = $latestValidPartial->created_at;
+                                }
+
+                                $daysFromInformed = null;
+                                if ($informedDate) {
+                                    $daysFromInformed = Carbon::parse($informedDate)->diffInDays(Carbon::now(), false);
+                                }
+
+                                $adsFromInformedDays = null;
+                                if ($informedDate && $adsDate) {
+                                    $adsFromInformedDays = Carbon::parse($informedDate)->diffInDays(Carbon::parse($adsDate), false);
+                                }
                             @endphp
 
 
@@ -408,23 +485,8 @@
                                     @endcan --}}
                                 <td class="text-center {{ $rowClass }}">
                                     <span class="row-chip {{ $partial ? 'chip-partial' : 'chip-final' }}">
-                                        {{ $partial ? 'PARCIAL' : 'FINAL' }}
+                                        {{ $partial ? 'P' : 'F' }}
                                     </span>
-                                </td>
-                                <td class="fw-bold text-primary text-center {{ $rowClass }}">
-                                    @if ($list->Adsform || $list->OldAds->isNotEmpty())
-                                        <span class="row-chip chip-neutral">SIM</span>
-                                    @else
-                                        <span class="row-chip chip-muted">---</span>
-                                    @endif
-                                </td>
-                                <td class="fw-bold text-primary text-center {{ $rowClass }}">
-                                    @if ($list->OldAds->isNotEmpty())
-                                        {{ $list->OldAds->last()->date->format('d/m/Y H:i:s') }}
-                                    @elseif($list->Adsform)
-                                        {{ $list->Adsform->created_at->format('d/m/Y H:i:s') }}
-                                    @endif
-
                                 </td>
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">
@@ -442,7 +504,7 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="text-center {{ $rowClass }}">
+                                <td class="text-center {{ $rowClass }} text-nowrap">
                                     @if ($list->WorkForm)
                                         @foreach ($list->WorkForm->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
@@ -468,15 +530,39 @@
                                 <td class="fw-bold text-primary {{ $rowClass }} text-center">
                                     {{ isset($list->postes) ? $list->postes : '---' }}
                                 </td>
-                                <td class="fw-light text-center {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        {{ Carbon::parse($list->WorkForm->informed_at)?->format('d/m/Y') }}
-                                    @elseif ($latestValidPartial)
-                                        {{ $latestValidPartial->created_at?->format('d/m/Y') }}
+                                <td class="fw-light text-center {{ $rowClass }} text-nowrap">
+                                    @if ($informedDate)
+                                        {{ Carbon::parse($informedDate)->format('d/m/Y') }}
+                                        <br>
+                                        <span class="badge
+                                            @if ($daysFromInformed <= 20) text-bg-success
+                                            @elseif ($daysFromInformed >= 28)
+                                                text-bg-danger
+                                            @else
+                                                text-bg-warning
+                                            @endif">
+                                            {{ $daysFromInformed }} dia(s)
+                                        </span>
+                                    @else
+                                        ---
+                                    @endif
+                                </td>
+                                <td class="fw-bold text-primary text-center {{ $rowClass }} text-nowrap">
+                                    @if ($adsAt)
+                                        {{ $adsAt }}
+                                        @if (!is_null($adsFromInformedDays))
+                                            <br><span class="badge text-bg-info mt-1">{{ $adsFromInformedDays }} dia(s)</span>
+                                        @endif
+                                        @if ($isTacitAds)
+                                            <br><span class="badge text-bg-warning mt-1">TÁCITO</span>
+                                        @endif
+                                    @else
+                                        ---
                                     @endif
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ mb_strtoupper($list->numPedido) }}</td>
+                                    {{ mb_strtoupper($list->numPedido) }}
+                                </td>
                                 <td class="fw-light text-center {{ $rowClass }}">{{ $list->rubrica }}</td>
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     @if (!empty($list->lexp))
@@ -489,15 +575,10 @@
                                                 wire:click.prevent="$emit('editMunicipio', '{{ $list->id }}')">Edit</button>
                                         </span>
                                     @endif
-
                                 </td>
                                 <td class="fw-bold text-center {{ $rowClass }}">
-                                    R$ {{ number_format($list->orders?->sum('moaberto'), 2, ',', '.') }}
+                                    R$ {{ number_format((float) ($list->orders?->sum('service_cost') ?? 0), 2, ',', '.') }}
                                 </td>
-
-
-
-
                                 <td class="fw-light text-center {{ $rowClass }}" tabindex="2"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Levantamentos Realizados"
@@ -517,31 +598,8 @@
                                         --
                                     @endif
                                 </td>
-
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
-                                {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
-                                @php
-                                    $days_left = 0;
-                                    if ($list->WorkForm) {
-                                        $days_left = Carbon::parse($list->WorkForm->informed_at)->diffInDays(
-                                            Carbon::now(),
-                                            false,
-                                        );
-                                    } elseif ($latestValidPartial) {
-                                        $days_left = $latestValidPartial->created_at?->diffInDays(Carbon::now(), false);
-                                    }
-                                @endphp
-                                <td scope="col" class="text-center {{ $rowClass }}">
-                                    <span class="badge
-                                        @if ($days_left <= 20) text-bg-success
-                                        @elseif ($days_left >= 28)
-                                            text-bg-danger
-                                        @else
-                                            text-bg-warning
-                                        @endif">
-                                        {{ $days_left }}
-                                    </span>
+                                    {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span>
                                 </td>
                                 <td scope="col" class="text-center text-bg-info">
                                     @if ($dateFive)

@@ -223,7 +223,8 @@ class Main extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $this->filter = [];
+        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
@@ -1113,7 +1114,8 @@ class Main extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $this->filter = [];
+        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
