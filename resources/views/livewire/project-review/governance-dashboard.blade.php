@@ -174,10 +174,11 @@
 
         <div class="row g-3 mb-3">
             <div class="col-md-2"><div class="card-soft p-3"><small>Enviadas para análise</small><h5 class="mb-0">{{ $summary['cycles_submitted_count'] }}</h5></div></div>
+            <div class="col-md-2"><div class="card-soft p-3"><small>Aguardando análise</small><h5 class="mb-0 text-warning">{{ $summary['cycles_waiting_analysis_count'] }}</h5></div></div>
             <div class="col-md-2"><div class="card-soft p-3"><small>Reprovadas</small><h5 class="mb-0 text-danger">{{ $summary['cycles_rejected_count'] }}</h5></div></div>
             <div class="col-md-2"><div class="card-soft p-3"><small>Aprovadas (total)</small><h5 class="mb-0 text-success">{{ $summary['cycles_approved_count'] }}</h5></div></div>
-            <div class="col-md-3"><div class="card-soft p-3"><small>Aprovadas com ressalvas</small><h5 class="mb-0">{{ $summary['cycles_approved_with_remarks_count'] }}</h5></div></div>
-            <div class="col-md-3"><div class="card-soft p-3"><small>Aprovadas sem ressalvas</small><h5 class="mb-0">{{ $summary['cycles_approved_without_remarks_count'] }}</h5></div></div>
+            <div class="col-md-2"><div class="card-soft p-3"><small>Aprovadas com ressalvas</small><h5 class="mb-0">{{ $summary['cycles_approved_with_remarks_count'] }}</h5></div></div>
+            <div class="col-md-2"><div class="card-soft p-3"><small>Aprovadas sem ressalvas</small><h5 class="mb-0">{{ $summary['cycles_approved_without_remarks_count'] }}</h5></div></div>
         </div>
 
         <div class="row g-3 mb-3">
@@ -190,6 +191,25 @@
             <div class="col-12">
                 <div class="card-soft p-3">
                     <h6 class="mb-2">Composição do valor revisado</h6>
+                    @php
+                        $plannedTotal = (float) $summary['planned_total_cost'];
+                        $netVariation = (float) $summary['net_variation_cost']; // revisado - planejado
+                        $netVariationAbs = abs($netVariation);
+                        $netVariationPct = $plannedTotal > 0 ? ($netVariationAbs / $plannedTotal) * 100 : 0;
+                        $netIsIncrease = $netVariation >= 0;
+
+                        $companyPlanned = (float) $summary['planned_company_total_cost'];
+                        $companyDelta = (float) $summary['company_net_variation_cost']; // revisado - planejado
+                        $companyDeltaAbs = abs($companyDelta);
+                        $companyDeltaPct = $companyPlanned > 0 ? ($companyDeltaAbs / $companyPlanned) * 100 : 0;
+                        $companyIsIncrease = $companyDelta >= 0;
+
+                        $clientPlanned = (float) $summary['planned_client_total_cost'];
+                        $clientDelta = (float) $summary['client_net_variation_cost']; // revisado - planejado
+                        $clientDeltaAbs = abs($clientDelta);
+                        $clientDeltaPct = $clientPlanned > 0 ? ($clientDeltaAbs / $clientPlanned) * 100 : 0;
+                        $clientIsIncrease = $clientDelta >= 0;
+                    @endphp
                     <div class="cost-flow">
                         <div class="cost-box">
                             <small class="text-muted">Valor planejado</small>
@@ -214,8 +234,10 @@
                     <div class="mt-2 d-flex flex-wrap gap-3">
                         <div>
                             <small class="text-muted d-block">Diferença líquida (acréscimos - reduções)</small>
-                            <strong class="{{ ((float) $summary['net_variation_cost']) >= 0 ? 'text-danger' : 'text-success' }}">
-                                R$ {{ number_format((float) $summary['net_variation_cost'], 2, ',', '.') }}
+                            <strong class="{{ $netIsIncrease ? 'text-danger' : 'text-success' }}">
+                                <i class="{{ $netIsIncrease ? 'ri-arrow-up-line' : 'ri-arrow-down-line' }}"></i>
+                                R$ {{ number_format($netVariationAbs, 2, ',', '.') }}
+                                ({{ number_format($netVariationPct, 2, ',', '.') }}%)
                             </strong>
                         </div>
                         <div>
@@ -252,17 +274,19 @@
                     </div>
                     <div class="mt-2 d-flex flex-wrap gap-3">
                         <div>
-                            <small class="text-muted d-block">Ganho custo empresa (planejado - revisado)</small>
-                            @php $companyGain = -1 * ((float) $summary['company_net_variation_cost']); @endphp
-                            <strong class="{{ $companyGain >= 0 ? 'text-success' : 'text-danger' }}">
-                                R$ {{ number_format($companyGain, 2, ',', '.') }}
+                            <small class="text-muted d-block">Custo empresa (planejado x revisado)</small>
+                            <strong class="{{ $companyIsIncrease ? 'text-danger' : 'text-success' }}">
+                                <i class="{{ $companyIsIncrease ? 'ri-arrow-up-line' : 'ri-arrow-down-line' }}"></i>
+                                R$ {{ number_format($companyDeltaAbs, 2, ',', '.') }}
+                                ({{ number_format($companyDeltaPct, 2, ',', '.') }}%)
                             </strong>
                         </div>
                         <div>
-                            <small class="text-muted d-block">Ganho custo cliente (planejado - revisado)</small>
-                            @php $clientGain = -1 * ((float) $summary['client_net_variation_cost']); @endphp
-                            <strong class="{{ $clientGain >= 0 ? 'text-success' : 'text-danger' }}">
-                                R$ {{ number_format($clientGain, 2, ',', '.') }}
+                            <small class="text-muted d-block">Custo cliente (planejado x revisado)</small>
+                            <strong class="{{ $clientIsIncrease ? 'text-danger' : 'text-success' }}">
+                                <i class="{{ $clientIsIncrease ? 'ri-arrow-up-line' : 'ri-arrow-down-line' }}"></i>
+                                R$ {{ number_format($clientDeltaAbs, 2, ',', '.') }}
+                                ({{ number_format($clientDeltaPct, 2, ',', '.') }}%)
                             </strong>
                         </div>
                     </div>
@@ -320,18 +344,19 @@
                     <h6>Percentual de erro por usuário</h6>
                     <div class="table-responsive">
                         <table class="table table-sm mb-0">
-                            <thead><tr><th>Usuário</th><th>Reprovações</th><th>Análises</th><th>% erro</th><th>Principal tipo de erro</th></tr></thead>
+                            <thead><tr><th>Usuário</th><th>Enviadas</th><th>Analisadas</th><th>Reprovações</th><th>% erro</th><th>Principal tipo de erro</th></tr></thead>
                             <tbody>
                             @forelse($tables['user_error_percent'] as $row)
                                 <tr>
                                     <td>{{ $row->user_name }}</td>
+                                    <td>{{ (int) ($row->submitted_cycles ?? 0) }}</td>
+                                    <td>{{ (int) ($row->analyzed_cycles ?? 0) }}</td>
                                     <td>{{ $row->rejected_cycles }}</td>
-                                    <td>{{ $row->total_cycles }}</td>
                                     <td>{{ $row->error_pct }}%</td>
                                     <td>{{ $row->main_error ?? '---' }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>
+                                <tr><td colspan="6" class="text-center text-muted">Sem dados</td></tr>
                             @endforelse
                             </tbody>
                         </table>

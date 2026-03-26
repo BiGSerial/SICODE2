@@ -13,6 +13,82 @@
         }
         .oexterno-header { background: linear-gradient(120deg, #0f172a, #0f766e 70%); color:#f8fafc; border-radius:1rem; padding:1.5rem 2rem; margin-bottom:1.5rem; }
         .card-soft { background: var(--oe-surface); border:1px solid var(--oe-border); border-radius: .8rem; box-shadow:0 12px 24px rgba(15,23,42,.06); }
+        .summary-bar {
+            background: var(--oe-surface);
+            border: 1px solid var(--oe-border);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+            margin-bottom: 1rem;
+        }
+        .summary-item {
+            color: var(--oe-muted);
+            font-size: 0.92rem;
+        }
+        .summary-item strong {
+            color: var(--oe-ink);
+        }
+        .cost-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            border: 1px solid #e2e8f0;
+            border-radius: .35rem;
+            padding: .15rem .4rem;
+            background: #fff;
+        }
+        .cost-trend-up {
+            color: #b91c1c;
+        }
+        .cost-trend-down {
+            color: #047857;
+        }
+        .cost-trend-neutral {
+            color: #64748b;
+        }
+        .history-table th,
+        .history-table td {
+            vertical-align: middle;
+        }
+        .history-table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .history-table thead th {
+            background: linear-gradient(180deg, #0f172a, #1e293b);
+            color: #f8fafc;
+            font-size: .74rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            border: 0;
+            white-space: nowrap;
+            padding-top: .6rem;
+            padding-bottom: .6rem;
+        }
+        .history-table thead th:first-child {
+            border-top-left-radius: .6rem;
+        }
+        .history-table thead th:last-child {
+            border-top-right-radius: .6rem;
+        }
+        .history-table tbody td {
+            border-color: #e2e8f0;
+            background: #ffffff;
+        }
+        .history-table tbody tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+        .history-table tbody tr:hover td {
+            background: #eef6ff;
+        }
+        .history-table .small.border {
+            border-color: #cbd5e1 !important;
+            border-radius: .35rem;
+            background: #fff;
+        }
+        .history-table tbody tr:nth-child(even) .small.border {
+            background: #f8fafc;
+        }
 
         .back-to-top {
             display: none !important;
@@ -38,12 +114,31 @@
                 </div>
                 <div class="col-md-2"><input type="date" class="form-control" wire:model="from"></div>
                 <div class="col-md-2"><input type="date" class="form-control" wire:model="to"></div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-outline-secondary w-100" wire:click="exportList">
+                        Exportar
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div class="card-soft p-3">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
+        @php
+            $currentPageCount = method_exists($rows, 'count') ? $rows->count() : count($rows);
+            $totalCount = method_exists($rows, 'total') ? (int) $rows->total() : $currentPageCount;
+        @endphp
+
+        <div class="summary-bar d-flex flex-wrap gap-3 align-items-center justify-content-between">
+            <div class="summary-item">
+                Exibindo <strong>{{ $currentPageCount }}</strong> registro(s) nesta página.
+            </div>
+            <div class="summary-item">
+                Total do histórico: <strong>{{ $totalCount }}</strong>.
+            </div>
+        </div>
+
+        <div class="card-soft overflow-hidden">
+            <div class="table-responsive w-100">
+                <table class="table table-sm table-hover mb-0 history-table w-100">
                     <thead>
                         <tr>
                             <th>Nota</th>
@@ -53,6 +148,7 @@
                             <th>Custo total</th>
                             <th>Custo empresa</th>
                             <th>Custo cliente</th>
+                            <th>Variação (%)</th>
                             <th>Status</th>
                             <th>Analista</th>
                             <th>Quando foi enviado</th>
@@ -62,21 +158,94 @@
                     <tbody>
                         @forelse($rows as $row)
                             @php
-                                $cycle = collect($row->ProjectReviewCycles)->sortByDesc('round_number')->first();
+                                $cycles = collect($row->ProjectReviewCycles)->sortByDesc('round_number')->values();
+                                $cycle = $cycles->first();
+                                $previousCycle = $cycles->skip(1)->first();
+                                $cyclesAsc = collect($row->ProjectReviewCycles)->sortBy('round_number')->values();
+                                $firstCycle = $cyclesAsc->first();
+                                $lastCycle = $cyclesAsc->last();
                                 $orders = $cycle?->Orders ?? collect();
                                 if ($orders->isEmpty()) {
                                     $orders = $row->ProjectReviewCycles->first(function ($c) {
                                         return $c->Orders->count() > 0;
                                     })?->Orders ?? collect();
                                 }
-                                $latestRound = (int) ($row->latest_round_number ?? ($cycle?->round_number ?? 1));
+                                $previousOrdersByNumber = collect($previousCycle?->Orders ?? collect())
+                                    ->keyBy(fn($ord) => (string) ($ord->order_number ?? ''));
+                                $sumCycleByPrefixRule = function ($orders) {
+                                    $allowedPrefixes = ['170', '190', '150', '200'];
+                                    $latestByPrefix = [];
+                                    $fallbackTotal = 0.0;
+
+                                    foreach (collect($orders ?? collect()) as $ord) {
+                                        $value = (float) ($ord->total_cost ?? 0);
+                                        $fallbackTotal += $value;
+                                        $digits = preg_replace('/\D+/', '', (string) ($ord->order_number ?? ''));
+                                        $prefix = strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+                                        if (in_array($prefix, $allowedPrefixes, true)) {
+                                            $latestByPrefix[$prefix] = $value;
+                                        }
+                                    }
+
+                                    if (count($latestByPrefix)) {
+                                        return (float) array_sum($latestByPrefix);
+                                    }
+
+                                    return $fallbackTotal;
+                                };
+                                $prefixSeries = collect(['170', '190', '150', '200'])->mapWithKeys(fn($p) => [$p => []])->all();
+                                foreach ($cyclesAsc as $cycleRow) {
+                                    $roundPrefixTotals = [];
+                                    foreach (collect($cycleRow->Orders ?? collect()) as $ordRow) {
+                                        $digits = preg_replace('/\D+/', '', (string) ($ordRow->order_number ?? ''));
+                                        $prefix = strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+                                        if (in_array($prefix, ['170', '190', '150', '200'], true)) {
+                                            $roundPrefixTotals[$prefix] = (float) ($ordRow->total_cost ?? 0);
+                                        }
+                                    }
+                                    foreach (['170', '190', '150', '200'] as $prefix) {
+                                        if (array_key_exists($prefix, $roundPrefixTotals)) {
+                                            $prefixSeries[$prefix][] = (float) $roundPrefixTotals[$prefix];
+                                        }
+                                    }
+                                }
+
+                                $totalPrevious = 0.0;
+                                $totalCurrent = 0.0;
+                                $hasPrefixData = false;
+                                foreach (['170', '190', '150', '200'] as $prefix) {
+                                    $values = collect($prefixSeries[$prefix] ?? [])->values();
+                                    if ($values->isEmpty()) {
+                                        continue;
+                                    }
+                                    $hasPrefixData = true;
+                                    $totalPrevious += (float) $values->first();
+                                    $totalCurrent += (float) $values->last();
+                                }
+
+                                if (!$hasPrefixData) {
+                                    $totalCurrent = $sumCycleByPrefixRule($lastCycle?->Orders ?? collect());
+                                    $totalPrevious = $sumCycleByPrefixRule($firstCycle?->Orders ?? collect());
+                                }
+                                $variationPercent = null;
+                                if ($totalPrevious > 0) {
+                                    $variationPercent = (($totalCurrent - $totalPrevious) / $totalPrevious) * 100;
+                                }
+                                $variationDirection = 'neutral';
+                                if (!is_null($variationPercent)) {
+                                    if ($variationPercent > 0.00001) {
+                                        $variationDirection = 'up';
+                                    } elseif ($variationPercent < -0.00001) {
+                                        $variationDirection = 'down';
+                                    }
+                                }
                                 $status = \App\Custom\Notestatus::status((int) $row->status);
                             @endphp
                             <tr>
                                 <td>{{ $row->Note?->note ?? '---' }}</td>
                                 <td>{{ $row->User?->name ?? '---' }}</td>
                                 <td>{{ $row->Company?->name ?? '---' }}</td>
-                                <td class="align-top">
+                                <td>
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
@@ -87,38 +256,104 @@
                                         ---
                                     @endif
                                 </td>
-                                <td class="align-top">
+                                <td>
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1">{{ number_format((float) $ord->total_cost, 2, ',', '.') }}</div>
+                                                @php
+                                                    $prevOrd = $previousOrdersByNumber->get((string) ($ord->order_number ?? ''));
+                                                    $currVal = (float) ($ord->total_cost ?? 0);
+                                                    $prevVal = is_null($prevOrd) ? null : (float) ($prevOrd->total_cost ?? 0);
+                                                    $trend = 'neutral';
+                                                    if (!is_null($prevVal)) {
+                                                        if ($currVal > $prevVal) {
+                                                            $trend = 'up';
+                                                        } elseif ($currVal < $prevVal) {
+                                                            $trend = 'down';
+                                                        }
+                                                    }
+                                                @endphp
+                                                <div class="small border px-2 py-1 d-flex align-items-center justify-content-between gap-2">
+                                                    <span>{{ number_format($currVal, 2, ',', '.') }}</span>
+                                                    <span class="cost-chip cost-trend-{{ $trend }}" title="{{ $trend === 'up' ? 'Aumento' : ($trend === 'down' ? 'Diminuição' : 'Sem mudança') }}">
+                                                        <i class="{{ $trend === 'up' ? 'ri-arrow-up-line' : ($trend === 'down' ? 'ri-arrow-down-line' : 'ri-subtract-line') }}"></i>
+                                                    </span>
+                                                </div>
                                             @endforeach
                                         </div>
                                     @else
                                         ---
                                     @endif
                                 </td>
-                                <td class="align-top">
+                                <td>
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1">{{ number_format((float) $ord->company_cost, 2, ',', '.') }}</div>
+                                                @php
+                                                    $prevOrd = $previousOrdersByNumber->get((string) ($ord->order_number ?? ''));
+                                                    $currVal = (float) ($ord->company_cost ?? 0);
+                                                    $prevVal = is_null($prevOrd) ? null : (float) ($prevOrd->company_cost ?? 0);
+                                                    $trend = 'neutral';
+                                                    if (!is_null($prevVal)) {
+                                                        if ($currVal > $prevVal) {
+                                                            $trend = 'up';
+                                                        } elseif ($currVal < $prevVal) {
+                                                            $trend = 'down';
+                                                        }
+                                                    }
+                                                @endphp
+                                                <div class="small border px-2 py-1 d-flex align-items-center justify-content-between gap-2">
+                                                    <span>{{ number_format($currVal, 2, ',', '.') }}</span>
+                                                    <span class="cost-chip cost-trend-{{ $trend }}" title="{{ $trend === 'up' ? 'Aumento' : ($trend === 'down' ? 'Diminuição' : 'Sem mudança') }}">
+                                                        <i class="{{ $trend === 'up' ? 'ri-arrow-up-line' : ($trend === 'down' ? 'ri-arrow-down-line' : 'ri-subtract-line') }}"></i>
+                                                    </span>
+                                                </div>
                                             @endforeach
                                         </div>
                                     @else
                                         ---
                                     @endif
                                 </td>
-                                <td class="align-top">
+                                <td>
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
-                                                <div class="small border px-2 py-1">{{ number_format((float) $ord->client_cost, 2, ',', '.') }}</div>
+                                                @php
+                                                    $prevOrd = $previousOrdersByNumber->get((string) ($ord->order_number ?? ''));
+                                                    $currVal = (float) ($ord->client_cost ?? 0);
+                                                    $prevVal = is_null($prevOrd) ? null : (float) ($prevOrd->client_cost ?? 0);
+                                                    $trend = 'neutral';
+                                                    if (!is_null($prevVal)) {
+                                                        if ($currVal > $prevVal) {
+                                                            $trend = 'up';
+                                                        } elseif ($currVal < $prevVal) {
+                                                            $trend = 'down';
+                                                        }
+                                                    }
+                                                @endphp
+                                                <div class="small border px-2 py-1 d-flex align-items-center justify-content-between gap-2">
+                                                    <span>{{ number_format($currVal, 2, ',', '.') }}</span>
+                                                    <span class="cost-chip cost-trend-{{ $trend }}" title="{{ $trend === 'up' ? 'Aumento' : ($trend === 'down' ? 'Diminuição' : 'Sem mudança') }}">
+                                                        <i class="{{ $trend === 'up' ? 'ri-arrow-up-line' : ($trend === 'down' ? 'ri-arrow-down-line' : 'ri-subtract-line') }}"></i>
+                                                    </span>
+                                                </div>
                                             @endforeach
                                         </div>
                                     @else
                                         ---
                                     @endif
+                                </td>
+                                <td>
+                                    @php
+                                        $variationIcon = $variationDirection === 'up'
+                                            ? 'ri-arrow-up-line'
+                                            : ($variationDirection === 'down' ? 'ri-arrow-down-line' : 'ri-subtract-line');
+                                        $variationValue = is_null($variationPercent) ? 0.0 : abs((float) $variationPercent);
+                                    @endphp
+                                    <span class="badge {{ $variationDirection === 'up' ? 'text-bg-danger' : ($variationDirection === 'down' ? 'text-bg-success' : 'text-bg-secondary') }} d-inline-flex align-items-center gap-1">
+                                        <i class="{{ $variationIcon }}"></i>
+                                        <span>{{ number_format($variationValue, 2, ',', '.') }}%</span>
+                                    </span>
                                 </td>
                                 <td><span class="badge {{ $status->colorbg }}">{{ $status->status }}</span></td>
                                 <td>{{ $cycle?->DecidedBy?->name ?? '---' }}</td>
@@ -128,12 +363,17 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="11" class="text-center text-muted">Sem registros.</td></tr>
+                            <tr><td colspan="12" class="text-center text-muted">Sem registros.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="mt-3">{{ $rows->links() }}</div>
+            <div class="p-3 border-top">
+                <div class="small text-muted mb-2">
+                    Mostrando {{ $rows->firstItem() ?? 0 }} até {{ $rows->lastItem() ?? 0 }} de {{ $rows->total() }} registros.
+                </div>
+                {{ $rows->links() }}
+            </div>
         </div>
     </div>
 
@@ -253,17 +493,34 @@
 
                                             ksort($historyByOrder);
 
+                                            // Totalizador por rodada para evitar distorção em troca de número de ordem.
                                             $sumEconomy = 0.0;
                                             $sumIncrease = 0.0;
-                                            foreach ($historyByOrder as $entries) {
-                                                foreach ($entries as $entry) {
-                                                    if (is_null($entry['delta'])) {
-                                                        continue;
-                                                    }
-                                                    if ((float) $entry['delta'] < 0) {
-                                                        $sumEconomy += abs((float) $entry['delta']);
-                                                    } elseif ((float) $entry['delta'] > 0) {
-                                                        $sumIncrease += (float) $entry['delta'];
+                                            $hasPrefixDataForTotals = false;
+                                            foreach (['170', '190', '150', '200'] as $prefix) {
+                                                $values = collect($prefixSeries[$prefix] ?? [])->values();
+                                                if ($values->count() < 2) {
+                                                    continue;
+                                                }
+                                                $hasPrefixDataForTotals = true;
+                                                $deltaPrefix = round(((float) $values->last()) - ((float) $values->first()), 2);
+                                                if ($deltaPrefix < 0) {
+                                                    $sumEconomy += abs($deltaPrefix);
+                                                } elseif ($deltaPrefix > 0) {
+                                                    $sumIncrease += $deltaPrefix;
+                                                }
+                                            }
+
+                                            if (!$hasPrefixDataForTotals) {
+                                                $roundTotals = $cyclesAsc
+                                                    ->map(fn($cy) => (float) collect($cy->Orders ?? collect())->sum('total_cost'))
+                                                    ->values();
+                                                for ($i = 1; $i < $roundTotals->count(); $i++) {
+                                                    $deltaRound = round(((float) $roundTotals[$i]) - ((float) $roundTotals[$i - 1]), 2);
+                                                    if ($deltaRound < 0) {
+                                                        $sumEconomy += abs($deltaRound);
+                                                    } elseif ($deltaRound > 0) {
+                                                        $sumIncrease += $deltaRound;
                                                     }
                                                 }
                                             }

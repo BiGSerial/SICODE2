@@ -183,6 +183,7 @@ class GovernanceDashboard extends Component
                     'cycles_approved_count' => 0,
                     'cycles_approved_with_remarks_count' => 0,
                     'cycles_approved_without_remarks_count' => 0,
+                    'cycles_waiting_analysis_count' => 0,
                     'first_pass_approval_pct' => 0,
                     'avg_send_to_decision_hours' => 0,
                     'avg_reject_to_resubmit_hours' => 0,
@@ -281,20 +282,7 @@ class GovernanceDashboard extends Component
 
         $cyclesForDecisionStats = $this->applyDecisionDateFilters((clone $cyclesBase));
 
-        $userErrorPercent = (clone $cyclesForDecisionStats)
-            ->join('users as u', 'u.id', '=', 'p.user_id')
-            ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
-            ->selectRaw("
-                u.name as user_name,
-                SUM(CASE WHEN cy.decision = 'REJECTED' THEN 1 ELSE 0 END) as rejected_cycles,
-                COUNT(*) as total_cycles,
-                ROUND((SUM(CASE WHEN cy.decision = 'REJECTED' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0)) * 100, 2) as error_pct
-            ")
-            ->groupBy('u.name')
-            ->orderByDesc('rejected_cycles')
-            ->orderByDesc('error_pct')
-            ->limit(15)
-            ->get();
+        $userErrorPercent = $this->buildUserTemporalStats($cyclesBase)->take(15)->values();
 
         $mainErrorByUser = (clone $findingsBase)
             ->join('users as u', 'u.id', '=', 'p.user_id')
@@ -432,6 +420,10 @@ class GovernanceDashboard extends Component
             ->count();
 
         $cyclesApprovedCount = $cyclesApprovedWithRemarksCount + $cyclesApprovedWithoutRemarksCount;
+        $cyclesWaitingAnalysisCount = (clone $cyclesBase)
+            ->whereNotNull('cy.submitted_at')
+            ->where('cy.decision', 'PENDING')
+            ->count();
 
         $firstPassDen = DB::table('project_review_cycles')
             ->whereIn('production_id', $productionIds)
@@ -493,6 +485,7 @@ class GovernanceDashboard extends Component
                 'cycles_approved_count' => $cyclesApprovedCount,
                 'cycles_approved_with_remarks_count' => $cyclesApprovedWithRemarksCount,
                 'cycles_approved_without_remarks_count' => $cyclesApprovedWithoutRemarksCount,
+                'cycles_waiting_analysis_count' => $cyclesWaitingAnalysisCount,
                 'first_pass_approval_pct' => $firstPassDen > 0 ? round(($firstPassNum / $firstPassDen) * 100, 2) : 0,
                 'avg_send_to_decision_hours' => round($avgSendToDecisionHours ?: 0, 2),
                 'avg_reject_to_resubmit_hours' => round($avgRejectToResubmitHours ?: 0, 2),
@@ -569,10 +562,10 @@ class GovernanceDashboard extends Component
         $rows = DB::table('project_review_orders as o')
             ->join('project_review_cycles as cy', 'cy.id', '=', 'o.cycle_id')
             ->whereIn('cy.production_id', $productionIds)
-            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost, o.company_cost, o.client_cost')
+            ->selectRaw('cy.production_id, cy.round_number, o.id as order_id, o.order_number, o.total_cost, o.company_cost, o.client_cost')
             ->orderBy('cy.production_id')
-            ->orderBy('o.order_number')
             ->orderBy('cy.round_number')
+            ->orderBy('o.id')
             ->get();
 
         $planned = 0.0;
@@ -591,48 +584,69 @@ class GovernanceDashboard extends Component
                 return;
             }
 
-            $firstRound = (int) $byRound->keys()->min();
-            $lastRound = (int) $byRound->keys()->max();
+            $prefixSeries = $this->buildPrefixSeriesByRound($byRound);
+            $hasPrefixData = false;
 
-            $firstMap = collect($byRound->get($firstRound, collect()))
-                ->groupBy('order_number')
-                ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
-            $firstCompanyMap = collect($byRound->get($firstRound, collect()))
-                ->groupBy('order_number')
-                ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
-            $firstClientMap = collect($byRound->get($firstRound, collect()))
-                ->groupBy('order_number')
-                ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
+            foreach (['170', '190', '150', '200'] as $prefix) {
+                $series = collect($prefixSeries[$prefix] ?? [])->values();
+                if ($series->isEmpty()) {
+                    continue;
+                }
 
-            $lastMap = collect($byRound->get($lastRound, collect()))
-                ->groupBy('order_number')
-                ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
-            $lastCompanyMap = collect($byRound->get($lastRound, collect()))
-                ->groupBy('order_number')
-                ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
-            $lastClientMap = collect($byRound->get($lastRound, collect()))
-                ->groupBy('order_number')
-                ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
+                $hasPrefixData = true;
+                $first = (array) $series->first();
+                $last = (array) $series->last();
 
-            $planned += (float) $firstMap->sum();
-            $revised += (float) $lastMap->sum();
-            $plannedCompany += (float) $firstCompanyMap->sum();
-            $plannedClient += (float) $firstClientMap->sum();
-            $revisedCompany += (float) $lastCompanyMap->sum();
-            $revisedClient += (float) $lastClientMap->sum();
+                $planned += (float) ($first['total'] ?? 0);
+                $revised += (float) ($last['total'] ?? 0);
+                $plannedCompany += (float) ($first['company'] ?? 0);
+                $plannedClient += (float) ($first['client'] ?? 0);
+                $revisedCompany += (float) ($last['company'] ?? 0);
+                $revisedClient += (float) ($last['client'] ?? 0);
 
-            $allOrders = $firstMap->keys()->merge($lastMap->keys())->unique();
-            foreach ($allOrders as $orderNumber) {
-                $first = (float) ($firstMap->get($orderNumber, 0));
-                $last = (float) ($lastMap->get($orderNumber, 0));
-                $delta = round($last - $first, 2);
+                if ($series->count() >= 2) {
+                    $delta = round(((float) ($last['total'] ?? 0)) - ((float) ($first['total'] ?? 0)), 2);
+                    if ($delta > 0) {
+                        $increase += $delta;
+                    } elseif ($delta < 0) {
+                        $economy += abs($delta);
+                    } else {
+                        $maintainedCount++;
+                    }
+                }
+            }
 
-                if ($delta > 0) {
-                    $increase += $delta;
-                } elseif ($delta < 0) {
-                    $economy += abs($delta);
-                } else {
-                    $maintainedCount++;
+            if (!$hasPrefixData) {
+                $roundTotals = $byRound
+                    ->sortKeys()
+                    ->map(function ($roundRows) {
+                        $rows = collect($roundRows);
+                        return [
+                            'total' => (float) $rows->sum('total_cost'),
+                            'company' => (float) $rows->sum('company_cost'),
+                            'client' => (float) $rows->sum('client_cost'),
+                        ];
+                    })
+                    ->values();
+
+                $firstTotals = (array) $roundTotals->first();
+                $lastTotals = (array) $roundTotals->last();
+                $planned += (float) ($firstTotals['total'] ?? 0);
+                $revised += (float) ($lastTotals['total'] ?? 0);
+                $plannedCompany += (float) ($firstTotals['company'] ?? 0);
+                $plannedClient += (float) ($firstTotals['client'] ?? 0);
+                $revisedCompany += (float) ($lastTotals['company'] ?? 0);
+                $revisedClient += (float) ($lastTotals['client'] ?? 0);
+
+                if ($roundTotals->count() >= 2) {
+                    $delta = round(((float) ($lastTotals['total'] ?? 0)) - ((float) ($firstTotals['total'] ?? 0)), 2);
+                    if ($delta > 0) {
+                        $increase += $delta;
+                    } elseif ($delta < 0) {
+                        $economy += abs($delta);
+                    } else {
+                        $maintainedCount++;
+                    }
                 }
             }
         });
@@ -651,6 +665,49 @@ class GovernanceDashboard extends Component
             'net_variation_cost' => $revised - $planned,
             'maintained_orders_count' => $maintainedCount,
         ];
+    }
+
+    private function buildPrefixSeriesByRound($byRound): array
+    {
+        $series = collect(['170', '190', '150', '200'])
+            ->mapWithKeys(fn ($prefix) => [$prefix => []])
+            ->all();
+
+        collect($byRound)->sortKeys()->each(function ($roundRows) use (&$series) {
+            $latestByPrefix = [];
+
+            foreach (collect($roundRows) as $row) {
+                $prefix = $this->extractOrderPrefix((string) ($row->order_number ?? ''));
+                if ($prefix === null) {
+                    continue;
+                }
+
+                $latestByPrefix[$prefix] = [
+                    'total' => (float) ($row->total_cost ?? 0),
+                    'company' => (float) ($row->company_cost ?? 0),
+                    'client' => (float) ($row->client_cost ?? 0),
+                ];
+            }
+
+            foreach (['170', '190', '150', '200'] as $prefix) {
+                if (array_key_exists($prefix, $latestByPrefix)) {
+                    $series[$prefix][] = $latestByPrefix[$prefix];
+                }
+            }
+        });
+
+        return $series;
+    }
+
+    private function extractOrderPrefix(string $orderNumber): ?string
+    {
+        $digits = preg_replace('/\D+/', '', $orderNumber);
+        if (!$digits || strlen($digits) < 3) {
+            return null;
+        }
+
+        $prefix = substr($digits, 0, 3);
+        return in_array($prefix, ['170', '190', '150', '200'], true) ? $prefix : null;
     }
 
     private function buildProjectReviewTimeline($cyclesBase)
@@ -747,6 +804,115 @@ class GovernanceDashboard extends Component
             'labels' => $labels,
             'data' => $data,
         ];
+    }
+
+    private function buildUserTemporalStats($cyclesBase)
+    {
+        $rows = (clone $cyclesBase)
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->selectRaw("
+                u.name as user_name,
+                cy.submitted_at,
+                cy.decided_at,
+                cy.decision
+            ")
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return collect();
+        }
+
+        $stats = [];
+
+        foreach ($rows as $row) {
+            $userName = (string) ($row->user_name ?? 'Sem usuário');
+
+            if (!isset($stats[$userName])) {
+                $stats[$userName] = [
+                    'user_name' => $userName,
+                    'submitted_cycles' => 0,
+                    'analyzed_cycles' => 0,
+                    'rejected_cycles' => 0,
+                    'approved_with_remarks_cycles' => 0,
+                    'approved_without_remarks_cycles' => 0,
+                    'approved_cycles' => 0,
+                    'total_cycles' => 0,
+                    'error_pct' => 0.0,
+                ];
+            }
+
+            if (!is_null($row->submitted_at)) {
+                $stats[$userName]['submitted_cycles']++;
+            }
+
+            if ($row->decision === 'REJECTED' && $this->passesRejectedDecisionDateFilter($row->decided_at)) {
+                $stats[$userName]['rejected_cycles']++;
+                $stats[$userName]['analyzed_cycles']++;
+                $stats[$userName]['total_cycles']++;
+                continue;
+            }
+
+            if ($row->decision === 'APPROVED_WITH_REMARKS' && $this->passesApprovedDecisionDateFilter($row->decided_at)) {
+                $stats[$userName]['approved_with_remarks_cycles']++;
+                $stats[$userName]['approved_cycles']++;
+                $stats[$userName]['analyzed_cycles']++;
+                $stats[$userName]['total_cycles']++;
+                continue;
+            }
+
+            if ($row->decision === 'APPROVED' && $this->passesApprovedDecisionDateFilter($row->decided_at)) {
+                $stats[$userName]['approved_without_remarks_cycles']++;
+                $stats[$userName]['approved_cycles']++;
+                $stats[$userName]['analyzed_cycles']++;
+                $stats[$userName]['total_cycles']++;
+            }
+        }
+
+        return collect($stats)
+            ->map(function ($row) {
+                $row['error_pct'] = $row['total_cycles'] > 0
+                    ? round(($row['rejected_cycles'] / $row['total_cycles']) * 100, 2)
+                    : 0.0;
+
+                return (object) $row;
+            })
+            ->sortByDesc('rejected_cycles')
+            ->sortByDesc('error_pct')
+            ->values();
+    }
+
+    private function passesApprovedDecisionDateFilter($decidedAt): bool
+    {
+        if (is_null($decidedAt)) {
+            return false;
+        }
+
+        $decisionDate = date('Y-m-d', strtotime((string) $decidedAt));
+        if ($this->approved_from && $decisionDate < $this->approved_from) {
+            return false;
+        }
+        if ($this->approved_to && $decisionDate > $this->approved_to) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function passesRejectedDecisionDateFilter($decidedAt): bool
+    {
+        if (is_null($decidedAt)) {
+            return false;
+        }
+
+        $decisionDate = date('Y-m-d', strtotime((string) $decidedAt));
+        if ($this->rejected_from && $decisionDate < $this->rejected_from) {
+            return false;
+        }
+        if ($this->rejected_to && $decisionDate > $this->rejected_to) {
+            return false;
+        }
+
+        return true;
     }
 
     private function applyApprovedDateFilter($query)

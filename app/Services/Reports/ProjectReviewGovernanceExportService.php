@@ -692,10 +692,10 @@ class ProjectReviewGovernanceExportService
         $rows = DB::table('project_review_orders as o')
             ->join('project_review_cycles as cy', 'cy.id', '=', 'o.cycle_id')
             ->whereIn('cy.production_id', $productionIds)
-            ->selectRaw('cy.production_id, cy.round_number, o.order_number, o.total_cost, o.company_cost, o.client_cost')
+            ->selectRaw('cy.production_id, cy.round_number, o.id as order_id, o.order_number, o.total_cost, o.company_cost, o.client_cost')
             ->orderBy('cy.production_id')
-            ->orderBy('o.order_number')
             ->orderBy('cy.round_number')
+            ->orderBy('o.id')
             ->get();
 
         $result = [];
@@ -713,48 +713,69 @@ class ProjectReviewGovernanceExportService
 
             $byRound = collect($productionRows)->groupBy('round_number');
             if ($byRound->isNotEmpty()) {
-                $firstRound = (int) $byRound->keys()->min();
-                $lastRound = (int) $byRound->keys()->max();
+                $prefixSeries = $this->buildPrefixSeriesByRound($byRound);
+                $hasPrefixData = false;
 
-                $firstMap = collect($byRound->get($firstRound, collect()))
-                    ->groupBy('order_number')
-                    ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
-                $firstCompanyMap = collect($byRound->get($firstRound, collect()))
-                    ->groupBy('order_number')
-                    ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
-                $firstClientMap = collect($byRound->get($firstRound, collect()))
-                    ->groupBy('order_number')
-                    ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
+                foreach (['170', '190', '150', '200'] as $prefix) {
+                    $series = collect($prefixSeries[$prefix] ?? [])->values();
+                    if ($series->isEmpty()) {
+                        continue;
+                    }
 
-                $lastMap = collect($byRound->get($lastRound, collect()))
-                    ->groupBy('order_number')
-                    ->map(fn ($rows) => (float) collect($rows)->sum('total_cost'));
-                $lastCompanyMap = collect($byRound->get($lastRound, collect()))
-                    ->groupBy('order_number')
-                    ->map(fn ($rows) => (float) collect($rows)->sum('company_cost'));
-                $lastClientMap = collect($byRound->get($lastRound, collect()))
-                    ->groupBy('order_number')
-                    ->map(fn ($rows) => (float) collect($rows)->sum('client_cost'));
+                    $hasPrefixData = true;
+                    $first = (array) $series->first();
+                    $last = (array) $series->last();
 
-                $planned += (float) $firstMap->sum();
-                $revised += (float) $lastMap->sum();
-                $plannedCompany += (float) $firstCompanyMap->sum();
-                $plannedClient += (float) $firstClientMap->sum();
-                $revisedCompany += (float) $lastCompanyMap->sum();
-                $revisedClient += (float) $lastClientMap->sum();
+                    $planned += (float) ($first['total'] ?? 0);
+                    $revised += (float) ($last['total'] ?? 0);
+                    $plannedCompany += (float) ($first['company'] ?? 0);
+                    $plannedClient += (float) ($first['client'] ?? 0);
+                    $revisedCompany += (float) ($last['company'] ?? 0);
+                    $revisedClient += (float) ($last['client'] ?? 0);
 
-                $allOrders = $firstMap->keys()->merge($lastMap->keys())->unique();
-                foreach ($allOrders as $orderNumber) {
-                    $first = (float) ($firstMap->get($orderNumber, 0));
-                    $last = (float) ($lastMap->get($orderNumber, 0));
-                    $delta = round($last - $first, 2);
+                    if ($series->count() >= 2) {
+                        $delta = round(((float) ($last['total'] ?? 0)) - ((float) ($first['total'] ?? 0)), 2);
+                        if ($delta > 0) {
+                            $increase += $delta;
+                        } elseif ($delta < 0) {
+                            $economy += abs($delta);
+                        } else {
+                            $maintainedCount++;
+                        }
+                    }
+                }
 
-                    if ($delta > 0) {
-                        $increase += $delta;
-                    } elseif ($delta < 0) {
-                        $economy += abs($delta);
-                    } else {
-                        $maintainedCount++;
+                if (!$hasPrefixData) {
+                    $roundTotals = $byRound
+                        ->sortKeys()
+                        ->map(function ($roundRows) {
+                            $rows = collect($roundRows);
+                            return [
+                                'total' => (float) $rows->sum('total_cost'),
+                                'company' => (float) $rows->sum('company_cost'),
+                                'client' => (float) $rows->sum('client_cost'),
+                            ];
+                        })
+                        ->values();
+
+                    $firstTotals = (array) $roundTotals->first();
+                    $lastTotals = (array) $roundTotals->last();
+                    $planned += (float) ($firstTotals['total'] ?? 0);
+                    $revised += (float) ($lastTotals['total'] ?? 0);
+                    $plannedCompany += (float) ($firstTotals['company'] ?? 0);
+                    $plannedClient += (float) ($firstTotals['client'] ?? 0);
+                    $revisedCompany += (float) ($lastTotals['company'] ?? 0);
+                    $revisedClient += (float) ($lastTotals['client'] ?? 0);
+
+                    if ($roundTotals->count() >= 2) {
+                        $delta = round(((float) ($lastTotals['total'] ?? 0)) - ((float) ($firstTotals['total'] ?? 0)), 2);
+                        if ($delta > 0) {
+                            $increase += $delta;
+                        } elseif ($delta < 0) {
+                            $economy += abs($delta);
+                        } else {
+                            $maintainedCount++;
+                        }
                     }
                 }
             }
@@ -776,6 +797,49 @@ class ProjectReviewGovernanceExportService
         });
 
         return collect($result);
+    }
+
+    private function buildPrefixSeriesByRound(Collection $byRound): array
+    {
+        $series = collect(['170', '190', '150', '200'])
+            ->mapWithKeys(fn ($prefix) => [$prefix => []])
+            ->all();
+
+        $byRound->sortKeys()->each(function ($roundRows) use (&$series) {
+            $latestByPrefix = [];
+
+            foreach (collect($roundRows) as $row) {
+                $prefix = $this->extractOrderPrefix((string) ($row->order_number ?? ''));
+                if (is_null($prefix)) {
+                    continue;
+                }
+
+                $latestByPrefix[$prefix] = [
+                    'total' => (float) ($row->total_cost ?? 0),
+                    'company' => (float) ($row->company_cost ?? 0),
+                    'client' => (float) ($row->client_cost ?? 0),
+                ];
+            }
+
+            foreach (['170', '190', '150', '200'] as $prefix) {
+                if (array_key_exists($prefix, $latestByPrefix)) {
+                    $series[$prefix][] = $latestByPrefix[$prefix];
+                }
+            }
+        });
+
+        return $series;
+    }
+
+    private function extractOrderPrefix(string $orderNumber): ?string
+    {
+        $digits = preg_replace('/\D+/', '', $orderNumber);
+        if (!$digits || strlen($digits) < 3) {
+            return null;
+        }
+
+        $prefix = substr($digits, 0, 3);
+        return in_array($prefix, ['170', '190', '150', '200'], true) ? $prefix : null;
     }
 
     private function buildCostVariationSummary(Collection $productionIds): array

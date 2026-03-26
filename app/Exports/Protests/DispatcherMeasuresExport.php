@@ -8,11 +8,17 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, WithChunkReading
+class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, WithChunkReading, ShouldAutoSize, WithEvents
 {
     use Exportable;
 
@@ -62,6 +68,8 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                 'med_protests.id',
                 'med_protests.med_id',
                 'med_protests.statusSist',
+                'med_protests.statMedida',
+                'med_protests.dtCriacaoMedida',
                 'med_protests.protest_id',
                 'med_protests.protest_type',
                 'med_protests.dtFimMedidaDesej',
@@ -69,6 +77,7 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                 'med_protests.result',
                 'protests.nota as protest_nota',
                 'protests.tipoNota as protest_tipo_nota',
+                'protests.dtAberturaNota as protest_dt_abertura_nota',
                 'protests.dtConclusaoDesej as protest_dt_conclusao_desej',
                 'protests.type',
                 'protests.statUsuar as protest_stat_usuar',
@@ -101,8 +110,12 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             $row->protest_nota,
             $row->protest_tipo_nota,
             $protestType,
-            $row->protest?->type,
+            $row->type,
             $row->statusSist,
+            $row->protest_stat_usuar,
+            $row->statMedida,
+            $this->formatDate($row->protest_dt_abertura_nota),
+            $this->formatDate($row->dtCriacaoMedida),
             $this->formatDate($row->protest_dt_conclusao_desej),
             $this->formatDate($row->dtFimMedidaDesej),            
             $this->formatDate($dueBase),
@@ -127,6 +140,10 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             'Tipo Reclamacão',
             'Categoria Reclamação',
             'Status Medida',
+            'Conclusao Nota',
+            'Conclusao Medida',
+            'Abertura Reclamação',
+            'Criacao Medida',
             'Conclusao desejada (Nota)',
             'Fim medida desejado',                       
             'SLA base considerado',
@@ -137,12 +154,97 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             'Despachante',
             'Job enviado em',
             'responsavel_conclusao',
+            'empresa_responsavel_conclusao',
         ];
     }
 
     public function chunkSize(): int
     {
         return 500;
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $columnsCount = max(1, count($this->headings()));
+                $lastColumn = $sheet->getCellByColumnAndRow($columnsCount, 1)->getColumn();
+                $lastRow = max(1, $sheet->getHighestRow());
+
+                $headerRange = "A1:{$lastColumn}1";
+                $allRange = "A1:{$lastColumn}{$lastRow}";
+                $dataRange = $lastRow >= 2 ? "A2:{$lastColumn}{$lastRow}" : null;
+
+                $sheet->freezePane('A2');
+                $sheet->getRowDimension(1)->setRowHeight(26);
+
+                $sheet->getStyle($headerRange)->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'color' => ['rgb' => 'FFFFFF'],
+                    ],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0F4C81'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['rgb' => 'D1D5DB'],
+                        ],
+                    ],
+                ]);
+
+                $sheet->getStyle($allRange)->applyFromArray([
+                    'alignment' => [
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['rgb' => 'E5E7EB'],
+                        ],
+                    ],
+                ]);
+
+                if ($dataRange) {
+                    for ($row = 2; $row <= $lastRow; $row++) {
+                        if ($row % 2 === 0) {
+                            $sheet->getStyle("A{$row}:{$lastColumn}{$row}")->applyFromArray([
+                                'fill' => [
+                                    'fillType' => Fill::FILL_SOLID,
+                                    'startColor' => ['rgb' => 'F8FAFC'],
+                                ],
+                            ]);
+                        }
+
+                        $onTimeCell = $sheet->getCell("O{$row}")->getValue();
+                        if ($onTimeCell === 'Sim') {
+                            $sheet->getStyle("O{$row}")->applyFromArray([
+                                'font' => ['bold' => true, 'color' => ['rgb' => '047857']],
+                                'fill' => [
+                                    'fillType' => Fill::FILL_SOLID,
+                                    'startColor' => ['rgb' => 'DCFCE7'],
+                                ],
+                            ]);
+                        } elseif ($onTimeCell === 'Nao') {
+                            $sheet->getStyle("O{$row}")->applyFromArray([
+                                'font' => ['bold' => true, 'color' => ['rgb' => 'B91C1C']],
+                                'fill' => [
+                                    'fillType' => Fill::FILL_SOLID,
+                                    'startColor' => ['rgb' => 'FEE2E2'],
+                                ],
+                            ]);
+                        }
+                    }
+                }
+            },
+        ];
     }
 
     protected function isOnTime($row): bool
@@ -152,16 +254,16 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                 return false;
             }
 
-            return Carbon::parse($row->dtFimMedida)
-                ->lte(Carbon::parse($row->protest_dt_conclusao_desej));
+            return Carbon::parse($row->dtFimMedida)->toDateString()
+                <= Carbon::parse($row->protest_dt_conclusao_desej)->toDateString();
         }
 
         if (! $row->dtFimMedidaDesej || ! $row->dtFimMedida) {
             return false;
         }
 
-        return Carbon::parse($row->dtFimMedida)
-            ->lte(Carbon::parse($row->dtFimMedidaDesej));
+        return Carbon::parse($row->dtFimMedida)->toDateString()
+            <= Carbon::parse($row->dtFimMedidaDesej)->toDateString();
     }
 
     protected function formatDate($value): ?string

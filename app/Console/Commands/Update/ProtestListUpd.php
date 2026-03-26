@@ -88,6 +88,7 @@ class ProtestListUpd extends Command
                     'med_id'             => $record->numOrdenacao,
 
                     'statusSist'         => $record->statusSist,
+                    'statMedida'         => $record->statMedida,
                     'codMedida'          => $record->codMedida,
                     'txtCodCodificacao'  => $record->txtCodCodificacao,
                     'txtCodMedida'       => $record->txtCodMedida,
@@ -123,6 +124,7 @@ class ProtestListUpd extends Command
                     ['protest_id', 'med_id'],
                     [
                         'statusSist',
+                        'statMedida',
                         'codMedida',
                         'txtCodCodificacao',
                         'txtCodMedida',

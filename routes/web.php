@@ -192,6 +192,8 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/return_work_reports', 'returnWorkReports')->middleware('can:management')->name('return_work_reports');
     Route::get('/cancellations/dashboard', 'cancellationDashboard')->middleware('can:management')->name('cancellations_dashboard');
     Route::get('/cancellations/list', 'cancellationList')->middleware('can:management')->name('cancellations_list');
+    Route::get('/complaints/mede', 'complaintsMedeReport')->middleware('can:management')->name('complaints_mede');
+    Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
 });
 
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\ProjectReview;
 
+use App\Jobs\Reports\ExportProjectReviewHistoryListJob;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\ProjectReviewCycle;
@@ -70,6 +71,35 @@ class History extends Component
     public function getCompaniesProperty()
     {
         return Company::query()->orderBy('name')->get(['id', 'name']);
+    }
+
+    public function exportList(): void
+    {
+        ExportProjectReviewHistoryListJob::dispatch(
+            $this->exportFilters(),
+            (string) auth()->id()
+        );
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportação iniciada',
+            'html' => "<div class='card'><div class='card-body'>
+                <p>Seu histórico está sendo gerado.</p>
+                <p class='mb-0'><strong>Você será notificado quando o download estiver pronto.</strong></p>
+            </div></div>",
+            'timer' => 5000,
+        ]);
+    }
+
+    private function exportFilters(): array
+    {
+        return [
+            'search' => $this->search,
+            'company_id' => $this->company_id,
+            'from' => $this->from,
+            'to' => $this->to,
+        ];
     }
 
     public function openProduction(int $productionId): void

@@ -9,6 +9,8 @@ use Throwable;
 
 class RegistroJson
 {
+    private const FAIL_REASON_SAFE_MAX = 240;
+
     /*** Política de retenção (0 = desativa) ***/
     private int $pruneDays = 60;
 
@@ -189,7 +191,7 @@ class RegistroJson
             'errosMSGs' => $this->erroMsg,
             'date_fim' => $now,
             'failed_at' => $now,
-            'fail_reason' => $reason,
+            'fail_reason' => $this->normalizeFailReason($reason),
         ]);
 
         $this->finalized = true;
@@ -210,7 +212,7 @@ class RegistroJson
                         'status' => UpdateExecutionLog::STATUS_FAIL,
                         'failed_at' => $startAt->toDateTimeString(),
                         'date_fim' => $startAt->toDateTimeString(),
-                        'fail_reason' => 'Execucao anterior ficou em aberto e foi encerrada ao iniciar nova execucao.',
+                        'fail_reason' => $this->normalizeFailReason('Execucao anterior ficou em aberto e foi encerrada ao iniciar nova execucao.'),
                     ]);
 
                 // Retenção de 2 meses.
@@ -256,5 +258,28 @@ class RegistroJson
         }
 
         return ['value' => $options];
+    }
+
+    private function normalizeFailReason(?string $reason): ?string
+    {
+        if ($reason === null) {
+            return null;
+        }
+
+        $reason = trim($reason);
+        if ($reason === '') {
+            return null;
+        }
+
+        $length = function_exists('mb_strlen') ? mb_strlen($reason) : strlen($reason);
+        if ($length <= self::FAIL_REASON_SAFE_MAX) {
+            return $reason;
+        }
+
+        $slice = function_exists('mb_substr')
+            ? mb_substr($reason, 0, self::FAIL_REASON_SAFE_MAX - 13)
+            : substr($reason, 0, self::FAIL_REASON_SAFE_MAX - 13);
+
+        return $slice . '...(truncado)';
     }
 }

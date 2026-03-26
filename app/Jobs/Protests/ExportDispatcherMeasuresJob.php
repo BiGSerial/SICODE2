@@ -51,7 +51,7 @@ class ExportDispatcherMeasuresJob implements ShouldQueue
 
             $user->notify(new SystemNotification(
                 titulo: 'Exportacao concluida!',
-                mensagem: 'O relatorio de medidas MEDE foi gerado e esta disponivel para download.',
+                mensagem: 'O relatorio de reclamacao (base MEDE) foi gerado e esta disponivel para download.',
                 link: Storage::url($filePath),
                 status: 4,
                 extras: []

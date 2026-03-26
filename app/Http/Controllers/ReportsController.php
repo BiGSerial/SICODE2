@@ -88,4 +88,14 @@ class ReportsController extends Controller
     {
         return view('reports.cancellation-list');
     }
+
+    public function fiveNotesReport()
+    {
+        return view('reports.five-notes-report');
+    }
+
+    public function complaintsMedeReport()
+    {
+        return view('reports.protest-mede');
+    }
 }
