@@ -135,7 +135,11 @@ class PersonalProductionsJob implements ShouldQueue
             $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
 
             // Notificação de sucesso
-            if ($stored && $user && $disk->exists($filePath)) {
+            if (!$stored) {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
+            }
+
+            if ($user) {
                 $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
@@ -144,8 +148,6 @@ class PersonalProductionsJob implements ShouldQueue
                     4,
                     []
                 ));
-            } else {
-                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
 
 
