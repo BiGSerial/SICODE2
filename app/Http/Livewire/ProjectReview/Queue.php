@@ -256,7 +256,7 @@ class Queue extends Component
 
     public function updatedSelectedPointFilter(): void
     {
-        $this->selectedPointFilter = $this->normalizePointLabel($this->selectedPointFilter);
+        $this->selectedPointFilter = $this->normalizePointFilter($this->selectedPointFilter);
     }
 
     public function updatedSelectedPointLabel(): void
@@ -1019,6 +1019,7 @@ class Queue extends Component
             ->get(['id', 'subcategory_id'])
             ->keyBy('id');
 
+        $uniqueByPointLabel = $this->hasPointLabelColumn();
         $seen = [];
         foreach ($pendingRows as $index => $row) {
             $rowIndex = (int) $index;
@@ -1074,10 +1075,18 @@ class Queue extends Component
             $key = (string) $row['subcategory_id']
                 . ':' . (string) ($row['item_id'] ?? 'null')
                 . ':' . (string) ($row['origin'] ?? 'PROJETO')
-                . ':' . (string) ($row['action_type'] ?? '')
-                . ':' . $pointLabel;
+                . ':' . (string) ($row['action_type'] ?? '');
+            if ($uniqueByPointLabel) {
+                // Com ponto de referência habilitado, a unicidade considera também a ref.
+                $key .= ':' . $pointLabel;
+            }
             if (isset($seen[$key]) && !empty($row['item_id'])) {
-                $this->addError("findingRows.{$rowIndex}.item_id", 'Item duplicado com a mesma ação na mesma subcategoria e origem nesta análise.');
+                $this->addError(
+                    "findingRows.{$rowIndex}.item_id",
+                    $uniqueByPointLabel
+                        ? 'Item duplicado: mesma subcategoria, origem, ação e ref nesta análise.'
+                        : 'Item duplicado: mesma subcategoria, origem e ação nesta análise.'
+                );
             }
             $seen[$key] = true;
         }
@@ -1139,7 +1148,7 @@ class Queue extends Component
                 $this->selectedProduction->User->notify(new SystemNotification(
                     titulo: 'Projeto Reprovado na Análise',
                     mensagem: 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi reprovada. Clique para abrir a conversa da análise.',
-                    link: $this->buildDrawingChatLink($this->selectedProduction),
+                    link: $this->buildProjectReviewLinkForRecipient($this->selectedProduction->User, $this->selectedProduction),
                     status: 4,
                     extras: []
                 ));
@@ -1173,7 +1182,7 @@ class Queue extends Component
             $this->selectedProduction->User->notify(new SystemNotification(
                 titulo: 'Novo comentário na Análise de Projeto',
                 mensagem: 'O analista comentou na nota <strong>' . ($this->selectedProduction->Note->note ?? '-') . '</strong>. Clique para abrir o chat.',
-                link: $this->buildDrawingChatLink($this->selectedProduction),
+                link: $this->buildProjectReviewLinkForRecipient($this->selectedProduction->User, $this->selectedProduction),
                 status: 2,
                 extras: []
             ));
@@ -1244,7 +1253,7 @@ class Queue extends Component
                     mensagem: $requiresSapRelease
                         ? 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi liberada para finalização no SAP.'
                         : 'A nota <strong>' . $this->selectedProduction->Note->note . '</strong> foi aprovada na análise de projeto.',
-                    link: $this->buildDrawingChatLink($this->selectedProduction),
+                    link: $this->buildProjectReviewLinkForRecipient($this->selectedProduction->User, $this->selectedProduction),
                     status: 1,
                     extras: []
                 ));
@@ -1444,7 +1453,13 @@ class Queue extends Component
         $this->selectedCategoryId = isset($payload['selectedCategoryId']) ? (int) $payload['selectedCategoryId'] : $this->selectedCategoryId;
         $this->selectedSubcategoryId = isset($payload['selectedSubcategoryId']) ? (int) $payload['selectedSubcategoryId'] : $this->selectedSubcategoryId;
         $this->selectedPointLabel = $this->normalizePointLabel((string) ($payload['selectedPointLabel'] ?? $this->selectedPointLabel));
-        $this->selectedPointFilter = $this->normalizePointLabel((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
+        $this->selectedPointFilter = $this->normalizePointFilter((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
+        if (
+            $this->selectedPointFilter === 'SEM PONTO'
+            && !collect($this->findingRows)->contains(fn ($row) => $this->normalizePointLabel($row['point_label'] ?? '') === 'SEM PONTO')
+        ) {
+            $this->selectedPointFilter = '';
+        }
         $this->selectedOrigin = (string) ($payload['selectedOrigin'] ?? $this->selectedOrigin);
         $this->selectedActionType = (string) ($payload['selectedActionType'] ?? $this->selectedActionType);
         $this->draftSavedAt = optional($draft->updated_at)->format('d/m/Y H:i:s');
@@ -1475,7 +1490,7 @@ class Queue extends Component
             'selectedCategoryId' => $this->selectedCategoryId,
             'selectedSubcategoryId' => $this->selectedSubcategoryId,
             'selectedPointLabel' => $this->normalizePointLabel($this->selectedPointLabel),
-            'selectedPointFilter' => $this->normalizePointLabel($this->selectedPointFilter),
+            'selectedPointFilter' => $this->normalizePointFilter($this->selectedPointFilter),
             'selectedOrigin' => $this->selectedOrigin,
             'selectedActionType' => $this->selectedActionType,
         ];
@@ -1509,15 +1524,53 @@ class Queue extends Component
             ->delete();
     }
 
-    private function buildDrawingChatLink(Production $production): string
+    private function buildProjectReviewLinkForRecipient(User $recipient, Production $production): string
     {
-        return route('services.production', [
+        $targetProduction = $this->resolveRecipientProductionForUserArea($recipient, $production);
+        $isOwnerRecipient = (string) $targetProduction->user_id === (string) $recipient->id;
+
+        if ($isOwnerRecipient) {
+            return route('services.production', [
+                'service' => $targetProduction->service_id,
+                'prod' => $targetProduction->id,
+                'open_project_review' => 1,
+                'production' => $targetProduction->id,
+                'note' => $targetProduction->note_id,
+                'focus' => 'chat',
+            ]);
+        }
+
+        if ($recipient->can('analyst')) {
+            return route('project_review.list', [
+                'production' => $production->id,
+                'focus' => 'chat',
+            ]);
+        }
+
+        return route('services.main', [
             'service' => $production->service_id,
-            'prod' => $production->id,
-            'open_project_review' => 1,
-            'production' => $production->id,
-            'note' => $production->note_id,
         ]);
+    }
+
+    private function resolveRecipientProductionForUserArea(User $recipient, Production $production): Production
+    {
+        if ((string) $production->user_id === (string) $recipient->id) {
+            return $production;
+        }
+
+        $recipientProduction = Production::query()
+            ->where('note_id', $production->note_id)
+            ->where('user_id', $recipient->id)
+            ->whereHas('Service', function ($q) {
+                $q->where(function ($serviceQuery) {
+                    $serviceQuery->where('folder', 'desenho')
+                        ->orWhereRaw('LOWER(service) like ?', ['%desenho%']);
+                });
+            })
+            ->latest('id')
+            ->first();
+
+        return $recipientProduction ?: $production;
     }
 
     private function normalizePointLabel(?string $value): string
@@ -1528,6 +1581,16 @@ class Queue extends Component
         }
 
         return mb_substr(mb_strtoupper($label, 'UTF-8'), 0, 120);
+    }
+
+    private function normalizePointFilter(?string $value): string
+    {
+        $filter = trim((string) $value);
+        if ($filter === '') {
+            return '';
+        }
+
+        return $this->normalizePointLabel($filter);
     }
 
     private function hasPointLabelColumn(): bool

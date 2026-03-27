@@ -674,6 +674,11 @@ class Analise extends Component
             return;
         }
 
+        if (!$this->hasAllowedProjectReviewOrderPrefix($newNumber)) {
+            $this->addError('order_input_number', 'Ordem inválida para Análise de Projeto. Use ordens iniciadas por 170, 190, 150 ou 200.');
+            return;
+        }
+
         $exists = collect($this->reviewOrders)->contains(function ($row) use ($newNumber) {
             return trim((string) ($row['order_number'] ?? '')) === $newNumber;
         });
@@ -849,6 +854,11 @@ class Analise extends Component
                 continue;
             }
 
+            if (!$this->hasAllowedProjectReviewOrderPrefix($number)) {
+                $this->addError("reviewOrders.{$index}.order_number", 'Ordem inválida para Análise de Projeto. Prefixos aceitos: 170, 190, 150 ou 200.');
+                continue;
+            }
+
             if (in_array($number, $orderNumbers, true)) {
                 $this->addError("reviewOrders.{$index}.order_number", 'Número de ordem duplicado nesta submissão.');
             }
@@ -893,6 +903,17 @@ class Analise extends Component
 
         preg_match_all('/\d+/', $value, $matches);
         return count($matches[0] ?? []) > 1;
+    }
+
+    private function hasAllowedProjectReviewOrderPrefix(?string $orderNumber): bool
+    {
+        $number = preg_replace('/\D+/', '', (string) $orderNumber);
+        if ($number === '' || strlen($number) < 3) {
+            return false;
+        }
+
+        $prefix = substr($number, 0, 3);
+        return in_array($prefix, ['170', '190', '150', '200'], true);
     }
 
     private function autofillCostTuple(?float $total, ?float $company, ?float $client): array
@@ -1587,24 +1608,60 @@ class Analise extends Component
     private function buildProjectReviewChatLinkForRecipient(User $recipient): string
     {
         if (!$this->production) {
-            return route('project_review.list');
+            return $recipient->can('analyst')
+                ? route('project_review.list')
+                : route('home');
         }
 
-        $isProductionOwner = (string) $recipient->id === (string) $this->production->user_id;
-        if ($isProductionOwner) {
+        $targetProduction = $this->resolveRecipientProductionForUserArea($recipient) ?: $this->production;
+        $isOwnerRecipient = (string) $targetProduction->user_id === (string) $recipient->id;
+
+        if ($isOwnerRecipient) {
             return route('services.production', [
-                'service' => $this->production->service_id,
-                'prod' => $this->production->id,
+                'service' => $targetProduction->service_id,
+                'prod' => $targetProduction->id,
                 'open_project_review' => 1,
-                'production' => $this->production->id,
-                'note' => $this->production->note_id,
+                'production' => $targetProduction->id,
+                'note' => $targetProduction->note_id,
+                'focus' => 'chat',
             ]);
         }
 
-        return route('project_review.list', [
-            'production' => $this->production->id,
-            'focus' => 'chat',
+        if ($recipient->can('analyst')) {
+            return route('project_review.list', [
+                'production' => $this->production->id,
+                'focus' => 'chat',
+            ]);
+        }
+
+        return route('services.main', [
+            'service' => $this->production->service_id,
         ]);
+    }
+
+    private function resolveRecipientProductionForUserArea(User $recipient): ?Production
+    {
+        if (!$this->production) {
+            return null;
+        }
+
+        if ((string) $recipient->id === (string) $this->production->user_id) {
+            return $this->production;
+        }
+
+        $recipientProduction = Production::query()
+            ->where('note_id', $this->production->note_id)
+            ->where('user_id', $recipient->id)
+            ->whereHas('Service', function ($q) {
+                $q->where(function ($serviceQuery) {
+                    $serviceQuery->where('folder', 'desenho')
+                        ->orWhereRaw('LOWER(service) like ?', ['%desenho%']);
+                });
+            })
+            ->latest('id')
+            ->first();
+
+        return $recipientProduction ?: $this->production;
     }
 
     private function mapRejectedFindingsForView(Collection $findings): array

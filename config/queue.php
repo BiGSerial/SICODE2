@@ -75,6 +75,46 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Notifications Queue
+    |--------------------------------------------------------------------------
+    |
+    | Fila dedicada para notificações do sistema.
+    |
+    */
+    'notifications' => [
+        'connection' => env('QUEUE_NOTIFICATIONS_CONNECTION', 'database'),
+        'queue'      => env('QUEUE_NOTIFICATIONS', 'messages'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Channels
+    |--------------------------------------------------------------------------
+    |
+    | Canais dedicados por tipo de trabalho (alinhado ao supervisor).
+    |
+    */
+    'channels' => [
+        'high' => [
+            'connection' => env('QUEUE_HIGH_CONNECTION', 'database'),
+            'queue'      => env('QUEUE_HIGH', 'high'),
+        ],
+        'exports' => [
+            'connection' => env('QUEUE_EXPORTS_CONNECTION', 'database'),
+            'queue'      => env('QUEUE_EXPORTS', 'exports'),
+        ],
+        'messages' => [
+            'connection' => env('QUEUE_MESSAGES_CONNECTION', 'database'),
+            'queue'      => env('QUEUE_MESSAGES', 'messages'),
+        ],
+        'default' => [
+            'connection' => env('QUEUE_DEFAULT_CONNECTION', 'database'),
+            'queue'      => env('QUEUE_DEFAULT', 'default'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Job Batching
     |--------------------------------------------------------------------------
     |

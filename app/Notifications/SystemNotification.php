@@ -50,6 +50,26 @@ class SystemNotification extends Notification implements ShouldQueue
     }
 
     /**
+     * Conexão dedicada para notificação em fila.
+     */
+    public function viaConnections(): array
+    {
+        return [
+            'database' => config('queue.notifications.connection', config('queue.default')),
+        ];
+    }
+
+    /**
+     * Fila dedicada para notificação em fila.
+     */
+    public function viaQueues(): array
+    {
+        return [
+            'database' => config('queue.notifications.queue', 'messages'),
+        ];
+    }
+
+    /**
      * Get the mail representation of the notification.
      */
     public function toDatabase($notifiable)

@@ -107,6 +107,8 @@
         ['route' => 'reports.cancellations_dashboard', 'label' => 'DASHBOARD CANCELAMENTOS'],
         ['route' => 'reports.cancellations_list', 'label' => 'LISTA CANCELAMENTOS'],
         ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)'],
+        ['route' => 'reports.complaints_mede', 'label' => 'RELATÓRIO DE RECLAMAÇÃO'],
+        ['route' => 'reports.five_notes', 'label' => 'RELATÓRIO NOTAS D5'],
         ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA'],
     ];
 @endphp

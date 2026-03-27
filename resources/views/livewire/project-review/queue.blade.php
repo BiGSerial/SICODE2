@@ -47,7 +47,7 @@
         .table-card {
             background: var(--oe-surface);
             border: 1px solid var(--oe-border);
-            border-radius: 0;
+            border-radius: 1rem;
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
             overflow: hidden;
         }
@@ -57,6 +57,24 @@
             text-transform: uppercase;
             letter-spacing: 0.06em;
             white-space: nowrap;
+        }
+
+        .summary-bar {
+            background: var(--oe-surface);
+            border: 1px solid var(--oe-border);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+            margin-bottom: 1rem;
+        }
+
+        .summary-item {
+            color: var(--oe-muted);
+            font-size: 0.92rem;
+        }
+
+        .summary-item strong {
+            color: var(--oe-ink);
         }
 
         .card-soft {
@@ -250,6 +268,20 @@
             </div>
         </div>
 
+        @php
+            $currentPageCount = method_exists($lists, 'count') ? $lists->count() : count($lists);
+            $totalCount = method_exists($lists, 'total') ? (int) $lists->total() : $currentPageCount;
+        @endphp
+
+        <div class="summary-bar d-flex flex-wrap gap-3 align-items-center justify-content-between">
+            <div class="summary-item">
+                Exibindo <strong>{{ $currentPageCount }}</strong> registro(s) nesta página.
+            </div>
+            <div class="summary-item">
+                Total na fila atual: <strong>{{ $totalCount }}</strong>.
+            </div>
+        </div>
+
         <div class="table-card">
             <div class="card-header text-bg-dark fw-bold">Atividades > Análise de Projeto</div>
             <div class="card-body border-bottom">
@@ -424,6 +456,9 @@
             </div>
             <div class="card-body">
                 @if($lists instanceof \Illuminate\Contracts\Pagination\Paginator || $lists instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+                    <div class="small text-muted mb-2">
+                        Mostrando {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} registros.
+                    </div>
                     {{ $lists->links() }}
                 @endif
             </div>
@@ -490,15 +525,76 @@
                                                     });
                                                 });
 
-                                            $sumIncrease = (float) $historyGrouped
-                                                ->flatten(1)
-                                                ->filter(fn($r) => !is_null($r['delta_total']) && $r['delta_total'] > 0)
-                                                ->sum('delta_total');
+                                            // Totalizador da diferença por rodada (não por número da ordem),
+                                            // para cobrir cenários de troca/cancelamento de ordem entre ciclos.
+                                            $roundTotals = $cyclesAsc
+                                                ->map(function ($cy) {
+                                                    $allowedPrefixes = ['170', '190', '150', '200'];
+                                                    $latestByPrefix = [];
+                                                    $fallbackTotal = 0.0;
 
-                                            $sumEconomy = (float) $historyGrouped
-                                                ->flatten(1)
-                                                ->filter(fn($r) => !is_null($r['delta_total']) && $r['delta_total'] < 0)
-                                                ->sum(fn($r) => abs((float) $r['delta_total']));
+                                                    foreach (collect($cy->Orders ?? collect()) as $ord) {
+                                                        $fallbackTotal += (float) ($ord->total_cost ?? 0);
+                                                        $digits = preg_replace('/\D+/', '', (string) ($ord->order_number ?? ''));
+                                                        $prefix = strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+
+                                                        if (in_array($prefix, $allowedPrefixes, true)) {
+                                                            $latestByPrefix[$prefix] = (float) ($ord->total_cost ?? 0);
+                                                        }
+                                                    }
+
+                                                    if (count($latestByPrefix)) {
+                                                        return (float) array_sum($latestByPrefix);
+                                                    }
+
+                                                    return $fallbackTotal;
+                                                })
+                                                ->values();
+
+                                            $sumIncrease = 0.0;
+                                            $sumEconomy = 0.0;
+                                            $prefixSeries = collect(['170', '190', '150', '200'])->mapWithKeys(fn($p) => [$p => []])->all();
+                                            foreach ($cyclesAsc as $cycleRow) {
+                                                $roundPrefixTotals = [];
+                                                foreach (collect($cycleRow->Orders ?? collect()) as $ord) {
+                                                    $digits = preg_replace('/\D+/', '', (string) ($ord->order_number ?? ''));
+                                                    $prefix = strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+                                                    if (in_array($prefix, ['170', '190', '150', '200'], true)) {
+                                                        $roundPrefixTotals[$prefix] = (float) ($ord->total_cost ?? 0);
+                                                    }
+                                                }
+                                                foreach (['170', '190', '150', '200'] as $prefix) {
+                                                    if (array_key_exists($prefix, $roundPrefixTotals)) {
+                                                        $prefixSeries[$prefix][] = (float) $roundPrefixTotals[$prefix];
+                                                    }
+                                                }
+                                            }
+
+                                            $hasPrefixDataForTotals = false;
+                                            foreach (['170', '190', '150', '200'] as $prefix) {
+                                                $values = collect($prefixSeries[$prefix] ?? [])->values();
+                                                if ($values->count() < 2) {
+                                                    continue;
+                                                }
+                                                $hasPrefixDataForTotals = true;
+                                                $deltaPrefix = round(((float) $values->last()) - ((float) $values->first()), 2);
+                                                if ($deltaPrefix > 0) {
+                                                    $sumIncrease += $deltaPrefix;
+                                                } elseif ($deltaPrefix < 0) {
+                                                    $sumEconomy += abs($deltaPrefix);
+                                                }
+                                            }
+
+                                            if (!$hasPrefixDataForTotals) {
+                                                for ($i = 1; $i < $roundTotals->count(); $i++) {
+                                                    $deltaRound = round(((float) $roundTotals[$i]) - ((float) $roundTotals[$i - 1]), 2);
+                                                    if ($deltaRound > 0) {
+                                                        $sumIncrease += $deltaRound;
+                                                    } elseif ($deltaRound < 0) {
+                                                        $sumEconomy += abs($deltaRound);
+                                                    }
+                                                }
+                                            }
 
                                             $sumNet = round($sumIncrease - $sumEconomy, 2);
                                         @endphp

@@ -262,6 +262,22 @@
                             </div>
                         </div>
                         <div class="filter-group">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="includeOpen"
+                                    wire:model="includeOpen">
+                                <label class="form-check-label text-white-50" for="includeOpen">
+                                    Incluir em aberto
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="includeRi"
+                                    wire:model="includeRi">
+                                <label class="form-check-label text-white-50" for="includeRi">
+                                    Incluir RI
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filter-group">
                             <button type="button" class="filter-select export-btn" wire:click="exportToExcel"
                                 wire:loading.attr="disabled">
                                 <span wire:loading.remove wire:target="exportToExcel">

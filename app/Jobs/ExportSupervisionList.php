@@ -106,22 +106,27 @@ class ExportSupervisionList implements ShouldQueue
             $query->whereIn('rubrica', $this->params['filter']['rubrica']);
         }
 
-        if (!empty($this->params['filter']['city'])) {
-            $city = $this->params['filter']['city'];
-            $query->where(function ($q) use ($city) {
-                $q->orWhereIn('lexp', $city)
-                    ->orWhereNull('lexp')
-                    ->orWhere('lexp', '');
-            });
+        if (!empty($this->params['filter']['city']) && is_array($this->params['filter']['city'])) {
+            $city = collect($this->params['filter']['city'])
+                ->filter(fn ($value) => trim((string) $value) !== '')
+                ->values()
+                ->all();
+
+            if (!empty($city)) {
+                $query->whereRelation('City', function ($q) use ($city) {
+                    $q->whereIn('rdMunicipio', $city);
+                });
+            }
         }
 
         $query->with([
             'orders' => function ($q) {
                 $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-            },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds'
+            },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'
         ])
         ->select('notes.*', 'work_reports.created_at as work_dt_created')
-        ->orderBy('work_dt_created', 'ASC');
+        ->orderBy('work_dt_created', 'ASC')
+        ->orderBy('id', 'ASC');
 
 
         $filePath = null;

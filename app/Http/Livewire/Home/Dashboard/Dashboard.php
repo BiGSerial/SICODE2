@@ -23,6 +23,8 @@ class Dashboard extends Component
     public $selectedService;
     public $dt_in;
     public $dt_out;
+    public $includeOpen = false;
+    public $includeRi = false;
 
 
     // PROPRIEDADES PARA ARMAZENAR OS DADOS CALCULADOS
@@ -37,6 +39,8 @@ class Dashboard extends Component
         'selectedService' => ['except' => '', 'as' => 'servico'],
         'dt_in' => ['except' => '', 'as' => 'dtin'],
         'dt_out' => ['except' => '', 'as' => 'dtout'],
+        'includeOpen' => ['except' => false, 'as' => 'aberto'],
+        'includeRi' => ['except' => false, 'as' => 'ri'],
     ];
 
     public function mount()
@@ -46,7 +50,6 @@ class Dashboard extends Component
         $this->dt_out = now()->format('Y-m-d');
 
         $this->services = Service::whereIn('uuid', Production::where('user_id', auth()->id())
-            ->where('completed', true)
             ->where('rejected', false)
             ->where('d5', false)
             ->distinct('service_id')
@@ -68,9 +71,13 @@ class Dashboard extends Component
             'dt_init'     => $this->dt_in,   // 'Y-m-d'
             'dt_end'      => $this->dt_out,  // 'Y-m-d'
             'monthYear'   => $this->selectedMonth, // referência visual do período no dashboard
+            'include_open' => (bool) $this->includeOpen,
+            'include_ri'   => (bool) $this->includeRi,
         ];
 
-        PersonalProductionsJob::dispatch($params, auth()->id());
+        PersonalProductionsJob::dispatch($params, auth()->id())
+            ->onConnection((string) config('queue.channels.exports.connection', 'database'))
+            ->onQueue((string) config('queue.channels.exports.queue', 'exports'));
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',

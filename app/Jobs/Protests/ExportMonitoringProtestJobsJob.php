@@ -2,7 +2,7 @@
 
 namespace App\Jobs\Protests;
 
-use App\Exports\Protests\DispatcherMeasuresExport;
+use App\Exports\Protests\MonitoringProtestJobsExport;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
@@ -13,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
-class ExportDispatcherMeasuresJob implements ShouldQueue
+class ExportMonitoringProtestJobsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -34,30 +34,30 @@ class ExportDispatcherMeasuresJob implements ShouldQueue
     {
         $user = User::find($this->userId);
 
-        if (! $user) {
+        if (!$user) {
             return;
         }
 
-        $filePath = 'exports/protests/' . now()->format('YmdHis') . '_medidas_mede.xlsx';
+        $filePath = 'exports/protests/' . now()->format('YmdHis') . '_monitoring_jobs.xlsx';
         $disk = Storage::disk('local');
 
         try {
             $disk->makeDirectory('exports/protests');
-            (new DispatcherMeasuresExport($this->filters))->store($filePath, 'local');
+            (new MonitoringProtestJobsExport($this->filters))->store($filePath, 'local');
 
-            if (! $disk->exists($filePath)) {
-                throw new \RuntimeException('Arquivo nao foi gerado no disco configurado.');
+            if (!$disk->exists($filePath)) {
+                throw new \RuntimeException('Arquivo não foi gerado no disco configurado.');
             }
 
             $user->notify(new SystemNotification(
-                titulo: 'Exportacao concluida!',
-                mensagem: 'O relatorio de reclamacao (base MEDE) foi gerado e esta disponivel para download.',
+                titulo: 'Exportação concluída!',
+                mensagem: 'O relatório de monitoramento de jobs foi gerado e está disponível para download.',
                 link: Storage::url($filePath),
                 status: 4,
                 extras: []
             ));
         } catch (\Throwable $e) {
-            Log::error('ExportDispatcherMeasuresJob falhou', [
+            Log::error('ExportMonitoringProtestJobsJob falhou', [
                 'user_id' => $this->userId,
                 'filters' => $this->filters,
                 'attempt' => $this->attempts(),
@@ -81,8 +81,8 @@ class ExportDispatcherMeasuresJob implements ShouldQueue
     {
         if ($user = User::find($this->userId)) {
             $user->notify(new SystemNotification(
-                titulo: 'Erro na exportacao',
-                mensagem: 'Nao foi possivel gerar o relatorio solicitado. ' . $message,
+                titulo: 'Erro na exportação',
+                mensagem: 'Não foi possível gerar o relatório solicitado. ' . $message,
                 link: null,
                 status: 5,
                 extras: []

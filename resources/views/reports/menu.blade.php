@@ -19,6 +19,16 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{{ route('reports.five_notes') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-card-list fs-5 edp-text-verde-dark fw-normal"></i><span>RELATÓRIO NOTAS D5</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('reports.complaints_mede') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-file-earmark-excel fs-5 edp-text-verde-dark fw-normal"></i><span>RELATÓRIO DE RECLAMAÇÃO</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('reports.ads_solicitadas') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-card-list fs-5 edp-text-verde-dark fw-normal"></i><span>ADS SOLICITADAS</span>
                         </a>
@@ -51,6 +61,7 @@
                 </div>
             </ul>
         </li>
+
     </ul>
 
 
