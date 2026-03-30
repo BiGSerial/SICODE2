@@ -118,6 +118,26 @@ class Queue extends Component
         $query = $this->baseListQuery();
 
         $lists = $query
+            ->orderByRaw("
+                CASE
+                    WHEN (
+                        SELECT notes.type_note
+                        FROM notes
+                        WHERE notes.id = productions.note_id
+                        LIMIT 1
+                    ) = 2 THEN 0
+                    ELSE 1
+                END ASC
+            ")
+            ->orderByRaw("
+                COALESCE((
+                    SELECT notes.days_left
+                    FROM notes
+                    WHERE notes.id = productions.note_id
+                    LIMIT 1
+                ), 2147483647) ASC
+            ")
+            ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc')
             ->paginate(30);
 
