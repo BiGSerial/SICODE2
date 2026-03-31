@@ -118,6 +118,26 @@ class Queue extends Component
         $query = $this->baseListQuery();
 
         $lists = $query
+            ->orderByRaw("
+                CASE
+                    WHEN (
+                        SELECT notes.type_note
+                        FROM notes
+                        WHERE notes.id = productions.note_id
+                        LIMIT 1
+                    ) = 2 THEN 0
+                    ELSE 1
+                END ASC
+            ")
+            ->orderByRaw("
+                COALESCE((
+                    SELECT notes.days_left
+                    FROM notes
+                    WHERE notes.id = productions.note_id
+                    LIMIT 1
+                ), 2147483647) ASC
+            ")
+            ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc')
             ->paginate(30);
 
@@ -1056,7 +1076,7 @@ class Queue extends Component
                 $this->addError("findingRows.{$rowIndex}.origin", 'Origem inválida.');
             }
 
-            if (!empty($row['action_type']) && !in_array((string) $row['action_type'], ['FALTA', 'ADICIONAR', 'REMOVER'], true)) {
+            if (!empty($row['action_type']) && !in_array((string) $row['action_type'], ['FALTA', 'ADICIONAR', 'REMOVER', 'ALTERAR'], true)) {
                 $this->addError("findingRows.{$rowIndex}.action_type", 'Movimento inválido.');
             }
 
@@ -1065,7 +1085,7 @@ class Queue extends Component
             }
 
             if (!empty($row['item_id']) && empty($row['action_type'])) {
-                $this->addError("findingRows.{$rowIndex}.action_type", 'Selecione FALTA/ADICIONAR/REMOVER antes de adicionar item.');
+                $this->addError("findingRows.{$rowIndex}.action_type", 'Selecione FALTA/ADICIONAR/REMOVER/ALTERAR antes de adicionar item.');
             }
 
             if (!empty($row['item_id']) && empty($row['quantity'])) {

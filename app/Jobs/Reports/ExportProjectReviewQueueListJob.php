@@ -111,13 +111,21 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
                 'ProjectReviewCycles' => function ($q) {
                     $q->with(['Orders', 'DecidedBy'])->latest('round_number');
                 },
-            ]);
+            ])
+            ->withCount([
+                'ProjectReviewCycles as rejected_cycles_count' => function ($q) {
+                    $q->where('decision', 'REJECTED');
+                },
+                'Notetimelines as rejected_status_timeline_count' => function ($q) {
+                    $q->where('status', Production::STATUS_REJECTED_PROJECT_REVIEW);
+                },
+            ])
+            ->withMax('ProjectReviewCycles as latest_round_number', 'round_number');
 
         if ($tab === 'pending') {
-            $query->where('status', Production::STATUS_IN_PROJECT_REVIEW)
-                ->where('completed', false);
+            $query->where('status', Production::STATUS_IN_PROJECT_REVIEW);
         } else {
-            $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW])
+            $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
                 ->whereHas('ProjectReviewCycles', function ($q) {
                     $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
                 });
@@ -160,7 +168,30 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
             });
         }
 
-        return $query->orderBy('id', 'asc')->get()->map(function ($production) {
+        return $query
+            ->orderByRaw("
+                CASE
+                    WHEN (
+                        SELECT notes.type_note
+                        FROM notes
+                        WHERE notes.id = productions.note_id
+                        LIMIT 1
+                    ) = 2 THEN 0
+                    ELSE 1
+                END ASC
+            ")
+            ->orderByRaw("
+                COALESCE((
+                    SELECT notes.days_left
+                    FROM notes
+                    WHERE notes.id = productions.note_id
+                    LIMIT 1
+                ), 2147483647) ASC
+            ")
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get()
+            ->map(function ($production) {
             $cycle = collect($production->ProjectReviewCycles)->sortByDesc('round_number')->first();
             $orders = $cycle?->Orders ?? collect();
             if ($orders->isEmpty()) {
@@ -182,6 +213,14 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
                     return !is_null($c->decided_at);
                 });
 
+            $latestRound = (int) ($production->latest_round_number ?? ($cycle?->round_number ?? 1));
+            $rejectedCount = (int) ($production->rejected_cycles_count ?? 0);
+            $rejectedTimelineCount = (int) ($production->rejected_status_timeline_count ?? 0);
+            $isReturnToReview = ($latestRound > 1)
+                || ($rejectedCount > 0)
+                || ($rejectedTimelineCount > 0)
+                || collect($production->ProjectReviewCycles)->contains(fn ($c) => $c->decision === 'REJECTED');
+
             return [
                 $production->Note->note ?? '---',
                 $production->User->name ?? '---',
@@ -191,10 +230,11 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
                 $companyCostsText !== '' ? $companyCostsText : '---',
                 $clientCostsText !== '' ? $clientCostsText : '---',
                 Notestatus::status((int) $production->status)->status,
+                $isReturnToReview ? 'Retorno' : 'Inicial',
                 $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---',
                 $latestDecidedCycle?->DecidedBy?->name ?? '---',
                 $latestDecidedCycle?->analyst_note ?? '---',
             ];
-        })->all();
+            })->all();
     }
 }

@@ -368,12 +368,14 @@
                     </tbody>
                 </table>
             </div>
-            <div class="p-3 border-top">
-                <div class="small text-muted mb-2">
-                    Mostrando {{ $rows->firstItem() ?? 0 }} até {{ $rows->lastItem() ?? 0 }} de {{ $rows->total() }} registros.
+            @if($rows instanceof \Illuminate\Contracts\Pagination\Paginator || $rows instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+                <div class="p-3 border-top">
+                    <div class="small text-muted mb-2">
+                        Mostrando {{ $rows->firstItem() ?? 0 }} até {{ $rows->lastItem() ?? 0 }} de {{ $rows->total() }} registros.
+                    </div>
+                    {{ $rows->links() }}
                 </div>
-                {{ $rows->links() }}
-            </div>
+            @endif
         </div>
     </div>
 
@@ -382,7 +384,7 @@
             <div class="modal-content border-0">
                 <div class="modal-header text-bg-dark">
                     <h5 class="modal-title">Histórico da Análise - {{ $selectedProduction?->Note?->note }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" wire:click="closeModal"></button>
                 </div>
                 <div class="modal-body oexterno-page">
                     @if ($selectedCycle)
@@ -422,7 +424,6 @@
                                     <div class="card-body small">
                                         @php
                                             $laudos = collect($selectedProduction?->ProjectReviewCycles ?? [])
-                                                ->filter(fn($c) => !is_null($c->decided_at))
                                                 ->sortByDesc('round_number');
                                         @endphp
                                         @forelse($laudos as $laudoCycle)
@@ -432,6 +433,9 @@
                                                         <strong>Rodada {{ $laudoCycle->round_number }}</strong>
                                                         -
                                                         @switch($laudoCycle->decision)
+                                                            @case('PENDING')
+                                                                Em análise
+                                                                @break
                                                             @case('APPROVED')
                                                                 Aprovado
                                                                 @break
@@ -445,7 +449,14 @@
                                                                 {{ $laudoCycle->decision ?? '---' }}
                                                         @endswitch
                                                     </div>
-                                                    <div class="text-muted">{{ $laudoCycle->decided_at ? date('d/m/Y H:i', strtotime($laudoCycle->decided_at)) : '---' }}</div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="text-muted">{{ $laudoCycle->decided_at ? date('d/m/Y H:i', strtotime($laudoCycle->decided_at)) : '---' }}</div>
+                                                        <button type="button"
+                                                            class="btn btn-sm {{ (int) $selectedCycle->id === (int) $laudoCycle->id ? 'btn-primary' : 'btn-outline-primary' }}"
+                                                            wire:click="selectCycle({{ $laudoCycle->id }})">
+                                                            {{ (int) $selectedCycle->id === (int) $laudoCycle->id ? 'Selecionada' : 'Abrir' }}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div><strong>Analista:</strong> {{ $laudoCycle->DecidedBy?->name ?? '---' }}</div>
                                                 <div class="mt-1"><strong>Laudo:</strong> {{ $laudoCycle->analyst_note ?: '---' }}</div>
@@ -651,8 +662,154 @@
 
                             <div class="col-lg-7">
                                 <div class="card card-soft h-100">
-                                    <div class="card-header">Estrutura da análise (histórico)</div>
+                                    <div class="card-header d-flex align-items-center justify-content-between gap-2">
+                                        <span>Estrutura da análise (histórico)</span>
+                                        @if($this->canEditSelectedCycle)
+                                            <div class="d-flex gap-2">
+                                                @if(!$editingFindings)
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" wire:click="startFindingsEdit">
+                                                        Editar estrutura
+                                                    </button>
+                                                @else
+                                                    <button type="button" class="btn btn-sm btn-success" wire:click="saveFindingsEdit">
+                                                        Salvar alterações
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="cancelFindingsEdit">
+                                                        Cancelar
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
                                     <div class="card-body">
+                                        @if($editingFindings)
+                                            <div class="alert alert-info py-2 small">
+                                                Edição habilitada para rodadas não aprovadas. Ao salvar, será registrado um evento na timeline.
+                                            </div>
+                                            <div class="card border mb-3">
+                                                <div class="card-header py-2">Adicionar apontamento</div>
+                                                <div class="card-body py-2">
+                                                    <div class="row g-2 align-items-end">
+                                                        <div class="col-md-3">
+                                                            <label class="form-label mb-1">Ref:</label>
+                                                            <input type="text" class="form-control form-control-sm" wire:model.defer="selectedPointLabel" placeholder="Ex.: P1">
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <label class="form-label mb-1">Categoria:</label>
+                                                            <select class="form-select form-select-sm" wire:model="selectedCategoryId">
+                                                                <option value="">Selecione...</option>
+                                                                @foreach($categories as $cat)
+                                                                    <option value="{{ data_get($cat, 'id') }}">{{ data_get($cat, 'name') }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <label class="form-label mb-1">Subcategoria:</label>
+                                                            <select class="form-select form-select-sm" wire:model="selectedSubcategoryId">
+                                                                <option value="">Selecione...</option>
+                                                                @foreach($availableSubcategories as $sub)
+                                                                    <option value="{{ data_get($sub, 'id') }}">{{ data_get($sub, 'name') }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <label class="form-label mb-1">Origem:</label>
+                                                            <select class="form-select form-select-sm" wire:model="selectedOrigin">
+                                                                <option value="LEVANTAMENTO">Levantamento</option>
+                                                                <option value="PROJETO">Projeto</option>
+                                                                <option value="AMBOS">Ambos</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <label class="form-label mb-1">Movimento:</label>
+                                                            <select class="form-select form-select-sm" wire:model="selectedActionType">
+                                                                <option value="FALTA">FALTA</option>
+                                                                <option value="ADICIONAR">ADICIONAR</option>
+                                                                <option value="REMOVER">REMOVER</option>
+                                                                <option value="ALTERAR">ALTERAR</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-9 d-flex flex-wrap gap-2">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                wire:click="addHistoryEmptySubcategory">
+                                                                Adicionar subcategoria sem item
+                                                            </button>
+                                                            @foreach($availableItems as $item)
+                                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                    wire:click="addHistoryItemToFindings({{ data_get($item, 'id') }})">
+                                                                    + {{ data_get($item, 'name') }}
+                                                                </button>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="table-responsive border rounded mb-3">
+                                                <table class="table table-sm mb-0 align-middle">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Ref:</th>
+                                                            <th>Subcategoria</th>
+                                                            <th>Ação</th>
+                                                            <th>Qtd.</th>
+                                                            <th>Origem</th>
+                                                            <th>Observação</th>
+                                                            <th style="width: 70px;"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @forelse($historyFindingRows as $idx => $row)
+                                                            <tr>
+                                                                <td>
+                                                                    <input type="text" class="form-control form-control-sm"
+                                                                        wire:model.defer="historyFindingRows.{{ $idx }}.point_label">
+                                                                </td>
+                                                                <td>
+                                                                    <span class="small">{{ $row['subcategory_name'] ?? '---' }}</span>
+                                                                    @if(!empty($row['item_name']))
+                                                                        <div class="text-muted small">{{ $row['item_name'] }}</div>
+                                                                    @endif
+                                                                </td>
+                                                                <td>
+                                                                    <select class="form-select form-select-sm" wire:model.defer="historyFindingRows.{{ $idx }}.action_type">
+                                                                        <option value="FALTA">FALTA</option>
+                                                                        <option value="ADICIONAR">ADICIONAR</option>
+                                                                        <option value="REMOVER">REMOVER</option>
+                                                                        <option value="ALTERAR">ALTERAR</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <input type="number" min="1" class="form-control form-control-sm"
+                                                                        wire:model.defer="historyFindingRows.{{ $idx }}.quantity">
+                                                                </td>
+                                                                <td>
+                                                                    <select class="form-select form-select-sm" wire:model.defer="historyFindingRows.{{ $idx }}.origin">
+                                                                        <option value="LEVANTAMENTO">Levantamento</option>
+                                                                        <option value="PROJETO">Projeto</option>
+                                                                        <option value="AMBOS">Ambos</option>
+                                                                    </select>
+                                                                </td>
+                                                                <td>
+                                                                    <textarea class="form-control form-control-sm" rows="2"
+                                                                        wire:model.defer="historyFindingRows.{{ $idx }}.note"></textarea>
+                                                                </td>
+                                                                <td>
+                                                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                                                        wire:click="removeHistoryFindingRow({{ $idx }})" title="Excluir">
+                                                                        <i class="ri-delete-bin-line"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        @empty
+                                                            <tr>
+                                                                <td colspan="7" class="text-center text-muted py-3">Sem apontamentos para editar.</td>
+                                                            </tr>
+                                                        @endforelse
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @endif
+
                                         @php
                                             $historyFilteredFindings = collect($this->filteredHistoryFindings ?? [])->values();
                                         @endphp
@@ -761,7 +918,7 @@
                     @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" wire:click="closeModal">
                         Fechar
                     </button>
                 </div>
