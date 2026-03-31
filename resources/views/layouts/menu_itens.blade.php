@@ -74,7 +74,7 @@
             'open' => 'side',
             'can' => 'can_dispatch',
             'nodes' => [
-                ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill'],
+                ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill', 'iconClass' => 'text-danger'],
             ],
         ],
         [

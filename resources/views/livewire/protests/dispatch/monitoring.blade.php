@@ -1,5 +1,61 @@
 @push('css')
     <style>
+        .monitoring-page {
+            --mp-bg: #f6f7fb;
+            --mp-surface: #ffffff;
+            --mp-ink: #1f2933;
+            --mp-muted: #6b7280;
+            --mp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--mp-bg);
+            padding: 1.5rem 0;
+        }
+
+        .monitoring-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1.5rem;
+        }
+
+        .monitoring-header h2 {
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        .monitoring-header .meta {
+            color: rgba(248, 250, 252, 0.75);
+            font-size: 0.95rem;
+        }
+
+        .filters-grid .filter-card {
+            background-color: var(--mp-surface);
+            border: 1px solid var(--mp-border);
+            border-radius: 0.9rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .summary-bar {
+            background: var(--mp-surface);
+            border: 1px solid var(--mp-border);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1.25rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        }
+
+        .table-card {
+            background: var(--mp-surface);
+            border: 1px solid var(--mp-border);
+            border-radius: 1rem;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
         .highlightable-row {
             transition: background-color .2s, box-shadow .2s;
             cursor: pointer;
@@ -140,13 +196,26 @@
     }
 @endphp
 
-<div>
+<div class="monitoring-page">
+    <div class="container-fluid">
     {{-- Loading --}}
     <x-show-loading />
 
+    <div class="monitoring-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+        <div>
+            <h2>MONITORAMENTO RECLAMAÇÕES</h2>
+            <div class="meta">Fila de despacho, prazos e acompanhamento de SLA</div>
+        </div>
+        <div class="text-lg-end">
+            <div class="meta">Jobs em tela</div>
+            <div><strong>{{ $lists->total() ?? 0 }}</strong></div>
+        </div>
+    </div>
+
     {{-- ================== TOP: BUSCA E FILTROS ================== --}}
-    <div class="card mb-3 shadow-sm border-0">
-        <div class="card-body">
+    <div class="card mb-3 border-0 bg-transparent filters-grid">
+        <div class="card-body px-0">
+            <div class="filter-card">
             <div class="row g-3 align-items-end">
                 <div class="col-12 col-sm-6 col-md-3 col-lg-2">
                     <div class="form-floating">
@@ -244,6 +313,7 @@
                     </button>
                 </div>
             </div>
+            </div>
         </div>
     </div>
 
@@ -295,15 +365,17 @@
     {{-- ================== LISTA PRINCIPAL ================== --}}
     @if ($lists->count())
         {{-- PaginaÃ§Ã£o topo --}}
-        <div class="d-flex justify-content-between align-items-center mt-2 mb-2">
-            {{ $lists->links() }}
-            <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
-                {{ $lists->total() }} registros
+        <div class="summary-bar mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+                {{ $lists->links() }}
+                <div class="text-muted small">
+                    Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
+                    {{ $lists->total() }} registros
+                </div>
             </div>
         </div>
 
-        <div class="card">
+        <div class="table-card">
             <div class="card-header py-0 text-bg-danger d-flex justify-content-between align-items-center">
                 <h5 class="card-title my-0">RECLAMAÇÕES EM ANDAMENTO</h5>
 
@@ -340,8 +412,9 @@
                         <th>Abertura</th>
                         <th>Fim desejado</th>
                         <th>Despachado Em</th>
-                        <th>Status</th>
                         <th>Sla Definido</th>
+                        <th>SAP</th>
+                        <th>Status</th>
                         <th>
                             <i class="ri-message-3-line" title="Mensagens na Medida"></i>
                         </th>
@@ -352,28 +425,33 @@
                 <tbody>
                     @foreach ($lists as $item)
                         @php
-                            // Prazo desejado
                             $wish = getWishDate($item);
-
-                            $DueLeft = $item->sla_due_at;
+                            $statusSist = mb_strtoupper((string) ($item->medProtest?->statusSist ?? ''));
+                            $isMede = $statusSist === 'MEDE';
+                            $isMeda = $statusSist === 'MEDA';
+                            $medFinishedAt = $item->medProtest?->dtFimMedida;
+                            $desiredReference = $item->protest?->tipoNota === 'NA'
+                                ? $item->protest?->dtConclusaoDesej
+                                : $item->medProtest?->dtFimMedidaDesej;
+                            $dueLeft = $item->sla_due_at;
 
                             if ($wish) {
-                                $slaLeft = now()->diffInDays($wish, false);
+                                $daysToWish = now()->diffInDays($wish, false);
 
-                                if ($slaLeft < 0) {
-                                    $slaClass = 'text-bg-danger';
-                                } elseif ($slaLeft <= 3) {
-                                    $slaClass = 'text-bg-warning';
+                                if ($daysToWish < 0) {
+                                    $wishClass = 'text-bg-danger';
+                                } elseif ($daysToWish <= 3) {
+                                    $wishClass = 'text-bg-warning';
                                 } else {
-                                    $slaClass = 'text-bg-success';
+                                    $wishClass = 'text-bg-success';
                                 }
                             } else {
-                                $slaLeft = null;
-                                $slaClass = 'text-bg-secondary';
+                                $daysToWish = null;
+                                $wishClass = 'text-bg-secondary';
                             }
 
-                            if ($DueLeft) {
-                                $dueDaysLeft = now()->diffInDays($DueLeft, false);
+                            if ($dueLeft) {
+                                $dueDaysLeft = now()->diffInDays($dueLeft, false);
 
                                 if ($dueDaysLeft < 0) {
                                     $dueSlaClass = 'text-bg-danger';
@@ -386,6 +464,23 @@
                                 $dueDaysLeft = null;
                                 $dueSlaClass = 'text-bg-secondary';
                             }
+
+                            $slaFinishedDiff = null;
+                            $slaFinishedClass = 'text-bg-secondary';
+                            if ($item->finished_at && $dueLeft) {
+                                $slaFinishedDiff = $dueLeft->diffInDays($item->finished_at, false);
+                                $slaFinishedClass = $slaFinishedDiff >= 0 ? 'text-bg-success' : 'text-bg-danger';
+                            }
+
+                            $sapStatus = match ($statusSist) {
+                                'MEDA' => 'ABER',
+                                'MEDE' => 'ENC',
+                                default => ($statusSist ?: '---'),
+                            };
+
+                            $sapStatusClass = $statusSist === 'MEDE'
+                                ? 'text-bg-success'
+                                : ($statusSist === 'MEDA' ? 'text-bg-warning' : 'text-bg-secondary');
 
                             // Mensagens (Ãºltima da MedProtest)
                             $currentUserId = auth()->id();
@@ -470,13 +565,37 @@
                             </td>
 
                             <td>
-                                {{ $wish ? $wish->format('d/m/Y') : '---' }}
-                                @if ($slaLeft !== null)
-                                    <span class="badge {{ $slaClass }}" title="Dias para a data desejada">
-                                        {{ $slaLeft }} d
-                                    </span>
+                                @if ($isMede)
+                                    {{ $medFinishedAt ? $medFinishedAt->format('d/m/Y') : '---' }}
+                                    @if ($medFinishedAt && $desiredReference)
+                                        @php
+                                            $measureDiff = $desiredReference->diffInDays($medFinishedAt, false);
+                                            $measureClass = $measureDiff >= 0 ? 'text-bg-success' : 'text-bg-danger';
+                                        @endphp
+                                        <span class="badge {{ $measureClass }}" title="Comparação com data desejada">
+                                            {{ $measureDiff >= 0 ? $medFinishedAt->format('d/m/Y') : 'Atraso ' . abs($measureDiff) . ' d' }}
+                                        </span>
+                                    @else
+                                        <span class="badge text-bg-secondary">---</span>
+                                    @endif
+                                @elseif ($isMeda)
+                                    {{ $wish ? $wish->format('d/m/Y') : '---' }}
+                                    @if ($daysToWish !== null)
+                                        <span class="badge {{ $wishClass }}" title="Dias passados da data desejada">
+                                            {{ $daysToWish }} d
+                                        </span>
+                                    @else
+                                        <span class="badge text-bg-secondary">---</span>
+                                    @endif
                                 @else
-                                    <span class="badge text-bg-secondary">---</span>
+                                    {{ $wish ? $wish->format('d/m/Y') : '---' }}
+                                    @if ($daysToWish !== null)
+                                        <span class="badge {{ $wishClass }}" title="Dias para a data desejada">
+                                            {{ $daysToWish }} d
+                                        </span>
+                                    @else
+                                        <span class="badge text-bg-secondary">---</span>
+                                    @endif
                                 @endif
                             </td>
 
@@ -487,18 +606,27 @@
                                 </span>
                             </td>
 
-                            <td>
-                                <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
-                            </td>
-
                             <td class="fw-bold">
-                                @if ($dueDaysLeft !== null)
-                                    <span class="badge {{ $dueSlaClass }}" title="Dias para a data Sla">
+                                <div>{{ $dueLeft ? $dueLeft->format('d/m/Y') : '---' }}</div>
+                                @if ($item->finished_at && $dueLeft)
+                                    <span class="badge {{ $slaFinishedClass }}" title="Comparação de fechamento com SLA">
+                                        {{ $slaFinishedDiff >= 0 ? $item->finished_at->format('d/m/Y') : 'Atraso ' . abs($slaFinishedDiff) . ' d' }}
+                                    </span>
+                                @elseif ($dueDaysLeft !== null)
+                                    <span class="badge {{ $dueSlaClass }}" title="Dias para a data SLA">
                                         {{ $dueDaysLeft }} d
                                     </span>
                                 @else
                                     <span class="badge text-bg-secondary">---</span>
                                 @endif
+                            </td>
+
+                            <td>
+                                <span class="badge {{ $sapStatusClass }}">{{ $sapStatus }}</span>
+                            </td>
+
+                            <td>
+                                <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
                             </td>
 
                             <td>
@@ -551,11 +679,13 @@
         </div>
 
         {{-- PaginaÃ§Ã£o base --}}
-        <div class="d-flex justify-content-between align-items-center mt-2">
-            {{ $lists->links() }}
-            <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
-                {{ $lists->total() }} registros
+        <div class="summary-bar mt-2">
+            <div class="d-flex justify-content-between align-items-center">
+                {{ $lists->links() }}
+                <div class="text-muted small">
+                    Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
+                    {{ $lists->total() }} registros
+                </div>
             </div>
         </div>
     @else
@@ -614,4 +744,5 @@
             });
         </script>
     @endpush
+    </div>
 </div>
