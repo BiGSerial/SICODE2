@@ -1,6 +1,11 @@
 {
-    "appver": "1.31.1",
+    "appver": "1.32.0",
     "historic": [
+        {
+            "version": "1.32.0",
+            "description": "Project Review and Major Bug Fix",
+            "date": "2026-03-31"
+        },
         {
             "version": "1.31.1",
             "description": "Search in Partner",
