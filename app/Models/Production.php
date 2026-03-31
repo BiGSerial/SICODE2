@@ -13,6 +13,10 @@ class Production extends Model
 {
     use HasFactory;
 
+    public const STATUS_IN_PROJECT_REVIEW = 30;
+    public const STATUS_REJECTED_PROJECT_REVIEW = 31;
+    public const STATUS_RELEASED_TO_FINISH = 32;
+
     protected $fillable = [
         'note_id',
         'service_id',
@@ -58,6 +62,7 @@ class Production extends Model
         'cad',
         'partial',
         'ma', //Meio Ambiente
+        'supervision_by_partner_photos',
     ];
 
     protected $casts = [
@@ -67,6 +72,7 @@ class Production extends Model
         'd5'     => 'boolean',
         'cad'    => 'boolean',
         'partial' => 'boolean',
+        'supervision_by_partner_photos' => 'boolean',
         'completed'   => 'boolean',
         'confirmed'   => 'boolean',
         'returned'    => 'boolean',
@@ -155,6 +161,16 @@ class Production extends Model
     public function Notetimelines()
     {
         return $this->hasMany(Notetimeline::class);
+    }
+
+    public function ProjectReviewCycles()
+    {
+        return $this->hasMany(ProjectReviewCycle::class)->orderBy('round_number');
+    }
+
+    public function ProjectReviewMessages()
+    {
+        return $this->hasMany(ProjectReviewMessage::class);
     }
 
     public function fiveNotes(): MorphToMany

@@ -148,6 +148,16 @@
                             </div>
                         </div>
 
+                        @if (!$requireFilesForSubmit)
+                            <div class="alert alert-warning d-flex align-items-start gap-2">
+                                <i class="ri-alert-line fs-5 mt-1"></i>
+                                <div>
+                                    <strong>Aviso operacional:</strong> para este informe, é necessário anexar o
+                                    <strong>VTEO (Viabilidade Técnica de Execução de Obras)</strong>.
+                                </div>
+                            </div>
+                        @endif
+
                         <!-- Orders Section -->
                         <div class="row mb-4">
                             <div class="col-md-6">
@@ -229,6 +239,24 @@
                         @if (!empty($temp_orders))
                             <!-- Main Form Fields -->
                             <div class="row g-4">
+                                @if ($canSelectCompany)
+                                    <div class="col-md-4">
+                                        <div class="form-floating mb-3">
+                                            <select class="form-select @error('form.company_id') is-invalid @enderror"
+                                                wire:model.defer="form.company_id">
+                                                <option value="">Selecione</option>
+                                                @foreach ($companies as $company)
+                                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <label>Empreiteira do Informe <span class="text-danger">*</span></label>
+                                            @error('form.company_id')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <!-- Date Field -->
                                 <div class="col-md-4">
                                     <div class="form-floating mb-3">
@@ -407,7 +435,11 @@
                                             dos ativos cadastrados e instalados.
                                         </div>
                                     </div>
-                                    @livewire('files.manager.create-gen-files', ['note' => $note, 'service' => 'INFORME DE OBRA'], key('files_forms'))
+                                    @livewire(
+                                        'files.manager.create-gen-files',
+                                        ['note' => $note, 'service' => 'INFORME DE OBRA'],
+                                        key('files_forms_' . $note->id)
+                                    )
                                 </div>
                             </div>
 

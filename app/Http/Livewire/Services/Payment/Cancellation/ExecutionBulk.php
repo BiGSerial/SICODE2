@@ -16,6 +16,9 @@ class ExecutionBulk extends Component
 {
     use WithFileUploads;
     use AuthorizesRequests;
+    protected $listeners = [
+        'confirm_cancellation_execution_bulk_run_action' => 'confirmRunBulkAction',
+    ];
 
     public string $service;
     public array $ids = [];
@@ -100,7 +103,31 @@ class ExecutionBulk extends Component
         ]);
     }
 
-    public function runBulkAction(CancellationRequestService $service): void
+    public function runBulkAction(): void
+    {
+        if (empty($this->ids)) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhum registro selecionado.']);
+            return;
+        }
+
+        if (in_array($this->action, ['PAUSED', 'ABORTED'], true) && !trim($this->comment)) {
+            $this->addError('comment', 'Comentário obrigatório.');
+            return;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Confirmar ação em massa',
+            'msg' => 'Deseja executar a ação para todas as solicitações selecionadas?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, confirmar',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_execution_bulk_run_action',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'Nenhuma ação foi executada.',
+        ]);
+    }
+
+    public function confirmRunBulkAction(CancellationRequestService $service): void
     {
         if (empty($this->ids)) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhum registro selecionado.']);

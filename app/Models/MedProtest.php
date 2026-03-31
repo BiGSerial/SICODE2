@@ -19,6 +19,7 @@ class MedProtest extends Model
         'protest_id',
         'med_id',
         'statusSist',
+        'statMedida',
         'codMedida',
         'txtCodCodificacao',
         'txtCodMedida',

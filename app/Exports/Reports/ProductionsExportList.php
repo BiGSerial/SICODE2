@@ -18,6 +18,8 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class ProductionsExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
@@ -80,7 +82,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
 
 
-        $wf = $row->note->workForm;
+        $wf = $row->note->workForm ?: $row->note->workFormAny;
 
         $supervisioned = '';
         $ads = null;
@@ -145,6 +147,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->dispatch_at?->format('d/m/Y H:i:s'),
             $row->att_at?->format('d/m/Y H:i:s'),
             $row->completed_at?->format('d/m/Y H:i:s'),
+            $row->completed ? 'SIM' : 'NÃO',
             $row->odi,
             $row->odd,
             $row->ods,
@@ -166,14 +169,15 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->RamalForm ? 'SIM' : 'NÃO',
             $row->Note->RamalForm?->created_at?->format('d/m/Y H:i:s'),
             $row->partial_at?->format('d/m/Y H:i:s'),
-            $row->Note->WorkForm ? 'SIM' : 'NÃO',
-            $row->Note->WorkForm?->informed_at?->format('d/m/Y H:i:s'),
-            ($row->note->workForm && $row->note->workForm->rejected) ? 'REJEITADO' : 'NORMAL',
+            $wf ? 'SIM'.($wf->canceled ? ' (CANCELADO)' : '') : 'NÃO',
+            $wf?->informed_at?->format('d/m/Y H:i:s'),
+            !$wf ? 'NORMAL' : ($wf->canceled ? 'CANCELADO' : ($wf->rejected ? 'REJEITADO' : 'NORMAL')),
             $ads ? 'SIM' : 'NÃO',
             $adsDeliveredAt?->format('d/m/Y H:i:s') ?? '',
             $adsType ?? '',
             $adsDueAt?->format('d/m/Y H:i:s') ?? '',
             $supervisioned ?? '',
+            is_null($row->supervision_by_partner_photos) ? '' : ($row->supervision_by_partner_photos ? 'SIM' : 'NÃO'),
             $dateFinal == '---' ? '---' : $dateFinal,
             $d5 ? 'SIM' : 'NÃO',
             $d5?->note_d5 ?? '',
@@ -210,6 +214,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Despachado em',
             'Atribuído em',
             'Finalizado em',
+            'Concluída',
             'ODI/DR',
             'ODD',
             'ODS',
@@ -221,7 +226,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Postes Levantado',
             'Postes/Ativos',
             'Parado',
-            'RetornoInterno',
+            'Retorno Interno (RI)',
             'RI Categoria',
             'Situação',
             'Produção',
@@ -239,6 +244,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             'Tipo ADS',
             'Prazo ADS',
             'Ultima Fiscalização',
+            'Fiscalização por Fotos da Parceira',
             'Dt Final Obra',
             'Existe D5',
             'Numero D5',
@@ -269,10 +275,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
     {
 
 
-        if ($this->rowEstimate > 10000) {
-            return []; // evita AfterSheet pesado
-        }
-
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
@@ -281,44 +283,110 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
                 $highestColumn = $sheet->getHighestColumn();
                 $headerRange   = 'A1:' . $highestColumn . '1';
                 $sheet->getStyle($headerRange)->applyFromArray([
-                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
                     'fill' => [
                         'fillType'   => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => '0000FF'],
+                        'startColor' => ['rgb' => '0F4C81'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical'   => Alignment::VERTICAL_CENTER,
                     ],
                 ]);
+                $sheet->getRowDimension(1)->setRowHeight(24);
+
+                $sheet->freezePane('A2');
+                $sheet->setAutoFilter($headerRange);
+
+                $highestRow = (int) $sheet->getHighestRow();
+                if ($highestRow >= 2) {
+                    $bodyRange = "A2:{$highestColumn}{$highestRow}";
+                    $sheet->getStyle($bodyRange)->applyFromArray([
+                        'alignment' => [
+                            'vertical' => Alignment::VERTICAL_CENTER,
+                        ],
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => Border::BORDER_THIN,
+                                'color' => ['rgb' => 'E5E7EB'],
+                            ],
+                        ],
+                    ]);
+                }
 
                 // ===== Heurística de largura por coluna =====
-                $highestRow          = (int) $sheet->getHighestRow();
                 $highestColumnIndex  = Coordinate::columnIndexFromString($highestColumn);
                 $sampleLastRow       = min($highestRow, 1 + $this->autosizeSampleRows); // inclui o header (linha 1)
 
-                for ($colIndex = 1; $colIndex <= $highestColumnIndex; $colIndex++) {
-                    $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+                if ($this->rowEstimate <= 10000) {
+                    for ($colIndex = 1; $colIndex <= $highestColumnIndex; $colIndex++) {
+                        $colLetter = Coordinate::stringFromColumnIndex($colIndex);
 
-                    // 1) Comece pelo tamanho do cabeçalho
-                    $headerValue = (string) ($sheet->getCell($colLetter . '1')->getValue() ?? '');
-                    $maxLen = mb_strlen($headerValue);
+                        // 1) Comece pelo tamanho do cabeçalho
+                        $headerValue = (string) ($sheet->getCell($colLetter . '1')->getValue() ?? '');
+                        $maxLen = mb_strlen($headerValue);
 
-                    // 2) Amostra das primeiras N linhas
-                    for ($row = 2; $row <= $sampleLastRow; $row++) {
-                        $val = $sheet->getCell($colLetter . $row)->getValue();
-                        if ($val instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
-                            $val = $val->getPlainText();
+                        // 2) Amostra das primeiras N linhas
+                        for ($row = 2; $row <= $sampleLastRow; $row++) {
+                            $val = $sheet->getCell($colLetter . $row)->getValue();
+                            if ($val instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+                                $val = $val->getPlainText();
+                            }
+                            $len = mb_strlen((string) $val);
+                            if ($len > $maxLen) {
+                                $maxLen = $len;
+                            }
                         }
-                        $len = mb_strlen((string) $val);
-                        if ($len > $maxLen) {
-                            $maxLen = $len;
+
+                        // 3) Decisão: autosize só para colunas curtas; demais com largura fixa
+                        if ($maxLen <= $this->shortColMaxLen) {
+                            // autosize é custoso, mas aceitável para colunas "curtas"
+                            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+                        } else {
+                            $width = min(max($maxLen + $this->padding, $this->minWidth), $this->maxWidth);
+                            $sheet->getColumnDimension($colLetter)->setWidth($width);
                         }
                     }
+                }
 
-                    // 3) Decisão: autosize só para colunas curtas; demais com largura fixa
-                    if ($maxLen <= $this->shortColMaxLen) {
-                        // autosize é custoso, mas aceitável para colunas "curtas"
-                        $sheet->getColumnDimension($colLetter)->setAutoSize(true);
-                    } else {
-                        $width = min(max($maxLen + $this->padding, $this->minWidth), $this->maxWidth);
-                        $sheet->getColumnDimension($colLetter)->setWidth($width);
+                $headings = $this->headings();
+                $riColIndex = array_search('Retorno Interno (RI)', $headings, true);
+                $doneColIndex = array_search('Concluída', $headings, true);
+                $statusColIndex = array_search('Situação', $headings, true);
+                $riCol = $riColIndex !== false ? Coordinate::stringFromColumnIndex($riColIndex + 1) : null;
+                $doneCol = $doneColIndex !== false ? Coordinate::stringFromColumnIndex($doneColIndex + 1) : null;
+                $statusCol = $statusColIndex !== false ? Coordinate::stringFromColumnIndex($statusColIndex + 1) : null;
+
+                for ($row = 2; $row <= $highestRow; $row++) {
+                    $rowRange = "A{$row}:{$highestColumn}{$row}";
+                    if ($row % 2 === 0) {
+                        $sheet->getStyle($rowRange)->getFill()->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('F8FAFC');
+                    }
+
+                    $isRi = $riCol ? mb_strtoupper((string) $sheet->getCell("{$riCol}{$row}")->getValue()) === 'SIM' : false;
+                    $isOpen = $doneCol ? mb_strtoupper((string) $sheet->getCell("{$doneCol}{$row}")->getValue()) === 'NÃO' : false;
+
+                    if ($isOpen) {
+                        $sheet->getStyle($rowRange)->getFill()->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('FFF8E1');
+                    } elseif ($isRi) {
+                        $sheet->getStyle($rowRange)->getFill()->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('FDEBD0');
+                    }
+
+                    if ($statusCol) {
+                        $statusCell = "{$statusCol}{$row}";
+                        $statusText = mb_strtoupper(trim((string) $sheet->getCell($statusCell)->getValue()));
+                        if (str_contains($statusText, 'CONFIRMADO')) {
+                            $sheet->getStyle($statusCell)->getFont()
+                                ->setBold(true)
+                                ->getColor()->setRGB('0F766E');
+                        } elseif ($statusText !== '') {
+                            $sheet->getStyle($statusCell)->getFont()
+                                ->setBold(true)
+                                ->getColor()->setRGB('B91C1C');
+                        }
                     }
                 }
             },

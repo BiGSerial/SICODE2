@@ -78,4 +78,24 @@ class ReportsController extends Controller
     {
         return view('reports.return-work-reports');
     }
+
+    public function cancellationDashboard()
+    {
+        return view('reports.cancellation-dashboard');
+    }
+
+    public function cancellationList()
+    {
+        return view('reports.cancellation-list');
+    }
+
+    public function fiveNotesReport()
+    {
+        return view('reports.five-notes-report');
+    }
+
+    public function complaintsMedeReport()
+    {
+        return view('reports.protest-mede');
+    }
 }

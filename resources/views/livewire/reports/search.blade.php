@@ -210,10 +210,42 @@
             box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25), 0 12px 24px rgba(15, 23, 42, 0.3);
         }
 
+        .report-search-page .rs-cancel-note-btn.is-submitted,
+        .report-search-page .rs-cancel-order-btn.is-submitted {
+            background: #0ea5e9 !important;
+            border-color: #0369a1 !important;
+            color: #fff !important;
+        }
+
+        .report-search-page .rs-cancel-note-btn.is-in-progress,
+        .report-search-page .rs-cancel-order-btn.is-in-progress {
+            background: #f59e0b !important;
+            border-color: #b45309 !important;
+            color: #111827 !important;
+        }
+
+        .report-search-page .rs-cancel-note-btn.is-done,
+        .report-search-page .rs-cancel-order-btn.is-done {
+            background: #dc2626 !important;
+            border-color: #991b1b !important;
+            color: #fff !important;
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25), 0 12px 24px rgba(15, 23, 42, 0.32);
+        }
+
+        .report-search-page .rs-cancel-order-btn {
+            font-weight: 700;
+            letter-spacing: .02em;
+            border-width: 2px;
+        }
+
         .report-search-page .rs-viab-view-btn {
             font-weight: 700;
             border-width: 1px;
             letter-spacing: .02em;
+        }
+
+        .report-search-page .rs-workform-canceled-row {
+            background: #fef2f2 !important;
         }
 
         .report-search-page .rs-viab-modal .modal-content {
@@ -451,20 +483,20 @@
 
             $noteCancelStatus = $noteCancel?->status?->value ?? $noteCancel?->status;
             $noteCancelLabel = null;
-            $noteCancelClass = 'btn-secondary';
+            $noteCancelClass = '';
 
             if ($noteCancelStatus === \App\Enum\CancellationRequestStatus::SUBMITTED->value) {
                 $noteCancelLabel = 'Solicitado Cancelamento';
-                $noteCancelClass = 'btn-info text-dark';
+                $noteCancelClass = 'is-submitted';
             } elseif (in_array($noteCancelStatus, [
                 \App\Enum\CancellationRequestStatus::ASSIGNED->value,
                 \App\Enum\CancellationRequestStatus::PAUSED->value,
             ], true)) {
                 $noteCancelLabel = 'Em Cancelamento';
-                $noteCancelClass = 'btn-warning text-dark';
+                $noteCancelClass = 'is-in-progress';
             } elseif ($noteCancelStatus === \App\Enum\CancellationRequestStatus::DONE->value) {
                 $noteCancelLabel = 'Cancelado';
-                $noteCancelClass = 'btn-success';
+                $noteCancelClass = 'is-done';
             }
 
             $hasSapCancel = $lists->Orders->contains(function ($order) {
@@ -554,7 +586,7 @@
                             <dd class="col-sm-8 text-white text-uppercase">
                                 @if ($lists->FiveNote)
                                     <span class="fw-bold" style="cursor:pointer"
-                                        wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $lists->FiveNote->id }})">
+                                        wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $lists->id }})">
                                         {{ $lists->FiveNote?->note_d5 ?? 'A GERAR D5' }}
                                         @if ($lists->FiveNote?->visible_partner && $lists->FiveNote?->is_completed)
                                             <small>( {{ $lists->FiveNote?->completed_at?->format('d/m/Y H:i') }}
@@ -625,20 +657,20 @@
 
                                     $orderCancelStatus = $orderCancellation?->status?->value ?? $orderCancellation?->status;
                                     $orderCancelLabel = null;
-                                    $orderCancelClass = 'btn-outline-secondary';
+                                    $orderCancelClass = '';
 
                                     if ($orderCancelStatus === \App\Enum\CancellationRequestStatus::SUBMITTED->value) {
                                         $orderCancelLabel = 'Solicitado Cancelamento';
-                                        $orderCancelClass = 'btn-outline-info';
+                                        $orderCancelClass = 'is-submitted';
                                     } elseif (in_array($orderCancelStatus, [
                                         \App\Enum\CancellationRequestStatus::ASSIGNED->value,
                                         \App\Enum\CancellationRequestStatus::PAUSED->value,
                                     ], true)) {
                                         $orderCancelLabel = 'Em Cancelamento';
-                                        $orderCancelClass = 'btn-outline-warning';
+                                        $orderCancelClass = 'is-in-progress';
                                     } elseif ($orderCancelStatus === \App\Enum\CancellationRequestStatus::DONE->value) {
                                         $orderCancelLabel = 'Cancelado';
-                                        $orderCancelClass = 'btn-outline-success';
+                                        $orderCancelClass = 'is-done';
                                     }
                                 @endphp
                                 <div class="card border-0 shadow mb-3">
@@ -649,7 +681,7 @@
                                             ({{ $order->statusSist ? explode(' ', $order->statusSist)[0] : '' }})
                                         </div>
                                         @if ($orderCancellation && $orderCancelLabel)
-                                            <a class="btn btn-sm {{ $orderCancelClass }}"
+                                            <a class="btn btn-sm rs-cancel-order-btn {{ $orderCancelClass }}"
                                                 href="{{ route('cancellations.show', ['request' => $orderCancellation->id]) }}"
                                                 target="_blank" rel="noopener">
                                                 {{ $orderCancelLabel }}
@@ -1220,8 +1252,13 @@
             </div>
         @endif
 
+        @php
+            $workForm = $lists->WorkForm ?: $lists->WorkFormAny;
+            $workFormCanceled = (bool) ($workForm?->canceled);
+        @endphp
+
         {{-- INFORMES DE OBRA (Parciais, Ramal, Work) --}}
-        @if ($lists->WorkForm || $lists->RamalForm || $lists->Partials->isNotEmpty())
+        @if ($workForm || $lists->RamalForm || $lists->Partials->isNotEmpty())
             <div class="card border-0 mt-3 shadow">
                 <div class="card-header rs-head-unified">
                     <h5 class="rs-section-title">INFORMES DE OBRA</h5>
@@ -1349,60 +1386,65 @@
                             @endif
 
                             {{-- WORK FORM --}}
-                            @if ($lists->WorkForm)
-                                <tr wire:key="work-{{ $lists->WorkForm->id }}"
-                                    wire:dblclick="$emitTo('partner.show.show-work-form','show_form',{{ $lists->WorkForm->id }})">
-                                    <td class="text-center bg-primary text-white align-middle">FINAL</td>
+                            @if ($workForm)
+                                <tr wire:key="work-{{ $workForm->id }}"
+                                    @unless($workFormCanceled)
+                                        wire:dblclick="$emitTo('partner.show.show-work-form','show_form',{{ $workForm->id }})"
+                                    @endunless
+                                    class="{{ $workFormCanceled ? 'rs-workform-canceled-row' : '' }}">
+                                    <td class="text-center {{ $workFormCanceled ? 'bg-danger text-white' : 'bg-primary text-white' }} align-middle">
+                                        FINAL
+                                    </td>
                                     <td class="text-center align-middle">
-                                        @foreach ($lists->WorkForm->Orders as $o)
+                                        @foreach ($workForm->Orders as $o)
                                             <p class="my-0">{{ $o->ordem }}</p>
                                         @endforeach
                                     </td>
-                                    <td class="text-center align-middle">{{ $lists->WorkForm->Company->name }}</td>
+                                    <td class="text-center align-middle">{{ $workForm->Company->name ?? '---' }}</td>
                                     <td class="text-center align-middle">
-                                        {!! $lists->WorkForm->Equipment->count()
-                                            ? "<span class='badge bg-dark text-white'>" . $lists->WorkForm?->Equipment?->count() . '</span>'
+                                        {!! $workForm->Equipment->count()
+                                            ? "<span class='badge bg-dark text-white'>" . $workForm?->Equipment?->count() . '</span>'
                                             : '' !!}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm->changes ? 'SIM' : 'NÃO' }}
+                                        {{ $workForm->changes ? 'SIM' : 'NÃO' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm->team ?? 'Desconhecido' }}
+                                        {{ $workForm->team ?? 'Desconhecido' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm->responsible ?? 'Desconhecido' }}
+                                        {{ $workForm->responsible ?? 'Desconhecido' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm->date ? date('d/m/Y', strtotime($lists->WorkForm?->date)) : 'Desconhecido' }}
+                                        {{ $workForm->date ? date('d/m/Y', strtotime($workForm?->date)) : 'Desconhecido' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm->created_at ? date('d/m/Y', strtotime($lists->WorkForm?->created_at)) : 'Desconhecido' }}
+                                        {{ $workForm->created_at ? date('d/m/Y', strtotime($workForm?->created_at)) : 'Desconhecido' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        @if ($lists->WorkForm->Returnwork->count())
+                                        @if ($workForm->Returnwork->count())
                                             <span class="badge bg-warning fw-bold" style="cursor:pointer;"
-                                                wire:click.prevent="$emitTo('components.workform.view-reason-return', 'workReturnViews', {{ $lists->WorkForm->id }})">
-                                                {{ $lists->WorkForm?->Returnwork?->count() }}
+                                                wire:click.prevent="$emitTo('components.workform.view-reason-return', 'workReturnViews', {{ $workForm->id }})">
+                                                {{ $workForm?->Returnwork?->count() }}
                                             </span>
                                         @else
                                             ---
                                         @endif
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm?->Returnwork?->last()?->created_at
-                                            ? date('d/m/Y', strtotime($lists->WorkForm?->Returnwork?->last()?->created_at))
+                                        {{ $workForm?->Returnwork?->last()?->created_at
+                                            ? date('d/m/Y', strtotime($workForm?->Returnwork?->last()?->created_at))
                                             : '---' }}
                                     </td>
                                     <td class="text-center align-middle">
                                         <span
-                                            class="badge {{ $lists->WorkForm?->rejected ? 'bg-warning text-wrap' : 'bg-primary text-wrap' }}">
-                                            {{ $lists->WorkForm->rejected ? 'Informe em Revisão' : 'Normal' }}
+                                            class="badge {{ $workFormCanceled ? 'bg-danger text-wrap' : ($workForm?->rejected ? 'bg-warning text-wrap' : 'bg-primary text-wrap') }}">
+                                            {{ $workFormCanceled ? 'Cancelado Sistemicamente' : ($workForm->rejected ? 'Informe em Revisão' : 'Normal') }}
                                         </span>
                                     </td>
                                     <td class="text-center align-middle">
                                         @php
-                                            $workAds = $lists->WorkForm->Adsform;
+                                            $workAds = $workForm->Adsform;
                                         @endphp
                                         @if ($workAds)
                                             @if ($workAds->tacit)
@@ -1420,19 +1462,19 @@
                                         @endif
                                     </td>
                                     <td class="text-center align-middle">
-                                        @if ($lists->WorkForm->acceptance_accepted)
+                                        @if ($workForm->acceptance_accepted)
                                             <div class="d-grid gap-1">
                                                 <span class="badge text-bg-success">ACEITO</span>
                                                 <button class="btn btn-outline-success btn-sm"
-                                                    wire:click.prevent="$emitTo('components.workform.acceptance-info', 'openAcceptanceInfo', {{ $lists->WorkForm->id }})">
+                                                    wire:click.prevent="$emitTo('components.workform.acceptance-info', 'openAcceptanceInfo', {{ $workForm->id }})">
                                                     Ver aceite
                                                 </button>
                                             </div>
-                                        @elseif($lists->WorkForm->acceptance_name || $lists->WorkForm->acceptance_at || $lists->WorkForm->acceptance_meta)
+                                        @elseif($workForm->acceptance_name || $workForm->acceptance_at || $workForm->acceptance_meta)
                                             <div class="d-grid gap-1">
                                                 <span class="badge text-bg-warning">PENDENTE</span>
                                                 <button class="btn btn-outline-warning btn-sm"
-                                                    wire:click.prevent="$emitTo('components.workform.acceptance-info', 'openAcceptanceInfo', {{ $lists->WorkForm->id }})">
+                                                    wire:click.prevent="$emitTo('components.workform.acceptance-info', 'openAcceptanceInfo', {{ $workForm->id }})">
                                                     Ver aceite
                                                 </button>
                                             </div>
@@ -1441,7 +1483,7 @@
                                         @endif
                                     </td>
                                     <td class="text-center align-middle">
-                                        {{ $lists->WorkForm?->informed_at ? date('d/m/Y', strtotime($lists->WorkForm?->informed_at)) : 'Desconhecido' }}
+                                        {{ $workForm?->informed_at ? date('d/m/Y', strtotime($workForm?->informed_at)) : 'Desconhecido' }}
                                     </td>
                                 </tr>
                             @endif
@@ -1475,5 +1517,5 @@
     @livewire('components.workform.view-reason-return', key('WorkReturnsReason'))
     @livewire('components.workform.acceptance-info', key('WorkAcceptanceInfo'))
     @livewire('components.ramalform.view-reason-return', key('RamalReturnsReason'))
-    @livewire('components.five-note.view-d5', key('view_d5'))
+    @livewire('components.d5.d5details', key('view_d5_details'))
 </div>

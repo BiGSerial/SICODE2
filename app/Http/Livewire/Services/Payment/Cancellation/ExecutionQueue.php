@@ -17,11 +17,19 @@ class ExecutionQueue extends Component
     use AuthorizesRequests;
 
     protected $paginationTheme = 'bootstrap';
+    protected $listeners = [
+        'confirm_cancellation_queue_claim_selected' => 'confirmClaimSelected',
+    ];
 
     public string $service;
     public string $multiSearch = '';
     public bool $selectAll = false;
     public array $selected = [];
+    public int $perPage = 20;
+
+    protected $queryString = [
+        'perPage' => ['except' => 20, 'as' => 'pp'],
+    ];
 
     public function mount(string $service): void
     {
@@ -37,27 +45,26 @@ class ExecutionQueue extends Component
         }
     }
 
-    public function setSelectAll(): void
+    public function updatedPerPage($value): void
     {
-        if (!$this->lists) {
-            return;
+        $value = (int) $value;
+        if ($value <= 0) {
+            $value = 20;
         }
 
-        $visibleItems = $this->lists->items();
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        $this->perPage = min($value, 250);
+        $this->resetPage();
+        $this->selectAll = false;
+        $this->selected = [];
+    }
 
+    public function setSelectAll(array $ids): void
+    {
         if ($this->selectAll) {
-            foreach ($visibleItems as $row) {
-                $id = (int) $row->id;
-                $selectedSet[$id] = true;
-            }
+            $this->selected = array_values(array_unique(array_merge($this->selected, $ids)));
         } else {
-            foreach ($visibleItems as $row) {
-                unset($selectedSet[(int) $row->id]);
-            }
+            $this->selected = array_values(array_diff($this->selected, $ids));
         }
-
-        $this->selected = array_map('intval', array_keys($selectedSet));
     }
 
     public function claim(int $requestId, CancellationRequestService $service): void
@@ -72,7 +79,26 @@ class ExecutionQueue extends Component
         }
     }
 
-    public function claimSelected(CancellationRequestService $service): void
+    public function claimSelected(): void
+    {
+        if (empty($this->selected)) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Selecione ao menos uma solicitação.']);
+            return;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Confirmar ação',
+            'msg' => 'Assumir todas as solicitações selecionadas?',
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, assumir',
+            'btnCanceltxt' => 'Não, revisar',
+            'action' => 'confirm_cancellation_queue_claim_selected',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'Nenhuma solicitação foi alterada.',
+        ]);
+    }
+
+    public function confirmClaimSelected(CancellationRequestService $service): void
     {
         if (empty($this->selected)) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Selecione ao menos uma solicitação.']);
@@ -134,7 +160,7 @@ class ExecutionQueue extends Component
 
     public function render()
     {
-        $lists = $this->lists->paginate(20);
+        $lists = $this->lists->paginate($this->perPage);
 
         return view('livewire.services.payment.cancellation.execution-queue', [
             'requests' => $lists,

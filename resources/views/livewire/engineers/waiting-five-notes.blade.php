@@ -216,8 +216,8 @@
 
                     <div class="col-12 col-lg-4 col-xl-4">
                         <div class="filter-card">
-                            <h6>Situacao</h6>
-                            <small class="text-muted d-block mb-2">Selecione um status ou veja todos</small>
+                            <h6>Etapa</h6>
+                            <small class="text-muted d-block mb-2">Selecione uma etapa ou veja todas</small>
                             <div class="btn-group w-100 flex-wrap" role="group" aria-label="Status">
                                 <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
                                     value="" id="statusAll">
@@ -296,51 +296,42 @@
                                 <th>Motivo</th>
                                 <th>Cod</th>
                                 <th>Data Despacho</th>
-                                <th>Em Atividade</th>
+                                <th>Retorno Empreiteira</th>
+                                <th>Tempo</th>
+                                <th>Etapa</th>
                                 <th>Status</th>
+                                <th>Responsável</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse ($lists as $list)
                                 @php
-                                    $activityStart = null;
+                                    $meta = $list->tracking_meta ?? [];
+                                    $activity = $meta['activity'] ?? [];
+                                    $assignee = $meta['assignee'] ?? [];
 
-                                    if ($list->is_archived) {
-                                        $activityStart = null;
-                                    } elseif ($list->is_supervisioned) {
+                                    $activityStart = null;
+                                    if (($activity['key'] ?? null) === 'aguardando_pagamento') {
                                         $activityStart = $list->supervisioned_at;
-                                    } elseif ($list->is_completed) {
+                                    } elseif (($activity['key'] ?? null) === 'aguardando_fiscalizacao') {
                                         $activityStart = $list->completed_at;
-                                    } else {
+                                    } elseif (($activity['key'] ?? null) === 'aguardando_geracao_d5') {
+                                        $activityStart = $list->created_at;
+                                    } elseif (($activity['key'] ?? null) === 'aguardando_fornecedor') {
                                         $activityStart = $list->dispatch_at;
                                     }
 
                                     $daysOverdue = $activityStart?->diffInDays();
                                     $badgeClass = 'bg-success';
-                                    $badgeText = 'Dentro do prazo';
-
-                                    $position = [
-                                        'position' => 'Aguardando Fornecedor',
-                                        'color' => 'text-bg-danger',
-                                    ];
-
-                                    if ($list->is_archived) {
-                                        $position = [
-                                            'position' => 'Finalizado',
-                                            'color' => 'text-bg-success',
-                                        ];
-                                    } elseif ($list->is_supervisioned) {
-                                        $position = [
-                                            'position' => 'Aguardando Pagamento',
-                                            'color' => 'text-bg-primary',
-                                        ];
-                                    } elseif ($list->is_completed) {
-                                        $position = [
-                                            'position' => 'Aguardando Fiscalizacao',
-                                            'color' => 'text-bg-warning',
-                                        ];
-                                    }
+                                    $badgeText = 'No prazo';
+                                    $phaseLabel = match ($activity['key'] ?? '') {
+                                        'aguardando_geracao_d5', 'aguardando_pagamento' => 'Pagamento',
+                                        'aguardando_fiscalizacao' => 'Fiscalizacao',
+                                        'aguardando_fornecedor' => 'Fornecedor',
+                                        'finalizado' => 'Finalizado',
+                                        default => '---',
+                                    };
 
                                     if ($daysOverdue > 3 && $daysOverdue <= 5) {
                                         $badgeClass = 'bg-warning';
@@ -367,10 +358,18 @@
                                     <td>{{ $list->codify }}</td>
                                     <td>{{ $list->dispatch_at?->format('d/m/Y H:i') }}</td>
                                     <td>
+                                        @if ($list->completed_at)
+                                            {{ $list->completed_at->format('d/m/Y H:i') }}
+                                        @else
+                                            <span class="badge text-bg-secondary">Sem retorno</span>
+                                        @endif
+                                    </td>
+                                    <td>
                                         @if ($activityStart)
                                             <span class="badge {{ $badgeClass }}">
                                                 <i class="ri-time-line me-1"></i> {{ $daysOverdue }} dias
                                             </span>
+                                            <div class="small text-muted mt-1">{{ $badgeText }}</div>
                                         @else
                                             <span class="badge text-bg-secondary">
                                                 <i class="ri-check-line me-1"></i> Finalizado
@@ -378,20 +377,36 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="badge {{ $position['color'] }}">
-                                            {{ $position['position'] }}
+                                        <span class="badge text-bg-primary">
+                                            {{ $phaseLabel }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ $activity['color'] ?? 'text-bg-secondary' }}">
+                                            {{ $activity['label'] ?? 'Sem status' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-start">
+                                        @if ($assignee['has_assignee'] ?? false)
+                                            <div class="fw-semibold">{{ $assignee['name'] }}</div>
+                                            <div class="small text-muted">{{ $assignee['company'] ?? 'Sem empresa' }}</div>
+                                        @else
+                                            <div class="small text-muted">Sem responsável</div>
+                                        @endif
+                                        <span class="badge {{ $assignee['assignment_badge'] ?? 'text-bg-secondary' }} mt-1">
+                                            {{ $assignee['assignment_status'] ?? 'Nao Atribuido' }}
                                         </span>
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-primary p-1"
-                                            wire:click="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->id }})">
+                                            wire:click="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->note_id }})">
                                             Visualizar
                                         </button>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center py-5">
+                                    <td colspan="14" class="text-center py-5">
                                         <i class="ri-inbox-line fs-1 d-block mb-2"></i>
                                         Nenhum registro encontrado.
                                     </td>
@@ -417,119 +432,6 @@
                 </div>
             </div>
         </div>
-
-        {{-- Drawer lateral de detalhes --}}
-        @if ($showDetails && $selected)
-            <div class="details-drawer details-drawer--modern shadow">
-                <!-- Header -->
-                <div class="drawer-header">
-                    <div class="drawer-title">
-                        <div class="drawer-icon">
-                            <i class="ri-file-list-3-line"></i>
-                        </div>
-                        <div>
-                            <h5 class="mb-0">Nota #{{ $selected->nota }}</h5>
-                            <small class="text-muted">Ficha detalhada</small>
-                        </div>
-                    </div>
-
-                    <button class="btn btn-light btn-sm drawer-close" wire:click="closeDetails" aria-label="Fechar">
-                        <i class="ri-close-line"></i>
-                    </button>
-                </div>
-
-                <!-- Status Strip -->
-                <div class="drawer-strip">
-                    <span
-                        class="badge rounded-pill bg-{{ !$selected->dtConclusaoDesej->isPast() ? 'success' : 'danger' }} me-2">
-                        <i
-                            class="{{ !$selected->dtConclusaoDesej->isPast() ? 'ri-check-line' : 'ri-error-warning-line' }} me-1"></i>
-                        {{ !$selected->dtConclusaoDesej->isPast() ? 'No Prazo' : 'Vencido' }}
-                    </span>
-
-                    <div class="chip">
-                        <i class="ri-community-line me-1"></i>{{ $selected->cidade }}
-                    </div>
-                    <div class="chip">
-                        <i class="ri-price-tag-3-line me-1"></i>{{ $selected->txtGrpCodificacao }}
-                    </div>
-                </div>
-
-                <!-- Content (scrollable) -->
-                <div class="drawer-content">
-                    <div class="info-grid">
-                        <div class="info-card">
-                            <div class="info-label"><i class="ri-map-pin-line me-1"></i>Municipio</div>
-                            <div class="info-value">{{ $selected->cidade }}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label"><i class="ri-folder-2-line me-1"></i>Grupo</div>
-                            <div class="info-value">{{ $selected->txtGrpCodificacao }}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label"><i class="ri-time-line me-1"></i>Abertura</div>
-                            <div class="info-value">{{ $selected->dtAberturaNota?->format('d/m/Y') }}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label"><i class="ri-flag-line me-1"></i>Desejada</div>
-                            <div class="info-value">{{ $selected->dtConclusaoDesej?->format('d/m/Y') }}</div>
-                        </div>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <div class="desc-block">
-                        <div class="desc-title">
-                            <i class="ri-information-line me-2"></i>Descricao
-                        </div>
-                        <p class="mb-0 text-secondary">
-                            {{ $selected->comments->last()?->message }}
-                        </p>
-                    </div>
-
-                    {{-- Timeline opcional (so exibe se tiver datas) --}}
-                    @php
-                        $timeline = [
-                            [
-                                'icon' => 'ri-file-add-line',
-                                'label' => 'Abertura',
-                                'date' => $selected->dtAberturaNota?->format('d/m/Y'),
-                            ],
-                            [
-                                'icon' => 'ri-flag-2-line',
-                                'label' => 'Desejada',
-                                'date' => $selected->dtConclusaoDesej?->format('d/m/Y'),
-                            ],
-                        ];
-                    @endphp
-                    <div class="divider"></div>
-                    <div class="timeline">
-                        @foreach ($timeline as $t)
-                            @if (!empty($t['date']))
-                                <div class="timeline-item">
-                                    <div class="timeline-dot"><i class="{{ $t['icon'] }}"></i></div>
-                                    <div class="timeline-content">
-                                        <div class="timeline-label">{{ $t['label'] }}</div>
-                                        <div class="timeline-date">{{ $t['date'] }}</div>
-                                    </div>
-                                </div>
-                            @endif
-                        @endforeach
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="drawer-footer">
-                    <button class="btn btn-outline-secondary" wire:click="closeDetails">
-                        <i class="ri-arrow-go-back-line me-1"></i> Fechar
-                    </button>
-                    <button class="btn btn-primary" wire:click="goTo({{ $selected->nota }})">
-                        <i class="ri-external-link-line me-1"></i> Abrir Detalhes
-                    </button>
-                </div>
-            </div>
-            <div class="details-drawer-backdrop" wire:click="closeDetails"></div>
-        @endif
 
         {{-- Modal: Busca Multipla --}}
         <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel"
@@ -565,249 +467,9 @@
         </div>
 
         {{-- Modals --}}
-        @livewire('components.five-note.view-d5', key('five-note'))
+        @livewire('components.d5.d5details', key('five-note-details'))
         @livewire('components.five-note.manual-create', key('manual-create-five'))
         @livewire('components.five-note.edit-d5', key('edit-five-note'))
     </div>
 
-    {{-- Estilos customizados --}}
-    <style>
-        .details-drawer {
-            position: fixed;
-            top: 0;
-            right: 0;
-            height: 100vh;
-            width: 400px;
-            background: #fff;
-            border-left: 1px solid #eee;
-            z-index: 1201;
-            padding: 2rem 1.5rem 1rem 2rem;
-            box-shadow: -2px 0 18px rgba(0, 0, 0, 0.10);
-            animation: slideInDrawer .21s cubic-bezier(.6, -0.28, .74, .05);
-        }
-
-        /* --- Drawer Moderno --- */
-        .details-drawer--modern {
-            background: #ffffff;
-            border-left: 0;
-            width: 460px;
-            padding: 0;
-            overflow: hidden;
-            border-radius: 16px 0 0 16px;
-            box-shadow: -8px 0 28px rgba(0, 0, 0, .12);
-            backdrop-filter: saturate(1.2) blur(6px);
-        }
-
-        @media (max-width: 900px) {
-            .details-drawer--modern {
-                width: 100vw;
-                border-radius: 0;
-            }
-        }
-
-        /* Header com gradiente e blur */
-        .details-drawer--modern .drawer-header {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            background: linear-gradient(135deg, #0d6efd 0%, #4f8cff 100%);
-            color: #fff;
-            padding: 1rem 1.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 4px 16px rgba(13, 110, 253, .2);
-        }
-
-        .details-drawer--modern .drawer-title {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-        }
-
-        .details-drawer--modern .drawer-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, .15);
-            display: grid;
-            place-items: center;
-            font-size: 1.2rem;
-        }
-
-        /* Botao fechar */
-        .details-drawer--modern .drawer-close {
-            background: rgba(255, 255, 255, .15);
-            border: 0;
-            color: #fff;
-            transition: transform .15s ease, background .15s ease;
-        }
-
-        .details-drawer--modern .drawer-close:hover {
-            transform: rotate(90deg) scale(1.05);
-            background: rgba(255, 255, 255, .25);
-        }
-
-        /* Faixa de status + chips */
-        .details-drawer--modern .drawer-strip {
-            padding: .75rem 1.25rem;
-            background: linear-gradient(180deg, rgba(13, 110, 253, .06), rgba(13, 110, 253, 0));
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-            flex-wrap: wrap;
-        }
-
-        .details-drawer--modern .chip {
-            font-size: .82rem;
-            background: #f1f5ff;
-            color: #2752d3;
-            border: 1px solid #e3ebff;
-            padding: .25rem .6rem;
-            border-radius: 999px;
-            display: inline-flex;
-            align-items: center;
-        }
-
-        /* Conteudo rolavel */
-        .details-drawer--modern .drawer-content {
-            height: calc(100vh - 176px);
-            overflow-y: auto;
-            padding: 1.25rem 1.25rem 1rem;
-            scrollbar-width: thin;
-            scrollbar-color: #b8c9ff transparent;
-        }
-
-        .details-drawer--modern .drawer-content::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .details-drawer--modern .drawer-content::-webkit-scrollbar-thumb {
-            background: #b8c9ff;
-            border-radius: 3px;
-        }
-
-        /* Grid de infos */
-        .details-drawer--modern .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: .75rem;
-        }
-
-        @media (max-width: 480px) {
-            .details-drawer--modern .info-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .details-drawer--modern .info-card {
-            border: 1px solid #eef1f6;
-            border-radius: 12px;
-            padding: .75rem .9rem;
-            background: #fff;
-            transition: box-shadow .15s ease, transform .15s ease;
-        }
-
-        .details-drawer--modern .info-card:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
-        }
-
-        .details-drawer--modern .info-label {
-            font-size: .78rem;
-            color: #6b7a90;
-            text-transform: uppercase;
-            letter-spacing: .04em;
-        }
-
-        .details-drawer--modern .info-value {
-            font-weight: 600;
-            color: #2a2f3a;
-            margin-top: .15rem;
-        }
-
-        /* Descricao */
-        .details-drawer--modern .desc-block .desc-title {
-            font-weight: 700;
-            color: #334155;
-            margin-bottom: .4rem;
-            display: flex;
-            align-items: center;
-        }
-
-        .details-drawer--modern .desc-block p {
-            background: #f8fafc;
-            border: 1px dashed #e5e7eb;
-            border-radius: 12px;
-            padding: .75rem .9rem;
-        }
-
-        /* Timeline */
-        .details-drawer--modern .timeline {
-            position: relative;
-            margin-top: .5rem;
-            padding-left: .75rem;
-        }
-
-        .details-drawer--modern .timeline:before {
-            content: '';
-            position: absolute;
-            left: 10px;
-            top: 6px;
-            bottom: 6px;
-            width: 2px;
-            background: #e6ebff;
-        }
-
-        .details-drawer--modern .timeline-item {
-            display: flex;
-            gap: .75rem;
-            position: relative;
-            margin-bottom: .75rem;
-        }
-
-        .details-drawer--modern .timeline-dot {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: #eaf0ff;
-            color: #345bff;
-            display: grid;
-            place-items: center;
-            z-index: 1;
-            border: 2px solid #fff;
-            box-shadow: 0 0 0 2px #e6ebff;
-        }
-
-        .details-drawer--modern .timeline-content .timeline-label {
-            font-size: .82rem;
-            color: #64748b;
-            margin-bottom: .1rem;
-        }
-
-        .details-drawer--modern .timeline-date {
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        /* Footer fixo */
-        .details-drawer--modern .drawer-footer {
-            position: sticky;
-            bottom: 0;
-            background: linear-gradient(0deg, #ffffff 80%, rgba(255, 255, 255, 0));
-            padding: .9rem 1.25rem 1.1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: .75rem;
-            border-top: 1px solid #eef1f6;
-        }
-
-        /* Divider suave */
-        .details-drawer--modern .divider {
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #eef1f6, transparent);
-            margin: .9rem 0 1rem;
-        }
-    </style>
 </div>

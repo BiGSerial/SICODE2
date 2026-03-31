@@ -4,6 +4,7 @@
         @php
             use Carbon\Carbon;
             use App\Helpers\NotifyStatus;
+            use App\Support\Notifications\UserNotificationData;
         @endphp
 
         <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notification-toggle">
@@ -31,15 +32,22 @@
 
             @if ($notifies->isNotEmpty())
                 @foreach ($notifies->take($total_notifies) as $notify)
-                    @php $status = NotifyStatus::getStatus($notify->data['status'] ?? null); @endphp
+                    @php
+                        $payload = UserNotificationData::fromArray($notify->data);
+                        $status = NotifyStatus::getStatus($payload->status());
+                    @endphp
                     <li class="notification-item" style="{{ $notify->read_at ? 'background-color: #d3d3d3' : '' }}">
                         <a wire:key="{{ $notify->id }}" href="#"
                             wire:click.prevent="readed('{{ $notify->id }}')"
                             class="d-flex align-items-start text-decoration-none">
                             <i class="{{ $status->icon ?? '' }} {{ $status->color ?? '' }}"></i>
                             <div class="ms-2">
-                                <h6 class="fw-bold text-secondary">{{ $notify->data['titulo'] ?? '-' }}</h6>
-                                <p class="mb-1">{!! $notify->data['mensagem'] ?? '-' !!}</p>
+                                <h6 class="fw-bold text-secondary">{{ $payload->title() }}</h6>
+                                <p class="mb-1">{!! $payload->message() !!}</p>
+                                <small class="d-inline-flex align-items-center gap-1 text-muted">
+                                    <i class="{{ $payload->actionIcon() }}"></i>
+                                    {{ $payload->actionLabel() }}
+                                </small>
                                 <p class="mt-3 mb-0 text-muted small">
                                     {{ Carbon::parse($notify->created_at)->diffForHumans() }}</p>
                             </div>

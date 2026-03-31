@@ -24,6 +24,20 @@ class Reclaim extends Model
         'completed_at' => 'datetime',
     ];
 
+    public function scopeActive($query)
+    {
+        return $query->where('completed', false);
+    }
+
+    public static function hasActiveForService(int $noteId, string $serviceId): bool
+    {
+        return self::query()
+            ->where('note_id', $noteId)
+            ->where('service_id', $serviceId)
+            ->active()
+            ->exists();
+    }
+
     public function Note()
     {
         return $this->belongsTo(Note::class);

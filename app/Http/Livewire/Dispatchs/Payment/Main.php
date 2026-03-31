@@ -7,6 +7,7 @@ use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\BlockEvaluator;
 use App\Services\Payment\NoteFilter;
 use Carbon\Carbon;
@@ -596,6 +597,17 @@ class Main extends Component
                     'status'       => $data['status'],
                     'productionId' => $production->id,
                 ]);
+
+                if ($this->type === '2' && $production->user_id && $note->FiveNote) {
+                    $note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
+
+                    app(D5WorkflowService::class)->onProductionAssigned(
+                        $note->FiveNote,
+                        $production,
+                        $dispatcherId,
+                        null
+                    );
+                }
             }
         }
 

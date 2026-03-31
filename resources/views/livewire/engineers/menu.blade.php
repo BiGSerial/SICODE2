@@ -4,11 +4,11 @@
         <ul class="sidebar-nav" id="sidebar-nav">
             @if (!$onlySection || $onlySection === 'analises')
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#analises_nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link {{ $onlySection === 'analises' ? '' : 'collapsed' }}" data-bs-target="#analises_nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide"></i><span>VALIDAÇÂO DE PROJETOS</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="analises_nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="analises_nav" class="nav-content collapse {{ $onlySection === 'analises' ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.analises.dashboard') }}" class="nav-item text-white fw-normal">
@@ -36,31 +36,23 @@
 
                             </a>
                         </li>
-
-
                     </div>
                 </ul>
             </li>
             @endif
             @if (!$onlySection || $onlySection === 'viabilidade')
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse"
+                <a class="nav-link {{ $onlySection === 'viabilidade' ? '' : 'collapsed' }}" data-bs-target="#viabilidade-nav" data-bs-toggle="collapse"
                     href="#">
                     <i class="bi bi-menu-button-wide"></i><span>VIABILIDADE</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="viabilidade-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="viabilidade-nav" class="nav-content collapse {{ $onlySection === 'viabilidade' ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.main') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-dashboard-line text-white fw-light fs-5"></i> <span> DASHBOARD</span>
 
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('engineers.viability_waiting') }}" class="nav-item text-white fw-normal">
-                                <i class="ri-eye-line text-white fw-light fs-5"></i> <span> VIABILIDADE EM ESPERA</span>
-                                @livewire('engineers.counts.viab-in-waiting-count', key('viab-in-waiting-count'))
                             </a>
                         </li>
                         <li>
@@ -107,11 +99,11 @@
             @endif
             @if (!$onlySection || $onlySection === 'informes')
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#informes-nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link {{ $onlySection === 'informes' ? '' : 'collapsed' }}" data-bs-target="#informes-nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide text-danger"></i><span>INFORMES CONCLUSÃO</span><i
                         class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="informes-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="informes-nav" class="nav-content collapse {{ $onlySection === 'informes' ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.dashboard.conclusion_inform') }}"
@@ -148,12 +140,12 @@
 
             @if (!$onlySection || $onlySection === 'parciais')
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#informes-parc-nav" data-bs-toggle="collapse"
+                <a class="nav-link {{ $onlySection === 'parciais' ? '' : 'collapsed' }}" data-bs-target="#informes-parc-nav" data-bs-toggle="collapse"
                     href="#">
                     <i class="bi bi-menu-button-wide text-primary"></i><span>INFORMES PARCIAIS</span>
                     @livewire('engineers.counts.count-parcial', ['menu' => true], key('count-parcial'))<i class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="informes-parc-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="informes-parc-nav" class="nav-content collapse {{ $onlySection === 'parciais' ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
 
 
@@ -176,11 +168,11 @@
 
             @if (!$onlySection || $onlySection === 'cancellations')
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#cancelamentos-nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link {{ $onlySection === 'cancellations' ? '' : 'collapsed' }}" data-bs-target="#cancelamentos-nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide text-warning"></i><span>CANCELAMENTOS</span>
                     <i class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="cancelamentos-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="cancelamentos-nav" class="nav-content collapse {{ $onlySection === 'cancellations' ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.cancellations.index') }}" class="nav-item text-white fw-normal">
@@ -202,11 +194,11 @@
 
             @if (!$onlySection || $onlySection === 'd5')
             <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#dfive-nav" data-bs-toggle="collapse" href="#">
+                <a class="nav-link {{ $onlySection === 'd5' ? '' : 'collapsed' }}" data-bs-target="#dfive-nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide text-primary"></i><span>NOTAS D5</span>
                     @livewire('engineers.counts.count-parcial', ['menu' => true], key('count-parcial'))<i class="bi bi-chevron-down ms-auto"></i>
                 </a>
-                <ul id="dfive-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <ul id="dfive-nav" class="nav-content collapse {{ $onlySection === 'd5' ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li>
                             <a href="{{ route('engineers.dfive.waiting') }}" class="nav-item text-white fw-normal">

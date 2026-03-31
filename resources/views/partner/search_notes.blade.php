@@ -4,8 +4,10 @@
     <nav aria-label="breadcrumb" class="py-0 my-0">
         <ol class="breadcrumb bg-light px-3 pt-3 rounded-3">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ route('partner.main.viability') }}">Partner</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Buscar Notas/OV</li>
+                <li class="breadcrumb-item"><a href="{{ route('company') }}">Home</a></li>
+                <li class="breadcrumb-item">Construção</li>
+                <li class="breadcrumb-item" aria-current="page">Parceiro</li>
+                <li class="breadcrumb-item active" aria-current="page">Buscar Notas</li>
             </ol>
         </ol>
     </nav>
@@ -15,14 +17,17 @@
     @livewire('partner.menu')
 @endsection
 
+@section('top_menu_partial', 'layouts.menu_itens_company_partner_search')
+@section('body_class', 'toggle-sidebar')
+
 @section('content')
-    @livewire('reports.search', key('report-search-partner'))
+    @livewire('partner.reports.search', key('partner-report-search'))
 @endsection
 
 @push('script')
     <script>
         window.addEventListener('alertar', function(e) {
-            const confirmation = Swal.mixin({
+            const Confirmation = Swal.mixin({
                 customClass: {
                     confirmButton: 'btn btn-success',
                     cancelButton: 'btn btn-danger'
@@ -40,11 +45,15 @@
                 reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Livewire.emit(e.detail.action, e.detail.chave);
+                    Livewire.emit(e.detail.action, e.detail.chave)
                 } else if (result.dismiss === Swal.DismissReason.cancel) {
-                    Swal.fire(e.detail.cancel_titulo, e.detail.cancel_msg, 'success');
+                    Swal.fire(
+                        e.detail.cancel_titulo,
+                        e.detail.cancel_msg,
+                        'success'
+                    )
                 }
-            });
+            })
         });
     </script>
 @endpush

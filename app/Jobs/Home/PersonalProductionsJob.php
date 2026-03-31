@@ -28,23 +28,26 @@ class PersonalProductionsJob implements ShouldQueue
 
     public $tries   = 2;
     public $backoff = [30, 120];
+    public int $timeout = 1800; // 30 min para exportacoes grandes
 
     public function __construct(array $params, string|int $userId)
     {
         $this->params = $params;
         $this->userId = $userId;
+        $this->onConnection('database');
+        $this->onQueue('exports');
     }
 
     public function handle(): void
     {
-        $user         = User::find($this->userId);
+        $ownerId      = (string) $this->userId;
+        $user         = User::find($ownerId);
         $filePath     = null;
         $serviceLabel = '';
+        $includeOpen  = (bool)($this->params['include_open'] ?? false);
+        $includeRi    = (bool)($this->params['include_ri'] ?? false);
 
         try {
-            $includeOpen = (bool)($this->params['complete'] ?? false); // dashboard: false
-            $wantD5      = (bool)($this->params['d5'] ?? false);       // dashboard: false
-
             // Intervalo (vem como 'Y-m-d'); normaliza para timestamps completos
             $start = isset($this->params['dt_init']) ? date('Y-m-d 00:00:00', strtotime($this->params['dt_init'])) : null;
             $end   = isset($this->params['dt_end']) ? date('Y-m-d 23:59:59', strtotime($this->params['dt_end'])) : null;
@@ -54,7 +57,8 @@ class PersonalProductionsJob implements ShouldQueue
                 $serviceLabel = Service::whereIn('uuid', $this->params['service'])->first()?->service ?? '';
             }
 
-            // Query no mesmo padrão do ExportProductionJob — só que **pessoal** e com filtros da dashboard
+            // Escopo fixo do dashboard pessoal:
+            // user_id do usuário logado + concluídas + sem rejeitadas, com opção de incluir RI/aberto.
             $query = Production::query()
                 ->select([
                     'id','user_id','company_id','service_id','dispatch_by',
@@ -62,29 +66,28 @@ class PersonalProductionsJob implements ShouldQueue
                     'dt_note','dispatch_at','att_at','completed_at',
                     'odi','odd','ods','eo','iproject','cad','cadastro',
                     'postes_c','postes_u','stopped','d5','confirmed','status','completed',
-                    'partial','partial_at',
+                    'partial','partial_at','supervision_by_partner_photos',
                 ])
+                ->where('user_id', $ownerId)
                 ->where('rejected', false)
-                // ESCOPANDO PARA O USUÁRIO DA DASHBOARD
-                ->where('user_id', $this->userId)
-                // dashboard: apenas concluídos?
+                ->when(!$includeRi, fn ($q) => $q->where('d5', false))
                 ->when(!$includeOpen, fn ($q) => $q->where('completed', true))
-                // dashboard: exclui D5?
-                ->when(!$wantD5, fn ($q) => $q->where('d5', false))
                 // serviço por UUID (productions.service_id armazena UUID)
                 ->when(!empty($this->params['service'] ?? []), fn ($q) => $q->whereIn('service_id', $this->params['service']))
-                // intervalo de datas (completed_at)
-                ->when($start || $end, function ($q) use ($start, $end, $includeOpen) {
+                // intervalo estrito selecionado (concluídas em completed_at; em aberto em dispatch_at)
+                ->when($start && $end, function ($q) use ($start, $end, $includeOpen) {
                     $q->where(function ($w) use ($start, $end, $includeOpen) {
-                        if ($start) {
-                            $w->where('completed_at', '>=', $start);
-                        }
-                        if ($end) {
-                            $w->where('completed_at', '<=', $end);
-                        }
+                        $w->where(function ($done) use ($start, $end) {
+                            $done->where('completed', true)
+                                ->whereBetween('completed_at', [$start, $end]);
+                        });
+
                         if ($includeOpen) {
-                            // mantém compatibilidade com sua referência (OR abre OS não concluídas)
-                            $w->orWhere('completed', false);
+                            $w->orWhere(function ($open) use ($start, $end) {
+                                $open->where('completed', false)
+                                    ->where('rejected', false)
+                                    ->whereBetween('dispatch_at', [$start, $end]);
+                            });
                         }
                     });
                 })
@@ -129,12 +132,12 @@ class PersonalProductionsJob implements ShouldQueue
                 ])
                 ->orderBy('completed_at');
 
-            // Estimativa (para o AfterSheet do export decidir efeitos caros)
-            $rowEstimate = (clone $query)->toBase()->count();
+            // Sem count extra: mantém estilo de relatório habilitado.
+            $rowEstimate = 0;
 
             // Caminho/nome do arquivo (por usuário)
             $serviceSuffix = $serviceLabel ? '_' . preg_replace('/\s+/', '_', $serviceLabel) : '';
-            $dir           = "exports/users/{$this->userId}";
+            $dir           = "exports/users/{$ownerId}";
             $filePath      = "{$dir}/" . now()->format('YmdHis') . "{$serviceSuffix}_my_productions.xlsx";
             $disk          = Storage::disk('local');
             $disk->makeDirectory($dir);
@@ -143,7 +146,11 @@ class PersonalProductionsJob implements ShouldQueue
             $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
 
             // Notificação de sucesso
-            if ($stored && $user && $disk->exists($filePath)) {
+            if (!$stored) {
+                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
+            }
+
+            if ($user) {
                 $serviceText = $serviceLabel ? (' para ' . $serviceLabel) : '';
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
@@ -152,8 +159,6 @@ class PersonalProductionsJob implements ShouldQueue
                     4,
                     []
                 ));
-            } else {
-                throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
 
 

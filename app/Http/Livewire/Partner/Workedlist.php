@@ -110,7 +110,7 @@ class Workedlist extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = WorkReport::Query();
+        $query = WorkReport::query()->active();
 
 
         // $query->where('rejected', false);

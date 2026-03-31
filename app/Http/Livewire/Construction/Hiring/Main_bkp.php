@@ -1043,6 +1043,10 @@ class Main_bkp extends Component
 
         foreach ($this->show_returns as $register) {
             try {
+                if (Reclaim::hasActiveForService($register->id, $this->service_s)) {
+                    continue;
+                }
+
                 if ($register->Productions->Where('completed', true)->Where('service_id', $this->service_s)->last()) {
                     $last_user = $register->Productions->Where('completed', true)->Where('service_id', $this->service_s)->last()->User;
                     $last_user_company_id = $last_user->Employee->Contract->company->id ?? null;

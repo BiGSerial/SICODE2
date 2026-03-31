@@ -5,9 +5,6 @@
             .oexterno-page {
                 --oe-bg: #f6f7fb;
                 --oe-surface: #ffffff;
-                --oe-ink: #1f2933;
-                --oe-muted: #6b7280;
-                --oe-accent: #0f766e;
                 --oe-border: #e5e7eb;
                 background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
                     radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
@@ -37,7 +34,6 @@
                 border-radius: 0.85rem;
                 box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
                 padding: 1rem;
-                height: 100%;
             }
 
             .section-title {
@@ -49,9 +45,74 @@
                 text-transform: uppercase;
             }
 
+            .text-block {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 0.75rem;
+                padding: 0.75rem;
+                white-space: pre-wrap;
+            }
+
+            .ticket-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: .55rem;
+                margin-bottom: .75rem;
+            }
+
+            .ticket-item {
+                border: 1px solid #e2e8f0;
+                border-radius: .65rem;
+                padding: .55rem .65rem;
+                background: #fff;
+            }
+
+            .ticket-label {
+                font-size: .74rem;
+                color: #64748b;
+                text-transform: uppercase;
+                font-weight: 700;
+                letter-spacing: .04em;
+            }
+
+            .ticket-value {
+                margin-top: .1rem;
+                font-weight: 700;
+                color: #0f172a;
+                word-break: break-word;
+            }
+
+            .ops-check {
+                display: flex;
+                align-items: flex-start;
+                gap: .55rem;
+                padding: .45rem 0;
+                border-bottom: 1px dashed #e2e8f0;
+            }
+
+            .ops-check:last-child {
+                border-bottom: 0;
+                padding-bottom: 0;
+            }
+
+            .item-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: grid;
+                gap: .45rem;
+            }
+
+            .item-list li {
+                border: 1px solid #e2e8f0;
+                border-radius: .6rem;
+                padding: .5rem .6rem;
+                background: #f8fafc;
+            }
+
             .evidence-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                 gap: 12px;
             }
 
@@ -61,14 +122,16 @@
                 background: #fff;
                 padding: 0.6rem;
                 text-align: center;
-                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
             }
 
             .evidence-thumb {
                 width: 100%;
-                height: 110px;
+                height: 120px;
                 object-fit: cover;
                 border-radius: 0.6rem;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+                cursor: pointer;
             }
 
             .evidence-name {
@@ -77,34 +140,6 @@
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-            }
-
-            .comment-text {
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-
-            .timeline-box {
-                max-height: 280px;
-                overflow: auto;
-            }
-
-            .control-panel {
-                border: 1px dashed #cbd5e1;
-                border-radius: 0.75rem;
-                background: #f8fafc;
-                padding: 0.85rem;
-            }
-
-            .text-block {
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 0.75rem;
-                padding: 0.75rem;
-                min-height: 120px;
-                white-space: pre-wrap;
             }
 
             .phase-timeline {
@@ -131,161 +166,155 @@
                 box-shadow: 0 0 0 2px #0f766e22;
             }
 
-            .phase-time {
-                font-size: .78rem;
-                color: #6b7280;
-            }
-
             .timeline-scroll {
-                max-height: 320px;
+                max-height: 900px;
                 overflow-y: auto;
                 padding-right: .35rem;
             }
 
-            .status-banner {
-                border-radius: .8rem;
-                padding: .75rem 1rem;
-                border: 1px solid #e2e8f0;
-                background: #f8fafc;
-            }
-
-            .info-panel {
-                background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-                border: 1px solid #dbe5ef;
-                border-radius: .9rem;
-                box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-                padding: 1rem;
-                height: 100%;
-            }
-
-            .info-panel-head {
-                display: flex;
-                align-items: center;
-                gap: .55rem;
-                margin-bottom: .8rem;
-                padding-bottom: .6rem;
-                border-bottom: 1px solid #e2e8f0;
-            }
-
-            .info-panel-icon {
-                width: 34px;
-                height: 34px;
-                border-radius: .6rem;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: #e6f7f2;
-                color: #0f766e;
-                font-size: 1.05rem;
-            }
-
-            .info-panel-title {
-                margin: 0;
-                font-size: .95rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: .04em;
-                color: #0f172a;
-            }
-
-            .info-kv {
-                display: grid;
-                gap: .45rem;
-            }
-
-            .info-kv-row {
-                display: grid;
-                grid-template-columns: 130px 1fr;
-                gap: .5rem;
-                align-items: start;
-                font-size: .93rem;
-            }
-
-            .info-kv-key {
-                color: #64748b;
-                font-weight: 600;
-            }
-
-            .info-kv-val {
-                color: #0f172a;
-                font-weight: 600;
-                word-break: break-word;
-            }
-
-            @media (max-width: 1200px) {
-                .info-kv-row {
-                    grid-template-columns: 110px 1fr;
+            @media (max-width: 992px) {
+                .ticket-grid {
+                    grid-template-columns: 1fr;
                 }
             }
         </style>
 
         @php
             $imageExts = ['jpg','jpeg','png','gif','bmp','svg','tiff','webp'];
-            $engineerRejected = $cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::REJECTED;
+            $requestStatusValue = $cancellationRequest->status?->value ?? $cancellationRequest->status;
+            $isClosedRequest = in_array($requestStatusValue, ['DONE', 'REJECTED', 'ABORTED'], true);
+            $canManageApproval = in_array($requestStatusValue, ['ASSIGNED', 'PAUSED'], true);
+
+            $approvalStatusValue = $cancellationRequest->engineer_approval_status?->value ?? $cancellationRequest->engineer_approval_status;
+            $approvalPending = $approvalStatusValue === \App\Enum\CancellationEngineerApprovalStatus::PENDING->value;
             $canFinalizeCancellation = !$cancellationRequest->requires_engineer_approval
-                || in_array($cancellationRequest->engineer_approval_status?->value, ['APPROVED', 'CANCELED'], true);
+                || in_array($approvalStatusValue, ['APPROVED', 'CANCELED'], true);
+
+            $requestedTarget = match ($cancellationRequest->scope?->value ?? $cancellationRequest->scope) {
+                \App\Enum\CancellationRequestScope::NOTE_FULL->value => 'Cancelar nota inteira, ordens vinculadas e WorkForm (se existir).',
+                \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value => 'Cancelar somente o WorkForm da nota.',
+                default => 'Cancelar somente as ordens selecionadas nesta solicitação.',
+            };
+
+            $requestEvents = $cancellationRequest->Events
+                ->whereIn('type', ['engineer_approval_requested', 'engineer_approval_reopened', 'engineer_approval_engineer_changed'])
+                ->sortBy('created_at')
+                ->values();
+
+            $responseEvents = $cancellationRequest->Events
+                ->whereIn('type', ['engineer_approval_approved', 'engineer_approval_rejected', 'engineer_approval_canceled'])
+                ->sortBy('created_at')
+                ->values();
+
+            $approvalCards = $responseEvents->map(function ($event) use ($requestEvents, $cancellationRequest) {
+                $requestContext = $requestEvents
+                    ->filter(fn ($req) => $req->created_at && $event->created_at && $req->created_at->lte($event->created_at))
+                    ->last();
+
+                $decisionType = match ($event->type) {
+                    'engineer_approval_approved' => 'Aprovado',
+                    'engineer_approval_rejected' => 'Rejeitado',
+                    default => 'Solicitação cancelada',
+                };
+
+                $decisionBadge = match ($event->type) {
+                    'engineer_approval_approved' => 'bg-success',
+                    'engineer_approval_rejected' => 'bg-danger',
+                    default => 'bg-secondary',
+                };
+
+                return [
+                    'engineer' => $event->Actor->name ?? ($cancellationRequest->EngineerApprover->name ?? 'Usuário não identificado'),
+                    'decision' => $decisionType,
+                    'decision_badge' => $decisionBadge,
+                    'decision_reason' => data_get($event, 'meta.reason') ?: 'Sem resposta registrada.',
+                    'decision_at' => $event->created_at,
+                    'request_reason' => data_get($requestContext, 'meta.reason') ?: 'Sem texto enviado pelo executante.',
+                    'request_by' => $requestContext?->Actor?->name ?? ($cancellationRequest->EngineerApprovalRequester->name ?? '-'),
+                    'request_at' => $requestContext?->created_at,
+                ];
+            })->values();
+
+            if ($approvalCards->isEmpty() && $requestEvents->isNotEmpty()) {
+                $latestRequest = $requestEvents->last();
+                $approvalCards = collect([[
+                    'engineer' => $cancellationRequest->EngineerApprover->name ?? 'Não definido',
+                    'decision' => 'Aguardando decisão',
+                    'decision_badge' => 'bg-warning text-dark',
+                    'decision_reason' => 'Ainda sem resposta do engenheiro.',
+                    'decision_at' => null,
+                    'request_reason' => data_get($latestRequest, 'meta.reason') ?: 'Sem texto enviado pelo executante.',
+                    'request_by' => $latestRequest?->Actor?->name ?? ($cancellationRequest->EngineerApprovalRequester->name ?? '-'),
+                    'request_at' => $latestRequest?->created_at,
+                ]]);
+            }
+
+            $itemsToCancel = collect();
+            $orderRefs = $cancellationRequest->Orders->pluck('ordem')->filter()->values();
+            $hasWorkForm = (bool) optional($cancellationRequest->Note)->WorkForm;
+
+            if (($cancellationRequest->scope?->value ?? $cancellationRequest->scope) === \App\Enum\CancellationRequestScope::NOTE_FULL->value) {
+                $itemsToCancel->push('Nota/OV: ' . ($cancellationRequest->Note->note ?? '-') . ' / ' . ($cancellationRequest->Note->ov ?? '-'));
+                if ($orderRefs->isNotEmpty()) {
+                    $itemsToCancel->push('Ordens: ' . $orderRefs->join(', '));
+                }
+                if ($hasWorkForm) {
+                    $itemsToCancel->push('Informe de Obra: será cancelado junto com a nota.');
+                }
+            } elseif (($cancellationRequest->scope?->value ?? $cancellationRequest->scope) === \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value) {
+                $itemsToCancel->push('Informe de Obra da nota ' . ($cancellationRequest->Note->note ?? '-') . '.');
+            } else {
+                foreach ($orderRefs as $ordem) {
+                    $itemsToCancel->push('Ordem: ' . $ordem);
+                }
+            }
+
+            $executionChecks = [
+                [
+                    'ok' => filled($cancellationRequest->description),
+                    'label' => 'Pedido do solicitante identificado',
+                    'detail' => filled($cancellationRequest->description) ? 'Descrição preenchida.' : 'Falta descrição do solicitante.',
+                ],
+                [
+                    'ok' => !$cancellationRequest->requires_engineer_approval || !$approvalPending,
+                    'label' => 'Dependência de engenharia',
+                    'detail' => $approvalPending ? 'Aguardando retorno do engenheiro.' : 'Sem pendência de engenharia.',
+                ],
+                [
+                    'ok' => !$cancellationRequest->requires_engineer_approval || $canFinalizeCancellation,
+                    'label' => 'Condição para finalizar',
+                    'detail' => $canFinalizeCancellation ? 'Finalização permitida no estado atual.' : 'Finalização bloqueada no momento.',
+                ],
+            ];
+
             $imageFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
                 $ext = strtolower((string) $file->extension);
                 return in_array($ext, $imageExts, true) || str_starts_with((string) $file->mime, 'image/');
             });
+
             $otherFiles = $cancellationRequest->EvidenceFiles->filter(function ($file) use ($imageExts) {
                 $ext = strtolower((string) $file->extension);
                 return !in_array($ext, $imageExts, true) && !str_starts_with((string) $file->mime, 'image/');
             });
 
-            $requestStatusValue = $cancellationRequest->status?->value ?? $cancellationRequest->status;
-            $isClosedRequest = in_array($requestStatusValue, ['DONE', 'REJECTED', 'ABORTED'], true);
-            $canManageApproval = in_array($requestStatusValue, ['ASSIGNED', 'PAUSED'], true);
-
-            $requestedTarget = $cancellationRequest->scope?->value === \App\Enum\CancellationRequestScope::NOTE_FULL->value
-                ? 'Cancelar nota inteira e todas as ordens vinculadas.'
-                : 'Cancelar somente as ordens selecionadas nesta solicitação.';
-
-            $closureType = $cancellationRequest->closure_type;
-            $executantDecision = match ($closureType) {
-                \App\Models\CancellationRequest::CLOSURE_DONE => 'Cancelamento executado',
-                \App\Models\CancellationRequest::CLOSURE_REJECTED => 'Solicitação rejeitada pelo executante',
-                \App\Models\CancellationRequest::CLOSURE_ABORTED => 'Solicitação abortada pelo executante',
-                default => 'Em execução',
-            };
-
             $timeline = collect([
                 ['label' => 'Solicitação criada', 'time' => $cancellationRequest->submitted_at, 'user' => $cancellationRequest->Requester?->name],
                 ['label' => 'Assumida para execução', 'time' => $cancellationRequest->assigned_at, 'user' => $cancellationRequest->Assignee?->name],
-                ['label' => 'Aprovação do engenheiro solicitada', 'time' => $cancellationRequest->engineer_approval_requested_at, 'user' => $cancellationRequest->EngineerApprovalRequester?->name],
+                ['label' => 'Solicitação ao engenheiro', 'time' => $cancellationRequest->engineer_approval_requested_at, 'user' => $cancellationRequest->EngineerApprovalRequester?->name],
                 ['label' => 'Decisão do engenheiro', 'time' => $cancellationRequest->engineer_approval_decided_at, 'user' => $cancellationRequest->EngineerApprovalDecider?->name],
-                ['label' => 'Encerramento da solicitação', 'time' => $cancellationRequest->closed_at, 'user' => $cancellationRequest->Closer?->name],
+                ['label' => 'Encerramento', 'time' => $cancellationRequest->closed_at, 'user' => $cancellationRequest->Closer?->name],
             ])->filter(fn ($i) => !empty($i['time']))->values();
         @endphp
 
         <div class="oexterno-header d-flex align-items-center">
             <div class="me-auto">
                 <h2>Execução #{{ $cancellationRequest->id }}</h2>
-                <span class="meta">Tudo à vista para executar a solicitação.</span>
+                <span class="meta">Controle operacional de solicitação de cancelamento.</span>
             </div>
             <a class="btn btn-outline-light" href="{{ route('services.cancellations.ongoing', ['service' => $service]) }}">Voltar</a>
         </div>
 
         <div class="oexterno-card p-3">
-            <div class="status-banner mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div>
-                    <div class="small text-muted text-uppercase">Status atual</div>
-                    <div class="fw-bold">
-                        {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
-                    </div>
-                </div>
-                <div>
-                    <div class="small text-muted text-uppercase">Decisão do executante</div>
-                    <div class="fw-bold">{{ $executantDecision }}</div>
-                </div>
-                <div>
-                    <div class="small text-muted text-uppercase">Aprovação engenheiro</div>
-                    <div class="fw-bold">
-                        {{ $cancellationRequest->engineer_approval_status?->label() ?? 'Não solicitada' }}
-                    </div>
-                </div>
-            </div>
-
             @if($isClosedRequest)
                 <div class="alert alert-secondary mb-3">
                     Fluxo encerrado em {{ optional($cancellationRequest->closed_at)->format('d/m/Y H:i') ?? '-' }}.
@@ -294,152 +323,229 @@
             @endif
 
             <div class="row g-3">
-                <div class="col-md-4">
-                    <div class="info-panel">
-                        <div class="info-panel-head">
-                            <span class="info-panel-icon"><i class="ri-file-text-line"></i></span>
-                            <h6 class="info-panel-title">Nota</h6>
-                        </div>
-                        <div class="info-kv">
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Número</div>
-                                <div class="info-kv-val">{{ $cancellationRequest->Note->note ?? '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Cliente</div>
-                                <div class="info-kv-val">{{ $cancellationRequest->Note->client ?? '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Status</div>
-                                <div class="info-kv-val">{{ $cancellationRequest->Note->status ?? '-' }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="info-panel">
-                        <div class="info-panel-head">
-                            <span class="info-panel-icon"><i class="ri-file-list-3-line"></i></span>
-                            <h6 class="info-panel-title">Solicitação</h6>
-                        </div>
-                        <div class="info-kv">
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Categoria</div>
-                                <div class="info-kv-val">{{ $cancellationRequest->Category->name ?? '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Escopo</div>
-                                <div class="info-kv-val">
-                                    <span class="badge {{ $cancellationRequest->scope?->badgeClass() ?? 'bg-secondary' }}">
-                                        {{ $cancellationRequest->scope?->label() ?? $cancellationRequest->scope?->value ?? $cancellationRequest->scope }}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Status</div>
-                                <div class="info-kv-val">
-                                    <span class="badge {{ $cancellationRequest->status?->badgeClass() ?? 'bg-secondary' }}">
-                                        {{ $cancellationRequest->status?->label() ?? $cancellationRequest->status?->value ?? $cancellationRequest->status }}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Solicitante</div>
-                                <div class="info-kv-val">{{ $cancellationRequest->Requester->name ?? '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Aprovação Eng.</div>
-                                <div class="info-kv-val">
-                                    @if($cancellationRequest->engineer_approval_status)
-                                        <span class="badge {{ $cancellationRequest->engineer_approval_status?->badgeClass() ?? 'bg-secondary' }}">
-                                            {{ $cancellationRequest->engineer_approval_status?->label() ?? $cancellationRequest->engineer_approval_status }}
-                                        </span>
-                                    @else
-                                        <span class="badge bg-secondary">Não solicitada</span>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Engenheiro</div>
-                                <div class="info-kv-val">{{ $cancellationRequest->EngineerApprover->name ?? '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Objetivo</div>
-                                <div class="info-kv-val">{{ $requestedTarget }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="info-panel">
-                        <div class="info-panel-head">
-                            <span class="info-panel-icon"><i class="ri-tools-line"></i></span>
-                            <h6 class="info-panel-title">Execução</h6>
-                        </div>
-                        <div class="info-kv">
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Assumido em</div>
-                                <div class="info-kv-val">{{ optional($cancellationRequest->assigned_at)->format('d/m/Y H:i') ?: '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Atualização</div>
-                                <div class="info-kv-val">{{ optional($cancellationRequest->updated_at)->format('d/m/Y H:i') ?: '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Solicitada em</div>
-                                <div class="info-kv-val">{{ optional($cancellationRequest->engineer_approval_requested_at)->format('d/m/Y H:i') ?: '-' }}</div>
-                            </div>
-                            <div class="info-kv-row">
-                                <div class="info-kv-key">Decidida em</div>
-                                <div class="info-kv-val">{{ optional($cancellationRequest->engineer_approval_decided_at)->format('d/m/Y H:i') ?: '-' }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <div class="col-12 col-lg-8">
+                    <div class="oexterno-subcard mb-3">
+                        <div class="section-title">Solicitação de Cancelamento</div>
 
-            <div class="row mt-3">
-                <div class="col-md-6">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Pedido do solicitante</div>
-                        <div class="mb-2 text-muted small">
-                            Texto original informado pelo solicitante ao abrir o cancelamento.
+                        <div class="ticket-grid">
+                            <div class="ticket-item">
+                                <div class="ticket-label">Usuário solicitante</div>
+                                <div class="ticket-value">{{ $cancellationRequest->Requester->name ?? '-' }}</div>
+                            </div>
+                            <div class="ticket-item">
+                                <div class="ticket-label">Data da solicitação</div>
+                                <div class="ticket-value">{{ optional($cancellationRequest->submitted_at)->format('d/m/Y H:i') ?? '-' }}</div>
+                            </div>
+                            <div class="ticket-item">
+                                <div class="ticket-label">Motivo (categoria)</div>
+                                <div class="ticket-value">{{ $cancellationRequest->Category->name ?? '-' }}</div>
+                            </div>
+                            <div class="ticket-item">
+                                <div class="ticket-label">Escopo</div>
+                                <div class="ticket-value">{{ $requestedTarget }}</div>
+                            </div>
                         </div>
+
+                        <div class="ticket-label mb-1">Descrição do pedido</div>
                         <div class="text-block">{{ $cancellationRequest->description ?: 'Sem descrição informada pelo solicitante.' }}</div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Orientação do executante</div>
-                        <div class="mb-2 text-muted small">
-                            Justificativa registrada pelo executante para o fluxo (aprovação/encerramento).
-                        </div>
-                        <div class="text-block">{{ $cancellationRequest->closure_note ?: $cancellationRequest->engineer_approval_reason ?: 'Sem orientação registrada pelo executante.' }}</div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="row mt-3 g-3">
-                <div class="col-12 col-md-9">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Painel de Controle da Aprovação de Engenheiro</div>
-                        @if($approvalPending)
-                            <div class="alert alert-warning py-2">
-                                Aguardando decisão do engenheiro. Use os controles abaixo para trocar o engenheiro ou cancelar a solicitação de aprovação.
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <div class="oexterno-subcard h-100">
+                                <div class="section-title">Itens a cancelar neste chamado</div>
+                                <ul class="item-list mb-0">
+                                    @forelse($itemsToCancel as $item)
+                                        <li>{{ $item }}</li>
+                                    @empty
+                                        <li>Nenhum item identificado para cancelamento.</li>
+                                    @endforelse
+                                </ul>
                             </div>
-                        @elseif($cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::REJECTED)
-                            <div class="alert alert-danger py-2">
-                                Solicitação rejeitada pelo engenheiro. Reenvie para aprovação ou cancele a exigência para continuar.
+                        </div>
+                        <div class="col-md-6">
+                            <div class="oexterno-subcard h-100">
+                                <div class="section-title">Condições de execução</div>
+                                @foreach($executionChecks as $check)
+                                    <div class="ops-check">
+                                        <i class="{{ $check['ok'] ? 'ri-checkbox-circle-fill text-success' : 'ri-error-warning-fill text-danger' }}"></i>
+                                        <div>
+                                            <div class="fw-semibold">{{ $check['label'] }}</div>
+                                            <div class="small text-muted">{{ $check['detail'] }}</div>
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
-                        @elseif($cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::APPROVED)
-                            <div class="alert alert-success py-2">
-                                Aprovação do engenheiro concluída. Você já pode finalizar o cancelamento.
+                        </div>
+                    </div>
+
+                    <div class="oexterno-subcard mb-3">
+                        <div class="section-title">Evidências do chamado</div>
+                        @if($imageFiles->count())
+                            <div class="evidence-grid mb-3">
+                                @foreach($imageFiles as $file)
+                                    @php($fileUrl = \Illuminate\Support\Facades\Storage::disk($file->disk)->url($file->path))
+                                    <div class="evidence-card">
+                                        <img src="{{ $fileUrl }}" class="evidence-thumb" alt="{{ $file->original_name }}"
+                                             data-evidence-src="{{ $fileUrl }}" data-evidence-name="{{ $file->original_name }}"
+                                             data-bs-toggle="modal" data-bs-target="#evidenceModal">
+                                        <div class="small text-muted evidence-name mt-2" title="{{ $file->original_name }}">{{ $file->original_name }}</div>
+                                        <div class="small text-muted">{{ strtoupper($file->extension ?? '-') }} | {{ $file->origin }}</div>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                    </div>
+                                @endforeach
                             </div>
                         @endif
 
-                        @if($canManageApproval && !$isClosedRequest)
-                            <div class="row g-2">
-                                <div class="col-md-5">
+                        @if($otherFiles->count())
+                            <ul class="list-group">
+                                @foreach($otherFiles as $file)
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="evidence-name" title="{{ $file->original_name }}">{{ $file->original_name }}</div>
+                                            <small class="text-muted">{{ strtoupper($file->extension ?? '-') }} | {{ $file->origin }}</small>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+
+                        @if($imageFiles->isEmpty() && $otherFiles->isEmpty())
+                            <div class="text-muted">Nenhum anexo neste chamado.</div>
+                        @endif
+                    </div>
+
+                    @if($approvalCards->isNotEmpty())
+                        <div class="oexterno-subcard mb-3">
+                            <div class="section-title">Aprovação do Engenheiro</div>
+                            @if($approvalCards->count() > 1)
+                                <div id="engineerApprovalCarousel" class="carousel slide" data-bs-ride="false">
+                                    <div class="carousel-inner">
+                                        @foreach($approvalCards as $index => $card)
+                                            <div class="carousel-item @if($index === 0) active @endif">
+                                                <div class="row g-3">
+                                                    <div class="col-md-4">
+                                                        <div class="ticket-item h-100">
+                                                            <div class="ticket-label">Engenheiro avaliador</div>
+                                                            <div class="ticket-value">{{ $card['engineer'] }}</div>
+                                                            <div class="small text-muted mt-2">Encaminhado por {{ $card['request_by'] }} em {{ optional($card['request_at'])->format('d/m/Y H:i') ?? '-' }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="ticket-label mb-1">Texto do executante ao engenheiro</div>
+                                                        <div class="text-block">{{ $card['request_reason'] }}</div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                                            <div class="ticket-label mb-0">Resposta do engenheiro</div>
+                                                            <span class="badge {{ $card['decision_badge'] }}">{{ $card['decision'] }}</span>
+                                                        </div>
+                                                        <div class="text-block">{{ $card['decision_reason'] }}</div>
+                                                        <div class="small text-muted mt-1">{{ optional($card['decision_at'])->format('d/m/Y H:i') ?? '-' }}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#engineerApprovalCarousel" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Anterior</span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#engineerApprovalCarousel" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Próximo</span>
+                                    </button>
+                                </div>
+                            @else
+                                @php($card = $approvalCards->first())
+                                <div class="row g-3">
+                                    <div class="col-md-4"><div class="ticket-item h-100"><div class="ticket-label">Engenheiro avaliador</div><div class="ticket-value">{{ $card['engineer'] }}</div><div class="small text-muted mt-2">Encaminhado por {{ $card['request_by'] }} em {{ optional($card['request_at'])->format('d/m/Y H:i') ?? '-' }}</div></div></div>
+                                    <div class="col-md-4"><div class="ticket-label mb-1">Texto do executante ao engenheiro</div><div class="text-block">{{ $card['request_reason'] }}</div></div>
+                                    <div class="col-md-4"><div class="d-flex justify-content-between align-items-center mb-1"><div class="ticket-label mb-0">Resposta do engenheiro</div><span class="badge {{ $card['decision_badge'] }}">{{ $card['decision'] }}</span></div><div class="text-block">{{ $card['decision_reason'] }}</div><div class="small text-muted mt-1">{{ optional($card['decision_at'])->format('d/m/Y H:i') ?? '-' }}</div></div>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
+                    <div class="oexterno-subcard">
+                        <div class="section-title">Ordens</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead><tr><th>Ordem</th><th>Status</th><th>Cancelada</th></tr></thead>
+                                <tbody>
+                                    @foreach($cancellationRequest->Orders as $order)
+                                        <tr><td>{{ $order->ordem }}</td><td>{{ $order->statusUser ?? $order->statusSist ?? '-' }}</td><td>{{ $order->canceled ? 'Sim' : 'Não' }}</td></tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    @if(in_array($cancellationRequest->status, [\App\Enum\CancellationRequestStatus::ASSIGNED, \App\Enum\CancellationRequestStatus::PAUSED], true) && $showDecisionForm)
+                        <div class="oexterno-subcard" id="final-action">
+                            <div class="section-title">Decisão da execução</div>
+                            <div class="alert alert-light border py-2">Ação selecionada: <strong>@if($action === 'DONE') Finalizar @elseif($action === 'ABORTED') Cancelar @else Pausar @endif</strong></div>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Comentário da decisão</label>
+                                    <textarea class="form-control" rows="5" wire:model.defer="comment"></textarea>
+                                    @error('comment')<span class="text-danger small">{{ $message }}</span>@enderror
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Upload de evidências da decisão</label>
+                                    <input type="file" class="form-control" multiple wire:model="files" />
+                                    <ul class="list-group mt-2">
+                                        @foreach($tempFiles as $index => $file)
+                                            <li class="list-group-item d-flex justify-content-between align-items-center"><span class="evidence-name">{{ $file['original_name'] }}</span><button class="btn btn-sm btn-outline-danger" wire:click="removeTempFile({{ $index }})">Remover</button></li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                                <div class="col-12"><button class="btn btn-success w-100" wire:click="runAction">Executar decisão</button></div>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="oexterno-subcard mt-3">
+                        <div class="section-title">Ações</div>
+                        <div class="small text-muted">
+                            Bloco operacional fixo. As ações de envio e finalização ficam sempre abaixo desta seção.
+                        </div>
+                    </div>
+
+                    @if($canManageApproval && !$isClosedRequest)
+                        <div class="oexterno-subcard mt-3">
+                            <div class="section-title">Executar ações</div>
+                            <div class="d-grid gap-2">
+                                @if(!$approvalPending)
+                                    <button class="btn btn-outline-primary" wire:click="startEngineerRequest">Solicitar Aprovação de Engenheiro</button>
+                                @else
+                                    <button class="btn btn-outline-warning" wire:click="startEngineerChange">Alterar Engenheiro</button>
+                                    <button class="btn btn-outline-danger" wire:click="cancelEngineerApproval">Cancelar Solicitação ao Engenheiro</button>
+                                @endif
+
+                                <button class="btn btn-success"
+                                        wire:click="prepareAction('DONE')"
+                                        @if($isClosedRequest || $approvalPending || !$canFinalizeCancellation) disabled @endif>
+                                    Finalizar
+                                </button>
+
+                                <button class="btn btn-outline-danger"
+                                        wire:click="prepareAction('ABORTED')"
+                                        @if($isClosedRequest) disabled @endif>
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($showEngineerActionForm && $canManageApproval && !$isClosedRequest)
+                        <div class="oexterno-subcard mt-3">
+                            <div class="section-title">{{ $engineerActionMode === 'change' ? 'Alterar Engenheiro da Aprovação' : 'Solicitar Aprovação de Engenheiro' }}</div>
+                            <div class="row g-3">
+                                <div class="col-12">
                                     <label class="form-label">Engenheiro</label>
                                     <select class="form-select" wire:model="engineerId">
                                         <option value="">Selecione</option>
@@ -449,61 +555,33 @@
                                     </select>
                                     @error('engineerId')<span class="text-danger small">{{ $message }}</span>@enderror
                                 </div>
-                                <div class="col-md-7">
-                                    <label class="form-label">Motivo / justificativa da ação</label>
-                                    <textarea class="form-control" rows="5" wire:model.defer="engineerReason"></textarea>
+                                <div class="col-12">
+                                    <label class="form-label">Texto para o engenheiro</label>
+                                    <textarea class="form-control" rows="4" wire:model.defer="engineerReason"></textarea>
                                     @if($cancellationRequest->engineer_approval_reason)
-                                        <div class="small text-muted mt-1">
-                                            Último motivo: {{ $cancellationRequest->engineer_approval_reason }}
-                                        </div>
+                                        <div class="small text-muted mt-1">Último texto registrado: {{ $cancellationRequest->engineer_approval_reason }}</div>
                                     @endif
                                 </div>
+                                <div class="col-12 d-grid gap-2">
+                                    @if($engineerActionMode === 'change')
+                                        <button class="btn btn-warning" wire:click="changeEngineer">Confirmar alteração</button>
+                                    @else
+                                        <button class="btn btn-primary" wire:click="requestEngineerApproval">Enviar solicitação</button>
+                                    @endif
+                                    <button class="btn btn-outline-secondary" wire:click="cancelEngineerActionForm">Cancelar</button>
+                                </div>
                             </div>
+                        </div>
+                    @endif
 
-                            <div class="control-panel mt-3">
-                                <div class="fw-semibold mb-2">Ações disponíveis</div>
-                                <div class="small text-muted mb-3">
-                                    Escolha uma ação e informe a justificativa acima para registrar o histórico de forma clara.
-                                </div>
-                                <div class="d-flex flex-wrap gap-2">
-                                    @if(!$cancellationRequest->engineer_approval_status || in_array($cancellationRequest->engineer_approval_status?->value, ['REJECTED', 'CANCELED'], true))
-                                        <button class="btn btn-outline-primary" wire:click="requestEngineerApproval">
-                                            Solicitar Aprovação
-                                        </button>
-                                    @endif
-                                    @if($approvalPending)
-                                        <button class="btn btn-outline-warning" wire:click="changeEngineer">
-                                            Alterar Engenheiro
-                                        </button>
-                                        <button class="btn btn-outline-danger" wire:click="cancelEngineerApproval">
-                                            Cancelar Solicitação ao Engenheiro
-                                        </button>
-                                    @endif
-                                </div>
-                            </div>
-                        @else
-                            <div class="alert alert-light border mb-0">
-                                Painel somente leitura: a solicitação não está mais em execução ativa.
-                            </div>
-                            @if($cancellationRequest->engineer_approval_reason)
-                                <div class="mt-2 small text-muted">
-                                    <strong>Última orientação registrada:</strong> {{ $cancellationRequest->engineer_approval_reason }}
-                                </div>
-                            @endif
-                        @endif
-                    </div>
-                </div>
-                <div class="col-12 col-md-3">
                     <div class="oexterno-subcard">
-                        <div class="section-title">Linha do Tempo</div>
+                        <div class="section-title">Timeline</div>
                         <div class="timeline-scroll">
                             <div class="phase-timeline">
                                 @forelse($timeline as $phase)
                                     <div class="phase-item">
                                         <div class="fw-semibold">{{ $phase['label'] }}</div>
-                                        <div class="phase-time">
-                                            {{ optional($phase['time'])->format('d/m/Y H:i') }} · {{ $phase['user'] ?? 'Sistema' }}
-                                        </div>
+                                        <div class="small text-muted">{{ optional($phase['time'])->format('d/m/Y H:i') }} · {{ $phase['user'] ?? 'Sistema' }}</div>
                                     </div>
                                 @empty
                                     <div class="text-muted">Sem interações registradas até o momento.</div>
@@ -513,165 +591,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Ordens</div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Ordem</th>
-                                        <th>Status</th>
-                                        <th>Cancelada</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($cancellationRequest->Orders as $order)
-                                        <tr>
-                                            <td>{{ $order->ordem }}</td>
-                                            <td>{{ $order->statusUser ?? $order->statusSist ?? '-' }}</td>
-                                            <td>{{ $order->canceled ? 'Sim' : 'Não' }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="oexterno-subcard">
-                        <div class="section-title">Evidências</div>
-                    @if($imageFiles->count())
-                        <div class="evidence-grid mb-3">
-                            @foreach($imageFiles as $file)
-                                <div class="evidence-card">
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk($file->disk)->url($file->path) }}"
-                                        class="evidence-thumb"
-                                        alt="{{ $file->original_name }}"
-                                        data-evidence-src="{{ \Illuminate\Support\Facades\Storage::disk($file->disk)->url($file->path) }}"
-                                        data-evidence-name="{{ $file->original_name }}"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#evidenceModal">
-                                    <div class="small text-muted evidence-name mt-2" title="{{ $file->original_name }}">
-                                        {{ $file->original_name }}
-                                    </div>
-                                    <div class="small text-muted">
-                                        Origem:
-                                        @if($file->origin === 'CANCELLATION_CONTROL')
-                                            Controle
-                                        @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
-                                            Execução
-                                        @elseif($file->origin === 'ENGINEER_APPROVAL')
-                                            Aprovação Engenheiro
-                                        @else
-                                            Solicitação
-                                        @endif
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary mt-2"
-                                        wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
-                                    <button class="btn btn-link btn-sm p-0 mt-1"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#evidence-name-{{ $file->id }}">
-                                        Ver nome
-                                    </button>
-                                    <div class="collapse mt-1" id="evidence-name-{{ $file->id }}">
-                                        <div class="small text-muted">{{ $file->original_name }}</div>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    @if($otherFiles->count())
-                        <ul class="list-group">
-                            @foreach($otherFiles as $file)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div class="d-flex flex-column flex-grow-1 me-2">
-                                        <span class="evidence-name" title="{{ $file->original_name }}">{{ $file->original_name }}</span>
-                                        <small class="text-muted">Tipo: {{ strtoupper($file->extension ?? '-') }} | Origem:
-                                            @if($file->origin === 'CANCELLATION_CONTROL')
-                                                Controle
-                                            @elseif($file->origin === 'EXECUCAO_PAGAMENTO')
-                                                Execução
-                                            @elseif($file->origin === 'ENGINEER_APPROVAL')
-                                                Aprovação Engenheiro
-                                            @else
-                                                Solicitação
-                                            @endif
-                                        </small>
-                                        <button class="btn btn-link btn-sm p-0"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target="#evidence-full-{{ $file->id }}">
-                                            Ver nome
-                                        </button>
-                                        <div class="collapse" id="evidence-full-{{ $file->id }}">
-                                            <div class="small text-muted">{{ $file->original_name }}</div>
-                                        </div>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary"
-                                        wire:click="downloadEvidence({{ $file->id }})">Baixar</button>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-
-                    @if($imageFiles->isEmpty() && $otherFiles->isEmpty())
-                        <div class="text-muted">Nenhum anexo.</div>
-                    @endif
-                    </div>
-                </div>
-            </div>
-
-            @if(in_array($cancellationRequest->status, [\App\Enum\CancellationRequestStatus::ASSIGNED, \App\Enum\CancellationRequestStatus::PAUSED], true))
-                <div class="row mt-4 g-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Ação</label>
-                        <select class="form-select" wire:model="action">
-                            @if($engineerRejected)
-                                <option value="ABORTED">Cancelar solicitação</option>
-                            @elseif($canFinalizeCancellation)
-                                <option value="DONE">Finalizar</option>
-                                <option value="PAUSED">Pausar</option>
-                                <option value="ABORTED">Cancelar</option>
-                            @else
-                                <option value="PAUSED">Pausar</option>
-                                <option value="ABORTED">Cancelar</option>
-                            @endif
-                        </select>
-                    </div>
-                    <div class="col-md-8">
-                        <label class="form-label">Comentário</label>
-                        <textarea class="form-control" rows="5" wire:model.defer="comment"></textarea>
-                        @error('comment')<span class="text-danger small">{{ $message }}</span>@enderror
-                    </div>
-                </div>
-
-                <div class="row mt-3 g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Anexar evidências</label>
-                        <input type="file" class="form-control" multiple wire:model="files" />
-                        <ul class="list-group mt-2">
-                            @foreach($tempFiles as $index => $file)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span class="evidence-name">{{ $file['original_name'] }}</span>
-                                    <button class="btn btn-sm btn-outline-danger" wire:click="removeTempFile({{ $index }})">Remover</button>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="mt-3">
-                    <button class="btn btn-success" wire:click="runAction">
-                        Executar
-                    </button>
-                </div>
-            @endif
         </div>
     </div>
 

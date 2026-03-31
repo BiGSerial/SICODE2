@@ -4,6 +4,7 @@ namespace App\Console\Commands\Tools;
 
 use App\Http\Livewire\Construction\Hiring\Actions\Viability;
 use App\Models\Production;
+use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\ViabilityApproval;
@@ -113,6 +114,9 @@ class TacitToApproval extends Command
                     ]);
 
                     if ($toApproval) {
+                        if (Reclaim::hasActiveForService($toApproval->note_id, $this->serviceId)) {
+                            continue;
+                        }
 
                         $production = null;
 

@@ -16,8 +16,17 @@ class D5details extends Component
 
     public function openD5Details(Note $note)
     {
-
-        $this->five = $note->load('FiveNote.Productions')?->fiveNote;
+        $this->five = $note->load([
+            'FiveNote.note:id,note',
+            'FiveNote.company:id,name',
+            'FiveNote.EvidenceFiles',
+            'FiveNote.Comments',
+            'FiveNote.Productions:id,note_id,service_id,user_id,company_id,created_at,completed,completed_at,status',
+            'FiveNote.Productions.User:id,name',
+            'FiveNote.Productions.Service:uuid,service',
+            'FiveNote.Productions.Company:id,name',
+            'FiveNote.Productions.Analise:id,production_id,conclusion,info',
+        ])?->fiveNote;
 
         if ($this->five) {
             $this->dispatchBrowserEvent('showModal', [

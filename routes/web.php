@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
+use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -102,7 +102,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
 
 Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/', 'main')->name('main');
-    Route::get('/production/{prod}')->name('production');
+    Route::get('/production/{prod}', 'production')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/waiting_d5_create', 'waiting_d5_create')->name('waiting_d5_create');
@@ -190,6 +190,10 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/equipments', 'equipments')->name('equipments');
     Route::get('/historic_reject_reports', 'historicRejectReports')->name('historicRejectReports');
     Route::get('/return_work_reports', 'returnWorkReports')->middleware('can:management')->name('return_work_reports');
+    Route::get('/cancellations/dashboard', 'cancellationDashboard')->middleware('can:management')->name('cancellations_dashboard');
+    Route::get('/cancellations/list', 'cancellationList')->middleware('can:management')->name('cancellations_list');
+    Route::get('/complaints/mede', 'complaintsMedeReport')->middleware('can:management')->name('complaints_mede');
+    Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
 });
 
 
@@ -286,6 +290,13 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
 
 });
 
+Route::prefix('/project-review')->controller(ProjectReviewController::class)->middleware('auth')->middleware(['can:analyst'])->name('project_review.')->group(function () {
+    Route::get('/list', 'list')->name('list');
+    Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/history', 'history')->name('history');
+    Route::get('/categories', 'categories')->name('categories');
+});
+
 
 // Partners Route's
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
@@ -304,6 +315,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
     Route::get('/send_ads_form', 'sendAdsForm')->name('report.sendAdsForm');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
+    Route::get('/search_notes', 'searchNotes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
         Route::get('/list', 'partner_d5_list')->name('list');

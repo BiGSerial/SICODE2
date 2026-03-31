@@ -6,6 +6,7 @@ use App\Models\Analise;
 use App\Models\Company;
 use App\Models\Notetimeline;
 use App\Models\Production;
+use App\Services\D5\D5WorkflowService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -284,6 +285,8 @@ class Jobform extends Component
 
 
             if ($this->five) {
+                $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
+
                 if (!$this->five->is_supervisioned) {
                     $this->validate([
                         'five.note_d5' => 'required|numeric',
@@ -299,6 +302,21 @@ class Jobform extends Component
                 }
 
                 $this->five->save();
+                if (!$this->five->is_supervisioned) {
+                    app(D5WorkflowService::class)->onReleasedToPartner(
+                        $this->five,
+                        $fromStage,
+                        auth()->id(),
+                        $this->production
+                    );
+                } else {
+                    app(D5WorkflowService::class)->onArchived(
+                        $this->five,
+                        $fromStage,
+                        auth()->id(),
+                        $this->production
+                    );
+                }
 
                 $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
             }

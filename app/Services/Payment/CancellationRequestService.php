@@ -38,9 +38,26 @@ class CancellationRequestService
                 throw new RuntimeException('Nota já está cancelada.');
             }
 
+            if ($scope === CancellationRequestScope::NOTE_FULL->value) {
+                $hasOpenNoteFullRequest = CancellationRequest::query()
+                    ->where('note_id', $note->id)
+                    ->where('scope', CancellationRequestScope::NOTE_FULL->value)
+                    ->whereIn('status', [
+                        CancellationRequestStatus::DRAFT->value,
+                        CancellationRequestStatus::SUBMITTED->value,
+                        CancellationRequestStatus::ASSIGNED->value,
+                        CancellationRequestStatus::PAUSED->value,
+                    ])
+                    ->exists();
+
+                if ($hasOpenNoteFullRequest) {
+                    throw new RuntimeException('Já existe solicitação em aberto para cancelamento da nota inteira.');
+                }
+            }
+
             $ordersCollection = $this->resolveOrders($note, $scope, $orders);
 
-            if ($ordersCollection->isEmpty() && $scope !== CancellationRequestScope::NOTE_FULL->value) {
+            if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
             }
 
@@ -66,6 +83,54 @@ class CancellationRequestService
                 'scope' => $scope,
                 'category_id' => $category->id,
                 'orders' => $ordersCollection->pluck('id')->all(),
+            ]);
+
+            return $request;
+        });
+    }
+
+    public function createRequestForBulkOrder(
+        Note $note,
+        Order $order,
+        CancellationCategory $category,
+        User $requestedBy,
+        ?string $description = null,
+        int $evidenceCount = 0
+    ): CancellationRequest {
+        return DB::transaction(function () use ($note, $order, $category, $requestedBy, $description, $evidenceCount) {
+            if ($note->canceled) {
+                throw new RuntimeException('Nota já está cancelada.');
+            }
+
+            if ((int) $order->note_id !== (int) $note->id) {
+                throw new RuntimeException('Ordem não pertence à nota informada.');
+            }
+
+            if ($order->canceled) {
+                throw new RuntimeException('Ordem já está cancelada.');
+            }
+
+            if ($category->require_evidence && $evidenceCount < max(1, (int) $category->min_evidence_files)) {
+                throw new RuntimeException('Quantidade mínima de evidências não atendida.');
+            }
+
+            $request = CancellationRequest::create([
+                'note_id' => $note->id,
+                'scope' => CancellationRequestScope::ORDERS_PARTIAL,
+                'category_id' => $category->id,
+                'requested_by' => $requestedBy->id,
+                'description' => $description,
+                'status' => CancellationRequestStatus::SUBMITTED,
+                'submitted_at' => now(),
+            ]);
+
+            $request->Orders()->sync([$order->id]);
+
+            $this->logEvent($request, $requestedBy, 'submitted', [
+                'scope' => CancellationRequestScope::ORDERS_PARTIAL->value,
+                'category_id' => $category->id,
+                'orders' => [$order->id],
+                'bulk' => true,
             ]);
 
             return $request;
@@ -152,6 +217,40 @@ class CancellationRequestService
         });
     }
 
+    public function reopenRequest(CancellationRequest $request, User $user, string $reason): CancellationRequest
+    {
+        return DB::transaction(function () use ($request, $user, $reason) {
+            $request->refresh();
+
+            if ($request->status !== CancellationRequestStatus::PAUSED) {
+                throw new RuntimeException('Solicitação não está pausada para reabertura.');
+            }
+
+            if ($request->assigned_to !== $user->id && !$this->isSupervisor($user)) {
+                throw new RuntimeException('Somente o responsável pode reabrir.');
+            }
+
+            $reopenReason = trim((string) $reason);
+            if ($reopenReason === '') {
+                throw new RuntimeException('Informe o motivo da reabertura.');
+            }
+
+            $request->update([
+                'status' => CancellationRequestStatus::ASSIGNED,
+            ]);
+
+            $this->logEvent($request, $user, 'reopened', ['reason' => $reopenReason]);
+            $this->notifyRequesterAndAssignee(
+                $request,
+                'Solicitação de cancelamento reaberta',
+                "A solicitação #{$request->id} foi reaberta por {$user->name}. Motivo: {$reopenReason}",
+                'info'
+            );
+
+            return $request;
+        });
+    }
+
     public function finalizeDone(CancellationRequest $request, User $user): CancellationRequest
     {
         return DB::transaction(function () use ($request, $user) {
@@ -194,6 +293,10 @@ class CancellationRequestService
                     'canceled_at' => now(),
                     'canceled_by' => $user->id,
                 ]);
+
+                $this->cancelWorkForm($request->Note, $user);
+            } elseif ($request->scope === CancellationRequestScope::WORK_FORM_ONLY) {
+                $this->cancelWorkForm($request->Note, $user);
             } else {
                 $orders = $request->Orders()->get();
                 foreach ($orders as $order) {
@@ -582,7 +685,7 @@ class CancellationRequestService
 
             $ordersCollection = $this->resolveOrders($request->Note, $scope, $orders);
 
-            if ($ordersCollection->isEmpty() && $scope !== CancellationRequestScope::NOTE_FULL->value) {
+            if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
             }
 
@@ -642,10 +745,33 @@ class CancellationRequestService
             return $note->Orders()->where('canceled', false)->get();
         }
 
+        if ($scope === CancellationRequestScope::WORK_FORM_ONLY->value) {
+            if (!$note->WorkForm) {
+                throw new RuntimeException('A nota não possui WorkForm para cancelar.');
+            }
+
+            return new Collection();
+        }
+
         return Order::where('note_id', $note->id)
             ->whereIn('id', $orders)
             ->where('canceled', false)
             ->get();
+    }
+
+    private function cancelWorkForm(Note $note, User $actor): void
+    {
+        $workForm = $note->WorkForm;
+
+        if (!$workForm) {
+            return;
+        }
+
+        $workForm->update([
+            'canceled' => true,
+            'canceled_at' => now(),
+            'canceled_by' => $actor->id,
+        ]);
     }
 
     public function addEvidenceFiles(CancellationRequest $request, User $user, array $attachments, string $origin): void

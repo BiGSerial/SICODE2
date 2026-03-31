@@ -161,7 +161,7 @@ class Main extends Component
         $from = $today->copy()->subDays(self::ADS_TACIT_DAYS)->startOfDay();
         $to = $dueLimit->copy()->subDays(self::ADS_TACIT_DAYS)->endOfDay();
 
-        $query = WorkReport::query()
+        $query = WorkReport::query()->active()
             ->where('rejected', false)
             ->whereNotNull('informed_at')
             ->whereBetween('informed_at', [$from, $to])
@@ -177,7 +177,7 @@ class Main extends Component
 
     public function getTacitAdsOverdueWithoutDelivery(): Collection
     {
-        $query = WorkReport::query()
+        $query = WorkReport::query()->active()
             ->whereHas('Adsform', function ($q) {
                 $q->where('tacit', true)
                     ->whereNull('tacit_delivered_at')
@@ -202,7 +202,7 @@ class Main extends Component
         $baseViability = Viability::query()->where('canceled', false);
         $this->scopeByCompany($baseViability);
 
-        $baseWorkReport = WorkReport::query();
+        $baseWorkReport = WorkReport::query()->active();
         $this->scopeByCompany($baseWorkReport);
 
         $rejectedViabilityBase = Viability::query()
@@ -229,7 +229,7 @@ class Main extends Component
                 $this->scopeByCompany($q);
             });
 
-        $workReportsWithoutAdsOverdueBase = WorkReport::query()
+        $workReportsWithoutAdsOverdueBase = WorkReport::query()->active()
             ->where('rejected', false)
             ->whereNotNull('informed_at')
             ->where('informed_at', '<', $this->getAdsTacitOverdueThreshold())

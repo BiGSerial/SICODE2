@@ -50,6 +50,9 @@
                     @if ($theUser->onlyparner)
                         <p>Empreiteira</p>
                     @endif
+                    @if ($theUser->analyst)
+                        <p>Analista</p>
+                    @endif
                 </td>
                 <td>
                     @if ($theUser->ToServices->count())

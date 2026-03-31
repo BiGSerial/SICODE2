@@ -262,6 +262,22 @@
                             </div>
                         </div>
                         <div class="filter-group">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="includeOpen"
+                                    wire:model="includeOpen">
+                                <label class="form-check-label text-white-50" for="includeOpen">
+                                    Incluir em aberto
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="includeRi"
+                                    wire:model="includeRi">
+                                <label class="form-check-label text-white-50" for="includeRi">
+                                    Incluir RI
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filter-group">
                             <button type="button" class="filter-select export-btn" wire:click="exportToExcel"
                                 wire:loading.attr="disabled">
                                 <span wire:loading.remove wire:target="exportToExcel">
@@ -426,6 +442,8 @@
                 transition: all 0.3s ease;
                 overflow: hidden;
                 position: relative;
+                height: 100%;
+                width: 100%;
             }
 
             .modern-card::before {
@@ -445,15 +463,36 @@
 
             .modern-card-body {
                 padding: 1.5rem;
+                display: flex;
+                flex-direction: column;
+                min-height: 100%;
+            }
+
+            .modern-card-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: .75rem;
+                min-height: 48px;
+                margin-bottom: 1rem;
             }
 
             .modern-card-title {
                 font-size: 0.9rem;
                 font-weight: 600;
                 color: #6c757d;
-                margin-bottom: 1rem;
+                margin-bottom: 0;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+                line-height: 1.25;
+            }
+
+            .modern-period-badge {
+                flex-shrink: 0;
+                max-width: 66%;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .modern-card-icon {
@@ -486,6 +525,23 @@
                 font-weight: 700;
                 color: #2c3e50;
                 margin-bottom: 0.5rem;
+                line-height: 1.1;
+                word-break: break-word;
+            }
+
+            .modern-card-value-split {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: baseline;
+                gap: .35rem;
+            }
+
+            .modern-growth-row {
+                margin-top: auto;
+                display: flex;
+                justify-content: space-between;
+                gap: .75rem;
+                flex-wrap: wrap;
             }
 
             .modern-card-growth {
@@ -652,23 +708,35 @@
                 .modern-card-value {
                     font-size: 1.8rem;
                 }
+
+                .modern-period-badge {
+                    max-width: 58%;
+                }
             }
         </style>
     @endpush
 
     <div class="row dashboard">
         <div class="col-md-8">
-            <div class="row mb-4">
-                <div class="col-xxl-4 col-md-6">
-                    <div class="modern-card">
+            @php
+                $periodStart = !empty($dt_in ?? null) ? Carbon::parse($dt_in) : null;
+                $periodEnd = !empty($dt_out ?? null) ? Carbon::parse($dt_out) : null;
+                $periodBadge = ($periodStart && $periodEnd)
+                    ? ($periodStart->translatedFormat('d/M') . ' - ' . $periodEnd->translatedFormat('d/M/Y'))
+                    : ($data['mes'] ?? '');
+            @endphp
+            <div class="row mb-4 g-3">
+                <div class="col-xxl-4 col-md-6 d-flex">
+                    <div class="modern-card h-100 w-100">
                         <div class="modern-card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="modern-card-head">
                                 <div class="modern-card-title">
                                     <i class="ri-lightbulb-flash-line me-1"></i>
                                     Postes/Ativos
                                 </div>
-                                <span
-                                    class="badge bg-light text-dark">{{ $data['mes'] ?? '' }}/{{ $data['ano'] ?? '' }}</span>
+                                <span class="badge bg-light text-dark modern-period-badge">
+                                    {{ $periodBadge }}
+                                </span>
                             </div>
 
                             <div class="modern-card-icon primary">
@@ -709,16 +777,17 @@
                     </div>
                 </div>
 
-                <div class="col-xxl-4 col-md-6">
-                    <div class="modern-card">
+                <div class="col-xxl-4 col-md-6 d-flex">
+                    <div class="modern-card h-100 w-100">
                         <div class="modern-card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="modern-card-head">
                                 <div class="modern-card-title">
                                     <i class="ri-bill-line me-1"></i>
                                     Notas/OV
                                 </div>
-                                <span
-                                    class="badge bg-light text-dark">{{ $data['mes'] ?? '' }}/{{ $data['ano'] ?? '' }}</span>
+                                <span class="badge bg-light text-dark modern-period-badge">
+                                    {{ $periodBadge }}
+                                </span>
                             </div>
 
                             <div class="modern-card-icon success">
@@ -760,10 +829,10 @@
                     </div>
                 </div>
 
-                <div class="col-xxl-4 col-xl-12">
-                    <div class="modern-card">
+                <div class="col-xxl-4 col-xl-12 d-flex">
+                    <div class="modern-card h-100 w-100">
                         <div class="modern-card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="modern-card-head">
                                 <div class="modern-card-title">
                                     <i class="ri-lightbulb-flash-line me-1"></i>
                                     Produção Hoje
@@ -774,7 +843,7 @@
                                 <i class="ri-lightbulb-flash-line fs-4"></i>
                             </div>
 
-                            <div class="modern-card-value">
+                            <div class="modern-card-value modern-card-value-split">
                                 {{ $data['totalPostesHoje'] ?? 0 }} <span class="fs-6">Postes</span> /
                                 {{ $data['totalNotasHoje'] ?? 0 }} <span class="fs-6">Notas</span>
                             </div>
@@ -819,7 +888,7 @@
                                 }
                             @endphp
 
-                            <div class="d-flex justify-content-between">
+                            <div class="modern-growth-row">
                                 <div
                                     class="modern-card-growth {{ $isIncreasePostesHoje ? 'growth-positive' : 'growth-negative' }}">
                                     <i class="ri-arrow-{{ $isIncreasePostesHoje ? 'up' : 'down' }}-line me-1"></i>

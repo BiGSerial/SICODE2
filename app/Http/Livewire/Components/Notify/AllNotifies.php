@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Components\Notify;
 
+use App\Support\Notifications\UserNotificationData;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -162,11 +163,9 @@ class AllNotifies extends Component
 
         $notification->markAsRead();
 
-        $data = $notification->data;
-        // Download de arquivo (status=4)
-        if (($data['status'] ?? null) === 4 && !empty($data['link'])) {
-            $urlPath  = parse_url($data['link'], PHP_URL_PATH);
-            $filePath = str_replace('/storage/', '', $urlPath);
+        $payload = UserNotificationData::fromArray($notification->data);
+        if ($payload->isDownloadAction() && $payload->downloadStoragePath()) {
+            $filePath = $payload->downloadStoragePath();
 
             if (Storage::exists($filePath)) {
                 $fileName = basename($filePath);
@@ -184,9 +183,8 @@ class AllNotifies extends Component
             return;
         }
 
-        // Link externo/rota
-        if (!empty($data['link'])) {
-            return redirect($data['link']);
+        if (!empty($payload->actionUrl())) {
+            return redirect($payload->actionUrl());
         }
     }
 

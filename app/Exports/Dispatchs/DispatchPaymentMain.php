@@ -32,6 +32,8 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
         return $this->queryBuilder->with([
             'WorkForm.Orders.Operations',
             'WorkForm.Company',
+            'WorkFormAny.Orders.Operations',
+            'WorkFormAny.Company',
             'Partials.Orders',
             'Partials.Company',
             'Productions' => fn ($q) => $q->with(['User','Company']),
@@ -46,13 +48,16 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
 
     public function map($list): array
     {
-        if ($list->WorkForm) {
+        $workForm = $list->WorkForm ?: $list->WorkFormAny;
+        $workFormCanceled = (bool) ($workForm?->canceled);
+
+        if ($workForm) {
             $type      = 'TOTAL';
-            $order     = $list->WorkForm?->Orders;
-            $company   = $list->WorkForm?->Company->name;
-            $date_info = $list->WorkForm?->informed_at;
+            $order     = $workForm?->Orders;
+            $company   = $workForm?->Company->name;
+            $date_info = $workForm?->informed_at;
             $pagamento = $list->fimLancado ? Carbon::parse($list->fimLancado) : null;
-            $dt_ads    = $list->WorkForm?->Adsform?->created_at ?? null;
+            $dt_ads    = $workForm?->Adsform?->created_at ?? null;
 
         } elseif ($list->Partials->count() > 0) {
             $type      = 'PARCIAL';
@@ -79,7 +84,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
         if ($lastProd) {
             if ($type === 'TOTAL' && $lastProd->partial) {
                 $lastProd = null;
-            } elseif ($type === 'PARCIAL' && $list->WorkForm) {
+            } elseif ($type === 'PARCIAL' && $workForm) {
                 $lastProd = null;
             }
         }
@@ -107,16 +112,16 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
 
         return [
             $list->note,
-            $type,
+            $type.($workFormCanceled ? ' (CANCELADO)' : ''),
             $order ? implode("\n", $order->pluck('ordem')->toArray()) : '---',
             $order?->sum('moaberto') ?? 0,
             $ops->where('operacao', '0030')->first()?->status ? explode(' ', $ops->where('operacao', '0030')->first()->status)[0] : '---',
             $ops->where('operacao', '0040')->first()?->status ? explode(' ', $ops->where('operacao', '0040')->first()->status)[0] : '---',
             $ops->where('operacao', '0050')->first()?->status ? explode(' ', $ops->where('operacao', '0050')->first()->status)[0] : '---',
             $ops->where('operacao', '0010')->first()?->cenTrab ?? '---',
-            $company,
+            $company ? $company.($workFormCanceled ? ' (CANCELADO)' : '') : $company,
             $list->lexp,
-            optional($list->WorkForm)->earliest_fim_real?->format('d/m/Y') ?? '---',
+            optional($workForm)->earliest_fim_real?->format('d/m/Y') ?? '---',
             $date_info ? Carbon::parse($date_info)->format('d/m/Y') : '---',
             $dt_ads ? Carbon::parse($dt_ads)->format('d/m/Y') : '---',
             $list->type_note == 2 ? $list->nstats : ($list->centerjob ?? '---'),

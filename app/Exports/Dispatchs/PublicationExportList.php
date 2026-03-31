@@ -48,10 +48,12 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
 
     public function map($row): array
     {
+        $workForm = $row->WorkForm ?: $row->WorkFormAny;
+        $workFormLabel = $workForm?->canceled ? ' (CANCELADO)' : '';
 
         $company = '';
-        if ($row->WorkForm) {
-            $company = $row->WorkForm->Company?->name;
+        if ($workForm) {
+            $company = ($workForm->Company?->name ?? '').$workFormLabel;
         } elseif ($row->RamalForm) {
             $company = $row->RamalForm->Company?->name;
         }
@@ -64,8 +66,8 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->lexp,
             $company,
             $row->RamalForm?->created_at->format('d/m/Y'),
-            isset($row->WorkForm->date) ? Carbon::parse($row->WorkForm->date)->format('d/m/Y') : '',
-            isset($row->WorkForm->informed_at) ? Carbon::parse($row->WorkForm->informed_at)->format('d/m/Y H:i:s') : '',
+            isset($workForm->date) ? Carbon::parse($workForm->date)->format('d/m/Y') : '',
+            isset($workForm->informed_at) ? Carbon::parse($workForm->informed_at)->format('d/m/Y H:i:s') : '',
             $row->nstats,
             $row->centerjob,
             isset($row->prazo_final) ? Carbon::parse($row->prazo_final)->format('d/m/Y') : '',

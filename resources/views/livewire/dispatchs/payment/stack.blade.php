@@ -504,7 +504,7 @@
                                             data-bs-toggle="popover" data-bs-trigger="hover focus"
                                             data-bs-placement="top" data-bs-title="Nota com D5"
                                             data-bs-content="{{ $d5Msg }}"
-                                            wire:click.prevent="$emitTo('components.five-note.view-d5', 'getInfoResponse', {{ $list->note->fiveNote->id }})"
+                                            wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->note_id }})"
                                             style="cursor: pointer;">
 
                                             <span class="fw-bold">D5</span> {{ $list->note->note }}
@@ -900,7 +900,7 @@
     {{-- END MODALS --}}
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
-    @livewire('components.five-note.view-d5', key('view_d5_note'))
+    @livewire('components.d5.d5details', key('view_d5_note_details'))
 </div>
 
 @push('script')

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Oexterno\Actions;
 use App\Models\Category;
 use App\Models\External;
 use App\Models\Production;
+use App\Models\Reclaim;
 use App\Models\Service;
 use App\Models\Subcategory;
 use App\Models\User;
@@ -170,6 +171,18 @@ class InterReturn extends Component
         // ]);
 
         try {
+            if (Reclaim::hasActiveForService($this->external->note_id, $this->serviceSelected)) {
+                DB::rollBack();
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'RECLAIM JÁ EM ANDAMENTO',
+                    'html'     => 'Já existe retorno interno ativo para esta obra e serviço.',
+                    'timer'    => 5000,
+                ]);
+
+                return;
+            }
 
             $reclaim = $this->external->Reclaims()->create([
                 'note_id' => $this->external->note_id,

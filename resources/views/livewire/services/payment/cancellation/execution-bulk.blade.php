@@ -128,9 +128,7 @@
             </div>
 
             <div class="mt-3">
-                <button class="btn btn-success"
-                    onclick="if(!confirm('Confirmar ação em massa?')){event.stopImmediatePropagation();}"
-                    wire:click="runBulkAction">
+                <button class="btn btn-success" wire:click="runBulkAction">
                     Executar
                 </button>
             </div>

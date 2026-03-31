@@ -6,12 +6,17 @@ use App\Models\Note;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\WorkReport;
+use App\Models\Company;
 use App\Services\Partner\BlockEvaluator;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Workreports extends Component
 {
+    public bool $requireFilesForSubmit = true;
+    public bool $canSelectCompany = false;
+    public $companies = [];
+
     public ?Note $note = null;
     public $preNote;
     public $notes;
@@ -67,6 +72,7 @@ class Workreports extends Component
     ];
 
     protected $rules = [
+        'form.company_id' => 'nullable',
         'form.date' => 'required|date|before_or_equal:today',
         'form.equipment' => 'required|boolean',
         'form.changes' => 'required|boolean',
@@ -82,6 +88,11 @@ class Workreports extends Component
         'form.acceptance_name' => 'required|string|max:255',
 
     ];
+
+    public function mount()
+    {
+        $this->loadCompanies();
+    }
 
     public function messages()
     {
@@ -161,8 +172,21 @@ class Workreports extends Component
 
     public function submit()
     {
+        if (!$this->canInformNote($this->note)) {
+            return;
+        }
 
-        if (!$this->hasFiles) {
+        if ($this->canSelectCompany && empty($this->form['company_id'])) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Empreiteira obrigatória',
+                'html'     => 'Selecione a empreiteira responsável por este informe.',
+            ]);
+            return;
+        }
+
+        if ($this->requireFilesForSubmit && !$this->hasFiles) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -216,8 +240,16 @@ class Workreports extends Component
 
     public function send_informe()
     {
+        if (!$this->canInformNote($this->note)) {
+            return;
+        }
+
         $this->form['note_id'] = $this->note->id;
-        $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
+        if ($this->canSelectCompany) {
+            $this->form['company_id'] = $this->form['company_id'] ?: null;
+        } else {
+            $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
+        }
         $this->form['user_id'] = Auth()->User()->id;
         $this->form['informed_at'] = date('Y-m-d H:i:s');
         $this->form['acceptance_at'] = date('Y-m-d H:i:s');
@@ -285,7 +317,7 @@ class Workreports extends Component
         try {
 
             $form = WorkReport::updateOrCreate(
-                ['note_id' => $this->form['note_id']],
+                ['note_id' => $this->form['note_id'], 'canceled' => false],
                 $this->form
             );
 
@@ -520,6 +552,10 @@ class Workreports extends Component
     {
         $this->preNote = $note;
 
+        if (!$this->canInformNote($this->preNote)) {
+            return;
+        }
+
 
         $eval = (new BlockEvaluator())->evaluate($this->preNote);
 
@@ -669,5 +705,37 @@ class Workreports extends Component
     public function render()
     {
         return view('livewire.partner.forms.workreports');
+    }
+
+    protected function loadCompanies(): void
+    {
+        if (!$this->canSelectCompany) {
+            $this->companies = [];
+            return;
+        }
+
+        $this->companies = Company::query()
+            ->orderByRaw('LOWER(name)')
+            ->get(['id', 'name']);
+    }
+
+    private function canInformNote(?Note $note): bool
+    {
+        if (!$note) {
+            return false;
+        }
+
+        $freshNote = Note::query()->find($note->id);
+        if (!$freshNote || $freshNote->canceled) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'OBRA CANCELADA',
+                'html'     => 'Não é permitido informar obra para uma nota cancelada.',
+            ]);
+            return false;
+        }
+
+        return true;
     }
 }

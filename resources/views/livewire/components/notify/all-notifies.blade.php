@@ -36,7 +36,8 @@
                     {{-- Lista paginada --}}
                     @forelse ($notifies as $notify)
                         @php
-                            $status = \App\Helpers\NotifyStatus::getStatus($notify->data['status'] ?? null);
+                            $payload = \App\Support\Notifications\UserNotificationData::fromArray($notify->data);
+                            $status = \App\Helpers\NotifyStatus::getStatus($payload->status());
                             $isUnread = is_null($notify->read_at);
                             $badgeText = $isUnread ? 'Não lida' : 'Lida';
                             $badgeCls = $isUnread ? 'bg-danger' : 'bg-secondary';
@@ -56,7 +57,7 @@
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="d-flex align-items-center gap-2">
                                             <h6 class="fw-bold mb-0">
-                                                {{ $notify->data['titulo'] ?? '-' }}
+                                                {{ $payload->title() }}
                                             </h6>
                                             <span class="badge {{ $badgeCls }}">{{ $badgeText }}</span>
                                             <span class="badge {{ $badgeCls }}">{{ $notify->id }}</span>
@@ -65,13 +66,14 @@
                                             class="text-muted">{{ \Carbon\Carbon::parse($notify->created_at)->diffForHumans() }}</small>
                                     </div>
 
-                                    <div class="mt-2 mb-2">{!! $notify->data['mensagem'] ?? '-' !!}</div>
+                                    <div class="mt-2 mb-2">{!! $payload->message() !!}</div>
 
                                     <div class="d-flex gap-2">
                                         <button
                                             class="btn btn-sm {{ $isUnread ? 'btn-success' : 'btn-outline-success' }}"
                                             wire:click="open('{{ $notify->id }}')">
-                                            <i class="{{ $envIcon }}"></i> Ler
+                                            <i class="{{ $payload->actionIcon() ?: $envIcon }}"></i>
+                                            {{ $payload->actionLabel() }}
                                         </button>
 
                                         <button class="btn btn-sm btn-outline-danger"

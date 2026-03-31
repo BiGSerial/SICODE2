@@ -51,7 +51,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         // Eager load relacionamentos
         $query->with([
             'orders' => function ($q) {
-                $q->select(['note_id', 'ordem', 'statusSist', 'moaberto']);
+                $q->select(['note_id', 'ordem', 'statusSist', 'service_cost']);
             },
             'wpas' => function ($q) {
                 $q->select(['note_id', 'dd']);
@@ -78,7 +78,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Tipo ADS', 'Data ADS', 'Prazo ADS', 'Informado Em', 'Prazo Informe', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'MOA', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
+            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Tipo ADS', 'Data ADS', 'Prazo ADS', 'Informado Em', 'Prazo Informe', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Custo', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
         ];
     }
 
@@ -102,7 +102,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
                 return !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT');
             });
 
-            $sumOrders = $ordensMoa->sum('moaberto');
+            $sumOrders = (float) $ordensMoa->sum('service_cost');
             $ordens = implode(" \n", $ordensArray);
 
             if (count($ordensArray) > 0) {
@@ -127,11 +127,15 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         //Calculando os dias informados
         $informe = '';
         $diasInforme = '---';
-        if ($row->WorkForm) {
-            $partner = $row->WorkForm->company?->name;
-            $userInform = $row->WorkForm->user?->name;
+        $workForm = $row->WorkForm ?: $row->WorkFormAny;
+        if ($workForm) {
+            $partner = $workForm->company?->name;
+            $userInform = $workForm->user?->name;
             $informe = 'FINAL';
             $diasInforme = $row->work_dt_created ? Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false) : 0;
+            if ($workForm->canceled) {
+                $informe = 'FINAL (CANCELADO)';
+            }
         } elseif ($row->Partials->isNotEmpty()) {
             $informe = 'PARCIAL';
             $diasInforme = $row->Partials->last() ? Carbon::parse($row->Partials->last()->created_at)->diffInDays(Carbon::now(), false) : 0;

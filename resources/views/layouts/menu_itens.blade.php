@@ -51,6 +51,7 @@
                         'items' => [
                             ['label' => 'AUDITORIA NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
                             ['label' => 'CONTROLE DE DADOS', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
+                            ['label' => 'GERENCIAMENTO ADS', 'route' => 'admin.control.ads_requests', 'icon' => 'ri-survey-line', 'can' => 'superadm'],
                             ['label' => 'GERENCIAMENTO DE ARQUIVOS', 'route' => 'files.main', 'icon' => 'ri-folder-2-line'],
                             ['label' => 'MONITOR ATIVIDADE', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
                             ['label' => 'PAINEL CONFIGURAÇÕES', 'route' => 'config.main', 'icon' => 'ri-home-gear-fill'],
@@ -103,7 +104,11 @@
         ['route' => 'reports.productions', 'label' => 'RELATÓRIO DE PRODUÇÃO'],
         ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE'],
         ['route' => 'reports.return_intern_dashboard', 'label' => 'RELATORIO RETORNO INTERNO'],
+        ['route' => 'reports.cancellations_dashboard', 'label' => 'DASHBOARD CANCELAMENTOS'],
+        ['route' => 'reports.cancellations_list', 'label' => 'LISTA CANCELAMENTOS'],
         ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)'],
+        ['route' => 'reports.complaints_mede', 'label' => 'RELATÓRIO DE RECLAMAÇÃO'],
+        ['route' => 'reports.five_notes', 'label' => 'RELATÓRIO NOTAS D5'],
         ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA'],
     ];
 @endphp
@@ -159,7 +164,7 @@
 
 
 
-@if ($menu_projeto || $menu_construcao)
+@if ($menu_projeto || $menu_construcao || Auth()->user()->can('management'))
     <x-menu.activities-dropdown
         :menu-projeto="$menu_projeto"
         :menu-construcao="$menu_construcao"

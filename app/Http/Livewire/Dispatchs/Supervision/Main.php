@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\Wpa;
 use App\Repositories\SupervisionRepository;
 use App\Services\Supervision\BlockEvaluator;
+use App\Services\D5\D5WorkflowService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -222,7 +223,8 @@ class Main extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $this->filter = [];
+        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
@@ -439,7 +441,8 @@ class Main extends Component
 
         $partial = Note::whereIn('id', $this->selected)->whereHas('Partials', function ($q) {
             $q->where('allow', true)
-                ->where('supervision', false);
+                ->where('supervision', false)
+                ->where('deny', false);
         })->count();
 
 
@@ -640,6 +643,17 @@ class Main extends Component
                             'status' => 2,
                             'productionId' => $production->id,
                         ]);
+
+                        if ($production->user_id && $note->FiveNote) {
+                            $note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
+
+                            app(D5WorkflowService::class)->onProductionAssigned(
+                                $note->FiveNote,
+                                $production,
+                                auth()->id(),
+                                null
+                            );
+                        }
                     }
 
 
@@ -1100,7 +1114,8 @@ class Main extends Component
             session_start();
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $this->filter = [];
+        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 

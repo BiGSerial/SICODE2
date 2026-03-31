@@ -56,6 +56,12 @@
             </li>
 
             <li class="nav-item">
+                <a href="{{ route('partner.search.notes') }}" class="nav-link collapsed">
+                    <i class="ri-search-eye-line"></i><span>Buscar Notas</span>
+                </a>
+            </li>
+
+            <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#conclusion-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-information-fill text-success"></i><span>Informes Conclusão</span><i
                         class="bi bi-chevron-down ms-auto"></i>
@@ -202,4 +208,3 @@
 
     </aside>
 </div>
-

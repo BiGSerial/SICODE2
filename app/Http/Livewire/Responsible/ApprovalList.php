@@ -5,8 +5,9 @@ namespace App\Http\Livewire\Responsible;
 use App\Helpers\TextFormatter;
 use App\Models\File;
 use App\Models\Note;
-use App\Models\Service;
 use App\Models\Production;
+use App\Models\Reclaim;
+use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -188,6 +189,10 @@ class ApprovalList extends Component
 
                         if (!$this->serviceId) {
                             throw new \Exception('Serviço de Desenho não encontrado. Não é possível prosseguir com a atribuição.');
+                        }
+
+                        if (Reclaim::hasActiveForService($approval->note_id, $this->serviceId)) {
+                            continue;
                         }
 
                         $production = null;

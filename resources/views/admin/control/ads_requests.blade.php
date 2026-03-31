@@ -6,8 +6,8 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Administracao</li>
-                <li class="breadcrumb-item">Controle de Dados</li>
-                <li class="breadcrumb-item active" aria-current="page">Controle ADS Solicitadas</li>
+                <li class="breadcrumb-item">Gerenciamento</li>
+                <li class="breadcrumb-item active" aria-current="page">ADS</li>
             </ol>
         </ol>
     </nav>
@@ -18,6 +18,9 @@
 @endsection
 
 @section('content')
-    @livewire('admin.control.ads-request-list')
-@endsection
+    @livewire('admin.control.ads-monitor', key('admin-control-ads-monitor'))
 
+    <div class="mt-4">
+        @livewire('config.system.ads-request-recipients', key('admin-ads-auto-recipients'))
+    </div>
+@endsection

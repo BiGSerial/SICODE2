@@ -4,7 +4,7 @@
             'label' => 'ENGENHARIA',
             'items' => [
                 ['label' => 'VALIDAÇÃO DE PROJETOS', 'route' => 'engineers.validation'],
-                ['label' => 'VIABILIDADE', 'route' => 'engineers.viability'],
+                ['label' => 'VIABILIDADE', 'route' => 'engineers.viab_list'],
                 ['label' => 'INFORMES CONCLUSÃO', 'route' => 'engineers.informes'],
                 [
                     'label' => 'INFORMES PARCIAIS',

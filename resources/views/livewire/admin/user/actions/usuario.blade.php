@@ -68,12 +68,6 @@
                                             @endif
                                         </select>
                                     </div>
-                                    <div class="col-md-2 d-flex align-items-end">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="contractUser" wire:model.defer="user.contract">
-                                            <label class="form-check-label" for="contractUser">Terceirizado</label>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -83,17 +77,60 @@
                                 <strong>Permissoes</strong>
                             </div>
                             <div class="card-body">
+                                @php
+                                    $isSuperAdm = (bool) auth()->user()->superadm;
+                                    $editorLocks = (array) data_get(auth()->user(), 'permission_locks', []);
+                                    $permissions = [
+                                        ['key' => 'superadm', 'label' => 'Super Admin'],
+                                        ['key' => 'admin', 'label' => 'Admin'],
+                                        ['key' => 'management', 'label' => 'Gerente'],
+                                        ['key' => 'engineer', 'label' => 'Engenheiro'],
+                                        ['key' => 'responsible', 'label' => 'Responsável'],
+                                        ['key' => 'operator', 'label' => 'Operador'],
+                                        ['key' => 'user', 'label' => 'Usuario'],
+                                        ['key' => 'btzero', 'label' => 'BTZero'],
+                                        ['key' => 'onlyparner', 'label' => 'Empreiteira (visão exclusiva)'],
+                                        ['key' => 'can_dispatch', 'label' => 'Pode despachar'],
+                                        ['key' => 'analyst', 'label' => 'Analista'],
+                                        ['key' => 'contract', 'label' => 'Terceirizado'],
+                                    ];
+                                @endphp
+                                @if ($isSuperAdm)
+                                    <div class="small text-muted mb-2">
+                                        Check ao lado do switch: bloqueia a edição desta permissão para Admin padrão.
+                                    </div>
+                                @elseif (collect($editorLocks)->contains(true))
+                                    <div class="alert alert-warning py-2 px-3 mb-2 small">
+                                        Algumas permissoes estao bloqueadas pelo Administrador Master.
+                                    </div>
+                                @endif
                                 <div class="row g-2">
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="superAdmin" wire:model="user.superadm" @disabled(!Auth()->User()->superadm)><label class="form-check-label" for="superAdmin">Super Admin</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="admin" wire:model="user.admin"><label class="form-check-label" for="admin">Admin</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="management" wire:model="user.management"><label class="form-check-label" for="management">Gerente</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="engineer" wire:model="user.engineer"><label class="form-check-label" for="engineer">Engenheiro</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="responsible" wire:model="user.responsible"><label class="form-check-label" for="responsible">Responsável</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="operator" wire:model="user.operator"><label class="form-check-label" for="operator">Operador</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="basicUser" wire:model="user.user"><label class="form-check-label" for="basicUser">Usuario</label></div></div>
-                                    <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="btzero" wire:model="user.btzero"><label class="form-check-label" for="btzero">BTZero</label></div></div>
-                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="onlyparner" wire:model="user.onlyparner"><label class="form-check-label" for="onlyparner">Empreiteira (visão exclusiva)</label></div></div>
-                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="dispatch" wire:model="user.can_dispatch"><label class="form-check-label" for="dispatch">Pode despachar</label></div></div>
+                                    @foreach ($permissions as $permission)
+                                        @php
+                                            $key = $permission['key'];
+                                            $toggleId = 'perm_' . $key;
+                                            $lockId = 'lock_' . $key;
+                                            $locked = (bool) ($editorLocks[$key] ?? false);
+                                            $toggleDisabled = (!$isSuperAdm && $locked) || ($key === 'superadm' && !$isSuperAdm);
+                                        @endphp
+                                        <div class="col-md-4">
+                                            <div class="d-flex align-items-center justify-content-between border rounded px-2 py-1 {{ $toggleDisabled ? 'opacity-75' : '' }}">
+                                                <div class="form-check form-switch mb-0">
+                                                    <input class="form-check-input" type="checkbox" id="{{ $toggleId }}"
+                                                        wire:model.defer="user.{{ $key }}"
+                                                        @disabled($toggleDisabled)
+                                                        {{ $toggleDisabled ? 'disabled' : '' }}>
+                                                    <label class="form-check-label" for="{{ $toggleId }}">{{ $permission['label'] }}</label>
+                                                </div>
+                                                @if ($isSuperAdm)
+                                                    <div class="form-check mb-0 ms-2" title="Bloquear para Admin padrão">
+                                                        <input class="form-check-input" type="checkbox" id="{{ $lockId }}"
+                                                            wire:model.defer="user.permission_locks.{{ $key }}">
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>

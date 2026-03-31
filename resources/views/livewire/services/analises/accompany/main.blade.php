@@ -85,7 +85,7 @@
         .table-card {
             background: var(--oe-surface);
             border: 1px solid var(--oe-border);
-            border-radius: 1rem;
+            border-radius: 0.2rem;
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
             overflow: hidden;
         }
@@ -132,7 +132,7 @@
         <div class="card mb-3 border-0 bg-transparent">
             <div class="card-body px-0">
                 <div class="row g-3 filters-grid">
-                    <div class="col-12 col-lg-5 col-xl-4">
+                    <div class="col-12 col-lg-8 col-xl-9">
                         <div class="filter-card">
                             <h6>Pesquisa</h6>
                             <div class="row g-2">
@@ -166,7 +166,7 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-lg-4 col-xl-3">
+                    <div class="col-12 col-lg-4 col-xl-3 ms-lg-auto">
                         <div class="filter-card">
                             <h6>Rubrica</h6>
                             <div class="dropdown mb-3">
@@ -206,41 +206,6 @@
                         </div>
                     </div>
 
-                    @can('superadm')
-                        <div class="col-12 col-xl-5">
-                            <div class="filter-card h-100">
-                                <h6>Usuário</h6>
-                                <div class="row g-2">
-                                    <div class="col-12 col-md-5">
-                                        <div class="form-floating">
-                                            <input wire:model.bounce.2s="user_search" type="text"
-                                                class="form-control border border-secondary" id="search_user"
-                                                placeholder="Buscar">
-                                            <label for="search_user">Buscar usuário</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 col-md-7">
-                                        <div class="input-group">
-                                            <select class="form-select border border-secondary"
-                                                aria-label="Default select example" wire:model.defer="user_s">
-                                                @if ($user_l->count())
-                                                    <option value="">Selecione Usuario</option>
-                                                    @foreach ($user_l as $user)
-                                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                                    @endforeach
-                                                @endif
-                                            </select>
-
-
-                                            <button class="btn btn-primary" wire:click.prevent="visualizar"
-                                                type="button">
-                                                Visualizar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @endcan
                 </div>
             </div>
         </div>
