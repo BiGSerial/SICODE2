@@ -674,8 +674,9 @@ class Analise extends Component
             return;
         }
 
-        if (!$this->hasAllowedProjectReviewOrderPrefix($newNumber)) {
-            $this->addError('order_input_number', 'Ordem inválida para Análise de Projeto. Use ordens iniciadas por 170, 190, 150 ou 200.');
+        $orderNumberError = $this->projectReviewOrderNumberError($newNumber);
+        if (!is_null($orderNumberError)) {
+            $this->addError('order_input_number', $orderNumberError);
             return;
         }
 
@@ -854,8 +855,9 @@ class Analise extends Component
                 continue;
             }
 
-            if (!$this->hasAllowedProjectReviewOrderPrefix($number)) {
-                $this->addError("reviewOrders.{$index}.order_number", 'Ordem inválida para Análise de Projeto. Prefixos aceitos: 170, 190, 150 ou 200.');
+            $orderNumberError = $this->projectReviewOrderNumberError($number);
+            if (!is_null($orderNumberError)) {
+                $this->addError("reviewOrders.{$index}.order_number", $orderNumberError);
                 continue;
             }
 
@@ -914,6 +916,34 @@ class Analise extends Component
 
         $prefix = substr($number, 0, 3);
         return in_array($prefix, ['170', '190', '150', '200'], true);
+    }
+
+    private function isValidProjectReviewOrderNumber(?string $orderNumber): bool
+    {
+        return is_null($this->projectReviewOrderNumberError($orderNumber));
+    }
+
+    private function projectReviewOrderNumberError(?string $orderNumber): ?string
+    {
+        $value = trim((string) $orderNumber);
+        if ($value === '') {
+            return 'Informe o número da ordem.';
+        }
+
+        if (!preg_match('/^\d+$/', $value)) {
+            return 'Número da ordem inválido: use apenas números.';
+        }
+
+        $len = strlen($value);
+        if ($len < 6 || $len > 12) {
+            return 'Número da ordem inválido: informe de 6 a 12 dígitos.';
+        }
+
+        if (!$this->hasAllowedProjectReviewOrderPrefix($value)) {
+            return 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
+        }
+
+        return null;
     }
 
     private function autofillCostTuple(?float $total, ?float $company, ?float $client): array

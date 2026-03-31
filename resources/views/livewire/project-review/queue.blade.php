@@ -821,6 +821,7 @@
                                                                 <option value="FALTA">FALTA</option>
                                                                 <option value="ADICIONAR">ADICIONAR</option>
                                                                 <option value="REMOVER">REMOVER</option>
+                                                                <option value="ALTERAR">ALTERAR</option>
                                                             </select>
                                                         </div>
                                                         <div class="mb-0">

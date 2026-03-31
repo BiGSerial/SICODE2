@@ -455,7 +455,7 @@
                                     <input type="text" class="form-control @error('order_input_number') is-invalid @enderror"
                                         wire:model.defer="order_input_number" data-order-number-field>
                                     <div class="invalid-feedback d-none" data-order-number-feedback>
-                                        Informe somente uma ordem por campo.
+                                        Número da ordem inválido.
                                     </div>
                                     @error('order_input_number')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -1117,6 +1117,15 @@
         }
 
         function bindOrderNumberGuard() {
+            function getOrderNumberValidationMessage(rawValue) {
+                const value = String(rawValue || '').trim();
+                if (!value.length) return null;
+                if (!/^\d+$/.test(value)) return 'Número da ordem inválido: use apenas números.';
+                if (value.length < 6 || value.length > 12) return 'Número da ordem inválido: informe de 6 a 12 dígitos.';
+                if (!/^(170|190|150|200)/.test(value)) return 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
+                return null;
+            }
+
             document.querySelectorAll('[data-order-number-field]').forEach(function(input) {
                 if (input.dataset.orderNumberBound === '1') return;
                 input.dataset.orderNumberBound = '1';
@@ -1126,10 +1135,20 @@
                 const addButton = scopeEl.querySelector('[data-order-add-button]');
 
                 const validate = function() {
-                    const invalid = hasMultipleNumericValues(input.value);
+                    const value = String(input.value || '').trim();
+                    let message = null;
+                    if (value.length > 0 && hasMultipleNumericValues(value)) {
+                        message = 'Informe somente uma ordem por campo.';
+                    } else {
+                        message = getOrderNumberValidationMessage(value);
+                    }
+                    const invalid = !!message;
                     input.classList.toggle('is-invalid', invalid);
                     if (feedback) {
                         feedback.classList.toggle('d-none', !invalid);
+                        if (invalid) {
+                            feedback.textContent = message;
+                        }
                     }
                     if (addButton) {
                         addButton.disabled = invalid;
