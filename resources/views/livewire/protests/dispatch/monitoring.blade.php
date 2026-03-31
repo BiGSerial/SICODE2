@@ -56,6 +56,33 @@
             overflow: hidden;
         }
 
+        .table-card .card-header {
+            padding: 0.65rem 1rem;
+            border-bottom: 0;
+        }
+
+        .table-card .card-header .card-title {
+            padding-left: 0.1rem;
+        }
+
+        .histogram-card-body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .histogram-chart-wrap {
+            position: relative;
+            width: 100%;
+            height: clamp(260px, 34vh, 420px);
+            max-height: 420px;
+            overflow: hidden;
+        }
+
+        .histogram-chart-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
         .highlightable-row {
             transition: background-color .2s, box-shadow .2s;
             cursor: pointer;
@@ -228,7 +255,7 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-md-7 col-lg-8">
+                <div class="col-12 col-md-7 col-lg-6">
                     <div class="form-floating position-relative">
                         <input wire:model.debounce.500ms="search" class="form-control border border-secondary"
                             id="searchInput" placeholder="Buscar por nota, cidade, responsável..." />
@@ -255,6 +282,22 @@
                             @endforelse
                         </select>
                         <label for="filterTypeNote">Tipo de nota</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterProtestType"
+                            wire:model="protestType">
+                            <option value="">Todos os tipos de reclamação</option>
+
+                            @forelse ($protestTypeOptions as $option)
+                                <option value="{{ $option }}">{{ $option }}</option>
+                            @empty
+                                <option value="" disabled>Nenhum tipo disponível</option>
+                            @endforelse
+                        </select>
+                        <label for="filterProtestType">Tipo de Reclamação</label>
                     </div>
                 </div>
 
@@ -301,6 +344,66 @@
                 </div>
             </div>
 
+            <div class="row g-3 align-items-end mt-0 mt-md-3">
+                <div class="col-12 col-sm-6 col-lg-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterJobStatus" wire:model.defer="jobStatusFilter">
+                            <option value="">Todos</option>
+                            @foreach ($jobStatusOptions as $statusOption)
+                                <option value="{{ $statusOption['value'] }}">{{ $statusOption['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <label for="filterJobStatus">Status do job</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterPriority" wire:model.defer="priorityFilter">
+                            <option value="">Todas</option>
+                            @foreach ($priorityOptions as $priorityOption)
+                                <option value="{{ $priorityOption['value'] }}">{{ $priorityOption['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <label for="filterPriority">Prioridade</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-2">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterSapStatus" wire:model.defer="sapStatusFilter">
+                            <option value="">Todos</option>
+                            <option value="MEDA">ABER (MEDA)</option>
+                            <option value="MEDE">ENC (MEDE)</option>
+                        </select>
+                        <label for="filterSapStatus">Status SAP</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterOwnerScope" wire:model.defer="ownerScope">
+                            <option value="">Todos</option>
+                            <option value="assigned">Com responsável</option>
+                            <option value="unassigned">Sem responsável</option>
+                        </select>
+                        <label for="filterOwnerScope">Escopo responsável</label>
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="form-floating">
+                        <select class="form-select border border-secondary" id="filterSla" wire:model.defer="slaFilter">
+                            <option value="">Todos</option>
+                            <option value="overdue">SLA vencido</option>
+                            <option value="dueSoon">SLA vencendo (até 3 dias)</option>
+                            <option value="within">SLA a vencer</option>
+                        </select>
+                        <label for="filterSla">Faixa SLA</label>
+                    </div>
+                </div>
+            </div>
+
             <div class="row mt-3">
                 <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
                     <button type="button" class="btn btn-outline-secondary" wire:click="cleanFilters">
@@ -318,47 +421,77 @@
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-4">
-            <button type="button"
-                class="status-summary-card status-summary-card--warning {{ $deadlineCardFilter === 'due_today' ? 'is-active' : '' }}"
-                wire:click="setDeadlineCardFilter('due_today')">
-                <div class="status-summary-icon">
-                    <i class="ri-timer-2-line"></i>
+        <div class="col-12 col-lg-8">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body histogram-card-body">
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                        <div class="fw-semibold">Histograma de Previsões Mensais</div>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" wire:model="histogramSource" style="min-width: 170px;">
+                                <option value="desired">Data desejada (MEDA)</option>
+                                <option value="sla">Data SLA (não concluídos)</option>
+                            </select>
+                            <select class="form-select form-select-sm" wire:model="histogramYear" style="min-width: 110px;">
+                                @forelse (($histogramData['years'] ?? []) as $year)
+                                    <option value="{{ $year }}">{{ $year }}</option>
+                                @empty
+                                    <option value="{{ now()->year }}">{{ now()->year }}</option>
+                                @endforelse
+                            </select>
+                            @if (!empty($histogramData['selectedMonth']))
+                                <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearHistogramFilter">
+                                    Limpar mês
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                    <div id="monitoring-histogram-data" data-payload='@json($histogramData)'></div>
+                    <div class="histogram-chart-wrap" wire:ignore>
+                        <canvas id="monitoringHistogram"></canvas>
+                    </div>
+                    <small class="text-muted">Clique em uma barra para filtrar a lista pelo mesmo mês/ano.</small>
                 </div>
-                <div class="status-summary-body">
-                    <span class="status-summary-label">Vencendo hoje</span>
-                    <span class="status-summary-value">{{ $deadlineSummary['due_today'] ?? 0 }}</span>
-                    <small>Baseado em dtFimMedidaDesej</small>
-                </div>
-            </button>
+            </div>
         </div>
-        <div class="col-12 col-md-4">
-            <button type="button"
-                class="status-summary-card status-summary-card--danger {{ $deadlineCardFilter === 'overdue' ? 'is-active' : '' }}"
-                wire:click="setDeadlineCardFilter('overdue')">
-                <div class="status-summary-icon">
-                    <i class="ri-error-warning-line"></i>
-                </div>
-                <div class="status-summary-body">
-                    <span class="status-summary-label">Vencidos</span>
-                    <span class="status-summary-value">{{ $deadlineSummary['overdue'] ?? 0 }}</span>
-                    <small>Data desejada anterior a hoje</small>
-                </div>
-            </button>
-        </div>
-        <div class="col-12 col-md-4">
-            <button type="button"
-                class="status-summary-card status-summary-card--success {{ $deadlineCardFilter === 'finished_pending' ? 'is-active' : '' }}"
-                wire:click="setDeadlineCardFilter('finished_pending')">
-                <div class="status-summary-icon">
-                    <i class="ri-check-double-line"></i>
-                </div>
-                <div class="status-summary-body">
-                    <span class="status-summary-label">Finalizados pendentes</span>
-                    <span class="status-summary-value">{{ $deadlineSummary['finished_pending'] ?? 0 }}</span>
-                    <small>Status done e aguardando confirmação</small>
-                </div>
-            </button>
+        <div class="col-12 col-lg-4">
+            <div class="d-flex flex-column gap-3 h-100">
+                <button type="button"
+                    class="status-summary-card status-summary-card--warning {{ $deadlineCardFilter === 'due_today' ? 'is-active' : '' }}"
+                    wire:click="setDeadlineCardFilter('due_today')">
+                    <div class="status-summary-icon">
+                        <i class="ri-timer-2-line"></i>
+                    </div>
+                    <div class="status-summary-body">
+                        <span class="status-summary-label">Vencendo hoje</span>
+                        <span class="status-summary-value">{{ $deadlineSummary['due_today'] ?? 0 }}</span>
+                        <small>Baseado em dtFimMedidaDesej</small>
+                    </div>
+                </button>
+                <button type="button"
+                    class="status-summary-card status-summary-card--danger {{ $deadlineCardFilter === 'overdue' ? 'is-active' : '' }}"
+                    wire:click="setDeadlineCardFilter('overdue')">
+                    <div class="status-summary-icon">
+                        <i class="ri-error-warning-line"></i>
+                    </div>
+                    <div class="status-summary-body">
+                        <span class="status-summary-label">Vencidos</span>
+                        <span class="status-summary-value">{{ $deadlineSummary['overdue'] ?? 0 }}</span>
+                        <small>Data desejada anterior a hoje</small>
+                    </div>
+                </button>
+                <button type="button"
+                    class="status-summary-card status-summary-card--success {{ $deadlineCardFilter === 'finished_pending' ? 'is-active' : '' }}"
+                    wire:click="setDeadlineCardFilter('finished_pending')">
+                    <div class="status-summary-icon">
+                        <i class="ri-check-double-line"></i>
+                    </div>
+                    <div class="status-summary-body">
+                        <span class="status-summary-label">Finalizados pendentes</span>
+                        <span class="status-summary-value">{{ $deadlineSummary['finished_pending'] ?? 0 }}</span>
+                        <small>Status done e aguardando confirmação</small>
+                    </div>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -376,7 +509,7 @@
         </div>
 
         <div class="table-card">
-            <div class="card-header py-0 text-bg-danger d-flex justify-content-between align-items-center">
+            <div class="card-header text-bg-danger d-flex justify-content-between align-items-center">
                 <h5 class="card-title my-0">RECLAMAÇÕES EM ANDAMENTO</h5>
 
                 <div class="d-flex gap-2">
@@ -398,23 +531,151 @@
             <table class="table table-sm table-striped table-condensed mb-0">
                 <thead class="table-dark">
                     <tr class="align-middle text-center sticky-top" style="top: 60px;">
-                        <th>Prioridade</th>
-                        <th>Despachante</th>
-                        <th>Tipo</th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('priority')">
+                                Prioridade
+                                @if ($sortBy === 'priority')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('dispatcher')">
+                                Despachante
+                                @if ($sortBy === 'dispatcher')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('tipo_nota')">
+                                Tipo
+                                @if ($sortBy === 'tipo_nota')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
                         <th></th>
-                        <th>Nota</th>
-                        <th>Medida</th>
-                        <th>Cód</th>
-                        <th>Tipo Reclamação</th>
-                        <th>Municí­pio</th>
-                        <th>Responsável</th>
-                        <th>Empresa</th>
-                        <th>Abertura</th>
-                        <th>Fim desejado</th>
-                        <th>Despachado Em</th>
-                        <th>Sla Definido</th>
-                        <th>SAP</th>
-                        <th>Status</th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('nota')">
+                                Nota
+                                @if ($sortBy === 'nota')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('medida')">
+                                Medida
+                                @if ($sortBy === 'medida')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('cod')">
+                                Cód
+                                @if ($sortBy === 'cod')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('tipo_reclamacao')">
+                                Tipo Reclamação
+                                @if ($sortBy === 'tipo_reclamacao')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('municipio')">
+                                Município
+                                @if ($sortBy === 'municipio')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('responsavel')">
+                                Responsável
+                                @if ($sortBy === 'responsavel')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('empresa')">
+                                Empresa
+                                @if ($sortBy === 'empresa')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('abertura')">
+                                Abertura
+                                @if ($sortBy === 'abertura')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('fim_desejado')">
+                                Fim desejado
+                                @if ($sortBy === 'fim_desejado')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('sent_at')">
+                                Despachado Em
+                                @if ($sortBy === 'sent_at')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('sla_due_at')">
+                                Sla Definido
+                                @if ($sortBy === 'sla_due_at')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('sap_status')">
+                                SAP
+                                @if ($sortBy === 'sap_status')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold"
+                                wire:click="sortByColumn('status')">
+                                Status
+                                @if ($sortBy === 'status')
+                                    <i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>
+                                @endif
+                            </button>
+                        </th>
                         <th>
                             <i class="ri-message-3-line" title="Mensagens na Medida"></i>
                         </th>
@@ -558,67 +819,81 @@
 
                             <td>
                                 @php $aperture = getApertureDate($item); @endphp
-                                {{ $aperture ? $aperture->format('d/m/Y') : '---' }}
-                                <span class="badge text-bg-secondary" title="Dias Aberto">
-                                    {{ $aperture?->diffInDays(now(), true) }} d
-                                </span>
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    <span>{{ $aperture ? $aperture->format('d/m/Y') : '---' }}</span>
+                                    <span class="badge text-bg-secondary" title="Dias Aberto">
+                                        {{ $aperture?->diffInDays(now(), true) }} d
+                                    </span>
+                                </div>
                             </td>
 
                             <td>
                                 @if ($isMede)
-                                    {{ $medFinishedAt ? $medFinishedAt->format('d/m/Y') : '---' }}
-                                    @if ($medFinishedAt && $desiredReference)
-                                        @php
-                                            $measureDiff = $desiredReference->diffInDays($medFinishedAt, false);
-                                            $measureClass = $measureDiff >= 0 ? 'text-bg-success' : 'text-bg-danger';
-                                        @endphp
-                                        <span class="badge {{ $measureClass }}" title="Comparação com data desejada">
-                                            {{ $measureDiff >= 0 ? $medFinishedAt->format('d/m/Y') : 'Atraso ' . abs($measureDiff) . ' d' }}
-                                        </span>
-                                    @else
-                                        <span class="badge text-bg-secondary">---</span>
-                                    @endif
+                                    <div class="d-flex flex-column align-items-center gap-1">
+                                        <span>{{ $medFinishedAt ? $medFinishedAt->format('d/m/Y') : '---' }}</span>
+                                        @if ($medFinishedAt && $desiredReference)
+                                            @php
+                                                $measureDiff = $desiredReference->diffInDays($medFinishedAt, false);
+                                                $measureClass = $measureDiff >= 0 ? 'text-bg-success' : 'text-bg-danger';
+                                            @endphp
+                                            <span class="badge {{ $measureClass }}"
+                                                title="{{ $measureDiff >= 0 ? 'No prazo' : 'Atraso de ' . abs($measureDiff) . ' dia(s)' }}">
+                                                {{ $medFinishedAt->format('d/m/Y') }}
+                                            </span>
+                                        @else
+                                            <span class="badge text-bg-secondary">---</span>
+                                        @endif
+                                    </div>
                                 @elseif ($isMeda)
-                                    {{ $wish ? $wish->format('d/m/Y') : '---' }}
-                                    @if ($daysToWish !== null)
-                                        <span class="badge {{ $wishClass }}" title="Dias passados da data desejada">
-                                            {{ $daysToWish }} d
-                                        </span>
-                                    @else
-                                        <span class="badge text-bg-secondary">---</span>
-                                    @endif
+                                    <div class="d-flex flex-column align-items-center gap-1">
+                                        <span>{{ $wish ? $wish->format('d/m/Y') : '---' }}</span>
+                                        @if ($daysToWish !== null)
+                                            <span class="badge {{ $wishClass }}" title="Dias passados da data desejada">
+                                                {{ $daysToWish }} d
+                                            </span>
+                                        @else
+                                            <span class="badge text-bg-secondary">---</span>
+                                        @endif
+                                    </div>
                                 @else
-                                    {{ $wish ? $wish->format('d/m/Y') : '---' }}
-                                    @if ($daysToWish !== null)
-                                        <span class="badge {{ $wishClass }}" title="Dias para a data desejada">
-                                            {{ $daysToWish }} d
-                                        </span>
-                                    @else
-                                        <span class="badge text-bg-secondary">---</span>
-                                    @endif
+                                    <div class="d-flex flex-column align-items-center gap-1">
+                                        <span>{{ $wish ? $wish->format('d/m/Y') : '---' }}</span>
+                                        @if ($daysToWish !== null)
+                                            <span class="badge {{ $wishClass }}" title="Dias para a data desejada">
+                                                {{ $daysToWish }} d
+                                            </span>
+                                        @else
+                                            <span class="badge text-bg-secondary">---</span>
+                                        @endif
+                                    </div>
                                 @endif
                             </td>
 
                             <td>
-                                {{ $item->sent_at ? $item->sent_at->format('d/m/Y') : '---' }}
-                                <span class="badge text-bg-secondary" title="Dias Aberto">
-                                    {{ $item->sent_at?->diffInDays(now(), true) }} d
-                                </span>
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    <span>{{ $item->sent_at ? $item->sent_at->format('d/m/Y') : '---' }}</span>
+                                    <span class="badge text-bg-secondary" title="Dias Aberto">
+                                        {{ $item->sent_at?->diffInDays(now(), true) }} d
+                                    </span>
+                                </div>
                             </td>
 
                             <td class="fw-bold">
-                                <div>{{ $dueLeft ? $dueLeft->format('d/m/Y') : '---' }}</div>
-                                @if ($item->finished_at && $dueLeft)
-                                    <span class="badge {{ $slaFinishedClass }}" title="Comparação de fechamento com SLA">
-                                        {{ $slaFinishedDiff >= 0 ? $item->finished_at->format('d/m/Y') : 'Atraso ' . abs($slaFinishedDiff) . ' d' }}
-                                    </span>
-                                @elseif ($dueDaysLeft !== null)
-                                    <span class="badge {{ $dueSlaClass }}" title="Dias para a data SLA">
-                                        {{ $dueDaysLeft }} d
-                                    </span>
-                                @else
-                                    <span class="badge text-bg-secondary">---</span>
-                                @endif
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    <span>{{ $dueLeft ? $dueLeft->format('d/m/Y') : '---' }}</span>
+                                    @if ($item->finished_at && $dueLeft)
+                                        <span class="badge {{ $slaFinishedClass }}"
+                                            title="{{ $slaFinishedDiff >= 0 ? 'No prazo' : 'Atraso de ' . abs($slaFinishedDiff) . ' dia(s)' }}">
+                                            {{ $item->finished_at->format('d/m/Y') }}
+                                        </span>
+                                    @elseif ($dueDaysLeft !== null)
+                                        <span class="badge {{ $dueSlaClass }}" title="Dias para a data SLA">
+                                            {{ $dueDaysLeft }} d
+                                        </span>
+                                    @else
+                                        <span class="badge text-bg-secondary">---</span>
+                                    @endif
+                                </div>
                             </td>
 
                             <td>
@@ -626,7 +901,12 @@
                             </td>
 
                             <td>
-                                <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    <span class="badge {{ $item->statusBadgeClass }}">{{ $item->statusLabel }}</span>
+                                    <span class="badge text-bg-light text-dark" title="Dias no status atual">
+                                        {{ $item->status_age_days }} d
+                                    </span>
+                                </div>
                             </td>
 
                             <td>
@@ -707,6 +987,151 @@
         <script>
             document.addEventListener('livewire:load', () => {
                 let currentHighlightedId = null;
+                let monitoringHistogramChart = null;
+                let lastHistogramPayloadSignature = null;
+
+                const buildHistogram = () => {
+                    const canvas = document.getElementById('monitoringHistogram');
+                    const payloadNode = document.getElementById('monitoring-histogram-data');
+
+                    if (!canvas || !payloadNode || typeof Chart === 'undefined') {
+                        return;
+                    }
+
+                    const payloadRaw = payloadNode.dataset.payload || '{}';
+                    if (monitoringHistogramChart && lastHistogramPayloadSignature === payloadRaw) {
+                        return;
+                    }
+
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(payloadRaw);
+                    } catch (e) {
+                        payload = null;
+                    }
+
+                    if (!payload) {
+                        return;
+                    }
+
+                    const labels = payload.labels || [];
+                    const series = payload.series || {};
+                    const overdueData = series.overdue || [];
+                    const dueSoonData = series.dueSoon || [];
+                    const withinData = series.within || [];
+                    const selectedMonth = payload.selectedMonth ? Number(payload.selectedMonth) : null;
+                    const sourceLabel = payload.source === 'sla' ? 'SLA (não concluídos)' : 'Data desejada (MEDA)';
+
+                    const activeBg = (active, color) => {
+                        if (!active) {
+                            return color;
+                        }
+
+                        return color.replace('0.75', '0.95').replace('0.80', '1');
+                    };
+
+                    const overdueBg = labels.map((_, idx) => {
+                        const month = idx + 1;
+                        return activeBg(selectedMonth === month, 'rgba(220, 53, 69, 0.80)');
+                    });
+
+                    const dueSoonBg = labels.map((_, idx) => {
+                        const month = idx + 1;
+                        return activeBg(selectedMonth === month, 'rgba(255, 193, 7, 0.80)');
+                    });
+
+                    const withinBg = labels.map((_, idx) => {
+                        const month = idx + 1;
+                        return activeBg(selectedMonth === month, 'rgba(25, 135, 84, 0.80)');
+                    });
+
+                    const border = labels.map((_, idx) => {
+                        const month = idx + 1;
+                        return selectedMonth === month ? 'rgba(15, 23, 42, 1)' : 'rgba(15, 23, 42, 0.45)';
+                    });
+
+                    if (monitoringHistogramChart) {
+                        monitoringHistogramChart.destroy();
+                    }
+
+                    monitoringHistogramChart = new Chart(canvas.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: `Vencidos - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                                data: overdueData,
+                                backgroundColor: overdueBg,
+                                borderColor: border,
+                                borderWidth: 1,
+                                borderRadius: 6,
+                                stack: 'prazo',
+                            }, {
+                                label: `Vencendo (até 3 dias) - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                                data: dueSoonData,
+                                backgroundColor: dueSoonBg,
+                                borderColor: border,
+                                borderWidth: 1,
+                                borderRadius: 6,
+                                stack: 'prazo',
+                            }, {
+                                label: `A vencer - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                                data: withinData,
+                                backgroundColor: withinBg,
+                                borderColor: border,
+                                borderWidth: 1,
+                                borderRadius: 6,
+                                stack: 'prazo',
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => `${ctx.dataset.label.split(' - ')[0]}: ${ctx.parsed.y} item(ns)`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    stacked: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            },
+                            onClick: (evt, elements) => {
+                                if (!elements.length) {
+                                    return;
+                                }
+
+                                const month = elements[0].index + 1;
+                                const root = canvas.closest('[wire\\:id]');
+                                if (!root) {
+                                    return;
+                                }
+
+                                const componentId = root.getAttribute('wire:id');
+                                if (!componentId) {
+                                    return;
+                                }
+
+                                Livewire.find(componentId).call('setHistogramBucket', month);
+                            }
+                        }
+                    });
+
+                    lastHistogramPayloadSignature = payloadRaw;
+                };
 
                 const applyHighlight = () => {
                     document.querySelectorAll('.highlightable-row').forEach(row => {
@@ -736,10 +1161,11 @@
                     }
                 });
 
-                Livewire.hook('message.processed', (message, component) => {
-                    if (component.fingerprint.name === 'protests.dispatch.monitoring') {
-                        applyHighlight();
-                    }
+                buildHistogram();
+
+                Livewire.hook('message.processed', () => {
+                    applyHighlight();
+                    buildHistogram();
                 });
             });
         </script>

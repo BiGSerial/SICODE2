@@ -103,6 +103,7 @@ class ProtestJob extends Model
         'status_badge_class',
         'priority_label',
         'priority_badge_class',
+        'status_age_days',
     ];
 
     /* ===================== ACCESSORS ===================== */
@@ -153,6 +154,23 @@ class ProtestJob extends Model
     public function getPriorityBadgeClassAttribute(): string
     {
         return $this->resolvePriorityEnum()->badgeClass();
+    }
+
+    public function getStatusAgeDaysAttribute(): int
+    {
+        $since = match ($this->resolveStatusEnum()) {
+            ProtestJobStatus::OPENED => $this->sent_at,
+            ProtestJobStatus::ASSIGNED => $this->accepted_at ?? $this->sent_at,
+            ProtestJobStatus::IN_PROGRESS => $this->started_at ?? $this->accepted_at ?? $this->sent_at,
+            ProtestJobStatus::WAITING => $this->updated_at ?? $this->started_at ?? $this->accepted_at ?? $this->sent_at,
+            ProtestJobStatus::DONE => $this->finished_at ?? $this->closed_at ?? $this->updated_at,
+            ProtestJobStatus::CANCELED => $this->closed_at ?? $this->updated_at,
+            ProtestJobStatus::REOPENED => $this->updated_at ?? $this->sent_at,
+        };
+
+        $since = $since ?? $this->updated_at ?? $this->created_at;
+
+        return $since ? $since->diffInDays(now()) : 0;
     }
 
 
