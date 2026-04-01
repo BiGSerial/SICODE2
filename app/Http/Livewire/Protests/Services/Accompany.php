@@ -18,8 +18,8 @@ class Accompany extends Component
     /** Filtros */
     public int $perPage = 50;
     public string $search = '';
-    public ?string $selectedUserId = null;
-    public ?string $selectedCodf = null;
+    public array $selectedUserId = [];
+    public array $selectedCodf = [];
     public bool $onlySelectedUser = false;
     public string $histogramSource = 'desired';
     public ?int $histogramYear = null;
@@ -29,8 +29,8 @@ class Accompany extends Component
         'page'           => ['except' => 1],
         'perPage'        => ['except' => 50],
         'search'         => ['except' => ''],
-        'selectedUserId' => ['except' => null],
-        'selectedCodf'   => ['except' => null],
+        'selectedUserId' => ['except' => []],
+        'selectedCodf'   => ['except' => []],
         'onlySelectedUser' => ['except' => false],
         'histogramSource' => ['except' => 'desired'],
         'histogramYear' => ['except' => null],
@@ -42,6 +42,8 @@ class Accompany extends Component
     public function mount(): void
     {
         $this->histogramYear = $this->histogramYear ?: (int) now()->year;
+        $this->selectedUserId = collect((array) $this->selectedUserId)->filter()->values()->all();
+        $this->selectedCodf = collect((array) $this->selectedCodf)->filter()->values()->all();
         $this->loadCodfOptions();
     }
 
@@ -55,9 +57,10 @@ class Accompany extends Component
         $this->resetPage();
     }
 
-    public function updatingSelectedUserId($value): void
+    public function updatedSelectedUserId($value): void
     {
-        if (empty($value)) {
+        $this->selectedUserId = collect((array) $value)->filter()->values()->all();
+        if (empty($this->selectedUserId)) {
             $this->onlySelectedUser = false;
         }
 
@@ -69,8 +72,9 @@ class Accompany extends Component
         $this->resetPage();
     }
 
-    public function updatingSelectedCodf(): void
+    public function updatedSelectedCodf($value): void
     {
+        $this->selectedCodf = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
@@ -196,16 +200,21 @@ class Accompany extends Component
                 'creator:id,name',
                 'owner:id,name,email',
             ])
-            ->when($this->selectedUserId, function ($q) {
-                $teamIds = $this->onlySelectedUser
-                    ? [$this->selectedUserId]
-                    : $this->descendantsOf($this->selectedUserId);
+            ->when(!empty($this->selectedUserId), function ($q) {
+                $teamIds = [];
+                foreach ($this->selectedUserId as $selectedUserId) {
+                    $teamIds = array_merge(
+                        $teamIds,
+                        $this->onlySelectedUser ? [$selectedUserId] : $this->descendantsOf($selectedUserId)
+                    );
+                }
+                $teamIds = array_values(array_unique($teamIds));
 
                 $q->whereIn('owner_id', $teamIds);
             })
-            ->when($this->selectedCodf, function ($q) {
+            ->when(!empty($this->selectedCodf), function ($q) {
                 $q->whereHas('protest', function ($sub) {
-                    $sub->where('codecodf', $this->selectedCodf);
+                    $sub->whereIn('codecodf', $this->selectedCodf);
                 });
             })
             ->when($this->search, function ($q) {

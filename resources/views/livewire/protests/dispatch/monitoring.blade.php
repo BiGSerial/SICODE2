@@ -40,6 +40,12 @@
             box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
         }
 
+        .form-floating > .form-select[multiple] {
+            height: 8.5rem !important;
+            padding-top: 1.9rem;
+            padding-bottom: 0.6rem;
+        }
+
         .summary-bar {
             background: var(--mp-surface);
             border: 1px solid var(--mp-border);
@@ -272,9 +278,7 @@
 
                 <div class="col-12 col-sm-6 col-md-2 col-lg-2">
                     <div class="form-floating">
-                        <select class="form-select border border-secondary" id="filterTypeNote" wire:model="typeNote">
-                            <option value="">Todos os tipos</option>
-
+                        <select class="form-select border border-secondary" id="filterTypeNote" wire:model="typeNote" multiple size="4">
                             @forelse ($noteTypeOptions as $option)
                                 <option value="{{ $option }}">{{ $option }}</option>
                             @empty
@@ -288,9 +292,7 @@
                 <div class="col-12 col-sm-6 col-md-3 col-lg-2">
                     <div class="form-floating">
                         <select class="form-select border border-secondary" id="filterProtestType"
-                            wire:model="protestType">
-                            <option value="">Todos os tipos de reclamação</option>
-
+                            wire:model="protestType" multiple size="4">
                             @forelse ($protestTypeOptions as $option)
                                 <option value="{{ $option }}">{{ $option }}</option>
                             @empty
@@ -307,9 +309,7 @@
                 <div class="col-12 col-lg-5">
                     <div class="form-floating">
                         <select class="form-select border border-secondary" id="filterUser"
-                            wire:model.defer="userViewer">
-                            <option value="">Todos os responsáveis</option>
-
+                            wire:model="userViewer" multiple size="4">
                             @forelse ($userViewerList as $user)
                                 <option value="{{ $user->id }}">
                                     {{ reduceName($user->name) }}
@@ -347,8 +347,7 @@
             <div class="row g-3 align-items-end mt-0 mt-md-3">
                 <div class="col-12 col-sm-6 col-lg-2">
                     <div class="form-floating">
-                        <select class="form-select border border-secondary" id="filterJobStatus" wire:model.defer="jobStatusFilter">
-                            <option value="">Todos</option>
+                        <select class="form-select border border-secondary" id="filterJobStatus" wire:model="jobStatusFilter" multiple size="4">
                             @foreach ($jobStatusOptions as $statusOption)
                                 <option value="{{ $statusOption['value'] }}">{{ $statusOption['label'] }}</option>
                             @endforeach
@@ -359,8 +358,7 @@
 
                 <div class="col-12 col-sm-6 col-lg-2">
                     <div class="form-floating">
-                        <select class="form-select border border-secondary" id="filterPriority" wire:model.defer="priorityFilter">
-                            <option value="">Todas</option>
+                        <select class="form-select border border-secondary" id="filterPriority" wire:model="priorityFilter" multiple size="4">
                             @foreach ($priorityOptions as $priorityOption)
                                 <option value="{{ $priorityOption['value'] }}">{{ $priorityOption['label'] }}</option>
                             @endforeach
@@ -371,8 +369,7 @@
 
                 <div class="col-12 col-sm-6 col-lg-2">
                     <div class="form-floating">
-                        <select class="form-select border border-secondary" id="filterSapStatus" wire:model.defer="sapStatusFilter">
-                            <option value="">Todos</option>
+                        <select class="form-select border border-secondary" id="filterSapStatus" wire:model="sapStatusFilter" multiple size="4">
                             <option value="MEDA">ABER (MEDA)</option>
                             <option value="MEDE">ENC (MEDE)</option>
                         </select>
@@ -382,8 +379,7 @@
 
                 <div class="col-12 col-sm-6 col-lg-3">
                     <div class="form-floating">
-                        <select class="form-select border border-secondary" id="filterOwnerScope" wire:model.defer="ownerScope">
-                            <option value="">Todos</option>
+                        <select class="form-select border border-secondary" id="filterOwnerScope" wire:model="ownerScope" multiple size="4">
                             <option value="assigned">Com responsável</option>
                             <option value="unassigned">Sem responsável</option>
                         </select>
@@ -393,8 +389,7 @@
 
                 <div class="col-12 col-sm-6 col-lg-3">
                     <div class="form-floating">
-                        <select class="form-select border border-secondary" id="filterSla" wire:model.defer="slaFilter">
-                            <option value="">Todos</option>
+                        <select class="form-select border border-secondary" id="filterSla" wire:model="slaFilter" multiple size="4">
                             <option value="overdue">SLA vencido</option>
                             <option value="dueSoon">SLA vencendo (até 3 dias)</option>
                             <option value="within">SLA a vencer</option>

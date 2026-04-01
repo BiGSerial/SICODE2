@@ -28,6 +28,12 @@
             margin-bottom: 1rem;
         }
 
+        .form-floating > .form-select[multiple] {
+            height: 8.5rem !important;
+            padding-top: 1.9rem;
+            padding-bottom: 0.6rem;
+        }
+
         .histogram-card-body {
             display: flex;
             flex-direction: column;
@@ -44,6 +50,10 @@
         .histogram-chart-wrap canvas {
             width: 100% !important;
             height: 100% !important;
+        }
+
+        .sla-progress-on-time {
+            background-color: #198754 !important;
         }
 
     </style>
@@ -107,13 +117,12 @@
         </div>
 
         {{-- Selecionar responsável (inclui hierarquia, delegados e delegações) --}}
-        <div class="col-md-3">
-            <div class="form-floating">
-                <select wire:model="selectedUserId" id="selectedUserId" class="form-select">
-                    <option value="">Todos os responsáveis</option>
-                    @foreach ($availableUsers as $user)
-                        @php $isCurrent = $currentUserId === $user->id; @endphp
-                        <option value="{{ $user->id }}">
+                <div class="col-md-3">
+                    <div class="form-floating">
+                        <select wire:model="selectedUserId" id="selectedUserId" class="form-select" multiple size="4">
+                            @foreach ($availableUsers as $user)
+                                @php $isCurrent = $currentUserId === $user->id; @endphp
+                                <option value="{{ $user->id }}">
                             {{ $isCurrent ? 'Você' : reduceName($user->name) }} ({{ $user->email }})
                             @if ($isCurrent)
                                 — atual
@@ -126,10 +135,10 @@
         </div>
 
         {{-- Apenas o usuário selecionado (ignora descendentes) --}}
-        <div class="col-md-2">
-            <div class="form-check mt-md-4 pt-md-2">
-                <input wire:model="onlySelectedUser" type="checkbox" id="onlySelectedUser" class="form-check-input"
-                    {{ $selectedUserId ? '' : 'disabled' }}>
+                <div class="col-md-2">
+                    <div class="form-check mt-md-4 pt-md-2">
+                        <input wire:model="onlySelectedUser" type="checkbox" id="onlySelectedUser" class="form-check-input"
+                    {{ !empty($selectedUserId) ? '' : 'disabled' }}>
                 <label class="form-check-label" for="onlySelectedUser">
                     Apenas selecionado
                 </label>
@@ -140,8 +149,7 @@
         {{-- CodF --}}
         <div class="col-md-2">
             <div class="form-floating">
-                <select wire:model="selectedCodf" id="selectedCodf" class="form-select">
-                    <option value="">Todos os CodF</option>
+                <select wire:model="selectedCodf" id="selectedCodf" class="form-select" multiple size="4">
                     @foreach ($codfOptions as $codf)
                         <option value="{{ $codf }}">{{ $codf }}</option>
                     @endforeach
@@ -428,7 +436,7 @@
                                         @if (!is_null($slaProgressGreen))
                                             <div class="progress" style="height: .6rem;">
                                                 @if ($slaProgressGreen > 0)
-                                                    <div class="progress-bar bg-success"
+                                                    <div class="progress-bar sla-progress-on-time"
                                                         style="width: {{ $slaProgressGreen }}%;"></div>
                                                 @endif
                                                 @if ($slaProgressRed > 0)

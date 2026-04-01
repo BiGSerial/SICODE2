@@ -38,15 +38,15 @@ class Lists extends Component
     public string $histogramSource = 'desired';
     public ?int $histogramYear = null;
     public ?int $histogramMonth = null;
-    public ?string $cityFilter = null;
-    public ?string $selectedCodf = null;
+    public array $cityFilter = [];
+    public array $selectedCodf = [];
 
     public $showDetails = false;
     public $selected = null;
 
     // Variáveis de seleção (Filtros)
-    public $selectedProtestType = "";
-    public $selectedTipoNota = "";
+    public array $selectedProtestType = [];
+    public array $selectedTipoNota = [];
     public array $cityOptions = [];
     public array $codfOptions = [];
 
@@ -70,10 +70,10 @@ class Lists extends Component
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
-        'selectedProtestType' => ['except' => '', 'as' => 'pt'],
-        'selectedTipoNota' => ['except' => '', 'as' => 'tn'],
-        'cityFilter' => ['except' => null, 'as' => 'city'],
-        'selectedCodf' => ['except' => null, 'as' => 'codf'],
+        'selectedProtestType' => ['except' => [], 'as' => 'pt'],
+        'selectedTipoNota' => ['except' => [], 'as' => 'tn'],
+        'cityFilter' => ['except' => [], 'as' => 'city'],
+        'selectedCodf' => ['except' => [], 'as' => 'codf'],
         'histogramSource' => ['except' => 'desired', 'as' => 'hsrc'],
         'histogramYear' => ['except' => null, 'as' => 'hyear'],
         'histogramMonth' => ['except' => null, 'as' => 'hmon'],
@@ -128,6 +128,10 @@ class Lists extends Component
         }
 
         $this->histogramYear = $this->histogramYear ?: (int) now()->year;
+        $this->selectedTipoNota = collect((array) $this->selectedTipoNota)->filter()->values()->all();
+        $this->selectedProtestType = collect((array) $this->selectedProtestType)->filter()->values()->all();
+        $this->cityFilter = collect((array) $this->cityFilter)->filter()->values()->all();
+        $this->selectedCodf = collect((array) $this->selectedCodf)->filter()->values()->all();
         $this->loadCityOptions();
         $this->loadCodfOptions();
     }
@@ -173,25 +177,25 @@ class Lists extends Component
 
     public function updatedSelectedTipoNota($value): void
     {
-        $this->selectedTipoNota = $value ?: "";
+        $this->selectedTipoNota = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedSelectedProtestType($value): void
     {
-        $this->selectedProtestType = $value ?: "";
+        $this->selectedProtestType = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedCityFilter($value): void
     {
-        $this->cityFilter = $value ?: null;
+        $this->cityFilter = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedSelectedCodf($value): void
     {
-        $this->selectedCodf = $value ?: null;
+        $this->selectedCodf = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
@@ -633,25 +637,25 @@ class Lists extends Component
             });
         });
 
-        $query->when($this->selectedTipoNota, function ($query) {
-            $query->where('tipoNota', $this->selectedTipoNota);
+        $query->when(!empty($this->selectedTipoNota), function ($query) {
+            $query->whereIn('tipoNota', $this->selectedTipoNota);
         });
 
-        $query->when($this->selectedProtestType, function ($query) {
+        $query->when(!empty($this->selectedProtestType), function ($query) {
             $selectedType = $this->selectedProtestType;
 
             $query->whereHas('medProtests', function ($q) use ($selectedType) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', $selectedType);
+                    ->whereIn('protest_type', $selectedType);
             });
         });
 
-        $query->when($this->cityFilter, function ($query) {
-            $query->where('cidade', $this->cityFilter);
+        $query->when(!empty($this->cityFilter), function ($query) {
+            $query->whereIn('cidade', $this->cityFilter);
         });
 
-        $query->when($this->selectedCodf, function ($query) {
-            $query->where('codecodf', $this->selectedCodf);
+        $query->when(!empty($this->selectedCodf), function ($query) {
+            $query->whereIn('codecodf', $this->selectedCodf);
         });
 
         if (isset($this->filter['city'])) {
@@ -699,7 +703,11 @@ class Lists extends Component
                     $q->where(function ($na) {
                         $na->where('tipoNota', 'NA')
                             ->whereYear('dtConclusaoDesej', (int) $this->histogramYear)
-                            ->whereMonth('dtConclusaoDesej', (int) $this->histogramMonth);
+                            ->whereMonth('dtConclusaoDesej', (int) $this->histogramMonth)
+                            ->whereHas('medProtests', function ($sub) {
+                                $sub->where('statusSist', 'MEDA');
+                                $this->applyNoValidJobsCondition($sub);
+                            });
                     })->orWhere(function ($med) {
                         $med->where(function ($type) {
                             $type->where('tipoNota', '!=', 'NA')->orWhereNull('tipoNota');
@@ -707,6 +715,7 @@ class Lists extends Component
                             $sub->where('statusSist', 'MEDA')
                                 ->whereYear('dtFimMedidaDesej', (int) $this->histogramYear)
                                 ->whereMonth('dtFimMedidaDesej', (int) $this->histogramMonth);
+                            $this->applyNoValidJobsCondition($sub);
                         });
                     });
                 });
@@ -771,12 +780,27 @@ class Lists extends Component
 
     public function getHistogramDataProperty(): array
     {
-        $query = MedProtest::query()
-            ->with(['protest', 'ProtestJobs'])
-            ->where('statusSist', 'MEDA');
-        $this->applyNoValidJobsCondition($query);
-        $this->applyBtzeroVisibilityFilter($query);
-        $meds = $query->get();
+        $protestIds = $this->openListsQuery(ignoreStatusCard: false, ignoreHistogram: true)
+            ->pluck('protests.id');
+
+        $measures = MedProtest::query()
+            ->with(['Protest:id,tipoNota,dtConclusaoDesej', 'ProtestJobs'])
+            ->whereIn('protest_id', $protestIds)
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                $jobQuery->where(function ($statusQuery) {
+                    $statusQuery->whereNull('status')
+                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                });
+            })
+            ->when($this->showOnlyBtzero, function ($q) {
+                $q->identifiedAsBtzero();
+            }, function ($q) {
+                if ($this->hideBtzero) {
+                    $q->notIdentifiedAsBtzero();
+                }
+            })
+            ->get();
 
         $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         $totals = [];
@@ -786,29 +810,31 @@ class Lists extends Component
         $yearsMap = [];
         $now = now();
 
-        foreach ($meds as $med) {
+        foreach ($measures as $med) {
+            $protest = $med->Protest;
             $bucketDate = null;
             if ($this->histogramSource === 'sla') {
-                $job = $med->ProtestJobs
-                    ->where('confirmed', '!=', true)
+                $job = $med?->ProtestJobs
+                    ?->where('confirmed', '!=', true)
                     ->first(fn ($j) => is_null($j->finished_at) && !is_null($j->sla_due_at));
                 $bucketDate = $job?->sla_due_at;
             } else {
-                $bucketDate = $med->protest?->tipoNota === 'NA'
-                    ? $med->protest?->dtConclusaoDesej
-                    : $med->dtFimMedidaDesej;
+                $bucketDate = $protest->tipoNota === 'NA'
+                    ? $protest->dtConclusaoDesej
+                    : $med?->dtFimMedidaDesej;
             }
 
             if (!$bucketDate) {
                 continue;
             }
 
-            $year = (int) $bucketDate->format('Y');
-            $month = (int) $bucketDate->format('n');
+            $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
+            $year = (int) $normalized->format('Y');
+            $month = (int) $normalized->format('n');
             $yearsMap[$year] = true;
             $totals[$year][$month] = ($totals[$year][$month] ?? 0) + 1;
 
-            $diff = $now->diffInDays($bucketDate, false);
+            $diff = $now->diffInDays($normalized, false);
             if ($diff < 0) {
                 $overdueByMonth[$year][$month] = ($overdueByMonth[$year][$month] ?? 0) + 1;
             } elseif ($diff <= 3) {

@@ -51,8 +51,7 @@
 
                         <div class="col-12 col-sm-6 col-md-2 col-lg-2">
                             <div class="form-floating">
-                                <select class="form-select border border-secondary" id="filterTypeNote" wire:model="selectedTipoNota">
-                                    <option value="">Todos os tipos</option>
+                                <select class="form-select border border-secondary" id="filterTypeNote" wire:model="selectedTipoNota" multiple size="4">
                                     @foreach ($tipoNotas as $tipo)
                                         <option value="{{ $tipo->tipoNota }}">{{ $tipo->tipoNota }}</option>
                                     @endforeach
@@ -64,8 +63,7 @@
                         <div class="col-12 col-sm-6 col-md-3 col-lg-2">
                             <div class="form-floating">
                                 <select class="form-select border border-secondary" id="filterProtestType"
-                                    wire:model="selectedProtestType">
-                                    <option value="">Todos os tipos de reclamação</option>
+                                    wire:model="selectedProtestType" multiple size="4">
                                     @foreach ($protest_Types as $type)
                                         <option value="{{ $type->protest_type }}">{{ $type->protest_type_label }}</option>
                                     @endforeach
@@ -78,8 +76,7 @@
                     <div class="row g-3 align-items-end mt-0 mt-md-3">
                         <div class="col-12 col-sm-6 col-md-3 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select border border-secondary" id="filterCity" wire:model="cityFilter">
-                                    <option value="">Todos os municípios</option>
+                                <select class="form-select border border-secondary" id="filterCity" wire:model="cityFilter" multiple size="4">
                                     @foreach ($cityOptions as $city)
                                         <option value="{{ $city }}">{{ $city }}</option>
                                     @endforeach
@@ -90,8 +87,7 @@
 
                         <div class="col-12 col-sm-6 col-md-3 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select border border-secondary" id="filterCodf" wire:model="selectedCodf">
-                                    <option value="">Todos os CodF</option>
+                                <select class="form-select border border-secondary" id="filterCodf" wire:model="selectedCodf" multiple size="4">
                                     @foreach ($codfOptions as $codf)
                                         <option value="{{ $codf }}">{{ $codf }}</option>
                                     @endforeach
@@ -104,7 +100,7 @@
                     <div class="row mt-3">
                         <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
                             <button type="button" class="btn btn-outline-secondary"
-                                wire:click="$set('search',''); $set('advanceSearch',''); $set('multisearch',[]); $set('selectedTipoNota',''); $set('selectedProtestType',''); $set('cityFilter', null); $set('selectedCodf', null); $set('statusCardFilter', null); $set('histogramMonth', null); $set('page',1)">
+                                wire:click="$set('search',''); $set('advanceSearch',''); $set('multisearch',[]); $set('selectedTipoNota',[]); $set('selectedProtestType',[]); $set('cityFilter', []); $set('selectedCodf', []); $set('statusCardFilter', null); $set('histogramMonth', null); $set('page',1)">
                                 <i class="ri-eraser-line me-1"></i>
                                 Limpar
                             </button>
@@ -196,9 +192,10 @@
                     </button>
                 </div>
 
+                <div class="table-scroll-shell">
                 <table class="table table-sm table-striped table-condensed mb-0">
                     <thead class="table-dark">
-                        <tr class="align-middle text-center sticky-top" style="top: 60px;">
+                        <tr class="align-middle text-center sticky-top" style="top: 0;">
                             <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('med_id')">M @if($sortBy==='med_id')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
                             <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('nota')">Nota @if($sortBy==='nota')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
                             <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('tipo_nota')">Tipo @if($sortBy==='tipo_nota')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
@@ -272,8 +269,8 @@
                                 <td>{{ $protest->tipoNota }}</td>
                                 <td>{{ $activeMed?->codMedida ?? '—' }}</td>
                                 <td>{{ $protest->codecodf ?? '—' }}</td>
+                                <td class="small text-uppercase">{{ $protest->txtGrpCodificacao ?? '—' }}</td>
                                 <td>{{ $activeMed?->txtCodMedida ?? '—' }}</td>
-                                <td class="small">{{ $activeMed?->txtCodCodificacao ?? '—' }}</td>
                                 <td class="small">{{ Str::limit($protest->descCausa ?? '—', 22) }}</td>
                                 <td class="small">{{ Str::limit($protest->descricao ?? '—', 22) }}</td>
                                 <td class="small">{{ $protest->cidade ?? '—' }}</td>
@@ -319,6 +316,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </div>
 
             <div class="summary-bar mt-2">
@@ -376,6 +374,20 @@
                 document.addEventListener('livewire:load', () => {
                     let listsHistogramChart = null;
                     let lastSignature = null;
+
+                    document.addEventListener('show.bs.dropdown', (event) => {
+                        const shell = event.target.closest('.table-scroll-shell');
+                        if (shell) {
+                            shell.classList.add('is-dropdown-open');
+                        }
+                    });
+
+                    document.addEventListener('hide.bs.dropdown', (event) => {
+                        const shell = event.target.closest('.table-scroll-shell');
+                        if (shell) {
+                            shell.classList.remove('is-dropdown-open');
+                        }
+                    });
 
                     const buildListsHistogram = () => {
                         const canvas = document.getElementById('listsHistogram');
@@ -503,6 +515,12 @@
             box-shadow: 0 12px 24px rgba(15, 23, 42, .06);
         }
 
+        .form-floating > .form-select[multiple] {
+            height: 8.5rem !important;
+            padding-top: 1.9rem;
+            padding-bottom: .6rem;
+        }
+
         .summary-bar {
             background: var(--mp-surface);
             border: 1px solid var(--mp-border);
@@ -516,7 +534,17 @@
             border: 1px solid var(--mp-border);
             border-radius: 1rem;
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-            overflow: hidden;
+            overflow: visible;
+        }
+        .table-scroll-shell {
+            overflow: auto;
+            position: relative;
+        }
+        .table-scroll-shell.is-dropdown-open {
+            overflow: visible;
+        }
+        .table-scroll-shell .dropdown-menu {
+            z-index: 1080;
         }
 
         .table-card .card-header {

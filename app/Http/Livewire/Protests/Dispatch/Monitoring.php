@@ -23,19 +23,19 @@ class Monitoring extends Component
     /** Filtros */
     public string $search     = '';
     public string $searchName = '';
-    public $userViewer        = null;
+    public array $userViewer  = [];
     public bool $onlySelectedUser = false;
 
     /** Filtro por tipo de nota (NA / OU / PR) */
-    public ?string $typeNote  = null;
-    public ?string $protestType = null;
+    public array $typeNote  = [];
+    public array $protestType = [];
 
     /** Filtro por SLA (overdue / dueSoon / within) */
-    public ?string $slaFilter = null;
-    public ?string $jobStatusFilter = null;
-    public ?string $priorityFilter = null;
-    public ?string $sapStatusFilter = null;
-    public ?string $ownerScope = null; // assigned | unassigned
+    public array $slaFilter = [];
+    public array $jobStatusFilter = [];
+    public array $priorityFilter = [];
+    public array $sapStatusFilter = [];
+    public array $ownerScope = []; // assigned | unassigned
     public string $sortBy = 'sla_due_at';
     public string $sortDirection = 'asc';
 
@@ -54,15 +54,15 @@ class Monitoring extends Component
     protected $queryString = [
         'perPage'    => ['except' => 50],
         'search'     => ['except' => ''],
-        'userViewer' => ['except' => null],
+        'userViewer' => ['except' => []],
         'onlySelectedUser' => ['except' => false],
-        'typeNote'   => ['except' => null],
-        'protestType' => ['except' => null],
-        'slaFilter'  => ['except' => null],
-        'jobStatusFilter' => ['except' => null],
-        'priorityFilter' => ['except' => null],
-        'sapStatusFilter' => ['except' => null],
-        'ownerScope' => ['except' => null],
+        'typeNote'   => ['except' => []],
+        'protestType' => ['except' => []],
+        'slaFilter'  => ['except' => []],
+        'jobStatusFilter' => ['except' => []],
+        'priorityFilter' => ['except' => []],
+        'sapStatusFilter' => ['except' => []],
+        'ownerScope' => ['except' => []],
         'sortBy' => ['except' => 'sla_due_at'],
         'sortDirection' => ['except' => 'asc'],
         'deadlineCardFilter' => ['except' => null],
@@ -91,6 +91,14 @@ class Monitoring extends Component
         }
 
         $this->histogramYear = $this->histogramYear ?: (int) now()->year;
+        $this->userViewer = collect((array) $this->userViewer)->filter()->values()->all();
+        $this->typeNote = collect((array) $this->typeNote)->filter()->values()->all();
+        $this->protestType = collect((array) $this->protestType)->filter()->values()->all();
+        $this->slaFilter = collect((array) $this->slaFilter)->filter()->values()->all();
+        $this->jobStatusFilter = collect((array) $this->jobStatusFilter)->filter()->values()->all();
+        $this->priorityFilter = collect((array) $this->priorityFilter)->filter()->values()->all();
+        $this->sapStatusFilter = collect((array) $this->sapStatusFilter)->filter()->values()->all();
+        $this->ownerScope = collect((array) $this->ownerScope)->filter()->values()->all();
 
         $this->loadUserViewerList();
         $this->loadNoteTypeOptions();
@@ -114,19 +122,20 @@ class Monitoring extends Component
 
     public function updatedTypeNote($value): void
     {
-        $this->typeNote = $value ?: null;
+        $this->typeNote = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedProtestType($value): void
     {
-        $this->protestType = $value ?: null;
+        $this->protestType = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedUserViewer($value): void
     {
-        if (empty($value)) {
+        $this->userViewer = collect((array) $value)->filter()->values()->all();
+        if (empty($this->userViewer)) {
             $this->onlySelectedUser = false;
         }
 
@@ -140,25 +149,25 @@ class Monitoring extends Component
 
     public function updatedJobStatusFilter($value): void
     {
-        $this->jobStatusFilter = $value ?: null;
+        $this->jobStatusFilter = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedPriorityFilter($value): void
     {
-        $this->priorityFilter = $value ?: null;
+        $this->priorityFilter = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedSapStatusFilter($value): void
     {
-        $this->sapStatusFilter = $value ?: null;
+        $this->sapStatusFilter = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
     public function updatedOwnerScope($value): void
     {
-        $this->ownerScope = $value ?: null;
+        $this->ownerScope = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
@@ -287,14 +296,14 @@ class Monitoring extends Component
     /** Ajusta o filtro por tipo de nota */
     public function setTypeNote(?string $type = null): void
     {
-        $this->typeNote = $type ?: null;
+        $this->typeNote = $type ? [$type] : [];
         $this->resetPage();
     }
 
     /** Clicar no card de SLA (total/overdue/dueSoon/within) */
     public function setSlaFilter(?string $mode = null): void
     {
-        $this->slaFilter = $mode ?: null;
+        $this->slaFilter = $mode ? [$mode] : [];
         $this->resetPage();
     }
 
@@ -341,23 +350,29 @@ class Monitoring extends Component
         }
 
         // Filtro por responsável / hierarquia
-        $query->when($this->userViewer, function ($q) {
-            $user = User::find($this->userViewer);
-
-            if (!$user) {
+        $query->when(!empty($this->userViewer), function ($q) {
+            $users = User::whereIn('id', $this->userViewer)->get();
+            if ($users->isEmpty()) {
                 return;
             }
 
-            $ownerIds = $this->onlySelectedUser
-                ? [$user->id]
-                : $user->descendantsQuery(true, true, true)->pluck('users.id')->toArray();
+            $ownerIds = [];
+            foreach ($users as $user) {
+                if ($this->onlySelectedUser) {
+                    $ownerIds[] = $user->id;
+                } else {
+                    $ownerIds = array_merge(
+                        $ownerIds,
+                        $user->descendantsQuery(true, true, true)->pluck('users.id')->toArray()
+                    );
+                }
+            }
+            $ownerIds = array_values(array_unique($ownerIds));
 
-            $onlySelectedUser = $this->onlySelectedUser;
-
-            $q->where(function ($qq) use ($ownerIds, $onlySelectedUser) {
+            $q->where(function ($qq) use ($ownerIds) {
                 $qq->whereIn('owner_id', $ownerIds);
 
-                if (!$onlySelectedUser) {
+                if (!$this->onlySelectedUser) {
                     $qq->orWhereNull('owner_id');
                 }
             });
@@ -382,62 +397,74 @@ class Monitoring extends Component
         });
 
         // Filtro por tipo de nota (NA / OU / PR)
-        $query->when($this->typeNote, function ($q) {
-            $type = $this->typeNote;
-
-            $q->whereHas('protest', function ($sub) use ($type) {
-                $sub->where('tipoNota', $type);
+        $query->when(!empty($this->typeNote), function ($q) {
+            $q->whereHas('protest', function ($sub) {
+                $sub->whereIn('tipoNota', $this->typeNote);
             });
         });
 
-        $query->when($this->protestType, function ($q) {
-            $type = $this->protestType;
-
-            $q->whereHas('protest', function ($sub) use ($type) {
-                $sub->where('type', $type);
+        $query->when(!empty($this->protestType), function ($q) {
+            $q->whereHas('protest', function ($sub) {
+                $sub->whereIn('type', $this->protestType);
             });
         });
 
         // Status do job
-        $query->when($this->jobStatusFilter, function ($q) {
-            $q->where('status', $this->jobStatusFilter);
+        $query->when(!empty($this->jobStatusFilter), function ($q) {
+            $q->whereIn('status', $this->jobStatusFilter);
         });
 
         // Prioridade
-        $query->when($this->priorityFilter, function ($q) {
-            $q->where('priority', $this->priorityFilter);
+        $query->when(!empty($this->priorityFilter), function ($q) {
+            $q->whereIn('priority', $this->priorityFilter);
         });
 
         // Status SAP/Medida
-        $query->when($this->sapStatusFilter, function ($q) {
-            $sap = mb_strtoupper((string) $this->sapStatusFilter);
+        $query->when(!empty($this->sapStatusFilter), function ($q) {
+            $sap = collect($this->sapStatusFilter)
+                ->map(fn ($item) => mb_strtoupper((string) $item))
+                ->values()
+                ->all();
             $q->whereHas('medProtest', function ($sub) use ($sap) {
-                $sub->where('statusSist', $sap);
+                $sub->whereIn('statusSist', $sap);
             });
         });
 
         // Escopo de responsável
-        $query->when($this->ownerScope, function ($q) {
-            if ($this->ownerScope === 'assigned') {
+        $query->when(!empty($this->ownerScope), function ($q) {
+            $scopes = collect($this->ownerScope)->values();
+            if ($scopes->contains('assigned') && $scopes->contains('unassigned')) {
+                return;
+            }
+
+            if ($scopes->contains('assigned')) {
                 $q->whereNotNull('owner_id');
-            } elseif ($this->ownerScope === 'unassigned') {
+            } elseif ($scopes->contains('unassigned')) {
                 $q->whereNull('owner_id');
             }
         });
 
         // Filtro por SLA
-        $query->when($this->slaFilter, function ($q) {
+        $query->when(!empty($this->slaFilter), function ($q) {
             $now = now();
 
             $q->whereNotNull('sla_due_at');
-
-            if ($this->slaFilter === 'overdue') {
-                $q->where('sla_due_at', '<', $now);
-            } elseif ($this->slaFilter === 'dueSoon') {
-                $q->whereBetween('sla_due_at', [$now, $now->clone()->addDays(3)]);
-            } elseif ($this->slaFilter === 'within') {
-                $q->where('sla_due_at', '>', $now->clone()->addDays(3));
+            $filters = collect($this->slaFilter)->values();
+            if ($filters->count() >= 3) {
+                return;
             }
+
+            $q->where(function ($slaScope) use ($now, $filters) {
+                if ($filters->contains('overdue')) {
+                    $slaScope->orWhere('sla_due_at', '<', $now);
+                }
+                if ($filters->contains('dueSoon')) {
+                    $slaScope->orWhereBetween('sla_due_at', [$now, $now->clone()->addDays(3)]);
+                }
+                if ($filters->contains('within')) {
+                    $slaScope->orWhere('sla_due_at', '>', $now->clone()->addDays(3));
+                }
+            });
         });
 
         if (!$ignoreDeadlineFilter && $this->deadlineCardFilter) {
@@ -765,24 +792,7 @@ class Monitoring extends Component
 
     public function getHistogramDataProperty(): array
     {
-        $histogramQuery = ProtestJob::query()
-            ->with(['medProtest', 'protest'])
-            ->where('confirmed', '!=', true);
-
-        if ($this->showOnlyBtzero) {
-            $histogramQuery->whereHas('medProtest', function ($q) {
-                $q->identifiedAsBtzero();
-            });
-        } elseif ($this->hideBtzero) {
-            $histogramQuery->where(function ($sub) {
-                $sub->whereNull('med_protest_id')
-                    ->orWhereHas('medProtest', function ($q) {
-                        $q->notIdentifiedAsBtzero();
-                    });
-            });
-        }
-
-        $jobs = $histogramQuery->get();
+        $jobs = $this->baseQuery(ignoreDeadlineFilter: false, ignoreHistogramFilter: true)->get();
         $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
         $totals = [];
@@ -796,13 +806,9 @@ class Monitoring extends Component
             $bucketDate = null;
 
             if ($this->histogramSource === 'sla') {
-                if (!$job->finished_at && $job->sla_due_at) {
-                    $bucketDate = $job->sla_due_at;
-                }
+                $bucketDate = $job->sla_due_at;
             } else {
-                if (mb_strtoupper((string) ($job->medProtest?->statusSist ?? '')) === 'MEDA') {
-                    $bucketDate = $job->medProtest?->dtFimMedidaDesej;
-                }
+                $bucketDate = $this->resolveDesiredDate($job);
             }
 
             if (!$bucketDate) {
