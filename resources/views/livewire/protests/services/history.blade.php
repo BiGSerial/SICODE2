@@ -27,6 +27,24 @@
             padding: 1rem;
             margin-bottom: 1rem;
         }
+
+        .histogram-card-body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .histogram-chart-wrap {
+            position: relative;
+            width: 100%;
+            height: clamp(260px, 34vh, 420px);
+            max-height: 420px;
+            overflow: hidden;
+        }
+
+        .histogram-chart-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
     </style>
 @endpush
 
@@ -94,6 +112,37 @@
             </div>
         </div>
 
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body histogram-card-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                    <div class="fw-semibold">Histograma de Encerramentos no Prazo</div>
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" wire:model="histogramSource" style="min-width: 210px;">
+                            <option value="measure">Prazo Medida (MEDE)</option>
+                            <option value="sla">SLA do Job</option>
+                        </select>
+                        <select class="form-select form-select-sm" wire:model="histogramYear" style="min-width: 110px;">
+                            @forelse (($histogramData['years'] ?? []) as $year)
+                                <option value="{{ $year }}">{{ $year }}</option>
+                            @empty
+                                <option value="{{ now()->year }}">{{ now()->year }}</option>
+                            @endforelse
+                        </select>
+                        @if (!empty($histogramData['selectedMonth']))
+                            <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearHistogramFilter">
+                                Limpar mês
+                            </button>
+                        @endif
+                    </div>
+                </div>
+                <div id="history-histogram-data" data-payload='@json($histogramData)'></div>
+                <div class="histogram-chart-wrap" wire:ignore>
+                    <canvas id="historyHistogram"></canvas>
+                </div>
+                <small class="text-muted">Clique em uma barra para filtrar a lista por mês/ano previsto.</small>
+            </div>
+        </div>
+
         @if ($list->count() > 0)
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div class="small text-muted">
@@ -136,7 +185,8 @@
                                     $protest = $med?->protest;
                                     $deadline = $this->deadlineFor($job);
                                     $closedAt = $job->closed_at ?? $job->finished_at;
-                                    $withinSla = $this->finishedWithinDeadline($job);
+                                    $withinMeasureDeadline = $this->measureFinishedWithinDeadline($job);
+                                    $withinJobSla = $this->jobFinishedWithinSla($job);
                                     $noteRef = $protest?->notes?->last() ?? $med?->notes?->last();
                                 @endphp
                                 <tr class="text-center" wire:key="job-{{ $job->id }}">
@@ -149,16 +199,27 @@
                                     <td>{{ optional($med?->dtFimMedida)->format('d/m/Y') ?? '-' }}</td>
                                     <td>{{ optional($closedAt)->format('d/m/Y H:i') ?? '-' }}</td>
                                     <td>
-                                        @if (is_null($withinSla))
+                                        @if (is_null($withinJobSla))
                                             <span class="badge bg-secondary-subtle text-secondary">Sem prazo</span>
-                                        @elseif ($withinSla)
+                                        @elseif ($withinJobSla)
                                             <span class="badge bg-success-subtle text-success">Dentro do prazo</span>
                                         @else
                                             <span class="badge bg-danger-subtle text-danger">Fora do prazo</span>
                                         @endif
                                     </td>
                                     <td>{{ $noteRef?->note ?? 'Sem anotação' }}</td>
-                                    <td class="text-start">{{ \Illuminate\Support\Str::limit($job->close_reason ?? '-', 80) }}</td>
+                                    <td class="text-start">
+                                        {{ \Illuminate\Support\Str::limit($job->close_reason ?? '-', 80) }}
+                                        <div class="mt-1">
+                                            @if (is_null($withinMeasureDeadline))
+                                                <span class="badge bg-secondary-subtle text-secondary">Medida sem prazo</span>
+                                            @elseif ($withinMeasureDeadline)
+                                                <span class="badge bg-success-subtle text-success">Medida no prazo</span>
+                                            @else
+                                                <span class="badge bg-danger-subtle text-danger">Medida fora do prazo</span>
+                                            @endif
+                                        </div>
+                                    </td>
                                     <td>
                                         @if ($job->med_protest_id)
                                             <a href="{{ route('protests.services.view', $job->id) }}" class="text-primary"
@@ -194,3 +255,101 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+    <script>
+        document.addEventListener('livewire:load', () => {
+            let historyHistogramChart = null;
+            let lastSignature = null;
+
+            const buildHistoryHistogram = () => {
+                const canvas = document.getElementById('historyHistogram');
+                const payloadNode = document.getElementById('history-histogram-data');
+
+                if (!canvas || !payloadNode || typeof Chart === 'undefined') {
+                    return;
+                }
+
+                const raw = payloadNode.dataset.payload || '{}';
+                if (historyHistogramChart && lastSignature === raw) {
+                    return;
+                }
+
+                let payload;
+                try {
+                    payload = JSON.parse(raw);
+                } catch (e) {
+                    return;
+                }
+
+                const labels = payload.labels || [];
+                const series = payload.series || {};
+                const onTimeData = series.onTime || [];
+                const lateData = series.late || [];
+                const selectedMonth = payload.selectedMonth ? Number(payload.selectedMonth) : null;
+                const sourceLabel = payload.source === 'sla' ? 'SLA do Job' : 'Prazo Medida (MEDE)';
+
+                const colorize = (base) => labels.map((_, i) => selectedMonth === (i + 1) ? base.replace('0.8', '1') : base);
+                const border = labels.map((_, i) => selectedMonth === (i + 1) ? 'rgba(15,23,42,1)' : 'rgba(15,23,42,.45)');
+
+                if (historyHistogramChart) {
+                    historyHistogramChart.destroy();
+                }
+
+                historyHistogramChart = new Chart(canvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `No prazo - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                            data: onTimeData,
+                            backgroundColor: colorize('rgba(25,135,84,0.8)'),
+                            borderColor: border,
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            stack: 'prazo',
+                        }, {
+                            label: `Fora do prazo - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                            data: lateData,
+                            backgroundColor: colorize('rgba(220,53,69,0.8)'),
+                            borderColor: border,
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            stack: 'prazo',
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                stacked: true
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            },
+                        },
+                        onClick: (evt, elements) => {
+                            if (!elements.length) return;
+                            const month = elements[0].index + 1;
+                            const root = canvas.closest('[wire\\:id]');
+                            if (!root) return;
+                            const componentId = root.getAttribute('wire:id');
+                            if (!componentId) return;
+                            Livewire.find(componentId).call('setHistogramBucket', month);
+                        },
+                    },
+                });
+
+                lastSignature = raw;
+            };
+
+            buildHistoryHistogram();
+            Livewire.hook('message.processed', () => buildHistoryHistogram());
+        });
+    </script>
+@endpush

@@ -10,7 +10,9 @@ use App\Models\MedProtest;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,15 +27,42 @@ class UserSlaDashboard extends Component
     public $advanceFilter = 'all'; // all | advance | normal
     public $userId = null;
     public array $protestTypes = [];
+    public string $complaintSearch = '';
+    public array $complaintNoteTypes = [];
+    public array $complaintClassifications = [];
+    public array $complaintCities = [];
+    public string $medaDispatchFilter = 'all'; // all | with_job | without_job
+    public string $openDispatchBtzeroFilter = 'all'; // all | without_btzero | only_btzero
+    public string $generalMeasuresOpenFilter = 'all'; // all | open | not_open
+    public string $generalMeasuresBtzeroFilter = 'all'; // all | with_btzero | without_btzero
+    public ?string $medaHistogramBucket = null; // YYYY-MM
+    public string $medaHistogramSource = 'desired'; // desired | sla
+    public ?int $medaHistogramYear = null;
+    public string $medaHistogramBtzeroFilter = 'all'; // all | without_btzero | only_btzero
 
     public $usersOptions = [];
     public array $protestTypeOptions = [];
+    public array $complaintNoteTypeOptions = [];
+    public array $complaintClassificationOptions = [];
+    public array $complaintCityOptions = [];
 
     protected $queryString = [
         'dt_in'         => ['except' => ''],
         'dt_out'        => ['except' => ''],
         'advanceFilter' => ['except' => 'all', 'as' => 'adv'],
         'userId'        => ['except' => null, 'as' => 'user'],
+        'complaintSearch' => ['except' => '', 'as' => 'rq'],
+        'complaintNoteTypes' => ['except' => [], 'as' => 'rnt'],
+        'complaintClassifications' => ['except' => [], 'as' => 'rcl'],
+        'complaintCities' => ['except' => [], 'as' => 'rct'],
+        'medaDispatchFilter' => ['except' => 'all', 'as' => 'mdf'],
+        'openDispatchBtzeroFilter' => ['except' => 'all', 'as' => 'odbf'],
+        'generalMeasuresOpenFilter' => ['except' => 'all', 'as' => 'gmof'],
+        'generalMeasuresBtzeroFilter' => ['except' => 'all', 'as' => 'gmbf'],
+        'medaHistogramBucket' => ['except' => null, 'as' => 'mhb'],
+        'medaHistogramSource' => ['except' => 'desired', 'as' => 'mhsrc'],
+        'medaHistogramYear' => ['except' => null, 'as' => 'mhyear'],
+        'medaHistogramBtzeroFilter' => ['except' => 'all', 'as' => 'mhbz'],
     ];
 
     public function mount()
@@ -61,15 +90,47 @@ class UserSlaDashboard extends Component
         })->values()->all();
 
         $this->protestTypes = [];
+        $this->medaHistogramYear = $this->medaHistogramYear ?: (int) now()->year;
+        $this->complaintNoteTypes = collect((array) $this->complaintNoteTypes)->filter()->values()->all();
+        $this->complaintClassifications = collect((array) $this->complaintClassifications)->filter()->values()->all();
+        $this->complaintCities = collect((array) $this->complaintCities)->filter()->values()->all();
+        $this->loadComplaintFilterOptions();
     }
 
     public function updated($propertyName)
     {
-        $paginationSensitiveProps = ['dt_in', 'dt_out', 'advanceFilter', 'userId', 'protestTypes'];
+        $paginationSensitiveProps = [
+            'dt_in',
+            'dt_out',
+            'advanceFilter',
+            'userId',
+            'protestTypes',
+            'complaintSearch',
+            'complaintNoteTypes',
+            'complaintClassifications',
+            'complaintCities',
+            'medaDispatchFilter',
+            'openDispatchBtzeroFilter',
+            'generalMeasuresOpenFilter',
+            'generalMeasuresBtzeroFilter',
+            'medaHistogramBucket',
+            'medaHistogramSource',
+            'medaHistogramYear',
+            'medaHistogramBtzeroFilter',
+        ];
 
         $isProtestTypesNested = str_starts_with($propertyName, 'protestTypes.');
+        $isComplaintNoteTypesNested = str_starts_with($propertyName, 'complaintNoteTypes.');
+        $isComplaintClassificationsNested = str_starts_with($propertyName, 'complaintClassifications.');
+        $isComplaintCitiesNested = str_starts_with($propertyName, 'complaintCities.');
 
-        if ($isProtestTypesNested || in_array($propertyName, $paginationSensitiveProps, true)) {
+        if (
+            $isProtestTypesNested
+            || $isComplaintNoteTypesNested
+            || $isComplaintClassificationsNested
+            || $isComplaintCitiesNested
+            || in_array($propertyName, $paginationSensitiveProps, true)
+        ) {
             $this->resetDueMeasuresPagination();
         }
     }
@@ -79,6 +140,87 @@ class UserSlaDashboard extends Component
         $this->resetPage('due_today_page');
         $this->resetPage('overdue_page');
         $this->resetPage('dispatcher_measures_page');
+        $this->resetPage('meda_open_dispatch_page');
+        $this->resetPage('general_protests_page');
+    }
+
+    public function setMedaHistogramBucket(?string $bucket = null): void
+    {
+        if (!$bucket || !preg_match('/^\d{4}\-\d{2}$/', $bucket)) {
+            return;
+        }
+
+        $this->medaHistogramBucket = $bucket;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function toggleMedaHistogramBucket(?string $bucket = null): void
+    {
+        if (!$bucket || !preg_match('/^\d{4}\-\d{2}$/', $bucket)) {
+            return;
+        }
+
+        $this->medaHistogramBucket = $this->medaHistogramBucket === $bucket ? null : $bucket;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function updatedMedaHistogramSource($value): void
+    {
+        if (!in_array($value, ['desired', 'sla'], true)) {
+            $this->medaHistogramSource = 'desired';
+        }
+
+        $this->medaHistogramBucket = null;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function updatedMedaHistogramYear(): void
+    {
+        $this->medaHistogramBucket = null;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function updatedMedaHistogramBtzeroFilter($value): void
+    {
+        if (!in_array($value, ['all', 'without_btzero', 'only_btzero'], true)) {
+            $this->medaHistogramBtzeroFilter = 'all';
+        }
+        // Sincroniza automaticamente com a lista consolidada.
+        // O usuário ainda pode ajustar manualmente depois pelo filtro da própria lista.
+        $this->openDispatchBtzeroFilter = $this->medaHistogramBtzeroFilter;
+        $this->medaHistogramBucket = null;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function updatedMedaDispatchFilter($value): void
+    {
+        if (!in_array($value, ['all', 'with_job', 'without_job'], true)) {
+            $this->medaDispatchFilter = 'all';
+        }
+        $this->medaHistogramBucket = null;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function clearMedaHistogramFilter(): void
+    {
+        $this->medaHistogramBucket = null;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function updatedGeneralMeasuresOpenFilter($value): void
+    {
+        if (!in_array($value, ['all', 'open', 'not_open'], true)) {
+            $this->generalMeasuresOpenFilter = 'all';
+        }
+        $this->resetPage('general_protests_page');
+    }
+
+    public function updatedGeneralMeasuresBtzeroFilter($value): void
+    {
+        if (!in_array($value, ['all', 'with_btzero', 'without_btzero'], true)) {
+            $this->generalMeasuresBtzeroFilter = 'all';
+        }
+        $this->resetPage('general_protests_page');
     }
 
     /**
@@ -103,6 +245,9 @@ class UserSlaDashboard extends Component
                 $q->whereHas('medProtest', function ($sub) use ($types) {
                     $sub->whereIn('protest_type', $types);
                 });
+            })
+            ->whereHas('protest', function ($q) {
+                $this->applyComplaintFiltersToProtestBuilder($q);
             });
     }
 
@@ -139,6 +284,79 @@ class UserSlaDashboard extends Component
             $q->whereHas('medProtests', function ($sub) use ($types) {
                 $sub->whereIn('protest_type', $types);
             });
+        });
+    }
+
+    protected function loadComplaintFilterOptions(): void
+    {
+        $this->complaintNoteTypeOptions = Protest::query()
+            ->select('tipoNota')
+            ->whereNotNull('tipoNota')
+            ->distinct()
+            ->orderBy('tipoNota')
+            ->pluck('tipoNota')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $this->complaintClassificationOptions = Protest::query()
+            ->select('type')
+            ->whereNotNull('type')
+            ->distinct()
+            ->orderBy('type')
+            ->pluck('type')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $this->complaintCityOptions = Protest::query()
+            ->select('cidade')
+            ->whereNotNull('cidade')
+            ->distinct()
+            ->orderBy('cidade')
+            ->pluck('cidade')
+            ->filter()
+            ->values()
+            ->toArray();
+    }
+
+    protected function applyComplaintFiltersToProtestBuilder($query): void
+    {
+        $search = trim((string) $this->complaintSearch);
+        if ($search !== '') {
+            $query->where(function ($w) use ($search) {
+                $w->where('nota', 'like', '%' . $search . '%')
+                    ->orWhere('codecodf', 'like', '%' . $search . '%')
+                    ->orWhere('txtGrpCodificacao', 'like', '%' . $search . '%')
+                    ->orWhere('type', 'like', '%' . $search . '%')
+                    ->orWhere('cidade', 'like', '%' . $search . '%')
+                    ->orWhere('tipoNota', 'like', '%' . $search . '%');
+            });
+        }
+
+        if (!empty($this->complaintNoteTypes)) {
+            $query->whereIn('tipoNota', $this->complaintNoteTypes);
+        }
+
+        if (!empty($this->complaintClassifications)) {
+            $query->whereIn('type', $this->complaintClassifications);
+        }
+
+        if (!empty($this->complaintCities)) {
+            $query->whereIn('cidade', $this->complaintCities);
+        }
+    }
+
+    protected function applyComplaintFiltersToProtestQuery($query)
+    {
+        $this->applyComplaintFiltersToProtestBuilder($query);
+        return $query;
+    }
+
+    protected function applyComplaintFiltersToMedProtestQuery($query)
+    {
+        return $query->whereHas('protest', function ($protestQuery) {
+            $this->applyComplaintFiltersToProtestBuilder($protestQuery);
         });
     }
 
@@ -427,6 +645,7 @@ class UserSlaDashboard extends Component
         $rangeEnd   = $end->copy()->endOfDay();
 
         $periodBase = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd]);
 
         $totalPeriod = (clone $periodBase)->count();
@@ -434,6 +653,7 @@ class UserSlaDashboard extends Component
         $withoutJobPeriod = max(0, $totalPeriod - $withJobPeriod);
 
         $openBase = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->where('statusSist', 'MEDA');
 
         $currentOpen = (clone $openBase)->count();
@@ -479,6 +699,7 @@ class UserSlaDashboard extends Component
         $now        = now();
 
         $periodMedBase = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd]);
 
         $medCreated     = (clone $periodMedBase)->count();
@@ -670,6 +891,7 @@ class UserSlaDashboard extends Component
     protected function periodMeasuresBaseQuery(Carbon $start, Carbon $end)
     {
         $query = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->where(function ($q) use ($start, $end) {
                 $q->whereHas('protest', function ($sub) use ($start, $end) {
                     $sub->where('tipoNota', 'NA')
@@ -848,6 +1070,7 @@ class UserSlaDashboard extends Component
         $now        = now();
 
         $periodBase = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd]);
 
         $categoryRows = (clone $periodBase)
@@ -864,6 +1087,7 @@ class UserSlaDashboard extends Component
         $prevMonthEnd   = $rangeStart->copy()->startOfMonth()->subDay();
 
         $passiveRows = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->whereBetween('dtCriacaoMedida', [$prevMonthStart, $prevMonthEnd])
             ->where('statusSist', 'MEDA')
             ->selectRaw('protest_type, COUNT(*) as total_passivo')
@@ -898,6 +1122,7 @@ class UserSlaDashboard extends Component
         ];
 
         $tipoNota = Protest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->whereNotNull('dtAberturaNota')
             ->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd])
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
@@ -921,6 +1146,7 @@ class UserSlaDashboard extends Component
             ->whereBetween('med_protests.dtFimMedidaDesej', [$rangeStart, $rangeEnd])
             ->where('med_protests.dtFimMedidaDesej', '<', $now)
             ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->selectRaw('protests.tipoNota as tipoNota, COUNT(*) as total')
             ->groupBy('protests.tipoNota')
             ->orderByDesc('total')
@@ -948,6 +1174,7 @@ class UserSlaDashboard extends Component
         $rangeEnd   = $end->copy()->endOfDay();
 
         $protestData = Protest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->whereNotNull('dtAberturaNota')
             ->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd])
             ->whereHas('ProtestJobs')
@@ -957,6 +1184,7 @@ class UserSlaDashboard extends Component
             ->pluck('total', 'date');
 
         $medData = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->whereNotNull('dtCriacaoMedida')
             ->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd])
             ->whereHas('ProtestJobs')
@@ -1057,6 +1285,7 @@ class UserSlaDashboard extends Component
     {
         $openMeasures = MedProtest::where('statusSist', 'MEDA')
             ->whereHas('ProtestJobs')
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
             ->count();
 
@@ -1064,15 +1293,18 @@ class UserSlaDashboard extends Component
             $q->where('statusSist', 'MEDA')
                 ->whereHas('ProtestJobs');
         })
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
             ->count();
 
         $totalProtests  = Protest::whereHas('ProtestJobs')
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
             ->count();
         $closedProtests = Protest::whereHas('ProtestJobs', function ($q) {
             $q->whereNotNull('finished_at');
         })
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
             ->count();
 
@@ -1160,6 +1392,7 @@ class UserSlaDashboard extends Component
 
         $raw = MedProtest::query()
             ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->leftJoinSub($jobsSub, 'jobs', 'jobs.med_protest_id', '=', 'med_protests.id')
             ->whereBetween('med_protests.dtCriacaoMedida', [$rangeStart, $rangeEnd])
             ->tap(fn ($q) => $this->applyMedProtestTypeFilter($q))
@@ -1264,6 +1497,1400 @@ class UserSlaDashboard extends Component
                 ],
             ],
         ];
+    }
+
+    protected function buildMedaOpenDesiredHistogram(): array
+    {
+        $query = MedProtest::query()
+            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
+            ->with(['protest:id,tipoNota,dtConclusaoDesej,txtGrpCodificacao'])
+            ->with([
+                'ProtestJobs' => function ($jobQuery) {
+                    $jobQuery->where(function ($statusQuery) {
+                        $statusQuery->whereNull('status')
+                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                    })->where(function ($confirmedQuery) {
+                        $confirmedQuery->whereNull('confirmed')
+                            ->orWhere('confirmed', false);
+                    })->whereNull('finished_at')
+                        ->whereNotNull('sla_due_at')
+                        ->orderBy('sla_due_at');
+                },
+            ])
+            ->withCount([
+                'ProtestJobs as all_jobs_count',
+                'ProtestJobs as valid_jobs_count' => function ($q) {
+                    $q->where(function ($statusQuery) {
+                        $statusQuery->whereNull('status')
+                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                    });
+                },
+                'ProtestJobs as pending_valid_jobs_count' => function ($q) {
+                    $q->where(function ($statusQuery) {
+                        $statusQuery->whereNull('status')
+                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                    })->where(function ($confirmedQuery) {
+                        $confirmedQuery->whereNull('confirmed')
+                            ->orWhere('confirmed', false);
+                    });
+                },
+            ])
+            ->where('statusSist', 'MEDA')
+            ->where(function ($q) {
+                $q->whereHas('protest', function ($p) {
+                    $p->where('tipoNota', 'NA')
+                        ->whereNotNull('dtConclusaoDesej');
+                })->orWhere(function ($sub) {
+                    $sub->whereNotNull('dtFimMedidaDesej')
+                        ->whereHas('protest', function ($tipo) {
+                            $tipo->where(function ($t) {
+                                $t->where('tipoNota', '!=', 'NA')
+                                    ->orWhereNull('tipoNota');
+                            });
+                        });
+                });
+            });
+
+        $query = $this->applyMedProtestTypeFilter($query);
+
+        if ($this->medaHistogramBtzeroFilter === 'without_btzero') {
+            $query->notIdentifiedAsBtzero();
+        } elseif ($this->medaHistogramBtzeroFilter === 'only_btzero') {
+            $query->identifiedAsBtzero();
+        }
+
+        if ($this->medaDispatchFilter === 'with_job') {
+            $query->whereHas('ProtestJobs');
+        } elseif ($this->medaDispatchFilter === 'without_job') {
+            $query->whereDoesntHave('ProtestJobs');
+        }
+
+        $measures = $query->get();
+
+        $withJobByMonth = [];
+        $withoutJobByMonth = [];
+        $btzeroWithJobByMonth = [];
+        $btzeroWithoutJobByMonth = [];
+        $totals = [];
+        $overdueByMonth = [];
+        $dueSoonByMonth = [];
+        $withinByMonth = [];
+        $yearsMap = [];
+        $totalWithJob = 0;
+        $totalWithoutJob = 0;
+        $totalBtzero = 0;
+        $totalBtzeroWithJob = 0;
+        $totalBtzeroWithoutJob = 0;
+
+        foreach ($measures as $measure) {
+            $desiredDate = (mb_strtoupper((string) ($measure->protest?->tipoNota ?? '')) === 'NA')
+                ? $measure->protest?->dtConclusaoDesej
+                : $measure->dtFimMedidaDesej;
+
+            $hasJob = ((int) ($measure->all_jobs_count ?? 0)) > 0;
+            $isBtzero = $this->isBtzeroMeasure($measure);
+
+            $bucketDate = null;
+            if ($this->medaHistogramSource === 'sla') {
+                $pendingJob = $measure->ProtestJobs->first();
+                $bucketDate = $pendingJob?->sla_due_at;
+            } else {
+                $bucketDate = $desiredDate;
+            }
+
+            if (!$bucketDate) {
+                continue;
+            }
+
+            $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
+            $year = (int) $normalized->format('Y');
+            $month = (int) $normalized->format('n');
+            $key = $normalized->format('Y-m');
+            $yearsMap[$year] = true;
+
+            if ($isBtzero) {
+                if ($hasJob) {
+                    $btzeroWithJobByMonth[$key] = ($btzeroWithJobByMonth[$key] ?? 0) + 1;
+                    $totalBtzeroWithJob++;
+                } else {
+                    $btzeroWithoutJobByMonth[$key] = ($btzeroWithoutJobByMonth[$key] ?? 0) + 1;
+                    $totalBtzeroWithoutJob++;
+                }
+            } else {
+                if ($hasJob) {
+                    $withJobByMonth[$key] = ($withJobByMonth[$key] ?? 0) + 1;
+                    $totalWithJob++;
+                } else {
+                    $withoutJobByMonth[$key] = ($withoutJobByMonth[$key] ?? 0) + 1;
+                    $totalWithoutJob++;
+                }
+            }
+
+            $totals[$year][$month] = ($totals[$year][$month] ?? 0) + 1;
+            $diff = now()->startOfDay()->diffInDays($normalized, false);
+            if ($diff < 0) {
+                $overdueByMonth[$year][$month] = ($overdueByMonth[$year][$month] ?? 0) + 1;
+            } elseif ($diff <= 3) {
+                $dueSoonByMonth[$year][$month] = ($dueSoonByMonth[$year][$month] ?? 0) + 1;
+            } else {
+                $withinByMonth[$year][$month] = ($withinByMonth[$year][$month] ?? 0) + 1;
+            }
+        }
+        $totalBtzero = $totalBtzeroWithJob + $totalBtzeroWithoutJob;
+
+        $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        $years = array_keys($yearsMap);
+        rsort($years);
+        $selectedYear = (int) ($this->medaHistogramYear ?: now()->year);
+        if (!empty($years) && !in_array($selectedYear, $years, true)) {
+            $selectedYear = (int) $years[0];
+            $this->medaHistogramYear = $selectedYear;
+        }
+
+        $overdueCounts = [];
+        $dueSoonCounts = [];
+        $withinCounts = [];
+        $monthTotals = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $overdueCounts[] = (int) ($overdueByMonth[$selectedYear][$m] ?? 0);
+            $dueSoonCounts[] = (int) ($dueSoonByMonth[$selectedYear][$m] ?? 0);
+            $withinCounts[] = (int) ($withinByMonth[$selectedYear][$m] ?? 0);
+            $monthTotals[$m] = (int) ($totals[$selectedYear][$m] ?? 0);
+        }
+        $monthKeys = array_map(fn ($m) => sprintf('%04d-%02d', $selectedYear, $m), range(1, 12));
+        $selectedMonth = $this->medaHistogramBucket ? (int) substr($this->medaHistogramBucket, -2) : null;
+
+        $displayOverdueCounts = $overdueCounts;
+        $displayDueSoonCounts = $dueSoonCounts;
+        $displayWithinCounts = $withinCounts;
+
+        if ($selectedMonth) {
+            $displayOverdueCounts = array_map(
+                fn ($value, $index) => ($index + 1) === $selectedMonth ? $value : 0,
+                $overdueCounts,
+                array_keys($overdueCounts)
+            );
+            $displayDueSoonCounts = array_map(
+                fn ($value, $index) => ($index + 1) === $selectedMonth ? $value : 0,
+                $dueSoonCounts,
+                array_keys($dueSoonCounts)
+            );
+            $displayWithinCounts = array_map(
+                fn ($value, $index) => ($index + 1) === $selectedMonth ? $value : 0,
+                $withinCounts,
+                array_keys($withinCounts)
+            );
+        }
+
+        return [
+            'total_with_job' => $totalWithJob,
+            'total_without_job' => $totalWithoutJob,
+            'total_btzero' => $totalBtzero,
+            'total_btzero_with_job' => $totalBtzeroWithJob,
+            'total_btzero_without_job' => $totalBtzeroWithoutJob,
+            'total' => $totalWithJob + $totalWithoutJob + $totalBtzero,
+            'years' => $years,
+            'selectedYear' => $selectedYear,
+            'selectedMonth' => $selectedMonth,
+            'monthTotals' => $monthTotals,
+            'source' => $this->medaHistogramSource,
+            'chart' => [
+                'type' => 'bar',
+                'data' => [
+                    'labels' => $monthNames,
+                    'datasets' => [
+                        [
+                            'type' => 'bar',
+                            'label' => 'Vencidos',
+                            'data' => $displayOverdueCounts,
+                            'backgroundColor' => 'rgba(220,53,69,0.8)',
+                            'borderColor' => 'rgba(15,23,42,.45)',
+                            'borderWidth' => 1,
+                            'stack' => 'prazo',
+                        ],
+                        [
+                            'type' => 'bar',
+                            'label' => 'Vencendo',
+                            'data' => $displayDueSoonCounts,
+                            'backgroundColor' => 'rgba(255,193,7,0.8)',
+                            'borderColor' => 'rgba(15,23,42,.45)',
+                            'borderWidth' => 1,
+                            'stack' => 'prazo',
+                        ],
+                        [
+                            'type' => 'bar',
+                            'label' => 'A vencer',
+                            'data' => $displayWithinCounts,
+                            'backgroundColor' => 'rgba(25,135,84,0.8)',
+                            'borderColor' => 'rgba(15,23,42,.45)',
+                            'borderWidth' => 1,
+                            'stack' => 'prazo',
+                        ],
+                    ],
+                ],
+                'options' => [
+                    'responsive' => true,
+                    'maintainAspectRatio' => false,
+                    'plugins' => [
+                        'legend' => ['position' => 'top'],
+                        'title' => [
+                            'display' => true,
+                            'text' => 'Histograma de previsões mensais (em aberto)',
+                        ],
+                    ],
+                    'scales' => [
+                        'x' => ['stacked' => true],
+                        'y' => [
+                            'stacked' => true,
+                            'beginAtZero' => true,
+                            'title' => [
+                                'display' => true,
+                                'text' => 'Qtd de medidas',
+                            ],
+                        ],
+                    ],
+                    'onClickFilter' => [
+                        'enabled' => true,
+                        'method' => 'setMedaHistogramBucket',
+                        'mode' => 'index',
+                        'intersect' => false,
+                        'allowLabelFallback' => true,
+                        'keys' => $monthKeys,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    protected function buildMedaOpenDispatchList(): array
+    {
+        $validJobCondition = function ($jobQuery): void {
+            $jobQuery->where(function ($statusQuery) {
+                $statusQuery->whereNull('status')
+                    ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+            });
+        };
+
+        $pendingValidJobCondition = function ($jobQuery) use ($validJobCondition): void {
+            $validJobCondition($jobQuery);
+            $jobQuery->where(function ($confirmedQuery) {
+                $confirmedQuery->whereNull('confirmed')
+                    ->orWhere('confirmed', false);
+            });
+        };
+
+        $query = MedProtest::query()
+            ->with([
+                'protest:id,nota,tipoNota,codecodf,dtAberturaNota,dtConclusaoDesej,type,txtGrpCodificacao',
+                'ProtestJobs' => function ($jobQuery) use ($pendingValidJobCondition) {
+                    $pendingValidJobCondition($jobQuery);
+                    $jobQuery->with('owner:id,name')
+                        ->orderByDesc('sent_at')
+                        ->orderByDesc('id');
+                },
+            ])
+            ->where('statusSist', 'MEDA')
+            ->where(function (Builder $scope) {
+                $scope->whereHas('protest', function ($p) {
+                    $p->where('tipoNota', 'NA')
+                        ->whereNotNull('dtConclusaoDesej');
+                })->orWhere(function (Builder $sub) {
+                    $sub->whereNotNull('dtFimMedidaDesej')
+                        ->whereHas('protest', function ($tipo) {
+                            $tipo->where(function ($t) {
+                                $t->where('tipoNota', '!=', 'NA')
+                                    ->orWhereNull('tipoNota');
+                            });
+                        });
+                });
+            });
+
+        $query = $this->applyMedProtestTypeFilter($query);
+        $query = $this->applyComplaintFiltersToMedProtestQuery($query);
+
+        if ($this->medaHistogramBucket && preg_match('/^\d{4}\-\d{2}$/', $this->medaHistogramBucket)) {
+            [$bucketYear, $bucketMonth] = explode('-', $this->medaHistogramBucket);
+            $bucketYear = (int) $bucketYear;
+            $bucketMonth = (int) $bucketMonth;
+
+            if ($this->medaHistogramSource === 'sla') {
+                $query->whereHas('ProtestJobs', function ($jobQuery) use ($bucketYear, $bucketMonth) {
+                    $jobQuery->where(function ($statusQuery) {
+                        $statusQuery->whereNull('status')
+                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                    })->where(function ($confirmedQuery) {
+                        $confirmedQuery->whereNull('confirmed')
+                            ->orWhere('confirmed', false);
+                    })->whereNull('finished_at')
+                        ->whereYear('sla_due_at', $bucketYear)
+                        ->whereMonth('sla_due_at', $bucketMonth);
+                });
+            } else {
+                $query->where(function (Builder $scope) use ($bucketYear, $bucketMonth) {
+                    $scope->whereHas('protest', function ($p) use ($bucketYear, $bucketMonth) {
+                        $p->where('tipoNota', 'NA')
+                            ->whereNotNull('dtConclusaoDesej')
+                            ->whereYear('dtConclusaoDesej', $bucketYear)
+                            ->whereMonth('dtConclusaoDesej', $bucketMonth);
+                    })->orWhere(function ($sub) use ($bucketYear, $bucketMonth) {
+                        $sub->whereNotNull('dtFimMedidaDesej')
+                            ->whereYear('dtFimMedidaDesej', $bucketYear)
+                            ->whereMonth('dtFimMedidaDesej', $bucketMonth)
+                            ->whereHas('protest', function ($tipo) {
+                                $tipo->where(function ($t) {
+                                    $t->where('tipoNota', '!=', 'NA')
+                                        ->orWhereNull('tipoNota');
+                                });
+                            });
+                    });
+                });
+            }
+        }
+
+        if ($this->medaDispatchFilter === 'with_job') {
+            $query->whereHas('ProtestJobs');
+        } elseif ($this->medaDispatchFilter === 'without_job') {
+            $query->where('statusSist', 'MEDA')
+                ->whereDoesntHave('ProtestJobs');
+        }
+
+        $totalWithoutDispatch = (clone $query)
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs')
+            ->count();
+
+        $totalDispatchedOpen = (clone $query)
+            ->whereHas('ProtestJobs', $pendingValidJobCondition)
+            ->count();
+
+        $list = $query
+            ->orderByRaw("
+                CASE
+                    WHEN statusSist = 'MEDE' THEN 0
+                    WHEN statusSist = 'MEDA' THEN 1
+                    ELSE 2
+                END
+            ")
+            ->orderByDesc('dtFimMedida')
+            ->orderBy('dtFimMedidaDesej')
+            ->orderBy('id')
+            ->paginate(20, ['*'], 'meda_open_dispatch_page');
+
+        $now = now()->startOfDay();
+
+        $list->setCollection($list->getCollection()->map(function (MedProtest $measure) use ($now) {
+            $pendingJob = $measure->ProtestJobs->first();
+            $desiredAt = $this->resolveMeasureDesiredDate($measure);
+            $statusSist = mb_strtoupper((string) ($measure->statusSist ?? ''));
+            $isMede = $statusSist === 'MEDE';
+
+            $desiredInfo = [
+                'date' => $desiredAt?->format('d/m/Y') ?? '---',
+                'class' => 'bg-secondary',
+                'detail' => 'Sem data desejada',
+            ];
+
+            if ($desiredAt) {
+                if ($isMede && $measure->dtFimMedida) {
+                    $finishedAt = $measure->dtFimMedida->copy()->startOfDay();
+                    $onTime = $finishedAt->lte($desiredAt->copy()->startOfDay());
+                    $desiredInfo = [
+                        'date' => $desiredAt->format('d/m/Y'),
+                        'class' => $onTime ? 'bg-success' : 'bg-danger',
+                        'detail' => 'Encerrado em ' . $measure->dtFimMedida->format('d/m/Y'),
+                    ];
+                } else {
+                    $deltaDesired = $now->diffInDays($desiredAt->copy()->startOfDay(), false);
+                    if ($deltaDesired < 0) {
+                        $desiredInfo['class'] = 'bg-danger';
+                        $desiredInfo['detail'] = 'Vencido ha ' . abs($deltaDesired) . ' d';
+                    } elseif ($deltaDesired === 0) {
+                        $desiredInfo['class'] = 'bg-warning text-dark';
+                        $desiredInfo['detail'] = 'Vence hoje';
+                    } else {
+                        $desiredInfo['class'] = 'bg-success';
+                        $desiredInfo['detail'] = 'Faltam ' . $deltaDesired . ' d';
+                    }
+                }
+            }
+
+            $slaInfo = [
+                'due_date' => $pendingJob?->sla_due_at?->format('d/m/Y H:i') ?? '---',
+                'delivery_date' => $pendingJob?->finished_at?->format('d/m/Y H:i') ?? 'Nao entregue',
+                'class' => 'bg-secondary',
+                'detail' => 'Sem SLA',
+            ];
+
+            if ($pendingJob?->sla_due_at) {
+                $slaDueAt = $pendingJob->sla_due_at->copy();
+                $slaFinishedAt = $pendingJob->finished_at?->copy();
+
+                if ($slaFinishedAt) {
+                    $onTime = $slaFinishedAt->lte($slaDueAt);
+                    if ($onTime) {
+                        $slaInfo['class'] = 'bg-success';
+                        $slaInfo['detail'] = 'Entregue no prazo';
+                    } else {
+                        $deltaFinish = $slaDueAt->diffInDays($slaFinishedAt, false);
+                        $slaInfo['class'] = 'bg-danger';
+                        $slaInfo['detail'] = 'Entregue com atraso de ' . max(1, $deltaFinish) . ' d';
+                    }
+                } else {
+                    $nowDateTime = now();
+                    $deltaSla = $nowDateTime->diffInDays($slaDueAt, false);
+                    if ($deltaSla < 0) {
+                        $slaInfo['class'] = 'bg-danger';
+                        $slaInfo['detail'] = 'Vencido ha ' . max(1, abs($deltaSla)) . ' d';
+                    } elseif ($nowDateTime->isSameDay($slaDueAt)) {
+                        $slaInfo['class'] = 'bg-warning text-dark';
+                        $slaInfo['detail'] = 'Vence hoje';
+                    } else {
+                        $slaInfo['class'] = 'bg-success';
+                        $slaInfo['detail'] = 'Faltam ' . $deltaSla . ' d';
+                    }
+                }
+            }
+
+            $statusSlaLabel = $pendingJob?->status_label ?? 'Sem Job';
+            $statusSlaClass = $pendingJob?->status_badge_class ?? 'badge bg-secondary';
+
+            return [
+                'med_id' => $measure->med_id,
+                'nota' => $measure->protest->nota ?? '---',
+                'tipo_nota' => $measure->protest->tipoNota ?? '---',
+                'codf' => $measure->protest->codecodf ?? '---',
+                'tipo_reclamacao' => $measure->protest->txtGrpCodificacao ?? '---',
+                'classificacao_reclamacao' => $measure->protest->type ?? '---',
+                'is_btzero' => $this->isBtzeroMeasure($measure),
+                'abertura_reclamacao' => $measure->protest?->dtAberturaNota?->format('d/m/Y') ?? '---',
+                'abertura_medida' => $measure->dtCriacaoMedida?->format('d/m/Y') ?? '---',
+                'desired_info' => $desiredInfo,
+                'despachado_em' => $pendingJob?->sent_at?->format('d/m/Y H:i') ?? '---',
+                'sla_info' => $slaInfo,
+                'sap_status' => $isMede ? 'ENC' : 'ABER',
+                'sap_class' => $isMede ? 'bg-success' : 'bg-warning text-dark',
+                'responsavel' => $pendingJob?->owner?->name ?? 'Sem responsável',
+                'has_dispatch' => (bool) $pendingJob,
+                'status_sla_label' => $statusSlaLabel,
+                'status_sla_class' => $statusSlaClass,
+            ];
+        }));
+
+        return [
+            'items' => $list,
+            'total' => $totalWithoutDispatch + $totalDispatchedOpen,
+            'total_without_dispatch' => $totalWithoutDispatch,
+            'total_dispatched_open' => $totalDispatchedOpen,
+        ];
+    }
+
+    protected function buildGeneralProtestsList(Carbon $start, Carbon $end): array
+    {
+        $hasSearch = trim((string) $this->complaintSearch) !== '';
+
+        $query = MedProtest::query()
+            ->with([
+                'protest:id,nota,tipoNota,codecodf,dtAberturaNota,dtConclusaoDesej,type,txtGrpCodificacao,cidade',
+                'ProtestJobs' => function ($jobQuery) {
+                    $jobQuery->with('owner:id,name')
+                        ->orderByDesc('sent_at')
+                        ->orderByDesc('id');
+                },
+            ]);
+
+        $query = $this->applyMedProtestTypeFilter($query);
+        $query = $this->applyComplaintFiltersToMedProtestQuery($query);
+
+        if ($this->generalMeasuresOpenFilter === 'open') {
+            $query->where('statusSist', 'MEDA');
+        } elseif ($this->generalMeasuresOpenFilter === 'not_open') {
+            $query->where(function ($q) {
+                $q->where('statusSist', '!=', 'MEDA')
+                    ->orWhereNull('statusSist');
+            });
+        }
+
+        if ($this->generalMeasuresBtzeroFilter === 'with_btzero') {
+            $query->identifiedAsBtzero();
+        } elseif ($this->generalMeasuresBtzeroFilter === 'without_btzero') {
+            $query->notIdentifiedAsBtzero();
+        }
+
+        if (!$hasSearch) {
+            $rangeStart = $start->copy()->startOfDay();
+            $rangeEnd = $end->copy()->endOfDay();
+
+            $query->where(function ($scope) use ($rangeStart, $rangeEnd) {
+                $scope->whereBetween('dtCriacaoMedida', [$rangeStart, $rangeEnd])
+                    ->orWhereHas('protest', function ($protest) use ($rangeStart, $rangeEnd) {
+                        $protest->whereBetween('dtAberturaNota', [$rangeStart, $rangeEnd]);
+                    })
+                    ->orWhereHas('ProtestJobs', function ($jobQuery) use ($rangeStart, $rangeEnd) {
+                        $jobQuery->where('confirmed', '!=', true)->where(function ($job) use ($rangeStart, $rangeEnd) {
+                            $job->whereBetween('sent_at', [$rangeStart, $rangeEnd])
+                                ->orWhereBetween('finished_at', [$rangeStart, $rangeEnd]);
+                        });
+                    })
+                    ->orWhereHas('protest.ProtestJobs', function ($job) use ($rangeStart, $rangeEnd) {
+                        $job->where(function ($dateScope) use ($rangeStart, $rangeEnd) {
+                            $dateScope->whereBetween('sent_at', [$rangeStart, $rangeEnd])
+                                ->orWhereBetween('finished_at', [$rangeStart, $rangeEnd]);
+                        });
+                    });
+            });
+        }
+
+        $list = $query
+            ->orderByRaw("
+                CASE
+                    WHEN statusSist = 'MEDE' THEN 0
+                    WHEN statusSist = 'MEDA' THEN 1
+                    ELSE 2
+                END
+            ")
+            ->orderByDesc('dtFimMedida')
+            ->orderBy('dtFimMedidaDesej')
+            ->orderByDesc('id')
+            ->paginate(20, ['*'], 'general_protests_page');
+
+        $list->setCollection($list->getCollection()->map(function (MedProtest $measure) {
+            $desiredAt = $this->resolveMeasureDesiredDate($measure);
+            $statusSist = mb_strtoupper((string) ($measure->statusSist ?? ''));
+            $isMede = $statusSist === 'MEDE';
+
+            $desiredInfo = [
+                'date' => $desiredAt?->format('d/m/Y') ?? '---',
+                'class' => 'bg-secondary',
+                'detail' => 'Sem data desejada',
+            ];
+
+            if ($desiredAt) {
+                if ($isMede && $measure->dtFimMedida) {
+                    $finishedAt = $measure->dtFimMedida->copy()->startOfDay();
+                    $onTime = $finishedAt->lte($desiredAt->copy()->startOfDay());
+                    $desiredInfo = [
+                        'date' => $desiredAt->format('d/m/Y'),
+                        'class' => $onTime ? 'bg-success' : 'bg-danger',
+                        'detail' => 'Encerrado em ' . $measure->dtFimMedida->format('d/m/Y'),
+                    ];
+                } else {
+                    $deltaDesired = now()->startOfDay()->diffInDays($desiredAt->copy()->startOfDay(), false);
+                    if ($deltaDesired < 0) {
+                        $desiredInfo['class'] = 'bg-danger';
+                        $desiredInfo['detail'] = 'Vencido ha ' . abs($deltaDesired) . ' d';
+                    } elseif ($deltaDesired === 0) {
+                        $desiredInfo['class'] = 'bg-warning text-dark';
+                        $desiredInfo['detail'] = 'Vence hoje';
+                    } else {
+                        $desiredInfo['class'] = 'bg-success';
+                        $desiredInfo['detail'] = 'Faltam ' . $deltaDesired . ' d';
+                    }
+                }
+            }
+
+            $pendingJob = $measure->ProtestJobs->firstWhere('confirmed', '!=', true);
+
+            return [
+                'med_id' => $measure->med_id,
+                'nota' => $measure->protest->nota ?? '---',
+                'tipo_nota' => $measure->protest->tipoNota ?? '---',
+                'codf' => $measure->protest->codecodf ?? '---',
+                'tipo_reclamacao' => $measure->protest->txtGrpCodificacao ?? '---',
+                'classificacao_reclamacao' => $measure->protest->type ?? '---',
+                'is_btzero' => $this->isBtzeroMeasure($measure),
+                'abertura_reclamacao' => $measure->protest?->dtAberturaNota?->format('d/m/Y') ?? '---',
+                'abertura_medida' => $measure->dtCriacaoMedida?->format('d/m/Y') ?? '---',
+                'desired_info' => $desiredInfo,
+                'sap_status' => $isMede ? 'ENC' : 'ABER',
+                'sap_class' => $isMede ? 'bg-success' : 'bg-warning text-dark',
+                'responsavel' => $pendingJob?->owner?->name ?? 'Sem responsável',
+                'resultado' => $measure->result ?? '---',
+            ];
+        }));
+
+        return [
+            'items' => $list,
+            'total' => $list->total(),
+            'search_mode' => $hasSearch,
+            'period_label' => $start->format('d/m/Y') . ' - ' . $end->format('d/m/Y'),
+        ];
+    }
+
+    protected function buildComplaintsNaPanel(Carbon $end): array
+    {
+        $windowEnd = $end->copy()->endOfMonth();
+        $windowStart = $windowEnd->copy()->startOfMonth()->subMonths(5);
+
+        $monthKeys = [];
+        $monthLabels = [];
+        $cursor = $windowStart->copy();
+        $ptMonths = [1 => 'jan', 2 => 'fev', 3 => 'mar', 4 => 'abr', 5 => 'mai', 6 => 'jun', 7 => 'jul', 8 => 'ago', 9 => 'set', 10 => 'out', 11 => 'nov', 12 => 'dez'];
+        while ($cursor->lte($windowEnd)) {
+            $key = $cursor->format('Y-m');
+            $monthKeys[] = $key;
+            $monthLabels[] = ($ptMonths[(int) $cursor->format('n')] ?? $cursor->format('m')) . '-' . $cursor->format('y');
+            $cursor->addMonth();
+        }
+
+        $insideByMonth = array_fill_keys($monthKeys, 0);
+        $outsideByMonth = array_fill_keys($monthKeys, 0);
+        $procedenteByMonth = array_fill_keys($monthKeys, 0);
+        $improcedenteByMonth = array_fill_keys($monthKeys, 0);
+
+        $protests = Protest::query()
+            ->where('tipoNota', 'NA')
+            ->whereIn('statUsuar', ['ENCI', 'ENCP'])
+            ->whereNotNull('dtConclusaoDesej')
+            ->whereBetween('dtConclusaoDesej', [$windowStart, $windowEnd])
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->with([
+                'medProtests' => function ($q) {
+                    $q->select('id', 'protest_id', 'dtCriacaoMedida', 'dtFimMedida')
+                        ->orderByDesc('dtCriacaoMedida')
+                        ->orderByDesc('id');
+                },
+            ])
+            ->get();
+
+        foreach ($protests as $protest) {
+            $monthKey = $protest->dtConclusaoDesej?->format('Y-m');
+            if (!$monthKey || !array_key_exists($monthKey, $insideByMonth)) {
+                continue;
+            }
+
+            if ((string) $protest->statUsuar === 'ENCP') {
+                $procedenteByMonth[$monthKey]++;
+            } else {
+                $improcedenteByMonth[$monthKey]++;
+            }
+
+            $latestMeasure = $protest->medProtests->first();
+            $finishedAt = $latestMeasure?->dtFimMedida;
+            if (!$finishedAt) {
+                continue;
+            }
+
+            if ($finishedAt->lte($protest->dtConclusaoDesej)) {
+                $insideByMonth[$monthKey]++;
+            } else {
+                $outsideByMonth[$monthKey]++;
+            }
+        }
+
+        $insideCounts = [];
+        $outsideCounts = [];
+        $totalCounts = [];
+        $procedenteCounts = [];
+        $improcedenteCounts = [];
+        $procedencyTotals = [];
+        $outsidePct = [];
+        $procedentePct = [];
+
+        foreach ($monthKeys as $key) {
+            $inside = (int) ($insideByMonth[$key] ?? 0);
+            $outside = (int) ($outsideByMonth[$key] ?? 0);
+            $proc = (int) ($procedenteByMonth[$key] ?? 0);
+            $improc = (int) ($improcedenteByMonth[$key] ?? 0);
+            $totalPrazo = max($inside + $outside, 0);
+
+            $insideCounts[] = $inside;
+            $outsideCounts[] = $outside;
+            $totalCounts[] = $inside + $outside;
+            $procedenteCounts[] = $proc;
+            $improcedenteCounts[] = $improc;
+            $procedencyTotals[] = $proc + $improc;
+            $outsidePct[] = $totalPrazo > 0 ? round(($outside / $totalPrazo) * 100, 1) : 0;
+            $procedentePct[] = ($proc + $improc) > 0 ? round(($proc / ($proc + $improc)) * 100, 1) : 0;
+        }
+
+        $metaCutoff = Carbon::create(2026, 1, 1)->startOfMonth();
+        $metaPct = array_map(function (string $key) use ($metaCutoff) {
+            $monthRef = Carbon::createFromFormat('Y-m', $key)->startOfMonth();
+            return $monthRef->lt($metaCutoff) ? 3.0 : 0.5;
+        }, $monthKeys);
+        $metaProcedentePct = array_fill(0, count($monthKeys), 85.0);
+
+        $outsideMax = max($outsideCounts ?: [0]);
+        $procedenteMax = max($procedenteCounts ?: [0]);
+        $outsideAxisMax = max(5, (int) ceil($outsideMax * 1.25));
+        $procedenteAxisMax = max(5, (int) ceil($procedenteMax * 1.25));
+        $outsidePctMax = max(array_merge($outsidePct ?: [0], $metaPct ?: [0]));
+        $outsidePctAxisMax = max(1, (float) ceil(($outsidePctMax * 1.35) * 10) / 10);
+        $procedentePctMax = max(array_merge($procedentePct ?: [0], $metaProcedentePct ?: [0]));
+        $procedentePctAxisMax = max(16, (float) ceil(($procedentePctMax * 1.1) * 10) / 10);
+
+        return [
+            'window_label' => $windowStart->format('m/Y') . ' - ' . $windowEnd->format('m/Y'),
+            'total' => array_sum($insideCounts) + array_sum($outsideCounts),
+            'charts' => [
+                'sla_stack' => [
+                    'type' => 'bar',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Fora do prazo',
+                                'data' => $outsideCounts,
+                                'backgroundColor' => 'rgba(15,23,42,0.85)',
+                                'borderColor' => '#0f172a',
+                                'borderWidth' => 1,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'labels' => [
+                                        'inside' => [
+                                            'display' => true,
+                                            'anchor' => 'center',
+                                            'align' => 'center',
+                                            'color' => '#ffffff',
+                                            'font' => ['weight' => 'bold', 'size' => 11],
+                                            'formatter' => '__VALUE_LABEL__',
+                                        ],
+                                        'total' => [
+                                            'display' => true,
+                                            'anchor' => 'end',
+                                            'align' => 'top',
+                                            'offset' => 4,
+                                            'color' => '#1f2937',
+                                            'font' => ['weight' => 'bold', 'size' => 12],
+                                            'formatter' => '__TOTAL_FROM_SERIES__',
+                                            'totalSeries' => $totalCounts,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'NA - Encerramentos dentro x fora do prazo'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'x' => [
+                                'grid' => ['display' => false],
+                            ],
+                            'y' => [
+                                'beginAtZero' => true,
+                                'max' => $outsideAxisMax,
+                                'ticks' => ['precision' => 0],
+                                'grid' => ['display' => false],
+                            ],
+                        ],
+                    ],
+                ],
+                'sla_line' => [
+                    'type' => 'line',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Meta % fora do prazo',
+                                'data' => $metaPct,
+                                'borderColor' => '#7c3aed',
+                                'backgroundColor' => 'rgba(124,58,237,0.15)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'borderDash' => [8, 5],
+                                'pointRadius' => 0,
+                                'pointHoverRadius' => 0,
+                                'datalabels' => [
+                                    'display' => false,
+                                ],
+                            ],
+                            [
+                                'label' => '% Fora do prazo',
+                                'data' => $outsidePct,
+                                'borderColor' => '#0f766e',
+                                'backgroundColor' => 'rgba(15,118,110,0.2)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'pointRadius' => 4,
+                                'pointHoverRadius' => 5,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'anchor' => 'end',
+                                    'align' => 'top',
+                                    'offset' => 4,
+                                    'color' => '#0f766e',
+                                    'font' => ['weight' => 'bold', 'size' => 11],
+                                    'formatter' => '__PERCENT_LABEL__',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'NA - Percentual mensal dentro x fora do prazo'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'y' => [
+                                'beginAtZero' => true,
+                                'max' => $outsidePctAxisMax,
+                                'grid' => ['display' => false],
+                            ],
+                            'x' => [
+                                'grid' => ['display' => false],
+                            ],
+                        ],
+                    ],
+                ],
+                'procedency_stack' => [
+                    'type' => 'bar',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Procedente (ENCP)',
+                                'data' => $procedenteCounts,
+                                'backgroundColor' => 'rgba(30,41,59,0.82)',
+                                'borderColor' => '#0f172a',
+                                'borderWidth' => 1,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'labels' => [
+                                        'inside' => [
+                                            'display' => true,
+                                            'anchor' => 'center',
+                                            'align' => 'center',
+                                            'color' => '#ffffff',
+                                            'font' => ['weight' => 'bold', 'size' => 11],
+                                            'formatter' => '__VALUE_LABEL__',
+                                        ],
+                                        'total' => [
+                                            'display' => true,
+                                            'anchor' => 'end',
+                                            'align' => 'top',
+                                            'offset' => 4,
+                                            'color' => '#1f2937',
+                                            'font' => ['weight' => 'bold', 'size' => 12],
+                                            'formatter' => '__TOTAL_FROM_SERIES__',
+                                            'totalSeries' => $procedencyTotals,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'NA - Entradas procedentes (total no topo)'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'x' => ['grid' => ['display' => false]],
+                            'y' => ['beginAtZero' => true, 'max' => $procedenteAxisMax, 'ticks' => ['precision' => 0], 'grid' => ['display' => false]],
+                        ],
+                    ],
+                ],
+                'procedency_line' => [
+                    'type' => 'line',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Meta % procedente',
+                                'data' => $metaProcedentePct,
+                                'borderColor' => '#7c3aed',
+                                'backgroundColor' => 'rgba(124,58,237,0.15)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'borderDash' => [8, 5],
+                                'pointRadius' => 0,
+                                'pointHoverRadius' => 0,
+                                'datalabels' => [
+                                    'display' => false,
+                                ],
+                            ],
+                            [
+                                'label' => '% Procedente',
+                                'data' => $procedentePct,
+                                'borderColor' => '#0f172a',
+                                'backgroundColor' => 'rgba(15,23,42,0.2)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'pointRadius' => 4,
+                                'pointHoverRadius' => 5,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'anchor' => 'end',
+                                    'align' => 'top',
+                                    'offset' => 4,
+                                    'color' => '#0f172a',
+                                    'font' => ['weight' => 'bold', 'size' => 11],
+                                    'formatter' => '__PERCENT_LABEL__',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'NA - Percentual mensal de procedente'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'y' => [
+                                'beginAtZero' => true,
+                                'max' => $procedentePctAxisMax,
+                                'grid' => ['display' => false],
+                            ],
+                            'x' => [
+                                'grid' => ['display' => false],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    protected function buildComplaintsOuPanel(Carbon $end): array
+    {
+        $windowEnd = $end->copy()->endOfMonth();
+        $windowStart = $windowEnd->copy()->startOfMonth()->subMonths(5);
+
+        $monthKeys = [];
+        $monthLabels = [];
+        $cursor = $windowStart->copy();
+        $ptMonths = [1 => 'jan', 2 => 'fev', 3 => 'mar', 4 => 'abr', 5 => 'mai', 6 => 'jun', 7 => 'jul', 8 => 'ago', 9 => 'set', 10 => 'out', 11 => 'nov', 12 => 'dez'];
+        while ($cursor->lte($windowEnd)) {
+            $key = $cursor->format('Y-m');
+            $monthKeys[] = $key;
+            $monthLabels[] = ($ptMonths[(int) $cursor->format('n')] ?? $cursor->format('m')) . '-' . $cursor->format('y');
+            $cursor->addMonth();
+        }
+
+        $insideByMonth = array_fill_keys($monthKeys, 0);
+        $outsideByMonth = array_fill_keys($monthKeys, 0);
+        $procedenteByMonth = array_fill_keys($monthKeys, 0);
+        $improcedenteByMonth = array_fill_keys($monthKeys, 0);
+
+        $normalizeResult = function (?string $value): string {
+            return Str::of((string) $value)
+                ->lower()
+                ->ascii()
+                ->replace(['-', '_'], ' ')
+                ->squish()
+                ->value();
+        };
+
+        $protests = Protest::query()
+            ->where('tipoNota', 'OU')
+            ->whereNotNull('dtConclusaoDesej')
+            ->whereBetween('dtConclusaoDesej', [$windowStart, $windowEnd])
+            ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
+            ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->with([
+                'medProtests' => function ($q) {
+                    $q->select('id', 'protest_id', 'dtCriacaoMedida', 'dtFimMedida', 'dtFimMedidaDesej', 'result')
+                        ->orderByDesc('dtCriacaoMedida')
+                        ->orderByDesc('id');
+                },
+            ])
+            ->get();
+
+        foreach ($protests as $protest) {
+            $monthKey = $protest->dtConclusaoDesej?->format('Y-m');
+            if (!$monthKey || !array_key_exists($monthKey, $insideByMonth)) {
+                continue;
+            }
+
+            $measures = $protest->medProtests ?? collect();
+
+            $hasAnyResult = false;
+            $hasProcedenteResult = false;
+            foreach ($measures as $measure) {
+                $normalized = $normalizeResult($measure->result);
+                if ($normalized === '') {
+                    continue;
+                }
+                $hasAnyResult = true;
+                if (str_contains($normalized, 'procedente') && !str_contains($normalized, 'improcedente')) {
+                    $hasProcedenteResult = true;
+                    break;
+                }
+            }
+
+            if ($hasAnyResult) {
+                if ($hasProcedenteResult) {
+                    $procedenteByMonth[$monthKey]++;
+                } else {
+                    $improcedenteByMonth[$monthKey]++;
+                }
+            } else {
+                if ((string) $protest->statUsuar === 'ENCP') {
+                    $procedenteByMonth[$monthKey]++;
+                } else {
+                    $improcedenteByMonth[$monthKey]++;
+                }
+            }
+
+            $isOutside = false;
+            $hasComparableMeasure = false;
+            foreach ($measures as $measure) {
+                if (!$measure->dtFimMedida || !$measure->dtFimMedidaDesej) {
+                    continue;
+                }
+                $hasComparableMeasure = true;
+                if ($measure->dtFimMedida->gt($measure->dtFimMedidaDesej)) {
+                    $isOutside = true;
+                    break;
+                }
+            }
+
+            if (!$hasComparableMeasure) {
+                $latestMeasure = $measures->first();
+                if ($latestMeasure?->dtFimMedida && $protest->dtConclusaoDesej) {
+                    $hasComparableMeasure = true;
+                    $isOutside = $latestMeasure->dtFimMedida->gt($protest->dtConclusaoDesej);
+                }
+            }
+
+            if (!$hasComparableMeasure) {
+                continue;
+            }
+
+            if ($isOutside) {
+                $outsideByMonth[$monthKey]++;
+            } else {
+                $insideByMonth[$monthKey]++;
+            }
+        }
+
+        $insideCounts = [];
+        $outsideCounts = [];
+        $totalCounts = [];
+        $procedenteCounts = [];
+        $improcedenteCounts = [];
+        $procedencyTotals = [];
+        $outsidePct = [];
+        $procedentePct = [];
+
+        foreach ($monthKeys as $key) {
+            $inside = (int) ($insideByMonth[$key] ?? 0);
+            $outside = (int) ($outsideByMonth[$key] ?? 0);
+            $proc = (int) ($procedenteByMonth[$key] ?? 0);
+            $improc = (int) ($improcedenteByMonth[$key] ?? 0);
+            $totalPrazo = max($inside + $outside, 0);
+
+            $insideCounts[] = $inside;
+            $outsideCounts[] = $outside;
+            $totalCounts[] = $inside + $outside;
+            $procedenteCounts[] = $proc;
+            $improcedenteCounts[] = $improc;
+            $procedencyTotals[] = $proc + $improc;
+            $outsidePct[] = $totalPrazo > 0 ? round(($outside / $totalPrazo) * 100, 1) : 0;
+            $procedentePct[] = ($proc + $improc) > 0 ? round(($proc / ($proc + $improc)) * 100, 1) : 0;
+        }
+
+        $metaCutoff = Carbon::create(2026, 1, 1)->startOfMonth();
+        $metaPct = array_map(function (string $key) use ($metaCutoff) {
+            $monthRef = Carbon::createFromFormat('Y-m', $key)->startOfMonth();
+            return $monthRef->lt($metaCutoff) ? 3.0 : 0.5;
+        }, $monthKeys);
+        $metaProcedentePct = array_fill(0, count($monthKeys), 85.0);
+
+        $outsideMax = max($outsideCounts ?: [0]);
+        $procedenteMax = max($procedenteCounts ?: [0]);
+        $outsideAxisMax = max(5, (int) ceil($outsideMax * 1.25));
+        $procedenteAxisMax = max(5, (int) ceil($procedenteMax * 1.25));
+        $outsidePctMax = max(array_merge($outsidePct ?: [0], $metaPct ?: [0]));
+        $outsidePctAxisMax = max(1, (float) ceil(($outsidePctMax * 1.35) * 10) / 10);
+        $procedentePctMax = max(array_merge($procedentePct ?: [0], $metaProcedentePct ?: [0]));
+        $procedentePctAxisMax = max(16, (float) ceil(($procedentePctMax * 1.1) * 10) / 10);
+
+        return [
+            'window_label' => $windowStart->format('m/Y') . ' - ' . $windowEnd->format('m/Y'),
+            'total' => array_sum($insideCounts) + array_sum($outsideCounts),
+            'charts' => [
+                'sla_stack' => [
+                    'type' => 'bar',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Fora do prazo',
+                                'data' => $outsideCounts,
+                                'backgroundColor' => 'rgba(15,23,42,0.85)',
+                                'borderColor' => '#0f172a',
+                                'borderWidth' => 1,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'labels' => [
+                                        'inside' => [
+                                            'display' => true,
+                                            'anchor' => 'center',
+                                            'align' => 'center',
+                                            'color' => '#ffffff',
+                                            'font' => ['weight' => 'bold', 'size' => 11],
+                                            'formatter' => '__VALUE_LABEL__',
+                                        ],
+                                        'total' => [
+                                            'display' => true,
+                                            'anchor' => 'end',
+                                            'align' => 'top',
+                                            'offset' => 4,
+                                            'color' => '#1f2937',
+                                            'font' => ['weight' => 'bold', 'size' => 12],
+                                            'formatter' => '__TOTAL_FROM_SERIES__',
+                                            'totalSeries' => $totalCounts,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'OU - Encerramentos dentro x fora do prazo'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'x' => [
+                                'grid' => ['display' => false],
+                            ],
+                            'y' => [
+                                'beginAtZero' => true,
+                                'max' => $outsideAxisMax,
+                                'ticks' => ['precision' => 0],
+                                'grid' => ['display' => false],
+                            ],
+                        ],
+                    ],
+                ],
+                'sla_line' => [
+                    'type' => 'line',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Meta % fora do prazo',
+                                'data' => $metaPct,
+                                'borderColor' => '#7c3aed',
+                                'backgroundColor' => 'rgba(124,58,237,0.15)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'borderDash' => [8, 5],
+                                'pointRadius' => 0,
+                                'pointHoverRadius' => 0,
+                                'datalabels' => [
+                                    'display' => false,
+                                ],
+                            ],
+                            [
+                                'label' => '% Fora do prazo',
+                                'data' => $outsidePct,
+                                'borderColor' => '#0f766e',
+                                'backgroundColor' => 'rgba(15,118,110,0.2)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'pointRadius' => 4,
+                                'pointHoverRadius' => 5,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'anchor' => 'end',
+                                    'align' => 'top',
+                                    'offset' => 4,
+                                    'color' => '#0f766e',
+                                    'font' => ['weight' => 'bold', 'size' => 11],
+                                    'formatter' => '__PERCENT_LABEL__',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'OU - Percentual mensal dentro x fora do prazo'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'y' => [
+                                'beginAtZero' => true,
+                                'max' => $outsidePctAxisMax,
+                                'grid' => ['display' => false],
+                            ],
+                            'x' => [
+                                'grid' => ['display' => false],
+                            ],
+                        ],
+                    ],
+                ],
+                'procedency_stack' => [
+                    'type' => 'bar',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Procedente',
+                                'data' => $procedenteCounts,
+                                'backgroundColor' => 'rgba(30,41,59,0.82)',
+                                'borderColor' => '#0f172a',
+                                'borderWidth' => 1,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'labels' => [
+                                        'inside' => [
+                                            'display' => true,
+                                            'anchor' => 'center',
+                                            'align' => 'center',
+                                            'color' => '#ffffff',
+                                            'font' => ['weight' => 'bold', 'size' => 11],
+                                            'formatter' => '__VALUE_LABEL__',
+                                        ],
+                                        'total' => [
+                                            'display' => true,
+                                            'anchor' => 'end',
+                                            'align' => 'top',
+                                            'offset' => 4,
+                                            'color' => '#1f2937',
+                                            'font' => ['weight' => 'bold', 'size' => 12],
+                                            'formatter' => '__TOTAL_FROM_SERIES__',
+                                            'totalSeries' => $procedencyTotals,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'OU - Entradas procedentes (total no topo)'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'x' => ['grid' => ['display' => false]],
+                            'y' => ['beginAtZero' => true, 'max' => $procedenteAxisMax, 'ticks' => ['precision' => 0], 'grid' => ['display' => false]],
+                        ],
+                    ],
+                ],
+                'procedency_line' => [
+                    'type' => 'line',
+                    'data' => [
+                        'labels' => $monthLabels,
+                        'datasets' => [
+                            [
+                                'label' => 'Meta % procedente',
+                                'data' => $metaProcedentePct,
+                                'borderColor' => '#7c3aed',
+                                'backgroundColor' => 'rgba(124,58,237,0.15)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'borderDash' => [8, 5],
+                                'pointRadius' => 0,
+                                'pointHoverRadius' => 0,
+                                'datalabels' => [
+                                    'display' => false,
+                                ],
+                            ],
+                            [
+                                'label' => '% Procedente',
+                                'data' => $procedentePct,
+                                'borderColor' => '#0f172a',
+                                'backgroundColor' => 'rgba(15,23,42,0.2)',
+                                'tension' => 0,
+                                'fill' => false,
+                                'pointRadius' => 4,
+                                'pointHoverRadius' => 5,
+                                'datalabels' => [
+                                    'display' => true,
+                                    'anchor' => 'end',
+                                    'align' => 'top',
+                                    'offset' => 4,
+                                    'color' => '#0f172a',
+                                    'font' => ['weight' => 'bold', 'size' => 11],
+                                    'formatter' => '__PERCENT_LABEL__',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'options' => [
+                        'responsive' => true,
+                        'maintainAspectRatio' => false,
+                        'plugins' => [
+                            'legend' => ['position' => 'top'],
+                            'title' => ['display' => true, 'text' => 'OU - Percentual mensal de procedente'],
+                            'datalabels' => [
+                                'display' => true,
+                            ],
+                        ],
+                        'scales' => [
+                            'y' => [
+                                'beginAtZero' => true,
+                                'max' => $procedentePctAxisMax,
+                                'grid' => ['display' => false],
+                            ],
+                            'x' => [
+                                'grid' => ['display' => false],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    protected function resolveMeasureDesiredDate(MedProtest $measure): ?Carbon
+    {
+        $isNa = mb_strtoupper((string) ($measure->protest?->tipoNota ?? '')) === 'NA';
+        $desired = $isNa
+            ? $measure->protest?->dtConclusaoDesej
+            : $measure->dtFimMedidaDesej;
+
+        return $desired ? $desired->copy()->startOfDay() : null;
+    }
+
+    protected function isBtzeroMeasure(MedProtest $measure): bool
+    {
+        $normalize = function (?string $value): string {
+            return Str::of((string) $value)->lower()->replace(['-', ' '], '')->value();
+        };
+
+        $rawProtestType = $measure->protest_type;
+        $protestType = $rawProtestType instanceof ProtestType
+            ? $rawProtestType->value
+            : (int) ($rawProtestType ?? 0);
+        $txtCodMedida = $normalize($measure->txtCodMedida ?? '');
+        $txtGrpCodificacao = $normalize($measure->protest?->txtGrpCodificacao ?? '');
+
+        return $protestType === ProtestType::BTZERO->value
+            || str_contains($txtCodMedida, 'btzero')
+            || str_contains($txtGrpCodificacao, 'btzero');
     }
 
     protected function buildDailyDispatchCompletionChart(Carbon $start, Carbon $end): array
@@ -1389,6 +3016,11 @@ class UserSlaDashboard extends Component
         $this->dispatchBrowserEvent('grafico-atualizar-medaJobs', $chart);
     }
 
+    protected function dispatchMedaOpenDesiredChart(array $chart): void
+    {
+        $this->dispatchBrowserEvent('grafico-atualizar-medaOpenDesiredHistogram', $chart);
+    }
+
     protected function dispatchDailyDispatchCompletionChart(array $chart): void
     {
         $this->dispatchBrowserEvent('grafico-atualizar-dailyDispatchCompletion', $chart);
@@ -1465,6 +3097,7 @@ class UserSlaDashboard extends Component
             ->whereNotNull('dtFimMedidaDesej');
 
         $base = $this->applyMedProtestTypeFilter($base);
+        $base = $this->applyComplaintFiltersToMedProtestQuery($base);
 
         $todayStart = now()->startOfDay();
         $todayEnd   = now()->endOfDay();
@@ -1557,11 +3190,16 @@ class UserSlaDashboard extends Component
         $dailyDispatchCompletion = $this->buildDailyDispatchCompletionChart($start, $end);
         $jobSlaList             = $this->buildJobSlaList($start, $end);
         $medaSnapshot           = $this->buildMedaSnapshot($start, $end);
-        $dueMeasures            = $this->buildDueMeasures();
+        $medaOpenHistogram      = $this->buildMedaOpenDesiredHistogram();
+        $medaOpenDispatchList   = $this->buildMedaOpenDispatchList();
+        $generalProtestsList    = $this->buildGeneralProtestsList($start, $end);
+        $complaintsNaPanel      = $this->buildComplaintsNaPanel($end);
+        $complaintsOuPanel      = $this->buildComplaintsOuPanel($end);
         $dispatcherMeasuresPanel = $this->buildDispatcherMeasuresPanel($start, $end);
 
         $this->dispatchDailyOpeningsChart($dailyOpenings);
         $this->dispatchMedaJobsChart($medaJobsChart);
+        $this->dispatchMedaOpenDesiredChart($medaOpenHistogram['chart']);
         $this->dispatchDailyDispatchCompletionChart($dailyDispatchCompletion);
 
         return view('livewire.protests.analytics.user-sla-dashboard', [
@@ -1577,7 +3215,11 @@ class UserSlaDashboard extends Component
             'dailyDispatchCompletion' => $dailyDispatchCompletion,
             'jobSlaList'              => $jobSlaList,
             'medaSnapshot'            => $medaSnapshot,
-            'dueMeasures'             => $dueMeasures,
+            'medaOpenHistogram'       => $medaOpenHistogram,
+            'medaOpenDispatchList'    => $medaOpenDispatchList,
+            'generalProtestsList'     => $generalProtestsList,
+            'complaintsNaPanel'       => $complaintsNaPanel,
+            'complaintsOuPanel'       => $complaintsOuPanel,
             'dispatcherMeasuresPanel' => $dispatcherMeasuresPanel,
         ]);
     }

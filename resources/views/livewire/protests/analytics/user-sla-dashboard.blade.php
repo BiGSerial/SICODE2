@@ -183,6 +183,14 @@
                 vertical-align: middle;
             }
 
+            .dashboard-histogram-wrap {
+                position: relative;
+                width: 100%;
+                height: clamp(260px, 34vh, 420px);
+                max-height: 420px;
+                overflow: hidden;
+            }
+
             @media (max-width: 768px) {
                 .dashboard-header {
                     padding: 1.4rem;
@@ -196,93 +204,475 @@
     @endpush
 
     <div class="dashboard-header mb-4">
-        <div class="row align-items-center">
-            <div class="col-md-7">
-                <div class="header-content">
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="header-icon me-3">
-                            <i class="ri-pie-chart-2-line"></i>
-                        </div>
-                        <div>
-                            <h1 class="header-title mb-0">
-                                Produtividade x Reclamacoes
-                            </h1>
-                            <div class="header-subtitle">
-                                Indicadores semanais dos 5 paineis solicitados
-                            </div>
-                        </div>
+        <div class="header-content mb-3">
+            <div class="d-flex align-items-center mb-2">
+                <div class="header-icon me-3">
+                    <i class="ri-pie-chart-2-line"></i>
+                </div>
+                <div>
+                    <h1 class="header-title mb-0">
+                        Produtividade x Reclamacoes
+                    </h1>
+                    <div class="header-subtitle">
+                        Indicadores semanais dos 5 paineis solicitados
                     </div>
-                    <p class="header-description mb-0">
-                        Acompanhe despachos por usuario, saude da pilha MEDA, cumprimento geral de SLA
-                        e gargalos por categoria/tipo de nota no periodo filtrado.
-                    </p>
                 </div>
             </div>
-            <div class="col-md-5 mt-3 mt-md-0">
-                <div class="filters-container">
-                    <div class="row">
-                        <div class="col-6 mb-2">
-                            <label class="filter-label">
-                                <i class="ri-calendar-line me-1"></i> Início
-                            </label>
-                            <input type="date" wire:model="dt_in" class="filter-select" max="{{ date('Y-m-d') }}">
-                        </div>
-                        <div class="col-6 mb-2">
-                            <label class="filter-label">
-                                <i class="ri-calendar-line me-1"></i> Fim
-                            </label>
-                            <input type="date" wire:model="dt_out" class="filter-select" max="{{ date('Y-m-d') }}">
-                        </div>
+            <p class="header-description mb-0">
+                Acompanhe despachos por usuario, saude da pilha MEDA, cumprimento geral de SLA
+                e gargalos por categoria/tipo de nota no periodo filtrado.
+            </p>
+        </div>
 
-                        <div class="col-6 mb-2">
-                            <label class="filter-label">
-                                <i class="ri-filter-2-line me-1"></i> Tipo
-                            </label>
-                            <select wire:model="advanceFilter" class="filter-select">
-                                <option value="all">Todos</option>
-                                <option value="advance">Avanço Parceiro</option>
-                                <option value="normal">Reclamações normais</option>
-                            </select>
-                        </div>
+        <div class="filters-container">
+            <div class="row g-2 align-items-end">
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label">
+                        <i class="ri-calendar-line me-1"></i> Início
+                    </label>
+                    <input type="date" wire:model="dt_in" class="filter-select" max="{{ date('Y-m-d') }}">
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label">
+                        <i class="ri-calendar-line me-1"></i> Fim
+                    </label>
+                    <input type="date" wire:model="dt_out" class="filter-select" max="{{ date('Y-m-d') }}">
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label">
+                        <i class="ri-filter-2-line me-1"></i> Tipo
+                    </label>
+                    <select wire:model="advanceFilter" class="filter-select">
+                        <option value="all">Todos</option>
+                        <option value="advance">Avanço Parceiro</option>
+                        <option value="normal">Reclamações normais</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label">
+                        <i class="ri-user-3-line me-1"></i> Usuário
+                    </label>
+                    <select wire:model="userId" class="filter-select">
+                        <option value="">Todos</option>
+                        @foreach ($usersOptions as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-4 col-md-12">
+                    <label class="filter-label">
+                        <i class="ri-search-line me-1"></i> Buscar por reclamação
+                    </label>
+                    <input type="text" wire:model.debounce.500ms="complaintSearch" class="filter-select"
+                        placeholder="Nota, CodF, grupo, classificação, cidade...">
+                </div>
 
-                        <div class="col-6">
-                            <label class="filter-label">
-                                <i class="ri-user-3-line me-1"></i> Usuário
-                            </label>
-                            <select wire:model="userId" class="filter-select">
-                                <option value="">Todos</option>
-                                @foreach ($usersOptions as $user)
-                                    <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label">
+                        <i class="ri-file-list-3-line me-1"></i> Tipo de nota
+                    </label>
+                    <select wire:model="complaintNoteTypes" multiple class="filter-select" size="4">
+                        @foreach ($complaintNoteTypeOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label">
+                        <i class="ri-price-tag-3-line me-1"></i> Classificação reclamação
+                    </label>
+                    <select wire:model="complaintClassifications" multiple class="filter-select" size="4">
+                        @foreach ($complaintClassificationOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label">
+                        <i class="ri-map-pin-line me-1"></i> Município
+                    </label>
+                    <select wire:model="complaintCities" multiple class="filter-select" size="4">
+                        @foreach ($complaintCityOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label">
+                        <i class="ri-map-pin-user-line me-1"></i> Tipo de protesto
+                    </label>
+                    <select wire:model="protestTypes" multiple class="filter-select" size="4">
+                        @foreach ($protestTypeOptions as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-                        <div class="col-12 mb-2">
-                            <label class="filter-label">
-                                <i class="ri-map-pin-user-line me-1"></i> Tipo de protesto
-                                <small class="text-white-50">(Selecione para filtrar todos os painéis)</small>
-                            </label>
-                            <select wire:model="protestTypes" multiple class="filter-select" size="3">
-                                @foreach ($protestTypeOptions as $option)
-                                    <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                <div class="col-12">
+                    <button class="btn btn-light fw-semibold text-primary px-4" wire:click="exportJobs"
+                        wire:loading.attr="disabled" wire:target="exportJobs">
+                        <span wire:loading.remove wire:target="exportJobs">
+                            <i class="ri-file-excel-2-line me-1"></i>
+                            Exportar ProtestJobs
+                        </span>
+                        <span wire:loading wire:target="exportJobs">
+                            <i class="ri-loader-4-line me-1"></i>
+                            Preparando arquivo...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                        <div class="col-12 mt-2">
-                            <button class="btn btn-light w-100 fw-semibold text-primary" wire:click="exportJobs"
-                                wire:loading.attr="disabled" wire:target="exportJobs">
-                                <span wire:loading.remove wire:target="exportJobs">
-                                    <i class="ri-file-excel-2-line me-1"></i>
-                                    Exportar ProtestJobs
-                                </span>
-                                <span wire:loading wire:target="exportJobs">
-                                    <i class="ri-loader-4-line me-1"></i>
-                                    Preparando arquivo...
-                                </span>
-                            </button>
-                        </div>
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-bar-chart-box-line me-1"></i> MEDAs consolidados em aberto
+                    </div>
+                    <div class="small text-muted">
+                        Histograma mensal por data desejada (regra NA / OU-PR), com BT Zero em série separada.
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select wire:model="medaHistogramSource" class="form-select form-select-sm" style="min-width: 170px;">
+                        <option value="desired">Data desejada</option>
+                        <option value="sla">Data SLA (se existir)</option>
+                    </select>
+                    <select wire:model="medaDispatchFilter" class="form-select form-select-sm" style="min-width: 170px;">
+                        <option value="all">Despachado + sem despacho</option>
+                        <option value="with_job">Despachado</option>
+                        <option value="without_job">Sem despacho</option>
+                    </select>
+                    <select wire:model="medaHistogramBtzeroFilter" class="form-select form-select-sm" style="min-width: 170px;">
+                        <option value="all">BT Zero: Todos</option>
+                        <option value="without_btzero">BT Zero: Sem BT Zero</option>
+                        <option value="only_btzero">BT Zero: Apenas BT Zero</option>
+                    </select>
+                    <select wire:model="medaHistogramYear" class="form-select form-select-sm" style="min-width: 110px;">
+                        @forelse (($medaOpenHistogram['years'] ?? []) as $year)
+                            <option value="{{ $year }}">{{ $year }}</option>
+                        @empty
+                            <option value="{{ now()->year }}">{{ now()->year }}</option>
+                        @endforelse
+                    </select>
+                    @if (!empty($medaOpenHistogram['selectedMonth']))
+                        <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearMedaHistogramFilter">
+                            Limpar mês
+                        </button>
+                    @endif
+                    <span class="badge bg-light text-dark">Total: {{ $medaOpenHistogram['total'] ?? 0 }}</span>
+                </div>
+            </div>
 
+            <div class="row text-center gy-3 mb-3">
+                <div class="col-md-3 col-12">
+                    <div class="metric-label">MEDA em aberto</div>
+                    <div class="metric-value">{{ $medaOpenHistogram['total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Em aberto no momento (incluindo BT Zero)</div>
+                </div>
+                <div class="col-md-3 col-12">
+                    <div class="metric-label">Despachado</div>
+                    <div class="metric-value">{{ $medaOpenHistogram['total_with_job'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Com ProtestJob</div>
+                </div>
+                <div class="col-md-3 col-12">
+                    <div class="metric-label">Sem despacho</div>
+                    <div class="metric-value">{{ $medaOpenHistogram['total_without_job'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Sem ProtestJob</div>
+                </div>
+                <div class="col-md-3 col-12">
+                    <div class="metric-label">BT Zero</div>
+                    <div class="metric-value">{{ $medaOpenHistogram['total_btzero'] ?? 0 }}</div>
+                    <div class="metric-subtitle">
+                        {{ $medaOpenHistogram['total_btzero_with_job'] ?? 0 }} com job /
+                        {{ $medaOpenHistogram['total_btzero_without_job'] ?? 0 }} sem job
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-histogram-wrap" wire:ignore>
+                <x-grafico.apex :chart="$medaOpenHistogram['chart']" chartId="medaOpenDesiredHistogram" class="w-100" />
+            </div>
+            @php
+                $selectedYear = (int) ($medaOpenHistogram['selectedYear'] ?? now()->year);
+                $selectedMonth = (int) ($medaOpenHistogram['selectedMonth'] ?? 0);
+                $monthTotals = (array) ($medaOpenHistogram['monthTotals'] ?? []);
+                $monthLabels = [1 => 'Jan', 2 => 'Fev', 3 => 'Mar', 4 => 'Abr', 5 => 'Mai', 6 => 'Jun', 7 => 'Jul', 8 => 'Ago', 9 => 'Set', 10 => 'Out', 11 => 'Nov', 12 => 'Dez'];
+            @endphp
+            <div class="d-flex flex-wrap gap-2 mt-3 justify-content-center">
+                @foreach ($monthLabels as $monthNumber => $monthLabel)
+                    @php
+                        $bucketKey = sprintf('%04d-%02d', $selectedYear, $monthNumber);
+                        $isActive = $selectedMonth === $monthNumber;
+                        $hasData = ((int) ($monthTotals[$monthNumber] ?? 0)) > 0;
+                    @endphp
+                    <button type="button"
+                        class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}"
+                        @disabled(!$hasData)
+                        wire:click="toggleMedaHistogramBucket('{{ $bucketKey }}')">
+                        {{ $monthLabel }}
+                    </button>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-table-2 me-1"></i> Lista consolidada de medidas em aberto
+                    </div>
+                    <div class="small text-muted">
+                        Base MEDA com data desejada válida, refletindo o histograma selecionado.
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select wire:model="openDispatchBtzeroFilter" class="form-select form-select-sm"
+                        style="min-width: 180px;">
+                        <option value="all">Todos</option>
+                        <option value="without_btzero">Sem BT Zero</option>
+                        <option value="only_btzero">Apenas BT Zero</option>
+                    </select>
+                    <span class="badge bg-light text-dark">Total: {{ $medaOpenDispatchList['total'] ?? 0 }}</span>
+                    <span class="badge bg-success">Despachado em aberto:
+                        {{ $medaOpenDispatchList['total_dispatched_open'] ?? 0 }}</span>
+                    <span class="badge bg-secondary">Sem despacho:
+                        {{ $medaOpenDispatchList['total_without_dispatch'] ?? 0 }}</span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-compact mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>M</th>
+                            <th>Nota</th>
+                            <th>Tipo</th>
+                            <th>CodF</th>
+                            <th>Tipo Reclamação</th>
+                            <th>Classificação Reclamação</th>
+                            <th>Abertura Reclamação</th>
+                            <th>Abertura Medida</th>
+                            <th>Data Desejada</th>
+                            <th>Despachado Em</th>
+                            <th>Encerrado / SLA</th>
+                            <th>Status SLA</th>
+                            <th>SAP</th>
+                            <th>Responsável</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse (($medaOpenDispatchList['items'] ?? collect()) as $row)
+                            <tr>
+                                <td>{{ $row['med_id'] }}</td>
+                                <td>{{ $row['nota'] }}</td>
+                                <td>{{ $row['tipo_nota'] }}</td>
+                                <td>{{ $row['codf'] }}</td>
+                                <td>{{ $row['tipo_reclamacao'] }}</td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span>{{ $row['classificacao_reclamacao'] }}</span>
+                                        @if ($row['is_btzero'])
+                                            <span class="badge bg-primary">BT Zero</span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td>{{ $row['abertura_reclamacao'] }}</td>
+                                <td>{{ $row['abertura_medida'] }}</td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span>{{ $row['desired_info']['date'] }}</span>
+                                        <span class="badge {{ $row['desired_info']['class'] }}">
+                                            {{ $row['desired_info']['detail'] }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if ($row['has_dispatch'])
+                                        {{ $row['despachado_em'] }}
+                                    @else
+                                        <span class="badge bg-secondary">Sem despacho</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span>{{ $row['sla_info']['due_date'] }}</span>
+                                        <span class="badge {{ $row['sla_info']['class'] }}">
+                                            {{ $row['sla_info']['detail'] }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td><span class="{{ $row['status_sla_class'] }}">{{ $row['status_sla_label'] }}</span></td>
+                                <td><span class="badge {{ $row['sap_class'] }}">{{ $row['sap_status'] }}</span></td>
+                                <td>{{ $row['responsavel'] }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="14" class="text-center text-muted py-3">
+                                    Nenhuma medida encontrada para os critérios atuais.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!empty($medaOpenDispatchList['items']))
+                <div class="mt-3">
+                    {{ $medaOpenDispatchList['items']->links() }}
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-list-check-3 me-1"></i> Lista geral de medidas
+                    </div>
+                    <div class="small text-muted">
+                        Baseada em MedProtest. Sem busca: respeita período. Com busca: ignora período.
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select wire:model="generalMeasuresOpenFilter" class="form-select form-select-sm"
+                        style="min-width: 150px;">
+                        <option value="all">Abertura: Todos</option>
+                        <option value="open">Em aberto</option>
+                        <option value="not_open">Não em aberto</option>
+                    </select>
+                    <select wire:model="generalMeasuresBtzeroFilter" class="form-select form-select-sm"
+                        style="min-width: 170px;">
+                        <option value="all">BT Zero: Todos</option>
+                        <option value="with_btzero">Com BT Zero</option>
+                        <option value="without_btzero">Sem BT Zero</option>
+                    </select>
+                    <span class="badge bg-light text-dark">Total: {{ $generalProtestsList['total'] ?? 0 }}</span>
+                    @if (!empty($generalProtestsList['search_mode']))
+                        <span class="badge bg-info text-dark">Busca ativa: sem recorte de período</span>
+                    @else
+                        <span class="badge bg-primary">
+                            Período do recorte: {{ $generalProtestsList['period_label'] ?? '-' }}
+                        </span>
+                    @endif
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-compact mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>M</th>
+                            <th>Nota</th>
+                            <th>Tipo</th>
+                            <th>CodF</th>
+                            <th>Tipo Reclamação</th>
+                            <th>Classificação Reclamação</th>
+                            <th>Abertura Reclamação</th>
+                            <th>Abertura Medida</th>
+                            <th>Data Desejada</th>
+                            <th>SAP</th>
+                            <th>Responsável</th>
+                            <th>Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse (($generalProtestsList['items'] ?? collect()) as $row)
+                            <tr>
+                                <td>{{ $row['med_id'] }}</td>
+                                <td>{{ $row['nota'] }}</td>
+                                <td>{{ $row['tipo_nota'] }}</td>
+                                <td>{{ $row['codf'] }}</td>
+                                <td>{{ $row['tipo_reclamacao'] }}</td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span>{{ $row['classificacao_reclamacao'] }}</span>
+                                        @if ($row['is_btzero'])
+                                            <span class="badge bg-primary">BT Zero</span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td>{{ $row['abertura_reclamacao'] }}</td>
+                                <td>{{ $row['abertura_medida'] }}</td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span>{{ $row['desired_info']['date'] }}</span>
+                                        <span class="badge {{ $row['desired_info']['class'] }}">
+                                            {{ $row['desired_info']['detail'] }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td><span class="badge {{ $row['sap_class'] }}">{{ $row['sap_status'] }}</span></td>
+                                <td>{{ $row['responsavel'] }}</td>
+                                <td>{{ $row['resultado'] }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="12" class="text-center text-muted py-3">
+                                    Nenhuma medida encontrada para os critérios atuais.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!empty($generalProtestsList['items']))
+                <div class="mt-3">
+                    {{ $generalProtestsList['items']->links() }}
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-bar-chart-grouped-line me-1"></i> Reclamações (NA)
+                    </div>
+                    <div class="small text-muted">
+                        Janela fixa de 6 meses (mensalização por <code>dtConclusaoDesej</code>), com classificação
+                        procedente/improcedente por <code>statUsuar</code> (ENCP/ENCI).
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark">Período: {{ $complaintsNaPanel['window_label'] ?? '-' }}</span>
+                    <span class="badge bg-primary">Encerramentos: {{ $complaintsNaPanel['total'] ?? 0 }}</span>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-12">
+                    <div style="height: 270px;">
+                        <x-grafico.apex :chart="$complaintsNaPanel['charts']['sla_stack']" chartId="complaintsNaSlaStack"
+                            class="w-100" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div style="height: 230px;">
+                        <x-grafico.apex :chart="$complaintsNaPanel['charts']['sla_line']" chartId="complaintsNaSlaLine"
+                            class="w-100" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div style="height: 250px;">
+                        <x-grafico.apex :chart="$complaintsNaPanel['charts']['procedency_stack']"
+                            chartId="complaintsNaProcedencyStack" class="w-100" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div style="height: 230px;">
+                        <x-grafico.apex :chart="$complaintsNaPanel['charts']['procedency_line']"
+                            chartId="complaintsNaProcedencyLine" class="w-100" />
                     </div>
                 </div>
             </div>
@@ -294,100 +684,43 @@
             <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
                 <div>
                     <div class="modern-card-title mb-1">
-                        <i class="ri-alarm-warning-line me-1"></i> Alertas de vencimento
+                        <i class="ri-bar-chart-grouped-line me-1"></i> Ouvidoria (OU)
                     </div>
                     <div class="small text-muted">
-                        Medidas em status MEDA com vencimento hoje ou já vencidas.
+                        Janela fixa de 6 meses (mensalização por <code>dtConclusaoDesej</code>). Fora do prazo se
+                        alguma medida estourar o prazo; procedente se alguma medida tiver
+                        <code>result = Procedente</code>; sem result nas medidas, usa <code>statUsuar</code>.
                     </div>
                 </div>
-                <span class="badge bg-light text-dark">Filtros aplicados a todos os painéis.</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark">Período: {{ $complaintsOuPanel['window_label'] ?? '-' }}</span>
+                    <span class="badge bg-primary">Encerramentos: {{ $complaintsOuPanel['total'] ?? 0 }}</span>
+                </div>
             </div>
 
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <h6 class="text-uppercase text-muted small">
-                        Medidas vencendo hoje
-                        <span class="badge bg-light text-dark">{{ $dueMeasures['due_today']->total() }}</span>
-                    </h6>
-                    <ul class="list-group list-group-flush mt-2">
-                        @forelse ($dueMeasures['due_today'] as $measure)
-                            @php
-                                $protestNumber = $measure['protest_number'] ?? null;
-                            @endphp
-                            <li class="list-group-item px-0"
-                                wire:key="due-today-{{ $measure['protest_id'] ?? 'none' }}-{{ $measure['med_id'] ?? $loop->index }}">
-                                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
-                                    <div>
-                                        <div class="fw-semibold text-dark">
-                                            Reclamação {{ $measure['protest_number'] ?? 'N/A' }} · Medida
-                                            {{ $measure['med_id'] ?? 'N/A' }}
-                                        </div>
-                                        <div class="small text-muted">
-                                            Vencimento: <span class="text-primary">{{ $measure['due_date'] ?? '-' }}</span>
-                                            · {{ $measure['protest_type_label'] ?? 'Tipo não informado' }}
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 mt-sm-0">
-                                        @if ($protestNumber && $protestNumber !== 'N/A')
-                                            <a href="{{ route('protests.dispatch.view', ['protest' => $protestNumber]) }}"
-                                                class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">
-                                                <i class="ri-external-link-line me-1"></i> Ver protesto
-                                            </a>
-                                        @else
-                                            <span class="badge bg-secondary">Sem link</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            </li>
-                        @empty
-                            <li class="list-group-item px-0 text-muted">Sem medidas com vencimento em aberto hoje.</li>
-                        @endforelse
-                    </ul>
-                    <div class="mt-3">
-                        {{ $dueMeasures['due_today']->links() }}
+            <div class="row g-3">
+                <div class="col-12">
+                    <div style="height: 270px;">
+                        <x-grafico.apex :chart="$complaintsOuPanel['charts']['sla_stack']" chartId="complaintsOuSlaStack"
+                            class="w-100" />
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <h6 class="text-uppercase text-muted small">
-                        Medidas vencidas
-                        <span class="badge bg-light text-dark">{{ $dueMeasures['overdue']->total() }}</span>
-                    </h6>
-                    <ul class="list-group list-group-flush mt-2">
-                        @forelse ($dueMeasures['overdue'] as $measure)
-                            @php
-                                $protestNumber = $measure['protest_number'] ?? null;
-                            @endphp
-                            <li class="list-group-item px-0"
-                                wire:key="overdue-{{ $measure['protest_id'] ?? 'none' }}-{{ $measure['med_id'] ?? $loop->index }}">
-                                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
-                                    <div>
-                                        <div class="fw-semibold text-dark">
-                                            Reclamação {{ $measure['protest_number'] ?? 'N/A' }} · Medida
-                                            {{ $measure['med_id'] ?? 'N/A' }}
-                                        </div>
-                                        <div class="small text-muted">
-                                            Venceu em: <span class="text-danger">{{ $measure['due_date'] ?? '-' }}</span>
-                                            · {{ $measure['protest_type_label'] ?? 'Tipo não informado' }}
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 mt-sm-0">
-                                        @if ($protestNumber && $protestNumber !== 'N/A')
-                                            <a href="{{ route('protests.dispatch.view', ['protest' => $protestNumber]) }}"
-                                                class="btn btn-sm btn-outline-danger" target="_blank" rel="noopener">
-                                                <i class="ri-external-link-line me-1"></i> Ver protesto
-                                            </a>
-                                        @else
-                                            <span class="badge bg-secondary">Sem link</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            </li>
-                        @empty
-                            <li class="list-group-item px-0 text-muted">Sem medidas vencidas dentro do filtro.</li>
-                        @endforelse
-                    </ul>
-                    <div class="mt-3">
-                        {{ $dueMeasures['overdue']->links() }}
+                <div class="col-12">
+                    <div style="height: 230px;">
+                        <x-grafico.apex :chart="$complaintsOuPanel['charts']['sla_line']" chartId="complaintsOuSlaLine"
+                            class="w-100" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div style="height: 250px;">
+                        <x-grafico.apex :chart="$complaintsOuPanel['charts']['procedency_stack']"
+                            chartId="complaintsOuProcedencyStack" class="w-100" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div style="height: 230px;">
+                        <x-grafico.apex :chart="$complaintsOuPanel['charts']['procedency_line']"
+                            chartId="complaintsOuProcedencyLine" class="w-100" />
                     </div>
                 </div>
             </div>

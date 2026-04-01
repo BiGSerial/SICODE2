@@ -27,6 +27,35 @@
             padding: 1rem;
             margin-bottom: 1rem;
         }
+
+        .form-floating > .form-select[multiple] {
+            height: 8.5rem !important;
+            padding-top: 1.9rem;
+            padding-bottom: 0.6rem;
+        }
+
+        .histogram-card-body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .histogram-chart-wrap {
+            position: relative;
+            width: 100%;
+            height: clamp(260px, 34vh, 420px);
+            max-height: 420px;
+            overflow: hidden;
+        }
+
+        .histogram-chart-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .sla-progress-on-time {
+            background-color: #198754 !important;
+        }
+
     </style>
 @endpush
 
@@ -88,13 +117,12 @@
         </div>
 
         {{-- Selecionar responsável (inclui hierarquia, delegados e delegações) --}}
-        <div class="col-md-3">
-            <div class="form-floating">
-                <select wire:model="selectedUserId" id="selectedUserId" class="form-select">
-                    <option value="">Todos os responsáveis</option>
-                    @foreach ($availableUsers as $user)
-                        @php $isCurrent = $currentUserId === $user->id; @endphp
-                        <option value="{{ $user->id }}">
+                <div class="col-md-3">
+                    <div class="form-floating">
+                        <select wire:model="selectedUserId" id="selectedUserId" class="form-select" multiple size="4">
+                            @foreach ($availableUsers as $user)
+                                @php $isCurrent = $currentUserId === $user->id; @endphp
+                                <option value="{{ $user->id }}">
                             {{ $isCurrent ? 'Você' : reduceName($user->name) }} ({{ $user->email }})
                             @if ($isCurrent)
                                 — atual
@@ -107,14 +135,26 @@
         </div>
 
         {{-- Apenas o usuário selecionado (ignora descendentes) --}}
-        <div class="col-md-2">
-            <div class="form-check mt-md-4 pt-md-2">
-                <input wire:model="onlySelectedUser" type="checkbox" id="onlySelectedUser" class="form-check-input"
-                    {{ $selectedUserId ? '' : 'disabled' }}>
+                <div class="col-md-2">
+                    <div class="form-check mt-md-4 pt-md-2">
+                        <input wire:model="onlySelectedUser" type="checkbox" id="onlySelectedUser" class="form-check-input"
+                    {{ !empty($selectedUserId) ? '' : 'disabled' }}>
                 <label class="form-check-label" for="onlySelectedUser">
                     Apenas selecionado
                 </label>
                 <small class="text-muted d-block">Sem descendência.</small>
+            </div>
+        </div>
+
+        {{-- CodF --}}
+        <div class="col-md-2">
+            <div class="form-floating">
+                <select wire:model="selectedCodf" id="selectedCodf" class="form-select" multiple size="4">
+                    @foreach ($codfOptions as $codf)
+                        <option value="{{ $codf }}">{{ $codf }}</option>
+                    @endforeach
+                </select>
+                <label for="selectedCodf">CodF</label>
             </div>
         </div>
 
@@ -133,6 +173,37 @@
                 <i class="ri-eraser-line me-1"></i> Limpar
             </button>
         </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body histogram-card-body">
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                <div class="fw-semibold">Histograma de Previsões Mensais</div>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm" wire:model="histogramSource" style="min-width: 190px;">
+                        <option value="desired">Data desejada</option>
+                        <option value="sla">Data SLA do job</option>
+                    </select>
+                    <select class="form-select form-select-sm" wire:model="histogramYear" style="min-width: 110px;">
+                        @forelse (($histogramData['years'] ?? []) as $year)
+                            <option value="{{ $year }}">{{ $year }}</option>
+                        @empty
+                            <option value="{{ now()->year }}">{{ now()->year }}</option>
+                        @endforelse
+                    </select>
+                    @if (!empty($histogramData['selectedMonth']))
+                        <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearHistogramFilter">
+                            Limpar mês
+                        </button>
+                    @endif
+                </div>
+            </div>
+            <div id="accompany-histogram-data" data-payload='@json($histogramData)'></div>
+            <div class="histogram-chart-wrap" wire:ignore>
+                <canvas id="accompanyHistogram"></canvas>
+            </div>
+            <small class="text-muted">Clique em uma barra para filtrar a lista por mês/ano.</small>
         </div>
     </div>
 
@@ -186,30 +257,69 @@
                                 $protest = $job->protest;
                                 $med = $job->medProtest;
 
-                                // SLA: usa sla_due_at como data limite do job
+                                // SLA: usa sent_at/accepted_at como início e sla_due_at como limite
                                 $slaDue = $job->sla_due_at;
                                 $startRef = $job->accepted_at ?? ($job->sent_at ?? $job->created_at);
+                                $finishedAt = $job->finished_at;
 
-                                $slaProgress = null;
-                                $slaClassBar = 'bg-success';
+                                $slaProgressGreen = null;
+                                $slaProgressRed = 0;
                                 $slaLabel = 'Sem SLA definido';
+                                $slaLabelClass = 'text-muted';
 
                                 if ($slaDue && $startRef) {
-                                    $totalSeconds = max($slaDue->diffInSeconds($startRef), 1);
-                                    $elapsedSeconds = min(max(now()->diffInSeconds($startRef), 0), $totalSeconds);
-                                    $slaProgress = intval(($elapsedSeconds / $totalSeconds) * 100);
+                                    $windowSeconds = max($startRef->diffInSeconds($slaDue, false), 1);
+                                    $lateSeconds = 0;
 
-                                    $daysLeft = now()->startOfDay()->diffInDays($slaDue->startOfDay(), false);
+                                    if ($finishedAt) {
+                                        $effectiveEnd = $finishedAt;
+                                        $totalSeconds = max($startRef->diffInSeconds($effectiveEnd, false), 1);
+                                        $onTimeEnd = $finishedAt->lessThan($slaDue) ? $finishedAt : $slaDue;
+                                        $onTimeSeconds = max($startRef->diffInSeconds($onTimeEnd, false), 0);
+                                        $lateSeconds = max($slaDue->diffInSeconds($finishedAt, false), 0);
 
-                                    if ($daysLeft < 0) {
-                                        $slaClassBar = 'bg-danger';
-                                        $slaLabel = 'Vencido há ' . abs($daysLeft) . ' dia(s)';
-                                    } elseif ($daysLeft <= 3) {
-                                        $slaClassBar = 'bg-warning';
-                                        $slaLabel = 'Vence em ' . $daysLeft . ' dia(s)';
+                                        if ($finishedAt->lessThanOrEqualTo($slaDue)) {
+                                            // Finalizado no prazo: escala até o SLA, mantendo o trecho faltante visível.
+                                            $slaProgressGreen = round(($onTimeSeconds / $windowSeconds) * 100, 2);
+                                            $slaProgressRed = 0;
+                                        } else {
+                                            // Finalizado fora do prazo: escala total até o finished_at (verde + vermelho = 100%).
+                                            $slaProgressGreen = round(($onTimeSeconds / $totalSeconds) * 100, 2);
+                                            $slaProgressRed = round(($lateSeconds / $totalSeconds) * 100, 2);
+                                        }
                                     } else {
-                                        $slaClassBar = 'bg-success';
-                                        $slaLabel = 'No prazo, faltam ' . $daysLeft . ' dia(s)';
+                                        $greenEnd = now()->min($slaDue);
+                                        $greenSeconds = max(min($startRef->diffInSeconds($greenEnd, false), $windowSeconds), 0);
+                                        $lateSeconds = max($slaDue->diffInSeconds(now(), false), 0);
+                                        $scaleSeconds = max($windowSeconds + $lateSeconds, 1);
+
+                                        $slaProgressGreen = round(($greenSeconds / $scaleSeconds) * 100, 2);
+                                        $slaProgressRed = round(($lateSeconds / $scaleSeconds) * 100, 2);
+                                    }
+
+                                    if ($slaProgressRed > 0 && $slaProgressRed < 1) {
+                                        $slaProgressRed = 1;
+                                        $slaProgressGreen = max(0, round(100 - $slaProgressRed, 2));
+                                    }
+
+                                    if ($finishedAt) {
+                                        $daysAtFinish = $finishedAt->startOfDay()->diffInDays($slaDue->startOfDay(), false);
+                                        if ($daysAtFinish < 0) {
+                                            $slaLabel = 'Finalizado em ' . $finishedAt->format('d/m/Y H:i');
+                                            $slaLabelClass = 'text-danger';
+                                        } else {
+                                            $slaLabel = 'Finalizado em ' . $finishedAt->format('d/m/Y H:i');
+                                            $slaLabelClass = 'text-success';
+                                        }
+                                    } else {
+                                        $daysLeft = now()->startOfDay()->diffInDays($slaDue->startOfDay(), false);
+                                        if ($daysLeft < 0) {
+                                            $slaLabel = 'Vencido há ' . abs($daysLeft) . ' dia(s)';
+                                        } elseif ($daysLeft <= 3) {
+                                            $slaLabel = 'Vence em ' . $daysLeft . ' dia(s)';
+                                        } else {
+                                            $slaLabel = 'No prazo, faltam ' . $daysLeft . ' dia(s)';
+                                        }
                                     }
                                 }
 
@@ -323,12 +433,18 @@
                                             Limite: <strong>{{ $job->sla_due_at->format('d/m/Y H:i') }}</strong>
                                         </div>
 
-                                        @if (!is_null($slaProgress))
+                                        @if (!is_null($slaProgressGreen))
                                             <div class="progress" style="height: .6rem;">
-                                                <div class="progress-bar {{ $slaClassBar }}"
-                                                    style="width: {{ $slaProgress }}%;"></div>
+                                                @if ($slaProgressGreen > 0)
+                                                    <div class="progress-bar sla-progress-on-time"
+                                                        style="width: {{ $slaProgressGreen }}%;"></div>
+                                                @endif
+                                                @if ($slaProgressRed > 0)
+                                                    <div class="progress-bar bg-danger"
+                                                        style="width: {{ $slaProgressRed }}%;"></div>
+                                                @endif
                                             </div>
-                                            <div class="small text-muted mt-1">
+                                            <div class="small mt-1 {{ $slaLabelClass }}">
                                                 {{ $slaLabel }}
                                             </div>
                                         @else
@@ -428,3 +544,110 @@
 </div>
 
 @livewire('protests.common.messages', key('services-accompany-messages-modal'))
+
+@push('scripts')
+    <script>
+        document.addEventListener('livewire:load', () => {
+            let accompanyHistogramChart = null;
+            let lastSignature = null;
+
+            const buildAccompanyHistogram = () => {
+                const canvas = document.getElementById('accompanyHistogram');
+                const payloadNode = document.getElementById('accompany-histogram-data');
+
+                if (!canvas || !payloadNode || typeof Chart === 'undefined') {
+                    return;
+                }
+
+                const raw = payloadNode.dataset.payload || '{}';
+                if (accompanyHistogramChart && lastSignature === raw) {
+                    return;
+                }
+
+                let payload;
+                try {
+                    payload = JSON.parse(raw);
+                } catch (e) {
+                    return;
+                }
+
+                const labels = payload.labels || [];
+                const series = payload.series || {};
+                const overdueData = series.overdue || [];
+                const dueSoonData = series.dueSoon || [];
+                const withinData = series.within || [];
+                const selectedMonth = payload.selectedMonth ? Number(payload.selectedMonth) : null;
+                const sourceLabel = payload.source === 'sla' ? 'SLA do job' : 'Data desejada';
+
+                const colorize = (base) => labels.map((_, i) => selectedMonth === (i + 1) ? base.replace('0.8', '1') : base);
+                const border = labels.map((_, i) => selectedMonth === (i + 1) ? 'rgba(15,23,42,1)' : 'rgba(15,23,42,.45)');
+
+                if (accompanyHistogramChart) {
+                    accompanyHistogramChart.destroy();
+                }
+
+                accompanyHistogramChart = new Chart(canvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `Vencidos - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                            data: overdueData,
+                            backgroundColor: colorize('rgba(220,53,69,0.8)'),
+                            borderColor: border,
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            stack: 'prazo',
+                        }, {
+                            label: `Vencendo - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                            data: dueSoonData,
+                            backgroundColor: colorize('rgba(255,193,7,0.8)'),
+                            borderColor: border,
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            stack: 'prazo',
+                        }, {
+                            label: `A vencer - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                            data: withinData,
+                            backgroundColor: colorize('rgba(25,135,84,0.8)'),
+                            borderColor: border,
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            stack: 'prazo',
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                stacked: true
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            },
+                        },
+                        onClick: (evt, elements) => {
+                            if (!elements.length) return;
+                            const month = elements[0].index + 1;
+                            const root = canvas.closest('[wire\\:id]');
+                            if (!root) return;
+                            const componentId = root.getAttribute('wire:id');
+                            if (!componentId) return;
+                            Livewire.find(componentId).call('setHistogramBucket', month);
+                        },
+                    },
+                });
+
+                lastSignature = raw;
+            };
+
+            buildAccompanyHistogram();
+            Livewire.hook('message.processed', () => buildAccompanyHistogram());
+        });
+    </script>
+@endpush

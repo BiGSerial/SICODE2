@@ -33,13 +33,22 @@ class Lists extends Component
     public $multisearch = [];
     public $type = "";
     public ?string $statusCardFilter = null;
+    public string $sortBy = 'vencimento';
+    public string $sortDirection = 'asc';
+    public string $histogramSource = 'desired';
+    public ?int $histogramYear = null;
+    public ?int $histogramMonth = null;
+    public array $cityFilter = [];
+    public array $selectedCodf = [];
 
     public $showDetails = false;
     public $selected = null;
 
     // Variáveis de seleção (Filtros)
-    public $selectedProtestType = "";
-    public $selectedTipoNota = "";
+    public array $selectedProtestType = [];
+    public array $selectedTipoNota = [];
+    public array $cityOptions = [];
+    public array $codfOptions = [];
 
     // NOTA: As variáveis públicas $tipoNotas e $aProtestTypes foram removidas
     // para evitar o problema de desaparecimento no Livewire 2.
@@ -61,6 +70,15 @@ class Lists extends Component
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
+        'selectedProtestType' => ['except' => [], 'as' => 'pt'],
+        'selectedTipoNota' => ['except' => [], 'as' => 'tn'],
+        'cityFilter' => ['except' => [], 'as' => 'city'],
+        'selectedCodf' => ['except' => [], 'as' => 'codf'],
+        'histogramSource' => ['except' => 'desired', 'as' => 'hsrc'],
+        'histogramYear' => ['except' => null, 'as' => 'hyear'],
+        'histogramMonth' => ['except' => null, 'as' => 'hmon'],
+        'sortBy' => ['except' => 'vencimento', 'as' => 'sort'],
+        'sortDirection' => ['except' => 'asc', 'as' => 'dir'],
     ];
 
     protected $listeners = [
@@ -108,6 +126,140 @@ class Lists extends Component
         if ($this->showOnlyBtzero) {
             $this->hideBtzero = false;
         }
+
+        $this->histogramYear = $this->histogramYear ?: (int) now()->year;
+        $this->selectedTipoNota = collect((array) $this->selectedTipoNota)->filter()->values()->all();
+        $this->selectedProtestType = collect((array) $this->selectedProtestType)->filter()->values()->all();
+        $this->cityFilter = collect((array) $this->cityFilter)->filter()->values()->all();
+        $this->selectedCodf = collect((array) $this->selectedCodf)->filter()->values()->all();
+        $this->loadCityOptions();
+        $this->loadCodfOptions();
+    }
+
+    protected function loadCityOptions(): void
+    {
+        $this->cityOptions = Protest::query()
+            ->select('cidade')
+            ->whereNotNull('cidade')
+            ->distinct()
+            ->orderBy('cidade')
+            ->pluck('cidade')
+            ->filter()
+            ->values()
+            ->toArray();
+    }
+
+    protected function loadCodfOptions(): void
+    {
+        $query = Protest::query()
+            ->select('codecodf')
+            ->whereNotNull('codecodf')
+            ->where('codecodf', '!=', '')
+            ->whereHas('medProtests', function ($q) {
+                $q->where('statusSist', 'MEDA');
+                $this->applyNoValidJobsCondition($q);
+
+                if ($this->showOnlyBtzero) {
+                    $q->identifiedAsBtzero();
+                } elseif ($this->hideBtzero) {
+                    $q->notIdentifiedAsBtzero();
+                }
+            })
+            ->distinct()
+            ->orderBy('codecodf');
+
+        $this->codfOptions = $query
+            ->pluck('codecodf')
+            ->filter()
+            ->values()
+            ->toArray();
+    }
+
+    public function updatedSelectedTipoNota($value): void
+    {
+        $this->selectedTipoNota = collect((array) $value)->filter()->values()->all();
+        $this->resetPage();
+    }
+
+    public function updatedSelectedProtestType($value): void
+    {
+        $this->selectedProtestType = collect((array) $value)->filter()->values()->all();
+        $this->resetPage();
+    }
+
+    public function updatedCityFilter($value): void
+    {
+        $this->cityFilter = collect((array) $value)->filter()->values()->all();
+        $this->resetPage();
+    }
+
+    public function updatedSelectedCodf($value): void
+    {
+        $this->selectedCodf = collect((array) $value)->filter()->values()->all();
+        $this->resetPage();
+    }
+
+    public function updatedHistogramSource($value): void
+    {
+        if (!in_array($value, ['desired', 'sla'], true)) {
+            $this->histogramSource = 'desired';
+        }
+        $this->histogramMonth = null;
+        $this->resetPage();
+    }
+
+    public function updatedHistogramYear(): void
+    {
+        $this->histogramMonth = null;
+        $this->resetPage();
+    }
+
+    public function sortByColumn(string $column): void
+    {
+        $allowed = [
+            'med_id',
+            'nota',
+            'tipo_nota',
+            'cod',
+            'codf',
+            'tipo_reclamacao',
+            'tx_cod_medida',
+            'causa_raiz',
+            'origem',
+            'municipio',
+            'abertura_nota',
+            'abertura_medida',
+            'vencimento',
+        ];
+
+        if (!in_array($column, $allowed, true)) {
+            return;
+        }
+
+        if ($this->sortBy === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortBy = $column;
+            $this->sortDirection = 'asc';
+        }
+
+        $this->resetPage();
+    }
+
+    public function setHistogramBucket(?int $month = null): void
+    {
+        if (!$month || $month < 1 || $month > 12) {
+            return;
+        }
+
+        $this->histogramMonth = $this->histogramMonth === $month ? null : $month;
+        $this->resetPage();
+    }
+
+    public function clearHistogramFilter(): void
+    {
+        $this->histogramMonth = null;
+        $this->resetPage();
     }
 
     public function setStatusCardFilter(?string $filter = null): void
@@ -372,7 +524,7 @@ class Lists extends Component
         }
     }
 
-    public function getListsProperty()
+    protected function openListsQuery(bool $ignoreStatusCard = false, bool $ignoreHistogram = false): Builder
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
@@ -485,24 +637,32 @@ class Lists extends Component
             });
         });
 
-        $query->when($this->selectedTipoNota, function ($query) {
-            $query->where('tipoNota', $this->selectedTipoNota);
+        $query->when(!empty($this->selectedTipoNota), function ($query) {
+            $query->whereIn('tipoNota', $this->selectedTipoNota);
         });
 
-        $query->when($this->selectedProtestType, function ($query) {
+        $query->when(!empty($this->selectedProtestType), function ($query) {
             $selectedType = $this->selectedProtestType;
 
             $query->whereHas('medProtests', function ($q) use ($selectedType) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', $selectedType);
+                    ->whereIn('protest_type', $selectedType);
             });
+        });
+
+        $query->when(!empty($this->cityFilter), function ($query) {
+            $query->whereIn('cidade', $this->cityFilter);
+        });
+
+        $query->when(!empty($this->selectedCodf), function ($query) {
+            $query->whereIn('codecodf', $this->selectedCodf);
         });
 
         if (isset($this->filter['city'])) {
             $query->whereIn('cidade', $this->filter['city']);
         }
 
-        if ($this->statusCardFilter) {
+        if (!$ignoreStatusCard && $this->statusCardFilter) {
             $today = Carbon::today();
 
             if ($this->statusCardFilter === 'due_today') {
@@ -530,6 +690,38 @@ class Lists extends Component
             }
         }
 
+        if (!$ignoreHistogram && $this->histogramMonth && $this->histogramYear) {
+            if ($this->histogramSource === 'sla') {
+                $query->whereHas('medProtests.ProtestJobs', function ($jobQuery) {
+                    $jobQuery->whereNull('finished_at')
+                        ->whereYear('sla_due_at', (int) $this->histogramYear)
+                        ->whereMonth('sla_due_at', (int) $this->histogramMonth)
+                        ->where('confirmed', '!=', true);
+                });
+            } else {
+                $query->where(function ($q) {
+                    $q->where(function ($na) {
+                        $na->where('tipoNota', 'NA')
+                            ->whereYear('dtConclusaoDesej', (int) $this->histogramYear)
+                            ->whereMonth('dtConclusaoDesej', (int) $this->histogramMonth)
+                            ->whereHas('medProtests', function ($sub) {
+                                $sub->where('statusSist', 'MEDA');
+                                $this->applyNoValidJobsCondition($sub);
+                            });
+                    })->orWhere(function ($med) {
+                        $med->where(function ($type) {
+                            $type->where('tipoNota', '!=', 'NA')->orWhereNull('tipoNota');
+                        })->whereHas('medProtests', function ($sub) {
+                            $sub->where('statusSist', 'MEDA')
+                                ->whereYear('dtFimMedidaDesej', (int) $this->histogramYear)
+                                ->whereMonth('dtFimMedidaDesej', (int) $this->histogramMonth);
+                            $this->applyNoValidJobsCondition($sub);
+                        });
+                    });
+                });
+            }
+        }
+
         if (!empty($this->filter['vencimento_from']) && !empty($this->filter['vencimento_to'])) {
             $query->havingRaw('vencimento BETWEEN ? AND ?', [
                 $this->filter['vencimento_from'],
@@ -537,21 +729,166 @@ class Lists extends Component
             ]);
         }
 
-        $query->orderByRaw('ISNULL(vencimento), vencimento ASC')
-              ->orderBy('id', 'ASC');
-
         return $query;
+    }
+
+    public function getListsProperty()
+    {
+        $query = $this->openListsQuery();
+
+        $direction = $this->sortDirection === 'desc' ? 'desc' : 'asc';
+        $sort = $this->sortBy;
+
+        $allowedRaw = ['vencimento', 'abertura'];
+        $allowedColumns = ['nota', 'tipoNota', 'codecodf', 'txtGrpCodificacao', 'cidade', 'dtAberturaNota', 'id'];
+
+        $query->reorder();
+        if ($sort === 'med_id') {
+            $query->orderByRaw("(SELECT mp.med_id FROM med_protests mp WHERE mp.protest_id = protests.id AND mp.statusSist='MEDA' ORDER BY mp.dtCriacaoMedida DESC LIMIT 1) {$direction}");
+        } elseif ($sort === 'cod') {
+            $query->orderByRaw("(SELECT mp.codMedida FROM med_protests mp WHERE mp.protest_id = protests.id AND mp.statusSist='MEDA' ORDER BY mp.dtCriacaoMedida DESC LIMIT 1) {$direction}");
+        } elseif ($sort === 'tx_cod_medida') {
+            $query->orderByRaw("(SELECT mp.txtCodMedida FROM med_protests mp WHERE mp.protest_id = protests.id AND mp.statusSist='MEDA' ORDER BY mp.dtCriacaoMedida DESC LIMIT 1) {$direction}");
+        } elseif ($sort === 'causa_raiz') {
+            $query->orderBy('descCausa', $direction);
+        } elseif ($sort === 'origem') {
+            $query->orderBy('descricao', $direction);
+        } elseif ($sort === 'tipo_nota') {
+            $query->orderBy('tipoNota', $direction);
+        } elseif ($sort === 'tipo_reclamacao') {
+            $query->orderBy('txtGrpCodificacao', $direction);
+        } elseif ($sort === 'municipio') {
+            $query->orderBy('cidade', $direction);
+        } elseif ($sort === 'abertura_nota') {
+            $query->orderBy('dtAberturaNota', $direction);
+        } elseif ($sort === 'abertura_medida') {
+            $query->orderByRaw("(SELECT mp.dtCriacaoMedida FROM med_protests mp WHERE mp.protest_id = protests.id AND mp.statusSist='MEDA' ORDER BY mp.dtCriacaoMedida DESC LIMIT 1) {$direction}");
+        } elseif ($sort === 'codf') {
+            $query->orderBy('codecodf', $direction);
+        } elseif (in_array($sort, $allowedRaw, true)) {
+            $query->orderByRaw("ISNULL({$sort}), {$sort} {$direction}");
+        } elseif (in_array($sort, $allowedColumns, true)) {
+            $query->orderBy($sort, $direction);
+        } else {
+            $query->orderByRaw('ISNULL(vencimento), vencimento ASC');
+        }
+
+        $query->orderBy('id', 'ASC');
+
+        return $query->paginate($this->perPage);
+    }
+
+    public function getHistogramDataProperty(): array
+    {
+        $protestIds = $this->openListsQuery(ignoreStatusCard: false, ignoreHistogram: true)
+            ->pluck('protests.id');
+
+        $measures = MedProtest::query()
+            ->with(['Protest:id,tipoNota,dtConclusaoDesej', 'ProtestJobs'])
+            ->whereIn('protest_id', $protestIds)
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                $jobQuery->where(function ($statusQuery) {
+                    $statusQuery->whereNull('status')
+                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                });
+            })
+            ->when($this->showOnlyBtzero, function ($q) {
+                $q->identifiedAsBtzero();
+            }, function ($q) {
+                if ($this->hideBtzero) {
+                    $q->notIdentifiedAsBtzero();
+                }
+            })
+            ->get();
+
+        $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        $totals = [];
+        $overdueByMonth = [];
+        $dueSoonByMonth = [];
+        $withinByMonth = [];
+        $yearsMap = [];
+        $now = now();
+
+        foreach ($measures as $med) {
+            $protest = $med->Protest;
+            $bucketDate = null;
+            if ($this->histogramSource === 'sla') {
+                $job = $med?->ProtestJobs
+                    ?->where('confirmed', '!=', true)
+                    ->first(fn ($j) => is_null($j->finished_at) && !is_null($j->sla_due_at));
+                $bucketDate = $job?->sla_due_at;
+            } else {
+                $bucketDate = $protest->tipoNota === 'NA'
+                    ? $protest->dtConclusaoDesej
+                    : $med?->dtFimMedidaDesej;
+            }
+
+            if (!$bucketDate) {
+                continue;
+            }
+
+            $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
+            $year = (int) $normalized->format('Y');
+            $month = (int) $normalized->format('n');
+            $yearsMap[$year] = true;
+            $totals[$year][$month] = ($totals[$year][$month] ?? 0) + 1;
+
+            $diff = $now->diffInDays($normalized, false);
+            if ($diff < 0) {
+                $overdueByMonth[$year][$month] = ($overdueByMonth[$year][$month] ?? 0) + 1;
+            } elseif ($diff <= 3) {
+                $dueSoonByMonth[$year][$month] = ($dueSoonByMonth[$year][$month] ?? 0) + 1;
+            } else {
+                $withinByMonth[$year][$month] = ($withinByMonth[$year][$month] ?? 0) + 1;
+            }
+        }
+
+        $years = array_keys($yearsMap);
+        rsort($years);
+        $selectedYear = (int) ($this->histogramYear ?: now()->year);
+        if (!empty($years) && !in_array($selectedYear, $years, true)) {
+            $selectedYear = (int) $years[0];
+            $this->histogramYear = $selectedYear;
+        }
+
+        $counts = [];
+        $overdueCounts = [];
+        $dueSoonCounts = [];
+        $withinCounts = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $counts[] = (int) ($totals[$selectedYear][$m] ?? 0);
+            $overdueCounts[] = (int) ($overdueByMonth[$selectedYear][$m] ?? 0);
+            $dueSoonCounts[] = (int) ($dueSoonByMonth[$selectedYear][$m] ?? 0);
+            $withinCounts[] = (int) ($withinByMonth[$selectedYear][$m] ?? 0);
+        }
+
+        return [
+            'labels' => $monthNames,
+            'counts' => $counts,
+            'series' => [
+                'overdue' => $overdueCounts,
+                'dueSoon' => $dueSoonCounts,
+                'within' => $withinCounts,
+            ],
+            'years' => $years,
+            'selectedYear' => $selectedYear,
+            'selectedMonth' => $this->histogramMonth,
+            'source' => $this->histogramSource,
+        ];
     }
 
     public function render()
     {
         return view('livewire.protests.dispatch.lists', [
-            'lists' => $this->lists->paginate($this->perPage),
-            // Aqui passamos as Computed Properties. O Livewire entende o snake_case.
+            'lists' => $this->lists,
             'protest_Types' =>  $this->ProtestTypes,
             'tipoNotas' => $this->TypeNotes,
             'dueTodayCount' => $this->dueTodayCount,
             'overdueCount' => $this->overdueCount,
+            'histogramData' => $this->histogramData,
+            'cityOptions' => $this->cityOptions,
+            'codfOptions' => $this->codfOptions,
         ]);
     }
 
