@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command('ads:generate-tacit')->dailyAt('00:00');
+        $schedule->command('sqllog:sync-protest-jobs')->hourly();
     }
 
     /**

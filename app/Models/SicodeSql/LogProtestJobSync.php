@@ -9,11 +9,12 @@ class LogProtestJobSync extends Model
 {
     use HasFactory;
 
-    // conexão com 'sicode' no Servidoe SQL;
+    // conexão com 'sicode' no Servidor SQL
     protected $connection = 'sqlsrv2';
 
-    // protected $table = 'dbo.tbl_iw28_anexo';
-    protected $table = 'protest_jobs_sync ';
+    protected $table = 'protest_jobs_sync';
+
+    public $timestamps = false;
 
    protected $fillable = [
         'protest_job_id',
