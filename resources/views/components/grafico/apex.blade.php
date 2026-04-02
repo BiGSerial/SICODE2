@@ -30,11 +30,25 @@
 
 @push('script')
     <script>
-        let chartInstance_{{ $finalId }};
+        (function() {
+        const chartId = @json($finalId);
+        const eventName = 'grafico-atualizar-' + chartId;
+        const initialPayload = {
+            data: @json($data),
+            options: @json($options),
+            type: @json($type)
+        };
 
-        function reviveChartFunctions_{{ $finalId }}(node) {
+        window.__chartJsRegistry = window.__chartJsRegistry || {};
+        const registry = window.__chartJsRegistry;
+
+        registry.instances = registry.instances || {};
+        registry.payloads = registry.payloads || {};
+        registry.listeners = registry.listeners || {};
+
+        function reviveChartFunctions(node) {
             if (Array.isArray(node)) {
-                node.forEach(reviveChartFunctions_{{ $finalId }});
+                node.forEach(reviveChartFunctions);
                 return;
             }
 
@@ -73,121 +87,170 @@
                     return;
                 }
 
-                reviveChartFunctions_{{ $finalId }}(value);
+                reviveChartFunctions(value);
             });
         }
 
-        function renderChart_{{ $finalId }}(data, options, type) {
-            const ctx = document.getElementById('{{ $finalId }}').getContext('2d');
-            if (chartInstance_{{ $finalId }}) {
-                chartInstance_{{ $finalId }}.destroy();
+        function renderChart(payload) {
+            if (!window.Chart) {
+                return false;
             }
 
-            const safeData = JSON.parse(JSON.stringify(data ?? {}));
-            const safeOptions = JSON.parse(JSON.stringify(options ?? {}));
-            reviveChartFunctions_{{ $finalId }}(safeData);
-            reviveChartFunctions_{{ $finalId }}(safeOptions);
-
-            if (window.ChartDataLabels && window.Chart && !window.__chartDataLabelsRegistered) {
-                window.Chart.register(window.ChartDataLabels);
-                window.__chartDataLabelsRegistered = true;
+            const canvas = document.getElementById(chartId);
+            if (!canvas) {
+                return false;
             }
-            chartInstance_{{ $finalId }} = new Chart(ctx, {
-                type: type,
-                data: safeData,
-                options: safeOptions
-            });
 
-            window['chartInstance_{{ $finalId }}'] = chartInstance_{{ $finalId }};
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return false;
+            }
 
-            const clickFilter = safeOptions?.onClickFilter ?? null;
-            if (clickFilter?.enabled && clickFilter?.method) {
-                ctx.canvas.onclick = function(evt) {
-                    const chart = window['chartInstance_{{ $finalId }}'];
-                    if (!chart) return;
+            try {
+                if (registry.instances[chartId]) {
+                    registry.instances[chartId].destroy();
+                }
 
-                    const mode = clickFilter?.mode ?? 'nearest';
-                    const intersect = clickFilter?.intersect ?? true;
-                    const axis = clickFilter?.axis ?? undefined;
-                    const queryOptions = axis ? {
-                        intersect,
-                        axis
-                    } : {
-                        intersect
-                    };
+                const safeData = JSON.parse(JSON.stringify(payload?.data ?? {}));
+                const safeOptions = JSON.parse(JSON.stringify(payload?.options ?? {}));
+                reviveChartFunctions(safeData);
+                reviveChartFunctions(safeOptions);
 
-                    const elements = chart.getElementsAtEventForMode(evt, mode, queryOptions, true);
+                if (window.ChartDataLabels && window.Chart && !window.__chartDataLabelsRegistered) {
+                    window.Chart.register(window.ChartDataLabels);
+                    window.__chartDataLabelsRegistered = true;
+                }
+                registry.instances[chartId] = new Chart(ctx, {
+                    type: payload?.type ?? 'bar',
+                    data: safeData,
+                    options: safeOptions
+                });
 
-                    let index = elements?.length ? elements[0].index : null;
+                window['chartInstance_' + chartId] = registry.instances[chartId];
 
-                    // Fallback: permite clique no texto do eixo X (rótulo do mês).
-                    if (index === null && clickFilter?.allowLabelFallback) {
-                        const xScale = chart.scales?.x;
-                        const labelsCount = chart.data?.labels?.length ?? 0;
-                        const rect = ctx.canvas.getBoundingClientRect();
-                        const canvasX = evt?.offsetX ?? (evt?.clientX != null ? evt.clientX - rect.left : null);
-                        const canvasY = evt?.offsetY ?? (evt?.clientY != null ? evt.clientY - rect.top : null);
-                        const scaleX = rect.width > 0 ? (ctx.canvas.width / rect.width) : 1;
-                        const scaleY = rect.height > 0 ? (ctx.canvas.height / rect.height) : 1;
-                        const x = canvasX != null ? canvasX * scaleX : null;
-                        const y = canvasY != null ? canvasY * scaleY : null;
+                const clickFilter = safeOptions?.onClickFilter ?? null;
+                if (clickFilter?.enabled && clickFilter?.method) {
+                    ctx.canvas.onclick = function(evt) {
+                        const chart = registry.instances[chartId];
+                        if (!chart) return;
 
-                        if (xScale && labelsCount > 0 && x !== null && y !== null) {
-                            const left = Math.min(xScale.left, xScale.right);
-                            const right = Math.max(xScale.left, xScale.right);
-                            const chartBottom = chart.chartArea?.bottom ?? xScale.top;
-                            const scaleBottom = xScale.bottom ?? chartBottom;
-                            const labelTop = Math.min(chartBottom, scaleBottom) - 6;
-                            const labelBottom = Math.max(scaleBottom, chartBottom) + 22;
+                        const mode = clickFilter?.mode ?? 'nearest';
+                        const intersect = clickFilter?.intersect ?? true;
+                        const axis = clickFilter?.axis ?? undefined;
+                        const queryOptions = axis ? {
+                            intersect,
+                            axis
+                        } : {
+                            intersect
+                        };
 
-                            const inHorizontalRange = x >= (left - 12) && x <= (right + 12);
-                            const inLabelBand = y >= labelTop && y <= labelBottom;
+                        const elements = chart.getElementsAtEventForMode(evt, mode, queryOptions, true);
 
-                            if (inHorizontalRange && inLabelBand) {
-                                let nearestIndex = 0;
-                                let nearestDistance = Number.POSITIVE_INFINITY;
+                        let index = elements?.length ? elements[0].index : null;
 
-                                for (let i = 0; i < labelsCount; i++) {
-                                    const px = xScale.getPixelForTick(i);
-                                    const dist = Math.abs(px - x);
-                                    if (dist < nearestDistance) {
-                                        nearestDistance = dist;
-                                        nearestIndex = i;
+                        // Fallback: permite clique no texto do eixo X (rótulo do mês).
+                        if (index === null && clickFilter?.allowLabelFallback) {
+                            const xScale = chart.scales?.x;
+                            const labelsCount = chart.data?.labels?.length ?? 0;
+                            const rect = ctx.canvas.getBoundingClientRect();
+                            const canvasX = evt?.offsetX ?? (evt?.clientX != null ? evt.clientX - rect.left : null);
+                            const canvasY = evt?.offsetY ?? (evt?.clientY != null ? evt.clientY - rect.top : null);
+                            const scaleX = rect.width > 0 ? (ctx.canvas.width / rect.width) : 1;
+                            const scaleY = rect.height > 0 ? (ctx.canvas.height / rect.height) : 1;
+                            const x = canvasX != null ? canvasX * scaleX : null;
+                            const y = canvasY != null ? canvasY * scaleY : null;
+
+                            if (xScale && labelsCount > 0 && x !== null && y !== null) {
+                                const left = Math.min(xScale.left, xScale.right);
+                                const right = Math.max(xScale.left, xScale.right);
+                                const chartBottom = chart.chartArea?.bottom ?? xScale.top;
+                                const scaleBottom = xScale.bottom ?? chartBottom;
+                                const labelTop = Math.min(chartBottom, scaleBottom) - 6;
+                                const labelBottom = Math.max(scaleBottom, chartBottom) + 22;
+
+                                const inHorizontalRange = x >= (left - 12) && x <= (right + 12);
+                                const inLabelBand = y >= labelTop && y <= labelBottom;
+
+                                if (inHorizontalRange && inLabelBand) {
+                                    let nearestIndex = 0;
+                                    let nearestDistance = Number.POSITIVE_INFINITY;
+
+                                    for (let i = 0; i < labelsCount; i++) {
+                                        const px = xScale.getPixelForTick(i);
+                                        const dist = Math.abs(px - x);
+                                        if (dist < nearestDistance) {
+                                            nearestDistance = dist;
+                                            nearestIndex = i;
+                                        }
                                     }
-                                }
 
-                                index = nearestIndex;
+                                    index = nearestIndex;
+                                }
                             }
                         }
-                    }
 
-                    if (index === null) return;
+                        if (index === null) return;
 
-                    const keys = clickFilter?.keys ?? [];
-                    const value = keys[index] ?? chart.data?.labels?.[index] ?? null;
-                    if (!value) return;
+                        const keys = clickFilter?.keys ?? [];
+                        const value = keys[index] ?? chart.data?.labels?.[index] ?? null;
+                        if (!value) return;
 
-                    const root = ctx.canvas.closest('[wire\\:id]');
-                    if (!root) return;
-                    const componentId = root.getAttribute('wire:id');
-                    if (!componentId) return;
+                        const root = ctx.canvas.closest('[wire\\:id]');
+                        if (!root) return;
+                        const componentId = root.getAttribute('wire:id');
+                        if (!componentId) return;
 
-                    Livewire.find(componentId).call(clickFilter.method, value);
-                };
-            } else {
-                ctx.canvas.onclick = null;
+                        Livewire.find(componentId).call(clickFilter.method, value);
+                    };
+                } else {
+                    ctx.canvas.onclick = null;
+                }
+            } catch (error) {
+                return false;
             }
+
+            return true;
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            renderChart_{{ $finalId }}(@json($data), @json($options),
-                @json($type));
-        });
+        function scheduleRender(payload, attempt = 0) {
+            registry.payloads[chartId] = payload;
+            const rendered = renderChart(payload);
+            if (rendered || attempt >= 8) {
+                return;
+            }
 
-        // OUVIR O EVENTO PARA ATUALIZAR O GRÁFICO
-        window.addEventListener('grafico-atualizar-{{ $finalId }}', function(e) {
-            // Exemplo: o backend deve disparar esse evento passando data/options/type atualizados
-            renderChart_{{ $finalId }}(e.detail.data, e.detail.options, e.detail.type);
-        });
+            setTimeout(function() {
+                scheduleRender(payload, attempt + 1);
+            }, 80);
+        }
+
+        function redrawFromCache() {
+            const payload = registry.payloads[chartId] || initialPayload;
+            scheduleRender(payload);
+        }
+
+        if (!registry.listeners[chartId]) {
+            window.addEventListener(eventName, function(e) {
+                const detail = e?.detail ?? {};
+                const payload = {
+                    data: detail?.data ?? {},
+                    options: detail?.options ?? {},
+                    type: detail?.type ?? 'bar'
+                };
+                scheduleRender(payload);
+            });
+            registry.listeners[chartId] = true;
+        }
+
+        registry.payloads[chartId] = registry.payloads[chartId] || initialPayload;
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                redrawFromCache();
+            });
+        } else {
+            redrawFromCache();
+        }
+        })();
     </script>
 @endpush

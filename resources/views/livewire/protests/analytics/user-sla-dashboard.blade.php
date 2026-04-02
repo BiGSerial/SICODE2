@@ -313,7 +313,7 @@
                         wire:loading.attr="disabled" wire:target="exportJobs">
                         <span wire:loading.remove wire:target="exportJobs">
                             <i class="ri-file-excel-2-line me-1"></i>
-                            Exportar ProtestJobs
+                            Exportar Atividades de Reclamação
                         </span>
                         <span wire:loading wire:target="exportJobs">
                             <i class="ri-loader-4-line me-1"></i>
@@ -342,9 +342,9 @@
                         <option value="sla">Data SLA (se existir)</option>
                     </select>
                     <select wire:model="medaDispatchFilter" class="form-select form-select-sm" style="min-width: 170px;">
-                        <option value="all">Despachado + sem despacho</option>
+                        <option value="all">Despachado + Não Despachado</option>
                         <option value="with_job">Despachado</option>
-                        <option value="without_job">Sem despacho</option>
+                        <option value="without_job">Não Despachado</option>
                     </select>
                     <select wire:model="medaHistogramBtzeroFilter" class="form-select form-select-sm" style="min-width: 170px;">
                         <option value="all">BT Zero: Todos</option>
@@ -376,19 +376,19 @@
                 <div class="col-md-3 col-12">
                     <div class="metric-label">Despachado</div>
                     <div class="metric-value">{{ $medaOpenHistogram['total_with_job'] ?? 0 }}</div>
-                    <div class="metric-subtitle">Com ProtestJob</div>
+                    <div class="metric-subtitle">Com Atividade de Reclamação</div>
                 </div>
                 <div class="col-md-3 col-12">
-                    <div class="metric-label">Sem despacho</div>
+                    <div class="metric-label">Não Despachado</div>
                     <div class="metric-value">{{ $medaOpenHistogram['total_without_job'] ?? 0 }}</div>
-                    <div class="metric-subtitle">Sem ProtestJob</div>
+                    <div class="metric-subtitle">Sem Atividade de Reclamação</div>
                 </div>
                 <div class="col-md-3 col-12">
                     <div class="metric-label">BT Zero</div>
                     <div class="metric-value">{{ $medaOpenHistogram['total_btzero'] ?? 0 }}</div>
                     <div class="metric-subtitle">
-                        {{ $medaOpenHistogram['total_btzero_with_job'] ?? 0 }} com job /
-                        {{ $medaOpenHistogram['total_btzero_without_job'] ?? 0 }} sem job
+                        {{ $medaOpenHistogram['total_btzero_with_job'] ?? 0 }} com atividade /
+                        {{ $medaOpenHistogram['total_btzero_without_job'] ?? 0 }} não despachado
                     </div>
                 </div>
             </div>
@@ -441,7 +441,7 @@
                     <span class="badge bg-light text-dark">Total: {{ $medaOpenDispatchList['total'] ?? 0 }}</span>
                     <span class="badge bg-success">Despachado em aberto:
                         {{ $medaOpenDispatchList['total_dispatched_open'] ?? 0 }}</span>
-                    <span class="badge bg-secondary">Sem despacho:
+                    <span class="badge bg-secondary">Não Despachado:
                         {{ $medaOpenDispatchList['total_without_dispatch'] ?? 0 }}</span>
                 </div>
             </div>
@@ -496,7 +496,7 @@
                                     @if ($row['has_dispatch'])
                                         {{ $row['despachado_em'] }}
                                     @else
-                                        <span class="badge bg-secondary">Sem despacho</span>
+                                        <span class="badge bg-secondary">Não Despachado</span>
                                     @endif
                                 </td>
                                 <td>
@@ -645,6 +645,12 @@
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
+                    <select wire:model="complaintsBtzeroFilter" class="form-select form-select-sm"
+                        style="min-width: 180px;">
+                        <option value="without_btzero">BT Zero: Sem BT Zero</option>
+                        <option value="all">BT Zero: Todos</option>
+                        <option value="only_btzero">BT Zero: Apenas BT Zero</option>
+                    </select>
                     <span class="badge bg-light text-dark">Período: {{ $complaintsNaPanel['window_label'] ?? '-' }}</span>
                     <span class="badge bg-primary">Encerramentos: {{ $complaintsNaPanel['total'] ?? 0 }}</span>
                 </div>
@@ -652,25 +658,25 @@
 
             <div class="row g-3">
                 <div class="col-12">
-                    <div style="height: 270px;">
+                    <div style="height: 270px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsNaPanel['charts']['sla_stack']" chartId="complaintsNaSlaStack"
                             class="w-100" />
                     </div>
                 </div>
                 <div class="col-12">
-                    <div style="height: 230px;">
+                    <div style="height: 230px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsNaPanel['charts']['sla_line']" chartId="complaintsNaSlaLine"
                             class="w-100" />
                     </div>
                 </div>
                 <div class="col-12">
-                    <div style="height: 250px;">
+                    <div style="height: 250px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsNaPanel['charts']['procedency_stack']"
                             chartId="complaintsNaProcedencyStack" class="w-100" />
                     </div>
                 </div>
                 <div class="col-12">
-                    <div style="height: 230px;">
+                    <div style="height: 230px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsNaPanel['charts']['procedency_line']"
                             chartId="complaintsNaProcedencyLine" class="w-100" />
                     </div>
@@ -693,6 +699,12 @@
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
+                    <select wire:model="complaintsBtzeroFilter" class="form-select form-select-sm"
+                        style="min-width: 180px;">
+                        <option value="without_btzero">BT Zero: Sem BT Zero</option>
+                        <option value="all">BT Zero: Todos</option>
+                        <option value="only_btzero">BT Zero: Apenas BT Zero</option>
+                    </select>
                     <span class="badge bg-light text-dark">Período: {{ $complaintsOuPanel['window_label'] ?? '-' }}</span>
                     <span class="badge bg-primary">Encerramentos: {{ $complaintsOuPanel['total'] ?? 0 }}</span>
                 </div>
@@ -700,25 +712,25 @@
 
             <div class="row g-3">
                 <div class="col-12">
-                    <div style="height: 270px;">
+                    <div style="height: 270px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsOuPanel['charts']['sla_stack']" chartId="complaintsOuSlaStack"
                             class="w-100" />
                     </div>
                 </div>
                 <div class="col-12">
-                    <div style="height: 230px;">
+                    <div style="height: 230px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsOuPanel['charts']['sla_line']" chartId="complaintsOuSlaLine"
                             class="w-100" />
                     </div>
                 </div>
                 <div class="col-12">
-                    <div style="height: 250px;">
+                    <div style="height: 250px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsOuPanel['charts']['procedency_stack']"
                             chartId="complaintsOuProcedencyStack" class="w-100" />
                     </div>
                 </div>
                 <div class="col-12">
-                    <div style="height: 230px;">
+                    <div style="height: 230px;" wire:ignore>
                         <x-grafico.apex :chart="$complaintsOuPanel['charts']['procedency_line']"
                             chartId="complaintsOuProcedencyLine" class="w-100" />
                     </div>
@@ -773,7 +785,7 @@
                 <div class="col-md-3 col-6">
                     <div class="metric-label">Reacao despachante</div>
                     <div class="metric-value">{{ $summary['avg_reaction_human'] }}</div>
-                    <div class="metric-subtitle">Criacao da MEDA ate envio do job</div>
+                    <div class="metric-subtitle">Criacao da MEDA ate envio da Atividade de Reclamação</div>
                 </div>
                 <div class="col-md-3 col-6">
                     <div class="metric-label">Reacao responsavel</div>
@@ -875,6 +887,57 @@
         </div>
     </div>
 
+    <div class="modern-card mb-4">
+        <div class="modern-card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                <div>
+                    <div class="modern-card-title mb-1">
+                        <i class="ri-donut-chart-line me-1"></i> Reclamações por classificacao
+                    </div>
+                    <div class="small text-muted">
+                        Distribuicao de <code>protests.type</code> para os protestos despachados no período filtrado.
+                    </div>
+                </div>
+                <span class="badge bg-light text-dark">Total de reclamações: {{ $protestTypeDonut['total'] ?? 0 }}</span>
+            </div>
+
+            @if (($protestTypeDonut['total'] ?? 0) > 0)
+                <div class="row g-3 align-items-center">
+                    <div class="col-lg-7">
+                        <div style="width: 100%; aspect-ratio: 1 / 1;" wire:ignore>
+                            <x-grafico.apex :chart="$protestTypeDonut['chart']" chartId="protestTypeDonut"
+                                class="w-100" />
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover table-compact mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Classificacao</th>
+                                        <th class="text-end">Qtd.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (($protestTypeDonut['rows'] ?? []) as $row)
+                                        <tr>
+                                            <td>{{ $row['label'] }}</td>
+                                            <td class="text-end">{{ $row['total'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <div class="text-center text-muted py-4">
+                    Sem dados de <code>protests.type</code> para os filtros atuais.
+                </div>
+            @endif
+        </div>
+    </div>
+
     <div class="chart-card mb-4">
         <div class="chart-card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="ri-exchange-line me-2"></i> Despachos x conclusões por dia</h5>
@@ -936,7 +999,7 @@
                 <div class="col-md-3 col-6">
                     <div class="metric-label">Despachadas</div>
                     <div class="metric-value">{{ $dispatcherMeasuresPanel['dispatched_total'] }}</div>
-                    <div class="metric-subtitle">Com ProtestJob registrado</div>
+                    <div class="metric-subtitle">Com Atividade de Reclamação registrada</div>
                 </div>
             </div>
 
@@ -1019,7 +1082,7 @@
                                     <th class="text-center">Medida</th>
                                     <th class="text-center">Vencimento</th>
                                     <th class="text-center">Finalizado</th>
-                                    <th class="text-center">Job</th>
+                                    <th class="text-center">Atividade</th>
                                     <th class="text-center">Status</th>
                                 </tr>
                             </thead>
@@ -1090,12 +1153,12 @@
                 <div class="col-md-4 col-6">
                     <div class="metric-label">Despachadas</div>
                     <div class="metric-value">{{ $backlogPanel['period_with_job'] }}</div>
-                    <div class="metric-subtitle">MEDA com ProtestJob</div>
+                    <div class="metric-subtitle">MEDA com Atividade de Reclamação</div>
                 </div>
                 <div class="col-md-4 col-6">
                     <div class="metric-label">Não despachadas</div>
                     <div class="metric-value">{{ $backlogPanel['period_without_job'] }}</div>
-                    <div class="metric-subtitle">FECHADAS SAP ou sem Job</div>
+                    <div class="metric-subtitle">FECHADAS SAP ou sem Atividade de Reclamação</div>
                 </div>
             </div>
 
@@ -1108,9 +1171,9 @@
                     <div class="metric-subtitle">Total status MEDA</div>
                 </div>
                 <div class="col-md-4 col-6">
-                    <div class="metric-label">Sem job</div>
+                    <div class="metric-label">Não Despachado</div>
                     <div class="metric-value">{{ $backlogPanel['current_open_without_job'] }}</div>
-                    <div class="metric-subtitle">Em aberto e sem ProtestJob</div>
+                    <div class="metric-subtitle">Em aberto e sem Atividade de Reclamação</div>
                 </div>
                 <div class="col-md-4 col-6">
                     <div class="metric-label">Passivo</div>
@@ -1121,7 +1184,7 @@
 
             <div class="row text-center gy-3 mt-2">
                 <div class="col-md-4 col-6">
-                    <div class="metric-label">Sem job há 5+ dias</div>
+                    <div class="metric-label">Não Despachado há 5+ dias</div>
                     <div class="metric-value">{{ $backlogPanel['older_than_5'] }}</div>
                     <div class="metric-subtitle">MEDA em atraso sem despacho</div>
                 </div>
@@ -1168,7 +1231,7 @@
             </div>
             <p class="small text-muted mt-2 mb-0">
                 Legenda: "Não despachadas" inclui MEDA resolvidas diretamente no SAP (MEDE)
-                ou sem ProtestJob registrado.
+                ou sem Atividade de Reclamação registrada.
             </p>
         </div>
     </div>
@@ -1228,7 +1291,7 @@
                     </div>
                 </div>
                 <div class="col-md-4 col-12">
-                    <div class="metric-label">SLA solicitado (jobs)</div>
+                    <div class="metric-label">SLA solicitado (Atividades de Reclamação)</div>
                     <div class="metric-value">
                         {{ $slaPanel['job_sla']['on_time'] }} / {{ $slaPanel['job_sla']['total'] }}
                     </div>
@@ -1285,7 +1348,7 @@
                                 <tr>
                                     <td>
                                         <strong>{{ $job['protest_number'] }}</strong>
-                                        <div class="small text-muted">Job #{{ $job['job_id'] }}</div>
+                                        <div class="small text-muted">Atividade #{{ $job['job_id'] }}</div>
                                     </td>
                                     <td class="text-center">{{ $job['med_id'] }}</td>
                                     <td class="text-center">{{ $job['med_sla_due_at'] }}</td>
@@ -1300,7 +1363,7 @@
                             @empty
                                 <tr>
                                     <td colspan="6" class="text-center text-muted py-3">
-                                        Nenhum job com SLA encontrado no período/filtro.
+                                        Nenhuma Atividade de Reclamação com SLA encontrada no período/filtro.
                                     </td>
                                 </tr>
                             @endforelse
