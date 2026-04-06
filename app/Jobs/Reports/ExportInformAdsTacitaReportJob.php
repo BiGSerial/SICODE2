@@ -33,6 +33,7 @@ class ExportInformAdsTacitaReportJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = array_merge([
             'mode' => 'note',
             'date_in' => null,

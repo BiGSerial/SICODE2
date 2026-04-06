@@ -34,6 +34,7 @@ class ExportAdsRequestsHistoryJob implements ShouldQueue
 
     public function __construct(array $filters, string $userId, string $scope = 'partner')
     {
+        $this->onQueue('exports');
         $this->filters = $filters;
         $this->userId = $userId;
         $this->scope = $scope;
