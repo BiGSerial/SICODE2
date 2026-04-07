@@ -35,6 +35,7 @@ class UserSlaDashboard extends Component
     public string $openDispatchBtzeroFilter = 'all'; // all | without_btzero | only_btzero
     public string $generalMeasuresOpenFilter = 'all'; // all | open | not_open
     public string $generalMeasuresBtzeroFilter = 'all'; // all | with_btzero | without_btzero
+    public string $complaintsBtzeroFilter = 'without_btzero'; // all | without_btzero | only_btzero
     public ?string $medaHistogramBucket = null; // YYYY-MM
     public string $medaHistogramSource = 'desired'; // desired | sla
     public ?int $medaHistogramYear = null;
@@ -59,6 +60,7 @@ class UserSlaDashboard extends Component
         'openDispatchBtzeroFilter' => ['except' => 'all', 'as' => 'odbf'],
         'generalMeasuresOpenFilter' => ['except' => 'all', 'as' => 'gmof'],
         'generalMeasuresBtzeroFilter' => ['except' => 'all', 'as' => 'gmbf'],
+        'complaintsBtzeroFilter' => ['except' => 'without_btzero', 'as' => 'cbf'],
         'medaHistogramBucket' => ['except' => null, 'as' => 'mhb'],
         'medaHistogramSource' => ['except' => 'desired', 'as' => 'mhsrc'],
         'medaHistogramYear' => ['except' => null, 'as' => 'mhyear'],
@@ -67,10 +69,13 @@ class UserSlaDashboard extends Component
 
     public function mount()
     {
-        $this->dt_in  = now()->startOfMonth()->toDateString();
-        $this->dt_out = now()->toDateString();
+        if (blank($this->dt_in)) {
+            $this->dt_in = now()->startOfMonth()->toDateString();
+        }
 
-        $this->advanceFilter = 'all';
+        if (blank($this->dt_out)) {
+            $this->dt_out = now()->toDateString();
+        }
 
         // Usuários que aparecem em created_by ou owner_id em qualquer Job
         $this->usersOptions = User::whereIn('id', function ($q) {
@@ -89,7 +94,10 @@ class UserSlaDashboard extends Component
             ];
         })->values()->all();
 
-        $this->protestTypes = [];
+        $this->protestTypes = collect((array) $this->protestTypes)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->values()
+            ->all();
         $this->medaHistogramYear = $this->medaHistogramYear ?: (int) now()->year;
         $this->complaintNoteTypes = collect((array) $this->complaintNoteTypes)->filter()->values()->all();
         $this->complaintClassifications = collect((array) $this->complaintClassifications)->filter()->values()->all();
@@ -113,6 +121,7 @@ class UserSlaDashboard extends Component
             'openDispatchBtzeroFilter',
             'generalMeasuresOpenFilter',
             'generalMeasuresBtzeroFilter',
+            'complaintsBtzeroFilter',
             'medaHistogramBucket',
             'medaHistogramSource',
             'medaHistogramYear',
@@ -221,6 +230,13 @@ class UserSlaDashboard extends Component
             $this->generalMeasuresBtzeroFilter = 'all';
         }
         $this->resetPage('general_protests_page');
+    }
+
+    public function updatedComplaintsBtzeroFilter($value): void
+    {
+        if (!in_array($value, ['all', 'without_btzero', 'only_btzero'], true)) {
+            $this->complaintsBtzeroFilter = 'without_btzero';
+        }
     }
 
     /**
@@ -358,6 +374,47 @@ class UserSlaDashboard extends Component
         return $query->whereHas('protest', function ($protestQuery) {
             $this->applyComplaintFiltersToProtestBuilder($protestQuery);
         });
+    }
+
+    protected function applyComplaintsCipUniverseFilter($query)
+    {
+        $query->where(function ($scope) {
+            // Universo principal: CIP por texto e por enum na medida
+            $scope->where(function ($cip) {
+                $cip->where('type', 'like', 'CIP%')
+                    ->whereHas('medProtests', function ($sub) {
+                        $sub->where('protest_type', ProtestType::CIP->value);
+                    });
+            })
+            // Inclusão explícita: sem informação em ambos (protest.type e med_protests.protest_type)
+            ->orWhere(function ($unknown) {
+                $unknown
+                    ->where(function ($type) {
+                        $type->whereNull('type')
+                            ->orWhereRaw('TRIM(type) = ""');
+                    })
+                    ->whereDoesntHave('medProtests', function ($sub) {
+                        $sub->whereNotNull('protest_type');
+                    });
+            });
+        });
+
+        // Expurgo fixo de Construção
+        $query->whereDoesntHave('medProtests', function ($sub) {
+            $sub->where('protest_type', ProtestType::CONSTRUCTION->value);
+        });
+
+        if ($this->complaintsBtzeroFilter === 'without_btzero') {
+            $query->whereDoesntHave('medProtests', function ($sub) {
+                $sub->where('protest_type', ProtestType::BTZERO->value);
+            });
+        } elseif ($this->complaintsBtzeroFilter === 'only_btzero') {
+            $query->whereHas('medProtests', function ($sub) {
+                $sub->where('protest_type', ProtestType::BTZERO->value);
+            });
+        }
+
+        return $query;
     }
 
     protected function resolveProtestTypeLabel($value): string
@@ -832,7 +889,7 @@ class UserSlaDashboard extends Component
                     'legend' => ['position' => 'top'],
                     'title'  => [
                         'display' => true,
-                        'text'    => 'Cumprimento de SLA (jobs x medidas)',
+                        'text'    => 'Cumprimento de SLA (Atividades de Reclamação x medidas)',
                     ],
                 ],
                 'scales' => [
@@ -1380,7 +1437,7 @@ class UserSlaDashboard extends Component
     }
 
     /**
-     * Gráfico para MEDA: med_protests com e sem job relacionado.
+     * Gráfico para MEDA: med_protests com e sem Atividade de Reclamação relacionada.
      */
     protected function buildMedaJobsChart(Carbon $start, Carbon $end): array
     {
@@ -1436,7 +1493,7 @@ class UserSlaDashboard extends Component
                 'datasets' => [
                     [
                         'type'            => 'bar',
-                        'label'           => 'MEDA criadas com Job',
+                        'label'           => 'MEDA criadas com Atividade de Reclamação',
                         'data'            => $seriesWithJob,
                         'backgroundColor' => 'rgba(16,185,129,0.4)',
                         'borderColor'     => '#10b981',
@@ -1445,7 +1502,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'        => 'line',
-                        'label'       => 'Media MEDA com Job',
+                        'label'       => 'Média MEDA com Atividade de Reclamação',
                         'data'        => $avgWithJobSeries,
                         'borderColor' => '#0f766e',
                         'borderWidth' => 2,
@@ -1455,7 +1512,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'            => 'bar',
-                        'label'           => 'MEDA criadas sem Job',
+                        'label'           => 'MEDA criadas sem Atividade de Reclamação',
                         'data'            => $seriesNoJob,
                         'backgroundColor' => 'rgba(239,68,68,0.35)',
                         'borderColor'     => '#ef4444',
@@ -1464,7 +1521,7 @@ class UserSlaDashboard extends Component
                     ],
                     [
                         'type'        => 'line',
-                        'label'       => 'Media MEDA sem Job',
+                        'label'       => 'Média MEDA sem Atividade de Reclamação',
                         'data'        => $avgWithoutJobSeries,
                         'borderColor' => '#be123c',
                         'borderWidth' => 2,
@@ -1481,7 +1538,7 @@ class UserSlaDashboard extends Component
                     'legend' => ['position' => 'top'],
                     'title'  => [
                         'display' => true,
-                        'text'    => 'MEDA criadas (com x sem Job)',
+                        'text'    => 'MEDA criadas (com x sem Atividade de Reclamação)',
                     ],
                 ],
                 'scales' => [
@@ -1499,8 +1556,11 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildMedaOpenDesiredHistogram(): array
+    protected function buildMedaOpenDesiredHistogram(Carbon $start, Carbon $end): array
     {
+        $windowStart = $start->copy()->startOfMonth();
+        $windowEnd = $end->copy()->endOfMonth();
+
         $query = MedProtest::query()
             ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->with(['protest:id,tipoNota,dtConclusaoDesej,txtGrpCodificacao'])
@@ -1560,9 +1620,19 @@ class UserSlaDashboard extends Component
         }
 
         if ($this->medaDispatchFilter === 'with_job') {
-            $query->whereHas('ProtestJobs');
+            $query->whereHas('ProtestJobs', function ($jobQuery) {
+                $jobQuery->where(function ($statusQuery) {
+                    $statusQuery->whereNull('status')
+                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                });
+            });
         } elseif ($this->medaDispatchFilter === 'without_job') {
-            $query->whereDoesntHave('ProtestJobs');
+            $query->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                $jobQuery->where(function ($statusQuery) {
+                    $statusQuery->whereNull('status')
+                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                });
+            });
         }
 
         $measures = $query->get();
@@ -1587,7 +1657,7 @@ class UserSlaDashboard extends Component
                 ? $measure->protest?->dtConclusaoDesej
                 : $measure->dtFimMedidaDesej;
 
-            $hasJob = ((int) ($measure->all_jobs_count ?? 0)) > 0;
+            $hasJob = ((int) ($measure->valid_jobs_count ?? 0)) > 0;
             $isBtzero = $this->isBtzeroMeasure($measure);
 
             $bucketDate = null;
@@ -1603,6 +1673,9 @@ class UserSlaDashboard extends Component
             }
 
             $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
+            if ($normalized->lt($windowStart) || $normalized->gt($windowEnd)) {
+                continue;
+            }
             $year = (int) $normalized->format('Y');
             $month = (int) $normalized->format('n');
             $key = $normalized->format('Y-m');
@@ -1771,19 +1844,11 @@ class UserSlaDashboard extends Component
             });
         };
 
-        $pendingValidJobCondition = function ($jobQuery) use ($validJobCondition): void {
-            $validJobCondition($jobQuery);
-            $jobQuery->where(function ($confirmedQuery) {
-                $confirmedQuery->whereNull('confirmed')
-                    ->orWhere('confirmed', false);
-            });
-        };
-
         $query = MedProtest::query()
             ->with([
                 'protest:id,nota,tipoNota,codecodf,dtAberturaNota,dtConclusaoDesej,type,txtGrpCodificacao',
-                'ProtestJobs' => function ($jobQuery) use ($pendingValidJobCondition) {
-                    $pendingValidJobCondition($jobQuery);
+                'ProtestJobs' => function ($jobQuery) use ($validJobCondition) {
+                    $validJobCondition($jobQuery);
                     $jobQuery->with('owner:id,name')
                         ->orderByDesc('sent_at')
                         ->orderByDesc('id');
@@ -1818,9 +1883,6 @@ class UserSlaDashboard extends Component
                     $jobQuery->where(function ($statusQuery) {
                         $statusQuery->whereNull('status')
                             ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                    })->where(function ($confirmedQuery) {
-                        $confirmedQuery->whereNull('confirmed')
-                            ->orWhere('confirmed', false);
                     })->whereNull('finished_at')
                         ->whereYear('sla_due_at', $bucketYear)
                         ->whereMonth('sla_due_at', $bucketMonth);
@@ -1848,19 +1910,19 @@ class UserSlaDashboard extends Component
         }
 
         if ($this->medaDispatchFilter === 'with_job') {
-            $query->whereHas('ProtestJobs');
+            $query->whereHas('ProtestJobs', $validJobCondition);
         } elseif ($this->medaDispatchFilter === 'without_job') {
             $query->where('statusSist', 'MEDA')
-                ->whereDoesntHave('ProtestJobs');
+                ->whereDoesntHave('ProtestJobs', $validJobCondition);
         }
 
         $totalWithoutDispatch = (clone $query)
             ->where('statusSist', 'MEDA')
-            ->whereDoesntHave('ProtestJobs')
+            ->whereDoesntHave('ProtestJobs', $validJobCondition)
             ->count();
 
         $totalDispatchedOpen = (clone $query)
-            ->whereHas('ProtestJobs', $pendingValidJobCondition)
+            ->whereHas('ProtestJobs', $validJobCondition)
             ->count();
 
         $list = $query
@@ -1951,7 +2013,7 @@ class UserSlaDashboard extends Component
                 }
             }
 
-            $statusSlaLabel = $pendingJob?->status_label ?? 'Sem Job';
+            $statusSlaLabel = $pendingJob?->status_label ?? 'Não Despachado';
             $statusSlaClass = $pendingJob?->status_badge_class ?? 'badge bg-secondary';
 
             return [
@@ -2116,10 +2178,10 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildComplaintsNaPanel(Carbon $end): array
+    protected function buildComplaintsNaPanel(Carbon $start, Carbon $end): array
     {
+        $windowStart = $start->copy()->startOfMonth();
         $windowEnd = $end->copy()->endOfMonth();
-        $windowStart = $windowEnd->copy()->startOfMonth()->subMonths(5);
 
         $monthKeys = [];
         $monthLabels = [];
@@ -2144,9 +2206,11 @@ class UserSlaDashboard extends Component
             ->whereBetween('dtConclusaoDesej', [$windowStart, $windowEnd])
             ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->tap(fn ($q) => $this->applyComplaintsCipUniverseFilter($q))
             ->with([
                 'medProtests' => function ($q) {
-                    $q->select('id', 'protest_id', 'dtCriacaoMedida', 'dtFimMedida')
+                    $q->select('id', 'protest_id', 'protest_type', 'dtCriacaoMedida', 'dtFimMedida')
+                        ->where('protest_type', ProtestType::CIP->value)
                         ->orderByDesc('dtCriacaoMedida')
                         ->orderByDesc('id');
                 },
@@ -2223,6 +2287,7 @@ class UserSlaDashboard extends Component
         return [
             'window_label' => $windowStart->format('m/Y') . ' - ' . $windowEnd->format('m/Y'),
             'total' => array_sum($insideCounts) + array_sum($outsideCounts),
+            'btzero_filter' => $this->complaintsBtzeroFilter,
             'charts' => [
                 'sla_stack' => [
                     'type' => 'bar',
@@ -2465,10 +2530,10 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildComplaintsOuPanel(Carbon $end): array
+    protected function buildComplaintsOuPanel(Carbon $start, Carbon $end): array
     {
+        $windowStart = $start->copy()->startOfMonth();
         $windowEnd = $end->copy()->endOfMonth();
-        $windowStart = $windowEnd->copy()->startOfMonth()->subMonths(5);
 
         $monthKeys = [];
         $monthLabels = [];
@@ -2501,9 +2566,11 @@ class UserSlaDashboard extends Component
             ->whereBetween('dtConclusaoDesej', [$windowStart, $windowEnd])
             ->tap(fn ($q) => $this->applyComplaintFiltersToProtestQuery($q))
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
+            ->tap(fn ($q) => $this->applyComplaintsCipUniverseFilter($q))
             ->with([
                 'medProtests' => function ($q) {
-                    $q->select('id', 'protest_id', 'dtCriacaoMedida', 'dtFimMedida', 'dtFimMedidaDesej', 'result')
+                    $q->select('id', 'protest_id', 'protest_type', 'dtCriacaoMedida', 'dtFimMedida', 'dtFimMedidaDesej', 'result')
+                        ->where('protest_type', ProtestType::CIP->value)
                         ->orderByDesc('dtCriacaoMedida')
                         ->orderByDesc('id');
                 },
@@ -2623,6 +2690,7 @@ class UserSlaDashboard extends Component
         return [
             'window_label' => $windowStart->format('m/Y') . ' - ' . $windowEnd->format('m/Y'),
             'total' => array_sum($insideCounts) + array_sum($outsideCounts),
+            'btzero_filter' => $this->complaintsBtzeroFilter,
             'charts' => [
                 'sla_stack' => [
                     'type' => 'bar',
@@ -2997,7 +3065,7 @@ class UserSlaDashboard extends Component
                         'beginAtZero' => true,
                         'title'       => [
                             'display' => true,
-                            'text'    => 'Quantidade de jobs',
+                            'text'    => 'Quantidade de Atividades de Reclamação',
                         ],
                     ],
                 ],
@@ -3024,6 +3092,105 @@ class UserSlaDashboard extends Component
     protected function dispatchDailyDispatchCompletionChart(array $chart): void
     {
         $this->dispatchBrowserEvent('grafico-atualizar-dailyDispatchCompletion', $chart);
+    }
+
+    protected function dispatchComplaintsNaCharts(array $charts): void
+    {
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsNaSlaStack', $charts['sla_stack'] ?? []);
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsNaSlaLine', $charts['sla_line'] ?? []);
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsNaProcedencyStack', $charts['procedency_stack'] ?? []);
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsNaProcedencyLine', $charts['procedency_line'] ?? []);
+    }
+
+    protected function dispatchComplaintsOuCharts(array $charts): void
+    {
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsOuSlaStack', $charts['sla_stack'] ?? []);
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsOuSlaLine', $charts['sla_line'] ?? []);
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsOuProcedencyStack', $charts['procedency_stack'] ?? []);
+        $this->dispatchBrowserEvent('grafico-atualizar-complaintsOuProcedencyLine', $charts['procedency_line'] ?? []);
+    }
+
+    protected function dispatchProtestTypeDonutChart(array $chart): void
+    {
+        $this->dispatchBrowserEvent('grafico-atualizar-protestTypeDonut', $chart);
+    }
+
+    protected function buildProtestTypeDonut(Carbon $start, Carbon $end): array
+    {
+        $rows = $this->jobsBaseQuery($start, $end, 'sent_at')
+            ->whereNotNull('protest_jobs.sent_at')
+            ->leftJoin('protests', 'protests.id', '=', 'protest_jobs.protest_id')
+            ->selectRaw('COALESCE(NULLIF(TRIM(protests.type), ""), "Sem classificacao") as protest_type_label')
+            ->selectRaw('COUNT(DISTINCT protest_jobs.protest_id) as total')
+            ->groupBy('protest_type_label')
+            ->orderByDesc('total')
+            ->get();
+
+        $labels = $rows->pluck('protest_type_label')->map(fn ($value) => (string) $value)->toArray();
+        $series = $rows->pluck('total')->map(fn ($value) => (int) $value)->toArray();
+        $total = array_sum($series);
+
+        $palette = [
+            'rgba(37,99,235,.45)',
+            'rgba(16,185,129,.45)',
+            'rgba(245,158,11,.45)',
+            'rgba(239,68,68,.45)',
+            'rgba(139,92,246,.45)',
+            'rgba(14,165,233,.45)',
+            'rgba(20,184,166,.45)',
+            'rgba(99,102,241,.45)',
+        ];
+
+        $borders = [
+            '#2563eb',
+            '#10b981',
+            '#f59e0b',
+            '#ef4444',
+            '#8b5cf6',
+            '#0ea5e9',
+            '#14b8a6',
+            '#6366f1',
+        ];
+
+        return [
+            'total' => $total,
+            'rows' => $rows->map(fn ($row) => [
+                'label' => (string) $row->protest_type_label,
+                'total' => (int) $row->total,
+            ])->toArray(),
+            'chart' => [
+                'type' => 'doughnut',
+                'data' => [
+                    'labels' => $labels,
+                    'datasets' => [[
+                        'label' => 'Protestos por classificacao',
+                        'data' => $series,
+                        'backgroundColor' => array_map(
+                            fn ($i) => $palette[$i % count($palette)],
+                            array_keys($series)
+                        ),
+                        'borderColor' => array_map(
+                            fn ($i) => $borders[$i % count($borders)],
+                            array_keys($series)
+                        ),
+                        'borderWidth' => 1,
+                    ]],
+                ],
+                'options' => [
+                    'responsive' => true,
+                    'maintainAspectRatio' => true,
+                    'aspectRatio' => 1,
+                    'plugins' => [
+                        'legend' => ['position' => 'right'],
+                        'title' => [
+                            'display' => true,
+                            'text' => 'Distribuicao por protest.type',
+                        ],
+                    ],
+                    'cutout' => '58%',
+                ],
+            ],
+        ];
     }
 
     protected function buildJobSlaList(Carbon $start, Carbon $end): array
@@ -3188,19 +3355,23 @@ class UserSlaDashboard extends Component
         $dailyOpenings          = $this->buildDailyOpeningsChart($start, $end);
         $medaJobsChart          = $this->buildMedaJobsChart($start, $end);
         $dailyDispatchCompletion = $this->buildDailyDispatchCompletionChart($start, $end);
+        $protestTypeDonut       = $this->buildProtestTypeDonut($start, $end);
         $jobSlaList             = $this->buildJobSlaList($start, $end);
         $medaSnapshot           = $this->buildMedaSnapshot($start, $end);
-        $medaOpenHistogram      = $this->buildMedaOpenDesiredHistogram();
+        $medaOpenHistogram      = $this->buildMedaOpenDesiredHistogram($start, $end);
         $medaOpenDispatchList   = $this->buildMedaOpenDispatchList();
         $generalProtestsList    = $this->buildGeneralProtestsList($start, $end);
-        $complaintsNaPanel      = $this->buildComplaintsNaPanel($end);
-        $complaintsOuPanel      = $this->buildComplaintsOuPanel($end);
+        $complaintsNaPanel      = $this->buildComplaintsNaPanel($start, $end);
+        $complaintsOuPanel      = $this->buildComplaintsOuPanel($start, $end);
         $dispatcherMeasuresPanel = $this->buildDispatcherMeasuresPanel($start, $end);
 
         $this->dispatchDailyOpeningsChart($dailyOpenings);
         $this->dispatchMedaJobsChart($medaJobsChart);
         $this->dispatchMedaOpenDesiredChart($medaOpenHistogram['chart']);
         $this->dispatchDailyDispatchCompletionChart($dailyDispatchCompletion);
+        $this->dispatchComplaintsNaCharts($complaintsNaPanel['charts'] ?? []);
+        $this->dispatchComplaintsOuCharts($complaintsOuPanel['charts'] ?? []);
+        $this->dispatchProtestTypeDonutChart($protestTypeDonut['chart']);
 
         return view('livewire.protests.analytics.user-sla-dashboard', [
             'summary'                 => $summary,
@@ -3213,6 +3384,7 @@ class UserSlaDashboard extends Component
             'dailyOpenings'           => $dailyOpenings,
             'medaJobsChart'           => $medaJobsChart,
             'dailyDispatchCompletion' => $dailyDispatchCompletion,
+            'protestTypeDonut'        => $protestTypeDonut,
             'jobSlaList'              => $jobSlaList,
             'medaSnapshot'            => $medaSnapshot,
             'medaOpenHistogram'       => $medaOpenHistogram,

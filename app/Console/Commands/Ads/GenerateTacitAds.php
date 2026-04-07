@@ -12,6 +12,7 @@ use App\Models\Production;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkReport;
+use App\Notifications\SystemNotification;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -77,6 +78,8 @@ class GenerateTacitAds extends Command
             $candidates = 0;
             $orderCostCache = [];
             $dryPreviewRows = [];
+            $requestsCompletedFromExisting = 0;
+            $notifiedDone = 0;
 
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
@@ -94,6 +97,8 @@ class GenerateTacitAds extends Command
                 &$candidates,
                 &$orderCostCache,
                 &$dryPreviewRows,
+                &$requestsCompletedFromExisting,
+                &$notifiedDone,
                 $defaultRecipients,
                 $defaultServiceId,
                 $testMode,
@@ -145,6 +150,8 @@ class GenerateTacitAds extends Command
 
                     $batchId = (string) Str::uuid();
                     $createdRequests = [];
+                    $requestsToMirror = [];
+                    $requestsToNotify = [];
                     $orderCostsByOrderId = $this->resolveOrderCostsForWorkReport($workReport->id, $orderCostCache);
 
                     DB::transaction(function () use (
@@ -156,6 +163,9 @@ class GenerateTacitAds extends Command
                         &$adsCreated,
                         &$requestsCreated,
                         &$createdRequests,
+                        &$requestsToMirror,
+                        &$requestsToNotify,
+                        &$requestsCompletedFromExisting,
                         $orderCostsByOrderId
                     ) {
                         if ($workReport->adsform()->exists()) {
@@ -173,6 +183,13 @@ class GenerateTacitAds extends Command
                             }
                         }
 
+                        $latestRequestWithUrl = AdsRequest::query()
+                            ->where('note_id', $workReport->note_id)
+                            ->whereNotNull('url')
+                            ->whereRaw("NULLIF(LTRIM(RTRIM(url)), '') IS NOT NULL")
+                            ->latest('created_at')
+                            ->first();
+
                         Adsform::create([
                             'work_report_id' => $workReport->id,
                             'note_id' => $workReport->note_id,
@@ -186,7 +203,7 @@ class GenerateTacitAds extends Command
                             'partial' => false,
                             'tacit' => true,
                             'tacit_due_at' => $dueAt,
-                            'tacit_delivered_at' => null,
+                            'tacit_delivered_at' => $latestRequestWithUrl ? now() : null,
                         ]);
 
                         $adsCreated++;
@@ -207,12 +224,37 @@ class GenerateTacitAds extends Command
                             ->lockForUpdate()
                             ->exists();
 
-                        if ($existingActive) {
+                        if ($existingActive && !$latestRequestWithUrl) {
                             return;
                         }
 
                         foreach ($recipientIds->filter()->unique()->values() as $recipientUserId) {
                             $version++;
+
+                            if ($latestRequestWithUrl) {
+                                $doneAt = $latestRequestWithUrl->completed_at ?? now();
+
+                                $request = AdsRequest::query()->create([
+                                    'requested_by' => $recipientUserId,
+                                    'company_id' => $workReport->company_id,
+                                    'note_id' => $workReport->note_id,
+                                    'batch_id' => $batchId,
+                                    'partner' => false,
+                                    'completed' => true,
+                                    'status' => AdsRequestStatus::DONE,
+                                    'version' => $version,
+                                    'description' => 'Solicitação automática concluída com reaproveitamento de ADS já disponível.',
+                                    'url' => $latestRequestWithUrl->url,
+                                    'completed_at' => $doneAt,
+                                    'delivered_at' => null,
+                                ]);
+
+                                $createdRequests[] = $request;
+                                $requestsToNotify[] = $request;
+                                $requestsCompletedFromExisting++;
+                                $requestsCreated++;
+                                continue;
+                            }
 
                             $request = AdsRequest::query()->create([
                                 'requested_by' => $recipientUserId,
@@ -227,17 +269,24 @@ class GenerateTacitAds extends Command
                             ]);
 
                             $createdRequests[] = $request;
+                            $requestsToMirror[] = $request;
                             $requestsCreated++;
                         }
                     });
 
                     if (!$testMode) {
-                        foreach ($createdRequests as $request) {
+                        foreach ($requestsToMirror as $request) {
                             if ($this->mirrorToSqlServer($request, (string) $workReport->note?->note)) {
                                 $sqlMirrored++;
                             } else {
                                 $sqlMirrorFailures++;
                             }
+                        }
+                    }
+
+                    foreach ($requestsToNotify as $request) {
+                        if ($this->notifyDoneRequesterIfNeeded($request)) {
+                            $notifiedDone++;
                         }
                     }
                 }
@@ -253,6 +302,7 @@ class GenerateTacitAds extends Command
             $this->info("Candidatos processados: {$candidates}");
             $this->info("ADS tácitas " . ($dryRun ? 'SIMULADAS' : 'criadas') . ": {$adsCreated}");
             $this->info("Solicitações ADS " . ($dryRun ? 'SIMULADAS' : 'criadas') . ": {$requestsCreated}");
+            $this->info("Solicitações ADS concluídas com link existente: {$requestsCompletedFromExisting}");
             $this->info("Pulos (sem user): {$skippedNoUser}");
             $this->info("Pulos (sem company): {$skippedNoCompany}");
 
@@ -279,6 +329,8 @@ class GenerateTacitAds extends Command
                     $this->info("Falhas de espelhamento no SQL Server: {$sqlMirrorFailures}");
                 }
             }
+
+            $this->info("Notificações de ADS concluída enviadas: {$notifiedDone}");
 
             // --- RegistroJson ---
             // Em dry run, ainda registra execução (útil pra auditoria), mas sem "criados" reais.
@@ -375,6 +427,41 @@ class GenerateTacitAds extends Command
             report($exception);
             return false;
         }
+    }
+
+    private function notifyDoneRequesterIfNeeded(AdsRequest $request): bool
+    {
+        $status = $request->status instanceof AdsRequestStatus ? $request->status->value : (string) $request->status;
+        if ($status !== AdsRequestStatus::DONE->value || $request->delivered_at) {
+            return false;
+        }
+
+        $user = $request->requestedBy()->first();
+        if (!$user) {
+            return false;
+        }
+
+        $noteNumber = $request->note()->value('note') ?? $request->note_id;
+        $message = "A ADS da nota <strong>{$noteNumber}</strong> está disponível.";
+
+        $user->notify(new SystemNotification(
+            'ADS disponível',
+            $message,
+            $request->url ?: null,
+            4,
+            [
+                'ads_request_id' => $request->id,
+                'note_id' => $request->note_id,
+            ]
+        ));
+
+        $request->timestamps = false;
+        $request->forceFill([
+            'delivered_at' => now(),
+            'updated_at' => now(),
+        ])->save();
+
+        return true;
     }
 
     private function resolveRecipientsForNote(int $noteId, ?string $serviceId, \Illuminate\Support\Collection $defaultRecipients): \Illuminate\Support\Collection

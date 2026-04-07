@@ -197,6 +197,7 @@
                 ['label' => 'NOTAS/OVS', 'route' => 'reports.search', 'icon' => 'ri-search-eye-line'],
                 ['label' => 'CONSULTA D5', 'route' => 'reports.consulta_d5', 'icon' => 'ri-search-eye-line'],
                 ['label' => 'INFORMES', 'route' => 'reports.workreport', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports],
+                ['label' => 'ADS SOLICITADAS', 'route' => 'ads.dashboard', 'icon' => 'ri-survey-line', 'visible' => $can_view_workreports],
                 ['label' => 'SITUAÇÃO DE CONTRATAÇÃO', 'route' => 'reports.lookatnotes', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports],
                 ['label' => 'INFORMES REJEITADOS', 'route' => 'reports.rejecetedWorkreport', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports && !Auth()->user()->onlyparner],
                 ['label' => 'EQUIPAMENTOS DECLARADOS', 'route' => 'reports.equipments', 'icon' => 'ri-tools-line', 'visible' => $can_view_workreports],

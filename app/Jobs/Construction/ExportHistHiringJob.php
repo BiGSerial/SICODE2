@@ -33,6 +33,7 @@ class ExportHistHiringJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = $params;
         $this->userId = $userId;
     }

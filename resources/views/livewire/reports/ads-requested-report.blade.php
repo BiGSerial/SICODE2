@@ -85,23 +85,43 @@
     </style>
 @endpush
 
-<div class="iat-page">
+<div id="ads-requested-root" class="iat-page">
     <x-show-loading />
 
     <div class="container-fluid">
         <div class="iat-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             <div>
                 <h2 class="mb-1">ADS SOLICITADAS</h2>
-                <div class="text-light opacity-75">Solicitações de ADS abertas pelos usuários</div>
+                <div class="text-light opacity-75">Dashboard analítico e histórico de ADS (base SQL espelhada)</div>
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-light btn-sm" wire:click="clearFilters">
                     <i class="ri-filter-off-line me-1"></i> Limpar
                 </button>
+                <button class="btn btn-light btn-sm" wire:click="syncLast40Days" wire:loading.attr="disabled"
+                    wire:target="syncLast40Days">
+                    <span wire:loading.remove wire:target="syncLast40Days">
+                        <i class="ri-refresh-line me-1"></i> Sincronizar 40 dias
+                    </span>
+                    <span wire:loading wire:target="syncLast40Days">
+                        <i class="ri-loader-4-line me-1"></i> Sincronizando...
+                    </span>
+                </button>
             </div>
         </div>
 
         <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="iat-filter-card">
+                    <label class="form-label small text-muted">Período do gráfico</label>
+                    <select class="form-select border border-secondary" wire:model="chartPeriod">
+                        <option value="7d">Últimos 7 dias</option>
+                        <option value="30d">Últimos 30 dias</option>
+                        <option value="12m">Últimos 12 meses</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+            </div>
             <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Data inicial (solicitação)</label>
@@ -118,11 +138,36 @@
             </div>
             <div class="col-12 col-md-6 col-xl-3">
                 <div class="iat-filter-card">
+                    <label class="form-label small text-muted">Data inicial (conclusão)</label>
+                    <input type="date" class="form-control border border-secondary" wire:model.lazy="completed_in"
+                        max="{{ date('Y-m-d') }}">
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="iat-filter-card">
+                    <label class="form-label small text-muted">Data final (conclusão)</label>
+                    <input type="date" class="form-control border border-secondary" wire:model.lazy="completed_out"
+                        max="{{ date('Y-m-d') }}">
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="iat-filter-card">
                     <label class="form-label small text-muted">Status</label>
                     <select class="form-select border border-secondary" wire:model="statusFilter">
                         <option value="all">Todos</option>
                         <option value="active">Em atividade</option>
                         <option value="delivered">Entregues</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="iat-filter-card">
+                    <label class="form-label small text-muted">Status exato (gráfico)</label>
+                    <select class="form-select border border-secondary" wire:model="statusExact">
+                        <option value="">Todos</option>
+                        @foreach ($statusExactOptions as $statusOption)
+                            <option value="{{ data_get($statusOption, 'value') }}">{{ data_get($statusOption, 'label') }}</option>
+                        @endforeach
                     </select>
                 </div>
             </div>
@@ -137,12 +182,12 @@
                     </select>
                 </div>
             </div>
-            <div class="col-12 col-xl-6">
+            <div class="col-12 col-xl-9">
                 <div class="iat-filter-card">
                     <label class="form-label small text-muted">Busca</label>
                     <div class="input-group">
                         <input type="text" class="form-control border border-secondary" wire:model.debounce.500ms="search"
-                            placeholder="Nota, empresa ou status">
+                            placeholder="ID ADS, nota, empresa, status ou link">
                         <select class="form-select border border-secondary" wire:model="perPage" style="max-width: 120px;">
                             <option value="25">25</option>
                             <option value="50">50</option>
@@ -151,6 +196,11 @@
                         </select>
                     </div>
                 </div>
+            </div>
+            <div class="col-12">
+                <small class="text-muted">
+                    Dica: com 12 meses o gráfico agrega por mês; nos períodos curtos agrega por dia. Clique no ponto/barra para filtrar e clique no donut para filtrar status.
+                </small>
             </div>
         </div>
 
@@ -187,27 +237,107 @@
             </div>
         </div>
 
-        @if ($rows->count())
-            <div class="iat-pagination">
-                <div class="row align-items-center">
-                    <div class="col-12 col-lg-6">
-                        {{ $rows->onEachSide(1)->links() }}
-                    </div>
-                    <div class="col-12 col-lg-6 text-lg-end">
-                        <small>
-                            Exibindo {{ $rows->firstItem() }} até {{ $rows->lastItem() }} de {{ $rows->total() }}
-                        </small>
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-8">
+                @livewire('reports.ads.demand-delivery-chart', ['filters' => $this->filtersForChildren], key('ads-demand-delivery'))
+            </div>
+            <div class="col-12 col-xl-4">
+                @livewire('reports.ads.queue-status-donut', ['filters' => $this->filtersForChildren], key('ads-queue-donut'))
+            </div>
+        </div>
+
+        <div class="iat-table-card mb-3">
+            <div class="card-header bg-light">
+                <strong>Fila Atual de ADS</strong>
+                <span class="text-muted small ms-2">Requisições pendentes (status diferente de DONE)</span>
+                <span class="badge bg-secondary float-end">Total: {{ $queueRows->total() }}</span>
+            </div>
+            @if (!$queueRows->count())
+                <div class="card-body">
+                    <h6 class="text-center text-muted mb-0">Nenhuma ADS pendente para os filtros informados.</h6>
+                </div>
+            @else
+                <div class="iat-pagination m-2 mb-0">
+                    <div class="row align-items-center">
+                        <div class="col-12 col-lg-6">
+                            {{ $queueRows->onEachSide(1)->links() }}
+                        </div>
+                        <div class="col-12 col-lg-6 text-lg-end">
+                            <small>
+                                Exibindo {{ $queueRows->firstItem() }} até {{ $queueRows->lastItem() }} de {{ $queueRows->total() }}
+                            </small>
+                        </div>
                     </div>
                 </div>
-            </div>
-        @endif
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Nota</th>
+                                <th>Empreiteira</th>
+                                <th>Status</th>
+                                <th>Solicitado em</th>
+                                <th>Prazo alvo</th>
+                                <th>Situação do prazo</th>
+                                <th>Tempo decorrido</th>
+                                <th>ADS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($queueRows as $row)
+                                <tr wire:key="ads-queue-{{ $row['id'] }}">
+                                    <td class="fw-semibold">#{{ $row['id'] }}</td>
+                                    <td class="fw-semibold">{{ $row['note_number'] }}</td>
+                                    <td>{{ $row['company_name'] }}</td>
+                                    <td><span class="badge {{ $row['status_badge'] }}">{{ $row['status_label'] }}</span></td>
+                                    <td>{{ $row['requested_at']?->format('d/m/Y H:i') ?? '—' }}</td>
+                                    <td>{{ $row['deadline_at']?->format('d/m/Y H:i') ?? '—' }}</td>
+                                    <td>{{ $row['deadline_label'] }}</td>
+                                    <td class="fw-semibold">{{ $row['elapsed_label'] }}</td>
+                                    <td>
+                                        @if ($row['url'])
+                                            <a href="{{ $row['url'] }}" class="btn btn-sm btn-outline-primary" target="_self">
+                                                Abrir
+                                            </a>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="iat-pagination m-2 mt-0">
+                    {{ $queueRows->onEachSide(1)->links() }}
+                </div>
+            @endif
+        </div>
 
         <div class="iat-table-card">
+            <div class="card-header bg-light">
+                <strong>Histórico de ADS</strong>
+                <span class="text-muted small ms-2">Pesquisa por ADS e consulta de prazos/links</span>
+                <span class="badge bg-secondary float-end">Total: {{ $rows->total() }}</span>
+            </div>
             @if (!$rows->count())
                 <div class="card-body">
                     <h5 class="text-center text-muted mb-0">Nenhum dado encontrado para os filtros informados.</h5>
                 </div>
             @else
+                <div class="iat-pagination m-2 mb-0">
+                    <div class="row align-items-center">
+                        <div class="col-12 col-lg-6">
+                            {{ $rows->onEachSide(1)->links() }}
+                        </div>
+                        <div class="col-12 col-lg-6 text-lg-end">
+                            <small>
+                                Exibindo {{ $rows->firstItem() }} até {{ $rows->lastItem() }} de {{ $rows->total() }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped table-hover mb-0">
                         <thead class="table-dark">
@@ -222,6 +352,8 @@
                                 <th>ADS</th>
                                 <th>Quando pediu</th>
                                 <th>Quando entregou</th>
+                                <th>Prazo alvo</th>
+                                <th>Situação do prazo</th>
                                 <th>Tempo</th>
                             </tr>
                         </thead>
@@ -244,29 +376,79 @@
                                     </td>
                                     <td>{{ $row['description'] !== '' ? $row['description'] : '-' }}</td>
                                     <td>
-                                        @php
-                                            $linkDate = $row['delivered_at'] ?? $row['requested_at'];
-                                            $daysSince = $linkDate ? now()->diffInDays($linkDate) : null;
-                                        @endphp
-                                        @if ($row['url'] && $daysSince !== null && $daysSince <= 3)
-                                            <a href="{{ $row['url'] }}" class="btn btn-sm btn-outline-primary" target="_self">
+                                        @if ($row['url'])
+                                            <a href="{{ $row['url'] }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">
                                                 Baixar ADS
                                             </a>
-                                        @elseif ($row['url'] && $daysSince !== null && $daysSince > 30)
-                                            <span class="text-muted">Link Expirado</span>
                                         @else
                                             <span class="text-muted">—</span>
                                         @endif
                                     </td>
                                     <td>{{ $row['requested_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['delivered_at']?->format('d/m/Y H:i') ?? '—' }}</td>
+                                    <td>{{ $row['deadline_at']?->format('d/m/Y H:i') ?? '—' }}</td>
+                                    <td>{{ $row['deadline_label'] }}</td>
                                     <td class="fw-semibold">{{ $row['elapsed_label'] }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
+                <div class="iat-pagination m-2 mt-0">
+                    {{ $rows->onEachSide(1)->links() }}
+                </div>
             @endif
         </div>
     </div>
 </div>
+
+@once
+    @push('script')
+        <script>
+            (function() {
+                const rootId = 'ads-requested-root';
+
+                const getLivewireComponent = () => {
+                    const root = document.getElementById(rootId);
+                    if (!root) return null;
+                    const host = root.closest('[wire\\:id]') || root.querySelector('[wire\\:id]');
+                    const componentId = host ? host.getAttribute('wire:id') : null;
+                    if (!componentId || !window.Livewire || !Livewire.find) return null;
+                    return Livewire.find(componentId);
+                };
+
+                const bindEvents = () => {
+                    if (window.__adsChartFiltersBound) return;
+
+                    window.addEventListener('ads-chart-day-clicked', (event) => {
+                        const value = event?.detail?.value;
+                        if (!value) return;
+                        const component = getLivewireComponent();
+                        if (!component) return;
+                        component.call('applyChartDayFilter', String(value));
+                    });
+
+                    window.addEventListener('ads-chart-status-clicked', (event) => {
+                        const value = event?.detail?.value;
+                        if (!value) return;
+                        const component = getLivewireComponent();
+                        if (!component) return;
+                        component.call('applyChartQueueStatusFilter', String(value));
+                    });
+
+                    window.__adsChartFiltersBound = true;
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', bindEvents, {
+                        once: true
+                    });
+                } else {
+                    bindEvents();
+                }
+
+                document.addEventListener('livewire:load', bindEvents);
+            })();
+        </script>
+    @endpush
+@endonce

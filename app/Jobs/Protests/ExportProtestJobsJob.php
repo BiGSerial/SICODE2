@@ -29,6 +29,7 @@ class ExportProtestJobsJob implements ShouldQueue
         protected array $filters,
         protected string $userId
     ) {
+        $this->onQueue('exports');
     }
 
     public function handle(): void

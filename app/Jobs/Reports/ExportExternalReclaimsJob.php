@@ -29,6 +29,7 @@ class ExportExternalReclaimsJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = array_merge([
             'dt_in' => null,
             'dt_out' => null,

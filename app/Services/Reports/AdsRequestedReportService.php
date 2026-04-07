@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 class AdsRequestedReportService
 {
+    private const ADS_DEADLINE_HOURS = 24;
+
     private const ACTIVE_STATUSES = [
         AdsRequestStatus::QUEUED,
         AdsRequestStatus::IN_PROGRESS,
@@ -18,6 +20,17 @@ class AdsRequestedReportService
     public function paginate(array $filters, int $perPage = 50): LengthAwarePaginator
     {
         $rows = $this->buildQuery($filters)->paginate($perPage);
+
+        $rows->setCollection(
+            $rows->getCollection()->map(fn ($row) => $this->enrichRow($row))
+        );
+
+        return $rows;
+    }
+
+    public function paginateQueue(array $filters, int $perPage = 20, string $pageName = 'queue_page'): LengthAwarePaginator
+    {
+        $rows = $this->buildQueueQuery($filters)->paginate($perPage, ['*'], $pageName);
 
         $rows->setCollection(
             $rows->getCollection()->map(fn ($row) => $this->enrichRow($row))
@@ -81,10 +94,232 @@ class AdsRequestedReportService
         ];
     }
 
+    /**
+     * @return array{
+     *   labels:array<int,string>,
+     *   date_keys:array<int,string>,
+     *   requested:array<int,int>,
+     *   delivered:array<int,int>,
+     *   open_backlog:array<int,int>,
+     *   overdue_backlog:array<int,int>,
+     *   analytics:array{
+     *     requested_total:int,
+     *     delivered_total:int,
+     *     completion_rate:float,
+     *     backlog_avg:float,
+     *     backlog_peak:int,
+     *     overdue_avg:float,
+     *     current_open:int,
+     *     current_overdue:int
+     *   }
+     * }
+     */
+    public function demandVsDeliverySeries(array $filters): array
+    {
+        [$start, $end] = $this->resolveDateRange($filters);
+        $granularity = $this->resolveChartGranularity($filters, $start, $end);
+        $requested = [];
+        $delivered = [];
+        $openBacklog = [];
+        $overdueBacklog = [];
+        $labels = [];
+
+        $cursor = $start->copy();
+        while ($cursor->lte($end)) {
+            $key = $cursor->format('Y-m-d');
+            $requested[$key] = 0;
+            $delivered[$key] = 0;
+            $openBacklog[$key] = 0;
+            $overdueBacklog[$key] = 0;
+            $labels[$key] = $cursor->format('d/m');
+            $cursor->addDay();
+        }
+
+        $requestedRows = $this->buildNowBaseQuery($filters, false)
+            ->selectRaw('DATE(ar.created_at) as ref_date, COUNT(*) as total')
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->groupBy('ref_date')
+            ->get();
+
+        foreach ($requestedRows as $row) {
+            $dateKey = (string) ($row->ref_date ?? '');
+            if (array_key_exists($dateKey, $requested)) {
+                $requested[$dateKey] = (int) ($row->total ?? 0);
+            }
+        }
+
+        $deliveredRows = $this->buildNowBaseQuery($filters, false)
+            ->whereNotNull('ar.completed_at')
+            ->where('ar.status', AdsRequestStatus::DONE->value)
+            ->selectRaw('DATE(ar.completed_at) as ref_date, COUNT(*) as total')
+            ->whereBetween('ar.completed_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->groupBy('ref_date')
+            ->get();
+
+        foreach ($deliveredRows as $row) {
+            $dateKey = (string) ($row->ref_date ?? '');
+            if (array_key_exists($dateKey, $delivered)) {
+                $delivered[$dateKey] = (int) ($row->total ?? 0);
+            }
+        }
+
+        $openingBacklog = (int) $this->buildNowBaseQuery($filters, false)
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+            ->where('ar.created_at', '<', $start->copy()->startOfDay())
+            ->where(function ($q) use ($start) {
+                $q->whereNull('ar.completed_at')
+                    ->orWhere('ar.completed_at', '>=', $start->copy()->startOfDay());
+            })
+            ->count();
+
+        $runningBacklog = $openingBacklog;
+        foreach (array_keys($labels) as $key) {
+            $runningBacklog += (int) ($requested[$key] ?? 0);
+            $runningBacklog -= (int) ($delivered[$key] ?? 0);
+            $openBacklog[$key] = max(0, $runningBacklog);
+        }
+
+        $queueBase = $this->buildNowBaseQuery($filters, false)
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value);
+
+        foreach (array_keys($labels) as $key) {
+            $dayEnd = Carbon::createFromFormat('Y-m-d', $key)->endOfDay();
+            $overdueThreshold = $dayEnd->copy()->subHours(24);
+
+            $overdueCount = (clone $queueBase)
+                ->where('ar.created_at', '<=', $overdueThreshold)
+                ->where(function ($q) use ($dayEnd) {
+                    $q->whereNull('ar.completed_at')
+                        ->orWhere('ar.completed_at', '>', $dayEnd);
+                })
+                ->count();
+
+            $overdueBacklog[$key] = (int) $overdueCount;
+        }
+
+        $orderedKeys = array_keys($labels);
+        $requestedSeries = array_map(fn ($key) => (int) $requested[$key], $orderedKeys);
+        $deliveredSeries = array_map(fn ($key) => (int) $delivered[$key], $orderedKeys);
+        $openSeries = array_map(fn ($key) => (int) $openBacklog[$key], $orderedKeys);
+        $overdueSeries = array_map(fn ($key) => (int) $overdueBacklog[$key], $orderedKeys);
+
+        if ($granularity === 'month') {
+            $requestedByMonth = [];
+            $deliveredByMonth = [];
+            $openByMonth = [];
+            $overdueByMonth = [];
+            $labelsByMonth = [];
+
+            foreach ($orderedKeys as $index => $dayKey) {
+                $day = Carbon::createFromFormat('Y-m-d', $dayKey);
+                $monthKey = $day->format('Y-m');
+                if (!isset($requestedByMonth[$monthKey])) {
+                    $requestedByMonth[$monthKey] = 0;
+                    $deliveredByMonth[$monthKey] = 0;
+                    $openByMonth[$monthKey] = 0;
+                    $overdueByMonth[$monthKey] = 0;
+                    $labelsByMonth[$monthKey] = $day->format('m/Y');
+                }
+
+                $requestedByMonth[$monthKey] += (int) ($requestedSeries[$index] ?? 0);
+                $deliveredByMonth[$monthKey] += (int) ($deliveredSeries[$index] ?? 0);
+                // backlog acumulado no fim do mês (último dia processado do mês)
+                $openByMonth[$monthKey] = (int) ($openSeries[$index] ?? 0);
+                $overdueByMonth[$monthKey] = (int) ($overdueSeries[$index] ?? 0);
+            }
+
+            $orderedKeys = array_keys($labelsByMonth);
+            $requestedSeries = array_map(fn ($key) => (int) ($requestedByMonth[$key] ?? 0), $orderedKeys);
+            $deliveredSeries = array_map(fn ($key) => (int) ($deliveredByMonth[$key] ?? 0), $orderedKeys);
+            $openSeries = array_map(fn ($key) => (int) ($openByMonth[$key] ?? 0), $orderedKeys);
+            $overdueSeries = array_map(fn ($key) => (int) ($overdueByMonth[$key] ?? 0), $orderedKeys);
+            $labels = $labelsByMonth;
+        }
+
+        $requestedTotal = (int) array_sum($requestedSeries);
+        $deliveredTotal = (int) array_sum($deliveredSeries);
+        $completionRate = $requestedTotal > 0 ? round(($deliveredTotal / $requestedTotal) * 100, 1) : 0.0;
+        $backlogAvg = !empty($openSeries) ? round(array_sum($openSeries) / count($openSeries), 1) : 0.0;
+        $backlogPeak = !empty($openSeries) ? (int) max($openSeries) : 0;
+        $overdueAvg = !empty($overdueSeries) ? round(array_sum($overdueSeries) / count($overdueSeries), 1) : 0.0;
+        $currentOpen = !empty($openSeries) ? (int) end($openSeries) : 0;
+        $currentOverdue = !empty($overdueSeries) ? (int) end($overdueSeries) : 0;
+
+        return [
+            'labels' => array_map(fn ($key) => $labels[$key], $orderedKeys),
+            'date_keys' => $orderedKeys,
+            'requested' => $requestedSeries,
+            'delivered' => $deliveredSeries,
+            'open_backlog' => $openSeries,
+            'overdue_backlog' => $overdueSeries,
+            'bucket' => $granularity,
+            'bucket_label' => $granularity === 'month' ? 'mensal' : 'diária',
+            'analytics' => [
+                'requested_total' => $requestedTotal,
+                'delivered_total' => $deliveredTotal,
+                'completion_rate' => $completionRate,
+                'backlog_avg' => $backlogAvg,
+                'backlog_peak' => $backlogPeak,
+                'overdue_avg' => $overdueAvg,
+                'current_open' => $currentOpen,
+                'current_overdue' => $currentOverdue,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{labels:array<int,string>,status_keys:array<int,string>,values:array<int,int>,colors:array<int,string>,total:int}
+     */
+    public function queueDonutSeries(array $filters): array
+    {
+        $rows = $this->buildSqlQueueBaseQuery($filters)
+            ->selectRaw('ar.status, COUNT(*) as total')
+            ->groupBy('ar.status')
+            ->get();
+
+        $labels = [];
+        $statusKeys = [];
+        $values = [];
+        $colors = [];
+        $total = 0;
+
+        foreach ($rows as $row) {
+            $status = (string) ($row->status ?? '');
+            $count = (int) ($row->total ?? 0);
+            $enum = $this->resolveAdsStatusEnum($status);
+            $label = $enum?->label() ?? $status;
+            if ($enum === AdsRequestStatus::IN_PROGRESS) {
+                $label = 'Em execução';
+            }
+            $labels[] = $label;
+            $statusKeys[] = $status;
+            $values[] = $count;
+            $colors[] = match ($enum) {
+                AdsRequestStatus::QUEUED => 'rgba(107,114,128,0.9)',
+                AdsRequestStatus::IN_PROGRESS => 'rgba(14,165,233,0.9)',
+                AdsRequestStatus::RETRY => 'rgba(245,158,11,0.9)',
+                AdsRequestStatus::FAILED => 'rgba(220,38,38,0.9)',
+                AdsRequestStatus::CANCELED => 'rgba(55,65,81,0.9)',
+                default => 'rgba(99,102,241,0.9)',
+            };
+            $total += $count;
+        }
+
+        return [
+            'labels' => $labels,
+            'status_keys' => $statusKeys,
+            'values' => $values,
+            'colors' => $colors,
+            'total' => $total,
+        ];
+    }
+
     public function buildQuery(array $filters)
     {
         $dateIn = $filters['date_in'] ?? null;
         $dateOut = $filters['date_out'] ?? null;
+        $completedIn = $filters['completed_in'] ?? null;
+        $completedOut = $filters['completed_out'] ?? null;
 
         $query = $this->buildNowBaseQuery($filters, true)
             ->select([
@@ -118,18 +353,119 @@ class AdsRequestedReportService
             $query->whereDate('ar.created_at', '<=', $dateOut);
         }
 
+        if ($completedIn) {
+            $query->whereDate('ar.completed_at', '>=', $completedIn);
+        }
+
+        if ($completedOut) {
+            $query->whereDate('ar.completed_at', '<=', $completedOut);
+        }
+
+        return $query;
+    }
+
+    public function buildQueueQuery(array $filters)
+    {
+        return $this->buildSqlQueueBaseQuery($filters)
+            ->select([
+                'ar.id',
+                DB::raw('NULL as note_id'),
+                'ar.status',
+                'ar.description',
+                'ar.url',
+                DB::raw('NULL as requested_by'),
+                'ar.created_at as requested_at',
+                'ar.completed_at',
+                DB::raw('NULL as delivered_at'),
+                DB::raw("COALESCE(ar.note, N'—') as note_number"),
+                DB::raw("COALESCE(ar.company, N'—') as company_name"),
+                DB::raw("COALESCE(ar.[user], N'—') as recipient_name"),
+                DB::raw('0 as tacit_after_due'),
+            ])->whereNotNull('ar.id')
+            ->orderByDesc('ar.created_at');
+    }
+
+    private function buildSqlQueueBaseQuery(array $filters)
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+        $companyIds = collect($filters['companyIds'] ?? [])->filter()->values();
+        $dateIn = $filters['date_in'] ?? null;
+        $dateOut = $filters['date_out'] ?? null;
+        $statusExact = trim((string) ($filters['status_exact'] ?? ''));
+
+        $query = DB::connection('sqlsrv2')
+            ->table('dbo.ads_requests as ar')
+            ->where('ar.status', '!=', AdsRequestStatus::DONE->value)
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value);
+
+        if ($search !== '') {
+            $query->where(function ($sub) use ($search) {
+                $sub->where('ar.note', 'like', "%{$search}%")
+                    ->orWhere('ar.company', 'like', "%{$search}%")
+                    ->orWhere('ar.status', 'like', "%{$search}%")
+                    ->orWhere('ar.url', 'like', "%{$search}%")
+                    ->orWhere('ar.description', 'like', "%{$search}%")
+                    ->orWhereRaw('CAST(ar.id as NVARCHAR(50)) like ?', ["%{$search}%"]);
+            });
+        }
+
+        if ($companyIds->isNotEmpty()) {
+            $companyNames = DB::table('companies')
+                ->whereIn('id', $companyIds->all())
+                ->pluck('name')
+                ->filter()
+                ->values()
+                ->all();
+
+            if (!empty($companyNames)) {
+                $query->whereIn('ar.company', $companyNames);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if ($dateIn) {
+            $query->whereDate('ar.created_at', '>=', $dateIn);
+        }
+
+        if ($dateOut) {
+            $query->whereDate('ar.created_at', '<=', $dateOut);
+        }
+
+        if ($statusExact !== '') {
+            $query->where('ar.status', $statusExact);
+        }
+
         return $query;
     }
 
     public function enrichRow(object $row): array
     {
-        $status = AdsRequestStatus::tryFrom((string) ($row->status ?? ''));
+        $status = $this->resolveAdsStatusEnum((string) ($row->status ?? ''));
         $requestedAt = $this->asCarbon($row->requested_at ?? null);
         $deliveredAt = $this->resolveDeliveredAt($row);
+        $deadlineAt = $requestedAt?->copy()->addHours(self::ADS_DEADLINE_HOURS);
         $referenceAt = $deliveredAt ?: now();
         $seconds = ($requestedAt && $referenceAt && $referenceAt->greaterThan($requestedAt))
             ? $requestedAt->diffInSeconds($referenceAt)
             : 0;
+        $deadlineDiffSeconds = $deadlineAt ? now()->diffInSeconds($deadlineAt, false) : null;
+        $deadlineDiffDays = is_null($deadlineDiffSeconds) ? null : (int) floor($deadlineDiffSeconds / 86400);
+        $deadlineLabel = '—';
+        if ($deadlineAt) {
+            if ($deliveredAt) {
+                $lateSeconds = $deadlineAt->diffInSeconds($deliveredAt, false);
+                $deadlineLabel = $lateSeconds > 0
+                    ? 'Entregue com atraso de ' . $this->formatDuration($lateSeconds)
+                    : 'Entregue no prazo';
+            } elseif ($deadlineDiffSeconds < 0) {
+                $deadlineLabel = 'Vencido há ' . $this->formatDuration(abs($deadlineDiffSeconds));
+            } elseif ($deadlineDiffSeconds === 0) {
+                $deadlineLabel = 'Vence agora';
+            } else {
+                $deadlineLabel = 'Faltam ' . $this->formatDuration($deadlineDiffSeconds);
+            }
+        }
 
         return [
             'id' => (int) $row->id,
@@ -137,13 +473,18 @@ class AdsRequestedReportService
             'company_name' => (string) ($row->company_name ?? '—'),
             'recipient_name' => (string) ($row->recipient_name ?? '—'),
             'status_value' => (string) ($row->status ?? ''),
-            'status_label' => $status?->label() ?? (string) ($row->status ?? '—'),
+            'status_label' => $status === AdsRequestStatus::IN_PROGRESS
+                ? 'Em execução'
+                : ($status?->label() ?? (string) ($row->status ?? '—')),
             'status_badge' => $status?->badgeClass() ?? 'text-bg-secondary',
             'is_tacit' => $this->resolveTacitFlag($row),
             'description' => (string) ($row->description ?? '—'),
             'url' => $row->url ?? null,
             'requested_at' => $requestedAt,
             'delivered_at' => $deliveredAt,
+            'deadline_at' => $deadlineAt,
+            'deadline_days_left' => $deadlineDiffDays,
+            'deadline_label' => $deadlineLabel,
             'elapsed_seconds' => $seconds,
             'elapsed_label' => $this->formatDuration($seconds),
         ];
@@ -154,6 +495,7 @@ class AdsRequestedReportService
         $search = trim((string) ($filters['search'] ?? ''));
         $companyIds = $filters['companyIds'] ?? [];
         $statusFilter = (string) ($filters['statusFilter'] ?? 'all');
+        $statusExact = trim((string) ($filters['status_exact'] ?? ''));
 
         $query = DB::table('ads_requests as ar')
             ->leftJoin('notes as n', 'n.id', '=', 'ar.note_id')
@@ -163,13 +505,19 @@ class AdsRequestedReportService
         if ($search !== '') {
             $query->where(function ($sub) use ($search) {
                 $sub->where('n.note', 'like', "%{$search}%")
+                    ->orWhere('ar.id', 'like', "%{$search}%")
                     ->orWhere('c.name', 'like', "%{$search}%")
-                    ->orWhere('ar.status', 'like', "%{$search}%");
+                    ->orWhere('ar.status', 'like', "%{$search}%")
+                    ->orWhere('ar.url', 'like', "%{$search}%");
             });
         }
 
         if (!empty($companyIds)) {
             $query->whereIn('ar.company_id', $companyIds);
+        }
+
+        if ($statusExact !== '') {
+            $query->where('ar.status', $statusExact);
         }
 
         if ($applyStatusFilter) {
@@ -197,7 +545,7 @@ class AdsRequestedReportService
 
     private function resolveDeliveredAt(object $row): ?Carbon
     {
-        $status = AdsRequestStatus::tryFrom((string) ($row->status ?? ''));
+        $status = $this->resolveAdsStatusEnum((string) ($row->status ?? ''));
         $delivered = $this->asCarbon($row->delivered_at ?? null);
         if ($delivered) {
             return $delivered;
@@ -234,6 +582,34 @@ class AdsRequestedReportService
         return $start->diffInDays($end) + 1;
     }
 
+    /**
+     * @return array{0:Carbon,1:Carbon}
+     */
+    private function resolveDateRange(array $filters): array
+    {
+        $dateIn = $filters['date_in'] ?? null;
+        $dateOut = $filters['date_out'] ?? null;
+
+        $start = $dateIn ? Carbon::parse($dateIn)->startOfDay() : now()->startOfMonth();
+        $end = $dateOut ? Carbon::parse($dateOut)->endOfDay() : now()->endOfDay();
+
+        if ($end->lt($start)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        return [$start, $end];
+    }
+
+    private function resolveChartGranularity(array $filters, Carbon $start, Carbon $end): string
+    {
+        $requested = (string) ($filters['chart_granularity'] ?? '');
+        if (in_array($requested, ['day', 'month'], true)) {
+            return $requested;
+        }
+
+        return ($start->diffInDays($end) + 1) > 120 ? 'month' : 'day';
+    }
+
     private function asCarbon(mixed $value): ?Carbon
     {
         if (!$value) {
@@ -258,5 +634,17 @@ class AdsRequestedReportService
 
         $minutes = intdiv($seconds % 3600, 60);
         return "{$hours}h {$minutes}m";
+    }
+
+    private function resolveAdsStatusEnum(?string $status): ?AdsRequestStatus
+    {
+        if (!$status) {
+            return null;
+        }
+
+        $normalized = mb_strtoupper(trim($status));
+        $normalized = str_replace([' ', '-'], '_', $normalized);
+
+        return AdsRequestStatus::tryFrom($normalized);
     }
 }

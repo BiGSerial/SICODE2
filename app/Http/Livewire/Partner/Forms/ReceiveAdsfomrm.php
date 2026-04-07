@@ -126,7 +126,7 @@ class ReceiveAdsfomrm extends Component
             $q->where('note', trim($this->search))
                 ->orWhereRelation('Orders', 'ordem', trim($this->search));
         })
-            ->with('WorkForm.Orders', 'Adsform', 'TempAdsInfos')->get();
+            ->with('WorkForm.Orders', 'WorkForm.LatestReturnwork.User', 'Adsform', 'TempAdsInfos')->get();
     }
 
     public function getNote($id)
@@ -203,11 +203,12 @@ class ReceiveAdsfomrm extends Component
     public function toSave()
     {
         if (!$this->note?->WorkForm || $this->note->WorkForm->rejected) {
+            $reason = $this->buildRejectedWorkFormReasonHtml($this->note);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
                 'title' => 'INFORME INVÁLIDO',
-                'html' => "Esta obra não possui Informe de Obra válido para entrega da ADS.",
+                'html' => "Esta obra não possui Informe de Obra válido para entrega da ADS." . ($reason ? "<br><br>{$reason}" : ''),
             ]);
             return;
         }
@@ -443,6 +444,51 @@ class ReceiveAdsfomrm extends Component
             </div>
             </div>
             ";
+    }
+
+    public function getRejectedWorkFormReasonProperty(): string
+    {
+        return $this->buildRejectedWorkFormReasonText($this->note);
+    }
+
+    private function buildRejectedWorkFormReasonText(?Note $note = null): string
+    {
+        $targetNote = $note ?: $this->note;
+        if (!$targetNote?->WorkForm?->rejected) {
+            return '';
+        }
+
+        $workForm = $targetNote->WorkForm;
+        $latestReturn = $workForm->relationLoaded('LatestReturnwork')
+            ? $workForm->LatestReturnwork
+            : $workForm->LatestReturnwork()->first();
+
+        $category = trim((string) ($latestReturn?->category ?? ''));
+        $textObs = trim((string) ($latestReturn?->text_obs ?? ''));
+
+        $parts = [];
+        if ($category !== '') {
+            $parts[] = "Motivo: {$category}";
+        }
+        if ($textObs !== '') {
+            $parts[] = "Observação: {$textObs}";
+        }
+
+        if (empty($parts)) {
+            return 'Informe rejeitado (sem detalhe registrado).';
+        }
+
+        return implode(' | ', $parts);
+    }
+
+    private function buildRejectedWorkFormReasonHtml(?Note $note = null): string
+    {
+        $text = $this->buildRejectedWorkFormReasonText($note);
+        if ($text === '') {
+            return '';
+        }
+
+        return "<strong>Motivo do bloqueio:</strong><br>{$text}";
     }
 
     private function isEligibleByOrderStatusRule(): bool

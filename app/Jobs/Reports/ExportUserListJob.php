@@ -46,6 +46,7 @@ class ExportUserListJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = array_merge([
             'search' => null,
             'searchBy' => 'all',

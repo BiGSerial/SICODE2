@@ -34,6 +34,7 @@ class ProtestExportListJob implements ShouldQueue
 
     public function __construct($params, $userId)
     {
+        $this->onQueue('exports');
         $this->params = $params;
         $this->userId = $userId;
     }

@@ -36,7 +36,7 @@ class ReportsController extends Controller
 
     public function adsSolicitadas()
     {
-        return view('reports.ads-solicitadas');
+        return redirect()->route('ads.dashboard');
     }
 
     public function rejectedWorkReports()

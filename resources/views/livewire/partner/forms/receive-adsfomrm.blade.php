@@ -63,6 +63,12 @@
                                             $reason = 'SEM INFORME DE OBRA';
                                         } elseif ($tNote->WorkForm->rejected) {
                                             $block = true;
+                                            $latestReturn = $tNote->WorkForm->LatestReturnwork;
+                                            $rejectCategory = trim((string) ($latestReturn?->category ?? ''));
+                                            $rejectObs = trim((string) ($latestReturn?->text_obs ?? ''));
+                                            $rejectUser = trim((string) ($latestReturn?->User?->name ?? ''));
+                                            $rejectUserEmail = trim((string) ($latestReturn?->User?->email ?? ''));
+                                            $rejectAt = $latestReturn?->created_at?->format('d/m/Y H:i');
                                             $reason = 'INFORME REJEITADO';
                                         } else {
                                             $adsForm = $tNote->WorkForm->Adsform;
@@ -96,7 +102,56 @@
                                                 <span class="badge bg-success-subtle text-success-emphasis">NÃO</span>
                                             @endif
                                         </td>
-                                        <td class="fw-semibold">{{ $reason }}</td>
+                                        <td>
+                                            @if ($tNote->WorkForm?->rejected)
+                                                <div class="card border-danger-subtle shadow-sm mb-0">
+                                                    <div class="card-header bg-danger-subtle py-2 px-3 border-0">
+                                                        <div class="fw-bold text-danger mb-1">INFORME REJEITADO</div>
+                                                        <div class="small text-muted">
+                                                            Motivo: {{ $rejectCategory !== '' ? $rejectCategory : 'Não informado' }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="card-body py-2 px-3">
+                                                        <div class="small">
+                                                            {{ $rejectObs !== '' ? $rejectObs : 'Sem observação registrada.' }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="card-footer bg-white py-2 px-3 border-0 border-top">
+                                                        <div class="d-flex align-items-center gap-2 text-muted small">
+                                                            @if ($rejectUserEmail !== '')
+                                                                @php
+                                                                    $teamsWebUrl = 'https://teams.microsoft.com/l/chat/0/0?users=' . urlencode($rejectUserEmail);
+                                                                    $teamsDesktopUrl = 'msteams://teams.microsoft.com/l/chat/0/0?users=' . urlencode($rejectUserEmail);
+                                                                @endphp
+                                                                <a href="{{ $teamsWebUrl }}"
+                                                                    target="_blank" rel="noopener noreferrer"
+                                                                    class="text-decoration-none text-reset"
+                                                                    style="color: inherit;"
+                                                                    title="Conversar no Teams com {{ $rejectUserEmail }}"
+                                                                    onclick="openTeamsDesktopWithFallback(event, '{{ $teamsDesktopUrl }}', '{{ $teamsWebUrl }}')">
+                                                                    <i class="ri-microsoft-fill"></i>
+                                                                </a>
+                                                                <a href="{{ $teamsWebUrl }}"
+                                                                    target="_blank" rel="noopener noreferrer"
+                                                                    class="text-decoration-none text-reset"
+                                                                    style="color: inherit;"
+                                                                    title="Conversar no Teams com {{ $rejectUserEmail }}"
+                                                                    onclick="openTeamsDesktopWithFallback(event, '{{ $teamsDesktopUrl }}', '{{ $teamsWebUrl }}')">
+                                                                    {{ $rejectUser !== '' ? $rejectUser : 'Usuário não identificado' }}
+                                                                </a>
+                                                            @else
+                                                                <i class="ri-microsoft-fill"></i>
+                                                                <span>{{ $rejectUser !== '' ? $rejectUser : 'Usuário não identificado' }}</span>
+                                                            @endif
+                                                            <span>•</span>
+                                                            <span>{{ $rejectAt ?? 'Data não registrada' }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <span class="fw-semibold">{{ $reason }}</span>
+                                            @endif
+                                        </td>
                                         <td class="text-center">
                                             @if (!$block)
                                                 <button type="button" class="btn btn-sm btn-outline-primary"
@@ -284,6 +339,24 @@
         @endif
     </div>
 </div>
+
+@push('script')
+    <script>
+        window.openTeamsDesktopWithFallback = window.openTeamsDesktopWithFallback || function(event, desktopUrl, webUrl) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            // Tentativa 1: deep-link para app desktop.
+            window.open(desktopUrl, '_blank', 'noopener,noreferrer');
+
+            // Fallback: abre web em nova aba/janela.
+            setTimeout(function() {
+                window.open(webUrl, '_blank', 'noopener,noreferrer');
+            }, 600);
+        };
+    </script>
+@endpush
 
 @push('css')
     <style>
