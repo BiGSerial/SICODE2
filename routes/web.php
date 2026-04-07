@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
+use App\Http\Controllers\{AdminController, AdsController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -194,6 +194,12 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/cancellations/list', 'cancellationList')->middleware('can:management')->name('cancellations_list');
     Route::get('/complaints/mede', 'complaintsMedeReport')->middleware('can:management')->name('complaints_mede');
     Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
+});
+
+Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middleware('auth')->group(function () {
+    Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/realtime/queue-donut', 'realtimeQueueDonut')->name('realtime.queue_donut');
+    Route::get('/realtime/demand-delivery', 'realtimeDemandDelivery')->name('realtime.demand_delivery');
 });
 
 

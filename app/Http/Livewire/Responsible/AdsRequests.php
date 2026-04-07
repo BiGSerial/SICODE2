@@ -11,6 +11,7 @@ use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
 use App\Models\SystemSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -23,6 +24,7 @@ class AdsRequests extends Component
 
     public $notesInput = '';
     public $previewItems = [];
+    public $selectedPreviewItems = [];
     public $activeSearch = '';
     public $activePerPage = 25;
     public $companyId;
@@ -103,7 +105,6 @@ class AdsRequests extends Component
             return;
         }
 
-        $companyId = $this->companyId;
         $items = [];
 
         foreach ($noteNumbers as $noteNumber) {
@@ -121,6 +122,8 @@ class AdsRequests extends Component
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
+                    'last_url' => null,
+                    'last_url_age' => null,
                 ];
                 continue;
             }
@@ -136,6 +139,8 @@ class AdsRequests extends Component
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
+                    'last_url' => null,
+                    'last_url_age' => null,
                 ];
                 continue;
             }
@@ -157,11 +162,14 @@ class AdsRequests extends Component
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
+                    'last_url' => null,
+                    'last_url_age' => null,
                 ];
                 continue;
             }
 
-            $previousRequest = $this->getActiveRequestFor($note->id, $companyId);
+            $previousRequest = $this->getActiveRequestFor($note->id);
+            $latestRequestWithUrl = $this->getLatestRequestWithUrlFor($note->id);
 
             if ($previousRequest) {
                 $items[$noteNumber] = [
@@ -174,6 +182,8 @@ class AdsRequests extends Component
                     'previous_request_id' => $previousRequest->id,
                     'previous_status' => $previousRequest->status?->label(),
                     'will_cancel' => true,
+                    'last_url' => $latestRequestWithUrl?->url,
+                    'last_url_age' => $this->formatElapsed($latestRequestWithUrl?->updated_at ?? $latestRequestWithUrl?->completed_at ?? $latestRequestWithUrl?->created_at),
                 ];
                 continue;
             }
@@ -188,10 +198,13 @@ class AdsRequests extends Component
                 'previous_request_id' => null,
                 'previous_status' => null,
                 'will_cancel' => false,
+                'last_url' => $latestRequestWithUrl?->url,
+                'last_url_age' => $this->formatElapsed($latestRequestWithUrl?->updated_at ?? $latestRequestWithUrl?->completed_at ?? $latestRequestWithUrl?->created_at),
             ];
         }
 
         $this->previewItems = $items;
+        $this->selectedPreviewItems = [];
     }
 
     public function removePreview(string $noteNumber)
@@ -199,11 +212,32 @@ class AdsRequests extends Component
         if (isset($this->previewItems[$noteNumber])) {
             unset($this->previewItems[$noteNumber]);
         }
+
+        $this->selectedPreviewItems = array_values(array_filter(
+            $this->selectedPreviewItems,
+            fn ($selected) => (string) $selected !== (string) $noteNumber
+        ));
+    }
+
+    public function removeSelectedPreview()
+    {
+        if (!$this->selectedPreviewItems) {
+            return;
+        }
+
+        foreach ($this->selectedPreviewItems as $noteNumber) {
+            if (isset($this->previewItems[$noteNumber])) {
+                unset($this->previewItems[$noteNumber]);
+            }
+        }
+
+        $this->selectedPreviewItems = [];
     }
 
     public function removeAllPreview()
     {
         $this->previewItems = [];
+        $this->selectedPreviewItems = [];
     }
 
     public function processRequests()
@@ -305,7 +339,6 @@ class AdsRequests extends Component
 
                 $activeRequests = AdsRequest::query()
                     ->where('note_id', $item['note_id'])
-                    ->where('company_id', $companyId)
                     ->whereIn('status', $this->activeStatuses())
                     ->lockForUpdate()
                     ->orderByDesc('created_at')
@@ -372,6 +405,7 @@ class AdsRequests extends Component
         }
 
         $this->previewItems = [];
+        $this->selectedPreviewItems = [];
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -439,11 +473,10 @@ class AdsRequests extends Component
         }
     }
 
-    protected function getActiveRequestFor(int $noteId, string $companyId): ?AdsRequest
+    protected function getActiveRequestFor(int $noteId): ?AdsRequest
     {
         return AdsRequest::query()
             ->where('note_id', $noteId)
-            ->where('company_id', $companyId)
             ->whereIn('status', $this->activeStatuses())
             ->latest('created_at')
             ->first();
@@ -451,11 +484,40 @@ class AdsRequests extends Component
 
     protected function activeStatuses(): array
     {
-        return [
-            AdsRequestStatus::QUEUED->value,
-            AdsRequestStatus::IN_PROGRESS->value,
-            AdsRequestStatus::RETRY->value,
-        ];
+        return collect(AdsRequestStatus::cases())
+            ->map(fn (AdsRequestStatus $status) => $status->value)
+            ->reject(fn (string $status) => in_array($status, [
+                AdsRequestStatus::DONE->value,
+                AdsRequestStatus::CANCELED->value,
+                AdsRequestStatus::FAILED->value,
+            ], true))
+            ->values()
+            ->all();
+    }
+
+    protected function getLatestRequestWithUrlFor(int $noteId): ?AdsRequest
+    {
+        return AdsRequest::query()
+            ->where('note_id', $noteId)
+            ->whereNotNull('url')
+            ->whereRaw("NULLIF(LTRIM(RTRIM(url)), '') IS NOT NULL")
+            ->latest('created_at')
+            ->first();
+    }
+
+    protected function formatElapsed($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        $date = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+        return $date->diffForHumans(now(), [
+            'parts' => 2,
+            'short' => true,
+            'syntax' => Carbon::DIFF_RELATIVE_TO_NOW,
+        ]);
     }
 
     protected function getCancelablePreviewNotes(): array
@@ -505,6 +567,28 @@ class AdsRequests extends Component
     protected function parseNotesInput(): array
     {
         $raw = preg_split('/[\s,;]+/', trim((string) $this->notesInput));
+
+        return collect($raw)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function parseHistorySearchTerms(): array
+    {
+        $raw = preg_split('/[\s,;]+/', trim((string) $this->historySearch));
+
+        return collect($raw)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function parseActiveSearchTerms(): array
+    {
+        $raw = preg_split('/[\s,;]+/', trim((string) $this->activeSearch));
 
         return collect($raw)
             ->filter(fn ($value) => $value !== null && $value !== '')
@@ -575,10 +659,17 @@ class AdsRequests extends Component
             ->orderByDesc('created_at');
 
         if ($this->activeSearch) {
-            $search = trim($this->activeSearch);
-            $query->whereHas('note', function ($q) use ($search) {
-                $q->where('note', 'like', '%' . $search . '%');
-            });
+            $terms = $this->parseActiveSearchTerms();
+            if ($terms) {
+                $query->whereHas('note', function ($q) use ($terms) {
+                    if (count($terms) === 1) {
+                        $q->where('note', 'like', '%' . $terms[0] . '%');
+                        return;
+                    }
+
+                    $q->whereIn('note', $terms);
+                });
+            }
         }
 
         return $query->paginate($this->activePerPage, ['*'], 'activePage');
@@ -668,10 +759,17 @@ class AdsRequests extends Component
             ]);
 
         if ($this->historySearch) {
-            $search = trim($this->historySearch);
-            $query->whereHas('note', function ($q) use ($search) {
-                $q->where('note', 'like', '%' . $search . '%');
-            });
+            $terms = $this->parseHistorySearchTerms();
+            if ($terms) {
+                $query->whereHas('note', function ($q) use ($terms) {
+                    if (count($terms) === 1) {
+                        $q->where('note', 'like', '%' . $terms[0] . '%');
+                        return;
+                    }
+
+                    $q->whereIn('note', $terms);
+                });
+            }
         }
 
         if ($this->historyCompanyId) {

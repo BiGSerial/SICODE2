@@ -1556,8 +1556,11 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildMedaOpenDesiredHistogram(): array
+    protected function buildMedaOpenDesiredHistogram(Carbon $start, Carbon $end): array
     {
+        $windowStart = $start->copy()->startOfMonth();
+        $windowEnd = $end->copy()->endOfMonth();
+
         $query = MedProtest::query()
             ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
             ->with(['protest:id,tipoNota,dtConclusaoDesej,txtGrpCodificacao'])
@@ -1670,6 +1673,9 @@ class UserSlaDashboard extends Component
             }
 
             $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
+            if ($normalized->lt($windowStart) || $normalized->gt($windowEnd)) {
+                continue;
+            }
             $year = (int) $normalized->format('Y');
             $month = (int) $normalized->format('n');
             $key = $normalized->format('Y-m');
@@ -2172,10 +2178,10 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildComplaintsNaPanel(Carbon $end): array
+    protected function buildComplaintsNaPanel(Carbon $start, Carbon $end): array
     {
+        $windowStart = $start->copy()->startOfMonth();
         $windowEnd = $end->copy()->endOfMonth();
-        $windowStart = $windowEnd->copy()->startOfMonth()->subMonths(5);
 
         $monthKeys = [];
         $monthLabels = [];
@@ -2524,10 +2530,10 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildComplaintsOuPanel(Carbon $end): array
+    protected function buildComplaintsOuPanel(Carbon $start, Carbon $end): array
     {
+        $windowStart = $start->copy()->startOfMonth();
         $windowEnd = $end->copy()->endOfMonth();
-        $windowStart = $windowEnd->copy()->startOfMonth()->subMonths(5);
 
         $monthKeys = [];
         $monthLabels = [];
@@ -3352,11 +3358,11 @@ class UserSlaDashboard extends Component
         $protestTypeDonut       = $this->buildProtestTypeDonut($start, $end);
         $jobSlaList             = $this->buildJobSlaList($start, $end);
         $medaSnapshot           = $this->buildMedaSnapshot($start, $end);
-        $medaOpenHistogram      = $this->buildMedaOpenDesiredHistogram();
+        $medaOpenHistogram      = $this->buildMedaOpenDesiredHistogram($start, $end);
         $medaOpenDispatchList   = $this->buildMedaOpenDispatchList();
         $generalProtestsList    = $this->buildGeneralProtestsList($start, $end);
-        $complaintsNaPanel      = $this->buildComplaintsNaPanel($end);
-        $complaintsOuPanel      = $this->buildComplaintsOuPanel($end);
+        $complaintsNaPanel      = $this->buildComplaintsNaPanel($start, $end);
+        $complaintsOuPanel      = $this->buildComplaintsOuPanel($start, $end);
         $dispatcherMeasuresPanel = $this->buildDispatcherMeasuresPanel($start, $end);
 
         $this->dispatchDailyOpeningsChart($dailyOpenings);

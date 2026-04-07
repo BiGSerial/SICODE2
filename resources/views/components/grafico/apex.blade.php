@@ -91,6 +91,97 @@
             });
         }
 
+        function bindClickHandler(chart, ctx, safeOptions) {
+            const clickFilter = safeOptions?.onClickFilter ?? null;
+            if (!(clickFilter?.enabled)) {
+                ctx.canvas.onclick = null;
+                return;
+            }
+
+            ctx.canvas.onclick = function(evt) {
+                if (!chart) return;
+
+                const mode = clickFilter?.mode ?? 'nearest';
+                const intersect = clickFilter?.intersect ?? true;
+                const axis = clickFilter?.axis ?? undefined;
+                const queryOptions = axis ? {
+                    intersect,
+                    axis
+                } : {
+                    intersect
+                };
+
+                const elements = chart.getElementsAtEventForMode(evt, mode, queryOptions, true);
+
+                let index = elements?.length ? elements[0].index : null;
+
+                if (index === null && clickFilter?.allowLabelFallback) {
+                    const xScale = chart.scales?.x;
+                    const labelsCount = chart.data?.labels?.length ?? 0;
+                    const rect = ctx.canvas.getBoundingClientRect();
+                    const canvasX = evt?.offsetX ?? (evt?.clientX != null ? evt.clientX - rect.left : null);
+                    const canvasY = evt?.offsetY ?? (evt?.clientY != null ? evt.clientY - rect.top : null);
+                    const scaleX = rect.width > 0 ? (ctx.canvas.width / rect.width) : 1;
+                    const scaleY = rect.height > 0 ? (ctx.canvas.height / rect.height) : 1;
+                    const x = canvasX != null ? canvasX * scaleX : null;
+                    const y = canvasY != null ? canvasY * scaleY : null;
+
+                    if (xScale && labelsCount > 0 && x !== null && y !== null) {
+                        const left = Math.min(xScale.left, xScale.right);
+                        const right = Math.max(xScale.left, xScale.right);
+                        const chartBottom = chart.chartArea?.bottom ?? xScale.top;
+                        const scaleBottom = xScale.bottom ?? chartBottom;
+                        const labelTop = Math.min(chartBottom, scaleBottom) - 6;
+                        const labelBottom = Math.max(scaleBottom, chartBottom) + 22;
+
+                        const inHorizontalRange = x >= (left - 12) && x <= (right + 12);
+                        const inLabelBand = y >= labelTop && y <= labelBottom;
+
+                        if (inHorizontalRange && inLabelBand) {
+                            let nearestIndex = 0;
+                            let nearestDistance = Number.POSITIVE_INFINITY;
+
+                            for (let i = 0; i < labelsCount; i++) {
+                                const px = xScale.getPixelForTick(i);
+                                const dist = Math.abs(px - x);
+                                if (dist < nearestDistance) {
+                                    nearestDistance = dist;
+                                    nearestIndex = i;
+                                }
+                            }
+
+                            index = nearestIndex;
+                        }
+                    }
+                }
+
+                if (index === null) return;
+
+                const keys = clickFilter?.keys ?? [];
+                const value = keys[index] ?? chart.data?.labels?.[index] ?? null;
+                if (!value) return;
+
+                if (clickFilter?.jsEvent) {
+                    window.dispatchEvent(new CustomEvent(String(clickFilter.jsEvent), {
+                        detail: {
+                            value,
+                            index,
+                            label: chart.data?.labels?.[index] ?? null,
+                            chartId
+                        }
+                    }));
+                }
+
+                if (clickFilter?.method) {
+                    const root = ctx.canvas.closest('[wire\\:id]');
+                    if (!root) return;
+                    const componentId = root.getAttribute('wire:id');
+                    if (!componentId) return;
+                    Livewire.find(componentId).call(clickFilter.method, value);
+                }
+            };
+        }
+
         function renderChart(payload) {
             if (!window.Chart) {
                 return false;
@@ -107,10 +198,6 @@
             }
 
             try {
-                if (registry.instances[chartId]) {
-                    registry.instances[chartId].destroy();
-                }
-
                 const safeData = JSON.parse(JSON.stringify(payload?.data ?? {}));
                 const safeOptions = JSON.parse(JSON.stringify(payload?.options ?? {}));
                 reviveChartFunctions(safeData);
@@ -120,6 +207,17 @@
                     window.Chart.register(window.ChartDataLabels);
                     window.__chartDataLabelsRegistered = true;
                 }
+
+                const existing = registry.instances[chartId];
+                if (existing) {
+                    existing.config.type = payload?.type ?? existing.config.type ?? 'bar';
+                    existing.config.data = safeData;
+                    existing.config.options = safeOptions;
+                    bindClickHandler(existing, ctx, safeOptions);
+                    existing.update();
+                    return true;
+                }
+
                 registry.instances[chartId] = new Chart(ctx, {
                     type: payload?.type ?? 'bar',
                     data: safeData,
@@ -128,83 +226,7 @@
 
                 window['chartInstance_' + chartId] = registry.instances[chartId];
 
-                const clickFilter = safeOptions?.onClickFilter ?? null;
-                if (clickFilter?.enabled && clickFilter?.method) {
-                    ctx.canvas.onclick = function(evt) {
-                        const chart = registry.instances[chartId];
-                        if (!chart) return;
-
-                        const mode = clickFilter?.mode ?? 'nearest';
-                        const intersect = clickFilter?.intersect ?? true;
-                        const axis = clickFilter?.axis ?? undefined;
-                        const queryOptions = axis ? {
-                            intersect,
-                            axis
-                        } : {
-                            intersect
-                        };
-
-                        const elements = chart.getElementsAtEventForMode(evt, mode, queryOptions, true);
-
-                        let index = elements?.length ? elements[0].index : null;
-
-                        // Fallback: permite clique no texto do eixo X (rótulo do mês).
-                        if (index === null && clickFilter?.allowLabelFallback) {
-                            const xScale = chart.scales?.x;
-                            const labelsCount = chart.data?.labels?.length ?? 0;
-                            const rect = ctx.canvas.getBoundingClientRect();
-                            const canvasX = evt?.offsetX ?? (evt?.clientX != null ? evt.clientX - rect.left : null);
-                            const canvasY = evt?.offsetY ?? (evt?.clientY != null ? evt.clientY - rect.top : null);
-                            const scaleX = rect.width > 0 ? (ctx.canvas.width / rect.width) : 1;
-                            const scaleY = rect.height > 0 ? (ctx.canvas.height / rect.height) : 1;
-                            const x = canvasX != null ? canvasX * scaleX : null;
-                            const y = canvasY != null ? canvasY * scaleY : null;
-
-                            if (xScale && labelsCount > 0 && x !== null && y !== null) {
-                                const left = Math.min(xScale.left, xScale.right);
-                                const right = Math.max(xScale.left, xScale.right);
-                                const chartBottom = chart.chartArea?.bottom ?? xScale.top;
-                                const scaleBottom = xScale.bottom ?? chartBottom;
-                                const labelTop = Math.min(chartBottom, scaleBottom) - 6;
-                                const labelBottom = Math.max(scaleBottom, chartBottom) + 22;
-
-                                const inHorizontalRange = x >= (left - 12) && x <= (right + 12);
-                                const inLabelBand = y >= labelTop && y <= labelBottom;
-
-                                if (inHorizontalRange && inLabelBand) {
-                                    let nearestIndex = 0;
-                                    let nearestDistance = Number.POSITIVE_INFINITY;
-
-                                    for (let i = 0; i < labelsCount; i++) {
-                                        const px = xScale.getPixelForTick(i);
-                                        const dist = Math.abs(px - x);
-                                        if (dist < nearestDistance) {
-                                            nearestDistance = dist;
-                                            nearestIndex = i;
-                                        }
-                                    }
-
-                                    index = nearestIndex;
-                                }
-                            }
-                        }
-
-                        if (index === null) return;
-
-                        const keys = clickFilter?.keys ?? [];
-                        const value = keys[index] ?? chart.data?.labels?.[index] ?? null;
-                        if (!value) return;
-
-                        const root = ctx.canvas.closest('[wire\\:id]');
-                        if (!root) return;
-                        const componentId = root.getAttribute('wire:id');
-                        if (!componentId) return;
-
-                        Livewire.find(componentId).call(clickFilter.method, value);
-                    };
-                } else {
-                    ctx.canvas.onclick = null;
-                }
+                bindClickHandler(registry.instances[chartId], ctx, safeOptions);
             } catch (error) {
                 return false;
             }

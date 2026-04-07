@@ -203,6 +203,28 @@
             <div class="histogram-chart-wrap" wire:ignore>
                 <canvas id="accompanyHistogram"></canvas>
             </div>
+            @php
+                $selectedMonth = (int) ($histogramData['selectedMonth'] ?? 0);
+                $series = (array) ($histogramData['series'] ?? []);
+                $overdue = array_values((array) ($series['overdue'] ?? []));
+                $dueSoon = array_values((array) ($series['dueSoon'] ?? []));
+                $within = array_values((array) ($series['within'] ?? []));
+                $monthLabels = [1 => 'Jan', 2 => 'Fev', 3 => 'Mar', 4 => 'Abr', 5 => 'Mai', 6 => 'Jun', 7 => 'Jul', 8 => 'Ago', 9 => 'Set', 10 => 'Out', 11 => 'Nov', 12 => 'Dez'];
+            @endphp
+            <div class="d-flex flex-wrap gap-2 mt-3 justify-content-center">
+                @foreach ($monthLabels as $monthNumber => $monthLabel)
+                    @php
+                        $index = $monthNumber - 1;
+                        $monthTotal = (int) ($overdue[$index] ?? 0) + (int) ($dueSoon[$index] ?? 0) + (int) ($within[$index] ?? 0);
+                        $isActive = $selectedMonth === $monthNumber;
+                    @endphp
+                    <button type="button" class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}"
+                        @disabled($monthTotal <= 0)
+                        wire:click="setHistogramBucket({{ $monthNumber }})">
+                        {{ $monthLabel }}
+                    </button>
+                @endforeach
+            </div>
             <small class="text-muted">Clique em uma barra para filtrar a lista por mês/ano.</small>
         </div>
     </div>
@@ -578,6 +600,12 @@
                 const withinData = series.within || [];
                 const selectedMonth = payload.selectedMonth ? Number(payload.selectedMonth) : null;
                 const sourceLabel = payload.source === 'sla' ? 'SLA do job' : 'Data desejada';
+                const filterBySelectedMonth = (data) => selectedMonth
+                    ? labels.map((_, i) => ((i + 1) === selectedMonth ? Number(data[i] ?? 0) : 0))
+                    : data;
+                const displayOverdueData = filterBySelectedMonth(overdueData);
+                const displayDueSoonData = filterBySelectedMonth(dueSoonData);
+                const displayWithinData = filterBySelectedMonth(withinData);
 
                 const colorize = (base) => labels.map((_, i) => selectedMonth === (i + 1) ? base.replace('0.8', '1') : base);
                 const border = labels.map((_, i) => selectedMonth === (i + 1) ? 'rgba(15,23,42,1)' : 'rgba(15,23,42,.45)');
@@ -592,7 +620,7 @@
                         labels,
                         datasets: [{
                             label: `Vencidos - ${sourceLabel} (${payload.selectedYear ?? ''})`,
-                            data: overdueData,
+                            data: displayOverdueData,
                             backgroundColor: colorize('rgba(220,53,69,0.8)'),
                             borderColor: border,
                             borderWidth: 1,
@@ -600,7 +628,7 @@
                             stack: 'prazo',
                         }, {
                             label: `Vencendo - ${sourceLabel} (${payload.selectedYear ?? ''})`,
-                            data: dueSoonData,
+                            data: displayDueSoonData,
                             backgroundColor: colorize('rgba(255,193,7,0.8)'),
                             borderColor: border,
                             borderWidth: 1,
@@ -608,7 +636,7 @@
                             stack: 'prazo',
                         }, {
                             label: `A vencer - ${sourceLabel} (${payload.selectedYear ?? ''})`,
-                            data: withinData,
+                            data: displayWithinData,
                             backgroundColor: colorize('rgba(25,135,84,0.8)'),
                             borderColor: border,
                             borderWidth: 1,
