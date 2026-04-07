@@ -11,6 +11,7 @@
         {{-- <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script> --}}
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                const showDataLabels = @json((bool) ($showDataLabels ?? false));
                 var options = {
                     series: [{
                         name: '{{ $dataset1Label }}',
@@ -36,7 +37,7 @@
                         },
                     },
                     dataLabels: {
-                        enabled: false // Oculta os rótulos de dados
+                        enabled: showDataLabels
                     },
                     stroke: {
                         show: true,
@@ -54,6 +55,7 @@
                     fill: {
                         opacity: 1
                     },
+                    colors: ['#263CC8', '#225E66', '#E32C2C', '#F7D200', '#A8B1E9', '#91AFB3'],
                     tooltip: {
                         y: {
                             formatter: function(val) {

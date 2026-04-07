@@ -12,6 +12,7 @@
             document.addEventListener('DOMContentLoaded', function() {
                 let labels = @json($labels);
                 let datas = @json($dataset);
+                const showDataLabels = @json((bool) ($showDataLabels ?? false));
 
                 if (datas.length === 0) {
                     document.getElementById('msg-{{ $chartId }}').style.display = 'block';
@@ -22,7 +23,7 @@
                     document.getElementById('{{ $chartId }}').style.display = 'block';
                 }
                 // Se houver dados, calcula a média e define a annotation; caso contrário, deixa vazio.
-                renderChart('{{ $chartId }}', labels, datas, '{{ $title ?? 'Série 1' }}');
+                renderChart('{{ $chartId }}', labels, datas, '{{ $title ?? 'Série 1' }}', showDataLabels);
             });
 
             document.addEventListener('updateGraph{{ Str::studly($chartId) }}', function(e) {
@@ -40,10 +41,23 @@
                     document.getElementById('{{ $chartId }}').style.display = 'block';
                 }
 
-                renderChart('{{ $chartId }}', newLabels, newData, '{{ $title ?? 'Série 1' }}');
+                const showDataLabels = @json((bool) ($showDataLabels ?? false));
+                renderChart('{{ $chartId }}', newLabels, newData, '{{ $title ?? 'Série 1' }}', showDataLabels);
             });
 
-            function renderChart(chartId, labels, datas, title) {
+            function renderChart(chartId, labels, datas, title, showDataLabels = false) {
+                const edpSemantic = {
+                    blue: '#263CC8',
+                    blueSoft: '#A8B1E9',
+                    green: '#225E66',
+                    greenSoft: '#91AFB3',
+                    red: '#E32C2C',
+                    redSoft: '#EDD5D3',
+                    yellow: '#F7D200',
+                    yellowSoft: '#FFF1BE',
+                    marine: '#212E3E'
+                };
+
                 // Se houver dados, calcula a média e define a annotation; caso contrário, deixa vazio.
                 let annotationsConfig = {};
                 if (datas && datas.length > 0) {
@@ -56,12 +70,12 @@
                     annotationsConfig = {
                         yaxis: [{
                             y: avg,
-                            borderColor: '#FF0000',
+                            borderColor: edpSemantic.red,
                             label: {
-                                borderColor: '#FF0000',
+                                borderColor: edpSemantic.red,
                                 style: {
                                     color: '#fff',
-                                    background: '#FF0000'
+                                    background: edpSemantic.red
                                 },
                                 text: 'Média'
                             }
@@ -83,11 +97,15 @@
                         categories: labels
                     },
                     colors: [
-                        '#28FF52', '#212E3E', '#8B0000', '#0000FF',
-                        '#FF00FF', '#FFA500', '#00FFFF', '#800080',
-                        '#FF0000', '#6D32FF', '#0CD3F8', '#FF1493',
-                        '#FFFF00', '#A52A2A', '#FF5733', '#EE82EE',
-                        '#40E0D0', '#B22222', '#4B0082', '#FF9933'
+                        edpSemantic.blue,
+                        edpSemantic.green,
+                        edpSemantic.red,
+                        edpSemantic.yellow,
+                        edpSemantic.blueSoft,
+                        edpSemantic.greenSoft,
+                        edpSemantic.redSoft,
+                        edpSemantic.yellowSoft,
+                        edpSemantic.marine
                     ],
                     dropShadow: {
                         enabled: true,
@@ -99,6 +117,9 @@
                     legend: {
                         position: 'top',
                         horizontalAlign: 'center'
+                    },
+                    dataLabels: {
+                        enabled: showDataLabels
                     },
                     annotations: annotationsConfig
                 };
