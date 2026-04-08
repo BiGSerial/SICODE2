@@ -126,7 +126,14 @@ class ReceiveAdsfomrm extends Component
             $q->where('note', trim($this->search))
                 ->orWhereRelation('Orders', 'ordem', trim($this->search));
         })
-            ->with('WorkForm.Orders', 'WorkForm.LatestReturnwork.User', 'Adsform', 'TempAdsInfos')->get();
+            ->with(
+                'WorkForm.Orders',
+                'WorkForm.LatestReturnwork.User',
+                'WorkForm.Adsform.Files',
+                'OldAds',
+                'TempAdsInfos'
+            )
+            ->get();
     }
 
     public function getNote($id)
@@ -421,6 +428,18 @@ class ReceiveAdsfomrm extends Component
 
     private function isAdsClosed(): bool
     {
+        if (!$this->note) {
+            return false;
+        }
+
+        $hasOldAds = $this->note->relationLoaded('OldAds')
+            ? $this->note->OldAds->isNotEmpty()
+            : $this->note->OldAds()->exists();
+
+        if ($hasOldAds) {
+            return true;
+        }
+
         if (!$this->note?->WorkForm?->Adsform) {
             return false;
         }

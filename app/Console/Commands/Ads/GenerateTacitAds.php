@@ -203,7 +203,9 @@ class GenerateTacitAds extends Command
                             'partial' => false,
                             'tacit' => true,
                             'tacit_due_at' => $dueAt,
-                            'tacit_delivered_at' => $latestRequestWithUrl ? now() : null,
+                            // Este campo deve ser preenchido apenas no envio manual da ADS
+                            // pelo parceiro (fluxo ReceiveAdsfomrm).
+                            'tacit_delivered_at' => null,
                         ]);
 
                         $adsCreated++;

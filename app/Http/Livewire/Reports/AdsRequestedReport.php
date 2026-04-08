@@ -27,7 +27,7 @@ class AdsRequestedReport extends Component
     public array $companyIds = [];
     public $companies;
     public array $statusExactOptions = [];
-    public string $chartPeriod = '30d'; // 7d | 30d | 12m | custom
+    public string $chartPeriod = '7d'; // 7d | 30d | 12m | custom
     public string $chartGranularity = 'day'; // day | month
     private bool $syncingChartPeriod = false;
 
@@ -46,25 +46,34 @@ class AdsRequestedReport extends Component
         'search' => ['except' => '', 'as' => 'q'],
         'companyIds' => ['except' => [], 'as' => 'company'],
         'perPage' => ['except' => 50, 'as' => 'pp'],
-        'chartPeriod' => ['except' => '30d', 'as' => 'cp'],
+        'chartPeriod' => ['except' => '7d', 'as' => 'cp'],
         'chartGranularity' => ['except' => 'day', 'as' => 'cg'],
     ];
 
     public function mount(): void
     {
         if (!$this->isValidChartPeriod($this->chartPeriod)) {
-            $this->chartPeriod = '30d';
+            $this->chartPeriod = '7d';
         }
 
         if (!$this->isValidChartGranularity($this->chartGranularity)) {
             $this->chartGranularity = 'day';
         }
 
-        if (blank($this->date_in) || blank($this->date_out)) {
-            $this->applyChartPeriod($this->chartPeriod);
+        $activeDateType = $this->resolveActiveDateType();
+        if ($activeDateType === 'completed') {
+            $this->date_in = null;
+            $this->date_out = null;
         } else {
+            $this->completed_in = null;
+            $this->completed_out = null;
+        }
+
+        if ($this->chartPeriod === 'custom') {
+            $this->ensureCustomHasAnchorDate($activeDateType);
             $this->syncGranularityFromDateRange();
-            $this->chartPeriod = 'custom';
+        } else {
+            $this->applyChartPeriod($this->chartPeriod, $activeDateType);
         }
 
         $this->companies = Company::query()
@@ -109,8 +118,8 @@ class AdsRequestedReport extends Component
         $this->statusExact = null;
         $this->search = null;
         $this->companyIds = [];
-        $this->chartPeriod = '30d';
-        $this->applyChartPeriod('30d');
+        $this->chartPeriod = '7d';
+        $this->applyChartPeriod('7d');
         $this->completed_in = null;
         $this->completed_out = null;
         $this->perPage = 50;
@@ -120,6 +129,9 @@ class AdsRequestedReport extends Component
 
     public function applyChartDayFilter(string $date): void
     {
+        $this->completed_in = null;
+        $this->completed_out = null;
+
         if (preg_match('/^\d{4}\-\d{2}$/', $date) === 1) {
             $monthStart = Carbon::createFromFormat('Y-m', $date)->startOfMonth();
             $monthEnd = $monthStart->copy()->endOfMonth();
@@ -133,6 +145,7 @@ class AdsRequestedReport extends Component
             $this->chartPeriod = 'custom';
             $this->chartGranularity = 'month';
             $this->resetPage();
+            $this->dispatchFiltersToCharts();
             return;
         }
 
@@ -145,6 +158,7 @@ class AdsRequestedReport extends Component
         $this->chartPeriod = 'custom';
         $this->chartGranularity = 'day';
         $this->resetPage();
+        $this->dispatchFiltersToCharts();
     }
 
     public function applyChartQueueStatusFilter(string $status): void
@@ -156,31 +170,93 @@ class AdsRequestedReport extends Component
 
         $this->statusExact = $status;
         $this->resetPage();
+        $this->dispatchFiltersToCharts();
     }
 
     public function updatedChartPeriod(string $value): void
     {
         if (!$this->isValidChartPeriod($value)) {
-            $this->chartPeriod = '30d';
-            $value = '30d';
+            $this->chartPeriod = '7d';
+            $value = '7d';
         }
 
+        $activeDateType = $this->resolveActiveDateType();
+
         if ($value === 'custom') {
+            $this->ensureCustomHasAnchorDate($activeDateType);
             $this->syncGranularityFromDateRange();
+            $this->dispatchFiltersToCharts();
             return;
         }
 
-        $this->applyChartPeriod($value);
+        $this->applyChartPeriod($value, $activeDateType);
+        $this->dispatchFiltersToCharts();
     }
 
     public function updatedDateIn(): void
     {
+        $this->completed_in = null;
+        $this->completed_out = null;
+
+        if ($this->chartPeriod !== 'custom') {
+            if (blank($this->date_out) && filled($this->date_in)) {
+                $this->date_out = $this->date_in;
+            }
+            $this->applyChartPeriod($this->chartPeriod, 'request');
+            $this->dispatchFiltersToCharts();
+            return;
+        }
+
         $this->markCustomPeriod();
+        $this->dispatchFiltersToCharts();
     }
 
     public function updatedDateOut(): void
     {
+        $this->completed_in = null;
+        $this->completed_out = null;
+
+        if ($this->chartPeriod !== 'custom') {
+            $this->applyChartPeriod($this->chartPeriod, 'request');
+            $this->dispatchFiltersToCharts();
+            return;
+        }
+
         $this->markCustomPeriod();
+        $this->dispatchFiltersToCharts();
+    }
+
+    public function updatedCompletedIn(): void
+    {
+        $this->date_in = null;
+        $this->date_out = null;
+
+        if ($this->chartPeriod !== 'custom') {
+            if (blank($this->completed_out) && filled($this->completed_in)) {
+                $this->completed_out = $this->completed_in;
+            }
+            $this->applyChartPeriod($this->chartPeriod, 'completed');
+            $this->dispatchFiltersToCharts();
+            return;
+        }
+
+        $this->markCustomPeriod();
+        $this->dispatchFiltersToCharts();
+    }
+
+    public function updatedCompletedOut(): void
+    {
+        $this->date_in = null;
+        $this->date_out = null;
+
+        if ($this->chartPeriod !== 'custom') {
+            $this->applyChartPeriod($this->chartPeriod, 'completed');
+            $this->dispatchFiltersToCharts();
+            return;
+        }
+
+        $this->markCustomPeriod();
+        $this->dispatchFiltersToCharts();
     }
 
     public function getRowsProperty()
@@ -236,13 +312,42 @@ class AdsRequestedReport extends Component
 
     private function filters(): array
     {
+        $isCustom = $this->chartPeriod === 'custom';
+        $activeDateType = $this->resolveActiveDateType();
+        $dateIn = null;
+        $dateOut = null;
+        $completedIn = null;
+        $completedOut = null;
+
+        if ($activeDateType === 'completed') {
+            $anchor = $this->resolveAnchorDate('completed');
+            if ($isCustom) {
+                $completedIn = $this->normalizeDateOrNull($this->completed_in) ?? $anchor->toDateString();
+                $completedOut = $this->normalizeDateOrNull($this->completed_out) ?? $anchor->toDateString();
+            } else {
+                [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
+                $completedIn = $start;
+                $completedOut = $end;
+            }
+        } else {
+            $anchor = $this->resolveAnchorDate('request');
+            if ($isCustom) {
+                $dateIn = $this->normalizeDateOrNull($this->date_in) ?? $anchor->toDateString();
+                $dateOut = $this->normalizeDateOrNull($this->date_out) ?? $anchor->toDateString();
+            } else {
+                [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
+                $dateIn = $start;
+                $dateOut = $end;
+            }
+        }
+
         return [
             'statusFilter' => $this->statusFilter,
             'status_exact' => $this->statusExact,
-            'date_in' => $this->date_in,
-            'date_out' => $this->date_out,
-            'completed_in' => $this->completed_in,
-            'completed_out' => $this->completed_out,
+            'date_in' => $dateIn,
+            'date_out' => $dateOut,
+            'completed_in' => $completedIn,
+            'completed_out' => $completedOut,
             'search' => $this->search,
             'companyIds' => $this->companyIds,
             'chart_granularity' => $this->chartGranularity,
@@ -278,30 +383,25 @@ class AdsRequestedReport extends Component
         $this->dispatchBrowserEvent('ads-filters-updated', $this->filters());
     }
 
-    private function applyChartPeriod(string $period): void
+    private function applyChartPeriod(string $period, string $activeDateType = 'request'): void
     {
         $this->syncingChartPeriod = true;
-        $today = now();
-        if ($period === '7d') {
-            $this->date_in = $today->copy()->subDays(6)->toDateString();
-            $this->date_out = $today->toDateString();
-            $this->chartGranularity = 'day';
-            $this->syncingChartPeriod = false;
-            return;
+        $anchor = $this->resolveAnchorDate($activeDateType);
+        [$start, $end, $granularity] = $this->resolvePeriodRange($period, $anchor, true);
+
+        if ($activeDateType === 'completed') {
+            $this->date_in = null;
+            $this->date_out = null;
+            $this->completed_in = $start;
+            $this->completed_out = $end;
+        } else {
+            $this->completed_in = null;
+            $this->completed_out = null;
+            $this->date_in = $start;
+            $this->date_out = $end;
         }
 
-        if ($period === '12m') {
-            $this->date_in = $today->copy()->subMonthsNoOverflow(11)->startOfMonth()->toDateString();
-            $this->date_out = $today->toDateString();
-            $this->chartGranularity = 'month';
-            $this->syncingChartPeriod = false;
-            return;
-        }
-
-        // default: 30d
-        $this->date_in = $today->copy()->subDays(29)->toDateString();
-        $this->date_out = $today->toDateString();
-        $this->chartGranularity = 'day';
+        $this->chartGranularity = $granularity;
         $this->syncingChartPeriod = false;
     }
 
@@ -317,18 +417,108 @@ class AdsRequestedReport extends Component
 
     private function syncGranularityFromDateRange(): void
     {
-        if (!$this->isValidDate((string) $this->date_in) || !$this->isValidDate((string) $this->date_out)) {
+        $activeDateType = $this->resolveActiveDateType();
+        $startRaw = $activeDateType === 'completed' ? $this->completed_in : $this->date_in;
+        $endRaw = $activeDateType === 'completed' ? $this->completed_out : $this->date_out;
+
+        if (!$this->isValidDate((string) $startRaw) || !$this->isValidDate((string) $endRaw)) {
             return;
         }
 
-        $start = Carbon::parse($this->date_in)->startOfDay();
-        $end = Carbon::parse($this->date_out)->startOfDay();
+        $start = Carbon::parse($startRaw)->startOfDay();
+        $end = Carbon::parse($endRaw)->startOfDay();
         if ($end->lt($start)) {
             [$start, $end] = [$end, $start];
         }
 
         $days = $start->diffInDays($end) + 1;
         $this->chartGranularity = $days > 120 ? 'month' : 'day';
+    }
+
+    private function resolveActiveDateType(): string
+    {
+        $hasRequestDates = filled($this->date_in) || filled($this->date_out);
+        $hasCompletedDates = filled($this->completed_in) || filled($this->completed_out);
+
+        if ($hasCompletedDates && !$hasRequestDates) {
+            return 'completed';
+        }
+
+        if ($hasRequestDates && !$hasCompletedDates) {
+            return 'request';
+        }
+
+        if ($hasCompletedDates && $hasRequestDates) {
+            if (filled($this->completed_out) && blank($this->date_out)) {
+                return 'completed';
+            }
+
+            return 'request';
+        }
+
+        return 'request';
+    }
+
+    private function ensureCustomHasAnchorDate(string $activeDateType): void
+    {
+        $today = now()->toDateString();
+        if ($activeDateType === 'completed') {
+            if (blank($this->completed_in) && blank($this->completed_out)) {
+                $this->completed_in = $today;
+                $this->completed_out = $today;
+            }
+            $this->date_in = null;
+            $this->date_out = null;
+            return;
+        }
+
+        if (blank($this->date_in) && blank($this->date_out)) {
+            $this->date_in = $today;
+            $this->date_out = $today;
+        }
+        $this->completed_in = null;
+        $this->completed_out = null;
+    }
+
+    private function resolveAnchorDate(string $activeDateType): Carbon
+    {
+        $candidate = $activeDateType === 'completed'
+            ? $this->normalizeDateOrNull($this->completed_out)
+            : $this->normalizeDateOrNull($this->date_out);
+
+        return $candidate ? Carbon::parse($candidate)->startOfDay() : now()->startOfDay();
+    }
+
+    /**
+     * @return array{0:string,1:string}|array{0:string,1:string,2:string}
+     */
+    private function resolvePeriodRange(string $period, Carbon $anchor, bool $withGranularity = false): array
+    {
+        if ($period === '7d') {
+            $start = $anchor->copy()->subDays(6)->toDateString();
+            $end = $anchor->toDateString();
+            return $withGranularity ? [$start, $end, 'day'] : [$start, $end];
+        }
+
+        if ($period === '12m') {
+            $start = $anchor->copy()->subMonthsNoOverflow(11)->startOfMonth()->toDateString();
+            $end = $anchor->toDateString();
+            return $withGranularity ? [$start, $end, 'month'] : [$start, $end];
+        }
+
+        $start = $anchor->copy()->subDays(29)->toDateString();
+        $end = $anchor->toDateString();
+        return $withGranularity ? [$start, $end, 'day'] : [$start, $end];
+    }
+
+    private function normalizeDateOrNull(?string $date): ?string
+    {
+        $value = trim((string) $date);
+        if ($value === '') {
+            return null;
+        }
+
+        return $this->isValidDate($value) ? $value : null;
     }
 
     private function isValidChartPeriod(string $period): bool

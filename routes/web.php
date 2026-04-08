@@ -199,6 +199,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
 Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middleware('auth')->group(function () {
     Route::get('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/realtime/queue-donut', 'realtimeQueueDonut')->name('realtime.queue_donut');
+    Route::get('/realtime/reuse-economy-donut', 'realtimeReuseEconomyDonut')->name('realtime.reuse_economy_donut');
     Route::get('/realtime/demand-delivery', 'realtimeDemandDelivery')->name('realtime.demand_delivery');
 });
 
