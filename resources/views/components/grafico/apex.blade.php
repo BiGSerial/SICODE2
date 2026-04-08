@@ -33,6 +33,7 @@
         (function() {
         const chartId = @json($finalId);
         const eventName = 'grafico-atualizar-' + chartId;
+        const genericEventName = 'chart-update';
         const initialPayload = {
             data: @json($data),
             options: @json($options),
@@ -83,6 +84,53 @@
                         const raw = idx >= 0 ? totals[idx] : null;
                         const numeric = Number(raw ?? 0);
                         return Number.isFinite(numeric) ? String(numeric) : '';
+                    };
+                    return;
+                }
+
+                if (value === '__ADS_AVG_DASHED_LEGEND__') {
+                    node[key] = function(chart) {
+                        const datasets = chart?.data?.datasets ?? [];
+                        return datasets
+                            .map((ds, i) => ({ ds, i }))
+                            .filter(({ ds }) => String(ds?.label ?? '').toLowerCase().includes('média'))
+                            .map(({ ds, i }) => ({
+                                text: String(ds?.label ?? ''),
+                                fillStyle: 'rgba(0,0,0,0)',
+                                strokeStyle: ds?.borderColor ?? '#334155',
+                                lineWidth: Number(ds?.borderWidth ?? 2),
+                                lineDash: Array.isArray(ds?.borderDash) ? ds.borderDash : [6, 6],
+                                lineCap: 'butt',
+                                lineJoin: 'miter',
+                                hidden: !chart.isDatasetVisible(i),
+                                datasetIndex: i
+                            }));
+                    };
+                    return;
+                }
+
+                if (value === '__ADS_MIXED_DATASET_LEGEND__') {
+                    node[key] = function(chart) {
+                        const datasets = chart?.data?.datasets ?? [];
+                        return datasets.map((ds, i) => {
+                            const type = String(ds?.type ?? chart?.config?.type ?? '').toLowerCase();
+                            const isLine = type === 'line';
+
+                            const bgRaw = Array.isArray(ds?.backgroundColor) ? (ds.backgroundColor[0] ?? 'rgba(148,163,184,0.5)') : (ds?.backgroundColor ?? 'rgba(148,163,184,0.5)');
+                            const borderRaw = Array.isArray(ds?.borderColor) ? (ds.borderColor[0] ?? '#475569') : (ds?.borderColor ?? '#475569');
+
+                            return {
+                                text: String(ds?.label ?? ''),
+                                fillStyle: isLine ? 'rgba(0,0,0,0)' : bgRaw,
+                                strokeStyle: borderRaw,
+                                lineWidth: isLine ? Number(ds?.borderWidth ?? 2) : Number(ds?.borderWidth ?? 1),
+                                lineDash: isLine && Array.isArray(ds?.borderDash) ? ds.borderDash : [],
+                                lineCap: 'butt',
+                                lineJoin: 'miter',
+                                hidden: !chart.isDatasetVisible(i),
+                                datasetIndex: i
+                            };
+                        });
                     };
                     return;
                 }
@@ -262,6 +310,26 @@
                 scheduleRender(payload);
             });
             registry.listeners[chartId] = true;
+        }
+
+        const genericListenerKey = chartId + ':generic';
+        if (!registry.listeners[genericListenerKey]) {
+            window.addEventListener(genericEventName, function(e) {
+                const detail = e?.detail ?? {};
+                const targetChartId = String(detail?.chartId ?? detail?.id ?? '');
+                if (targetChartId !== chartId) {
+                    return;
+                }
+
+                const source = detail?.chart ?? detail ?? {};
+                const payload = {
+                    data: source?.data ?? {},
+                    options: source?.options ?? {},
+                    type: source?.type ?? 'bar'
+                };
+                scheduleRender(payload);
+            });
+            registry.listeners[genericListenerKey] = true;
         }
 
         registry.payloads[chartId] = registry.payloads[chartId] || initialPayload;

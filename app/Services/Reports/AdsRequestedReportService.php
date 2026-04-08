@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 class AdsRequestedReportService
 {
     private const ADS_DEADLINE_HOURS = 24;
+    private const AUTO_REUSE_DESCRIPTION = 'Solicitação automática concluída com reaproveitamento de ADS já disponível.';
+    private const AUTO_QUEUE_DESCRIPTION = 'Solicitação automática gerada por ADS tácita.';
 
     private const ACTIVE_STATUSES = [
         AdsRequestStatus::QUEUED,
@@ -184,7 +186,9 @@ class AdsRequestedReportService
 
         foreach (array_keys($labels) as $key) {
             $dayEnd = Carbon::createFromFormat('Y-m-d', $key)->endOfDay();
-            $overdueThreshold = $dayEnd->copy()->subHours(24);
+            // Conta como atrasada a partir de 00:00 do 2o dia apos a criacao.
+            // Ex.: criado em 02/04 fica no prazo ate 03/04 23:59:59 e atrasa em 04/04 00:00.
+            $overdueThreshold = $dayEnd->copy()->subDays(2)->endOfDay();
 
             $overdueCount = (clone $queueBase)
                 ->where('ar.created_at', '<=', $overdueThreshold)
@@ -314,6 +318,70 @@ class AdsRequestedReportService
         ];
     }
 
+    /**
+     * @return array{
+     *   labels:array<int,string>,
+     *   values:array<int,int>,
+     *   colors:array<int,string>,
+     *   total:int,
+     *   reused:int,
+     *   queued:int,
+     *   reuse_rate:float
+     * }
+     */
+    public function reuseEconomyDonutSeries(array $filters): array
+    {
+        // Mantem o recorte de periodo/empresa/busca, mas ignora filtros de status para
+        // representar corretamente o volume de automacoes (reaproveitadas x enfileiradas).
+        $baseFilters = $filters;
+        $baseFilters['statusFilter'] = 'all';
+        $baseFilters['status_exact'] = '';
+
+        $query = $this->buildNowBaseQuery($baseFilters, false);
+
+        $dateIn = $filters['date_in'] ?? null;
+        $dateOut = $filters['date_out'] ?? null;
+        $completedIn = $filters['completed_in'] ?? null;
+        $completedOut = $filters['completed_out'] ?? null;
+
+        if ($dateIn) {
+            $query->whereDate('ar.created_at', '>=', $dateIn);
+        }
+
+        if ($dateOut) {
+            $query->whereDate('ar.created_at', '<=', $dateOut);
+        }
+
+        if ($completedIn) {
+            $query->whereDate('ar.completed_at', '>=', $completedIn);
+        }
+
+        if ($completedOut) {
+            $query->whereDate('ar.completed_at', '<=', $completedOut);
+        }
+
+        $reused = (int) (clone $query)
+            ->where('ar.description', 'like', self::AUTO_REUSE_DESCRIPTION . '%')
+            ->count();
+
+        $queued = (int) (clone $query)
+            ->where('ar.description', 'like', self::AUTO_QUEUE_DESCRIPTION . '%')
+            ->count();
+
+        $total = $reused + $queued;
+        $reuseRate = $total > 0 ? round(($reused / $total) * 100, 1) : 0.0;
+
+        return [
+            'labels' => ['Reaproveitadas', 'Enfileiradas'],
+            'values' => [$reused, $queued],
+            'colors' => ['rgba(5,150,105,0.85)', 'rgba(59,130,246,0.8)'],
+            'total' => $total,
+            'reused' => $reused,
+            'queued' => $queued,
+            'reuse_rate' => $reuseRate,
+        ];
+    }
+
     public function buildQuery(array $filters)
     {
         $dateIn = $filters['date_in'] ?? null;
@@ -396,7 +464,8 @@ class AdsRequestedReportService
         $query = DB::connection('sqlsrv2')
             ->table('dbo.ads_requests as ar')
             ->where('ar.status', '!=', AdsRequestStatus::DONE->value)
-            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value);
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+            ->where('ar.status', '!=', AdsRequestStatus::FAILED->value);
 
         if ($search !== '') {
             $query->where(function ($sub) use ($search) {

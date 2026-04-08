@@ -242,7 +242,14 @@
                 @livewire('reports.ads.demand-delivery-chart', ['filters' => $this->filtersForChildren], key('ads-demand-delivery'))
             </div>
             <div class="col-12 col-xl-4">
-                @livewire('reports.ads.queue-status-donut', ['filters' => $this->filtersForChildren], key('ads-queue-donut'))
+                <div class="row g-3">
+                    <div class="col-12">
+                        @livewire('reports.ads.queue-status-donut', ['filters' => $this->filtersForChildren], key('ads-queue-donut'))
+                    </div>
+                    <div class="col-12">
+                        @livewire('reports.ads.reuse-economy-donut', ['filters' => $this->filtersForChildren], key('ads-reuse-economy-donut'))
+                    </div>
+                </div>
             </div>
         </div>
 

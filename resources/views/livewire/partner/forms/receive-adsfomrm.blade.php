@@ -73,9 +73,10 @@
                                         } else {
                                             $adsForm = $tNote->WorkForm->Adsform;
                                             $hasOldAds = $tNote->OldAds->isNotEmpty();
-                                            $isTacitOpen = $adsForm && $adsForm->tacit && !$adsForm->tacit_delivered_at;
+                                            $hasAdsFile = $adsForm ? $adsForm->Files->isNotEmpty() : false;
+                                            $hasTacitDelivered = (bool) ($adsForm?->tacit_delivered_at);
 
-                                            if (($adsForm && !$isTacitOpen) || $hasOldAds) {
+                                            if ($hasOldAds || $hasAdsFile || $hasTacitDelivered) {
                                                 $block = true;
                                                 $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
                                             }

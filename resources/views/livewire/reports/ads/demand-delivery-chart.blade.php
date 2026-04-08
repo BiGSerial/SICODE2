@@ -4,6 +4,9 @@
     wire:ignore
     class="iat-summary-card d-flex flex-column"
     style="min-height: 620px;">
+    <div class="d-flex justify-content-end mb-2">
+        <span class="badge bg-light text-dark border" id="ads-demand-delivery-next-poll-badge">02:00</span>
+    </div>
     @php
         $a = (array) ($analytics ?? []);
     @endphp
@@ -84,8 +87,18 @@
             const cardId = 'ads-demand-delivery-card';
             const lineChartEvent = 'grafico-atualizar-adsDemandDeliveryLineChart';
             const barChartEvent = 'grafico-atualizar-adsDemandDeliveryBarChart';
+            const chartUpdateEvent = 'chart-update';
+            const lineChartId = 'adsDemandDeliveryLineChart';
+            const barChartId = 'adsDemandDeliveryBarChart';
+            const pollMs = 120000;
+            const pollBadgeId = 'ads-demand-delivery-next-poll-badge';
+            const pollSeconds = Math.floor(pollMs / 1000);
             let initialLineChart = @json($lineChart ?? []);
             let initialBarChart = @json($barChart ?? []);
+            let lastLineSignature = null;
+            let lastBarSignature = null;
+            let lastAnalyticsSignature = null;
+            let remainingSeconds = pollSeconds;
 
             const parseFilters = (raw) => {
                 try {
@@ -109,6 +122,40 @@
                 return p.toString();
             };
 
+            const toSignature = (payload) => {
+                try {
+                    return JSON.stringify(payload || {});
+                } catch (e) {
+                    return null;
+                }
+            };
+
+            const renderCountdown = () => {
+                const badge = document.getElementById(pollBadgeId);
+                if (!badge) return;
+                const mm = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+                const ss = String(remainingSeconds % 60).padStart(2, '0');
+                badge.textContent = `${mm}:${ss}`;
+            };
+
+            const resetCountdown = () => {
+                remainingSeconds = pollSeconds;
+                renderCountdown();
+            };
+
+            const startCountdown = () => {
+                if (window.__adsDemandDeliveryCountdownTimer) {
+                    clearInterval(window.__adsDemandDeliveryCountdownTimer);
+                }
+                renderCountdown();
+                window.__adsDemandDeliveryCountdownTimer = window.setInterval(() => {
+                    if (remainingSeconds > 0) {
+                        remainingSeconds -= 1;
+                    }
+                    renderCountdown();
+                }, 1000);
+            };
+
             const startRealtime = () => {
                 const card = document.getElementById(cardId);
                 if (!card) return;
@@ -124,20 +171,39 @@
 
                 const renderNow = (chartPayload) => {
                     if (!chartPayload || typeof chartPayload !== 'object') return;
+                    const signature = toSignature(chartPayload);
+                    if (signature !== null && signature === lastLineSignature) return;
+                    lastLineSignature = signature;
                     window.dispatchEvent(new CustomEvent(lineChartEvent, {
                         detail: chartPayload
+                    }));
+                    window.dispatchEvent(new CustomEvent(chartUpdateEvent, {
+                        detail: {
+                            chartId: lineChartId,
+                            chart: chartPayload
+                        }
                     }));
                 };
 
                 const renderBarNow = (chartPayload) => {
                     if (!chartPayload || typeof chartPayload !== 'object') return;
+                    const signature = toSignature(chartPayload);
+                    if (signature !== null && signature === lastBarSignature) return;
+                    lastBarSignature = signature;
                     window.dispatchEvent(new CustomEvent(barChartEvent, {
                         detail: chartPayload
+                    }));
+                    window.dispatchEvent(new CustomEvent(chartUpdateEvent, {
+                        detail: {
+                            chartId: barChartId,
+                            chart: chartPayload
+                        }
                     }));
                 };
 
                 const fetchAndUpdate = async () => {
                     try {
+                        resetCountdown();
                         const query = buildQuery(filters);
                         const url = query ? `${endpoint}?${query}` : endpoint;
                         const res = await fetch(url, {
@@ -149,14 +215,18 @@
                         if (!res.ok) return;
                         const payload = await res.json();
                         const analytics = payload.analytics || {};
-                        setText('ads-ana-requested', Number(analytics.requested_total || 0));
-                        setText('ads-ana-delivered', Number(analytics.delivered_total || 0));
-                        setText('ads-ana-rate', `${Number(analytics.completion_rate || 0).toFixed(1).replace('.', ',')}%`);
-                        setText('ads-ana-open', Number(analytics.current_open || 0));
-                        setText('ads-ana-overdue', Number(analytics.current_overdue || 0));
-                        setText('ads-ana-backlog-avg', Number(analytics.backlog_avg || 0).toFixed(1).replace('.', ','));
-                        setText('ads-ana-backlog-peak', Number(analytics.backlog_peak || 0));
-                        setText('ads-ana-overdue-avg', Number(analytics.overdue_avg || 0).toFixed(1).replace('.', ','));
+                        const analyticsSignature = toSignature(analytics);
+                        if (analyticsSignature !== null && analyticsSignature !== lastAnalyticsSignature) {
+                            lastAnalyticsSignature = analyticsSignature;
+                            setText('ads-ana-requested', Number(analytics.requested_total || 0));
+                            setText('ads-ana-delivered', Number(analytics.delivered_total || 0));
+                            setText('ads-ana-rate', `${Number(analytics.completion_rate || 0).toFixed(1).replace('.', ',')}%`);
+                            setText('ads-ana-open', Number(analytics.current_open || 0));
+                            setText('ads-ana-overdue', Number(analytics.current_overdue || 0));
+                            setText('ads-ana-backlog-avg', Number(analytics.backlog_avg || 0).toFixed(1).replace('.', ','));
+                            setText('ads-ana-backlog-peak', Number(analytics.backlog_peak || 0));
+                            setText('ads-ana-overdue-avg', Number(analytics.overdue_avg || 0).toFixed(1).replace('.', ','));
+                        }
                         if (payload.line_chart) {
                             renderNow(payload.line_chart);
                         }
@@ -169,6 +239,12 @@
                 renderNow(initialLineChart);
                 renderBarNow(initialBarChart);
                 fetchAndUpdate();
+                startCountdown();
+
+                if (window.__adsDemandDeliveryPoller) {
+                    clearInterval(window.__adsDemandDeliveryPoller);
+                }
+                window.__adsDemandDeliveryPoller = window.setInterval(fetchAndUpdate, pollMs);
 
                 if (!window.__adsDemandDeliveryFiltersListener) {
                     window.addEventListener('ads-filters-updated', (event) => {
