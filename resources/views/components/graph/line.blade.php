@@ -45,7 +45,7 @@ function generateContrastingColors(labels) {
         // Adicione mais cores vivas conforme necessário
     ]; --}}
 
-    const vibrantColors = ["#263CC8" , "#4759D0" , "#7D8ADE" , "#A8B1E9" , "#212E3E" ]; return
+    const vibrantColors = ["#263CC8", "#225E66", "#E32C2C", "#F7D200", "#A8B1E9", "#91AFB3", "#212E3E"]; return
     vibrantColors; }" x-on:livewire:load>
 
 

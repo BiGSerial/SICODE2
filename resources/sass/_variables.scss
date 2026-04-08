@@ -1,53 +1,131 @@
 // Body
 $body-bg: #f8fafc;
 
-// Typography
-$font-family-sans-serif: 'Nunito', sans-serif;
+// Typography (EDP guideline + approved web fallbacks)
+$font-family-sans-serif: 'FT Base', 'Mulish', 'Manrope', 'Arial', sans-serif;
 $font-size-base: 0.9rem;
 $line-height-base: 1.6;
 
-    /* Background Custom */
-$edp-primary: rgb(16, 120, 218);
-$edp-secondary: rgb(43, 43, 43);
-$edp-info: rgb(117, 216, 247);
-$edp-warning: rgb(255, 230, 0);
-$edp-danger: rgb(224, 5, 5);
-$edp-success: rgb(9, 179, 9);
-$edp-background: #212e3e;
-$edp-verde-100: #28FF52;
-$edp-verde-70: #52FF75;
-$edp-verde-50: #7EFF97;
-$edp-verde-20: #A9FFBA;
-$edp-violeta-100: #6D32FF;
-$edp-violeta-70: #8351FF;
-$edp-violeta-50: #A784FF;
-$edp-violeta-20: #C5ADFF;
+/* EDP official color tokens */
+$edp-marine-blue: #212E3E;
+$edp-slate-grey: #7C9599;
+$edp-spruce-green: #143F47;
+$edp-seaweed-green: #225E66;
+$edp-cobalt-blue: #263CC8;
+$edp-ice-blue: #0CD3F8;
+$edp-violet-purple: #6D32FF;
+$edp-electric-green: #28FF52;
+$edp-black: #222222;
+$edp-white: #FFFFFF;
+
+/* Extended web shades from the EDP guideline */
+$edp-electricgreen-100: #28FF52;
+$edp-electricgreen-70: #53FF75;
+$edp-electricgreen-50: #7EFF97;
+$edp-electricgreen-20: #A9FFBA;
+
+$edp-violetpurple-100: #6D32FF;
+$edp-violetpurple-70: #8351FF;
+$edp-violetpurple-50: #A784FF;
+$edp-violetpurple-20: #C5ADFF;
+
 $edp-iceblue-100: #0CD3F8;
 $edp-iceblue-70: #3DDCF9;
 $edp-iceblue-50: #6DE5FB;
 $edp-iceblue-20: #9EEDFC;
+
 $edp-cobaltblue-100: #263CC8;
 $edp-cobaltblue-70: #4759D0;
 $edp-cobaltblue-50: #7D8ADE;
 $edp-cobaltblue-20: #A8B1E9;
+
 $edp-marineblue-100: #212E3E;
 $edp-marineblue-70: #424D5B;
 $edp-marineblue-50: #646D78;
 $edp-marineblue-20: #90979F;
-$edp-sprucegreen-100: #143f47;
-$edp-sprucegreen-70: #365960;
-$edp-sprucegreen-50: #5b797e;
-$edp-sprucegreen-20: #8a9fa3;
-$edp-seoweedgreen-100: #225E66;
-$edp-seoweedgreen-70: #43767D;
-$edp-seoweedgreen-50: #648E94;
-$edp-seoweedgreen-20: #91AFB3;
-$edp-stategrey-100: #7C9599;
-$edp-stategrey-70: #90A5A8;
-$edp-stategrey-50: #A3B5B8;
-$edp-stategrey-20: #BECACC;
-$edp-preto: #222222;
-$edp-grey-10: #d2d8da;
 
-     /* Cores Botão */
-     $edp-btn-gradiente: linear-gradient(180deg, rgb(13, 101, 201), rgba(6, 127, 241, 0.836));
+$edp-sprucegreen-100: #143F47;
+$edp-sprucegreen-70: #365960;
+$edp-sprucegreen-50: #5B797E;
+$edp-sprucegreen-20: #8A9FA3;
+
+$edp-seaweedgreen-100: #225E66;
+$edp-seaweedgreen-70: #43767D;
+$edp-seaweedgreen-50: #648E94;
+$edp-seaweedgreen-20: #91AFB3;
+
+$edp-slategrey-100: #7C9599;
+$edp-slategrey-70: #90A5A8;
+$edp-slategrey-50: #A3B5B8;
+$edp-slategrey-20: #BECACC;
+
+/* EDP semantic palette */
+$edp-semantic-blue: #263CC8;
+$edp-semantic-blue-soft: #A8B1E9;
+$edp-semantic-green: #225E66;
+$edp-semantic-green-soft: #91AFB3;
+$edp-semantic-red: #E32C2C;
+$edp-semantic-red-soft: #EDD5D3;
+$edp-semantic-yellow: #F7D200;
+$edp-semantic-yellow-soft: #FFF1BE;
+
+/* Bootstrap semantic aliases mapped to EDP palette */
+$edp-primary: $edp-semantic-blue;
+$edp-secondary: $edp-semantic-green;
+$edp-info: $edp-semantic-blue-soft;
+$edp-warning: $edp-semantic-yellow;
+$edp-danger: $edp-semantic-red;
+$edp-success: $edp-semantic-green;
+$edp-background: $edp-marine-blue;
+$edp-preto: $edp-black;
+$edp-grey-10: #D2D8DA;
+
+/* Bootstrap default semantic colors */
+$primary: $edp-primary;
+$secondary: $edp-secondary;
+$success: $edp-success;
+$info: $edp-info;
+$warning: $edp-warning;
+$danger: $edp-danger;
+$light: $edp-slategrey-20;
+$dark: $edp-marineblue-100;
+
+$body-bg: $edp-white;
+$body-color: $edp-marineblue-100;
+$link-color: $primary;
+$link-hover-color: $edp-cobaltblue-70;
+
+$theme-colors: (
+    "primary": $primary,
+    "secondary": $secondary,
+    "success": $success,
+    "info": $info,
+    "warning": $warning,
+    "danger": $danger,
+    "light": $light,
+    "dark": $dark
+);
+
+/* Backward-compatible aliases (legacy names in current codebase) */
+$edp-verde-100: $edp-electricgreen-100;
+$edp-verde-70: $edp-electricgreen-70;
+$edp-verde-50: $edp-electricgreen-50;
+$edp-verde-20: $edp-electricgreen-20;
+
+$edp-violeta-100: $edp-violetpurple-100;
+$edp-violeta-70: $edp-violetpurple-70;
+$edp-violeta-50: $edp-violetpurple-50;
+$edp-violeta-20: $edp-violetpurple-20;
+
+$edp-seoweedgreen-100: $edp-seaweedgreen-100;
+$edp-seoweedgreen-70: $edp-seaweedgreen-70;
+$edp-seoweedgreen-50: $edp-seaweedgreen-50;
+$edp-seoweedgreen-20: $edp-seaweedgreen-20;
+
+$edp-stategrey-100: $edp-slategrey-100;
+$edp-stategrey-70: $edp-slategrey-70;
+$edp-stategrey-50: $edp-slategrey-50;
+$edp-stategrey-20: $edp-slategrey-20;
+
+/* Cores Botao */
+$edp-btn-gradiente: linear-gradient(180deg, $edp-cobaltblue-100, $edp-cobaltblue-70);

@@ -12,6 +12,12 @@
             document.addEventListener('DOMContentLoaded', function() {
                 let labels = @json($labels);
                 let datas = @json($dataset);
+                const showDataLabels = @json((bool) ($showDataLabels ?? false));
+                const edpPalette = [
+                    '#263CC8', '#225E66', '#E32C2C', '#F7D200',
+                    '#A8B1E9', '#91AFB3', '#EDD5D3', '#FFF1BE',
+                    '#212E3E', '#143F47', '#7C9599', '#0CD3F8'
+                ];
 
                 if (datas.length === 0) {
                     document.getElementById('msg-{{ $chartId }}').style.display = 'block';
@@ -30,13 +36,10 @@
                         width: '100%'
                     },
                     labels: labels,
-                    colors: [
-                        '#28FF52', '#212E3E', '#8B0000', '#0000FF',
-                        '#FF00FF', '#FFA500', '#00FFFF', '#800080',
-                        '#FF0000', '#6D32FF', '#0CD3F8', '#FF1493',
-                        '#FFFF00', '#A52A2A', '#FF5733', '#EE82EE',
-                        '#40E0D0', '#B22222', '#4B0082', '#FF9933'
-                    ],
+                    colors: edpPalette,
+                    dataLabels: {
+                        enabled: showDataLabels
+                    },
                     dropShadow: {
                         enabled: true,
                         blur: 5,

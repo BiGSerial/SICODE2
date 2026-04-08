@@ -2,6 +2,7 @@
     'chart' => [],
     'chartId' => null,
     'class' => 'w-full h-64',
+    'showDataLabels' => false,
 ])
 
 @php
@@ -32,6 +33,7 @@
     <script>
         (function() {
         const chartId = @json($finalId);
+        const showDataLabels = @json((bool) $showDataLabels);
         const eventName = 'grafico-atualizar-' + chartId;
         const genericEventName = 'chart-update';
         const initialPayload = {
@@ -46,6 +48,70 @@
         registry.instances = registry.instances || {};
         registry.payloads = registry.payloads || {};
         registry.listeners = registry.listeners || {};
+
+        const edpChartPalette = [
+            '#263CC8', '#225E66', '#E32C2C', '#F7D200',
+            '#A8B1E9', '#91AFB3', '#EDD5D3', '#FFF1BE',
+            '#212E3E', '#143F47', '#7C9599', '#0CD3F8'
+        ];
+
+        function hexToRgba(hex, alpha) {
+            const cleaned = String(hex || '').replace('#', '').trim();
+            const full = cleaned.length === 3 ?
+                cleaned.split('').map((c) => c + c).join('') :
+                cleaned;
+            const num = parseInt(full, 16);
+            if (!Number.isFinite(num)) {
+                return hex;
+            }
+            const r = (num >> 16) & 255;
+            const g = (num >> 8) & 255;
+            const b = num & 255;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function applyEdpDefaults(data, chartType) {
+            if (!data || !Array.isArray(data.datasets)) {
+                return data;
+            }
+
+            const radialTypes = ['pie', 'doughnut', 'polarArea'];
+            data.datasets.forEach((dataset, idx) => {
+                const baseColor = edpChartPalette[idx % edpChartPalette.length];
+                const isRadial = radialTypes.includes(String(chartType || '').toLowerCase());
+
+                if (isRadial && !dataset.backgroundColor && Array.isArray(dataset.data)) {
+                    dataset.backgroundColor = dataset.data.map((_, itemIdx) => edpChartPalette[itemIdx % edpChartPalette.length]);
+                }
+
+                if (!dataset.borderColor) {
+                    dataset.borderColor = baseColor;
+                }
+                if (!dataset.backgroundColor) {
+                    dataset.backgroundColor = hexToRgba(baseColor, 0.25);
+                }
+                if (typeof dataset.borderWidth === 'undefined') {
+                    dataset.borderWidth = 1;
+                }
+            });
+
+            return data;
+        }
+
+        function applyDefaultDataLabelsOption(options) {
+            if (!options || typeof options !== 'object') {
+                return options;
+            }
+
+            options.plugins = options.plugins || {};
+            options.plugins.datalabels = options.plugins.datalabels || {};
+
+            if (typeof options.plugins.datalabels.display === 'undefined') {
+                options.plugins.datalabels.display = showDataLabels;
+            }
+
+            return options;
+        }
 
         function reviveChartFunctions(node) {
             if (Array.isArray(node)) {
@@ -250,6 +316,8 @@
                 const safeOptions = JSON.parse(JSON.stringify(payload?.options ?? {}));
                 reviveChartFunctions(safeData);
                 reviveChartFunctions(safeOptions);
+                applyEdpDefaults(safeData, payload?.type);
+                applyDefaultDataLabelsOption(safeOptions);
 
                 if (window.ChartDataLabels && window.Chart && !window.__chartDataLabelsRegistered) {
                     window.Chart.register(window.ChartDataLabels);
