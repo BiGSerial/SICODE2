@@ -72,11 +72,11 @@
             </span>
         </div>
         <div class="w-100" style="height: 230px; min-height: 230px;">
-            <x-grafico.apex :chart="$lineChart" chartId="adsDemandDeliveryLineChart" class="w-100 h-100" />
+            <x-grafico.apex :chart="$lineChart" chartId="adsDemandDeliveryLineChart" class="w-100 h-100" :showDataLabels="true" />
         </div>
     </div>
     <div class="w-100 flex-grow-1" style="height: 230px; min-height: 230px;">
-        <x-grafico.apex :chart="$barChart" chartId="adsDemandDeliveryBarChart" class="w-100 h-100" />
+        <x-grafico.apex :chart="$barChart" chartId="adsDemandDeliveryBarChart" class="w-100 h-100" :showDataLabels="true" />
     </div>
 </div>
 

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Config\ConfigController;
+use App\Http\Controllers\Config\{ConfigController, WallController};
 use App\Http\Controllers\{AdminController, AdsController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
@@ -100,6 +100,22 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     });
 });
 
+Route::prefix('/config/wall')->controller(WallController::class)->name('config.wall.')->middleware('auth')->middleware('can:superadm')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/settings', 'updateSettings')->name('settings');
+    Route::post('/walls', 'storeWall')->name('wall.store');
+    Route::put('/walls/{wall}', 'updateWall')->name('wall.update');
+    Route::delete('/walls/{wall}', 'destroyWall')->name('wall.delete');
+
+    Route::post('/screens', 'storeScreen')->name('screen.store');
+    Route::put('/screens/{screen}', 'updateScreen')->name('screen.update');
+    Route::delete('/screens/{screen}', 'destroyScreen')->name('screen.delete');
+
+    Route::post('/screens/{screen}/items', 'storeItem')->name('item.store');
+    Route::put('/items/{item}', 'updateItem')->name('item.update');
+    Route::delete('/items/{item}', 'destroyItem')->name('item.delete');
+});
+
 Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}', 'production')->name('production');
@@ -175,6 +191,16 @@ Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.'
 });
 
 Route::prefix('/reports')->controller(ReportsController::class)->name('reports.')->middleware('auth')->group(function () {
+    Route::get('/wall/production', 'productionWall')->middleware('can:superadm')->name('wall.production');
+    Route::get('/wall/{wall}/production-v2', 'productionWallV2')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->name('wall.production_v2');
+    Route::get('/wall/{wall}/production-v2/{screen}', 'productionWallV2Screen')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('wall.production_v2.screen');
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
     Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
