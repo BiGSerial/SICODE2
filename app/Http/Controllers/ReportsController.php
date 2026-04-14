@@ -119,4 +119,20 @@ class ReportsController extends Controller
             'screenId' => $screen,
         ]);
     }
+
+    public function productionWallV2Vue(int $wall)
+    {
+        return view('reports.production-wall-v2-vue', [
+            'wallId' => $wall,
+            'screenId' => null,
+        ]);
+    }
+
+    public function productionWallV2VueScreen(int $wall, int $screen)
+    {
+        return view('reports.production-wall-v2-vue', [
+            'wallId' => $wall,
+            'screenId' => $screen,
+        ]);
+    }
 }

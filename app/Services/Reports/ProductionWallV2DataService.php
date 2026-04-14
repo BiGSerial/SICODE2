@@ -21,16 +21,6 @@ class ProductionWallV2DataService
 {
     public const KEY_ROTATION_SECONDS = 'wall_v2_rotation_seconds';
     public const KEY_REFRESH_SECONDS = 'wall_v2_refresh_seconds';
-    private const BRAND_COLORS = [
-        'primary' => '#BF4053',
-        'accent' => '#FF644B',
-        'danger' => '#EE162D',
-        'warning' => '#FFDC00',
-        'success' => '#28FF52',
-        'neutral' => '#AAAAAA',
-        'slate' => '#C9CDD1',
-        'magenta' => '#E01F69',
-    ];
 
     private ?int $rotationSecondsCache = null;
     private ?int $refreshSecondsCache = null;
@@ -430,8 +420,8 @@ class ProductionWallV2DataService
                 'middle_cards' => [],
                 'line_chart' => ['labels' => [], 'datasets' => []],
                 'bar_chart' => ['labels' => [], 'datasets' => []],
-                'queue_donut' => ['labels' => ['Sem dados'], 'values' => [1], 'colors' => [$this->colorRgba('neutral', 0.8)], 'total' => 0],
-                'reuse_donut' => ['labels' => ['Sem dados'], 'values' => [1], 'colors' => [$this->colorRgba('neutral', 0.8)], 'total' => 0, 'reuse_rate' => 0],
+                'queue_donut' => ['labels' => ['Sem dados'], 'values' => [1], 'colors' => ['rgba(107,114,128,0.8)'], 'total' => 0],
+                'reuse_donut' => ['labels' => ['Sem dados'], 'values' => [1], 'colors' => ['rgba(107,114,128,0.8)'], 'total' => 0, 'reuse_rate' => 0],
             ],
             'queue_histogram' => ['labels' => [], 'values' => []],
             'note_type_donut' => ['labels' => ['Com produção', 'Sem produção'], 'values' => [0, 0], 'total' => 0, 'associated' => 0],
@@ -509,13 +499,7 @@ class ProductionWallV2DataService
             (int) ($reuse['reused'] ?? 0),
             (int) ($reuse['queued'] ?? 0),
         ];
-        $reuseColors = [$this->colorRgba('success', 0.85), $this->colorRgba('primary', 0.8)];
-        $queueValues = array_map('intval', $queue['values'] ?? []);
-        $queueColors = $this->paletteByCount(
-            count($queueValues),
-            ['slate', 'accent', 'warning', 'primary', 'success', 'danger'],
-            0.85
-        );
+        $reuseColors = ['rgba(5,150,105,0.85)', 'rgba(59,130,246,0.8)'];
 
         $lineMeanOpen = (float) ($flowChart['analytics']['backlog_avg'] ?? 0);
         $lineMeanOverdue = (float) ($flowChart['analytics']['overdue_avg'] ?? 0);
@@ -527,25 +511,25 @@ class ProductionWallV2DataService
                 [
                     'label' => 'Acumulado em aberto',
                     'data' => $flowChart['open_backlog'] ?? [],
-                    'borderColor' => $this->colorHex('primary'),
-                    'backgroundColor' => $this->colorRgba('primary', 0.2),
-                    'pointBackgroundColor' => $this->colorHex('primary'),
+                    'borderColor' => '#7c3aed',
+                    'backgroundColor' => 'rgba(124,58,237,.2)',
+                    'pointBackgroundColor' => '#7c3aed',
                     'tension' => 0.25,
                     'fill' => false,
                 ],
                 [
                     'label' => 'Atrasadas (>24h)',
                     'data' => $flowChart['overdue_backlog'] ?? [],
-                    'borderColor' => $this->colorHex('danger'),
-                    'backgroundColor' => $this->colorRgba('danger', 0.2),
-                    'pointBackgroundColor' => $this->colorHex('danger'),
+                    'borderColor' => '#ef4444',
+                    'backgroundColor' => 'rgba(239,68,68,.2)',
+                    'pointBackgroundColor' => '#ef4444',
                     'tension' => 0.25,
                     'fill' => false,
                 ],
                 [
                     'label' => 'Média (acumulado)',
                     'data' => array_fill(0, $labelCount, $lineMeanOpen),
-                    'borderColor' => $this->colorRgba('accent', 0.9),
+                    'borderColor' => 'rgba(167,139,250,.9)',
                     'borderDash' => [6, 5],
                     'pointRadius' => 0,
                     'fill' => false,
@@ -553,7 +537,7 @@ class ProductionWallV2DataService
                 [
                     'label' => 'Média (atrasadas)',
                     'data' => array_fill(0, $labelCount, $lineMeanOverdue),
-                    'borderColor' => $this->colorRgba('magenta', 0.9),
+                    'borderColor' => 'rgba(248,113,113,.9)',
                     'borderDash' => [6, 5],
                     'pointRadius' => 0,
                     'fill' => false,
@@ -567,15 +551,15 @@ class ProductionWallV2DataService
                 [
                     'label' => 'Demandas (solicitadas)',
                     'data' => $flowChart['requested'] ?? [],
-                    'backgroundColor' => $this->colorRgba('accent', 0.8),
-                    'borderColor' => $this->colorHex('accent'),
+                    'backgroundColor' => 'rgba(59,130,246,.8)',
+                    'borderColor' => '#3b82f6',
                     'borderWidth' => 1,
                 ],
                 [
                     'label' => 'Saídas (concluídas)',
                     'data' => $flowChart['delivered'] ?? [],
-                    'backgroundColor' => $this->colorRgba('success', 0.8),
-                    'borderColor' => $this->colorHex('success'),
+                    'backgroundColor' => 'rgba(16,185,129,.8)',
+                    'borderColor' => '#10b981',
                     'borderWidth' => 1,
                 ],
             ],
@@ -583,8 +567,8 @@ class ProductionWallV2DataService
 
         $queueDonut = [
             'labels' => $queue['labels'] ?? [],
-            'values' => $queueValues,
-            'colors' => $queueColors,
+            'values' => $queue['values'] ?? [],
+            'colors' => $queue['colors'] ?? [],
             'total' => (int) ($queue['total'] ?? 0),
         ];
 
@@ -817,9 +801,9 @@ class ProductionWallV2DataService
                             $netIsIncrease ? 'Custo subiu' : 'Custo reduziu',
                             number_format($netVariationPct, 2, ',', '.')
                         ),
-                        'trend_color' => $netIsIncrease ? $this->colorHex('danger') : $this->colorHex('success'),
-                        'card_bg' => $netIsIncrease ? $this->colorRgba('danger', 0.1) : $this->colorRgba('success', 0.1),
-                        'card_border' => $netIsIncrease ? $this->colorRgba('danger', 0.35) : $this->colorRgba('success', 0.35),
+                        'trend_color' => $netIsIncrease ? '#ef4444' : '#22c55e',
+                        'card_bg' => $netIsIncrease ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)',
+                        'card_border' => $netIsIncrease ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)',
                     ],
                     [
                         'label' => 'Custo empresa (planejado x revisado)',
@@ -830,9 +814,9 @@ class ProductionWallV2DataService
                             $companyIsIncrease ? 'Custo subiu' : 'Custo reduziu',
                             number_format($companyDeltaPct, 2, ',', '.')
                         ),
-                        'trend_color' => $companyIsIncrease ? $this->colorHex('danger') : $this->colorHex('success'),
-                        'card_bg' => $companyIsIncrease ? $this->colorRgba('danger', 0.1) : $this->colorRgba('success', 0.1),
-                        'card_border' => $companyIsIncrease ? $this->colorRgba('danger', 0.35) : $this->colorRgba('success', 0.35),
+                        'trend_color' => $companyIsIncrease ? '#ef4444' : '#22c55e',
+                        'card_bg' => $companyIsIncrease ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)',
+                        'card_border' => $companyIsIncrease ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)',
                     ],
                     [
                         'label' => 'Custo cliente (planejado x revisado)',
@@ -843,9 +827,9 @@ class ProductionWallV2DataService
                             $clientIsIncrease ? 'Custo subiu' : 'Custo reduziu',
                             number_format($clientDeltaPct, 2, ',', '.')
                         ),
-                        'trend_color' => $clientIsIncrease ? $this->colorHex('danger') : $this->colorHex('success'),
-                        'card_bg' => $clientIsIncrease ? $this->colorRgba('danger', 0.1) : $this->colorRgba('success', 0.1),
-                        'card_border' => $clientIsIncrease ? $this->colorRgba('danger', 0.35) : $this->colorRgba('success', 0.35),
+                        'trend_color' => $clientIsIncrease ? '#ef4444' : '#22c55e',
+                        'card_bg' => $clientIsIncrease ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)',
+                        'card_border' => $clientIsIncrease ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)',
                     ],
                     ['label' => 'Fila atual', 'value' => (string) $pendingTotal],
                     $this->buildProjectReviewKpiCard('Sem análise associada', (string) $pendingWithoutCycle, $pendingWithoutCycle, 0, 'status 30 sem ciclo', false),
@@ -860,9 +844,9 @@ class ProductionWallV2DataService
                         [
                             'label' => 'Sem análise associada',
                             'data' => $lineValues,
-                            'borderColor' => $this->colorHex('warning'),
-                            'backgroundColor' => $this->colorRgba('warning', 0.22),
-                            'pointBackgroundColor' => $this->colorHex('warning'),
+                            'borderColor' => '#f59e0b',
+                            'backgroundColor' => 'rgba(245,158,11,.22)',
+                            'pointBackgroundColor' => '#f59e0b',
                             'tension' => 0.2,
                             'fill' => true,
                         ],
@@ -881,7 +865,7 @@ class ProductionWallV2DataService
                 'reuse_donut' => [
                     'labels' => ['Revisado empresa', 'Revisado cliente'],
                     'values' => [round($revisedCompany, 2), round($revisedClient, 2)],
-                    'colors' => [$this->colorRgba('primary', 0.82), $this->colorRgba('accent', 0.82)],
+                    'colors' => ['rgba(20,184,166,.82)', 'rgba(14,165,233,.82)'],
                     'total' => round($revisedCompany + $revisedClient, 2),
                     'reuse_rate' => 0,
                 ],
@@ -1052,8 +1036,8 @@ class ProductionWallV2DataService
                 'labels' => $openHistogram['labels'],
                 'datasets' => [[
                     'label' => 'Atribuido aberto',
-                    'backgroundColor' => $this->colorRgba('accent', 0.65),
-                    'borderColor' => $this->colorHex('accent'),
+                    'backgroundColor' => 'rgba(0, 206, 201, .65)',
+                    'borderColor' => '#00cec9',
                     'data' => $openHistogram['values'],
                 ]],
             ],
@@ -1609,7 +1593,7 @@ class ProductionWallV2DataService
         return [
             'labels' => ['Sem análise associada', 'Com análise (inicial)', 'Com análise (retorno)'],
             'values' => [max(0, $pendingWithoutCycle), max(0, $pendingInitial), max(0, $pendingReturn)],
-            'colors' => [$this->colorRgba('slate', 0.9), $this->colorRgba('accent', 0.85), $this->colorRgba('warning', 0.9)],
+            'colors' => ['rgba(148,163,184,.9)', 'rgba(59,130,246,.85)', 'rgba(245,158,11,.9)'],
         ];
     }
 
@@ -1824,14 +1808,14 @@ class ProductionWallV2DataService
             : ($increaseIsPositive ? $direction === 'up' : $direction === 'down');
 
         $trendColor = $isPositive === null
-            ? $this->colorHex('slate')
-            : ($isPositive ? $this->colorHex('success') : $this->colorHex('danger'));
+            ? '#94a3b8'
+            : ($isPositive ? '#22c55e' : '#ef4444');
         $cardBg = $isPositive === null
             ? 'rgba(255,255,255,.05)'
-            : ($isPositive ? $this->colorRgba('success', 0.09) : $this->colorRgba('danger', 0.1));
+            : ($isPositive ? 'rgba(34,197,94,.09)' : 'rgba(239,68,68,.10)');
         $cardBorder = $isPositive === null
             ? 'rgba(255,255,255,.12)'
-            : ($isPositive ? $this->colorRgba('success', 0.35) : $this->colorRgba('danger', 0.35));
+            : ($isPositive ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)');
 
         return [
             'label' => $label,
@@ -1848,41 +1832,6 @@ class ProductionWallV2DataService
         return fmod($value, 1.0) === 0.0
             ? number_format($value, 0, ',', '.')
             : number_format($value, 2, ',', '.');
-    }
-
-    private function colorHex(string $name): string
-    {
-        return self::BRAND_COLORS[$name] ?? self::BRAND_COLORS['neutral'];
-    }
-
-    private function colorRgba(string $name, float $alpha): string
-    {
-        $hex = ltrim($this->colorHex($name), '#');
-        if (strlen($hex) !== 6) {
-            return 'rgba(170,170,170,' . number_format(max(0, min(1, $alpha)), 2, '.', '') . ')';
-        }
-
-        $r = hexdec(substr($hex, 0, 2));
-        $g = hexdec(substr($hex, 2, 2));
-        $b = hexdec(substr($hex, 4, 2));
-        $a = number_format(max(0, min(1, $alpha)), 2, '.', '');
-
-        return "rgba({$r},{$g},{$b},{$a})";
-    }
-
-    private function paletteByCount(int $count, array $names, float $alpha): array
-    {
-        if ($count <= 0 || empty($names)) {
-            return [];
-        }
-
-        $colors = [];
-        for ($i = 0; $i < $count; $i++) {
-            $name = (string) ($names[$i % count($names)] ?? 'neutral');
-            $colors[] = $this->colorRgba($name, $alpha);
-        }
-
-        return $colors;
     }
 
     private function formatCurrencyBr(float $value): string

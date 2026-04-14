@@ -291,22 +291,6 @@
                 text-transform: uppercase;
             }
 
-            .w2-chart__loading {
-                position: absolute;
-                inset: 0;
-                display: none;
-                align-items: center;
-                justify-content: center;
-                text-align: center;
-                color: #dce8f5;
-                background: rgba(6, 19, 33, .55);
-                font-size: .86rem;
-                font-weight: 700;
-                letter-spacing: .03em;
-                z-index: 3;
-                pointer-events: none;
-            }
-
             .w2-table {
                 width: 100%;
                 border-collapse: collapse;
@@ -493,77 +477,6 @@
                     'recent_completed',
                 ];
                 const fixedPanelComponents = ['ads_dashboard'];
-                const CHART_BRAND_COLORS = {
-                    primary: '#BF4053',
-                    accent: '#FF644B',
-                    danger: '#EE162D',
-                    warning: '#FFDC00',
-                    success: '#28FF52',
-                    neutral: '#AAAAAA',
-                    slate: '#C9CDD1',
-                    magenta: '#E01F69',
-                };
-                const CHART_TEXT_COLORS = {
-                    onDark: '#FFFFFF',
-                    onLight: '#222222',
-                    accentOnDark: CHART_BRAND_COLORS.success,
-                    accentOnLight: CHART_BRAND_COLORS.primary,
-                };
-
-                function colorRgba(hex, alpha) {
-                    const safeHex = String(hex || '').replace('#', '');
-                    if (!/^[\da-fA-F]{6}$/.test(safeHex)) return `rgba(170,170,170,${alpha})`;
-                    const r = parseInt(safeHex.slice(0, 2), 16);
-                    const g = parseInt(safeHex.slice(2, 4), 16);
-                    const b = parseInt(safeHex.slice(4, 6), 16);
-                    const a = Number.isFinite(Number(alpha)) ? Math.max(0, Math.min(1, Number(alpha))) : 1;
-                    return `rgba(${r},${g},${b},${a})`;
-                }
-
-                function parseColorToRgb(input) {
-                    const value = String(input || '').trim();
-                    if (!value) return null;
-
-                    const hex = value.match(/^#([\da-fA-F]{6})$/);
-                    if (hex) {
-                        const h = hex[1];
-                        return {
-                            r: parseInt(h.slice(0, 2), 16),
-                            g: parseInt(h.slice(2, 4), 16),
-                            b: parseInt(h.slice(4, 6), 16),
-                        };
-                    }
-
-                    const rgba = value.match(/^rgba?\(([^)]+)\)$/i);
-                    if (rgba) {
-                        const parts = rgba[1].split(',').map((p) => Number(p.trim()));
-                        if (parts.length >= 3 && parts.every((n, idx) => idx < 3 ? Number.isFinite(n) : true)) {
-                            return {
-                                r: Math.max(0, Math.min(255, parts[0])),
-                                g: Math.max(0, Math.min(255, parts[1])),
-                                b: Math.max(0, Math.min(255, parts[2])),
-                            };
-                        }
-                    }
-
-                    return null;
-                }
-
-                function textColorForBackground(backgroundColor, variant = 'auto') {
-                    const rgb = parseColorToRgb(backgroundColor);
-                    if (!rgb) {
-                        return variant === 'accent' ? CHART_TEXT_COLORS.accentOnDark : CHART_TEXT_COLORS.onDark;
-                    }
-
-                    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-                    const isLightBackground = luminance >= 0.55;
-
-                    if (variant === 'accent') {
-                        return isLightBackground ? CHART_TEXT_COLORS.accentOnLight : CHART_TEXT_COLORS.accentOnDark;
-                    }
-
-                    return isLightBackground ? CHART_TEXT_COLORS.onLight : CHART_TEXT_COLORS.onDark;
-                }
 
                 function payloadStorageKey() {
                     const scr = fixedScreenId > 0 ? String(fixedScreenId) : 'all';
@@ -581,7 +494,7 @@
                             if (!opts?.enabled) return;
                             const ctx = chart.ctx;
                             const mode = String(opts.mode || '');
-                            const color = opts.color || CHART_TEXT_COLORS.onDark;
+                            const color = opts.color || '#dce8f5';
                             const font = opts.font || '600 11px sans-serif';
                             const offset = Number(opts.offset || 12);
 
@@ -637,9 +550,6 @@
                                         const raw = dataset?.data?.[idx];
                                         const value = Number(raw ?? 0);
                                         if (!Number.isFinite(value) || value === 0) return;
-                                        const arcBg = Array.isArray(dataset?.backgroundColor)
-                                            ? dataset.backgroundColor[idx]
-                                            : dataset?.backgroundColor;
                                         const startAngle = Number(arc.startAngle ?? 0);
                                         const endAngle = Number(arc.endAngle ?? 0);
                                         const angle = (startAngle + endAngle) / 2;
@@ -657,7 +567,6 @@
                                         const label = labelType === 'value'
                                             ? String(Math.round(value))
                                             : `${ratio.toFixed(1)}%`;
-                                        ctx.fillStyle = textColorForBackground(arcBg, String(opts.textVariant || 'auto'));
                                         ctx.textBaseline = 'middle';
                                         ctx.fillText(label, x, y);
                                     });
@@ -669,14 +578,10 @@
                                         const centerLabel = String(Math.round(total));
                                         const centerFont = opts.centerFont || '700 34px sans-serif';
                                         const prevFont = ctx.font;
-                                        const prevFill = ctx.fillStyle;
-
                                         ctx.font = centerFont;
-                                        ctx.fillStyle = opts.centerColor || CHART_TEXT_COLORS.onDark;
                                         ctx.textBaseline = 'middle';
                                         ctx.fillText(centerLabel, centerX, centerY);
                                         ctx.font = prevFont;
-                                        ctx.fillStyle = prevFill;
                                     }
                                 }
                             }
@@ -760,16 +665,24 @@
                     return url;
                 }
 
+                function withNoCache(url) {
+                    const token = `_ts=${Date.now()}`;
+                    return url.includes('?') ? `${url}&${token}` : `${url}?${token}`;
+                }
+
                 async function fetchPayload(preservePosition = true) {
                     if (!endpoint) return;
                     try {
-                        const manifestUrl = endpoint.includes('?') ? `${endpoint}&manifest=1` : `${endpoint}?manifest=1`;
+                        const manifestUrlBase = endpoint.includes('?') ? `${endpoint}&manifest=1` : `${endpoint}?manifest=1`;
+                        const manifestUrl = withNoCache(manifestUrlBase);
                         const response = await fetch(manifestUrl, {
                             method: 'GET',
                             credentials: 'same-origin',
                             cache: 'no-store',
                             headers: {
                                 'Accept': 'application/json',
+                                'Cache-Control': 'no-cache',
+                                'Pragma': 'no-cache',
                                 'X-Requested-With': 'XMLHttpRequest',
                             },
                         });
@@ -855,13 +768,15 @@
                         return screenDataCache.get(key);
                     }
 
-                    const url = buildScreenEndpoint(screenId);
+                    const url = withNoCache(buildScreenEndpoint(screenId));
                     const res = await fetch(url, {
                         method: 'GET',
                         credentials: 'same-origin',
                         cache: 'no-store',
                         headers: {
                             'Accept': 'application/json',
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
                             'X-Requested-With': 'XMLHttpRequest',
                         },
                     });
@@ -1195,7 +1110,7 @@
                         ].filter((n) => Number.isFinite(n) && n > 0)));
 
                         for (const sid of screenCandidates) {
-                            const url = buildItemChartsEndpoint(sid, serviceId, component);
+                            const url = withNoCache(buildItemChartsEndpoint(sid, serviceId, component));
                             if (DEBUG) {
                                 console.log('wall-v2 fetch component', {
                                     url,
@@ -1211,6 +1126,8 @@
                                 cache: 'no-store',
                                 headers: {
                                     'Accept': 'application/json',
+                                    'Cache-Control': 'no-cache',
+                                    'Pragma': 'no-cache',
                                     'X-Requested-With': 'XMLHttpRequest',
                                 },
                             });
@@ -1256,7 +1173,7 @@
                         ].filter((n) => Number.isFinite(n) && n > 0)));
 
                         for (const sid of screenCandidates) {
-                            const url = buildItemChartsEndpoint(sid, serviceId, null);
+                            const url = withNoCache(buildItemChartsEndpoint(sid, serviceId, null));
                             if (DEBUG) {
                                 console.log('wall-v2 fetch full', {
                                     url,
@@ -1271,6 +1188,8 @@
                                 cache: 'no-store',
                                 headers: {
                                     'Accept': 'application/json',
+                                    'Cache-Control': 'no-cache',
+                                    'Pragma': 'no-cache',
                                     'X-Requested-With': 'XMLHttpRequest',
                                 },
                             });
@@ -1600,21 +1519,21 @@
                                         <div class="w2-ads-left">
                                             <div class="w2-chart">
                                             <div class="w2-chart__t"><span id="ads_line_title_${key}">${fixedDefaults.lineTitle}</span> <span id="pts_ads_dashboard_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_ads_dashboard_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_line_${key}">Carregando dados...</div></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas></div>
                                             </div>
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t"><span id="ads_bar_title_${key}">${fixedDefaults.barTitle}</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_bar_${key}">Carregando dados...</div></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas></div>
                                             </div>
                                         </div>
                                         <div class="w2-ads-right">
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t"><span id="ads_queue_title_${key}">${fixedDefaults.queueTitle}</span> <span id="ads_queue_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_queue_${key}">Carregando dados...</div></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas></div>
                                             </div>
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t"><span id="ads_reuse_title_${key}">${fixedDefaults.reuseTitle}</span> <span id="ads_reuse_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_reuse_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_reuse_${key}">Carregando dados...</div></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_reuse_${key}"></canvas></div>
                                             </div>
                                         </div>
                                     </div>
@@ -1636,26 +1555,26 @@
                                     <div class="w2-charts">
                                         <div class="w2-chart">
                                             <div class="w2-chart__t">Pilha da atividade (OV, última semana) <span id="pts_queue_histogram_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_queue_histogram_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="q_${key}"></canvas><div class="w2-chart__loading" id="loading_q_${key}">Carregando dados...</div></div>
+                                            <div class="w2-chart__wrap"><canvas id="q_${key}"></canvas></div>
                                         </div>
                                         <div class="w2-chart w2-chart--donut-compact">
                                             <div class="w2-chart__t">Notas x Produção Associada <span id="note_type_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span><span id="pts_note_type_donut_${key}" style="float:right;color:#9bb2ca;margin-right:.5rem;">pts:0 sum:0</span><span id="ctr_note_type_donut_${key}" style="float:right;color:#9bb2ca;margin-right:.5rem;">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="nd_${key}"></canvas><div class="w2-chart__loading" id="loading_nd_${key}">Carregando dados...</div></div>
+                                            <div class="w2-chart__wrap"><canvas id="nd_${key}"></canvas></div>
                                         </div>
                                         <div class="w2-chart">
                                             <div class="w2-chart__t">Pilha de produção atribuída sem finalizar <span id="pts_production_open_histogram_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_production_open_histogram_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="p_${key}"></canvas><div class="w2-chart__loading" id="loading_p_${key}">Carregando dados...</div></div>
+                                            <div class="w2-chart__wrap"><canvas id="p_${key}"></canvas></div>
                                         </div>
                                     </div>
                                     <div class="w2-bottom">
                                         <div class="w2-chart">
                                             <div class="w2-chart__t">Produção dia a dia (atribuído x entregue) <span id="pts_production_daily_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_production_daily_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="f_${key}"></canvas><div class="w2-chart__loading" id="loading_f_${key}">Carregando dados...</div></div>
+                                            <div class="w2-chart__wrap"><canvas id="f_${key}"></canvas></div>
                                         </div>
                                         <div class="w2-bottom-right">
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t">Retorno interno por tipo <span id="pts_internal_return_donut_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_internal_return_donut_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="d_${key}"></canvas><div class="w2-chart__empty" id="d_empty_${key}">SEM DADOS</div><div class="w2-chart__loading" id="loading_d_${key}">Carregando dados...</div></div>
+                                                <div class="w2-chart__wrap"><canvas id="d_${key}"></canvas><div class="w2-chart__empty" id="d_empty_${key}">SEM DADOS</div></div>
                                             </div>
                                             <div class="w2-list">
                                                 <div class="w2-list__t">Últimas produções entregues (semana atual) <span id="pts_recent_completed_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_recent_completed_${key}" style="float:right;color:#9bb2ca">--</span></div>
@@ -1773,23 +1692,23 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
+                                            ticks: { color: '#dce8f5', precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                         },
                                         x: {
-                                            ticks: { color: CHART_TEXT_COLORS.onDark },
+                                            ticks: { color: '#dce8f5' },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: CHART_TEXT_COLORS.onDark },
+                                            labels: { color: '#dce8f5' },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'line',
                                             offset: 12,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -1808,23 +1727,23 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
+                                            ticks: { color: '#dce8f5', precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                         },
                                         x: {
-                                            ticks: { color: CHART_TEXT_COLORS.onDark },
+                                            ticks: { color: '#dce8f5' },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: CHART_TEXT_COLORS.onDark },
+                                            labels: { color: '#dce8f5' },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -1842,13 +1761,13 @@
                                     animation: { duration: 450 },
                                     plugins: {
                                         legend: {
-                                            labels: { color: CHART_TEXT_COLORS.onDark },
+                                            labels: { color: '#dce8f5' },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -1866,13 +1785,13 @@
                                     animation: { duration: 450 },
                                     plugins: {
                                         legend: {
-                                            labels: { color: CHART_TEXT_COLORS.onDark },
+                                            labels: { color: '#dce8f5' },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -1908,11 +1827,7 @@
                                     [{
                                         label: 'Fila atual',
                                         data: dashboard.queue_donut?.values || [],
-                                        backgroundColor: dashboard.queue_donut?.colors || [
-                                            colorRgba(CHART_BRAND_COLORS.accent, 0.82),
-                                            colorRgba(CHART_BRAND_COLORS.slate, 0.82),
-                                            colorRgba(CHART_BRAND_COLORS.warning, 0.82),
-                                        ],
+                                        backgroundColor: dashboard.queue_donut?.colors || ['#0ea5e9', '#6b7280', '#f59e0b'],
                                         borderColor: '#ffffff',
                                         borderWidth: 1,
                                     }],
@@ -1925,10 +1840,7 @@
                                     [{
                                         label: 'Economia ADS',
                                         data: dashboard.reuse_donut?.values || [],
-                                        backgroundColor: dashboard.reuse_donut?.colors || [
-                                            colorRgba(CHART_BRAND_COLORS.success, 0.82),
-                                            colorRgba(CHART_BRAND_COLORS.primary, 0.82),
-                                        ],
+                                        backgroundColor: dashboard.reuse_donut?.colors || ['#059669', '#3b82f6'],
                                         borderColor: '#ffffff',
                                         borderWidth: 1,
                                     }],
@@ -1971,25 +1883,25 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
+                                            ticks: { color: '#dce8f5', precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                             stacked: true,
                                         },
                                         x: {
-                                            ticks: { color: CHART_TEXT_COLORS.onDark },
+                                            ticks: { color: '#dce8f5' },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                             stacked: true,
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: CHART_TEXT_COLORS.onDark },
+                                            labels: { color: '#dce8f5' },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -2010,14 +1922,14 @@
                                     plugins: {
                                         legend: {
                                             labels: {
-                                                color: CHART_TEXT_COLORS.onDark
+                                                color: '#dce8f5'
                                             },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                             labelType: 'value',
                                         },
                                     },
@@ -2037,25 +1949,25 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
+                                            ticks: { color: '#dce8f5', precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                             stacked: true,
                                         },
                                         x: {
-                                            ticks: { color: CHART_TEXT_COLORS.onDark },
+                                            ticks: { color: '#dce8f5' },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                             stacked: true,
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: CHART_TEXT_COLORS.onDark },
+                                            labels: { color: '#dce8f5' },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -2077,7 +1989,7 @@
                                         y: {
                                             beginAtZero: true,
                                             ticks: {
-                                                color: CHART_TEXT_COLORS.onDark,
+                                                color: '#dce8f5',
                                                 precision: 0
                                             },
                                             grid: {
@@ -2086,7 +1998,7 @@
                                         },
                                         x: {
                                             ticks: {
-                                                color: CHART_TEXT_COLORS.onDark
+                                                color: '#dce8f5'
                                             },
                                             grid: {
                                                 color: 'rgba(255,255,255,.05)'
@@ -2096,14 +2008,14 @@
                                     plugins: {
                                         legend: {
                                             labels: {
-                                                color: CHART_TEXT_COLORS.onDark
+                                                color: '#dce8f5'
                                             },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -2124,14 +2036,14 @@
                                     plugins: {
                                         legend: {
                                             labels: {
-                                                color: CHART_TEXT_COLORS.onDark
+                                                color: '#dce8f5'
                                             },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: CHART_TEXT_COLORS.onDark,
+                                            color: '#dce8f5',
                                             labelType: 'value',
                                         },
                                     },
@@ -2216,14 +2128,14 @@
                                 return `${lbl} (${qty})`;
                             });
                             const donutColors = [
-                                CHART_BRAND_COLORS.primary,
-                                CHART_BRAND_COLORS.accent,
-                                CHART_BRAND_COLORS.warning,
-                                CHART_BRAND_COLORS.danger,
-                                CHART_BRAND_COLORS.magenta,
-                                CHART_BRAND_COLORS.success,
-                                CHART_BRAND_COLORS.neutral,
-                                CHART_BRAND_COLORS.slate,
+                                '#60a5fa',
+                                '#34d399',
+                                '#fbbf24',
+                                '#f87171',
+                                '#a78bfa',
+                                '#22d3ee',
+                                '#fb7185',
+                                '#4ade80'
                             ];
 
                             if (queueChart && shouldUpdateComponent('queue_histogram')) {
@@ -2233,8 +2145,8 @@
                                         {
                                             label: 'Sem produção atribuída',
                                             data: [],
-                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.accent, 0.55),
-                                            borderColor: CHART_BRAND_COLORS.accent,
+                                            backgroundColor: 'rgba(52, 152, 219, .55)',
+                                            borderColor: '#3498db',
                                             borderWidth: 1,
                                             borderSkipped: false,
                                             categoryPercentage: 0.82,
@@ -2244,8 +2156,8 @@
                                         {
                                             label: 'Com produção atribuída',
                                             data: [],
-                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.success, 0.65),
-                                            borderColor: CHART_BRAND_COLORS.success,
+                                            backgroundColor: 'rgba(16, 185, 129, .65)',
+                                            borderColor: '#10b981',
                                             borderWidth: 1,
                                             borderSkipped: false,
                                             categoryPercentage: 0.82,
@@ -2259,8 +2171,8 @@
                                     queueChart.data.datasets[1] = {
                                         label: 'Com produção atribuída',
                                         data: [],
-                                        backgroundColor: colorRgba(CHART_BRAND_COLORS.success, 0.65),
-                                        borderColor: CHART_BRAND_COLORS.success,
+                                        backgroundColor: 'rgba(16, 185, 129, .65)',
+                                        borderColor: '#10b981',
                                         borderWidth: 1,
                                         borderSkipped: false,
                                         categoryPercentage: 0.82,
@@ -2279,10 +2191,7 @@
                                     [{
                                         label: 'Notas OV',
                                         data: noteTypeValues.map(normalizeNumber),
-                                        backgroundColor: [
-                                            colorRgba(CHART_BRAND_COLORS.success, 0.82),
-                                            colorRgba(CHART_BRAND_COLORS.primary, 0.82),
-                                        ],
+                                        backgroundColor: ['rgba(16,185,129,.82)', 'rgba(59,130,246,.82)'],
                                         borderColor: '#ffffff',
                                         borderWidth: 1,
                                     }],
@@ -2300,8 +2209,8 @@
                                         {
                                             label: 'Normal',
                                             data: [],
-                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.accent, 0.65),
-                                            borderColor: CHART_BRAND_COLORS.accent,
+                                            backgroundColor: 'rgba(0, 206, 201, .65)',
+                                            borderColor: '#00cec9',
                                             borderWidth: 1,
                                             borderSkipped: false,
                                             categoryPercentage: 0.82,
@@ -2311,8 +2220,8 @@
                                         {
                                             label: 'RI',
                                             data: [],
-                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.warning, 0.75),
-                                            borderColor: CHART_BRAND_COLORS.warning,
+                                            backgroundColor: 'rgba(250, 204, 21, .75)',
+                                            borderColor: '#facc15',
                                             borderWidth: 1,
                                             borderSkipped: false,
                                             categoryPercentage: 0.82,
@@ -2326,8 +2235,8 @@
                                     prodChart.data.datasets[1] = {
                                         label: 'RI',
                                         data: [],
-                                        backgroundColor: colorRgba(CHART_BRAND_COLORS.warning, 0.75),
-                                        borderColor: CHART_BRAND_COLORS.warning,
+                                        backgroundColor: 'rgba(250, 204, 21, .75)',
+                                        borderColor: '#facc15',
                                         borderWidth: 1,
                                         borderSkipped: false,
                                         categoryPercentage: 0.82,
@@ -2345,16 +2254,16 @@
                                     flowChart.data.datasets = [{
                                             label: 'Atribuído',
                                             data: [],
-                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.accent, 0.65),
-                                            borderColor: CHART_BRAND_COLORS.accent,
+                                            backgroundColor: 'rgba(96,165,250,.65)',
+                                            borderColor: '#60a5fa',
                                             borderWidth: 1,
                                             borderSkipped: false,
                                         },
                                         {
                                             label: 'Entregue',
                                             data: [],
-                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.success, 0.65),
-                                            borderColor: CHART_BRAND_COLORS.success,
+                                            backgroundColor: 'rgba(34,197,94,.65)',
+                                            borderColor: '#22c55e',
                                             borderWidth: 1,
                                             borderSkipped: false,
                                         },

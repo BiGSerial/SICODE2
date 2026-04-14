@@ -201,6 +201,15 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
         ->whereNumber('wall')
         ->whereNumber('screen')
         ->name('wall.production_v2.screen');
+    Route::get('/wall/{wall}/production-v2-vue', 'productionWallV2Vue')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->name('wall.production_v2_vue');
+    Route::get('/wall/{wall}/production-v2-vue/{screen}', 'productionWallV2VueScreen')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('wall.production_v2_vue.screen');
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
     Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
