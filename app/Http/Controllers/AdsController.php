@@ -47,10 +47,25 @@ class AdsController extends Controller
                         'easing' => 'easeOutCubic',
                     ],
                     'plugins' => [
-                        'legend' => ['position' => 'bottom'],
+                        'legend' => ['position' => 'top'],
                         'title' => [
                             'display' => true,
                             'text' => 'Fila atual (status pendentes)',
+                        ],
+                        'datalabels' => [
+                            'display' => true,
+                            'color' => '#ffffff',
+                            'font' => ['weight' => '600', 'size' => 11],
+                            'formatter' => '__DOUGHNUT_PERCENT_LABEL__',
+                        ],
+                        'centerText' => [
+                            'display' => true,
+                            'text' => (string) ((int) ($series['total'] ?? 0)),
+                            'subtext' => 'Total',
+                            'font' => '700 34px sans-serif',
+                            'subFont' => '600 12px sans-serif',
+                            'color' => '#1f2937',
+                            'subColor' => '#6b7280',
                         ],
                     ],
                     'onClickFilter' => [
@@ -104,10 +119,25 @@ class AdsController extends Controller
                         'easing' => 'easeOutCubic',
                     ],
                     'plugins' => [
-                        'legend' => ['position' => 'bottom'],
+                        'legend' => ['position' => 'top'],
                         'title' => [
                             'display' => true,
                             'text' => 'Economia por reaproveitamento de ADS',
+                        ],
+                        'datalabels' => [
+                            'display' => true,
+                            'color' => '#ffffff',
+                            'font' => ['weight' => '600', 'size' => 11],
+                            'formatter' => '__DOUGHNUT_PERCENT_LABEL__',
+                        ],
+                        'centerText' => [
+                            'display' => true,
+                            'text' => (string) ((int) ($series['total'] ?? 0)),
+                            'subtext' => 'Total',
+                            'font' => '700 34px sans-serif',
+                            'subFont' => '600 12px sans-serif',
+                            'color' => '#1f2937',
+                            'subColor' => '#6b7280',
                         ],
                     ],
                 ],

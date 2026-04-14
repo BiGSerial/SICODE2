@@ -9,10 +9,10 @@ use Illuminate\Http\JsonResponse;
 
 class ProductionWallV2ItemChartsController extends Controller
 {
-    public function __invoke(Request $request, int $wall, int $screen, string $service, ProductionWallV2DataService $serviceData): JsonResponse
+    public function __invoke(Request $request, int $wall, int $screen, string $serviceId, ProductionWallV2DataService $serviceData): JsonResponse
     {
         $component = $request->query('component');
 
-        return response()->json($serviceData->getItemChartsPayload($wall, $screen, $service, $component));
+        return response()->json($serviceData->getItemChartsPayload($wall, $screen, $serviceId, $component));
     }
 }

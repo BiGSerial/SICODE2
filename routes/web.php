@@ -222,6 +222,16 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
 });
 
+Route::prefix('/wall/v1')->controller(ReportsController::class)->name('wall.v1.')->middleware('auth')->middleware('can:superadm')->group(function () {
+    Route::get('/{wall}', 'productionWallV2')
+        ->whereNumber('wall')
+        ->name('show');
+    Route::get('/{wall}/{screen}', 'productionWallV2Screen')
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('screen');
+});
+
 Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middleware('auth')->group(function () {
     Route::get('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/realtime/queue-donut', 'realtimeQueueDonut')->name('realtime.queue_donut');

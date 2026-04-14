@@ -3,12 +3,19 @@
 @section('content')
     <div id="wall-v2" class="wall-v2"
         data-endpoint="{{ isset($screenId) && $screenId ? route('api.v1.reports.production_wall_v2.screen', ['wall' => $wallId, 'screen' => $screenId]) : route('api.v1.reports.production_wall_v2', ['wall' => $wallId]) }}"
+        data-wall-endpoint="{{ route('api.v1.reports.production_wall_v2', ['wall' => $wallId]) }}"
+        data-screen-endpoint-template="{{ route('api.v1.reports.production_wall_v2.screen', ['wall' => $wallId, 'screen' => '__SCREEN__']) }}"
+        data-item-charts-endpoint-template="{{ route('api.v1.reports.production_wall_v2.item_charts', ['wall' => $wallId, 'screen' => '__SCREEN__', 'serviceId' => '__SERVICE__']) }}"
         data-screen-id="{{ $screenId ?? '' }}" data-wall-id="{{ $wallId ?? '' }}">
         <div class="wall-v2__top">
-            <div>
-                <h1 class="wall-v2__title">WALL Produção V2</h1>
-                <div class="wall-v2__meta" id="w2-updated">Atualizado: -</div>
+            <div class="wall-v2__brand">
+                <div class="wall-v2__brand-logo">
+                    <img src="{{ asset('img/EDP-Logo-white.svg') }}" alt="EDP">
+                    <span class="wall-v2__brand-sicode">sicode</span>
+                </div>
+                <h1 class="wall-v2__title">WALL PRODUÇÃO V2</h1>
             </div>
+            <div class="wall-v2__meta wall-v2__meta--top" id="w2-updated">Atualizado: -</div>
             <div class="wall-v2__badges">
                 <span class="wall-v2__badge">Wall: <strong id="w2-wall-name">#{{ $wallId ?? '-' }}</strong></span>
                 <span class="wall-v2__badge">Tela: <strong id="w2-screen-name">-</strong></span>
@@ -49,9 +56,36 @@
                 flex-wrap: wrap;
             }
 
+            .wall-v2__brand {
+                display: flex;
+                flex-direction: column;
+                gap: .08rem;
+            }
+
+            .wall-v2__brand-logo {
+                display: flex;
+                align-items: flex-end;
+                gap: .35rem;
+                line-height: 1;
+            }
+
+            .wall-v2__brand-logo img {
+                height: 24px;
+                width: auto;
+                display: block;
+            }
+
+            .wall-v2__brand-sicode {
+                color: #28ff52;
+                font-size: 1.6rem;
+                font-weight: 700;
+                text-transform: lowercase;
+                letter-spacing: .02em;
+            }
+
             .wall-v2__title {
                 margin: 0;
-                font-size: 1.2rem;
+                font-size: .88rem;
                 letter-spacing: .06em;
                 text-transform: uppercase;
             }
@@ -59,6 +93,12 @@
             .wall-v2__meta {
                 color: #a9bdd3;
                 font-size: .88rem;
+            }
+
+            .wall-v2__meta--top {
+                margin-left: auto;
+                align-self: center;
+                white-space: nowrap;
             }
 
             .wall-v2__badges {
@@ -105,8 +145,10 @@
 
             .w2-panel__title {
                 margin: 0;
-                font-size: 1rem;
+                font-size: 1.32rem;
                 font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: .03em;
             }
 
             .w2-panel__sub {
@@ -150,8 +192,12 @@
             .w2-charts {
                 min-height: 0;
                 display: grid;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 5fr 2fr 5fr;
                 gap: .55rem;
+            }
+
+            .w2-chart--donut-compact .w2-chart__wrap {
+                min-height: 210px;
             }
 
             .w2-bottom {
@@ -221,6 +267,44 @@
                 min-height: 0;
                 flex: 1;
                 overflow: auto;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+
+            .w2-list__wrap::-webkit-scrollbar {
+                width: 0;
+                height: 0;
+                display: none;
+            }
+
+            .w2-chart__empty {
+                position: absolute;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                color: #9bb2ca;
+                font-size: 1rem;
+                font-weight: 700;
+                letter-spacing: .04em;
+                text-transform: uppercase;
+            }
+
+            .w2-chart__loading {
+                position: absolute;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                color: #dce8f5;
+                background: rgba(6, 19, 33, .55);
+                font-size: .86rem;
+                font-weight: 700;
+                letter-spacing: .03em;
+                z-index: 3;
+                pointer-events: none;
             }
 
             .w2-table {
@@ -240,6 +324,10 @@
                 text-transform: uppercase;
                 font-size: .65rem;
                 letter-spacing: .03em;
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: rgba(15, 31, 51, .98);
             }
 
             .w2-tag {
@@ -308,6 +396,12 @@
                 font-weight: 700;
             }
 
+            .w2-ads-card__k {
+                margin-top: .15rem;
+                font-size: .68rem;
+                color: #9bb2ca;
+            }
+
             @media (max-width: 1200px) {
                 .wall-v2__grid {
                     grid-template-columns: 1fr;
@@ -351,16 +445,12 @@
                 if (!root) return;
 
                 const endpoint = root.dataset.endpoint;
+                const wallEndpoint = root.dataset.wallEndpoint;
+                const screenEndpointTemplate = root.dataset.screenEndpointTemplate || '';
+                const itemChartsEndpointTemplate = root.dataset.itemChartsEndpointTemplate || '';
                 const fixedScreenId = Number(root.dataset.screenId || 0);
                 const wallId = String(root.dataset.wallId || '');
-                let chartsEndpointBase = `/api/v1/reports/walls/${encodeURIComponent(wallId)}/production-v2`;
-                try {
-                    const epPath = new URL(endpoint, window.location.origin).pathname;
-                    const match = epPath.match(/\/api\/v1\/reports\/walls\/[^/]+\/production-v2/);
-                    if (match && match[0]) {
-                        chartsEndpointBase = match[0];
-                    }
-                } catch (e) {}
+                const DEBUG = false;
                 let payload = {
                     screens: [],
                     updated_at: '',
@@ -375,21 +465,54 @@
                 let timer = null;
                 let renderedScreenId = null;
                 let renderedPanelKey = '';
+                let tickInFlight = false;
+                let lastManifestSignature = '';
+                let manifestSyncRemaining = 15;
+                let initialLoadingPhase = true;
+                const primedScreens = new Set();
+                const pendingPrimeScreens = new Set();
+                const pendingManifestSync = {
+                    running: false
+                };
                 const charts = new Map();
+                const listScrollLoops = new Map();
                 const componentDataCache = new Map();
+                const screenDataCache = new Map();
                 const componentCountdowns = new Map();
                 const pendingComponentFetch = new Set();
+                const pendingScreenFetch = new Set();
                 const valueLabelsPluginId = 'valueLabelsPlugin';
                 let wallErrorMessage = '';
                 const productionComponents = [
                     'cards',
                     'queue_histogram',
+                    'note_type_donut',
                     'production_open_histogram',
                     'production_daily',
                     'internal_return_donut',
                     'recent_completed',
                 ];
-                const adsComponents = ['ads_dashboard'];
+                const fixedPanelComponents = ['ads_dashboard'];
+                const CHART_BRAND_COLORS = {
+                    primary: '#BF4053',
+                    accent: '#FF644B',
+                    danger: '#EE162D',
+                    warning: '#FFDC00',
+                    success: '#28FF52',
+                    neutral: '#AAAAAA',
+                    slate: '#C9CDD1',
+                    magenta: '#E01F69',
+                };
+
+                function colorRgba(hex, alpha) {
+                    const safeHex = String(hex || '').replace('#', '');
+                    if (!/^[\da-fA-F]{6}$/.test(safeHex)) return `rgba(170,170,170,${alpha})`;
+                    const r = parseInt(safeHex.slice(0, 2), 16);
+                    const g = parseInt(safeHex.slice(2, 4), 16);
+                    const b = parseInt(safeHex.slice(4, 6), 16);
+                    const a = Number.isFinite(Number(alpha)) ? Math.max(0, Math.min(1, Number(alpha))) : 1;
+                    return `rgba(${r},${g},${b},${a})`;
+                }
 
                 function payloadStorageKey() {
                     const scr = fixedScreenId > 0 ? String(fixedScreenId) : 'all';
@@ -454,14 +577,49 @@
                                 const dataset = chart.data.datasets?.[0];
                                 const meta = chart.getDatasetMeta(0);
                                 if (dataset && meta?.data) {
+                                    const total = (dataset.data || []).reduce((acc, raw) => {
+                                        const value = Number(raw ?? 0);
+                                        return acc + (Number.isFinite(value) ? value : 0);
+                                    }, 0);
+
                                     meta.data.forEach((arc, idx) => {
                                         const raw = dataset?.data?.[idx];
                                         const value = Number(raw ?? 0);
                                         if (!Number.isFinite(value) || value === 0) return;
-                                        const pos = arc.tooltipPosition();
-                                        ctx.textBaseline = 'top';
-                                        ctx.fillText(String(value), pos.x, pos.y + offset);
+                                        const startAngle = Number(arc.startAngle ?? 0);
+                                        const endAngle = Number(arc.endAngle ?? 0);
+                                        const angle = (startAngle + endAngle) / 2;
+                                        const innerRadius = Number(arc.innerRadius ?? 0);
+                                        const outerRadius = Number(arc.outerRadius ?? 0);
+                                        const radius = (innerRadius + outerRadius) / 2;
+                                        const centerX = Number(arc.x ?? chart.width / 2);
+                                        const centerY = Number(arc.y ?? chart.height / 2);
+
+                                        const x = centerX + Math.cos(angle) * radius;
+                                        const y = centerY + Math.sin(angle) * radius;
+
+                                        const labelType = String(opts.labelType || 'percent');
+                                        const ratio = total > 0 ? (value / total) * 100 : 0;
+                                        const label = labelType === 'value'
+                                            ? String(Math.round(value))
+                                            : `${ratio.toFixed(1)}%`;
+                                        ctx.textBaseline = 'middle';
+                                        ctx.fillText(label, x, y);
                                     });
+
+                                    if (total > 0 && meta.data[0]) {
+                                        const centerArc = meta.data[0];
+                                        const centerX = Number(centerArc.x ?? chart.width / 2);
+                                        const centerY = Number(centerArc.y ?? chart.height / 2);
+                                        const centerLabel = String(Math.round(total));
+                                        const centerFont = opts.centerFont || '700 34px sans-serif';
+                                        const prevFont = ctx.font;
+
+                                        ctx.font = centerFont;
+                                        ctx.textBaseline = 'middle';
+                                        ctx.fillText(centerLabel, centerX, centerY);
+                                        ctx.font = prevFont;
+                                    }
                                 }
                             }
 
@@ -489,6 +647,7 @@
 
                 function normalize(raw) {
                     return {
+                        wall: raw?.wall || null,
                         updated_at: raw?.updated_at || '',
                         rotation_seconds: Number(raw?.rotation_seconds || 180),
                         refresh_seconds: Number(raw?.refresh_seconds || 60),
@@ -496,10 +655,58 @@
                     };
                 }
 
-                async function fetchPayload() {
+                function manifestSyncIntervalSeconds() {
+                    const base = Number(payload.refresh_seconds || 60);
+                    return Math.max(10, Math.min(30, base));
+                }
+
+                function manifestSignature(data) {
+                    const screens = Array.isArray(data?.screens) ? data.screens : [];
+                    const compact = screens.map((screen) => ({
+                        id: Number(screen?.id || 0),
+                        type: String(screen?.screen_type || ''),
+                        duration: Number(screen?.duration_seconds || 0),
+                        service_duration: Number(screen?.service_rotation_seconds || 0),
+                        items: (Array.isArray(screen?.items) ? screen.items : []).map((item) => ({
+                            service_id: String(item?.service_id || ''),
+                            previous_service_id: String(item?.previous_service_id || ''),
+                        })),
+                    }));
+                    return JSON.stringify(compact);
+                }
+
+                function buildScreenEndpoint(screenId) {
+                    const sid = encodeURIComponent(String(screenId));
+                    if (!screenEndpointTemplate.includes('__SCREEN__')) {
+                        throw new Error('Template de rota de tela não configurado');
+                    }
+                    return screenEndpointTemplate.replace('__SCREEN__', sid);
+                }
+
+                function buildItemChartsEndpoint(screenId, serviceId, component = null) {
+                    const sid = encodeURIComponent(String(screenId));
+                    const svc = encodeURIComponent(String(serviceId));
+                    let url = '';
+
+                    if (!itemChartsEndpointTemplate.includes('__SCREEN__') || !itemChartsEndpointTemplate.includes('__SERVICE__')) {
+                        throw new Error('Template de rota de item/charts não configurado');
+                    }
+                    url = itemChartsEndpointTemplate
+                        .replace('__SCREEN__', sid)
+                        .replace('__SERVICE__', svc);
+
+                    if (component) {
+                        url += (url.includes('?') ? '&' : '?') + `component=${encodeURIComponent(component)}`;
+                    }
+
+                    return url;
+                }
+
+                async function fetchPayload(preservePosition = true) {
                     if (!endpoint) return;
                     try {
-                        const response = await fetch(endpoint, {
+                        const manifestUrl = endpoint.includes('?') ? `${endpoint}&manifest=1` : `${endpoint}?manifest=1`;
+                        const response = await fetch(manifestUrl, {
                             method: 'GET',
                             credentials: 'same-origin',
                             cache: 'no-store',
@@ -518,16 +725,60 @@
                         }
 
                         wallErrorMessage = '';
+                        const previousScreen = currentScreen();
+                        const previousDisplay = currentDisplayScreen();
+                        const previousItem = previousDisplay?.items?.[currentServiceIndex] || null;
+                        const previousScreenId = Number(previousScreen?.id || 0);
+                        const previousServiceId = String(previousItem?.service_id || '');
+
                         const raw = await response.json();
-                        payload = normalize(raw);
+                        const nextPayload = normalize(raw);
+                        const nextSignature = manifestSignature(nextPayload);
+                        const changed = nextSignature !== lastManifestSignature;
+                        payload = nextPayload;
+                        lastManifestSignature = nextSignature;
+                        payload.screens = (payload.screens || []).map((screen) => ({
+                            ...screen,
+                            // Manifest traz estrutura; dados são carregados por item/charts.
+                            loaded: false,
+                        }));
                         try {
                             sessionStorage.setItem(payloadStorageKey(), JSON.stringify(raw));
                         } catch (e) {}
-                        if (currentScreenIndex >= payload.screens.length) {
+                        if (preservePosition && previousScreenId > 0) {
+                            const nextScreenIndex = payload.screens.findIndex((s) => Number(s?.id || 0) === previousScreenId);
+                            currentScreenIndex = nextScreenIndex >= 0 ? nextScreenIndex : 0;
+                            const active = payload.screens[currentScreenIndex];
+                            const activeItems = Array.isArray(active?.items) ? active.items : [];
+                            if (previousServiceId) {
+                                const nextServiceIndex = activeItems.findIndex((it) => String(it?.service_id || '') === previousServiceId);
+                                currentServiceIndex = nextServiceIndex >= 0 ? nextServiceIndex : 0;
+                            } else {
+                                currentServiceIndex = 0;
+                            }
+                        } else if (currentScreenIndex >= payload.screens.length) {
                             currentScreenIndex = 0;
+                            currentServiceIndex = 0;
+                        }
+
+                        if (changed) {
+                            rotateRemaining = Math.min(Math.max(0, rotateRemaining || 0), screenDuration(currentScreen()));
+                            serviceRotateRemaining = Math.min(Math.max(0, serviceRotateRemaining || 0), serviceDuration(currentScreen()));
+                            render();
                         }
                     } catch (e) {
                         wallErrorMessage = 'NAO EXISTE WALL CONFIGURADO';
+                    }
+                }
+
+                async function syncManifestIfNeeded() {
+                    if (pendingManifestSync.running) return;
+                    pendingManifestSync.running = true;
+                    try {
+                        await fetchPayload(true);
+                    } finally {
+                        pendingManifestSync.running = false;
+                        manifestSyncRemaining = manifestSyncIntervalSeconds();
                     }
                 }
 
@@ -538,6 +789,65 @@
                 function currentDisplayScreen() {
                     const screen = currentScreen();
                     return screen ? applyServiceFilter(screen) : null;
+                }
+
+                async function fetchScreenPayload(screenId, force = false) {
+                    const key = String(screenId);
+                    if (!force && screenDataCache.has(key)) {
+                        return screenDataCache.get(key);
+                    }
+
+                    const url = buildScreenEndpoint(screenId);
+                    const res = await fetch(url, {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+                    if (!res.ok) {
+                        return null;
+                    }
+
+                    const data = await res.json();
+                    screenDataCache.set(key, data || null);
+                    return data || null;
+                }
+
+                function applyScreenPayload(screenId, remote) {
+                    const remoteScreen = Array.isArray(remote?.screens) ? (remote.screens[0] || null) : null;
+                    if (!remoteScreen) return false;
+                    const idx = payload.screens.findIndex((s) => Number(s.id) === Number(screenId));
+                    if (idx < 0) return false;
+
+                    payload.screens[idx] = {
+                        ...remoteScreen,
+                        loaded: true,
+                    };
+                    return true;
+                }
+
+                async function ensureCurrentScreenLoaded(force = false) {
+                    const screen = currentScreen();
+                    if (!screen) return;
+                    const screenId = Number(screen.id || 0);
+                    if (!screenId) return;
+                    if (!force && screen.loaded) return;
+                    if (pendingScreenFetch.has(screenId)) return;
+
+                    pendingScreenFetch.add(screenId);
+                    try {
+                        const remote = await fetchScreenPayload(screenId, force);
+                        if (!remote) return;
+                        if (applyScreenPayload(screenId, remote)) {
+                            payload.updated_at = remote.updated_at || payload.updated_at || '';
+                            render();
+                        }
+                    } finally {
+                        pendingScreenFetch.delete(screenId);
+                    }
                 }
 
                 function setCounters() {
@@ -581,16 +891,82 @@
                 }
 
                 function clearPanelCharts(panel) {
+                    stopListAutoScroll(panel);
                     [
                         'ads_line_',
                         'ads_bar_',
                         'ads_queue_',
                         'ads_reuse_',
                         'q_',
+                        'nd_',
                         'p_',
                         'f_',
                         'd_',
                     ].forEach((prefix) => charts.delete(`${prefix}${panel}`));
+                }
+
+                function stopListAutoScroll(panel) {
+                    const state = listScrollLoops.get(panel);
+                    if (!state) return;
+                    if (state.timer) clearTimeout(state.timer);
+                    if (state.raf) cancelAnimationFrame(state.raf);
+                    listScrollLoops.delete(panel);
+                }
+
+                function startListAutoScroll(panel, node) {
+                    if (!node) return;
+                    stopListAutoScroll(panel);
+
+                    const state = {
+                        timer: null,
+                        raf: null,
+                    };
+                    listScrollLoops.set(panel, state);
+
+                    const TOP_HOLD_MS = 5000;
+                    const BOTTOM_HOLD_MS = 5000;
+
+                    const schedule = (fn, ms) => {
+                        if (!listScrollLoops.has(panel)) return;
+                        state.timer = setTimeout(fn, ms);
+                    };
+
+                    const cycle = () => {
+                        if (!listScrollLoops.has(panel)) return;
+                        const maxScroll = Math.max(0, node.scrollHeight - node.clientHeight);
+                        if (maxScroll <= 2) return;
+
+                        node.scrollTop = 0;
+                        schedule(() => {
+                            const startTop = node.scrollTop;
+                            const endTop = Math.max(0, node.scrollHeight - node.clientHeight);
+                            const distance = Math.max(0, endTop - startTop);
+                            if (distance <= 2) return;
+
+                            const duration = Math.max(7000, Math.min(26000, distance * 14));
+                            const startTs = performance.now();
+
+                            const step = (now) => {
+                                if (!listScrollLoops.has(panel)) return;
+                                const elapsed = now - startTs;
+                                const progress = Math.max(0, Math.min(1, elapsed / duration));
+                                node.scrollTop = startTop + (distance * progress);
+                                if (progress < 1) {
+                                    state.raf = requestAnimationFrame(step);
+                                    return;
+                                }
+                                schedule(() => {
+                                    if (!listScrollLoops.has(panel)) return;
+                                    node.scrollTop = 0;
+                                    cycle();
+                                }, BOTTOM_HOLD_MS);
+                            };
+
+                            state.raf = requestAnimationFrame(step);
+                        }, TOP_HOLD_MS);
+                    };
+
+                    cycle();
                 }
 
                 function updateChartData(chart, labels, datasets, stacked = false) {
@@ -646,12 +1022,74 @@
                     return safeLabels.map((_, index) => normalizeNumber(data[index] ?? 0));
                 }
 
-                function activeComponentsForItem(item) {
-                    return item?.ads_chart ? adsComponents : productionComponents;
+                function isFixedPanel(screen, item) {
+                    if (String(screen?.screen_type || '') === 'fixed_chart') return true;
+                    if (item?.ads_chart) return true;
+                    const serviceId = String(item?.service_id || '');
+                    return serviceId.startsWith('fixed-') || serviceId === 'ads-dashboard';
+                }
+
+                function activeComponentsForItem(screen, item) {
+                    return isFixedPanel(screen, item) ? fixedPanelComponents : productionComponents;
+                }
+
+                function fixedDashboardDefaults(item) {
+                    const serviceId = String(item?.service_id || '');
+                    if (serviceId === 'fixed-project_review_dashboard') {
+                        return {
+                            subtitle: `Tela fixa: ${item?.service_name || 'ANALISE DE PROJETO'}`,
+                            lineTitle: 'Histograma da fila sem análise associada (dias na pilha)',
+                            barTitle: 'Entradas x Respostas por dia',
+                            queueTitle: 'Composição da fila pendente',
+                            reuseTitle: 'Composição do valor revisado',
+                        };
+                    }
+
+                    return {
+                        subtitle: `Tela fixa: ${item?.service_name || 'ADS - Dashboard'}`,
+                        lineTitle: 'Acumulado e Atrasadas (linha) - visão diária',
+                        barTitle: 'Entradas x Saídas (barras) - visão diária',
+                        queueTitle: 'Fila atual (status pendentes)',
+                        reuseTitle: 'Economia por reaproveitamento de ADS',
+                    };
                 }
 
                 function counterNodeId(panel, component) {
                     return `ctr_${component}_${panel}`;
+                }
+
+                function setNodeLoading(nodeId, loading) {
+                    const node = document.getElementById(nodeId);
+                    if (!node) return;
+                    node.style.display = loading ? 'flex' : 'none';
+                }
+
+                function setPanelComponentLoading(panel, component, loading) {
+                    if (!panel || !component) return;
+                    if (component === 'ads_dashboard') {
+                        setNodeLoading(`loading_ads_line_${panel}`, loading);
+                        setNodeLoading(`loading_ads_bar_${panel}`, loading);
+                        setNodeLoading(`loading_ads_queue_${panel}`, loading);
+                        setNodeLoading(`loading_ads_reuse_${panel}`, loading);
+                        return;
+                    }
+                    if (component === 'queue_histogram') setNodeLoading(`loading_q_${panel}`, loading);
+                    if (component === 'note_type_donut') setNodeLoading(`loading_nd_${panel}`, loading);
+                    if (component === 'production_open_histogram') setNodeLoading(`loading_p_${panel}`, loading);
+                    if (component === 'production_daily') setNodeLoading(`loading_f_${panel}`, loading);
+                    if (component === 'internal_return_donut') setNodeLoading(`loading_d_${panel}`, loading);
+                }
+
+                function setActiveComponentsLoading(loading, onlyComponent = null) {
+                    const state = currentPanelAndItem();
+                    if (!state) return;
+                    if (loading && !initialLoadingPhase) return;
+                    const components = activeComponentsForItem(state.screen, state.item);
+                    if (onlyComponent) {
+                        setPanelComponentLoading(state.panel, onlyComponent, loading);
+                        return;
+                    }
+                    components.forEach((component) => setPanelComponentLoading(state.panel, component, loading));
                 }
 
                 function currentPanelAndItem() {
@@ -666,9 +1104,10 @@
                 }
 
                 function resetComponentCountdowns(item) {
+                    const screen = currentDisplayScreen();
                     componentCountdowns.clear();
                     const seconds = Number(payload.refresh_seconds || 60);
-                    activeComponentsForItem(item).forEach((component) => {
+                    activeComponentsForItem(screen, item).forEach((component) => {
                         componentCountdowns.set(component, seconds);
                     });
                     writeComponentCounters();
@@ -677,7 +1116,7 @@
                 function writeComponentCounters() {
                     const state = currentPanelAndItem();
                     if (!state) return;
-                    const components = activeComponentsForItem(state.item);
+                    const components = activeComponentsForItem(state.screen, state.item);
                     components.forEach((component) => {
                         const seconds = Number(componentCountdowns.get(component) ?? payload.refresh_seconds ?? 60);
                         const node = document.getElementById(counterNodeId(state.panel, component));
@@ -693,21 +1132,57 @@
                         return componentDataCache.get(key);
                     }
                     try {
-                        const url = `${chartsEndpointBase}/${encodeURIComponent(String(screenId))}/items/${encodeURIComponent(String(serviceId))}/charts?component=${encodeURIComponent(component)}`;
-                        const res = await fetch(url, {
-                            method: 'GET',
-                            credentials: 'same-origin',
-                            cache: 'no-store',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                        });
-                        if (!res.ok) return null;
-                        const data = await res.json();
-                        componentDataCache.set(key, data || null);
-                        return data || null;
+                        const screenCandidates = Array.from(new Set([
+                            Number(screenId || 0),
+                        ].filter((n) => Number.isFinite(n) && n > 0)));
+
+                        for (const sid of screenCandidates) {
+                            const url = buildItemChartsEndpoint(sid, serviceId, component);
+                            if (DEBUG) {
+                                console.log('wall-v2 fetch component', {
+                                    url,
+                                    wallId,
+                                    screenId: sid,
+                                    serviceId,
+                                    component,
+                                });
+                            }
+                            const res = await fetch(url, {
+                                method: 'GET',
+                                credentials: 'same-origin',
+                                cache: 'no-store',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+                            if (!res.ok) {
+                                if (DEBUG) {
+                                    console.warn('wall-v2 component fetch failed', {
+                                        url,
+                                        status: res.status,
+                                        statusText: res.statusText,
+                                    });
+                                }
+                                continue;
+                            }
+                            const data = await res.json();
+                            if (DEBUG && component === 'queue_histogram') {
+                                console.log('wall-v2 queue_histogram payload', {
+                                    url,
+                                    screenId: sid,
+                                    serviceId,
+                                    component,
+                                    response: data,
+                                });
+                            }
+                            componentDataCache.set(key, data || null);
+                            return data || null;
+                        }
+
+                        return null;
                     } catch (e) {
+                        console.error('wall-v2 fetchItemComponent exception', e);
                         return null;
                     }
                 }
@@ -718,21 +1193,47 @@
                         return componentDataCache.get(key);
                     }
                     try {
-                        const url = `${chartsEndpointBase}/${encodeURIComponent(String(screenId))}/items/${encodeURIComponent(String(serviceId))}/charts`;
-                        const res = await fetch(url, {
-                            method: 'GET',
-                            credentials: 'same-origin',
-                            cache: 'no-store',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                        });
-                        if (!res.ok) return null;
-                        const data = await res.json();
-                        componentDataCache.set(key, data || null);
-                        return data || null;
+                        const screenCandidates = Array.from(new Set([
+                            Number(screenId || 0),
+                        ].filter((n) => Number.isFinite(n) && n > 0)));
+
+                        for (const sid of screenCandidates) {
+                            const url = buildItemChartsEndpoint(sid, serviceId, null);
+                            if (DEBUG) {
+                                console.log('wall-v2 fetch full', {
+                                    url,
+                                    wallId,
+                                    screenId: sid,
+                                    serviceId,
+                                });
+                            }
+                            const res = await fetch(url, {
+                                method: 'GET',
+                                credentials: 'same-origin',
+                                cache: 'no-store',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+                            if (!res.ok) {
+                                if (DEBUG) {
+                                    console.warn('wall-v2 full fetch failed', {
+                                        url,
+                                        status: res.status,
+                                        statusText: res.statusText,
+                                    });
+                                }
+                                continue;
+                            }
+                            const data = await res.json();
+                            componentDataCache.set(key, data || null);
+                            return data || null;
+                        }
+
+                        return null;
                     } catch (e) {
+                        console.error('wall-v2 fetchItemFull exception', e);
                         return null;
                     }
                 }
@@ -782,6 +1283,7 @@
                     if (component === 'week' && hasMeaningfulData(component, data)) next.week = data || current.week || {};
                     if (component === 'previous_service_name' && hasMeaningfulData(component, data)) next.previous_service_name = data ?? current.previous_service_name;
                     if (component === 'queue_histogram' && hasMeaningfulData(component, data)) next.queue_histogram = data || current.queue_histogram || {};
+                    if (component === 'note_type_donut' && hasMeaningfulData(component, data)) next.note_type_donut = data || current.note_type_donut || {};
                     if (component === 'production_open_histogram' && hasMeaningfulData(component, data)) next.production_open_histogram = data || current.production_open_histogram || {};
                     if (component === 'production_daily' && hasMeaningfulData(component, data)) next.production_daily = data || current.production_daily || {};
                     if (component === 'internal_return_donut' && hasMeaningfulData(component, data)) next.internal_return_donut = data || current.internal_return_donut || {};
@@ -800,11 +1302,13 @@
                     const current = screen.items[idx] || {};
                     const remoteCards = remote.cards || {};
                     const currentCards = current.cards || {};
-                    const remoteCardsSum = objectNumericSum(remoteCards, ['queue_total', 'in_analysis', 'returned', 'previous_done', 'previous_ready']);
-                    const currentCardsSum = objectNumericSum(currentCards, ['queue_total', 'in_analysis', 'returned', 'previous_done', 'previous_ready']);
+                    const remoteCardsSum = objectNumericSum(remoteCards, ['queue_total', 'queue_ov', 'queue_notes', 'returned', 'previous_done', 'next_entry']);
+                    const currentCardsSum = objectNumericSum(currentCards, ['queue_total', 'queue_ov', 'queue_notes', 'returned', 'previous_done', 'next_entry']);
 
                     const remoteQueue = remote.charts?.queue_histogram || {};
                     const currentQueue = current.queue_histogram || {};
+                    const remoteNoteTypeDonut = remote.charts?.note_type_donut || {};
+                    const currentNoteTypeDonut = current.note_type_donut || {};
                     const remoteOpen = remote.charts?.production_open_histogram || {};
                     const currentOpen = current.production_open_histogram || {};
                     const remoteFlow = remote.charts?.production_daily || {};
@@ -818,6 +1322,7 @@
                         week: remote.week || current.week || {},
                         previous_service_name: remote.previous_service_name ?? current.previous_service_name,
                         queue_histogram: (histogramSum(remoteQueue) > 0 || histogramSum(currentQueue) === 0) ? remoteQueue : currentQueue,
+                        note_type_donut: (histogramSum(remoteNoteTypeDonut) > 0 || histogramSum(currentNoteTypeDonut) === 0) ? remoteNoteTypeDonut : currentNoteTypeDonut,
                         production_open_histogram: (histogramSum(remoteOpen) > 0 || histogramSum(currentOpen) === 0) ? remoteOpen : currentOpen,
                         production_daily: (flowSum(remoteFlow) > 0 || flowSum(currentFlow) === 0) ? remoteFlow : currentFlow,
                         internal_return_donut: (histogramSum(remoteDonut) > 0 || histogramSum(currentDonut) === 0) ? remoteDonut : currentDonut,
@@ -830,15 +1335,18 @@
                 async function refreshActiveItemFromFull(force = true) {
                     const state = currentPanelAndItem();
                     if (!state) return;
+                    setActiveComponentsLoading(true);
                     const remote = await fetchItemFull(state.screen.id, state.item.service_id, force);
                     if (!remote) {
                         render();
+                        setActiveComponentsLoading(false);
                         return;
                     }
                     if (applyFullItemOnPayload(state.screen.id, state.item.service_id, remote)) {
                         payload.updated_at = remote.updated_at || payload.updated_at || '';
                         render();
                     }
+                    setActiveComponentsLoading(false);
                 }
 
                 async function refreshSingleComponent(component, force = true) {
@@ -847,16 +1355,18 @@
                     const lockKey = `${state.screen.id}:${state.item.service_id}:${component}`;
                     if (pendingComponentFetch.has(lockKey)) return;
                     pendingComponentFetch.add(lockKey);
+                    setActiveComponentsLoading(true, component);
                     try {
                         const remote = await fetchItemComponent(state.screen.id, state.item.service_id, component, force);
                         if (!remote) return;
                         const changed = applyComponentOnItem(state.screen.id, state.item.service_id, component, remote.data);
                         if (changed) {
                             payload.updated_at = remote.updated_at || payload.updated_at || '';
-                            render();
+                            render(component);
                         }
                         componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
                     } finally {
+                        setActiveComponentsLoading(false, component);
                         pendingComponentFetch.delete(lockKey);
                     }
                 }
@@ -864,28 +1374,80 @@
                 async function refreshAllComponentsNow(force = true) {
                     const state = currentPanelAndItem();
                     if (!state) return;
-                    const components = activeComponentsForItem(state.item);
-                    const requests = components.map((component) =>
-                        fetchItemComponent(state.screen.id, state.item.service_id, component, force)
-                            .then((remote) => ({ component, remote }))
-                            .catch(() => ({ component, remote: null }))
-                    );
-                    const results = await Promise.all(requests);
-                    let changed = false;
-                    results.forEach(({ component, remote }) => {
-                        if (!remote) return;
-                        if (applyComponentOnItem(state.screen.id, state.item.service_id, component, remote.data)) {
-                            changed = true;
+                    const components = activeComponentsForItem(state.screen, state.item);
+                    if (initialLoadingPhase) {
+                        components.forEach((component) => setPanelComponentLoading(state.panel, component, true));
+                    }
+                    try {
+                        const requests = components.map((component) =>
+                            fetchItemComponent(state.screen.id, state.item.service_id, component, force)
+                                .then((remote) => ({ component, remote }))
+                                .catch(() => ({ component, remote: null }))
+                        );
+                        const results = await Promise.all(requests);
+                        let changed = false;
+                        results.forEach(({ component, remote }) => {
+                            if (!remote) return;
+                            if (applyComponentOnItem(state.screen.id, state.item.service_id, component, remote.data)) {
+                                changed = true;
+                            }
+                            payload.updated_at = remote.updated_at || payload.updated_at || '';
+                            componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
+                        });
+                        if (changed) {
+                            render('all');
                         }
-                        payload.updated_at = remote.updated_at || payload.updated_at || '';
-                        componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
-                    });
-                    if (changed) {
-                        render();
+                    } finally {
+                        components.forEach((component) => setPanelComponentLoading(state.panel, component, false));
+                        if (initialLoadingPhase) {
+                            initialLoadingPhase = false;
+                        }
                     }
                 }
 
-                function render() {
+                async function primeScreenOnce(screen) {
+                    const screenId = Number(screen?.id || 0);
+                    if (!screenId) return;
+                    if (primedScreens.has(screenId)) return;
+                    if (pendingPrimeScreens.has(screenId)) return;
+
+                    pendingPrimeScreens.add(screenId);
+                    try {
+                        const items = Array.isArray(screen?.items) ? screen.items : [];
+                        if (!items.length) {
+                            primedScreens.add(screenId);
+                            return;
+                        }
+
+                        let changed = false;
+                        let lastUpdatedAt = '';
+
+                        const requests = items.map(async (item) => {
+                            const serviceId = String(item?.service_id || '');
+                            if (!serviceId) return;
+                            const remote = await fetchItemFull(screenId, serviceId, true);
+                            if (!remote) return;
+                            if (applyFullItemOnPayload(screenId, serviceId, remote)) {
+                                changed = true;
+                            }
+                            if (remote.updated_at) {
+                                lastUpdatedAt = remote.updated_at;
+                            }
+                        });
+
+                        await Promise.all(requests);
+                        primedScreens.add(screenId);
+
+                        if (changed) {
+                            payload.updated_at = lastUpdatedAt || payload.updated_at || '';
+                            render('all');
+                        }
+                    } finally {
+                        pendingPrimeScreens.delete(screenId);
+                    }
+                }
+
+                function render(targetComponent = null) {
                     try {
                         const grid = document.getElementById('w2-grid');
                         const screenName = document.getElementById('w2-screen-name');
@@ -906,7 +1468,9 @@
                         }
 
                         if (!screen) {
-                            grid.innerHTML = '';
+                            grid.querySelectorAll('.w2-panel[data-key]').forEach((panel) => {
+                                panel.style.display = 'none';
+                            });
                             renderedScreenId = null;
                             renderedPanelKey = '';
                             componentCountdowns.clear();
@@ -914,19 +1478,12 @@
                             return;
                         }
 
-                    const sameScreen = renderedScreenId === screen.id;
-                    if (!sameScreen) {
-                        grid.querySelectorAll('.w2-panel').forEach((panelNode) => {
-                            const key = panelNode.dataset.key || '';
-                            if (key) clearPanelCharts(key);
-                        });
-                        grid.innerHTML = '';
-                    }
-
                     screenName.textContent = screen.name || `Tela ${currentScreenIndex + 1}`;
                     const items = screen.items || [];
                     if (!items.length) {
-                        grid.innerHTML = '';
+                        grid.querySelectorAll('.w2-panel[data-key]').forEach((panel) => {
+                            panel.style.display = 'none';
+                        });
                         renderedPanelKey = '';
                         componentCountdowns.clear();
                         return;
@@ -937,55 +1494,69 @@
                     }
 
                     const activeItem = items[currentServiceIndex];
+                    const renderTarget = String(targetComponent || '').trim();
+                    const shouldUpdateComponent = (component) => {
+                        if (!renderTarget || renderTarget === 'all') return true;
+                        return renderTarget === String(component);
+                    };
                     const currentPanel = panelKey(screen.id, activeItem.service_id);
+                    const enteringNewScreen = renderedScreenId !== screen.id;
                     if (renderedPanelKey !== currentPanel) {
                         renderedPanelKey = currentPanel;
                         resetComponentCountdowns(activeItem);
+                        setActiveComponentsLoading(true);
                         setTimeout(() => {
-                            refreshActiveItemFromFull(true);
+                            refreshAllComponentsNow(true);
+                        }, 0);
+                    }
+                    if (enteringNewScreen) {
+                        setTimeout(() => {
+                            primeScreenOnce(screen);
                         }, 0);
                     }
                     grid.style.gridTemplateColumns = '1fr';
 
-                    const activeKeys = new Set();
+                    grid.querySelectorAll('.w2-panel[data-key]').forEach((panelNode) => {
+                        panelNode.style.display = 'none';
+                    });
 
                     [activeItem].forEach((item) => {
                         const key = panelKey(screen.id, item.service_id);
-                        activeKeys.add(key);
-                        const isAds = !!item.ads_chart;
+                        const isFixed = isFixedPanel(screen, item);
+                        const fixedDefaults = fixedDashboardDefaults(item);
                         let panel = grid.querySelector(`[data-key="${key}"]`);
                         if (!panel) {
                             panel = document.createElement('div');
                             panel.className = 'w2-panel';
                             panel.dataset.key = key;
-                            panel.innerHTML = isAds ? `
+                            panel.innerHTML = isFixed ? `
                                 <div class="w2-panel__head">
                                     <h3 class="w2-panel__title" id="t_${key}">-</h3>
                                     <div class="w2-panel__sub" id="refresh_${key}">Refresh individual por card</div>
                                 </div>
-                                <div class="w2-panel__sub" id="s_${key}" style="margin-bottom:.4rem;">Tela ADS</div>
+                                <div class="w2-panel__sub" id="s_${key}" style="margin-bottom:.4rem;">Tela fixa</div>
                                 <div class="w2-ads">
                                     <div class="w2-ads-top" id="ads_top_${key}"></div>
                                     <div class="w2-ads-mid" id="ads_mid_${key}"></div>
                                     <div class="w2-ads-body">
                                         <div class="w2-ads-left">
                                             <div class="w2-chart">
-                                                <div class="w2-chart__t">Acumulado e Atrasadas (linha) - visão diária <span id="pts_ads_dashboard_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_ads_dashboard_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas></div>
+                                            <div class="w2-chart__t"><span id="ads_line_title_${key}">${fixedDefaults.lineTitle}</span> <span id="pts_ads_dashboard_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_ads_dashboard_${key}" style="float:right;color:#9bb2ca">--</span></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_line_${key}">Carregando dados...</div></div>
                                             </div>
                                             <div class="w2-chart">
-                                                <div class="w2-chart__t">Entradas x Saídas (barras) - visão diária</div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas></div>
+                                                <div class="w2-chart__t"><span id="ads_bar_title_${key}">${fixedDefaults.barTitle}</span></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_bar_${key}">Carregando dados...</div></div>
                                             </div>
                                         </div>
                                         <div class="w2-ads-right">
                                             <div class="w2-chart">
-                                                <div class="w2-chart__t">Fila atual (status pendentes) <span id="ads_queue_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas></div>
+                                                <div class="w2-chart__t"><span id="ads_queue_title_${key}">${fixedDefaults.queueTitle}</span> <span id="ads_queue_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_queue_${key}">Carregando dados...</div></div>
                                             </div>
                                             <div class="w2-chart">
-                                                <div class="w2-chart__t">Economia por reaproveitamento de ADS <span id="ads_reuse_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_reuse_${key}"></canvas></div>
+                                                <div class="w2-chart__t"><span id="ads_reuse_title_${key}">${fixedDefaults.reuseTitle}</span> <span id="ads_reuse_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_reuse_${key}"></canvas><div class="w2-chart__loading" id="loading_ads_reuse_${key}">Carregando dados...</div></div>
                                             </div>
                                         </div>
                                     </div>
@@ -997,32 +1568,36 @@
                                 </div>
                                 <div class="w2-panel__sub" id="s_${key}" style="margin-bottom:.4rem;">Anterior: -</div>
                                 <div class="w2-cards">
-                                    <div class="w2-card"><div class="w2-card__l">Pilha OV <span id="ctr_cards_${key}" style="float:right;color:#9bb2ca">--</span></div><div class="w2-card__v" id="c_queue_${key}">0</div></div>
-                                    <div class="w2-card"><div class="w2-card__l">Atribuído aberto</div><div class="w2-card__v" id="c_analysis_${key}">0</div></div>
-                                    <div class="w2-card"><div class="w2-card__l">RI aberto</div><div class="w2-card__v" id="c_returned_${key}">0</div></div>
-                                    <div class="w2-card"><div class="w2-card__l">Anterior done (semana)</div><div class="w2-card__v" id="c_prev_done_${key}">0</div></div>
-                                    <div class="w2-card"><div class="w2-card__l">Próx. entrada</div><div class="w2-card__v" id="c_prev_ready_${key}">0</div></div>
+                                    <div class="w2-card"><div class="w2-card__l">Total Pilha <span id="ctr_cards_${key}" style="float:right;color:#9bb2ca">--</span></div><div class="w2-card__v" id="c_queue_total_${key}">0</div></div>
+                                    <div class="w2-card"><div class="w2-card__l">Pilha OV</div><div class="w2-card__v" id="c_queue_ov_${key}">0</div></div>
+                                    <div class="w2-card"><div class="w2-card__l">Pilha Notas</div><div class="w2-card__v" id="c_queue_notes_${key}">0</div></div>
+                                    <div class="w2-card"><div class="w2-card__l" id="l_prev_done_${key}">Finalizados (semana)</div><div class="w2-card__v" id="c_prev_done_${key}">0</div></div>
+                                    <div class="w2-card"><div class="w2-card__l">Próxima Entrada</div><div class="w2-card__v" id="c_next_entry_${key}">0</div></div>
                                 </div>
                                 <div class="w2-content">
                                     <div class="w2-charts">
                                         <div class="w2-chart">
                                             <div class="w2-chart__t">Pilha da atividade (OV, última semana) <span id="pts_queue_histogram_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_queue_histogram_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="q_${key}"></canvas></div>
+                                            <div class="w2-chart__wrap"><canvas id="q_${key}"></canvas><div class="w2-chart__loading" id="loading_q_${key}">Carregando dados...</div></div>
+                                        </div>
+                                        <div class="w2-chart w2-chart--donut-compact">
+                                            <div class="w2-chart__t">Notas x Produção Associada <span id="note_type_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span><span id="pts_note_type_donut_${key}" style="float:right;color:#9bb2ca;margin-right:.5rem;">pts:0 sum:0</span><span id="ctr_note_type_donut_${key}" style="float:right;color:#9bb2ca;margin-right:.5rem;">--</span></div>
+                                            <div class="w2-chart__wrap"><canvas id="nd_${key}"></canvas><div class="w2-chart__loading" id="loading_nd_${key}">Carregando dados...</div></div>
                                         </div>
                                         <div class="w2-chart">
                                             <div class="w2-chart__t">Pilha de produção atribuída sem finalizar <span id="pts_production_open_histogram_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_production_open_histogram_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="p_${key}"></canvas></div>
+                                            <div class="w2-chart__wrap"><canvas id="p_${key}"></canvas><div class="w2-chart__loading" id="loading_p_${key}">Carregando dados...</div></div>
                                         </div>
                                     </div>
                                     <div class="w2-bottom">
                                         <div class="w2-chart">
                                             <div class="w2-chart__t">Produção dia a dia (atribuído x entregue) <span id="pts_production_daily_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_production_daily_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                            <div class="w2-chart__wrap"><canvas id="f_${key}"></canvas></div>
+                                            <div class="w2-chart__wrap"><canvas id="f_${key}"></canvas><div class="w2-chart__loading" id="loading_f_${key}">Carregando dados...</div></div>
                                         </div>
                                         <div class="w2-bottom-right">
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t">Retorno interno por tipo <span id="pts_internal_return_donut_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_internal_return_donut_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="d_${key}"></canvas></div>
+                                                <div class="w2-chart__wrap"><canvas id="d_${key}"></canvas><div class="w2-chart__empty" id="d_empty_${key}">SEM DADOS</div><div class="w2-chart__loading" id="loading_d_${key}">Carregando dados...</div></div>
                                             </div>
                                             <div class="w2-list">
                                                 <div class="w2-list__t">Últimas produções entregues (semana atual) <span id="pts_recent_completed_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_recent_completed_${key}" style="float:right;color:#9bb2ca">--</span></div>
@@ -1047,31 +1622,34 @@
                             `;
                             grid.appendChild(panel);
                         }
+                        panel.style.display = 'flex';
 
                         const titleNode = document.getElementById(`t_${key}`);
                         const subNode = document.getElementById(`s_${key}`);
-                        const queueNode = document.getElementById(`c_queue_${key}`);
-                        const analysisNode = document.getElementById(`c_analysis_${key}`);
-                        const returnedNode = document.getElementById(`c_returned_${key}`);
+                        const queueTotalNode = document.getElementById(`c_queue_total_${key}`);
+                        const queueOvNode = document.getElementById(`c_queue_ov_${key}`);
+                        const queueNotesNode = document.getElementById(`c_queue_notes_${key}`);
                         const prevDoneNode = document.getElementById(`c_prev_done_${key}`);
-                        const prevReadyNode = document.getElementById(`c_prev_ready_${key}`);
+                        const nextEntryNode = document.getElementById(`c_next_entry_${key}`);
+                        const prevDoneLabelNode = document.getElementById(`l_prev_done_${key}`);
 
                         if (titleNode) titleNode.textContent = item.service_name || '-';
                         if (subNode) {
-                            if (isAds) {
-                                subNode.textContent = 'Tela ADS fixa';
+                            if (isFixed) {
+                                subNode.textContent = fixedDefaults.subtitle;
                             } else {
                                 const weekLabel = item.week?.label ? ` | Janela: ${item.week.label}` : '';
                                 subNode.textContent = `Anterior: ${item.previous_service_name || '-'}${weekLabel}`;
                             }
                         }
-                        if (queueNode) queueNode.textContent = String(item.cards?.queue_total ?? 0);
-                        if (analysisNode) analysisNode.textContent = String(item.cards?.in_analysis ?? 0);
-                        if (returnedNode) returnedNode.textContent = String(item.cards?.returned ?? 0);
+                        if (queueTotalNode) queueTotalNode.textContent = String(item.cards?.queue_total ?? 0);
+                        if (queueOvNode) queueOvNode.textContent = String(item.cards?.queue_ov ?? 0);
+                        if (queueNotesNode) queueNotesNode.textContent = String(item.cards?.queue_notes ?? 0);
                         if (prevDoneNode) prevDoneNode.textContent = String(item.cards?.previous_done ?? 0);
-                        if (prevReadyNode) prevReadyNode.textContent = String(item.cards?.previous_ready ?? 0);
+                        if (nextEntryNode) nextEntryNode.textContent = String(item.cards?.next_entry ?? 0);
+                        if (prevDoneLabelNode) prevDoneLabelNode.textContent = `${item.previous_service_name || 'Anterior'} finalizados`;
 
-                        if (isAds) {
+                        if (isFixed) {
                             const topCards = panel.querySelector(`#ads_top_${key}`);
                             const midCards = panel.querySelector(`#ads_mid_${key}`);
                             const lineCanvas = panel.querySelector(`#ads_line_${key}`);
@@ -1082,26 +1660,45 @@
                             const dashboard = item.ads_dashboard || {};
                             const top = Array.isArray(dashboard.top_cards) ? dashboard.top_cards : [];
                             const mid = Array.isArray(dashboard.middle_cards) ? dashboard.middle_cards : [];
+                            const adsLineTitleNode = panel.querySelector(`#ads_line_title_${key}`);
+                            const adsBarTitleNode = panel.querySelector(`#ads_bar_title_${key}`);
+                            const adsQueueTitleNode = panel.querySelector(`#ads_queue_title_${key}`);
+                            const adsReuseTitleNode = panel.querySelector(`#ads_reuse_title_${key}`);
+                            const isProjectReviewFixed = String(item?.service_id || '') === 'fixed-project_review_dashboard';
+                            const barChartBox = barCanvas ? barCanvas.closest('.w2-chart') : null;
+                            const adsLeftGrid = lineCanvas ? lineCanvas.closest('.w2-ads-left') : null;
+
+                            if (subNode) {
+                                subNode.textContent = String(dashboard.subtitle || fixedDefaults.subtitle);
+                            }
+                            if (adsLineTitleNode) adsLineTitleNode.textContent = String(dashboard.line_chart_title || fixedDefaults.lineTitle);
+                            if (adsBarTitleNode) adsBarTitleNode.textContent = String(dashboard.bar_chart_title || fixedDefaults.barTitle);
+                            if (adsQueueTitleNode) adsQueueTitleNode.textContent = String(dashboard.queue_donut_title || fixedDefaults.queueTitle);
+                            if (adsReuseTitleNode) adsReuseTitleNode.textContent = String(dashboard.reuse_donut_title || fixedDefaults.reuseTitle);
+                            if (barChartBox) barChartBox.style.display = isProjectReviewFixed ? 'none' : 'flex';
+                            if (adsLeftGrid) adsLeftGrid.style.gridTemplateRows = isProjectReviewFixed ? '1fr' : '1fr 1fr';
 
                             if (topCards) {
                                 topCards.innerHTML = top.map((card) => `
-                                    <div class="w2-ads-card">
+                                    <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
                                         <div class="w2-ads-card__l">${card.label || '-'}</div>
                                         <div class="w2-ads-card__v">${card.value ?? 0}</div>
+                                        ${card.trend ? `<div class="w2-ads-card__k" style="color:${card.trend_color || '#9bb2ca'}">${card.trend}</div>` : ''}
                                     </div>
                                 `).join('');
                             }
 
                             if (midCards) {
                                 midCards.innerHTML = mid.map((card) => `
-                                    <div class="w2-ads-card">
+                                    <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
                                         <div class="w2-ads-card__l">${card.label || '-'}</div>
                                         <div class="w2-ads-card__v">${card.value ?? 0}</div>
+                                        ${card.trend ? `<div class="w2-ads-card__k" style="color:${card.trend_color || '#9bb2ca'}">${card.trend}</div>` : ''}
                                     </div>
                                 `).join('');
                             }
 
-                            if (!lineCanvas || !barCanvas || !queueCanvas || !reuseCanvas) {
+                            if (!lineCanvas || !queueCanvas || !reuseCanvas) {
                                 return;
                             }
 
@@ -1140,7 +1737,7 @@
                                 },
                             });
 
-                            const adsBarChart = ensureChart(`ads_bar_${key}`, barCanvas, {
+                            const adsBarChart = (!isProjectReviewFixed && barCanvas) ? ensureChart(`ads_bar_${key}`, barCanvas, {
                                 type: 'bar',
                                 data: {
                                     labels: [],
@@ -1173,7 +1770,7 @@
                                         },
                                     },
                                 },
-                            });
+                            }) : null;
 
                             const adsQueueDonut = ensureChart(`ads_queue_${key}`, queueCanvas, {
                                 type: 'doughnut',
@@ -1223,52 +1820,63 @@
                                 },
                             });
 
-                            updateChartData(
-                                adsLineChart,
-                                dashboard.line_chart?.labels || [],
-                                (dashboard.line_chart?.datasets || []).map((ds) => ({
-                                    ...ds,
-                                    borderWidth: ds.borderWidth ?? 2,
-                                    pointRadius: ds.pointRadius ?? 2.5,
-                                })),
-                                false
-                            );
+                            if (shouldUpdateComponent('ads_dashboard')) {
+                                updateChartData(
+                                    adsLineChart,
+                                    dashboard.line_chart?.labels || [],
+                                    (dashboard.line_chart?.datasets || []).map((ds) => ({
+                                        ...ds,
+                                        borderWidth: ds.borderWidth ?? 2,
+                                        pointRadius: ds.pointRadius ?? 2.5,
+                                    })),
+                                    false
+                                );
 
-                            updateChartData(
-                                adsBarChart,
-                                dashboard.bar_chart?.labels || [],
-                                (dashboard.bar_chart?.datasets || []).map((ds) => ({
-                                    ...ds,
-                                    borderWidth: ds.borderWidth ?? 1,
-                                })),
-                                false
-                            );
+                                if (adsBarChart) {
+                                    updateChartData(
+                                        adsBarChart,
+                                        dashboard.bar_chart?.labels || [],
+                                        (dashboard.bar_chart?.datasets || []).map((ds) => ({
+                                            ...ds,
+                                            borderWidth: ds.borderWidth ?? 1,
+                                        })),
+                                        false
+                                    );
+                                }
 
-                            updateChartData(
-                                adsQueueDonut,
-                                dashboard.queue_donut?.labels || [],
-                                [{
-                                    label: 'Fila atual',
-                                    data: dashboard.queue_donut?.values || [],
-                                    backgroundColor: dashboard.queue_donut?.colors || ['#0ea5e9', '#6b7280', '#f59e0b'],
-                                    borderColor: '#ffffff',
-                                    borderWidth: 1,
-                                }],
-                                false
-                            );
+                                updateChartData(
+                                    adsQueueDonut,
+                                    dashboard.queue_donut?.labels || [],
+                                    [{
+                                        label: 'Fila atual',
+                                        data: dashboard.queue_donut?.values || [],
+                                        backgroundColor: dashboard.queue_donut?.colors || [
+                                            colorRgba(CHART_BRAND_COLORS.accent, 0.82),
+                                            colorRgba(CHART_BRAND_COLORS.slate, 0.82),
+                                            colorRgba(CHART_BRAND_COLORS.warning, 0.82),
+                                        ],
+                                        borderColor: '#ffffff',
+                                        borderWidth: 1,
+                                    }],
+                                    false
+                                );
 
-                            updateChartData(
-                                adsReuseDonut,
-                                dashboard.reuse_donut?.labels || [],
-                                [{
-                                    label: 'Economia ADS',
-                                    data: dashboard.reuse_donut?.values || [],
-                                    backgroundColor: dashboard.reuse_donut?.colors || ['#059669', '#3b82f6'],
-                                    borderColor: '#ffffff',
-                                    borderWidth: 1,
-                                }],
-                                false
-                            );
+                                updateChartData(
+                                    adsReuseDonut,
+                                    dashboard.reuse_donut?.labels || [],
+                                    [{
+                                        label: 'Economia ADS',
+                                        data: dashboard.reuse_donut?.values || [],
+                                        backgroundColor: dashboard.reuse_donut?.colors || [
+                                            colorRgba(CHART_BRAND_COLORS.success, 0.82),
+                                            colorRgba(CHART_BRAND_COLORS.primary, 0.82),
+                                        ],
+                                        borderColor: '#ffffff',
+                                        borderWidth: 1,
+                                    }],
+                                    false
+                                );
+                            }
 
                             const queueTotalNode = panel.querySelector(`#ads_queue_total_${key}`);
                             const reuseTotalNode = panel.querySelector(`#ads_reuse_total_${key}`);
@@ -1284,22 +1892,19 @@
                             setPointsBadge(key, 'ads_dashboard', adsPoints, adsSum);
                         } else {
                             const queueCanvas = panel.querySelector(`#q_${key}`);
+                            const noteTypeDonutCanvas = panel.querySelector(`#nd_${key}`);
                             const prodCanvas = panel.querySelector(`#p_${key}`);
                             const flowCanvas = panel.querySelector(`#f_${key}`);
                             const donutCanvas = panel.querySelector(`#d_${key}`);
+                            const donutEmptyNode = panel.querySelector(`#d_empty_${key}`);
                             const listNode = panel.querySelector(`#list_${key}`);
+                            const noteTypeTotalNode = panel.querySelector(`#note_type_total_${key}`);
 
                             const queueChart = queueCanvas ? ensureChart(`q_${key}`, queueCanvas, {
                                 type: 'bar',
                                 data: {
                                     labels: [],
-                                    datasets: [{
-                                        label: 'Pilha',
-                                        data: [],
-                                        backgroundColor: 'rgba(52, 152, 219, .55)',
-                                        borderColor: '#3498db',
-                                        borderWidth: 1,
-                                    }],
+                                    datasets: [],
                                 },
                                 options: {
                                     responsive: true,
@@ -1310,13 +1915,54 @@
                                             beginAtZero: true,
                                             ticks: { color: '#dce8f5', precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
+                                            stacked: true,
                                         },
                                         x: {
                                             ticks: { color: '#dce8f5' },
                                             grid: { color: 'rgba(255,255,255,.05)' },
+                                            stacked: true,
                                         },
                                     },
-                                    plugins: { legend: { display: false } },
+                                    plugins: {
+                                        legend: {
+                                            labels: { color: '#dce8f5' },
+                                        },
+                                        valueLabelsPlugin: {
+                                            enabled: true,
+                                            mode: 'bar',
+                                            offset: 8,
+                                            color: '#dce8f5',
+                                        },
+                                    },
+                                },
+                            }) : null;
+
+                            const noteTypeDonutChart = noteTypeDonutCanvas ? ensureChart(`nd_${key}`, noteTypeDonutCanvas, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: [],
+                                    datasets: [],
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    animation: {
+                                        duration: 450
+                                    },
+                                    plugins: {
+                                        legend: {
+                                            labels: {
+                                                color: '#dce8f5'
+                                            },
+                                        },
+                                        valueLabelsPlugin: {
+                                            enabled: true,
+                                            mode: 'doughnut',
+                                            offset: 14,
+                                            color: '#dce8f5',
+                                            labelType: 'value',
+                                        },
+                                    },
                                 },
                             }) : null;
 
@@ -1346,6 +1992,12 @@
                                     plugins: {
                                         legend: {
                                             labels: { color: '#dce8f5' },
+                                        },
+                                        valueLabelsPlugin: {
+                                            enabled: true,
+                                            mode: 'bar',
+                                            offset: 8,
+                                            color: '#dce8f5',
                                         },
                                     },
                                 },
@@ -1389,6 +2041,12 @@
                                                 color: '#dce8f5'
                                             },
                                         },
+                                        valueLabelsPlugin: {
+                                            enabled: true,
+                                            mode: 'bar',
+                                            offset: 8,
+                                            color: '#dce8f5',
+                                        },
                                     },
                                 },
                             }) : null;
@@ -1411,15 +2069,60 @@
                                                 color: '#dce8f5'
                                             },
                                         },
+                                        valueLabelsPlugin: {
+                                            enabled: true,
+                                            mode: 'doughnut',
+                                            offset: 14,
+                                            color: '#dce8f5',
+                                            labelType: 'value',
+                                        },
                                     },
                                 },
                             }) : null;
 
+                            // Captura os dados brutos do backend
                             const queueLabelsRaw = Array.isArray(item.queue_histogram?.labels) ? item.queue_histogram.labels : [];
                             const queueValuesRaw = Array.isArray(item.queue_histogram?.values) ? item.queue_histogram.values.map(normalizeNumber) : [];
-                            const queueHasData = queueLabelsRaw.length && sumValues(queueValuesRaw) > 0;
-                            const queueLabels = queueHasData ? queueLabelsRaw : ['Total'];
-                            const queueValues = queueHasData ? queueValuesRaw : [normalizeNumber(item.cards?.queue_total)];
+                            const queueAssignedRaw = Array.isArray(item.queue_histogram?.assigned_values) ? item.queue_histogram.assigned_values.map(normalizeNumber) : [];
+                            const queueWithoutAssignedRaw = Array.isArray(item.queue_histogram?.without_assigned_values) ? item.queue_histogram.without_assigned_values.map(normalizeNumber) : [];
+
+                            // NOVA REGRA: Se o backend enviou os dias 0 a 30 (labels), usamos eles sempre!
+                            const queueHasLabels = queueLabelsRaw.length > 0;
+
+                            const queueLabels = queueHasLabels ? queueLabelsRaw : ['Total'];
+                            const queueValues = queueHasLabels ? queueValuesRaw : [normalizeNumber(item.cards?.queue_ov ?? 0)];
+
+                            const queueAssignedValues = queueHasLabels
+                                ? (queueAssignedRaw.length ? queueAssignedRaw : queueLabels.map(() => 0))
+                                : [0];
+
+                            const queueWithoutAssignedValues = queueHasLabels
+                                ? (queueWithoutAssignedRaw.length ? queueWithoutAssignedRaw : queueValues.map((v, i) => Math.max(0, normalizeNumber(v) - normalizeNumber(queueAssignedValues[i] ?? 0))))
+                                : [normalizeNumber(item.cards?.queue_ov ?? 0)];
+
+                            if (DEBUG) {
+                                console.log('wall-v2 PilhaAtividade card-data', {
+                                    wallId,
+                                    screenId: screen.id,
+                                    serviceId: item.service_id,
+                                    serviceName: item.service_name,
+                                    queueHistogramRaw: item.queue_histogram || {},
+                                    queueLabels,
+                                    queueValues,
+                                    queueAssignedValues,
+                                    queueWithoutAssignedValues,
+                                    cards: item.cards || {},
+                                });
+                            }
+
+                            const noteTypeLabels = Array.isArray(item.note_type_donut?.labels) && item.note_type_donut.labels.length
+                                ? item.note_type_donut.labels
+                                : ['Com produção associada', 'Sem produção associada'];
+                            const noteTypeValuesRaw = Array.isArray(item.note_type_donut?.values) ? item.note_type_donut.values.map(normalizeNumber) : [];
+                            const noteTypeTotal = normalizeNumber(item.note_type_donut?.total ?? normalizeNumber(item.cards?.queue_total));
+                            const noteTypeValues = noteTypeValuesRaw.length
+                                ? noteTypeValuesRaw
+                                : [0, Math.max(0, noteTypeTotal)];
 
                             const prodLabelsRaw = Array.isArray(item.production_open_histogram?.labels) ? item.production_open_histogram.labels : [];
                             const prodValuesRaw = Array.isArray(item.production_open_histogram?.values) ? item.production_open_histogram.values.map(normalizeNumber) : [];
@@ -1428,7 +2131,7 @@
                             const prodHasData = prodLabelsRaw.length && (sumValues(prodValuesRaw) > 0 || sumValues(prodNormalRaw) > 0 || sumValues(prodRiRaw) > 0);
                             const prodLabels = prodHasData ? prodLabelsRaw : ['Total'];
                             const fallbackRi = normalizeNumber(item.cards?.returned);
-                            const fallbackTotal = normalizeNumber(item.cards?.in_analysis);
+                            const fallbackTotal = sumValues(prodValuesRaw);
                             const fallbackNormal = Math.max(0, fallbackTotal - fallbackRi);
                             const prodNormalValues = prodHasData
                                 ? (prodNormalRaw.length ? prodNormalRaw : prodValuesRaw.map((v, i) => Math.max(0, v - normalizeNumber(prodRiRaw[i] ?? 0))))
@@ -1442,56 +2145,105 @@
                             const flowDeliveredRaw = Array.isArray(item.production_daily?.delivered) ? item.production_daily.delivered.map(normalizeNumber) : [];
                             const flowHasData = flowLabelsRaw.length && (sumValues(flowAssignedRaw) > 0 || sumValues(flowDeliveredRaw) > 0);
                             const flowLabels = flowHasData ? flowLabelsRaw : ['Total'];
-                            const flowAssigned = flowHasData ? flowAssignedRaw : [normalizeNumber(item.cards?.in_analysis)];
+                            const flowAssigned = flowHasData ? flowAssignedRaw : [0];
                             const flowDelivered = flowHasData ? flowDeliveredRaw : [normalizeNumber(item.cards?.previous_done)];
 
-                            const donutRawValues = Array.isArray(item.internal_return_donut?.values) ? item.internal_return_donut.values : [];
-                            const donutValues = donutRawValues.length ? donutRawValues.map(normalizeNumber) : [normalizeNumber(item.cards?.returned)];
-                            const donutRelations = Array.isArray(item.internal_return_donut?.relation) ? item.internal_return_donut.relation : [];
-                            const donutRawLabels = Array.isArray(item.internal_return_donut?.labels) && item.internal_return_donut.labels.length ? item.internal_return_donut.labels : ['Retorno interno'];
+                            const donutRawValues = Array.isArray(item.internal_return_donut?.values) ? item.internal_return_donut.values.map(normalizeNumber) : [];
+                            const donutTotal = sumValues(donutRawValues);
+                            const donutHasData = donutRawValues.length > 0 && donutTotal > 0;
+                            const donutValues = donutHasData ? donutRawValues : [];
+                            const donutRawLabels = Array.isArray(item.internal_return_donut?.labels) && item.internal_return_donut.labels.length ? item.internal_return_donut.labels : [];
                             const donutLabels = donutRawLabels.map((lbl, idx) => {
-                                const rel = Number(donutRelations[idx] ?? 0);
-                                return rel > 0 ? `${lbl} (${rel.toFixed(1)}%)` : lbl;
+                                const qty = normalizeNumber(donutRawValues[idx] ?? 0);
+                                return `${lbl} (${qty})`;
                             });
                             const donutColors = [
-                                '#60a5fa',
-                                '#34d399',
-                                '#fbbf24',
-                                '#f87171',
-                                '#a78bfa',
-                                '#22d3ee',
-                                '#fb7185',
-                                '#4ade80'
+                                CHART_BRAND_COLORS.primary,
+                                CHART_BRAND_COLORS.accent,
+                                CHART_BRAND_COLORS.warning,
+                                CHART_BRAND_COLORS.danger,
+                                CHART_BRAND_COLORS.magenta,
+                                CHART_BRAND_COLORS.success,
+                                CHART_BRAND_COLORS.neutral,
+                                CHART_BRAND_COLORS.slate,
                             ];
 
-                            if (queueChart) {
+                            if (queueChart && shouldUpdateComponent('queue_histogram')) {
                                 queueChart.data.labels = queueLabels.map((v) => String(v ?? ''));
                                 if (!Array.isArray(queueChart.data.datasets) || !queueChart.data.datasets[0]) {
-                                    queueChart.data.datasets = [{
-                                        label: 'Pilha',
+                                    queueChart.data.datasets = [
+                                        {
+                                            label: 'Sem produção atribuída',
+                                            data: [],
+                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.accent, 0.55),
+                                            borderColor: CHART_BRAND_COLORS.accent,
+                                            borderWidth: 1,
+                                            borderSkipped: false,
+                                            categoryPercentage: 0.82,
+                                            barPercentage: 0.9,
+                                            maxBarThickness: 42,
+                                        },
+                                        {
+                                            label: 'Com produção atribuída',
+                                            data: [],
+                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.success, 0.65),
+                                            borderColor: CHART_BRAND_COLORS.success,
+                                            borderWidth: 1,
+                                            borderSkipped: false,
+                                            categoryPercentage: 0.82,
+                                            barPercentage: 0.9,
+                                            maxBarThickness: 42,
+                                        }
+                                    ];
+                                }
+                                queueChart.data.datasets[0].data = queueWithoutAssignedValues.map(normalizeNumber);
+                                if (!queueChart.data.datasets[1]) {
+                                    queueChart.data.datasets[1] = {
+                                        label: 'Com produção atribuída',
                                         data: [],
-                                        backgroundColor: 'rgba(52, 152, 219, .55)',
-                                        borderColor: '#3498db',
+                                        backgroundColor: colorRgba(CHART_BRAND_COLORS.success, 0.65),
+                                        borderColor: CHART_BRAND_COLORS.success,
                                         borderWidth: 1,
                                         borderSkipped: false,
                                         categoryPercentage: 0.82,
                                         barPercentage: 0.9,
                                         maxBarThickness: 42,
-                                    }];
+                                    };
                                 }
-                                queueChart.data.datasets[0].data = queueValues.map(normalizeNumber);
+                                queueChart.data.datasets[1].data = queueAssignedValues.map(normalizeNumber);
                                 queueChart.update();
                             }
 
-                            if (prodChart) {
+                            if (noteTypeDonutChart && shouldUpdateComponent('note_type_donut')) {
+                                updateChartDataAsync(
+                                    noteTypeDonutChart,
+                                    noteTypeLabels.map((v) => String(v ?? '')),
+                                    [{
+                                        label: 'Notas OV',
+                                        data: noteTypeValues.map(normalizeNumber),
+                                        backgroundColor: [
+                                            colorRgba(CHART_BRAND_COLORS.success, 0.82),
+                                            colorRgba(CHART_BRAND_COLORS.primary, 0.82),
+                                        ],
+                                        borderColor: '#ffffff',
+                                        borderWidth: 1,
+                                    }],
+                                    false
+                                );
+                            }
+                            if (noteTypeTotalNode) {
+                                noteTypeTotalNode.textContent = `Total: ${noteTypeTotal}`;
+                            }
+
+                            if (prodChart && shouldUpdateComponent('production_open_histogram')) {
                                 prodChart.data.labels = prodLabels.map((v) => String(v ?? ''));
                                 if (!Array.isArray(prodChart.data.datasets) || !prodChart.data.datasets[0]) {
                                     prodChart.data.datasets = [
                                         {
                                             label: 'Normal',
                                             data: [],
-                                            backgroundColor: 'rgba(0, 206, 201, .65)',
-                                            borderColor: '#00cec9',
+                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.accent, 0.65),
+                                            borderColor: CHART_BRAND_COLORS.accent,
                                             borderWidth: 1,
                                             borderSkipped: false,
                                             categoryPercentage: 0.82,
@@ -1501,8 +2253,8 @@
                                         {
                                             label: 'RI',
                                             data: [],
-                                            backgroundColor: 'rgba(250, 204, 21, .75)',
-                                            borderColor: '#facc15',
+                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.warning, 0.75),
+                                            borderColor: CHART_BRAND_COLORS.warning,
                                             borderWidth: 1,
                                             borderSkipped: false,
                                             categoryPercentage: 0.82,
@@ -1516,8 +2268,8 @@
                                     prodChart.data.datasets[1] = {
                                         label: 'RI',
                                         data: [],
-                                        backgroundColor: 'rgba(250, 204, 21, .75)',
-                                        borderColor: '#facc15',
+                                        backgroundColor: colorRgba(CHART_BRAND_COLORS.warning, 0.75),
+                                        borderColor: CHART_BRAND_COLORS.warning,
                                         borderWidth: 1,
                                         borderSkipped: false,
                                         categoryPercentage: 0.82,
@@ -1529,22 +2281,22 @@
                                 prodChart.update();
                             }
 
-                            if (flowChart) {
+                            if (flowChart && shouldUpdateComponent('production_daily')) {
                                 flowChart.data.labels = flowLabels.map((v) => String(v ?? ''));
                                 if (!Array.isArray(flowChart.data.datasets) || flowChart.data.datasets.length < 2) {
                                     flowChart.data.datasets = [{
                                             label: 'Atribuído',
                                             data: [],
-                                            backgroundColor: 'rgba(96,165,250,.65)',
-                                            borderColor: '#60a5fa',
+                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.accent, 0.65),
+                                            borderColor: CHART_BRAND_COLORS.accent,
                                             borderWidth: 1,
                                             borderSkipped: false,
                                         },
                                         {
                                             label: 'Entregue',
                                             data: [],
-                                            backgroundColor: 'rgba(34,197,94,.65)',
-                                            borderColor: '#22c55e',
+                                            backgroundColor: colorRgba(CHART_BRAND_COLORS.success, 0.65),
+                                            borderColor: CHART_BRAND_COLORS.success,
                                             borderWidth: 1,
                                             borderSkipped: false,
                                         },
@@ -1555,23 +2307,30 @@
                                 flowChart.update();
                             }
 
-                            if (donutChart) {
-                                updateChartDataAsync(
-                                    donutChart,
-                                    donutLabels,
-                                    [{
-                                        label: 'Retorno interno',
-                                        data: donutValues,
-                                        backgroundColor: donutLabels.map((_, i) => donutColors[i % donutColors.length]),
-                                        borderColor: '#ffffff',
-                                        borderWidth: 1,
-                                    }],
-                                    false
-                                );
+                            if (donutChart && shouldUpdateComponent('internal_return_donut')) {
+                                if (donutHasData) {
+                                    if (donutEmptyNode) donutEmptyNode.style.display = 'none';
+                                    updateChartDataAsync(
+                                        donutChart,
+                                        donutLabels,
+                                        [{
+                                            label: 'Retorno interno',
+                                            data: donutValues,
+                                            backgroundColor: donutLabels.map((_, i) => donutColors[i % donutColors.length]),
+                                            borderColor: '#ffffff',
+                                            borderWidth: 1,
+                                        }],
+                                        false
+                                    );
+                                } else {
+                                    if (donutEmptyNode) donutEmptyNode.style.display = 'flex';
+                                    updateChartDataAsync(donutChart, [], [], false);
+                                }
                             }
 
-                            if (listNode) {
-                                const rows = (item.recent_completed || []).map((row) => `
+                            if (listNode && shouldUpdateComponent('recent_completed')) {
+                                const recentRows = (item.recent_completed || []);
+                                const rows = recentRows.map((row) => `
                                     <tr>
                                         <td>${row.note || '-'}</td>
                                         <td>${row.user_name || '-'}</td>
@@ -1581,9 +2340,25 @@
                                     </tr>
                                 `).join('');
                                 listNode.innerHTML = rows || '<tr><td colspan="5">Sem entregas no período.</td></tr>';
+                                const listWrap = panel.querySelector('.w2-list__wrap');
+                                if (listWrap) {
+                                    const signature = `${recentRows.length}:${recentRows[0]?.note || '-'}:${recentRows[recentRows.length - 1]?.note || '-'}`;
+                                    if (listWrap.dataset.scrollSignature !== signature) {
+                                        listWrap.dataset.scrollSignature = signature;
+                                        startListAutoScroll(key, listWrap);
+                                    } else if (!listScrollLoops.has(key)) {
+                                        startListAutoScroll(key, listWrap);
+                                    }
+                                }
                             }
 
-                            setPointsBadge(key, 'queue_histogram', queueLabels.length, sumValues(queueValues));
+                            setPointsBadge(
+                                key,
+                                'queue_histogram',
+                                queueLabels.length,
+                                sumValues(queueWithoutAssignedValues) + sumValues(queueAssignedValues)
+                            );
+                            setPointsBadge(key, 'note_type_donut', noteTypeLabels.length, sumValues(noteTypeValues));
                             setPointsBadge(key, 'production_open_histogram', prodLabels.length, sumValues(prodNormalValues) + sumValues(prodRiValues));
                             setPointsBadge(
                                 key,
@@ -1596,16 +2371,6 @@
 
                         }
                     });
-
-                    if (sameScreen) {
-                        grid.querySelectorAll('.w2-panel').forEach((panel) => {
-                            const key = panel.dataset.key || '';
-                            if (!activeKeys.has(key)) {
-                                clearPanelCharts(key);
-                                panel.remove();
-                            }
-                        });
-                    }
 
                         renderedScreenId = screen.id;
                     } catch (error) {
@@ -1657,18 +2422,27 @@
                     setCounters();
 
                     await fetchPayload();
+                    const first = currentDisplayScreen();
+                    if (first) {
+                        await primeScreenOnce(first);
+                    }
                     rotateRemaining = screenDuration(currentScreen());
                     serviceRotateRemaining = serviceDuration(currentScreen());
+                    manifestSyncRemaining = manifestSyncIntervalSeconds();
                     render();
                     setCounters();
 
                     if (timer) clearInterval(timer);
                     timer = setInterval(async () => {
+                        if (tickInFlight) return;
+                        tickInFlight = true;
+                        try {
                         componentCountdowns.forEach((value, component) => {
                             componentCountdowns.set(component, Math.max(0, Number(value || 0) - 1));
                         });
                         rotateRemaining = Math.max(0, (rotateRemaining || 0) - 1);
                         serviceRotateRemaining = Math.max(0, (serviceRotateRemaining || 0) - 1);
+                        manifestSyncRemaining = Math.max(0, Number(manifestSyncRemaining || 0) - 1);
 
                         const screen = currentScreen();
                         if (rotateRemaining <= 0) {
@@ -1692,12 +2466,19 @@
                             if (Number(value || 0) <= 0) dueComponents.push(component);
                         });
                         if (dueComponents.length) {
-                            await refreshActiveItemFromFull(true);
-                            const secs = Number(payload.refresh_seconds || 60);
-                            dueComponents.forEach((component) => componentCountdowns.set(component, secs));
+                            await Promise.all(
+                                dueComponents.map((component) => refreshSingleComponent(component, true))
+                            );
+                        }
+
+                        if (manifestSyncRemaining <= 0) {
+                            await syncManifestIfNeeded();
                         }
 
                         setCounters();
+                        } finally {
+                            tickInFlight = false;
+                        }
                     }, 1000);
                 }
 

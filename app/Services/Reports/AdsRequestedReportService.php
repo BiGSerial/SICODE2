@@ -48,25 +48,50 @@ class AdsRequestedReportService
      *   delivered_daily_avg:float,
      *   delivered_avg_hours:float,
      *   delivered_avg_label:string,
-     *   in_progress_now_count:int
+     *   in_progress_now_count:int,
+     *   period_days:int,
+     *   period_start:string,
+     *   period_end:string,
+     *   amount_total:float,
+     *   amount_daily_avg:float
      * }
      */
     public function summarize(array $filters): array
     {
-        $openedCount = 0;
-        $deliveredTotalCount = 0;
+        [$start, $end] = $this->resolveDateRange($filters);
+        $periodDays = max(1, $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1);
+
+        $baseFilters = $filters;
+        $baseFilters['statusFilter'] = 'all';
+        $baseFilters['status_exact'] = '';
+
+        $openedCount = (int) $this->buildNowBaseQuery($baseFilters, false)
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->count();
+
+        $deliveredTotalCount = (int) $this->buildNowBaseQuery($baseFilters, false)
+            ->where('ar.status', AdsRequestStatus::DONE->value)
+            ->whereNotNull('ar.completed_at')
+            ->whereBetween('ar.completed_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->count();
+
+        $amountTotal = (float) DB::table('adsforms as af')
+            ->whereBetween('af.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->sum('af.amount');
+
         $deliveredTotalHours = 0.0;
         $deliveredCount = 0;
 
-        foreach ($this->buildQuery($filters)->cursor() as $row) {
-            $openedCount++;
-
+        foreach (
+            $this->buildNowBaseQuery($baseFilters, false)
+                ->selectRaw('ar.created_at as requested_at, ar.completed_at, ar.delivered_at, ar.status')
+                ->where('ar.status', AdsRequestStatus::DONE->value)
+                ->whereNotNull('ar.completed_at')
+                ->whereBetween('ar.completed_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+                ->cursor() as $row
+        ) {
             $requestedAt = $this->asCarbon($row->requested_at ?? null);
             $deliveredAt = $this->resolveDeliveredAt($row);
-
-            if ($deliveredAt) {
-                $deliveredTotalCount++;
-            }
 
             if ($requestedAt && $deliveredAt && $deliveredAt->greaterThan($requestedAt)) {
                 $deliveredTotalHours += $requestedAt->diffInSeconds($deliveredAt) / 3600;
@@ -74,12 +99,12 @@ class AdsRequestedReportService
             }
         }
 
-        $periodDays = $this->resolvePeriodDays($filters);
         $dailyAvg = $periodDays > 0 ? $openedCount / $periodDays : 0.0;
         $deliveredDailyAvg = $periodDays > 0 ? $deliveredTotalCount / $periodDays : 0.0;
+        $amountDailyAvg = $periodDays > 0 ? $amountTotal / $periodDays : 0.0;
         $avgHours = $deliveredCount > 0 ? $deliveredTotalHours / $deliveredCount : 0.0;
 
-        $filtersForExecution = $filters;
+        $filtersForExecution = $baseFilters;
         $filtersForExecution['statusFilter'] = 'all';
 
         $inProgressNowCount = $this->buildNowBaseQuery($filtersForExecution, false)
@@ -93,6 +118,11 @@ class AdsRequestedReportService
             'delivered_avg_hours' => round($avgHours, 2),
             'delivered_avg_label' => $this->formatDuration((int) round($avgHours * 3600)),
             'in_progress_now_count' => $inProgressNowCount,
+            'period_days' => $periodDays,
+            'period_start' => $start->format('Y-m-d'),
+            'period_end' => $end->format('Y-m-d'),
+            'amount_total' => round($amountTotal, 2),
+            'amount_daily_avg' => round($amountDailyAvg, 2),
         ];
     }
 
@@ -167,6 +197,7 @@ class AdsRequestedReportService
 
         $openingBacklog = (int) $this->buildNowBaseQuery($filters, false)
             ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+            ->where('ar.status', '!=', AdsRequestStatus::FAILED->value)
             ->where('ar.created_at', '<', $start->copy()->startOfDay())
             ->where(function ($q) use ($start) {
                 $q->whereNull('ar.completed_at')
@@ -182,7 +213,8 @@ class AdsRequestedReportService
         }
 
         $queueBase = $this->buildNowBaseQuery($filters, false)
-            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value);
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+            ->where('ar.status', '!=', AdsRequestStatus::FAILED->value);
 
         foreach (array_keys($labels) as $key) {
             $dayEnd = Carbon::createFromFormat('Y-m-d', $key)->endOfDay();
@@ -242,7 +274,19 @@ class AdsRequestedReportService
 
         $requestedTotal = (int) array_sum($requestedSeries);
         $deliveredTotal = (int) array_sum($deliveredSeries);
-        $completionRate = $requestedTotal > 0 ? round(($deliveredTotal / $requestedTotal) * 100, 1) : 0.0;
+        $requestedNonCanceledTotal = (int) $this->buildNowBaseQuery($filters, false)
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->count();
+        $deliveredNonCanceledTotal = (int) $this->buildNowBaseQuery($filters, false)
+            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+            ->where('ar.status', AdsRequestStatus::DONE->value)
+            ->whereNotNull('ar.completed_at')
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->count();
+        $completionRate = $requestedNonCanceledTotal > 0
+            ? round(($deliveredNonCanceledTotal / $requestedNonCanceledTotal) * 100, 1)
+            : 0.0;
         $backlogAvg = !empty($openSeries) ? round(array_sum($openSeries) / count($openSeries), 1) : 0.0;
         $backlogPeak = !empty($openSeries) ? (int) max($openSeries) : 0;
         $overdueAvg = !empty($overdueSeries) ? round(array_sum($overdueSeries) / count($overdueSeries), 1) : 0.0;
@@ -276,10 +320,33 @@ class AdsRequestedReportService
      */
     public function queueDonutSeries(array $filters): array
     {
-        $rows = $this->buildSqlQueueBaseQuery($filters)
-            ->selectRaw('ar.status, COUNT(*) as total')
-            ->groupBy('ar.status')
-            ->get();
+        $preferLocalQueue = (bool) ($filters['prefer_local_queue'] ?? false);
+
+        if ($preferLocalQueue) {
+            $rows = $this->buildNowBaseQuery($filters, false)
+                ->where('ar.status', '!=', AdsRequestStatus::DONE->value)
+                ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+                ->where('ar.status', '!=', AdsRequestStatus::FAILED->value)
+                ->selectRaw('ar.status, COUNT(*) as total')
+                ->groupBy('ar.status')
+                ->get();
+        } else {
+            try {
+                $rows = $this->buildSqlQueueBaseQuery($filters)
+                    ->selectRaw('ar.status, COUNT(*) as total')
+                    ->groupBy('ar.status')
+                    ->get();
+            } catch (\Throwable $e) {
+                // Fallback para base local quando sqlsrv2 estiver indisponível/timeout.
+                $rows = $this->buildNowBaseQuery($filters, false)
+                    ->where('ar.status', '!=', AdsRequestStatus::DONE->value)
+                    ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
+                    ->where('ar.status', '!=', AdsRequestStatus::FAILED->value)
+                    ->selectRaw('ar.status, COUNT(*) as total')
+                    ->groupBy('ar.status')
+                    ->get();
+            }
+        }
 
         $labels = [];
         $statusKeys = [];
@@ -634,21 +701,8 @@ class AdsRequestedReportService
 
     private function resolvePeriodDays(array $filters): int
     {
-        $dateIn = $filters['date_in'] ?? null;
-        $dateOut = $filters['date_out'] ?? null;
-
-        if (!$dateIn || !$dateOut) {
-            return 1;
-        }
-
-        $start = Carbon::parse($dateIn)->startOfDay();
-        $end = Carbon::parse($dateOut)->startOfDay();
-
-        if ($end->lessThan($start)) {
-            return 1;
-        }
-
-        return $start->diffInDays($end) + 1;
+        [$start, $end] = $this->resolveDateRange($filters);
+        return max(1, $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1);
     }
 
     /**

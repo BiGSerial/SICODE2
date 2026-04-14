@@ -44,7 +44,7 @@ Route::prefix('v1')->group(function () {
         ->whereNumber('wall')
         ->whereNumber('screen')
         ->name('api.v1.reports.production_wall_v2.screen');
-    Route::get('/reports/walls/{wall}/production-v2/{screen}/items/{service}/charts', \App\Http\Controllers\Api\Reports\ProductionWallV2ItemChartsController::class)
+    Route::get('/reports/walls/{wall}/production-v2/{screen}/items/{serviceId}/charts', \App\Http\Controllers\Api\Reports\ProductionWallV2ItemChartsController::class)
         ->middleware(['web', 'auth', 'can:superadm'])
         ->whereNumber('wall')
         ->whereNumber('screen')

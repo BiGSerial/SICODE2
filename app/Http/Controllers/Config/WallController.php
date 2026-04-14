@@ -52,13 +52,14 @@ class WallController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:120',
             'enabled' => 'nullable|boolean',
-            'display_order' => 'nullable|integer|min:0|max:1000',
         ]);
+
+        $nextOrder = ((int) Wall::query()->max('display_order')) + 1;
 
         Wall::query()->create([
             'name' => $data['name'],
-            'enabled' => (bool) ($data['enabled'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
+            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : true,
+            'display_order' => $nextOrder,
             'created_by' => auth()->id(),
             'updated_by' => auth()->id(),
         ]);
@@ -76,8 +77,8 @@ class WallController extends Controller
 
         $wall->update([
             'name' => $data['name'],
-            'enabled' => (bool) ($data['enabled'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
+            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : $wall->enabled,
+            'display_order' => array_key_exists('display_order', $data) ? (int) $data['display_order'] : $wall->display_order,
             'updated_by' => auth()->id(),
         ]);
 
@@ -112,10 +113,20 @@ class WallController extends Controller
             'screen_type' => 'required|string|in:production_services,fixed_chart,ads_chart',
             'fixed_chart' => 'nullable|string|in:ads_dashboard,complaints_dashboard,project_review_dashboard',
             'enabled' => 'nullable|boolean',
-            'display_order' => 'nullable|integer|min:0|max:1000',
             'duration_seconds' => 'nullable|integer|min:10|max:3600',
             'service_rotation_seconds' => 'nullable|integer|min:10|max:3600',
         ]);
+
+        if (($data['screen_type'] ?? '') === 'production_services') {
+            $request->validate([
+                'duration_seconds' => 'required|integer|min:10|max:3600',
+                'service_rotation_seconds' => 'required|integer|min:10|max:3600',
+            ]);
+        } else {
+            $request->validate([
+                'duration_seconds' => 'required|integer|min:10|max:3600',
+            ]);
+        }
 
         $screenConfig = [];
         if (($data['screen_type'] ?? '') === 'ads_chart') {
@@ -125,14 +136,20 @@ class WallController extends Controller
             $screenConfig['fixed_chart'] = $data['fixed_chart'] ?? 'ads_dashboard';
         }
 
+        $nextOrder = ((int) WallScreen::query()
+            ->where('wall_id', (int) $data['wall_id'])
+            ->max('display_order')) + 1;
+
         WallScreen::query()->create([
             'wall_id' => (int) $data['wall_id'],
             'name' => $data['name'],
             'screen_type' => $data['screen_type'],
-            'enabled' => (bool) ($data['enabled'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
-            'duration_seconds' => $data['duration_seconds'] ?? null,
-            'service_rotation_seconds' => $data['service_rotation_seconds'] ?? null,
+            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : true,
+            'display_order' => $nextOrder,
+            'duration_seconds' => (int) ($data['duration_seconds'] ?? 600),
+            'service_rotation_seconds' => ($data['screen_type'] ?? '') === 'production_services'
+                ? (int) ($data['service_rotation_seconds'] ?? 180)
+                : null,
             'screen_config' => $screenConfig ?: null,
             'created_by' => auth()->id(),
             'updated_by' => auth()->id(),
@@ -154,6 +171,17 @@ class WallController extends Controller
             'service_rotation_seconds' => 'nullable|integer|min:10|max:3600',
         ]);
 
+        if (($data['screen_type'] ?? '') === 'production_services') {
+            $request->validate([
+                'duration_seconds' => 'required|integer|min:10|max:3600',
+                'service_rotation_seconds' => 'required|integer|min:10|max:3600',
+            ]);
+        } else {
+            $request->validate([
+                'duration_seconds' => 'required|integer|min:10|max:3600',
+            ]);
+        }
+
         $screenConfig = [];
         if (($data['screen_type'] ?? '') === 'ads_chart') {
             $screenConfig['fixed_chart'] = 'ads_dashboard';
@@ -166,10 +194,12 @@ class WallController extends Controller
             'wall_id' => (int) $data['wall_id'],
             'name' => $data['name'],
             'screen_type' => $data['screen_type'],
-            'enabled' => (bool) ($data['enabled'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
-            'duration_seconds' => $data['duration_seconds'] ?? null,
-            'service_rotation_seconds' => $data['service_rotation_seconds'] ?? null,
+            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : $screen->enabled,
+            'display_order' => array_key_exists('display_order', $data) ? (int) $data['display_order'] : $screen->display_order,
+            'duration_seconds' => (int) ($data['duration_seconds'] ?? 600),
+            'service_rotation_seconds' => ($data['screen_type'] ?? '') === 'production_services'
+                ? (int) ($data['service_rotation_seconds'] ?? 180)
+                : null,
             'screen_config' => $screenConfig ?: null,
             'updated_by' => auth()->id(),
         ]);
@@ -191,16 +221,19 @@ class WallController extends Controller
             'previous_service_id' => 'nullable|string|different:service_id|exists:services,uuid',
             'enabled' => 'nullable|boolean',
             'use_rule_builder' => 'nullable|boolean',
-            'display_order' => 'nullable|integer|min:0|max:1000',
         ]);
+
+        $nextOrder = ((int) WallScreenService::query()
+            ->where('wall_screen_id', $screen->id)
+            ->max('display_order')) + 1;
 
         WallScreenService::query()->create([
             'wall_screen_id' => $screen->id,
             'service_id' => $data['service_id'],
             'previous_service_id' => $data['previous_service_id'] ?? null,
-            'enabled' => (bool) ($data['enabled'] ?? false),
-            'use_rule_builder' => (bool) ($data['use_rule_builder'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
+            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : true,
+            'use_rule_builder' => array_key_exists('use_rule_builder', $data) ? (bool) $data['use_rule_builder'] : true,
+            'display_order' => $nextOrder,
         ]);
 
         return back()->with('success', 'Serviço da tela adicionado.');
@@ -219,9 +252,9 @@ class WallController extends Controller
         $item->update([
             'service_id' => $data['service_id'],
             'previous_service_id' => $data['previous_service_id'] ?? null,
-            'enabled' => (bool) ($data['enabled'] ?? false),
-            'use_rule_builder' => (bool) ($data['use_rule_builder'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
+            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : $item->enabled,
+            'use_rule_builder' => array_key_exists('use_rule_builder', $data) ? (bool) $data['use_rule_builder'] : $item->use_rule_builder,
+            'display_order' => array_key_exists('display_order', $data) ? (int) $data['display_order'] : $item->display_order,
         ]);
 
         return back()->with('success', 'Serviço da tela atualizado.');

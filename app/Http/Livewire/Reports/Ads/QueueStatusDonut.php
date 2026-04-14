@@ -17,6 +17,7 @@ class QueueStatusDonut extends Component
     public function render(AdsRequestedReportService $service)
     {
         $series = $service->queueDonutSeries($this->filters);
+        $total = (int) ($series['total'] ?? 0);
 
         $chart = [
             'type' => 'doughnut',
@@ -37,10 +38,25 @@ class QueueStatusDonut extends Component
                     'easing' => 'easeOutCubic',
                 ],
                 'plugins' => [
-                    'legend' => ['position' => 'bottom'],
+                    'legend' => ['position' => 'top'],
                     'title' => [
                         'display' => true,
                         'text' => 'Fila atual (status pendentes)',
+                    ],
+                    'datalabels' => [
+                        'display' => true,
+                        'color' => '#ffffff',
+                        'font' => ['weight' => '600', 'size' => 11],
+                        'formatter' => '__DOUGHNUT_PERCENT_LABEL__',
+                    ],
+                    'centerText' => [
+                        'display' => true,
+                        'text' => (string) $total,
+                        'subtext' => 'Total',
+                        'font' => '700 34px sans-serif',
+                        'subFont' => '600 12px sans-serif',
+                        'color' => '#1f2937',
+                        'subColor' => '#6b7280',
                     ],
                 ],
                 'onClickFilter' => [
@@ -55,7 +71,7 @@ class QueueStatusDonut extends Component
 
         return view('livewire.reports.ads.queue-status-donut', [
             'chart' => $chart,
-            'total' => $series['total'],
+            'total' => $total,
         ]);
     }
 }

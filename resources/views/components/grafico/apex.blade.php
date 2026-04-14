@@ -142,6 +142,23 @@
                     return;
                 }
 
+                if (value === '__DOUGHNUT_PERCENT_LABEL__') {
+                    node[key] = function(v, context) {
+                        const numeric = Number(v ?? 0);
+                        if (!Number.isFinite(numeric) || numeric <= 0) {
+                            return '';
+                        }
+                        const dataset = context?.dataset?.data ?? [];
+                        const total = (Array.isArray(dataset) ? dataset : []).reduce((acc, item) => {
+                            const n = Number(item ?? 0);
+                            return acc + (Number.isFinite(n) ? n : 0);
+                        }, 0);
+                        const percent = total > 0 ? (numeric / total) * 100 : 0;
+                        return `${percent.toFixed(1)}%`;
+                    };
+                    return;
+                }
+
                 if (value === '__TOTAL_FROM_SERIES__') {
                     node[key] = function(_v, context) {
                         const cfg = context?.dataset?.datalabels?.labels?.total ?? {};
@@ -296,6 +313,73 @@
             };
         }
 
+        function registerCenterTextPlugin() {
+            if (!window.Chart || window.__chartCenterTextRegistered) {
+                return;
+            }
+
+            const plugin = {
+                id: 'edpCenterText',
+                afterDatasetsDraw(chart) {
+                    const cfg = chart?.options?.plugins?.centerText ?? {};
+                    if (!(cfg?.display)) {
+                        return;
+                    }
+
+                    const chartType = String(chart?.config?.type ?? '').toLowerCase();
+                    if (chartType !== 'doughnut' && chartType !== 'pie') {
+                        return;
+                    }
+
+                    const dsIndex = Number(cfg?.datasetIndex ?? 0);
+                    const dataset = chart?.data?.datasets?.[dsIndex] ?? null;
+                    const meta = chart?.getDatasetMeta?.(dsIndex);
+                    if (!$dataset) {
+                        return;
+                    }
+
+                    const total = (Array.isArray(dataset.data) ? dataset.data : []).reduce((acc, item) => {
+                        const n = Number(item ?? 0);
+                        return acc + (Number.isFinite(n) ? n : 0);
+                    }, 0);
+
+                    const text = String(cfg?.text ?? (Math.round(total * 100) / 100).toString());
+                    const subtext = cfg?.subtext ? String(cfg.subtext) : '';
+
+                    const ctx = chart.ctx;
+                    const chartArea = chart?.chartArea ?? {};
+                    const fallbackX = Number.isFinite(chartArea.left) && Number.isFinite(chartArea.right)
+                        ? (Number(chartArea.left) + Number(chartArea.right)) / 2
+                        : chart.width / 2;
+                    const fallbackY = Number.isFinite(chartArea.top) && Number.isFinite(chartArea.bottom)
+                        ? (Number(chartArea.top) + Number(chartArea.bottom)) / 2
+                        : chart.height / 2;
+                    const firstArc = meta?.data?.[0] ?? null;
+                    const x = Number(firstArc?.x ?? fallbackX);
+                    const y = Number(firstArc?.y ?? fallbackY);
+
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    ctx.fillStyle = String(cfg?.color ?? '#1f2937');
+                    ctx.font = String(cfg?.font ?? '700 34px sans-serif');
+                    ctx.fillText(text, x, y - (subtext ? 8 : 0));
+
+                    if (subtext !== '') {
+                        ctx.fillStyle = String(cfg?.subColor ?? '#6b7280');
+                        ctx.font = String(cfg?.subFont ?? '600 12px sans-serif');
+                        ctx.fillText(subtext, x, y + 14);
+                    }
+
+                    ctx.restore();
+                }
+            };
+
+            window.Chart.register(plugin);
+            window.__chartCenterTextRegistered = true;
+        }
+
         function renderChart(payload) {
             if (!window.Chart) {
                 return false;
@@ -323,6 +407,7 @@
                     window.Chart.register(window.ChartDataLabels);
                     window.__chartDataLabelsRegistered = true;
                 }
+                registerCenterTextPlugin();
 
                 const existing = registry.instances[chartId];
                 if (existing) {
