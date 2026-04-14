@@ -503,6 +503,12 @@
                     slate: '#C9CDD1',
                     magenta: '#E01F69',
                 };
+                const CHART_TEXT_COLORS = {
+                    onDark: '#FFFFFF',
+                    onLight: '#222222',
+                    accentOnDark: CHART_BRAND_COLORS.success,
+                    accentOnLight: CHART_BRAND_COLORS.primary,
+                };
 
                 function colorRgba(hex, alpha) {
                     const safeHex = String(hex || '').replace('#', '');
@@ -512,6 +518,51 @@
                     const b = parseInt(safeHex.slice(4, 6), 16);
                     const a = Number.isFinite(Number(alpha)) ? Math.max(0, Math.min(1, Number(alpha))) : 1;
                     return `rgba(${r},${g},${b},${a})`;
+                }
+
+                function parseColorToRgb(input) {
+                    const value = String(input || '').trim();
+                    if (!value) return null;
+
+                    const hex = value.match(/^#([\da-fA-F]{6})$/);
+                    if (hex) {
+                        const h = hex[1];
+                        return {
+                            r: parseInt(h.slice(0, 2), 16),
+                            g: parseInt(h.slice(2, 4), 16),
+                            b: parseInt(h.slice(4, 6), 16),
+                        };
+                    }
+
+                    const rgba = value.match(/^rgba?\(([^)]+)\)$/i);
+                    if (rgba) {
+                        const parts = rgba[1].split(',').map((p) => Number(p.trim()));
+                        if (parts.length >= 3 && parts.every((n, idx) => idx < 3 ? Number.isFinite(n) : true)) {
+                            return {
+                                r: Math.max(0, Math.min(255, parts[0])),
+                                g: Math.max(0, Math.min(255, parts[1])),
+                                b: Math.max(0, Math.min(255, parts[2])),
+                            };
+                        }
+                    }
+
+                    return null;
+                }
+
+                function textColorForBackground(backgroundColor, variant = 'auto') {
+                    const rgb = parseColorToRgb(backgroundColor);
+                    if (!rgb) {
+                        return variant === 'accent' ? CHART_TEXT_COLORS.accentOnDark : CHART_TEXT_COLORS.onDark;
+                    }
+
+                    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+                    const isLightBackground = luminance >= 0.55;
+
+                    if (variant === 'accent') {
+                        return isLightBackground ? CHART_TEXT_COLORS.accentOnLight : CHART_TEXT_COLORS.accentOnDark;
+                    }
+
+                    return isLightBackground ? CHART_TEXT_COLORS.onLight : CHART_TEXT_COLORS.onDark;
                 }
 
                 function payloadStorageKey() {
@@ -530,7 +581,7 @@
                             if (!opts?.enabled) return;
                             const ctx = chart.ctx;
                             const mode = String(opts.mode || '');
-                            const color = opts.color || '#dce8f5';
+                            const color = opts.color || CHART_TEXT_COLORS.onDark;
                             const font = opts.font || '600 11px sans-serif';
                             const offset = Number(opts.offset || 12);
 
@@ -586,6 +637,9 @@
                                         const raw = dataset?.data?.[idx];
                                         const value = Number(raw ?? 0);
                                         if (!Number.isFinite(value) || value === 0) return;
+                                        const arcBg = Array.isArray(dataset?.backgroundColor)
+                                            ? dataset.backgroundColor[idx]
+                                            : dataset?.backgroundColor;
                                         const startAngle = Number(arc.startAngle ?? 0);
                                         const endAngle = Number(arc.endAngle ?? 0);
                                         const angle = (startAngle + endAngle) / 2;
@@ -603,6 +657,7 @@
                                         const label = labelType === 'value'
                                             ? String(Math.round(value))
                                             : `${ratio.toFixed(1)}%`;
+                                        ctx.fillStyle = textColorForBackground(arcBg, String(opts.textVariant || 'auto'));
                                         ctx.textBaseline = 'middle';
                                         ctx.fillText(label, x, y);
                                     });
@@ -614,11 +669,14 @@
                                         const centerLabel = String(Math.round(total));
                                         const centerFont = opts.centerFont || '700 34px sans-serif';
                                         const prevFont = ctx.font;
+                                        const prevFill = ctx.fillStyle;
 
                                         ctx.font = centerFont;
+                                        ctx.fillStyle = opts.centerColor || CHART_TEXT_COLORS.onDark;
                                         ctx.textBaseline = 'middle';
                                         ctx.fillText(centerLabel, centerX, centerY);
                                         ctx.font = prevFont;
+                                        ctx.fillStyle = prevFill;
                                     }
                                 }
                             }
@@ -1715,23 +1773,23 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: '#dce8f5', precision: 0 },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                         },
                                         x: {
-                                            ticks: { color: '#dce8f5' },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: '#dce8f5' },
+                                            labels: { color: CHART_TEXT_COLORS.onDark },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'line',
                                             offset: 12,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -1750,23 +1808,23 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: '#dce8f5', precision: 0 },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                         },
                                         x: {
-                                            ticks: { color: '#dce8f5' },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: '#dce8f5' },
+                                            labels: { color: CHART_TEXT_COLORS.onDark },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -1784,13 +1842,13 @@
                                     animation: { duration: 450 },
                                     plugins: {
                                         legend: {
-                                            labels: { color: '#dce8f5' },
+                                            labels: { color: CHART_TEXT_COLORS.onDark },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -1808,13 +1866,13 @@
                                     animation: { duration: 450 },
                                     plugins: {
                                         legend: {
-                                            labels: { color: '#dce8f5' },
+                                            labels: { color: CHART_TEXT_COLORS.onDark },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -1913,25 +1971,25 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: '#dce8f5', precision: 0 },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                             stacked: true,
                                         },
                                         x: {
-                                            ticks: { color: '#dce8f5' },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                             stacked: true,
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: '#dce8f5' },
+                                            labels: { color: CHART_TEXT_COLORS.onDark },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -1952,14 +2010,14 @@
                                     plugins: {
                                         legend: {
                                             labels: {
-                                                color: '#dce8f5'
+                                                color: CHART_TEXT_COLORS.onDark
                                             },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                             labelType: 'value',
                                         },
                                     },
@@ -1979,25 +2037,25 @@
                                     scales: {
                                         y: {
                                             beginAtZero: true,
-                                            ticks: { color: '#dce8f5', precision: 0 },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark, precision: 0 },
                                             grid: { color: 'rgba(255,255,255,.12)' },
                                             stacked: true,
                                         },
                                         x: {
-                                            ticks: { color: '#dce8f5' },
+                                            ticks: { color: CHART_TEXT_COLORS.onDark },
                                             grid: { color: 'rgba(255,255,255,.05)' },
                                             stacked: true,
                                         },
                                     },
                                     plugins: {
                                         legend: {
-                                            labels: { color: '#dce8f5' },
+                                            labels: { color: CHART_TEXT_COLORS.onDark },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -2019,7 +2077,7 @@
                                         y: {
                                             beginAtZero: true,
                                             ticks: {
-                                                color: '#dce8f5',
+                                                color: CHART_TEXT_COLORS.onDark,
                                                 precision: 0
                                             },
                                             grid: {
@@ -2028,7 +2086,7 @@
                                         },
                                         x: {
                                             ticks: {
-                                                color: '#dce8f5'
+                                                color: CHART_TEXT_COLORS.onDark
                                             },
                                             grid: {
                                                 color: 'rgba(255,255,255,.05)'
@@ -2038,14 +2096,14 @@
                                     plugins: {
                                         legend: {
                                             labels: {
-                                                color: '#dce8f5'
+                                                color: CHART_TEXT_COLORS.onDark
                                             },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'bar',
                                             offset: 8,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                         },
                                     },
                                 },
@@ -2066,14 +2124,14 @@
                                     plugins: {
                                         legend: {
                                             labels: {
-                                                color: '#dce8f5'
+                                                color: CHART_TEXT_COLORS.onDark
                                             },
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
                                             mode: 'doughnut',
                                             offset: 14,
-                                            color: '#dce8f5',
+                                            color: CHART_TEXT_COLORS.onDark,
                                             labelType: 'value',
                                         },
                                     },
