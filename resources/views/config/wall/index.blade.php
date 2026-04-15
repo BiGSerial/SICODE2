@@ -20,8 +20,9 @@
     <style>
         .wall-board {
             display: grid;
-            grid-template-columns: repeat(3, minmax(300px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(3, minmax(340px, 1fr));
+            grid-auto-rows: minmax(120px, auto);
+            gap: 1.1rem;
             align-items: start;
         }
 
@@ -30,6 +31,16 @@
             border-radius: 12px;
             background: #fff;
             overflow: hidden;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, .04);
+        }
+
+        .wall-card--wide {
+            grid-column: span 2;
+        }
+
+        .wall-card--tall .wall-card__body {
+            min-height: 520px;
+            overflow: auto;
         }
 
         .wall-card__head {
@@ -61,7 +72,7 @@
         .wall-list {
             display: grid;
             gap: .45rem;
-            max-height: 420px;
+            max-height: 520px;
             overflow: auto;
         }
 
@@ -113,12 +124,12 @@
 
         .service-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: .5rem;
             border: 1px solid rgba(15, 23, 42, .12);
             border-radius: 8px;
-            padding: .45rem .55rem;
+            padding: .6rem .65rem;
             background: #fff;
         }
 
@@ -128,9 +139,19 @@
 
         .service-list {
             display: grid;
-            gap: .45rem;
-            max-height: 260px;
+            gap: .6rem;
+            max-height: 420px;
             overflow: auto;
+        }
+
+        #edit-screen-production-sources-json,
+        #create-screen-production-sources-json {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: .78rem;
+        }
+
+        #edit-screen-production-area .screen-meta {
+            font-size: .76rem;
         }
 
         .section-divider {
@@ -141,6 +162,14 @@
         @media (max-width: 1280px) {
             .wall-board {
                 grid-template-columns: repeat(2, minmax(280px, 1fr));
+            }
+
+            .wall-card--wide {
+                grid-column: span 1;
+            }
+
+            .wall-card--tall .wall-card__body {
+                min-height: 420px;
             }
         }
 
@@ -233,7 +262,7 @@
                 </div>
             </div>
 
-            <div class="wall-card hidden-card" id="card-4">
+            <div class="wall-card wall-card--wide hidden-card" id="card-4">
                 <div class="wall-card__head">
                     <h6 class="wall-card__title" id="card-4-title">4. Telas do Wall</h6>
                     <button class="btn btn-sm btn-outline-primary" type="button" id="btn-open-create-screen">+ Tela</button>
@@ -246,7 +275,7 @@
                 </div>
             </div>
 
-            <div class="wall-card hidden-card" id="card-5">
+            <div class="wall-card wall-card--wide hidden-card" id="card-5">
                 <div class="wall-card__head">
                     <h6 class="wall-card__title">5. Nova Tela</h6>
                 </div>
@@ -282,6 +311,19 @@
                             <label class="form-label">Rotação serviço (s)</label>
                             <input class="form-control" type="number" min="10" max="3600" name="service_rotation_seconds" value="{{ $rotationSeconds }}">
                         </div>
+                        <div class="col-12" id="create-screen-production-source-wrap">
+                            <label class="form-label">Fonte padrão (produção)</label>
+                            <select class="form-select" name="production_source" id="create-screen-production-source">
+                                @foreach ($productionSources as $k => $label)
+                                    <option value="{{ $k }}" @selected($k === 'rule_builder')>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-12" id="create-screen-production-sources-wrap">
+                            <label class="form-label">Fontes por serviço (JSON gerado automaticamente)</label>
+                            <textarea class="form-control" name="production_sources_json" id="create-screen-production-sources-json" rows="6" readonly>{}</textarea>
+                            <small class="text-muted">Este JSON é gerado automaticamente quando você configurar os serviços na edição da tela.</small>
+                        </div>
                         <div class="col-12 d-flex justify-content-end gap-2">
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cancel-create-screen">Cancelar</button>
                             <button class="btn btn-success btn-sm">Criar tela</button>
@@ -290,7 +332,7 @@
                 </div>
             </div>
 
-            <div class="wall-card hidden-card" id="card-6">
+            <div class="wall-card wall-card--wide wall-card--tall hidden-card" id="card-6">
                 <div class="wall-card__head">
                     <h6 class="wall-card__title" id="card-6-title">6. Editar Tela</h6>
                     <button class="btn btn-sm btn-outline-secondary" type="button" id="btn-close-edit-screen">Fechar</button>
@@ -327,6 +369,19 @@
                         <div class="col-12" id="edit-screen-service-rotation-wrap">
                             <label class="form-label">Rotação serviço (s)</label>
                             <input class="form-control" type="number" min="10" max="3600" name="service_rotation_seconds" id="edit-screen-service-rotation">
+                        </div>
+                        <div class="col-12" id="edit-screen-production-source-wrap">
+                            <label class="form-label">Fonte padrão (produção)</label>
+                            <select class="form-select" name="production_source" id="edit-screen-production-source">
+                                @foreach ($productionSources as $k => $label)
+                                    <option value="{{ $k }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-12" id="edit-screen-production-sources-wrap">
+                            <label class="form-label">Fontes por serviço (JSON gerado automaticamente)</label>
+                            <textarea class="form-control" name="production_sources_json" id="edit-screen-production-sources-json" rows="6" readonly></textarea>
+                            <small class="text-muted">Configure por item abaixo; o JSON é montado automaticamente.</small>
                         </div>
                         <div class="col-12 d-flex justify-content-end">
                             <button class="btn btn-primary btn-sm">Salvar tela</button>
@@ -413,6 +468,9 @@
                     'duration_seconds' => (int) ($screen->duration_seconds ?? 0),
                     'service_rotation_seconds' => (int) ($screen->service_rotation_seconds ?? 0),
                     'fixed_chart' => (string) (($screen->screen_config['fixed_chart'] ?? (($screen->screen_type ?? '') === 'ads_chart' ? 'ads_dashboard' : ''))),
+                    'production_source' => (string) (($screen->screen_config['production_source'] ?? 'rule_builder')),
+                    'production_sources_map' => (array) ($screen->screen_config['production_sources'] ?? []),
+                    'production_sources_json' => json_encode((array) ($screen->screen_config['production_sources'] ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
                     'update_url' => route('config.wall.screen.update', ['screen' => $screen->id]),
                     'delete_url' => route('config.wall.screen.delete', ['screen' => $screen->id]),
                     'open_url' => route('reports.wall.production_v2.screen', ['wall' => $screen->wall_id, 'screen' => $screen->id]),
@@ -442,6 +500,7 @@
         document.addEventListener('DOMContentLoaded', function () {
             const csrf = '{{ csrf_token() }}';
             const rotationDefault = Number(@json($rotationSeconds));
+            const productionSourceOptions = @json($productionSources);
 
             const WALLS_RAW = @json($wallsPayload);
             const WALLS = Array.isArray(WALLS_RAW) ? WALLS_RAW : Object.values(WALLS_RAW || {});
@@ -472,6 +531,10 @@
                 createScreenType: document.getElementById('create-screen-type'),
                 createScreenFixedWrap: document.getElementById('create-screen-fixed-wrap'),
                 createScreenSrvWrap: document.getElementById('create-screen-service-rotation-wrap'),
+                createScreenProductionSourceWrap: document.getElementById('create-screen-production-source-wrap'),
+                createScreenProductionSourcesWrap: document.getElementById('create-screen-production-sources-wrap'),
+                createScreenProductionSource: document.getElementById('create-screen-production-source'),
+                createScreenProductionSourcesJson: document.getElementById('create-screen-production-sources-json'),
                 editScreenForm: document.getElementById('form-edit-screen'),
                 editScreenWallId: document.getElementById('edit-screen-wall-id'),
                 editScreenName: document.getElementById('edit-screen-name'),
@@ -481,6 +544,10 @@
                 editScreenFixedWrap: document.getElementById('edit-screen-fixed-wrap'),
                 editScreenSrvWrap: document.getElementById('edit-screen-service-rotation-wrap'),
                 editScreenFixedChart: document.getElementById('edit-screen-fixed-chart'),
+                editScreenProductionSourceWrap: document.getElementById('edit-screen-production-source-wrap'),
+                editScreenProductionSourcesWrap: document.getElementById('edit-screen-production-sources-wrap'),
+                editScreenProductionSource: document.getElementById('edit-screen-production-source'),
+                editScreenProductionSourcesJson: document.getElementById('edit-screen-production-sources-json'),
                 editScreenProdArea: document.getElementById('edit-screen-production-area'),
                 editScreenProdDivider: document.getElementById('edit-screen-prod-divider'),
                 newItemService: document.getElementById('new-item-service'),
@@ -497,6 +564,12 @@
                 ads_chart: 'ADS',
             };
 
+            const sourceDefaults = {
+                publication_note_filter: { filter_group: 'publication', btzeroform: true },
+                payment_note_filter: { filter_group: 'payment', search: null },
+                publish_repository: { all_services: false },
+            };
+
             function selectedWall() {
                 return state.walls.find(w => w.id === state.selectedWallId) || null;
             }
@@ -510,17 +583,23 @@
             function toggleCreateScreenType() {
                 const type = String(el.createScreenType.value || 'production_services');
                 const isFixed = type === 'fixed_chart' || type === 'ads_chart';
+                const isProduction = type === 'production_services';
                 el.createScreenFixedWrap.classList.toggle('hidden-card', !isFixed);
-                el.createScreenSrvWrap.classList.toggle('hidden-card', type !== 'production_services');
+                el.createScreenSrvWrap.classList.toggle('hidden-card', !isProduction);
+                el.createScreenProductionSourceWrap.classList.toggle('hidden-card', !isProduction);
+                el.createScreenProductionSourcesWrap.classList.toggle('hidden-card', !isProduction);
             }
 
             function toggleEditScreenType() {
                 const type = String(el.editScreenType.value || 'production_services');
                 const isFixed = type === 'fixed_chart' || type === 'ads_chart';
+                const isProduction = type === 'production_services';
                 el.editScreenFixedWrap.classList.toggle('hidden-card', !isFixed);
-                el.editScreenSrvWrap.classList.toggle('hidden-card', type !== 'production_services');
-                el.editScreenProdArea.classList.toggle('hidden-card', type !== 'production_services');
-                el.editScreenProdDivider.classList.toggle('hidden-card', type !== 'production_services');
+                el.editScreenSrvWrap.classList.toggle('hidden-card', !isProduction);
+                el.editScreenProductionSourceWrap.classList.toggle('hidden-card', !isProduction);
+                el.editScreenProductionSourcesWrap.classList.toggle('hidden-card', !isProduction);
+                el.editScreenProdArea.classList.toggle('hidden-card', !isProduction);
+                el.editScreenProdDivider.classList.toggle('hidden-card', !isProduction);
             }
 
             function openCard2(show) {
@@ -673,6 +752,8 @@
                             name: screen.name,
                             screen_type: screen.screen_type,
                             fixed_chart: screen.fixed_chart || '',
+                            production_source: screen.production_source || 'rule_builder',
+                            production_sources_json: screen.production_sources_json || '{}',
                             enabled,
                             display_order: screen.display_order,
                             duration_seconds: screen.duration_seconds || rotationDefault,
@@ -707,6 +788,7 @@
                 const screen = selectedScreen();
                 if (!wall || !screen) return;
 
+                ensureScreenProductionSourcesState(screen);
                 el.card6Title.textContent = `6. Editar Tela: ${screen.name}`;
                 el.editScreenForm.action = screen.update_url;
                 el.editScreenWallId.value = String(wall.id);
@@ -715,8 +797,106 @@
                 el.editScreenDuration.value = screen.duration_seconds || rotationDefault;
                 el.editScreenServiceRotation.value = screen.service_rotation_seconds || rotationDefault;
                 el.editScreenFixedChart.value = screen.fixed_chart || 'ads_dashboard';
+                el.editScreenProductionSource.value = screen.production_source || 'rule_builder';
+                syncProductionSourcesJson(screen);
 
                 toggleEditScreenType();
+            }
+
+            function ensureScreenProductionSourcesState(screen) {
+                if (!screen) return;
+                if (!screen.production_sources_map || typeof screen.production_sources_map !== 'object') {
+                    try {
+                        screen.production_sources_map = JSON.parse(screen.production_sources_json || '{}') || {};
+                    } catch (e) {
+                        screen.production_sources_map = {};
+                    }
+                }
+                if (!screen.production_source) {
+                    screen.production_source = 'rule_builder';
+                }
+            }
+
+            function syncProductionSourcesJson(screen) {
+                if (!screen) return;
+                ensureScreenProductionSourcesState(screen);
+                screen.production_sources_json = JSON.stringify(screen.production_sources_map || {}, null, 2);
+                if (el.editScreenProductionSourcesJson) {
+                    el.editScreenProductionSourcesJson.value = screen.production_sources_json;
+                }
+            }
+
+            function sourceConfigForService(screen, serviceId) {
+                ensureScreenProductionSourcesState(screen);
+                const raw = screen.production_sources_map?.[serviceId];
+                if (!raw) {
+                    return { source: screen.production_source || 'rule_builder' };
+                }
+                if (typeof raw === 'string') {
+                    return { source: raw };
+                }
+                const obj = { ...raw };
+                if (!obj.source) obj.source = screen.production_source || 'rule_builder';
+                return obj;
+            }
+
+            function setSourceConfigForService(screen, serviceId, source, patch = {}) {
+                ensureScreenProductionSourcesState(screen);
+                const next = { ...(sourceDefaults[source] || {}), ...(patch || {}), source };
+                screen.production_sources_map[serviceId] = next;
+                syncProductionSourcesJson(screen);
+            }
+
+            function pruneSourceMapByCurrentItems(screen) {
+                ensureScreenProductionSourcesState(screen);
+                const items = Array.isArray(screen.items) ? screen.items : [];
+                const allowed = new Set(items.map((it) => String(it.service_id || '')).filter(Boolean));
+                Object.keys(screen.production_sources_map || {}).forEach((serviceId) => {
+                    if (!allowed.has(String(serviceId))) {
+                        delete screen.production_sources_map[serviceId];
+                    }
+                });
+                syncProductionSourcesJson(screen);
+            }
+
+            function sourceOptionsHtml(selected) {
+                return Object.entries(productionSourceOptions || {})
+                    .map(([value, label]) => `<option value="${escapeHtml(value)}" ${String(selected) === String(value) ? 'selected' : ''}>${escapeHtml(label)}</option>`)
+                    .join('');
+            }
+
+            function sourceParamsHtml(serviceId, source, config) {
+                const sid = escapeHtml(serviceId);
+                if (source === 'publication_note_filter') {
+                    return `
+                        <div class="d-flex gap-2 align-items-center mt-1 flex-wrap">
+                            <input class="form-control form-control-sm" style="max-width:220px;" data-source-param="${sid}" data-param-key="filter_group" value="${escapeHtml(config.filter_group || 'publication')}" placeholder="filter_group">
+                            <label class="form-check-label screen-meta d-flex align-items-center gap-1 mb-0">
+                                <input type="checkbox" class="form-check-input m-0" data-source-param="${sid}" data-param-key="btzeroform" ${config.btzeroform === false ? '' : 'checked'}>
+                                btzeroform
+                            </label>
+                        </div>
+                    `;
+                }
+                if (source === 'payment_note_filter') {
+                    return `
+                        <div class="d-flex gap-2 align-items-center mt-1 flex-wrap">
+                            <input class="form-control form-control-sm" style="max-width:220px;" data-source-param="${sid}" data-param-key="filter_group" value="${escapeHtml(config.filter_group || 'payment')}" placeholder="filter_group">
+                            <input class="form-control form-control-sm" style="max-width:220px;" data-source-param="${sid}" data-param-key="search" value="${escapeHtml(config.search ?? '')}" placeholder="search (opcional)">
+                        </div>
+                    `;
+                }
+                if (source === 'publish_repository') {
+                    return `
+                        <div class="d-flex gap-2 align-items-center mt-1">
+                            <label class="form-check-label screen-meta d-flex align-items-center gap-1 mb-0">
+                                <input type="checkbox" class="form-check-input m-0" data-source-param="${sid}" data-param-key="all_services" ${config.all_services ? 'checked' : ''}>
+                                all_services
+                            </label>
+                        </div>
+                    `;
+                }
+                return '';
             }
 
             function renderItems() {
@@ -726,27 +906,74 @@
                     return;
                 }
 
+                ensureScreenProductionSourcesState(screen);
+                pruneSourceMapByCurrentItems(screen);
+
                 const items = (screen.items || []).slice().sort((a, b) => (a.display_order - b.display_order) || (a.id - b.id));
                 if (!items.length) {
                     el.itemList.innerHTML = '<div class="wall-muted">Nenhum serviço adicionado.</div>';
                     return;
                 }
 
-                el.itemList.innerHTML = items.map((item) => `
-                    <div class="service-item" draggable="true" data-item-id="${item.id}">
-                        <div>
-                            <div><strong>${escapeHtml(item.service_name)}</strong></div>
-                            <div class="screen-meta">Anterior: ${escapeHtml(item.previous_service_name || '-')} · ${item.use_rule_builder ? 'RuleBuilder' : 'Status fixo'}</div>
+                el.itemList.innerHTML = items.map((item) => {
+                    const sourceConfig = sourceConfigForService(screen, String(item.service_id || ''));
+                    const source = String(sourceConfig.source || screen.production_source || 'rule_builder');
+                    return `
+                        <div class="service-item" draggable="true" data-item-id="${item.id}">
+                            <div class="w-100">
+                                <div><strong>${escapeHtml(item.service_name)}</strong></div>
+                                <div class="screen-meta">Anterior: ${escapeHtml(item.previous_service_name || '-')} · ${item.use_rule_builder ? 'RuleBuilder' : 'Status fixo'}</div>
+                                <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                                    <label class="screen-meta mb-0">Fonte:</label>
+                                    <select class="form-select form-select-sm" style="max-width:280px;" data-source-select-service="${escapeHtml(item.service_id)}">
+                                        ${sourceOptionsHtml(source)}
+                                    </select>
+                                </div>
+                                ${sourceParamsHtml(String(item.service_id || ''), source, sourceConfig)}
+                            </div>
+                            <div class="d-flex align-items-start gap-1 ms-2">
+                                <button type="button" class="danger-icon-btn" data-delete-item-id="${item.id}" title="Excluir item">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <button type="button" class="danger-icon-btn" data-delete-item-id="${item.id}" title="Excluir item">
-                                <i class="ri-delete-bin-line"></i>
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 bindItemDnD();
+
+                el.itemList.querySelectorAll('[data-source-select-service]').forEach((select) => {
+                    select.addEventListener('change', () => {
+                        const serviceId = String(select.dataset.sourceSelectService || '');
+                        if (!serviceId) return;
+                        const source = String(select.value || 'rule_builder');
+                        setSourceConfigForService(screen, serviceId, source);
+                        renderItems();
+                    });
+                });
+
+                el.itemList.querySelectorAll('[data-source-param]').forEach((input) => {
+                    const commit = () => {
+                        const serviceId = String(input.dataset.sourceParam || '');
+                        const key = String(input.dataset.paramKey || '');
+                        if (!serviceId || !key) return;
+                        const current = sourceConfigForService(screen, serviceId);
+                        const source = String(current.source || screen.production_source || 'rule_builder');
+                        const patch = {};
+                        if (input.type === 'checkbox') {
+                            patch[key] = !!input.checked;
+                        } else {
+                            const val = String(input.value || '').trim();
+                            patch[key] = val === '' ? null : val;
+                        }
+                        setSourceConfigForService(screen, serviceId, source, { ...current, ...patch });
+                    };
+
+                    input.addEventListener('change', commit);
+                    if (input.type !== 'checkbox') {
+                        input.addEventListener('blur', commit);
+                    }
+                });
 
                 el.itemList.querySelectorAll('[data-delete-item-id]').forEach((btn) => {
                     btn.addEventListener('click', () => {
@@ -864,6 +1091,8 @@
                         name: screen.name,
                         screen_type: screen.screen_type,
                         fixed_chart: screen.fixed_chart || '',
+                        production_source: screen.production_source || 'rule_builder',
+                        production_sources_json: screen.production_sources_json || '{}',
                         enabled: screen.enabled ? 1 : 0,
                         display_order: screen.display_order,
                         duration_seconds: screen.duration_seconds || rotationDefault,
@@ -987,9 +1216,20 @@
 
             el.createScreenType?.addEventListener('change', toggleCreateScreenType);
             el.editScreenType?.addEventListener('change', toggleEditScreenType);
+            el.editScreenProductionSource?.addEventListener('change', () => {
+                const screen = selectedScreen();
+                if (!screen) return;
+                screen.production_source = String(el.editScreenProductionSource.value || 'rule_builder');
+                syncProductionSourcesJson(screen);
+                renderItems();
+            });
 
             document.querySelectorAll('form').forEach((form) => {
                 form.addEventListener('submit', () => {
+                    const screen = selectedScreen();
+                    if (screen) {
+                        syncProductionSourcesJson(screen);
+                    }
                     persistUiState();
                 });
             });

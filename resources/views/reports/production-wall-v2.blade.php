@@ -2433,13 +2433,15 @@
                             if (Number(value || 0) <= 0) dueComponents.push(component);
                         });
                         if (dueComponents.length) {
-                            await Promise.all(
-                                dueComponents.map((component) => refreshSingleComponent(component, true))
-                            );
+                            dueComponents.forEach((component) => {
+                                refreshSingleComponent(component, true)
+                                    .catch((error) => console.error('wall-v2 refresh component error', error));
+                            });
                         }
 
                         if (manifestSyncRemaining <= 0) {
-                            await syncManifestIfNeeded();
+                            syncManifestIfNeeded()
+                                .catch((error) => console.error('wall-v2 manifest sync error', error));
                         }
 
                         setCounters();

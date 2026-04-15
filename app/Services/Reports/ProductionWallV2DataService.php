@@ -2,7 +2,7 @@
 
 namespace App\Services\Reports;
 
-use App\Custom\RuleBuilder;
+use App\Custom\ProductionQueryBuilder;
 use App\Models\Note;
 use App\Models\Production;
 use App\Models\Reclaim;
@@ -10,6 +10,16 @@ use App\Models\Service;
 use App\Models\SystemSetting;
 use App\Models\Wall;
 use App\Models\WallScreen;
+use App\Repositories\PublishRepository;
+use App\Repositories\SupervisionRepository;
+use App\Repositories\SurveyRepository;
+use App\Services\Payment\NoteFilter as PaymentNoteFilter;
+use App\Services\Publication\NoteFilter as PublicationNoteFilter;
+use App\Services\Reports\WallV2\Contracts\WallScreenDataService;
+use App\Services\Reports\WallV2\FixedChartScreenDataService;
+use App\Services\Reports\WallV2\ProductionServicesScreenDataService;
+use App\Services\Reports\WallV2\ScreenContext;
+use App\Services\Reports\WallV2\ScreenContextResolver;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -24,9 +34,35 @@ class ProductionWallV2DataService
 
     private ?int $rotationSecondsCache = null;
     private ?int $refreshSecondsCache = null;
+    private ScreenContextResolver $screenContextResolver;
+    private WallScreenDataService $productionScreenDataService;
+    private WallScreenDataService $fixedScreenDataService;
+    private PublicationNoteFilter $publicationNoteFilter;
+    private PaymentNoteFilter $paymentNoteFilter;
+    private PublishRepository $publishRepository;
+    private SupervisionRepository $supervisionRepository;
+    private SurveyRepository $surveyRepository;
 
     public function __construct(private AdsRequestedReportService $adsService)
     {
+        $this->publicationNoteFilter = new PublicationNoteFilter();
+        $this->paymentNoteFilter = new PaymentNoteFilter();
+        $this->publishRepository = new PublishRepository();
+        $this->supervisionRepository = new SupervisionRepository();
+        $this->surveyRepository = new SurveyRepository();
+
+        $this->screenContextResolver = new ScreenContextResolver();
+        $this->productionScreenDataService = new ProductionServicesScreenDataService(
+            rotationSeconds: fn () => $this->rotationSeconds(),
+            buildItemPayload: fn (Service $service, ?Service $previousService, bool $useRuleBuilder, array $sourceConfig = []) => $this->buildItemPayload($service, $previousService, $useRuleBuilder, $sourceConfig),
+            resolveItemSourceConfig: fn (WallScreen $screen, $item) => $this->resolveProductionItemSourceConfig($screen, $item),
+        );
+        $this->fixedScreenDataService = new FixedChartScreenDataService(
+            rotationSeconds: fn () => $this->rotationSeconds(),
+            buildAdsItemPayload: fn (WallScreen $screen) => $this->buildAdsItemPayload($screen),
+            buildProjectReviewItemPayload: fn (WallScreen $screen) => $this->buildProjectReviewItemPayload($screen),
+            buildFixedPlaceholderItemPayload: fn (string $fixedChart) => $this->buildFixedPlaceholderItemPayload($fixedChart),
+        );
     }
 
     public function getPayloadForWall(int $wallId, ?int $screenId = null): array
@@ -204,40 +240,8 @@ class ProductionWallV2DataService
 
     private function buildSingleItemPayload(WallScreen $screen, string $serviceId): ?array
     {
-        $screenType = (string) ($screen->screen_type ?: 'production_services');
-        $screenConfig = (array) ($screen->screen_config ?? []);
-        $fixedChart = (string) ($screenConfig['fixed_chart'] ?? '');
-
-        if ($screenType === 'ads_chart') {
-            $screenType = 'fixed_chart';
-            $fixedChart = 'ads_dashboard';
-        }
-
-        if ($screenType === 'fixed_chart') {
-            $item = match ($fixedChart) {
-                'ads_dashboard' => $this->buildAdsItemPayload($screen),
-                'project_review_dashboard' => $this->buildProjectReviewItemPayload($screen),
-                default => $this->buildFixedPlaceholderItemPayload($fixedChart),
-            };
-
-            return ((string) ($item['service_id'] ?? '') === (string) $serviceId) ? $item : null;
-        }
-
-        $screenItem = $screen->items()
-            ->where('enabled', true)
-            ->where('service_id', $serviceId)
-            ->with(['service', 'previousService'])
-            ->first();
-
-        if (!$screenItem || !$screenItem->service) {
-            return null;
-        }
-
-        return $this->buildItemPayload(
-            $screenItem->service,
-            $screenItem->previousService,
-            (bool) $screenItem->use_rule_builder
-        );
+        $context = $this->screenContextResolver->resolve($screen);
+        return $this->resolveScreenDataService($context)->buildSingleItemPayload($screen, $context, $serviceId);
     }
 
     private function extractItemComponent(array $item, string $component): mixed
@@ -259,132 +263,14 @@ class ProductionWallV2DataService
 
     private function buildScreenPayload(WallScreen $screen): array
     {
-        $screenType = (string) ($screen->screen_type ?: 'production_services');
-        $screenConfig = (array) ($screen->screen_config ?? []);
-        $fixedChart = (string) ($screenConfig['fixed_chart'] ?? '');
-
-        if ($screenType === 'ads_chart') {
-            $screenType = 'fixed_chart';
-            $fixedChart = 'ads_dashboard';
-        }
-
-        if ($screenType === 'fixed_chart') {
-            $item = match ($fixedChart) {
-                'ads_dashboard' => $this->buildAdsItemPayload($screen),
-                'project_review_dashboard' => $this->buildProjectReviewItemPayload($screen),
-                default => $this->buildFixedPlaceholderItemPayload($fixedChart),
-            };
-
-            return [
-                'id' => (int) $screen->id,
-                'name' => (string) $screen->name,
-                'screen_type' => $screenType,
-                'duration_seconds' => (int) ($screen->duration_seconds ?: $this->rotationSeconds()),
-                'service_rotation_seconds' => (int) ($screen->service_rotation_seconds ?: 180),
-                'items' => [$item],
-            ];
-        }
-
-        return [
-            'id' => (int) $screen->id,
-            'name' => (string) $screen->name,
-            'screen_type' => 'production_services',
-            'duration_seconds' => (int) ($screen->duration_seconds ?: $this->rotationSeconds()),
-            'service_rotation_seconds' => (int) ($screen->service_rotation_seconds ?: 180),
-            'items' => $screen->items
-                ->filter(fn ($item) => $item->service)
-                ->map(fn ($item) => $this->buildItemPayload($item->service, $item->previousService, (bool) $item->use_rule_builder))
-                ->values()
-                ->all(),
-        ];
+        $context = $this->screenContextResolver->resolve($screen);
+        return $this->resolveScreenDataService($context)->buildScreenPayload($screen, $context);
     }
 
     private function buildScreenManifestPayload(WallScreen $screen): array
     {
-        $screenType = (string) ($screen->screen_type ?: 'production_services');
-        $screenConfig = (array) ($screen->screen_config ?? []);
-        $fixedChart = (string) ($screenConfig['fixed_chart'] ?? '');
-
-        if ($screenType === 'ads_chart') {
-            $screenType = 'fixed_chart';
-            $fixedChart = 'ads_dashboard';
-        }
-
-        if ($screenType === 'fixed_chart') {
-            $item = match ($fixedChart) {
-                'ads_dashboard' => [
-                    'service_id' => 'ads-dashboard',
-                    'service_name' => 'ADS - Dashboard',
-                    'previous_service_id' => null,
-                    'previous_service_name' => null,
-                    'ads_chart' => ['kind' => 'dashboard'],
-                    'cards' => [],
-                    'queue_histogram' => ['labels' => [], 'values' => []],
-                    'note_type_donut' => ['labels' => [], 'values' => [], 'total' => 0, 'associated' => 0],
-                    'production_open_histogram' => ['labels' => [], 'values' => [], 'normal_values' => [], 'ri_values' => []],
-                    'production_daily' => ['labels' => [], 'assigned' => [], 'delivered' => []],
-                    'internal_return_donut' => ['labels' => [], 'values' => []],
-                    'recent_completed' => [],
-                    'week' => null,
-                ],
-                'project_review_dashboard' => [
-                    'service_id' => 'fixed-project_review_dashboard',
-                    'service_name' => 'ANALISE DE PROJETO',
-                    'previous_service_id' => null,
-                    'previous_service_name' => null,
-                    'ads_chart' => ['kind' => 'dashboard'],
-                    'cards' => [],
-                    'queue_histogram' => ['labels' => [], 'values' => []],
-                    'note_type_donut' => ['labels' => [], 'values' => [], 'total' => 0, 'associated' => 0],
-                    'production_open_histogram' => ['labels' => [], 'values' => [], 'normal_values' => [], 'ri_values' => []],
-                    'production_daily' => ['labels' => [], 'assigned' => [], 'delivered' => []],
-                    'internal_return_donut' => ['labels' => [], 'values' => []],
-                    'recent_completed' => [],
-                    'week' => null,
-                ],
-                default => $this->buildFixedPlaceholderItemPayload($fixedChart),
-            };
-
-            return [
-                'id' => (int) $screen->id,
-                'name' => (string) $screen->name,
-                'screen_type' => 'fixed_chart',
-                'duration_seconds' => (int) ($screen->duration_seconds ?: $this->rotationSeconds()),
-                'service_rotation_seconds' => (int) ($screen->service_rotation_seconds ?: 180),
-                'loaded' => false,
-                'items' => [$item],
-            ];
-        }
-
-        return [
-            'id' => (int) $screen->id,
-            'name' => (string) $screen->name,
-            'screen_type' => 'production_services',
-            'duration_seconds' => (int) ($screen->duration_seconds ?: $this->rotationSeconds()),
-            'service_rotation_seconds' => (int) ($screen->service_rotation_seconds ?: 180),
-            'loaded' => false,
-            'items' => $screen->items
-                ->filter(fn ($item) => $item->service)
-                ->map(function ($item) {
-                    return [
-                        'service_id' => (string) $item->service->uuid,
-                        'service_name' => (string) $item->service->service,
-                        'previous_service_id' => $item->previousService ? (string) $item->previousService->uuid : null,
-                        'previous_service_name' => $item->previousService ? (string) $item->previousService->service : null,
-                        'ads_chart' => null,
-                        'cards' => [],
-                        'queue_histogram' => ['labels' => [], 'values' => []],
-                        'note_type_donut' => ['labels' => [], 'values' => [], 'total' => 0, 'associated' => 0],
-                        'production_open_histogram' => ['labels' => [], 'values' => [], 'normal_values' => [], 'ri_values' => []],
-                        'production_daily' => ['labels' => [], 'assigned' => [], 'delivered' => []],
-                        'internal_return_donut' => ['labels' => [], 'values' => []],
-                        'recent_completed' => [],
-                        'week' => null,
-                    ];
-                })
-                ->values()
-                ->all(),
-        ];
+        $context = $this->screenContextResolver->resolve($screen);
+        return $this->resolveScreenDataService($context)->buildScreenManifestPayload($screen, $context);
     }
 
     private function buildFixedPlaceholderItemPayload(string $fixedChart): array
@@ -435,16 +321,8 @@ class ProductionWallV2DataService
 
     private function buildScreenErrorPayload(WallScreen $screen): array
     {
-        $screenType = (string) ($screen->screen_type ?: 'production_services');
-        $screenConfig = (array) ($screen->screen_config ?? []);
-        $fixedChart = (string) ($screenConfig['fixed_chart'] ?? '');
-
-        if ($screenType === 'ads_chart') {
-            $screenType = 'fixed_chart';
-            $fixedChart = 'ads_dashboard';
-        }
-
-        $item = $this->buildFixedPlaceholderItemPayload($fixedChart ?: 'generic');
+        $context = $this->screenContextResolver->resolve($screen);
+        $item = $this->buildFixedPlaceholderItemPayload($context->fixedChart ?: 'generic');
         $item['service_name'] = trim(($item['service_name'] ?? 'FIXO') . ' (SEM DADOS)');
         $item['ads_dashboard']['top_cards'] = [
             ['label' => 'Status', 'value' => 'SEM DADOS'],
@@ -453,11 +331,18 @@ class ProductionWallV2DataService
         return [
             'id' => (int) $screen->id,
             'name' => (string) $screen->name,
-            'screen_type' => $screenType === 'fixed_chart' ? 'fixed_chart' : 'production_services',
+            'screen_type' => $context->isFixed() ? 'fixed_chart' : 'production_services',
             'duration_seconds' => (int) ($screen->duration_seconds ?: $this->rotationSeconds()),
             'service_rotation_seconds' => (int) ($screen->service_rotation_seconds ?: 180),
             'items' => [$item],
         ];
+    }
+
+    private function resolveScreenDataService(ScreenContext $context): WallScreenDataService
+    {
+        return $context->isFixed()
+            ? $this->fixedScreenDataService
+            : $this->productionScreenDataService;
     }
 
     private function buildAdsItemPayload(WallScreen $screen): array
@@ -884,12 +769,12 @@ class ProductionWallV2DataService
         ];
     }
 
-    private function buildItemPayload(Service $service, ?Service $previousService, bool $useRuleBuilder): array
+    private function buildItemPayload(Service $service, ?Service $previousService, bool $useRuleBuilder, array $sourceConfig = []): array
     {
         [$start, $end] = $this->weeklyWindow();
         $dayLabels = $this->dailyDateLabels($start, $end);
 
-        $queueAllQuery = $this->buildActivityQueueQuery($service, $useRuleBuilder, false);
+        $queueAllQuery = $this->buildActivityQueueQuery($service, $useRuleBuilder, false, $sourceConfig);
         $activityNoteIdsQuery = (clone $queueAllQuery)->select('notes.id');
         $queueQuery = (clone $queueAllQuery)->where('notes.type_note', 2);
         $queueNotesQuery = (clone $queueAllQuery)->where(function ($q) {
@@ -1044,16 +929,10 @@ class ProductionWallV2DataService
         ];
     }
 
-    private function buildActivityQueueQuery(Service $service, bool $useRuleBuilder, bool $notAssignedOnly = false): Builder
+    private function buildActivityQueueQuery(Service $service, bool $useRuleBuilder, bool $notAssignedOnly = false, array $sourceConfig = []): Builder
     {
-        $query = Note::query()->excludeCanceledFullDone();
-
-        if ($useRuleBuilder) {
-            $service->loadMissing('Status');
-            RuleBuilder::applyRules($query, $service->Status);
-        } else {
-            $query->where('nstats', $service->status);
-        }
+        $source = (string) ($sourceConfig['source'] ?? 'rule_builder');
+        $query = $this->buildQueryBySource($source, $service, $useRuleBuilder, $sourceConfig);
 
         if ($notAssignedOnly) {
             $query->where(function ($q) use ($service) {
@@ -1066,6 +945,59 @@ class ProductionWallV2DataService
         }
 
         return $query;
+    }
+
+    private function buildQueryBySource(string $source, Service $service, bool $useRuleBuilder, array $sourceConfig): Builder
+    {
+        return match ($source) {
+            'publication_note_filter' => $this->publicationNoteFilter->filter(
+                (string) ($sourceConfig['filter_group'] ?? 'publication'),
+                (bool) ($sourceConfig['btzeroform'] ?? true)
+            ),
+            'payment_note_filter' => $this->paymentNoteFilter->filter(
+                $sourceConfig['search'] ?? null,
+                (string) ($sourceConfig['filter_group'] ?? 'payment')
+            ),
+            'publish_repository' => $this->publishRepository->getBaseQuery(
+                (bool) ($sourceConfig['all_services'] ?? false)
+            ),
+            'supervision_repository' => $this->supervisionRepository->getBaseQuery(),
+            'survey_repository' => $this->surveyRepository->getBaseQuery(),
+            default => $this->buildLegacyProductionQuery($service, $useRuleBuilder),
+        };
+    }
+
+    private function buildLegacyProductionQuery(Service $service, bool $useRuleBuilder): Builder
+    {
+        $query = Note::query()->excludeCanceledFullDone();
+
+        if ($useRuleBuilder) {
+            $service->loadMissing('Status');
+            ProductionQueryBuilder::applyRules($query, $service->Status);
+        } else {
+            $query->where('nstats', $service->status);
+        }
+
+        return $query;
+    }
+
+    private function resolveProductionItemSourceConfig(WallScreen $screen, mixed $item): array
+    {
+        $screenConfig = (array) ($screen->screen_config ?? []);
+        $defaultSource = (string) ($screenConfig['production_source'] ?? 'rule_builder');
+        $map = (array) ($screenConfig['production_sources'] ?? []);
+        $serviceId = (string) ($item->service_id ?? '');
+        $rawItemConfig = $serviceId !== '' ? ($map[$serviceId] ?? []) : [];
+
+        $itemConfig = is_string($rawItemConfig)
+            ? ['source' => $rawItemConfig]
+            : (array) $rawItemConfig;
+
+        if (!isset($itemConfig['source']) || trim((string) $itemConfig['source']) === '') {
+            $itemConfig['source'] = $defaultSource;
+        }
+
+        return $itemConfig;
     }
 
     private function weeklyWindow(): array

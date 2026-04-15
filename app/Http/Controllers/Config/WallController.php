@@ -11,6 +11,7 @@ use App\Models\WallScreenService;
 use App\Services\Reports\ProductionWallV2DataService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class WallController extends Controller
 {
@@ -43,6 +44,14 @@ class WallController extends Controller
                 'ads_dashboard' => 'ADS',
                 'complaints_dashboard' => 'RECLAMAÇÃO',
                 'project_review_dashboard' => 'ANALISE DE PROJETO',
+            ],
+            'productionSources' => [
+                'rule_builder' => 'Rule Builder (Status)',
+                'publication_note_filter' => 'Publication NoteFilter',
+                'payment_note_filter' => 'Payment NoteFilter',
+                'publish_repository' => 'Publish Repository',
+                'supervision_repository' => 'Supervision Repository',
+                'survey_repository' => 'Survey Repository',
             ],
         ]);
     }
@@ -112,6 +121,8 @@ class WallController extends Controller
             'name' => 'required|string|max:120',
             'screen_type' => 'required|string|in:production_services,fixed_chart,ads_chart',
             'fixed_chart' => 'nullable|string|in:ads_dashboard,complaints_dashboard,project_review_dashboard',
+            'production_source' => 'nullable|string|in:rule_builder,publication_note_filter,payment_note_filter,publish_repository,supervision_repository,survey_repository',
+            'production_sources_json' => 'nullable|string',
             'enabled' => 'nullable|boolean',
             'duration_seconds' => 'nullable|integer|min:10|max:3600',
             'service_rotation_seconds' => 'nullable|integer|min:10|max:3600',
@@ -134,6 +145,10 @@ class WallController extends Controller
         }
         if (($data['screen_type'] ?? '') === 'fixed_chart') {
             $screenConfig['fixed_chart'] = $data['fixed_chart'] ?? 'ads_dashboard';
+        }
+        if (($data['screen_type'] ?? '') === 'production_services') {
+            $screenConfig['production_source'] = (string) ($data['production_source'] ?? 'rule_builder');
+            $screenConfig['production_sources'] = $this->parseProductionSourcesConfig((string) ($data['production_sources_json'] ?? ''));
         }
 
         $nextOrder = ((int) WallScreen::query()
@@ -165,6 +180,8 @@ class WallController extends Controller
             'name' => 'required|string|max:120',
             'screen_type' => 'required|string|in:production_services,fixed_chart,ads_chart',
             'fixed_chart' => 'nullable|string|in:ads_dashboard,complaints_dashboard,project_review_dashboard',
+            'production_source' => 'nullable|string|in:rule_builder,publication_note_filter,payment_note_filter,publish_repository,supervision_repository,survey_repository',
+            'production_sources_json' => 'nullable|string',
             'enabled' => 'nullable|boolean',
             'display_order' => 'nullable|integer|min:0|max:1000',
             'duration_seconds' => 'nullable|integer|min:10|max:3600',
@@ -188,6 +205,10 @@ class WallController extends Controller
         }
         if (($data['screen_type'] ?? '') === 'fixed_chart') {
             $screenConfig['fixed_chart'] = $data['fixed_chart'] ?? 'ads_dashboard';
+        }
+        if (($data['screen_type'] ?? '') === 'production_services') {
+            $screenConfig['production_source'] = (string) ($data['production_source'] ?? 'rule_builder');
+            $screenConfig['production_sources'] = $this->parseProductionSourcesConfig((string) ($data['production_sources_json'] ?? ''));
         }
 
         $screen->update([
@@ -265,5 +286,74 @@ class WallController extends Controller
         $item->delete();
 
         return back()->with('success', 'Serviço da tela removido.');
+    }
+
+    private function parseProductionSourcesConfig(string $json): array
+    {
+        $trimmed = trim($json);
+        if ($trimmed === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($trimmed, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw ValidationException::withMessages([
+                'production_sources_json' => 'JSON inválido em Fontes por serviço.',
+            ]);
+        }
+
+        if (!is_array($decoded)) {
+            throw ValidationException::withMessages([
+                'production_sources_json' => 'Fontes por serviço deve ser um objeto JSON.',
+            ]);
+        }
+
+        $allowedSources = [
+            'rule_builder',
+            'publication_note_filter',
+            'payment_note_filter',
+            'publish_repository',
+            'supervision_repository',
+            'survey_repository',
+        ];
+
+        $normalized = [];
+        foreach ($decoded as $serviceId => $rawConfig) {
+            $serviceId = (string) $serviceId;
+            if ($serviceId === '') {
+                continue;
+            }
+
+            if (is_string($rawConfig)) {
+                $source = trim($rawConfig);
+                if (!in_array($source, $allowedSources, true)) {
+                    throw ValidationException::withMessages([
+                        'production_sources_json' => "Fonte inválida para {$serviceId}: {$source}",
+                    ]);
+                }
+                $normalized[$serviceId] = ['source' => $source];
+                continue;
+            }
+
+            if (!is_array($rawConfig)) {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Config inválida para {$serviceId}.",
+                ]);
+            }
+
+            $source = trim((string) ($rawConfig['source'] ?? ''));
+            if ($source === '' || !in_array($source, $allowedSources, true)) {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Fonte inválida para {$serviceId}.",
+                ]);
+            }
+
+            $config = $rawConfig;
+            $config['source'] = $source;
+            $normalized[$serviceId] = $config;
+        }
+
+        return $normalized;
     }
 }
