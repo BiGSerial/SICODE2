@@ -42,6 +42,9 @@
         <div class="oexterno-card p-3">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <strong class="me-auto">Filtros</strong>
+                <button class="btn btn-outline-primary btn-sm" wire:click="exportToExcel" wire:loading.attr="disabled">
+                    <i class="ri-file-excel-2-line align-middle"></i> Exportar
+                </button>
                 <select class="form-select w-auto" wire:model="status">
                     <option value="">Todos status</option>
                     <option value="SUBMITTED">SUBMITTED</option>

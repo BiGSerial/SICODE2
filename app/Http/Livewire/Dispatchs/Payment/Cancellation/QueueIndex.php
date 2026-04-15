@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Dispatchs\Payment\Cancellation;
 
+use App\Jobs\Dispatchs\ExportCancellationQueueJob;
 use App\Models\CancellationCategory;
 use App\Models\CancellationRequest;
 use App\Services\Payment\CancellationRequestService;
@@ -50,6 +51,32 @@ class QueueIndex extends Component
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
         }
+    }
+
+    public function exportToExcel(): void
+    {
+        $this->authorize('viewQueue', CancellationRequest::class);
+
+        ExportCancellationQueueJob::dispatch($this->exportPayload(), (string) Auth::id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Exportação iniciada. Você será notificado quando concluir.',
+        ]);
+    }
+
+    private function exportPayload(): array
+    {
+        return [
+            'service_uuid' => $this->service,
+            'status' => $this->status,
+            'categoryId' => $this->categoryId,
+            'noteSearch' => $this->noteSearch,
+            'orderSearch' => $this->orderSearch,
+            'requesterSearch' => $this->requesterSearch,
+            'dateFrom' => $this->dateFrom,
+            'dateTo' => $this->dateTo,
+        ];
     }
 
     public function render()

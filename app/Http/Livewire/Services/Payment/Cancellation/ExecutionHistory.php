@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Payment\Cancellation;
 use App\Models\CancellationRequest;
 use App\Models\EvidenceFile;
 use App\Enum\CancellationRequestStatus;
+use App\Jobs\Services\ExportCancellationExecutionHistoryJob;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -121,6 +122,29 @@ class ExecutionHistory extends Component
             ->map(fn ($id) => (string) $id)
             ->values()
             ->all();
+    }
+
+    public function exportToExcel(): void
+    {
+        ExportCancellationExecutionHistoryJob::dispatch($this->exportPayload(), (string) Auth::id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Exportação iniciada. Você será notificado quando concluir.',
+        ]);
+    }
+
+    private function exportPayload(): array
+    {
+        return [
+            'service_uuid' => $this->service,
+            'multiSearch' => $this->parseMultiSearch(),
+            'dateFrom' => $this->dateFrom,
+            'dateTo' => $this->dateTo,
+            'visibilityMode' => $this->visibilityMode,
+            'visibleCloserIds' => $this->visibleCloserIds(),
+            'requesterIds' => $this->selectedRequesterIds(),
+        ];
     }
 
     public function render()

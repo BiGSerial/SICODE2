@@ -2,20 +2,20 @@
 
 namespace App\Exports\Dispatchs;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithEvents;
-use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class CancellationHistoryExport implements FromView, ShouldAutoSize, WithTitle, WithEvents
+class CancellationQueueExport implements FromView, ShouldAutoSize, WithTitle, WithEvents
 {
     use Exportable;
 
@@ -28,14 +28,14 @@ class CancellationHistoryExport implements FromView, ShouldAutoSize, WithTitle, 
 
     public function view(): View
     {
-        return view('exports.dispatchs.cancellation-history', [
+        return view('exports.dispatchs.cancellation-queue', [
             'rows' => $this->builder->get(),
         ]);
     }
 
     public function title(): string
     {
-        return 'Cancelamentos_' . Carbon::now()->format('Ymd');
+        return 'Fila_Cancelamentos_' . Carbon::now()->format('Ymd');
     }
 
     public function registerEvents(): array

@@ -42,6 +42,9 @@
         <div class="oexterno-card p-3">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <strong class="me-auto">Consulta em massa</strong>
+                <button class="btn btn-outline-primary btn-sm" wire:click="exportToExcel" wire:loading.attr="disabled">
+                    <i class="ri-file-excel-2-line align-middle"></i> Exportar
+                </button>
                 <button class="btn btn-outline-success btn-sm" wire:click="claimSelected">
                     Assumir selecionadas
                 </button>
