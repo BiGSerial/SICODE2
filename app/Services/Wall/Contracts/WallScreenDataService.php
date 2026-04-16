@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Reports\WallV2\Contracts;
+namespace App\Services\Wall\Contracts;
 
 use App\Models\WallScreen;
-use App\Services\Reports\WallV2\ScreenContext;
+use App\Services\Wall\Context\ScreenContext;
 
 interface WallScreenDataService
 {

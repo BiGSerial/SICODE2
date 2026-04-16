@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Reports\WallV2;
+namespace App\Services\Wall\Context;
 
 use App\Models\WallScreen;
 

@@ -632,6 +632,11 @@ class AdsRequestedReportService
         $companyIds = $filters['companyIds'] ?? [];
         $statusFilter = (string) ($filters['statusFilter'] ?? 'all');
         $statusExact = trim((string) ($filters['status_exact'] ?? ''));
+        $excludeStatuses = collect($filters['exclude_statuses'] ?? [])
+            ->map(fn ($status) => mb_strtoupper(trim((string) $status)))
+            ->filter()
+            ->values()
+            ->all();
 
         $query = DB::table('ads_requests as ar')
             ->leftJoin('notes as n', 'n.id', '=', 'ar.note_id')
@@ -654,6 +659,8 @@ class AdsRequestedReportService
 
         if ($statusExact !== '') {
             $query->where('ar.status', $statusExact);
+        } elseif (!empty($excludeStatuses)) {
+            $query->whereNotIn('ar.status', $excludeStatuses);
         }
 
         if ($applyStatusFilter) {

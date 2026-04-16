@@ -321,7 +321,8 @@
                         </div>
                         <div class="col-12" id="create-screen-production-sources-wrap">
                             <label class="form-label">Fontes por serviço (JSON gerado automaticamente)</label>
-                            <textarea class="form-control" name="production_sources_json" id="create-screen-production-sources-json" rows="6" readonly>{}</textarea>
+                            <input type="hidden" name="production_sources_json" id="create-screen-production-sources-json" value="{}">
+                            <pre class="form-control" id="create-screen-production-sources-json-view" style="min-height:140px;white-space:pre-wrap;">{}</pre>
                             <small class="text-muted">Este JSON é gerado automaticamente quando você configurar os serviços na edição da tela.</small>
                         </div>
                         <div class="col-12 d-flex justify-content-end gap-2">
@@ -380,7 +381,8 @@
                         </div>
                         <div class="col-12" id="edit-screen-production-sources-wrap">
                             <label class="form-label">Fontes por serviço (JSON gerado automaticamente)</label>
-                            <textarea class="form-control" name="production_sources_json" id="edit-screen-production-sources-json" rows="6" readonly></textarea>
+                            <input type="hidden" name="production_sources_json" id="edit-screen-production-sources-json" value="{}">
+                            <pre class="form-control" id="edit-screen-production-sources-json-view" style="min-height:160px;white-space:pre-wrap;">{}</pre>
                             <small class="text-muted">Configure por item abaixo; o JSON é montado automaticamente.</small>
                         </div>
                         <div class="col-12 d-flex justify-content-end">
@@ -391,6 +393,37 @@
                     <div class="section-divider" id="edit-screen-prod-divider"></div>
 
                     <div id="edit-screen-production-area">
+                        <div class="alert alert-light border mb-2 py-2">
+                            <div class="fw-bold mb-1">Referência técnica de filtros</div>
+                            <div class="small text-muted mb-1">
+                                Modelo base: <code>{{ $productionFilterSchema['base']['model'] ?? 'App\\Models\\Note' }}</code>.
+                                Em <strong>escopo base</strong>, filtre colunas do modelo base.
+                                Em <strong>escopo relation</strong>, escolha relação e coluna da relação.
+                            </div>
+                            <div class="small text-muted mb-1">
+                                Colunas base (fillable):
+                                @foreach (($productionFilterSchema['base']['columns'] ?? []) as $column)
+                                    <code>{{ $column }}</code>@if (!$loop->last), @endif
+                                @endforeach
+                            </div>
+                            <div class="small text-muted">
+                                Relações e modelos:
+                                @foreach (($productionFilterSchema['relations'] ?? []) as $relationName => $meta)
+                                    <div>
+                                        <code>{{ $relationName }}</code>
+                                        @if (!empty($meta['model']))
+                                            => <code>{{ $meta['model'] }}</code>
+                                        @endif
+                                        @if (!empty($meta['columns']))
+                                            | fillable:
+                                            @foreach ($meta['columns'] as $col)
+                                                <code>{{ $col }}</code>@if (!$loop->last), @endif
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
                                 <label class="form-label">Atividade anterior (opcional)</label>
@@ -501,6 +534,7 @@
             const csrf = '{{ csrf_token() }}';
             const rotationDefault = Number(@json($rotationSeconds));
             const productionSourceOptions = @json($productionSources);
+            const productionFilterSchema = @json($productionFilterSchema);
 
             const WALLS_RAW = @json($wallsPayload);
             const WALLS = Array.isArray(WALLS_RAW) ? WALLS_RAW : Object.values(WALLS_RAW || {});
@@ -535,6 +569,7 @@
                 createScreenProductionSourcesWrap: document.getElementById('create-screen-production-sources-wrap'),
                 createScreenProductionSource: document.getElementById('create-screen-production-source'),
                 createScreenProductionSourcesJson: document.getElementById('create-screen-production-sources-json'),
+                createScreenProductionSourcesJsonView: document.getElementById('create-screen-production-sources-json-view'),
                 editScreenForm: document.getElementById('form-edit-screen'),
                 editScreenWallId: document.getElementById('edit-screen-wall-id'),
                 editScreenName: document.getElementById('edit-screen-name'),
@@ -548,6 +583,7 @@
                 editScreenProductionSourcesWrap: document.getElementById('edit-screen-production-sources-wrap'),
                 editScreenProductionSource: document.getElementById('edit-screen-production-source'),
                 editScreenProductionSourcesJson: document.getElementById('edit-screen-production-sources-json'),
+                editScreenProductionSourcesJsonView: document.getElementById('edit-screen-production-sources-json-view'),
                 editScreenProdArea: document.getElementById('edit-screen-production-area'),
                 editScreenProdDivider: document.getElementById('edit-screen-prod-divider'),
                 newItemService: document.getElementById('new-item-service'),
@@ -569,6 +605,22 @@
                 payment_note_filter: { filter_group: 'payment', search: null },
                 publish_repository: { all_services: false },
             };
+
+            function relationOptions() {
+                return Object.keys(productionFilterSchema?.relations || {});
+            }
+
+            function baseColumns() {
+                return Array.isArray(productionFilterSchema?.base?.columns)
+                    ? productionFilterSchema.base.columns
+                    : [];
+            }
+
+            function relationColumns(relationName) {
+                return Array.isArray(productionFilterSchema?.relations?.[relationName]?.columns)
+                    ? productionFilterSchema.relations[relationName].columns
+                    : [];
+            }
 
             function selectedWall() {
                 return state.walls.find(w => w.id === state.selectedWallId) || null;
@@ -812,6 +864,9 @@
                         screen.production_sources_map = {};
                     }
                 }
+                if (Array.isArray(screen.production_sources_map)) {
+                    screen.production_sources_map = {};
+                }
                 if (!screen.production_source) {
                     screen.production_source = 'rule_builder';
                 }
@@ -823,6 +878,15 @@
                 screen.production_sources_json = JSON.stringify(screen.production_sources_map || {}, null, 2);
                 if (el.editScreenProductionSourcesJson) {
                     el.editScreenProductionSourcesJson.value = screen.production_sources_json;
+                }
+                if (el.editScreenProductionSourcesJsonView) {
+                    el.editScreenProductionSourcesJsonView.textContent = screen.production_sources_json || '{}';
+                }
+                if (el.createScreenProductionSourcesJson) {
+                    el.createScreenProductionSourcesJson.value = screen.production_sources_json;
+                }
+                if (el.createScreenProductionSourcesJsonView) {
+                    el.createScreenProductionSourcesJsonView.textContent = screen.production_sources_json || '{}';
                 }
             }
 
@@ -899,6 +963,68 @@
                 return '';
             }
 
+            function normalizeQueryFilters(config) {
+                const raw = Array.isArray(config?.query_filters) ? config.query_filters : [];
+                return raw
+                    .filter((f) => f && typeof f === 'object')
+                    .map((f) => ({
+                        mode: String(f.mode || 'exclude'),
+                        scope: String(f.scope || 'base'),
+                        relation: String(f.relation || ''),
+                        column: String(f.column || ''),
+                        operator: String(f.operator || 'equals'),
+                        value: String(f.value ?? ''),
+                    }));
+            }
+
+            function queryFiltersHtml(serviceId, config) {
+                const sid = escapeHtml(serviceId);
+                const filters = normalizeQueryFilters(config);
+                const rows = filters.map((f, idx) => `
+                    <div class="d-flex gap-2 align-items-center flex-wrap mt-1" data-filter-row="${sid}" data-filter-index="${idx}">
+                        <select class="form-select form-select-sm" style="max-width:110px;" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="mode">
+                            <option value="include" ${f.mode === 'include' ? 'selected' : ''}>Incluir</option>
+                            <option value="exclude" ${f.mode === 'exclude' ? 'selected' : ''}>Excluir</option>
+                        </select>
+                        <select class="form-select form-select-sm" style="max-width:110px;" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="scope">
+                            <option value="base" ${f.scope === 'base' ? 'selected' : ''}>Base</option>
+                            <option value="relation" ${f.scope === 'relation' ? 'selected' : ''}>Relação</option>
+                        </select>
+                        <select class="form-select form-select-sm ${f.scope === 'relation' ? '' : 'd-none'}" style="max-width:180px;" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="relation">
+                            <option value="">Relação...</option>
+                            ${relationOptions().map((rel) => `<option value="${escapeHtml(rel)}" ${rel === f.relation ? 'selected' : ''}>${escapeHtml(rel)}</option>`).join('')}
+                        </select>
+                        <select class="form-select form-select-sm" style="max-width:190px;" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="column">
+                            <option value="">Coluna...</option>
+                            ${(f.scope === 'relation' ? relationColumns(f.relation) : baseColumns())
+                                .map((col) => `<option value="${escapeHtml(col)}" ${col === f.column ? 'selected' : ''}>${escapeHtml(col)}</option>`)
+                                .join('')}
+                        </select>
+                        <input class="form-control form-control-sm" style="max-width:170px;" placeholder="Coluna manual (opcional)" value="" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="column_custom">
+                        <select class="form-select form-select-sm" style="max-width:130px;" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="operator">
+                            <option value="equals" ${f.operator === 'equals' ? 'selected' : ''}>=</option>
+                            <option value="starts_with" ${f.operator === 'starts_with' ? 'selected' : ''}>Inicia com</option>
+                            <option value="contains" ${f.operator === 'contains' ? 'selected' : ''}>Contém</option>
+                            <option value="ends_with" ${f.operator === 'ends_with' ? 'selected' : ''}>Termina com</option>
+                        </select>
+                        <input class="form-control form-control-sm" style="max-width:190px;" placeholder="Valor" value="${escapeHtml(f.value || '')}" data-filter-field="${sid}" data-filter-index="${idx}" data-filter-key="value">
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-remove-filter="${sid}" data-filter-index="${idx}">Remover</button>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="mt-1">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="screen-meta">Filtros da query para este serviço</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-add-filter="${sid}">+ Filtro</button>
+                        </div>
+                        <div data-filter-list="${sid}">
+                            ${rows || '<div class="screen-meta mt-1">Sem filtros extras.</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+
             function renderItems() {
                 const screen = selectedScreen();
                 if (!screen) {
@@ -930,6 +1056,7 @@
                                     </select>
                                 </div>
                                 ${sourceParamsHtml(String(item.service_id || ''), source, sourceConfig)}
+                                ${queryFiltersHtml(String(item.service_id || ''), sourceConfig)}
                             </div>
                             <div class="d-flex align-items-start gap-1 ms-2">
                                 <button type="button" class="danger-icon-btn" data-delete-item-id="${item.id}" title="Excluir item">
@@ -947,7 +1074,11 @@
                         const serviceId = String(select.dataset.sourceSelectService || '');
                         if (!serviceId) return;
                         const source = String(select.value || 'rule_builder');
-                        setSourceConfigForService(screen, serviceId, source);
+                        const current = sourceConfigForService(screen, serviceId);
+                        setSourceConfigForService(screen, serviceId, source, {
+                            ...current,
+                            query_filters: normalizeQueryFilters(current),
+                        });
                         renderItems();
                     });
                 });
@@ -971,6 +1102,96 @@
 
                     input.addEventListener('change', commit);
                     if (input.type !== 'checkbox') {
+                        input.addEventListener('blur', commit);
+                    }
+                });
+
+                el.itemList.querySelectorAll('[data-add-filter]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const serviceId = String(btn.dataset.addFilter || '');
+                        if (!serviceId) return;
+                        const current = sourceConfigForService(screen, serviceId);
+                        const filters = normalizeQueryFilters(current);
+                        filters.push({
+                            mode: 'exclude',
+                            scope: 'base',
+                            relation: '',
+                            column: '',
+                            operator: 'equals',
+                            value: '',
+                        });
+                        setSourceConfigForService(screen, serviceId, current.source || screen.production_source || 'rule_builder', {
+                            ...current,
+                            query_filters: filters,
+                        });
+                        renderItems();
+                    });
+                });
+
+                el.itemList.querySelectorAll('[data-remove-filter]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const serviceId = String(btn.dataset.removeFilter || '');
+                        const idx = Number(btn.dataset.filterIndex || -1);
+                        if (!serviceId || idx < 0) return;
+                        const current = sourceConfigForService(screen, serviceId);
+                        const filters = normalizeQueryFilters(current);
+                        filters.splice(idx, 1);
+                        setSourceConfigForService(screen, serviceId, current.source || screen.production_source || 'rule_builder', {
+                            ...current,
+                            query_filters: filters,
+                        });
+                        renderItems();
+                    });
+                });
+
+                el.itemList.querySelectorAll('[data-filter-field]').forEach((input) => {
+                    const commit = () => {
+                        const serviceId = String(input.dataset.filterField || '');
+                        const idx = Number(input.dataset.filterIndex || -1);
+                        const key = String(input.dataset.filterKey || '');
+                        if (!serviceId || idx < 0 || !key) return;
+
+                        const current = sourceConfigForService(screen, serviceId);
+                        const source = String(current.source || screen.production_source || 'rule_builder');
+                        const filters = normalizeQueryFilters(current);
+                        if (!filters[idx]) return;
+
+                        let nextValue = '';
+                        if (input instanceof HTMLSelectElement) {
+                            nextValue = String(input.value || '');
+                        } else {
+                            nextValue = String(input.value || '').trim();
+                        }
+
+                        if (key === 'column_custom') {
+                            if (nextValue !== '') {
+                                filters[idx] = {
+                                    ...filters[idx],
+                                    column: nextValue,
+                                };
+                            }
+                        } else {
+                            const nextFilter = {
+                                ...filters[idx],
+                                [key]: nextValue,
+                            };
+
+                            if (key === 'scope' && nextValue === 'base') {
+                                nextFilter.relation = '';
+                            }
+
+                            filters[idx] = nextFilter;
+                        }
+
+                        setSourceConfigForService(screen, serviceId, source, {
+                            ...current,
+                            query_filters: filters,
+                        });
+                        renderItems();
+                    };
+
+                    input.addEventListener('change', commit);
+                    if (!(input instanceof HTMLSelectElement)) {
                         input.addEventListener('blur', commit);
                     }
                 });

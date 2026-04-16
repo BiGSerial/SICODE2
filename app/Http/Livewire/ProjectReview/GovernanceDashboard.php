@@ -368,15 +368,16 @@ class GovernanceDashboard extends Component
         $companyErrorSummary = collect($companyErrorTotals)
             ->sortByDesc('total')
             ->values()
-            ->map(function ($row) use ($companyAnalysisCount, $mainErrorByCompany) {
-                $analysisCount = (int) ($companyAnalysisCount[$row->label] ?? 0);
-                $errors = (int) $row->total;
+            ->map(function (object $row) use ($companyAnalysisCount, $mainErrorByCompany) {
+                $label = (string) ($row->label ?? '');
+                $analysisCount = (int) $companyAnalysisCount->get($label, 0);
+                $errors = (int) ($row->total ?? 0);
                 return (object) [
-                    'company_name' => $row->label,
+                    'company_name' => $label,
                     'error_total' => $errors,
                     'analysis_total' => $analysisCount,
                     'errors_per_analysis' => $analysisCount > 0 ? round($errors / $analysisCount, 2) : 0,
-                    'main_error' => $mainErrorByCompany->get($row->label, '---'),
+                    'main_error' => $mainErrorByCompany->get($label, '---'),
                 ];
             });
 

@@ -6,6 +6,7 @@
         data-wall-endpoint="{{ route('api.v1.reports.production_wall_v2', ['wall' => $wallId]) }}"
         data-screen-endpoint-template="{{ route('api.v1.reports.production_wall_v2.screen', ['wall' => $wallId, 'screen' => '__SCREEN__']) }}"
         data-item-charts-endpoint-template="{{ route('api.v1.reports.production_wall_v2.item_charts', ['wall' => $wallId, 'screen' => '__SCREEN__', 'serviceId' => '__SERVICE__']) }}"
+        data-project-review-endpoint-template="{{ route('api.v1.reports.production_wall_v2.fixed.project_review', ['wall' => $wallId, 'screen' => '__SCREEN__']) }}"
         data-screen-id="{{ $screenId ?? '' }}" data-wall-id="{{ $wallId ?? '' }}">
         <div class="wall-v2__top">
             <div class="wall-v2__brand">
@@ -341,6 +342,28 @@
                 gap: .45rem;
             }
 
+            .w2-ads-mid.w2-ads-mid--split {
+                display: block;
+            }
+
+            .w2-ads-mid-split {
+                display: grid;
+                gap: .45rem;
+            }
+
+            .w2-ads-mid-row {
+                display: grid;
+                gap: .45rem;
+            }
+
+            .w2-ads-mid-row--4 {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .w2-ads-mid-row--5 {
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+
             .w2-ads-body {
                 min-height: 0;
                 display: grid;
@@ -415,6 +438,15 @@
                     grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
 
+                .w2-ads-mid.w2-ads-mid--split {
+                    display: block;
+                }
+
+                .w2-ads-mid-row--4,
+                .w2-ads-mid-row--5 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
                 .w2-ads-body {
                     grid-template-columns: 1fr;
                 }
@@ -432,6 +464,7 @@
                 const wallEndpoint = root.dataset.wallEndpoint;
                 const screenEndpointTemplate = root.dataset.screenEndpointTemplate || '';
                 const itemChartsEndpointTemplate = root.dataset.itemChartsEndpointTemplate || '';
+                const projectReviewEndpointTemplate = root.dataset.projectReviewEndpointTemplate || '';
                 const fixedScreenId = Number(root.dataset.screenId || 0);
                 const wallId = String(root.dataset.wallId || '');
                 const DEBUG = false;
@@ -463,6 +496,8 @@
                 const componentDataCache = new Map();
                 const screenDataCache = new Map();
                 const componentCountdowns = new Map();
+                const componentFailureState = new Map();
+                const componentLastError = new Map();
                 const pendingComponentFetch = new Set();
                 const pendingScreenFetch = new Set();
                 const valueLabelsPluginId = 'valueLabelsPlugin';
@@ -476,7 +511,19 @@
                     'internal_return_donut',
                     'recent_completed',
                 ];
-                const fixedPanelComponents = ['ads_dashboard'];
+                const fixedPanelComponents = ['cards', 'ads_dashboard'];
+                const componentLabelMap = {
+                    cards: 'cards',
+                    ads_dashboard: 'dashboard',
+                    project_review_dashboard: 'analise de projeto',
+                    complaints_dashboard: 'reclamacao',
+                    queue_histogram: 'pilha da atividade',
+                    note_type_donut: 'notas x producao',
+                    production_open_histogram: 'pilha producao aberta',
+                    production_daily: 'producao dia a dia',
+                    internal_return_donut: 'retorno interno',
+                    recent_completed: 'ultimas entregas',
+                };
 
                 function payloadStorageKey() {
                     const scr = fixedScreenId > 0 ? String(fixedScreenId) : 'all';
@@ -665,9 +712,46 @@
                     return url;
                 }
 
+                function buildProjectReviewEndpoint(screenId, component = null) {
+                    const sid = encodeURIComponent(String(screenId));
+                    if (!projectReviewEndpointTemplate.includes('__SCREEN__')) {
+                        throw new Error('Template de rota fixa (Análise de Projeto) não configurado');
+                    }
+                    let url = projectReviewEndpointTemplate.replace('__SCREEN__', sid);
+                    if (component) {
+                        url += (url.includes('?') ? '&' : '?') + `component=${encodeURIComponent(component)}`;
+                    }
+                    return url;
+                }
+
                 function withNoCache(url) {
                     const token = `_ts=${Date.now()}`;
                     return url.includes('?') ? `${url}&${token}` : `${url}?${token}`;
+                }
+
+                function defaultFetchOptions(signal = null) {
+                    return {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        ...(signal ? { signal } : {}),
+                    };
+                }
+
+                async function fetchWithTimeout(url, timeoutMs = 15000) {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
+                    try {
+                        return await fetch(url, defaultFetchOptions(controller.signal));
+                    } finally {
+                        clearTimeout(timer);
+                    }
                 }
 
                 async function fetchPayload(preservePosition = true) {
@@ -675,17 +759,7 @@
                     try {
                         const manifestUrlBase = endpoint.includes('?') ? `${endpoint}&manifest=1` : `${endpoint}?manifest=1`;
                         const manifestUrl = withNoCache(manifestUrlBase);
-                        const response = await fetch(manifestUrl, {
-                            method: 'GET',
-                            credentials: 'same-origin',
-                            cache: 'no-store',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Cache-Control': 'no-cache',
-                                'Pragma': 'no-cache',
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                        });
+                        const response = await fetchWithTimeout(manifestUrl, 20000);
 
                         if (!response.ok) {
                             if (response.status === 404) {
@@ -769,17 +843,7 @@
                     }
 
                     const url = withNoCache(buildScreenEndpoint(screenId));
-                    const res = await fetch(url, {
-                        method: 'GET',
-                        credentials: 'same-origin',
-                        cache: 'no-store',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Cache-Control': 'no-cache',
-                            'Pragma': 'no-cache',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
+                    const res = await fetchWithTimeout(url, 20000);
                     if (!res.ok) {
                         return null;
                     }
@@ -977,8 +1041,49 @@
                 }
 
                 function setPointsBadge(panel, component, points, sum) {
-                    const node = document.getElementById(`pts_${component}_${panel}`);
+                    const node = document.getElementById(`pts_${component}_${panel}`)
+                        || ((component === 'project_review_dashboard' || component === 'complaints_dashboard')
+                            ? document.getElementById(`pts_ads_dashboard_${panel}`)
+                            : null);
                     if (node) node.textContent = `pts:${Number(points || 0)} sum:${Number(sum || 0)}`;
+                }
+
+                function componentStateKey(screenId, serviceId, component) {
+                    return `${Number(screenId || 0)}:${String(serviceId || '')}:${String(component || '')}`;
+                }
+
+                function componentFailureForCurrent(component) {
+                    const state = currentPanelAndItem();
+                    if (!state) return null;
+                    const key = componentStateKey(state.screen.id, state.item.service_id, component);
+                    return componentFailureState.get(key) || null;
+                }
+
+                function setComponentFailure(screenId, serviceId, component, failed, message = '') {
+                    const key = componentStateKey(screenId, serviceId, component);
+                    if (!failed) {
+                        componentFailureState.delete(key);
+                        return;
+                    }
+                    componentFailureState.set(key, {
+                        at: Date.now(),
+                        message: String(message || '').trim(),
+                    });
+                }
+
+                function setLastComponentError(screenId, serviceId, component, message = '') {
+                    const key = componentStateKey(screenId, serviceId, component);
+                    const msg = String(message || '').trim();
+                    if (!msg) {
+                        componentLastError.delete(key);
+                        return;
+                    }
+                    componentLastError.set(key, msg);
+                }
+
+                function getLastComponentError(screenId, serviceId, component) {
+                    const key = componentStateKey(screenId, serviceId, component);
+                    return String(componentLastError.get(key) || '').trim();
                 }
 
                 function normalizeSeriesData(rawData, labels) {
@@ -1003,7 +1108,15 @@
                 }
 
                 function activeComponentsForItem(screen, item) {
-                    return isFixedPanel(screen, item) ? fixedPanelComponents : productionComponents;
+                    if (!isFixedPanel(screen, item)) return productionComponents;
+                    const serviceId = String(item?.service_id || '');
+                    if (serviceId === 'fixed-project_review_dashboard') {
+                        return ['project_review_dashboard'];
+                    }
+                    if (serviceId === 'fixed-complaints_dashboard') {
+                        return ['complaints_dashboard'];
+                    }
+                    return ['ads_dashboard'];
                 }
 
                 function fixedDashboardDefaults(item) {
@@ -1011,10 +1124,19 @@
                     if (serviceId === 'fixed-project_review_dashboard') {
                         return {
                             subtitle: `Tela fixa: ${item?.service_name || 'ANALISE DE PROJETO'}`,
-                            lineTitle: 'Histograma da fila sem análise associada (dias na pilha)',
-                            barTitle: 'Entradas x Respostas por dia',
+                            lineTitle: 'Pilha a Analisar (sem análise associada, dias na pilha)',
+                            barTitle: 'Em análise não finalizado (dias desde devolução do analista)',
                             queueTitle: 'Composição da fila pendente',
                             reuseTitle: 'Composição do valor revisado',
+                        };
+                    }
+                    if (serviceId === 'fixed-complaints_dashboard') {
+                        return {
+                            subtitle: `Tela fixa: ${item?.service_name || 'RECLAMACAO'}`,
+                            lineTitle: 'Tendência de reclamações',
+                            barTitle: 'Entradas x Tratadas',
+                            queueTitle: 'Composição da fila',
+                            reuseTitle: 'Distribuição por categoria',
                         };
                     }
 
@@ -1039,7 +1161,7 @@
 
                 function setPanelComponentLoading(panel, component, loading) {
                     if (!panel || !component) return;
-                    if (component === 'ads_dashboard') {
+                    if (component === 'ads_dashboard' || component === 'project_review_dashboard' || component === 'complaints_dashboard') {
                         setNodeLoading(`loading_ads_line_${panel}`, loading);
                         setNodeLoading(`loading_ads_bar_${panel}`, loading);
                         setNodeLoading(`loading_ads_queue_${panel}`, loading);
@@ -1090,13 +1212,32 @@
                     const state = currentPanelAndItem();
                     if (!state) return;
                     const components = activeComponentsForItem(state.screen, state.item);
+                    const failedLabels = [];
                     components.forEach((component) => {
                         const seconds = Number(componentCountdowns.get(component) ?? payload.refresh_seconds ?? 60);
-                        const node = document.getElementById(counterNodeId(state.panel, component));
-                        if (node) node.textContent = `${seconds}s`;
+                        const node = document.getElementById(counterNodeId(state.panel, component))
+                            || ((component === 'project_review_dashboard' || component === 'complaints_dashboard')
+                                ? document.getElementById(counterNodeId(state.panel, 'ads_dashboard'))
+                                : null);
+                        const failure = componentFailureForCurrent(component);
+                        if (failure) {
+                            failedLabels.push(componentLabelMap[String(component)] || String(component));
+                        }
+                        if (node) {
+                            node.textContent = failure ? `${seconds}s !` : `${seconds}s`;
+                            node.style.color = failure ? '#fda4af' : '#9bb2ca';
+                            node.title = failure
+                                ? `Falha no refresh de ${componentLabelMap[String(component)] || component}${failure.message ? `: ${failure.message}` : ''}`
+                                : '';
+                        }
                     });
                     const head = document.getElementById(`refresh_${state.panel}`);
-                    if (head) head.textContent = 'Refresh individual por card';
+                    if (head) {
+                        head.textContent = failedLabels.length
+                            ? `Refresh individual por card | falha: ${failedLabels.join(', ')}`
+                            : 'Refresh individual por card';
+                        head.style.color = failedLabels.length ? '#fda4af' : '#a9bdd3';
+                    }
                 }
 
                 async function fetchItemComponent(screenId, serviceId, component, force = false) {
@@ -1110,7 +1251,12 @@
                         ].filter((n) => Number.isFinite(n) && n > 0)));
 
                         for (const sid of screenCandidates) {
-                            const url = withNoCache(buildItemChartsEndpoint(sid, serviceId, component));
+                            const isProjectReviewFixed = String(serviceId) === 'fixed-project_review_dashboard';
+                            const endpointUrl = isProjectReviewFixed
+                                ? buildProjectReviewEndpoint(sid, component)
+                                : buildItemChartsEndpoint(sid, serviceId, component);
+                            const url = withNoCache(endpointUrl);
+                            const timeoutMs = isProjectReviewFixed ? 65000 : 20000;
                             if (DEBUG) {
                                 console.log('wall-v2 fetch component', {
                                     url,
@@ -1118,20 +1264,12 @@
                                     screenId: sid,
                                     serviceId,
                                     component,
+                                    timeoutMs,
                                 });
                             }
-                            const res = await fetch(url, {
-                                method: 'GET',
-                                credentials: 'same-origin',
-                                cache: 'no-store',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'Cache-Control': 'no-cache',
-                                    'Pragma': 'no-cache',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                },
-                            });
+                            const res = await fetchWithTimeout(url, timeoutMs);
                             if (!res.ok) {
+                                setLastComponentError(sid, serviceId, component, `HTTP ${res.status}`);
                                 if (DEBUG) {
                                     console.warn('wall-v2 component fetch failed', {
                                         url,
@@ -1142,6 +1280,7 @@
                                 continue;
                             }
                             const data = await res.json();
+                            setLastComponentError(sid, serviceId, component, '');
                             if (DEBUG && component === 'queue_histogram') {
                                 console.log('wall-v2 queue_histogram payload', {
                                     url,
@@ -1157,7 +1296,10 @@
 
                         return null;
                     } catch (e) {
-                        console.error('wall-v2 fetchItemComponent exception', e);
+                        setLastComponentError(screenId, serviceId, component, e?.name === 'AbortError' ? 'timeout' : (e?.message || 'erro de rede'));
+                        if (e?.name !== 'AbortError') {
+                            console.error('wall-v2 fetchItemComponent exception', e);
+                        }
                         return null;
                     }
                 }
@@ -1173,7 +1315,11 @@
                         ].filter((n) => Number.isFinite(n) && n > 0)));
 
                         for (const sid of screenCandidates) {
-                            const url = withNoCache(buildItemChartsEndpoint(sid, serviceId, null));
+                            const isProjectReviewFixed = String(serviceId) === 'fixed-project_review_dashboard';
+                            const endpointUrl = isProjectReviewFixed
+                                ? buildProjectReviewEndpoint(sid, null)
+                                : buildItemChartsEndpoint(sid, serviceId, null);
+                            const url = withNoCache(endpointUrl);
                             if (DEBUG) {
                                 console.log('wall-v2 fetch full', {
                                     url,
@@ -1182,17 +1328,7 @@
                                     serviceId,
                                 });
                             }
-                            const res = await fetch(url, {
-                                method: 'GET',
-                                credentials: 'same-origin',
-                                cache: 'no-store',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'Cache-Control': 'no-cache',
-                                    'Pragma': 'no-cache',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                },
-                            });
+                            const res = await fetchWithTimeout(url);
                             if (!res.ok) {
                                 if (DEBUG) {
                                     console.warn('wall-v2 full fetch failed', {
@@ -1220,7 +1356,7 @@
                     if (component === 'cards') return typeof data === 'object' && data !== null;
                     if (component === 'week' || component === 'previous_service_name') return true;
                     if (component === 'recent_completed') return Array.isArray(data);
-                    if (component === 'ads_dashboard') return typeof data === 'object' && data !== null;
+                    if (component === 'ads_dashboard' || component === 'project_review_dashboard' || component === 'complaints_dashboard') return typeof data === 'object' && data !== null;
                     if (typeof data === 'object' && data !== null) {
                         const values = Array.isArray(data.values) ? data.values : [];
                         const labels = Array.isArray(data.labels) ? data.labels : [];
@@ -1266,6 +1402,8 @@
                     if (component === 'internal_return_donut' && hasMeaningfulData(component, data)) next.internal_return_donut = data || current.internal_return_donut || {};
                     if (component === 'recent_completed' && hasMeaningfulData(component, data)) next.recent_completed = Array.isArray(data) ? data : (current.recent_completed || []);
                     if (component === 'ads_dashboard' && hasMeaningfulData(component, data)) next.ads_dashboard = data || current.ads_dashboard || {};
+                    if (component === 'project_review_dashboard' && hasMeaningfulData(component, data)) next.project_review_dashboard = data || current.project_review_dashboard || {};
+                    if (component === 'complaints_dashboard' && hasMeaningfulData(component, data)) next.complaints_dashboard = data || current.complaints_dashboard || {};
                     screen.items[idx] = next;
                     return true;
                 }
@@ -1305,6 +1443,8 @@
                         internal_return_donut: (histogramSum(remoteDonut) > 0 || histogramSum(currentDonut) === 0) ? remoteDonut : currentDonut,
                         recent_completed: Array.isArray(remote.charts?.recent_completed) ? remote.charts.recent_completed : (current.recent_completed || []),
                         ads_dashboard: remote.charts?.ads_dashboard || current.ads_dashboard || {},
+                        project_review_dashboard: remote.charts?.project_review_dashboard || current.project_review_dashboard || {},
+                        complaints_dashboard: remote.charts?.complaints_dashboard || current.complaints_dashboard || {},
                     };
                     return true;
                 }
@@ -1332,16 +1472,24 @@
                     const lockKey = `${state.screen.id}:${state.item.service_id}:${component}`;
                     if (pendingComponentFetch.has(lockKey)) return;
                     pendingComponentFetch.add(lockKey);
+                    componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
                     setActiveComponentsLoading(true, component);
                     try {
                         const remote = await fetchItemComponent(state.screen.id, state.item.service_id, component, force);
-                        if (!remote) return;
+                        if (!remote) {
+                            const err = getLastComponentError(state.screen.id, state.item.service_id, component) || 'sem resposta';
+                            setComponentFailure(state.screen.id, state.item.service_id, component, true, err);
+                            writeComponentCounters();
+                            return;
+                        }
+                        setComponentFailure(state.screen.id, state.item.service_id, component, false);
                         const changed = applyComponentOnItem(state.screen.id, state.item.service_id, component, remote.data);
                         if (changed) {
                             payload.updated_at = remote.updated_at || payload.updated_at || '';
                             render(component);
+                        } else {
+                            writeComponentCounters();
                         }
-                        componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
                     } finally {
                         setActiveComponentsLoading(false, component);
                         pendingComponentFetch.delete(lockKey);
@@ -1364,15 +1512,22 @@
                         const results = await Promise.all(requests);
                         let changed = false;
                         results.forEach(({ component, remote }) => {
-                            if (!remote) return;
+                            componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
+                            if (!remote) {
+                                const err = getLastComponentError(state.screen.id, state.item.service_id, component) || 'sem resposta';
+                                setComponentFailure(state.screen.id, state.item.service_id, component, true, err);
+                                return;
+                            }
+                            setComponentFailure(state.screen.id, state.item.service_id, component, false);
                             if (applyComponentOnItem(state.screen.id, state.item.service_id, component, remote.data)) {
                                 changed = true;
                             }
                             payload.updated_at = remote.updated_at || payload.updated_at || '';
-                            componentCountdowns.set(component, Number(payload.refresh_seconds || 60));
                         });
                         if (changed) {
                             render('all');
+                        } else {
+                            writeComponentCounters();
                         }
                     } finally {
                         components.forEach((component) => setPanelComponentLoading(state.panel, component, false));
@@ -1402,14 +1557,29 @@
                         const requests = items.map(async (item) => {
                             const serviceId = String(item?.service_id || '');
                             if (!serviceId) return;
-                            const remote = await fetchItemFull(screenId, serviceId, true);
-                            if (!remote) return;
-                            if (applyFullItemOnPayload(screenId, serviceId, remote)) {
-                                changed = true;
-                            }
-                            if (remote.updated_at) {
-                                lastUpdatedAt = remote.updated_at;
-                            }
+                            const baseScreen = payload.screens.find((s) => Number(s?.id || 0) === screenId) || screen;
+                            const baseItem = Array.isArray(baseScreen?.items)
+                                ? baseScreen.items.find((it) => String(it?.service_id || '') === serviceId) || item
+                                : item;
+                            const components = activeComponentsForItem(baseScreen, baseItem);
+                            if (!components.length) return;
+
+                            const componentRequests = components.map((component) =>
+                                fetchItemComponent(screenId, serviceId, component, true)
+                                    .then((remote) => ({ component, remote }))
+                                    .catch(() => ({ component, remote: null }))
+                            );
+
+                            const componentResults = await Promise.all(componentRequests);
+                            componentResults.forEach(({ component, remote }) => {
+                                if (!remote) return;
+                                if (applyComponentOnItem(screenId, serviceId, component, remote.data)) {
+                                    changed = true;
+                                }
+                                if (remote.updated_at) {
+                                    lastUpdatedAt = remote.updated_at;
+                                }
+                            });
                         });
 
                         await Promise.all(requests);
@@ -1519,21 +1689,38 @@
                                         <div class="w2-ads-left">
                                             <div class="w2-chart">
                                             <div class="w2-chart__t"><span id="ads_line_title_${key}">${fixedDefaults.lineTitle}</span> <span id="pts_ads_dashboard_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_ads_dashboard_${key}" style="float:right;color:#9bb2ca">--</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas><div class="w2-chart__empty" id="ads_line_empty_${key}">SEM DADOS</div></div>
                                             </div>
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t"><span id="ads_bar_title_${key}">${fixedDefaults.barTitle}</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas><div class="w2-chart__empty" id="ads_bar_empty_${key}">SEM DADOS</div></div>
                                             </div>
                                         </div>
                                         <div class="w2-ads-right">
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t"><span id="ads_queue_title_${key}">${fixedDefaults.queueTitle}</span> <span id="ads_queue_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas></div>
+                                                <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas><div class="w2-chart__empty" id="ads_queue_empty_${key}">SEM DADOS</div></div>
                                             </div>
                                             <div class="w2-chart">
                                                 <div class="w2-chart__t"><span id="ads_reuse_title_${key}">${fixedDefaults.reuseTitle}</span> <span id="ads_reuse_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_reuse_${key}"></canvas></div>
+                                                <div class="w2-chart__wrap">
+                                                    <canvas id="ads_reuse_${key}"></canvas>
+                                                    <div class="w2-chart__empty" id="ads_reuse_empty_${key}">SEM DADOS</div>
+                                                    <div class="w2-list__wrap" id="ads_reuse_list_wrap_${key}" style="display:none;">
+                                                        <table class="w2-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Nota</th>
+                                                                    <th>Usuário</th>
+                                                                    <th>Empresa</th>
+                                                                    <th>Status</th>
+                                                                    <th>Referência</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="ads_reuse_list_${key}"></tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1633,8 +1820,23 @@
                             const barCanvas = panel.querySelector(`#ads_bar_${key}`);
                             const queueCanvas = panel.querySelector(`#ads_queue_${key}`);
                             const reuseCanvas = panel.querySelector(`#ads_reuse_${key}`);
+                            const lineEmptyNode = panel.querySelector(`#ads_line_empty_${key}`);
+                            const barEmptyNode = panel.querySelector(`#ads_bar_empty_${key}`);
+                            const queueEmptyNode = panel.querySelector(`#ads_queue_empty_${key}`);
+                            const reuseEmptyNode = panel.querySelector(`#ads_reuse_empty_${key}`);
+                            const reuseListWrapNode = panel.querySelector(`#ads_reuse_list_wrap_${key}`);
+                            const reuseListNode = panel.querySelector(`#ads_reuse_list_${key}`);
 
-                            const dashboard = item.ads_dashboard || {};
+                            const fixedDashboardComponent = String(item?.service_id || '') === 'fixed-project_review_dashboard'
+                                ? 'project_review_dashboard'
+                                : (String(item?.service_id || '') === 'fixed-complaints_dashboard'
+                                    ? 'complaints_dashboard'
+                                    : 'ads_dashboard');
+                            const dashboard = fixedDashboardComponent === 'project_review_dashboard'
+                                ? (item.project_review_dashboard || item.ads_dashboard || {})
+                                : (fixedDashboardComponent === 'complaints_dashboard'
+                                    ? (item.complaints_dashboard || item.ads_dashboard || item.project_review_dashboard || {})
+                                    : (item.ads_dashboard || item.project_review_dashboard || item.complaints_dashboard || {}));
                             const top = Array.isArray(dashboard.top_cards) ? dashboard.top_cards : [];
                             const mid = Array.isArray(dashboard.middle_cards) ? dashboard.middle_cards : [];
                             const adsLineTitleNode = panel.querySelector(`#ads_line_title_${key}`);
@@ -1644,6 +1846,7 @@
                             const isProjectReviewFixed = String(item?.service_id || '') === 'fixed-project_review_dashboard';
                             const barChartBox = barCanvas ? barCanvas.closest('.w2-chart') : null;
                             const adsLeftGrid = lineCanvas ? lineCanvas.closest('.w2-ads-left') : null;
+                            const isNoData = dashboard.has_data === false;
 
                             if (subNode) {
                                 subNode.textContent = String(dashboard.subtitle || fixedDefaults.subtitle);
@@ -1652,35 +1855,55 @@
                             if (adsBarTitleNode) adsBarTitleNode.textContent = String(dashboard.bar_chart_title || fixedDefaults.barTitle);
                             if (adsQueueTitleNode) adsQueueTitleNode.textContent = String(dashboard.queue_donut_title || fixedDefaults.queueTitle);
                             if (adsReuseTitleNode) adsReuseTitleNode.textContent = String(dashboard.reuse_donut_title || fixedDefaults.reuseTitle);
-                            if (barChartBox) barChartBox.style.display = isProjectReviewFixed ? 'none' : 'flex';
-                            if (adsLeftGrid) adsLeftGrid.style.gridTemplateRows = isProjectReviewFixed ? '1fr' : '1fr 1fr';
+                            if (barChartBox) barChartBox.style.display = 'flex';
+                            if (adsLeftGrid) adsLeftGrid.style.gridTemplateRows = '1fr 1fr';
 
                             if (topCards) {
                                 topCards.innerHTML = top.map((card) => `
                                     <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
                                         <div class="w2-ads-card__l">${card.label || '-'}</div>
-                                        <div class="w2-ads-card__v">${card.value ?? 0}</div>
-                                        ${card.trend ? `<div class="w2-ads-card__k" style="color:${card.trend_color || '#9bb2ca'}">${card.trend}</div>` : ''}
+                                        <div class="w2-ads-card__v">${isNoData ? '--' : (card.value ?? 0)}</div>
+                                        ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}
                                     </div>
                                 `).join('');
                             }
 
                             if (midCards) {
-                                midCards.innerHTML = mid.map((card) => `
+                                const cardTpl = (card) => `
                                     <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
                                         <div class="w2-ads-card__l">${card.label || '-'}</div>
-                                        <div class="w2-ads-card__v">${card.value ?? 0}</div>
-                                        ${card.trend ? `<div class="w2-ads-card__k" style="color:${card.trend_color || '#9bb2ca'}">${card.trend}</div>` : ''}
+                                        <div class="w2-ads-card__v">${isNoData ? '--' : (card.value ?? 0)}</div>
+                                        ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}
                                     </div>
-                                `).join('');
+                                `;
+
+                                if (String(item?.service_id || '') === 'fixed-project_review_dashboard' && mid.length > 4) {
+                                    midCards.classList.add('w2-ads-mid--split');
+                                    const firstRow = mid.slice(0, 4);
+                                    const secondRow = mid.slice(4);
+                                    midCards.innerHTML = `
+                                        <div class="w2-ads-mid-split">
+                                            <div class="w2-ads-mid-row w2-ads-mid-row--4">
+                                                ${firstRow.map(cardTpl).join('')}
+                                            </div>
+                                            <div class="w2-ads-mid-row w2-ads-mid-row--5">
+                                                ${secondRow.map(cardTpl).join('')}
+                                            </div>
+                                        </div>
+                                    `;
+                                } else {
+                                    midCards.classList.remove('w2-ads-mid--split');
+                                    midCards.innerHTML = mid.map(cardTpl).join('');
+                                }
                             }
 
                             if (!lineCanvas || !queueCanvas || !reuseCanvas) {
                                 return;
                             }
 
+                            const primaryChartType = isProjectReviewFixed ? 'bar' : 'line';
                             const adsLineChart = ensureChart(`ads_line_${key}`, lineCanvas, {
-                                type: 'line',
+                                type: primaryChartType,
                                 data: {
                                     labels: [],
                                     datasets: [],
@@ -1706,7 +1929,7 @@
                                         },
                                         valueLabelsPlugin: {
                                             enabled: true,
-                                            mode: 'line',
+                                            mode: isProjectReviewFixed ? 'bar' : 'line',
                                             offset: 12,
                                             color: '#dce8f5',
                                         },
@@ -1714,7 +1937,7 @@
                                 },
                             });
 
-                            const adsBarChart = (!isProjectReviewFixed && barCanvas) ? ensureChart(`ads_bar_${key}`, barCanvas, {
+                            const adsBarChart = barCanvas ? ensureChart(`ads_bar_${key}`, barCanvas, {
                                 type: 'bar',
                                 data: {
                                     labels: [],
@@ -1797,7 +2020,7 @@
                                 },
                             });
 
-                            if (shouldUpdateComponent('ads_dashboard')) {
+                            if (shouldUpdateComponent(fixedDashboardComponent)) {
                                 updateChartData(
                                     adsLineChart,
                                     dashboard.line_chart?.labels || [],
@@ -1853,13 +2076,59 @@
                             const queueTotal = normalizeNumber(dashboard.queue_donut?.total ?? sumValues(dashboard.queue_donut?.values || []));
                             const reuseTotal = normalizeNumber(dashboard.reuse_donut?.total ?? sumValues(dashboard.reuse_donut?.values || []));
                             if (queueTotalNode) queueTotalNode.textContent = `Total: ${queueTotal}`;
-                            if (reuseTotalNode) reuseTotalNode.textContent = `Total: ${reuseTotal}`;
+                            if (reuseTotalNode) {
+                                if (isProjectReviewFixed) {
+                                    const recentRows = Array.isArray(dashboard.recent_productions) ? dashboard.recent_productions : [];
+                                    reuseTotalNode.textContent = `Total: ${recentRows.length}`;
+                                } else {
+                                    reuseTotalNode.textContent = `Total: ${reuseTotal}`;
+                                }
+                            }
 
                             const adsPoints = Array.isArray(dashboard.line_chart?.labels) ? dashboard.line_chart.labels.length : 0;
                             const adsSum = (dashboard.line_chart?.datasets || []).reduce((acc, ds) => {
                                 return acc + sumValues(ds?.data || []);
                             }, 0);
-                            setPointsBadge(key, 'ads_dashboard', adsPoints, adsSum);
+                            setPointsBadge(key, fixedDashboardComponent, adsPoints, adsSum);
+
+                            const lineHasData = sumValues((dashboard.line_chart?.datasets || []).flatMap((ds) => ds?.data || [])) > 0;
+                            const barHasData = sumValues((dashboard.bar_chart?.datasets || []).flatMap((ds) => ds?.data || [])) > 0;
+                            const queueHasData = sumValues(dashboard.queue_donut?.values || []) > 0;
+                            const reuseHasData = sumValues(dashboard.reuse_donut?.values || []) > 0;
+
+                            if (lineEmptyNode) lineEmptyNode.style.display = lineHasData ? 'none' : 'flex';
+                            if (barEmptyNode) barEmptyNode.style.display = barHasData ? 'none' : 'flex';
+                            if (queueEmptyNode) queueEmptyNode.style.display = queueHasData ? 'none' : 'flex';
+
+                            if (isProjectReviewFixed) {
+                                if (reuseCanvas) reuseCanvas.style.display = 'none';
+                                if (reuseListWrapNode) reuseListWrapNode.style.display = 'block';
+                                const recentRows = Array.isArray(dashboard.recent_productions) ? dashboard.recent_productions : [];
+                                if (reuseListNode) {
+                                    reuseListNode.innerHTML = recentRows.map((row) => `
+                                        <tr>
+                                            <td>${row.note || '-'}</td>
+                                            <td>${row.user_name || '-'}</td>
+                                            <td>${row.company_name || '-'}</td>
+                                            <td><span class="w2-tag" style="border-color:${row.status_color || '#9bb2ca'};color:${row.status_color || '#9bb2ca'}">${row.status_label || '--'}</span></td>
+                                            <td>${row.completed_at || '-'}</td>
+                                        </tr>
+                                    `).join('');
+                                }
+
+                                if (recentRows.length) {
+                                    if (reuseEmptyNode) reuseEmptyNode.style.display = 'none';
+                                    startListAutoScroll(`${key}__ads_reuse`, reuseListWrapNode);
+                                } else {
+                                    if (reuseEmptyNode) reuseEmptyNode.style.display = 'flex';
+                                    stopListAutoScroll(`${key}__ads_reuse`);
+                                }
+                            } else {
+                                if (reuseCanvas) reuseCanvas.style.display = 'block';
+                                if (reuseListWrapNode) reuseListWrapNode.style.display = 'none';
+                                if (reuseEmptyNode) reuseEmptyNode.style.display = reuseHasData ? 'none' : 'flex';
+                                stopListAutoScroll(`${key}__ads_reuse`);
+                            }
                         } else {
                             const queueCanvas = panel.querySelector(`#q_${key}`);
                             const noteTypeDonutCanvas = panel.querySelector(`#nd_${key}`);
@@ -2391,7 +2660,8 @@
                     await fetchPayload();
                     const first = currentDisplayScreen();
                     if (first) {
-                        await primeScreenOnce(first);
+                        primeScreenOnce(first)
+                            .catch((error) => console.error('wall-v2 prime first screen error', error));
                     }
                     rotateRemaining = screenDuration(currentScreen());
                     serviceRotateRemaining = serviceDuration(currentScreen());

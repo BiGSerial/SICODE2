@@ -49,6 +49,11 @@ Route::prefix('v1')->group(function () {
         ->whereNumber('wall')
         ->whereNumber('screen')
         ->name('api.v1.reports.production_wall_v2.item_charts');
+    Route::get('/reports/walls/{wall}/production-v2/{screen}/fixed/project-review', \App\Http\Controllers\Api\Reports\ProductionWallV2FixedProjectReviewController::class)
+        ->middleware(['web', 'auth', 'can:superadm'])
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('api.v1.reports.production_wall_v2.fixed.project_review');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [\App\Http\Controllers\Api\AuthController::class, 'me']);

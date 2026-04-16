@@ -3,19 +3,20 @@
 namespace App\Http\Controllers\Config;
 
 use App\Http\Controllers\Controller;
+use App\Models\Note;
 use App\Models\Service;
 use App\Models\SystemSetting;
 use App\Models\Wall;
 use App\Models\WallScreen;
 use App\Models\WallScreenService;
-use App\Services\Reports\ProductionWallV2DataService;
+use App\Services\Wall\WallDataOrchestrator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class WallController extends Controller
 {
-    public function index(ProductionWallV2DataService $wallService)
+    public function index(WallDataOrchestrator $wallService)
     {
         $walls = Wall::query()
             ->with(['screens' => function ($q) {
@@ -53,6 +54,7 @@ class WallController extends Controller
                 'supervision_repository' => 'Supervision Repository',
                 'survey_repository' => 'Survey Repository',
             ],
+            'productionFilterSchema' => $this->buildProductionFilterSchema(),
         ]);
     }
 
@@ -108,8 +110,8 @@ class WallController extends Controller
             'refresh_seconds' => 'required|integer|min:10|max:3600',
         ]);
 
-        SystemSetting::setValue(ProductionWallV2DataService::KEY_ROTATION_SECONDS, (string) $data['rotation_seconds']);
-        SystemSetting::setValue(ProductionWallV2DataService::KEY_REFRESH_SECONDS, (string) $data['refresh_seconds']);
+        SystemSetting::setValue(WallDataOrchestrator::KEY_ROTATION_SECONDS, (string) $data['rotation_seconds']);
+        SystemSetting::setValue(WallDataOrchestrator::KEY_REFRESH_SECONDS, (string) $data['refresh_seconds']);
 
         return back()->with('success', 'Configurações globais do WALL atualizadas.');
     }
@@ -351,9 +353,109 @@ class WallController extends Controller
 
             $config = $rawConfig;
             $config['source'] = $source;
+            $config['query_filters'] = $this->normalizeQueryFilters($config['query_filters'] ?? []);
             $normalized[$serviceId] = $config;
         }
 
         return $normalized;
+    }
+
+    private function normalizeQueryFilters(mixed $filters): array
+    {
+        if (!is_array($filters)) {
+            return [];
+        }
+
+        $allowedModes = ['include', 'exclude'];
+        $allowedScopes = ['base', 'relation'];
+        $allowedOperators = ['equals', 'starts_with', 'contains', 'ends_with'];
+
+        $normalized = [];
+        foreach ($filters as $index => $raw) {
+            if (!is_array($raw)) {
+                continue;
+            }
+
+            $mode = trim((string) ($raw['mode'] ?? 'include'));
+            $scope = trim((string) ($raw['scope'] ?? 'base'));
+            $column = trim((string) ($raw['column'] ?? ''));
+            $operator = trim((string) ($raw['operator'] ?? 'equals'));
+            $relation = trim((string) ($raw['relation'] ?? ''));
+            $value = array_key_exists('value', $raw) ? (string) ($raw['value'] ?? '') : '';
+
+            if (!in_array($mode, $allowedModes, true)) {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Filtro #{$index}: mode inválido.",
+                ]);
+            }
+
+            if (!in_array($scope, $allowedScopes, true)) {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Filtro #{$index}: scope inválido.",
+                ]);
+            }
+
+            if (!in_array($operator, $allowedOperators, true)) {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Filtro #{$index}: operator inválido.",
+                ]);
+            }
+
+            if ($column === '') {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Filtro #{$index}: coluna é obrigatória.",
+                ]);
+            }
+
+            if ($scope === 'relation' && $relation === '') {
+                throw ValidationException::withMessages([
+                    'production_sources_json' => "Filtro #{$index}: relation é obrigatória no escopo relation.",
+                ]);
+            }
+
+            $normalized[] = [
+                'mode' => $mode,
+                'scope' => $scope,
+                'relation' => $scope === 'relation' ? $relation : '',
+                'column' => $column,
+                'operator' => $operator,
+                'value' => $value,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function buildProductionFilterSchema(): array
+    {
+        $note = new Note();
+        $relations = ['Orders', 'WorkForm', 'Partials', 'FiveNote', 'Productions', 'RamalForm'];
+
+        $relationMap = [];
+        foreach ($relations as $relationName) {
+            try {
+                $relation = $note->{$relationName}();
+                $related = $relation->getRelated();
+                $relationMap[$relationName] = [
+                    'model' => $related::class,
+                    'columns' => method_exists($related, 'getFillable')
+                        ? array_values($related->getFillable())
+                        : [],
+                ];
+            } catch (\Throwable $e) {
+                $relationMap[$relationName] = [
+                    'model' => null,
+                    'columns' => [],
+                ];
+            }
+        }
+
+        return [
+            'base' => [
+                'model' => Note::class,
+                'columns' => array_values($note->getFillable()),
+            ],
+            'relations' => $relationMap,
+        ];
     }
 }
