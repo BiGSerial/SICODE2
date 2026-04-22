@@ -368,14 +368,16 @@ class ProjectReviewFixedDashboardDataService
         $labels = [...array_map('strval', range(0, $max - 1)), "{$max}+"];
         $ageExpr = "GREATEST(0, DATEDIFF(CURDATE(), DATE(p.completed_at)))";
         $totals = DB::table('productions as p')
+            ->join('project_review_cycles as cy', 'cy.production_id', '=', 'p.id')
             ->where('p.status', Production::STATUS_IN_PROJECT_REVIEW)
+            ->where('cy.decision', 'PENDING')
             ->whereNotNull('p.completed_at')
-            ->whereNotExists(function ($q) {
-                $q->selectRaw('1')
-                    ->from('project_review_cycles as cy')
-                    ->whereColumn('cy.production_id', 'p.id');
-            })
-            ->selectRaw("CASE WHEN {$ageExpr} >= {$max} THEN '{$max}+' ELSE CAST({$ageExpr} AS CHAR) END as bucket, COUNT(*) as total")
+            ->whereRaw('(
+                SELECT COUNT(*)
+                FROM project_review_cycles c2
+                WHERE c2.production_id = p.id
+            ) = 1')
+            ->selectRaw("CASE WHEN {$ageExpr} >= {$max} THEN '{$max}+' ELSE CAST({$ageExpr} AS CHAR) END as bucket, COUNT(DISTINCT p.id) as total")
             ->groupBy('bucket')->pluck('total', 'bucket')
             ->map(fn ($v) => (int) $v)->all();
 
