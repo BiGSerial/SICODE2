@@ -15,6 +15,7 @@ class AdsController extends Controller
     public function realtimeQueueDonut(Request $request, AdsRequestedReportService $service)
     {
         $filters = [
+            'statusFilter' => $request->query('statusFilter', 'all'),
             'date_in' => $request->query('date_in'),
             'date_out' => $request->query('date_out'),
             'completed_in' => $request->query('completed_in'),
@@ -22,6 +23,7 @@ class AdsController extends Controller
             'status_exact' => $request->query('status_exact'),
             'search' => $request->query('search'),
             'companyIds' => (array) $request->query('companyIds', []),
+            'chart_period' => $request->query('chart_period'),
         ];
 
         $series = $service->queueDonutSeries($filters);
@@ -91,6 +93,7 @@ class AdsController extends Controller
             'status_exact' => $request->query('status_exact'),
             'search' => $request->query('search'),
             'companyIds' => (array) $request->query('companyIds', []),
+            'chart_period' => $request->query('chart_period'),
         ];
 
         $series = $service->reuseEconomyDonutSeries($filters);
@@ -148,6 +151,7 @@ class AdsController extends Controller
     public function realtimeDemandDelivery(Request $request, AdsRequestedReportService $service)
     {
         $filters = [
+            'statusFilter' => $request->query('statusFilter', 'all'),
             'date_in' => $request->query('date_in'),
             'date_out' => $request->query('date_out'),
             'completed_in' => $request->query('completed_in'),
@@ -155,6 +159,7 @@ class AdsController extends Controller
             'status_exact' => $request->query('status_exact'),
             'search' => $request->query('search'),
             'companyIds' => (array) $request->query('companyIds', []),
+            'chart_period' => $request->query('chart_period'),
             'chart_granularity' => $request->query('chart_granularity'),
         ];
 

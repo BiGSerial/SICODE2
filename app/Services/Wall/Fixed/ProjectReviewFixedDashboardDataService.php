@@ -152,20 +152,22 @@ class ProjectReviewFixedDashboardDataService
         $histogram        = $measure('hist_unassoc',        fn () => $this->unassociatedQueueHistogram());
         $costCurrent      = $measure('cost_cur',            fn () => $this->costSummaryForWindow($periodStart, $periodEnd));
         $costPrev         = $measure('cost_prev',           fn () => $this->costSummaryForWindow($prevStart, $prevEnd));
-        $errorDonut       = $measure('donut_error',         fn () => $this->analyzedErrorDonutCurrentMonth());
-        $recentProds      = $measure('recent_prods',        fn () => $this->recentProductionsList(15));
+        $decisionDonut    = $measure('donut_decision',      fn () => $this->analyzedDecisionDonutCurrentMonth($periodStart, $periodEnd));
+        $recentProds      = $measure('recent_prods',        fn () => $this->recentProductionsList(30));
 
         $plannedTotal    = (float) ($costCurrent['planned_total_cost'] ?? 0);
-        $revisedTotal    = (float) ($costCurrent['revised_total_cost'] ?? 0);
         $plannedPrev     = (float) ($costPrev['planned_total_cost'] ?? 0);
-        $revisedPrev     = (float) ($costPrev['revised_total_cost'] ?? 0);
         $increaseTotal   = (float) ($costCurrent['increase_total_cost'] ?? 0);
         $increasePrev    = (float) ($costPrev['increase_total_cost'] ?? 0);
         $economyTotal    = (float) ($costCurrent['economy_total_cost'] ?? 0);
         $economyPrev     = (float) ($costPrev['economy_total_cost'] ?? 0);
         $maintained      = (int)   ($costCurrent['maintained_orders_count'] ?? 0);
         $maintainedPrev  = (int)   ($costPrev['maintained_orders_count'] ?? 0);
-        $netVariation    = (float) ($costCurrent['net_variation_cost'] ?? 0);
+        // Mantém consistência visual com o dashboard original:
+        // Revisado = Planejado + Acréscimos - Reduções.
+        $revisedTotal    = round($plannedTotal + $increaseTotal - $economyTotal, 2);
+        $revisedPrev     = round($plannedPrev + $increasePrev - $economyPrev, 2);
+        $netVariation    = round($increaseTotal - $economyTotal, 2);
         $netAbs          = abs($netVariation);
         $netPct          = $plannedTotal > 0 ? ($netAbs / $plannedTotal) * 100 : 0.0;
         $netUp           = $netVariation >= 0;
@@ -187,7 +189,7 @@ class ProjectReviewFixedDashboardDataService
         $hasData    = (
             array_sum(array_map('intval', $lineValues)) > 0
             || array_sum(array_map('intval', (array) ($histAssociated['values'] ?? []))) > 0
-            || (int) ($errorDonut['total'] ?? 0) > 0
+            || (int) ($decisionDonut['total'] ?? 0) > 0
             || !empty($recentProds)
         );
 
@@ -214,21 +216,29 @@ class ProjectReviewFixedDashboardDataService
                 'subtitle'          => sprintf('Período vigente %s a %s | Comparativo %s a %s | Gráficos: últimos 15 dias', $periodStart->format('d/m'), $periodEnd->format('d/m'), $prevStart->format('d/m'), $prevEnd->format('d/m')),
                 'line_chart_title'  => 'Pilha a Analisar (sem análise associada, dias na pilha)',
                 'bar_chart_title'   => 'Em análise não finalizado (dias desde devolução do analista)',
-                'queue_donut_title' => 'Composição da fila pendente',
-                'reuse_donut_title' => 'Composição do valor revisado',
+                'queue_donut_title' => 'Composição dos projetos analisados',
+                'reuse_donut_title' => 'Últimas Atualizações em Produções',
                 'has_data'          => $hasData,
                 'top_cards' => [
-                    $this->kpiCard('Valor planejado',        $this->fmt($plannedTotal),  $plannedTotal,  $plannedPrev,  'vs mês anterior', false, true),
-                    $this->kpiCard('Valor revisado total',   $this->fmt($revisedTotal),  $revisedTotal,  $revisedPrev,  'vs mês anterior', false, true),
-                    $this->kpiCard('Somatório de acréscimos',$this->fmt($increaseTotal), $increaseTotal, $increasePrev, 'vs mês anterior', false, true),
-                    $this->kpiCard('Somatório de reduções',  $this->fmt($economyTotal),  $economyTotal,  $economyPrev,  'vs mês anterior', true,  true),
-                    $this->kpiCard('Ordens sem alteração',   (string) $maintained,       $maintained,    $maintainedPrev, 'vs mês anterior'),
+                    array_merge(
+                        $this->kpiCard('Valor planejado', $this->fmt($plannedTotal), $plannedTotal, $plannedPrev, 'vs mês anterior', false, true),
+                        ['formula_operator_after' => '+']
+                    ),
+                    array_merge(
+                        $this->kpiCard('Somatório de acréscimos', $this->fmt($increaseTotal), $increaseTotal, $increasePrev, 'vs mês anterior', false, true),
+                        ['formula_operator_after' => '-']
+                    ),
+                    array_merge(
+                        $this->kpiCard('Somatório de reduções', $this->fmt($economyTotal), $economyTotal, $economyPrev, 'vs mês anterior', true, true),
+                        ['formula_operator_after' => '=']
+                    ),
+                    $this->kpiCard('Valor revisado total', $this->fmt($revisedTotal), $revisedTotal, $revisedPrev, 'vs mês anterior', false, true),
+                    ['label' => 'Fila atual', 'value' => (string) $pendingTotal],
                 ],
                 'middle_cards' => [
-                    ['label' => 'Diferença líquida (acréscimos - reduções)', 'value' => $this->fmt($netAbs), 'trend' => sprintf('%s %s (%s%%)', $netUp ? '↑' : '↓', $netUp ? 'Custo subiu' : 'Custo reduziu', number_format($netPct, 2, ',', '.')), 'trend_color' => $netUp ? '#ef4444' : '#22c55e', 'card_bg' => $netUp ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)', 'card_border' => $netUp ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)'],
-                    ['label' => 'Custo empresa (planejado x revisado)', 'value' => $this->fmt($companyDeltaAbs), 'trend' => sprintf('%s %s (%s%%)', $companyUp ? '↑' : '↓', $companyUp ? 'Custo subiu' : 'Custo reduziu', number_format($companyDeltaPct, 2, ',', '.')), 'trend_color' => $companyUp ? '#ef4444' : '#22c55e', 'card_bg' => $companyUp ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)', 'card_border' => $companyUp ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)'],
-                    ['label' => 'Custo cliente (planejado x revisado)', 'value' => $this->fmt($clientDeltaAbs), 'trend' => sprintf('%s %s (%s%%)', $clientUp ? '↑' : '↓', $clientUp ? 'Custo subiu' : 'Custo reduziu', number_format($clientDeltaPct, 2, ',', '.')), 'trend_color' => $clientUp ? '#ef4444' : '#22c55e', 'card_bg' => $clientUp ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)', 'card_border' => $clientUp ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)'],
-                    ['label' => 'Fila atual', 'value' => (string) $pendingTotal],
+                    ['label' => 'Diferença líquida (acréscimos - reduções)', 'value' => $this->fmt($netAbs), 'trend' => sprintf('%s %s%%', $netUp ? '↑' : '↓', number_format($netPct, 2, ',', '.')), 'trend_color' => $netUp ? '#ef4444' : '#22c55e', 'card_bg' => $netUp ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)', 'card_border' => $netUp ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)', 'inline_trend' => true],
+                    ['label' => 'Custo empresa (planejado x revisado)', 'value' => $this->fmt($companyDeltaAbs), 'trend' => sprintf('%s %s%%', $companyUp ? '↑' : '↓', number_format($companyDeltaPct, 2, ',', '.')), 'trend_color' => $companyUp ? '#ef4444' : '#22c55e', 'card_bg' => $companyUp ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)', 'card_border' => $companyUp ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)', 'inline_trend' => true],
+                    ['label' => 'Custo cliente (planejado x revisado)', 'value' => $this->fmt($clientDeltaAbs), 'trend' => sprintf('%s %s%%', $clientUp ? '↑' : '↓', number_format($clientDeltaPct, 2, ',', '.')), 'trend_color' => $clientUp ? '#ef4444' : '#22c55e', 'card_bg' => $clientUp ? 'rgba(239,68,68,.10)' : 'rgba(34,197,94,.10)', 'card_border' => $clientUp ? 'rgba(239,68,68,.35)' : 'rgba(34,197,94,.35)', 'inline_trend' => true],
                     $this->kpiCard('Sem análise associada', (string) $pendingWithoutCycle, $pendingWithoutCycle, 0, 'status 30 sem ciclo', false),
                     $this->kpiCard('Entradas no período',   (string) $pendingCycleCurrent,  $pendingCycleCurrent,  $pendingCyclePrev,  'MTD'),
                     $this->kpiCard('Retorno na fila',       (string) $pendingReturn,         $pendingReturnCycleCurrent, $pendingReturnCyclePrev, 'MTD retornos', false),
@@ -243,7 +253,7 @@ class ProjectReviewFixedDashboardDataService
                     'labels'   => $histAssociated['labels'],
                     'datasets' => [['label' => 'Em análise não finalizado', 'data' => $histAssociated['values'], 'backgroundColor' => 'rgba(56,189,248,.72)', 'borderColor' => 'rgba(56,189,248,1)', 'borderWidth' => 1]],
                 ],
-                'queue_donut' => ['labels' => $errorDonut['labels'], 'values' => $errorDonut['values'], 'colors' => $errorDonut['colors'], 'total' => (int) ($errorDonut['total'] ?? 0)],
+                'queue_donut' => ['labels' => $decisionDonut['labels'], 'values' => $decisionDonut['values'], 'colors' => $decisionDonut['colors'], 'total' => (int) ($decisionDonut['total'] ?? 0)],
                 'reuse_donut' => ['labels' => ['Revisado empresa', 'Revisado cliente'], 'values' => [round($revisedCompany, 2), round($revisedClient, 2)], 'colors' => ['rgba(20,184,166,.82)', 'rgba(14,165,233,.82)'], 'total' => round($revisedCompany + $revisedClient, 2), 'reuse_rate' => 0],
                 'recent_productions' => $recentProds,
             ],
@@ -356,12 +366,16 @@ class ProjectReviewFixedDashboardDataService
     {
         $max    = 30;
         $labels = [...array_map('strval', range(0, $max - 1)), "{$max}+"];
+        $ageExpr = "GREATEST(0, DATEDIFF(CURDATE(), DATE(p.completed_at)))";
         $totals = DB::table('productions as p')
-            ->leftJoin('project_review_cycles as cy', 'cy.production_id', '=', 'p.id')
             ->where('p.status', Production::STATUS_IN_PROJECT_REVIEW)
-            ->whereNull('cy.id')
             ->whereNotNull('p.completed_at')
-            ->selectRaw("CASE WHEN GREATEST(0, DATEDIFF(CURDATE(), DATE(p.completed_at))) >= {$max} THEN '{$max}+' ELSE CAST(GREATEST(0, DATEDIFF(CURDATE(), DATE(p.completed_at))) AS CHAR) END as bucket, COUNT(*) as total")
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('project_review_cycles as cy')
+                    ->whereColumn('cy.production_id', 'p.id');
+            })
+            ->selectRaw("CASE WHEN {$ageExpr} >= {$max} THEN '{$max}+' ELSE CAST({$ageExpr} AS CHAR) END as bucket, COUNT(*) as total")
             ->groupBy('bucket')->pluck('total', 'bucket')
             ->map(fn ($v) => (int) $v)->all();
 
@@ -386,35 +400,52 @@ class ProjectReviewFixedDashboardDataService
         return ['labels' => $labels, 'values' => array_map(fn ($l) => (int) ($totals[$l] ?? 0), $labels)];
     }
 
-    private function analyzedErrorDonutCurrentMonth(): array
+    private function analyzedDecisionDonutCurrentMonth(Carbon $start, Carbon $end): array
     {
         $rows = DB::table('project_review_cycles as cy')
             ->whereNotNull('cy.decided_at')
-            ->whereBetween('cy.decided_at', [now()->startOfMonth()->startOfDay(), now()->endOfDay()])
+            ->whereBetween('cy.decided_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->whereIn('cy.decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])
-            ->selectRaw("CASE WHEN cy.decision = 'REJECTED' THEN 'com_erro' ELSE 'sem_erro' END as kind, COUNT(*) as total")
+            ->selectRaw("cy.decision as kind, COUNT(*) as total")
             ->groupBy('kind')->get();
 
-        $withError = 0; $without = 0;
+        $rejected = 0;
+        $approved = 0;
+        $approvedWithRemarks = 0;
         foreach ($rows as $row) {
-            if ((string) ($row->kind ?? '') === 'com_erro') $withError += (int) $row->total;
-            else $without += (int) $row->total;
+            $kind = (string) ($row->kind ?? '');
+            if ($kind === 'REJECTED') {
+                $rejected += (int) $row->total;
+                continue;
+            }
+            if ($kind === 'APPROVED') {
+                $approved += (int) $row->total;
+                continue;
+            }
+            if ($kind === 'APPROVED_WITH_REMARKS') {
+                $approvedWithRemarks += (int) $row->total;
+            }
         }
 
-        return ['labels' => ['Com erro', 'Sem erro'], 'values' => [$withError, $without], 'colors' => ['rgba(239,68,68,.88)', 'rgba(59,130,246,.86)'], 'total' => $withError + $without];
+        return [
+            'labels' => ['Reprovados', 'Aprovados sem erro', 'Aprovados com ressalva'],
+            'values' => [$rejected, $approved, $approvedWithRemarks],
+            'colors' => ['rgba(239,68,68,.88)', 'rgba(59,130,246,.86)', 'rgba(245,158,11,.88)'],
+            'total' => $rejected + $approved + $approvedWithRemarks,
+        ];
     }
 
-    private function recentProductionsList(int $limit = 15): array
+    private function recentProductionsList(int $limit = 30): array
     {
         return Production::query()
             ->with(['Note:id,note', 'User:id,name', 'Company:id,name'])
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('project_review_cycles as cy')->whereColumn('cy.production_id', 'productions.id'))
-            ->whereNotNull('completed_at')
-            ->orderByDesc('completed_at')
+            ->orderByDesc('updated_at')
             ->limit($limit)
             ->get()
             ->map(function (Production $p) {
                 $meta = $this->statusMeta((int) ($p->status ?? 0));
+                $referenceAt = $p->updated_at ?? $p->completed_at ?? $p->created_at;
                 return [
                     'note'         => (string) ($p->Note?->note ?? '-'),
                     'user_name'    => $this->compactName((string) ($p->User?->name ?? '-')),
@@ -422,7 +453,7 @@ class ProjectReviewFixedDashboardDataService
                     'status_id'    => (int) ($p->status ?? 0),
                     'status_label' => $meta['label'],
                     'status_color' => $meta['color'],
-                    'completed_at' => optional($p->completed_at)->format('d/m/Y H:i') ?? '-',
+                    'reference_at' => optional($referenceAt)->format('d/m/Y H:i') ?? '-',
                 ];
             })->values()->all();
     }
@@ -582,6 +613,6 @@ class ProjectReviewFixedDashboardDataService
         if (count($parts) === 1) return $parts[0];
         $initials = '';
         for ($i = 1; $i < count($parts); $i++) $initials .= mb_strtoupper(mb_substr($parts[$i], 0, 1));
-        return $parts[0] . $initials;
+        return $parts[0] . ' ' . $initials;
     }
 }

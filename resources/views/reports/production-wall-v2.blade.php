@@ -272,6 +272,11 @@
                 -ms-overflow-style: none;
             }
 
+            .w2-chart__wrap > .w2-list__wrap {
+                height: 100%;
+                max-height: 100%;
+            }
+
             .w2-list__wrap::-webkit-scrollbar {
                 width: 0;
                 height: 0;
@@ -294,7 +299,8 @@
 
             .w2-table {
                 width: 100%;
-                border-collapse: collapse;
+                border-collapse: separate;
+                border-spacing: 0;
                 font-size: .78rem;
             }
 
@@ -312,6 +318,13 @@
                 position: sticky;
                 top: 0;
                 z-index: 2;
+                background: rgba(15, 31, 51, .98);
+            }
+
+            .w2-list__wrap .w2-table thead th {
+                position: sticky;
+                top: 0;
+                z-index: 3;
                 background: rgba(15, 31, 51, .98);
             }
 
@@ -334,6 +347,30 @@
                 display: grid;
                 grid-template-columns: repeat(5, minmax(0, 1fr));
                 gap: .45rem;
+            }
+
+            .w2-ads-top--formula {
+                display: flex;
+                align-items: stretch;
+                gap: .4rem;
+            }
+
+            .w2-ads-top--formula .w2-ads-card {
+                flex: 1 1 0;
+                min-width: 0;
+            }
+
+            .w2-ads-top-op {
+                min-width: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #9bb2ca;
+                font-size: 1.6rem;
+                font-weight: 800;
+                line-height: 1;
+                opacity: .9;
+                user-select: none;
             }
 
             .w2-ads-mid {
@@ -378,11 +415,30 @@
                 gap: .55rem;
             }
 
+            .w2-ads-left-bottom {
+                min-height: 0;
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: .55rem;
+            }
+
+            .w2-ads-left-bottom--split {
+                grid-template-columns: 7fr 5fr;
+            }
+
             .w2-ads-right {
                 min-height: 0;
                 display: grid;
                 grid-template-rows: 1fr 1fr;
                 gap: .55rem;
+            }
+
+            .w2-ads-right--single {
+                grid-template-rows: 1fr;
+            }
+
+            .w2-chart--fullheight .w2-chart__wrap {
+                height: 100%;
             }
 
             .w2-ads-card {
@@ -403,10 +459,34 @@
                 font-weight: 700;
             }
 
+            .w2-ads-card__v--money {
+                font-size: 1.28rem;
+                font-weight: 800;
+                letter-spacing: .01em;
+                color: #f8fbff;
+            }
+
+            .w2-ads-card__row {
+                margin-top: .12rem;
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: .5rem;
+            }
+
             .w2-ads-card__k {
                 margin-top: .15rem;
                 font-size: .68rem;
                 color: #9bb2ca;
+            }
+
+            .w2-ads-card__k--inline {
+                margin-top: 0;
+                text-align: right;
+                white-space: nowrap;
+                font-size: 1.28rem;
+                font-weight: 800;
+                line-height: 1;
             }
 
             @media (max-width: 1200px) {
@@ -448,6 +528,10 @@
                 }
 
                 .w2-ads-body {
+                    grid-template-columns: 1fr;
+                }
+
+                .w2-ads-left-bottom--split {
                     grid-template-columns: 1fr;
                 }
             }
@@ -777,16 +861,34 @@
                         const previousServiceId = String(previousItem?.service_id || '');
 
                         const raw = await response.json();
+                        const previousPayload = payload;
                         const nextPayload = normalize(raw);
                         const nextSignature = manifestSignature(nextPayload);
                         const changed = nextSignature !== lastManifestSignature;
                         payload = nextPayload;
                         lastManifestSignature = nextSignature;
-                        payload.screens = (payload.screens || []).map((screen) => ({
-                            ...screen,
-                            // Manifest traz estrutura; dados são carregados por item/charts.
-                            loaded: false,
-                        }));
+                        payload.screens = (payload.screens || []).map((screen) => {
+                            const previousScreenState = (previousPayload?.screens || []).find((s) => Number(s?.id || 0) === Number(screen?.id || 0));
+                            const previousItems = Array.isArray(previousScreenState?.items) ? previousScreenState.items : [];
+                            const mergedItems = (Array.isArray(screen?.items) ? screen.items : []).map((item) => {
+                                const previousItemState = previousItems.find((it) => String(it?.service_id || '') === String(item?.service_id || ''));
+                                if (!previousItemState) return item;
+                                const incomingCards = item?.cards || {};
+                                const previousCards = previousItemState?.cards || {};
+                                const incomingSum = objectNumericSum(incomingCards, ['queue_total', 'queue_ov', 'queue_notes', 'returned', 'previous_done', 'next_entry']);
+                                const previousSum = objectNumericSum(previousCards, ['queue_total', 'queue_ov', 'queue_notes', 'returned', 'previous_done', 'next_entry']);
+                                return {
+                                    ...item,
+                                    cards: (incomingSum > 0 || previousSum === 0) ? incomingCards : previousCards,
+                                };
+                            });
+                            return {
+                                ...screen,
+                                items: mergedItems,
+                                // Manifest traz estrutura; dados são carregados por item/charts.
+                                loaded: false,
+                            };
+                        });
                         try {
                             sessionStorage.setItem(payloadStorageKey(), JSON.stringify(raw));
                         } catch (e) {}
@@ -962,6 +1064,7 @@
 
                     const TOP_HOLD_MS = 5000;
                     const BOTTOM_HOLD_MS = 5000;
+                    const QUICK_UP_MS = 450;
 
                     const schedule = (fn, ms) => {
                         if (!listScrollLoops.has(panel)) return;
@@ -971,7 +1074,11 @@
                     const cycle = () => {
                         if (!listScrollLoops.has(panel)) return;
                         const maxScroll = Math.max(0, node.scrollHeight - node.clientHeight);
-                        if (maxScroll <= 2) return;
+                        if (maxScroll <= 2) {
+                            // Layout can still be settling on first render; retry until overflow exists.
+                            schedule(cycle, 2000);
+                            return;
+                        }
 
                         node.scrollTop = 0;
                         schedule(() => {
@@ -982,24 +1089,36 @@
 
                             const duration = Math.max(7000, Math.min(26000, distance * 14));
                             const startTs = performance.now();
-
-                            const step = (now) => {
+                            const stepDown = (now) => {
                                 if (!listScrollLoops.has(panel)) return;
                                 const elapsed = now - startTs;
                                 const progress = Math.max(0, Math.min(1, elapsed / duration));
                                 node.scrollTop = startTop + (distance * progress);
                                 if (progress < 1) {
-                                    state.raf = requestAnimationFrame(step);
+                                    state.raf = requestAnimationFrame(stepDown);
                                     return;
                                 }
                                 schedule(() => {
                                     if (!listScrollLoops.has(panel)) return;
-                                    node.scrollTop = 0;
-                                    cycle();
+                                    const upStart = node.scrollTop;
+                                    const upTs = performance.now();
+                                    const stepUp = (upNow) => {
+                                        if (!listScrollLoops.has(panel)) return;
+                                        const upElapsed = upNow - upTs;
+                                        const upProgress = Math.max(0, Math.min(1, upElapsed / QUICK_UP_MS));
+                                        node.scrollTop = upStart * (1 - upProgress);
+                                        if (upProgress < 1) {
+                                            state.raf = requestAnimationFrame(stepUp);
+                                            return;
+                                        }
+                                        node.scrollTop = 0;
+                                        cycle();
+                                    };
+                                    state.raf = requestAnimationFrame(stepUp);
                                 }, BOTTOM_HOLD_MS);
                             };
 
-                            state.raf = requestAnimationFrame(step);
+                            state.raf = requestAnimationFrame(stepDown);
                         }, TOP_HOLD_MS);
                     };
 
@@ -1017,7 +1136,18 @@
                     });
 
                     chart.data.labels = safeLabels;
-                    chart.data.datasets = safeDatasets;
+                    // Update datasets in-place to preserve Chart.js _metasets animation state
+                    // (animates old_value→new_value instead of 0→new_value)
+                    safeDatasets.forEach((ds, i) => {
+                        if (i < chart.data.datasets.length) {
+                            Object.assign(chart.data.datasets[i], ds);
+                        } else {
+                            chart.data.datasets.push({ ...ds });
+                        }
+                    });
+                    if (chart.data.datasets.length > safeDatasets.length) {
+                        chart.data.datasets.splice(safeDatasets.length);
+                    }
                     chart.update();
                 }
 
@@ -1127,7 +1257,7 @@
                             lineTitle: 'Pilha a Analisar (sem análise associada, dias na pilha)',
                             barTitle: 'Em análise não finalizado (dias desde devolução do analista)',
                             queueTitle: 'Composição da fila pendente',
-                            reuseTitle: 'Composição do valor revisado',
+                            reuseTitle: 'Últimas Atualizações em Produções',
                         };
                     }
                     if (serviceId === 'fixed-complaints_dashboard') {
@@ -1392,7 +1522,13 @@
                     const next = {
                         ...current
                     };
-                    if (component === 'cards' && hasMeaningfulData(component, data)) next.cards = data || current.cards || {};
+                    if (component === 'cards' && hasMeaningfulData(component, data)) {
+                        const incomingCards = (data && typeof data === 'object') ? data : {};
+                        const currentCards = current.cards || {};
+                        const incomingSum = objectNumericSum(incomingCards, ['queue_total', 'queue_ov', 'queue_notes', 'returned', 'previous_done', 'next_entry']);
+                        const currentSum = objectNumericSum(currentCards, ['queue_total', 'queue_ov', 'queue_notes', 'returned', 'previous_done', 'next_entry']);
+                        next.cards = (incomingSum > 0 || currentSum === 0) ? incomingCards : currentCards;
+                    }
                     if (component === 'week' && hasMeaningfulData(component, data)) next.week = data || current.week || {};
                     if (component === 'previous_service_name' && hasMeaningfulData(component, data)) next.previous_service_name = data ?? current.previous_service_name;
                     if (component === 'queue_histogram' && hasMeaningfulData(component, data)) next.queue_histogram = data || current.queue_histogram || {};
@@ -1691,17 +1827,19 @@
                                             <div class="w2-chart__t"><span id="ads_line_title_${key}">${fixedDefaults.lineTitle}</span> <span id="pts_ads_dashboard_${key}" style="float:right;color:#9bb2ca;margin-left:.5rem;">pts:0 sum:0</span><span id="ctr_ads_dashboard_${key}" style="float:right;color:#9bb2ca">--</span></div>
                                                 <div class="w2-chart__wrap"><canvas id="ads_line_${key}"></canvas><div class="w2-chart__empty" id="ads_line_empty_${key}">SEM DADOS</div></div>
                                             </div>
-                                            <div class="w2-chart">
-                                                <div class="w2-chart__t"><span id="ads_bar_title_${key}">${fixedDefaults.barTitle}</span></div>
-                                                <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas><div class="w2-chart__empty" id="ads_bar_empty_${key}">SEM DADOS</div></div>
+                                            <div class="w2-ads-left-bottom" id="ads_left_bottom_${key}">
+                                                <div class="w2-chart" id="ads_bar_card_${key}">
+                                                    <div class="w2-chart__t"><span id="ads_bar_title_${key}">${fixedDefaults.barTitle}</span></div>
+                                                    <div class="w2-chart__wrap"><canvas id="ads_bar_${key}"></canvas><div class="w2-chart__empty" id="ads_bar_empty_${key}">SEM DADOS</div></div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="w2-ads-right">
-                                            <div class="w2-chart">
+                                        <div class="w2-ads-right" id="ads_right_${key}">
+                                            <div class="w2-chart" id="ads_queue_card_${key}">
                                                 <div class="w2-chart__t"><span id="ads_queue_title_${key}">${fixedDefaults.queueTitle}</span> <span id="ads_queue_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
                                                 <div class="w2-chart__wrap"><canvas id="ads_queue_${key}"></canvas><div class="w2-chart__empty" id="ads_queue_empty_${key}">SEM DADOS</div></div>
                                             </div>
-                                            <div class="w2-chart">
+                                            <div class="w2-chart" id="ads_reuse_card_${key}">
                                                 <div class="w2-chart__t"><span id="ads_reuse_title_${key}">${fixedDefaults.reuseTitle}</span> <span id="ads_reuse_total_${key}" style="float:right;color:#9bb2ca">Total: 0</span></div>
                                                 <div class="w2-chart__wrap">
                                                     <canvas id="ads_reuse_${key}"></canvas>
@@ -1846,6 +1984,10 @@
                             const isProjectReviewFixed = String(item?.service_id || '') === 'fixed-project_review_dashboard';
                             const barChartBox = barCanvas ? barCanvas.closest('.w2-chart') : null;
                             const adsLeftGrid = lineCanvas ? lineCanvas.closest('.w2-ads-left') : null;
+                            const adsLeftBottomGrid = panel.querySelector(`#ads_left_bottom_${key}`);
+                            const adsRightGrid = panel.querySelector(`#ads_right_${key}`);
+                            const queueChartBox = panel.querySelector(`#ads_queue_card_${key}`);
+                            const reuseChartBox = panel.querySelector(`#ads_reuse_card_${key}`);
                             const isNoData = dashboard.has_data === false;
 
                             if (subNode) {
@@ -1858,22 +2000,61 @@
                             if (barChartBox) barChartBox.style.display = 'flex';
                             if (adsLeftGrid) adsLeftGrid.style.gridTemplateRows = '1fr 1fr';
 
+                            if (isProjectReviewFixed) {
+                                if (queueChartBox && adsLeftBottomGrid && queueChartBox.parentElement !== adsLeftBottomGrid) {
+                                    adsLeftBottomGrid.appendChild(queueChartBox);
+                                }
+                                if (adsLeftBottomGrid) adsLeftBottomGrid.classList.add('w2-ads-left-bottom--split');
+                                if (adsRightGrid) adsRightGrid.classList.add('w2-ads-right--single');
+                                if (reuseChartBox) reuseChartBox.classList.add('w2-chart--fullheight');
+                            } else {
+                                if (queueChartBox && adsRightGrid && queueChartBox.parentElement !== adsRightGrid) {
+                                    adsRightGrid.insertBefore(queueChartBox, adsRightGrid.firstChild || null);
+                                }
+                                if (adsLeftBottomGrid) adsLeftBottomGrid.classList.remove('w2-ads-left-bottom--split');
+                                if (adsRightGrid) adsRightGrid.classList.remove('w2-ads-right--single');
+                                if (reuseChartBox) reuseChartBox.classList.remove('w2-chart--fullheight');
+                            }
+
                             if (topCards) {
-                                topCards.innerHTML = top.map((card) => `
-                                    <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
-                                        <div class="w2-ads-card__l">${card.label || '-'}</div>
-                                        <div class="w2-ads-card__v">${isNoData ? '--' : (card.value ?? 0)}</div>
-                                        ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}
-                                    </div>
-                                `).join('');
+                                const hasFormulaOperators = isProjectReviewFixed && top.some((card) => String(card?.formula_operator_after || '').trim() !== '');
+                                if (hasFormulaOperators) {
+                                    topCards.classList.add('w2-ads-top--formula');
+                                    topCards.innerHTML = top.map((card) => {
+                                        const op = String(card?.formula_operator_after || '').trim();
+                                        return `
+                                            <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
+                                                <div class="w2-ads-card__l">${card.label || '-'}</div>
+                                                <div class="w2-ads-card__v ${(!isNoData && String(card.value || '').trim().startsWith('R$')) ? 'w2-ads-card__v--money' : ''}">${isNoData ? '--' : (card.value ?? 0)}</div>
+                                                ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}
+                                            </div>
+                                            ${op ? `<div class="w2-ads-top-op">${op}</div>` : ''}
+                                        `;
+                                    }).join('');
+                                } else {
+                                    topCards.classList.remove('w2-ads-top--formula');
+                                    topCards.innerHTML = top.map((card) => `
+                                        <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
+                                            <div class="w2-ads-card__l">${card.label || '-'}</div>
+                                            <div class="w2-ads-card__v ${(!isNoData && String(card.value || '').trim().startsWith('R$')) ? 'w2-ads-card__v--money' : ''}">${isNoData ? '--' : (card.value ?? 0)}</div>
+                                            ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}
+                                        </div>
+                                    `).join('');
+                                }
                             }
 
                             if (midCards) {
                                 const cardTpl = (card) => `
                                     <div class="w2-ads-card" style="background:${card.card_bg || 'rgba(255,255,255,.05)'};border-color:${card.card_border || 'rgba(255,255,255,.12)'};">
                                         <div class="w2-ads-card__l">${card.label || '-'}</div>
-                                        <div class="w2-ads-card__v">${isNoData ? '--' : (card.value ?? 0)}</div>
-                                        ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}
+                                        ${(!isNoData && card.inline_trend)
+                                            ? `<div class="w2-ads-card__row">
+                                                    <div class="w2-ads-card__v ${String(card.value || '').trim().startsWith('R$') ? 'w2-ads-card__v--money' : ''}">${card.value ?? 0}</div>
+                                                    ${(card.trend ? `<div class="w2-ads-card__k w2-ads-card__k--inline" style="color:${card.trend_color || '#9bb2ca'}">${card.trend}</div>` : '')}
+                                               </div>`
+                                            : `<div class="w2-ads-card__v ${(!isNoData && String(card.value || '').trim().startsWith('R$')) ? 'w2-ads-card__v--money' : ''}">${isNoData ? '--' : (card.value ?? 0)}</div>
+                                               ${(isNoData || card.trend) ? `<div class="w2-ads-card__k" style="color:${isNoData ? '#9bb2ca' : (card.trend_color || '#9bb2ca')}">${isNoData ? '--' : card.trend}</div>` : ''}`
+                                        }
                                     </div>
                                 `;
 
@@ -2020,55 +2201,70 @@
                                 },
                             });
 
-                            if (shouldUpdateComponent(fixedDashboardComponent)) {
-                                updateChartData(
-                                    adsLineChart,
-                                    dashboard.line_chart?.labels || [],
-                                    (dashboard.line_chart?.datasets || []).map((ds) => ({
-                                        ...ds,
-                                        borderWidth: ds.borderWidth ?? 2,
-                                        pointRadius: ds.pointRadius ?? 2.5,
-                                    })),
-                                    false
-                                );
+                            const lineDatasets = (dashboard.line_chart?.datasets || []).map((ds) => ({
+                                ...ds,
+                                borderWidth: ds.borderWidth ?? 2,
+                                pointRadius: ds.pointRadius ?? 2.5,
+                            }));
+                            const barDatasets = (dashboard.bar_chart?.datasets || []).map((ds) => ({
+                                ...ds,
+                                borderWidth: ds.borderWidth ?? 1,
+                            }));
+                            const queueValues = Array.isArray(dashboard.queue_donut?.values) ? dashboard.queue_donut.values : [];
+                            const reuseValues = Array.isArray(dashboard.reuse_donut?.values) ? dashboard.reuse_donut.values : [];
+                            const lineHasData = sumValues(lineDatasets.flatMap((ds) => ds?.data || [])) > 0;
+                            const barHasData = sumValues(barDatasets.flatMap((ds) => ds?.data || [])) > 0;
+                            const queueHasData = sumValues(queueValues) > 0;
+                            const reuseHasData = sumValues(reuseValues) > 0;
 
-                                if (adsBarChart) {
+                            if (shouldUpdateComponent(fixedDashboardComponent)) {
+                                if (lineHasData) {
                                     updateChartData(
-                                        adsBarChart,
-                                        dashboard.bar_chart?.labels || [],
-                                        (dashboard.bar_chart?.datasets || []).map((ds) => ({
-                                            ...ds,
-                                            borderWidth: ds.borderWidth ?? 1,
-                                        })),
+                                        adsLineChart,
+                                        dashboard.line_chart?.labels || [],
+                                        lineDatasets,
                                         false
                                     );
                                 }
 
-                                updateChartData(
-                                    adsQueueDonut,
-                                    dashboard.queue_donut?.labels || [],
-                                    [{
-                                        label: 'Fila atual',
-                                        data: dashboard.queue_donut?.values || [],
-                                        backgroundColor: dashboard.queue_donut?.colors || ['#0ea5e9', '#6b7280', '#f59e0b'],
-                                        borderColor: '#ffffff',
-                                        borderWidth: 1,
-                                    }],
-                                    false
-                                );
+                                if (adsBarChart && barHasData) {
+                                    updateChartData(
+                                        adsBarChart,
+                                        dashboard.bar_chart?.labels || [],
+                                        barDatasets,
+                                        false
+                                    );
+                                }
 
-                                updateChartData(
-                                    adsReuseDonut,
-                                    dashboard.reuse_donut?.labels || [],
-                                    [{
-                                        label: 'Economia ADS',
-                                        data: dashboard.reuse_donut?.values || [],
-                                        backgroundColor: dashboard.reuse_donut?.colors || ['#059669', '#3b82f6'],
-                                        borderColor: '#ffffff',
-                                        borderWidth: 1,
-                                    }],
-                                    false
-                                );
+                                if (queueHasData) {
+                                    updateChartData(
+                                        adsQueueDonut,
+                                        dashboard.queue_donut?.labels || [],
+                                        [{
+                                            label: 'Fila atual',
+                                            data: queueValues,
+                                            backgroundColor: dashboard.queue_donut?.colors || ['#0ea5e9', '#6b7280', '#f59e0b'],
+                                            borderColor: '#ffffff',
+                                            borderWidth: 1,
+                                        }],
+                                        false
+                                    );
+                                }
+
+                                if (!isProjectReviewFixed && reuseHasData) {
+                                    updateChartData(
+                                        adsReuseDonut,
+                                        dashboard.reuse_donut?.labels || [],
+                                        [{
+                                            label: 'Economia ADS',
+                                            data: reuseValues,
+                                            backgroundColor: dashboard.reuse_donut?.colors || ['#059669', '#3b82f6'],
+                                            borderColor: '#ffffff',
+                                            borderWidth: 1,
+                                        }],
+                                        false
+                                    );
+                                }
                             }
 
                             const queueTotalNode = panel.querySelector(`#ads_queue_total_${key}`);
@@ -2091,11 +2287,6 @@
                             }, 0);
                             setPointsBadge(key, fixedDashboardComponent, adsPoints, adsSum);
 
-                            const lineHasData = sumValues((dashboard.line_chart?.datasets || []).flatMap((ds) => ds?.data || [])) > 0;
-                            const barHasData = sumValues((dashboard.bar_chart?.datasets || []).flatMap((ds) => ds?.data || [])) > 0;
-                            const queueHasData = sumValues(dashboard.queue_donut?.values || []) > 0;
-                            const reuseHasData = sumValues(dashboard.reuse_donut?.values || []) > 0;
-
                             if (lineEmptyNode) lineEmptyNode.style.display = lineHasData ? 'none' : 'flex';
                             if (barEmptyNode) barEmptyNode.style.display = barHasData ? 'none' : 'flex';
                             if (queueEmptyNode) queueEmptyNode.style.display = queueHasData ? 'none' : 'flex';
@@ -2111,7 +2302,7 @@
                                             <td>${row.user_name || '-'}</td>
                                             <td>${row.company_name || '-'}</td>
                                             <td><span class="w2-tag" style="border-color:${row.status_color || '#9bb2ca'};color:${row.status_color || '#9bb2ca'}">${row.status_label || '--'}</span></td>
-                                            <td>${row.completed_at || '-'}</td>
+                                            <td>${row.reference_at || row.completed_at || '-'}</td>
                                         </tr>
                                     `).join('');
                                 }
@@ -2560,7 +2751,8 @@
                                     );
                                 } else {
                                     if (donutEmptyNode) donutEmptyNode.style.display = 'flex';
-                                    updateChartDataAsync(donutChart, [], [], false);
+                                    // Don't clear chart data — preserve last state under overlay
+                                    // to avoid 0→value animation when data returns
                                 }
                             }
 

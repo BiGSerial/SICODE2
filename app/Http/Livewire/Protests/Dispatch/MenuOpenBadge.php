@@ -2,8 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Dispatch;
 
-use App\Enum\ProtestJobStatus;
-use App\Models\Protest;
+use App\Models\MedProtest;
 use Livewire\Component;
 
 class MenuOpenBadge extends Component
@@ -24,20 +23,13 @@ class MenuOpenBadge extends Component
 
     public function getCountProperty(): int
     {
-        return Protest::query()
-            ->whereHas('medProtests', function ($q) {
-                $q->where('statusSist', 'MEDA')
-                    ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
-                        $jobQuery->where(function ($statusQuery) {
-                            $statusQuery->whereNull('status')
-                                ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                        });
-                    })
-                    ->when($this->type === 'btzero', function ($typeQuery) {
-                        $typeQuery->identifiedAsBtzero();
-                    }, function ($typeQuery) {
-                        $typeQuery->notIdentifiedAsBtzero();
-                    });
+        return MedProtest::query()
+            ->where('statusSist', 'MEDA')
+            ->whereDoesntHave('ProtestJobs')
+            ->when($this->type === 'btzero', function ($typeQuery) {
+                $typeQuery->identifiedAsBtzero();
+            }, function ($typeQuery) {
+                $typeQuery->notIdentifiedAsBtzero();
             })
             ->count();
     }

@@ -165,7 +165,7 @@ class ProductionScreenDataService implements WallScreenDataService
         $queueTotalAll  = (clone $queueAllQuery)->count();
         $queueTotalOv   = (clone $queueOvQuery)->count();
 
-        $queueHistogram = $this->buildQueueAgeHistogram($queueAllQuery, $service->uuid);
+        $queueHistogram = $this->buildQueueAgeHistogram($queueOvQuery, $service->uuid);
         $noteTypeDonut  = $this->buildNoteTypeCoverageDonut($queueNotesQuery, $service->uuid);
 
         $productionOpenQuery = Production::query()
@@ -216,12 +216,12 @@ class ProductionScreenDataService implements WallScreenDataService
             ->whereNotNull('completed_at')
             ->whereBetween('completed_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->orderByDesc('completed_at')
-            ->limit(12)
+            ->limit(30)
             ->get()
             ->map(fn (Production $p) => [
                 'note'         => (string) ($p->Note?->note ?? '-'),
-                'user_name'    => (string) ($p->User?->name ?? '-'),
-                'company_name' => (string) ($p->Company?->name ?? '-'),
+                'user_name'    => $this->compactName((string) ($p->User?->name ?? '-')),
+                'company_name' => $this->compactCompany((string) ($p->Company?->name ?? '-')),
                 'type'         => $p->Reclaim ? 'RI' : 'Normal',
                 'completed_at' => optional($p->completed_at)->format('d/m/Y H:i') ?? '-',
             ])
@@ -618,5 +618,22 @@ class ProductionScreenDataService implements WallScreenDataService
     private function defaultRotation(): int
     {
         return max(10, (int) (SystemSetting::getValue('wall_v2_rotation_seconds', '180') ?? '180'));
+    }
+
+    private function compactName(string $name): string
+    {
+        $parts = array_values(array_filter(preg_split('/\s+/', trim($name)), fn ($p) => $p !== ''));
+        if (empty($parts)) return '-';
+        return count($parts) === 1 ? $parts[0] : $parts[0] . ' ' . $parts[count($parts) - 1];
+    }
+
+    private function compactCompany(string $name): string
+    {
+        $parts = array_values(array_filter(preg_split('/\s+/', trim($name)), fn ($p) => $p !== ''));
+        if (empty($parts)) return '-';
+        if (count($parts) === 1) return $parts[0];
+        $initials = '';
+        for ($i = 1; $i < count($parts); $i++) $initials .= mb_strtoupper(mb_substr($parts[$i], 0, 1));
+        return $parts[0] . ' ' . $initials;
     }
 }

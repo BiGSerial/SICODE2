@@ -37,9 +37,13 @@ class UserSlaDashboard extends Component
     public string $generalMeasuresBtzeroFilter = 'all'; // all | with_btzero | without_btzero
     public string $complaintsBtzeroFilter = 'without_btzero'; // all | without_btzero | only_btzero
     public ?string $medaHistogramBucket = null; // YYYY-MM
+    public ?string $medaHistogramStackFilter = null; // overdue | due_soon | within
     public string $medaHistogramSource = 'desired'; // desired | sla
     public ?int $medaHistogramYear = null;
     public string $medaHistogramBtzeroFilter = 'all'; // all | without_btzero | only_btzero
+    public ?string $medaDoneOpenCreatorId = null;
+    public ?string $medaOpenNoteTypeFilter = null; // NA | OU | PR
+    public ?string $medaDueWindowFilter = null; // overdue | due_soon | today | tomorrow | in_3_days
 
     public $usersOptions = [];
     public array $protestTypeOptions = [];
@@ -62,9 +66,13 @@ class UserSlaDashboard extends Component
         'generalMeasuresBtzeroFilter' => ['except' => 'all', 'as' => 'gmbf'],
         'complaintsBtzeroFilter' => ['except' => 'without_btzero', 'as' => 'cbf'],
         'medaHistogramBucket' => ['except' => null, 'as' => 'mhb'],
+        'medaHistogramStackFilter' => ['except' => null, 'as' => 'mhsf'],
         'medaHistogramSource' => ['except' => 'desired', 'as' => 'mhsrc'],
         'medaHistogramYear' => ['except' => null, 'as' => 'mhyear'],
         'medaHistogramBtzeroFilter' => ['except' => 'all', 'as' => 'mhbz'],
+        'medaDoneOpenCreatorId' => ['except' => null, 'as' => 'mdc'],
+        'medaOpenNoteTypeFilter' => ['except' => null, 'as' => 'mont'],
+        'medaDueWindowFilter' => ['except' => null, 'as' => 'mdwf'],
     ];
 
     public function mount()
@@ -123,9 +131,13 @@ class UserSlaDashboard extends Component
             'generalMeasuresBtzeroFilter',
             'complaintsBtzeroFilter',
             'medaHistogramBucket',
+            'medaHistogramStackFilter',
             'medaHistogramSource',
             'medaHistogramYear',
             'medaHistogramBtzeroFilter',
+            'medaDoneOpenCreatorId',
+            'medaOpenNoteTypeFilter',
+            'medaDueWindowFilter',
         ];
 
         $isProtestTypesNested = str_starts_with($propertyName, 'protestTypes.');
@@ -163,6 +175,80 @@ class UserSlaDashboard extends Component
         $this->resetPage('meda_open_dispatch_page');
     }
 
+    public function setMedaHistogramStackSelection(?string $bucket = null, ?string $segment = null): void
+    {
+        $normalizedSegment = $this->normalizeMedaHistogramSegment($segment);
+        if (!$normalizedSegment) {
+            return;
+        }
+
+        $previousBucket = $this->medaHistogramBucket;
+        $validBucket = $bucket && preg_match('/^\d{4}\-\d{2}$/', $bucket);
+        if ($validBucket) {
+            $this->medaHistogramBucket = $bucket;
+        }
+
+        if (
+            $this->medaHistogramStackFilter === $normalizedSegment
+            && (!$validBucket || $previousBucket === $bucket)
+        ) {
+            $this->medaHistogramStackFilter = null;
+            $this->resetPage('meda_open_dispatch_page');
+            return;
+        }
+
+        $this->medaHistogramStackFilter = $normalizedSegment;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function setMedaDoneOpenCreator(?string $creatorId = null): void
+    {
+        $creatorId = trim((string) $creatorId);
+        if ($creatorId === '') {
+            $this->medaDoneOpenCreatorId = null;
+            $this->resetPage('meda_open_dispatch_page');
+            return;
+        }
+
+        $this->medaDoneOpenCreatorId = $this->medaDoneOpenCreatorId === $creatorId ? null : $creatorId;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function setMedaOpenNoteTypeFilter(?string $noteType = null): void
+    {
+        $allowed = ['NA', 'OU', 'PR'];
+        $normalized = mb_strtoupper(trim((string) $noteType));
+
+        if ($normalized === '' || !in_array($normalized, $allowed, true)) {
+            $this->medaOpenNoteTypeFilter = null;
+            $this->resetPage('meda_open_dispatch_page');
+            return;
+        }
+
+        $this->medaOpenNoteTypeFilter = $this->medaOpenNoteTypeFilter === $normalized ? null : $normalized;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function setMedaDueWindowFilter(?string $filter = null): void
+    {
+        $allowed = ['overdue', 'due_soon', 'today', 'tomorrow', 'in_3_days'];
+        if (!$filter || !in_array($filter, $allowed, true)) {
+            $this->medaDueWindowFilter = null;
+            $this->resetPage('meda_open_dispatch_page');
+            return;
+        }
+
+        $this->medaDueWindowFilter = $this->medaDueWindowFilter === $filter ? null : $filter;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
+    public function clearMedaQuickFilters(): void
+    {
+        $this->medaOpenNoteTypeFilter = null;
+        $this->medaDueWindowFilter = null;
+        $this->resetPage('meda_open_dispatch_page');
+    }
+
     public function toggleMedaHistogramBucket(?string $bucket = null): void
     {
         if (!$bucket || !preg_match('/^\d{4}\-\d{2}$/', $bucket)) {
@@ -180,6 +266,7 @@ class UserSlaDashboard extends Component
         }
 
         $this->medaHistogramBucket = null;
+        $this->medaHistogramStackFilter = null;
         $this->resetPage('meda_open_dispatch_page');
     }
 
@@ -198,6 +285,7 @@ class UserSlaDashboard extends Component
         // O usuário ainda pode ajustar manualmente depois pelo filtro da própria lista.
         $this->openDispatchBtzeroFilter = $this->medaHistogramBtzeroFilter;
         $this->medaHistogramBucket = null;
+        $this->medaHistogramStackFilter = null;
         $this->resetPage('meda_open_dispatch_page');
     }
 
@@ -207,12 +295,14 @@ class UserSlaDashboard extends Component
             $this->medaDispatchFilter = 'all';
         }
         $this->medaHistogramBucket = null;
+        $this->medaHistogramStackFilter = null;
         $this->resetPage('meda_open_dispatch_page');
     }
 
     public function clearMedaHistogramFilter(): void
     {
         $this->medaHistogramBucket = null;
+        $this->medaHistogramStackFilter = null;
         $this->resetPage('meda_open_dispatch_page');
     }
 
@@ -406,11 +496,11 @@ class UserSlaDashboard extends Component
 
         if ($this->complaintsBtzeroFilter === 'without_btzero') {
             $query->whereDoesntHave('medProtests', function ($sub) {
-                $sub->where('protest_type', ProtestType::BTZERO->value);
+                $sub->identifiedAsBtzero();
             });
         } elseif ($this->complaintsBtzeroFilter === 'only_btzero') {
             $query->whereHas('medProtests', function ($sub) {
-                $sub->where('protest_type', ProtestType::BTZERO->value);
+                $sub->identifiedAsBtzero();
             });
         }
 
@@ -431,6 +521,28 @@ class UserSlaDashboard extends Component
         }
 
         return 'Sem classificacao';
+    }
+
+    protected function formatFirstAndLastName(?string $fullName, string $fallback = 'Sem responsável'): string
+    {
+        $name = trim((string) $fullName);
+        if ($name === '') {
+            return $fallback;
+        }
+
+        $parts = preg_split('/\s+/', $name) ?: [];
+        $parts = array_values(array_filter($parts, fn ($part) => trim((string) $part) !== ''));
+        $count = count($parts);
+
+        if ($count === 0) {
+            return $fallback;
+        }
+
+        if ($count === 1) {
+            return (string) $parts[0];
+        }
+
+        return (string) ($parts[0] . ' ' . $parts[$count - 1]);
     }
 
     protected function getDateRange(): array
@@ -1556,304 +1668,159 @@ class UserSlaDashboard extends Component
         ];
     }
 
-    protected function buildMedaOpenDesiredHistogram(Carbon $start, Carbon $end): array
+    protected function normalizeMedaHistogramSegment(?string $segment): ?string
     {
-        $windowStart = $start->copy()->startOfMonth();
-        $windowEnd = $end->copy()->endOfMonth();
-
-        $query = MedProtest::query()
-            ->tap(fn ($q) => $this->applyComplaintFiltersToMedProtestQuery($q))
-            ->with(['protest:id,tipoNota,dtConclusaoDesej,txtGrpCodificacao'])
-            ->with([
-                'ProtestJobs' => function ($jobQuery) {
-                    $jobQuery->where(function ($statusQuery) {
-                        $statusQuery->whereNull('status')
-                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                    })->where(function ($confirmedQuery) {
-                        $confirmedQuery->whereNull('confirmed')
-                            ->orWhere('confirmed', false);
-                    })->whereNull('finished_at')
-                        ->whereNotNull('sla_due_at')
-                        ->orderBy('sla_due_at');
-                },
-            ])
-            ->withCount([
-                'ProtestJobs as all_jobs_count',
-                'ProtestJobs as valid_jobs_count' => function ($q) {
-                    $q->where(function ($statusQuery) {
-                        $statusQuery->whereNull('status')
-                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                    });
-                },
-                'ProtestJobs as pending_valid_jobs_count' => function ($q) {
-                    $q->where(function ($statusQuery) {
-                        $statusQuery->whereNull('status')
-                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                    })->where(function ($confirmedQuery) {
-                        $confirmedQuery->whereNull('confirmed')
-                            ->orWhere('confirmed', false);
-                    });
-                },
-            ])
-            ->where('statusSist', 'MEDA')
-            ->where(function ($q) {
-                $q->whereHas('protest', function ($p) {
-                    $p->where('tipoNota', 'NA')
-                        ->whereNotNull('dtConclusaoDesej');
-                })->orWhere(function ($sub) {
-                    $sub->whereNotNull('dtFimMedidaDesej')
-                        ->whereHas('protest', function ($tipo) {
-                            $tipo->where(function ($t) {
-                                $t->where('tipoNota', '!=', 'NA')
-                                    ->orWhereNull('tipoNota');
-                            });
-                        });
-                });
-            });
-
-        $query = $this->applyMedProtestTypeFilter($query);
-
-        if ($this->medaHistogramBtzeroFilter === 'without_btzero') {
-            $query->notIdentifiedAsBtzero();
-        } elseif ($this->medaHistogramBtzeroFilter === 'only_btzero') {
-            $query->identifiedAsBtzero();
+        $normalized = Str::of((string) $segment)->lower()->trim()->replace('-', '_')->value();
+        if ($normalized === '') {
+            return null;
         }
 
-        if ($this->medaDispatchFilter === 'with_job') {
-            $query->whereHas('ProtestJobs', function ($jobQuery) {
-                $jobQuery->where(function ($statusQuery) {
-                    $statusQuery->whereNull('status')
-                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                });
-            });
-        } elseif ($this->medaDispatchFilter === 'without_job') {
-            $query->whereDoesntHave('ProtestJobs', function ($jobQuery) {
-                $jobQuery->where(function ($statusQuery) {
-                    $statusQuery->whereNull('status')
-                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                });
-            });
-        }
-
-        $measures = $query->get();
-
-        $withJobByMonth = [];
-        $withoutJobByMonth = [];
-        $btzeroWithJobByMonth = [];
-        $btzeroWithoutJobByMonth = [];
-        $totals = [];
-        $overdueByMonth = [];
-        $dueSoonByMonth = [];
-        $withinByMonth = [];
-        $yearsMap = [];
-        $totalWithJob = 0;
-        $totalWithoutJob = 0;
-        $totalBtzero = 0;
-        $totalBtzeroWithJob = 0;
-        $totalBtzeroWithoutJob = 0;
-
-        foreach ($measures as $measure) {
-            $desiredDate = (mb_strtoupper((string) ($measure->protest?->tipoNota ?? '')) === 'NA')
-                ? $measure->protest?->dtConclusaoDesej
-                : $measure->dtFimMedidaDesej;
-
-            $hasJob = ((int) ($measure->valid_jobs_count ?? 0)) > 0;
-            $isBtzero = $this->isBtzeroMeasure($measure);
-
-            $bucketDate = null;
-            if ($this->medaHistogramSource === 'sla') {
-                $pendingJob = $measure->ProtestJobs->first();
-                $bucketDate = $pendingJob?->sla_due_at;
-            } else {
-                $bucketDate = $desiredDate;
-            }
-
-            if (!$bucketDate) {
-                continue;
-            }
-
-            $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
-            if ($normalized->lt($windowStart) || $normalized->gt($windowEnd)) {
-                continue;
-            }
-            $year = (int) $normalized->format('Y');
-            $month = (int) $normalized->format('n');
-            $key = $normalized->format('Y-m');
-            $yearsMap[$year] = true;
-
-            if ($isBtzero) {
-                if ($hasJob) {
-                    $btzeroWithJobByMonth[$key] = ($btzeroWithJobByMonth[$key] ?? 0) + 1;
-                    $totalBtzeroWithJob++;
-                } else {
-                    $btzeroWithoutJobByMonth[$key] = ($btzeroWithoutJobByMonth[$key] ?? 0) + 1;
-                    $totalBtzeroWithoutJob++;
-                }
-            } else {
-                if ($hasJob) {
-                    $withJobByMonth[$key] = ($withJobByMonth[$key] ?? 0) + 1;
-                    $totalWithJob++;
-                } else {
-                    $withoutJobByMonth[$key] = ($withoutJobByMonth[$key] ?? 0) + 1;
-                    $totalWithoutJob++;
-                }
-            }
-
-            $totals[$year][$month] = ($totals[$year][$month] ?? 0) + 1;
-            $diff = now()->startOfDay()->diffInDays($normalized, false);
-            if ($diff < 0) {
-                $overdueByMonth[$year][$month] = ($overdueByMonth[$year][$month] ?? 0) + 1;
-            } elseif ($diff <= 3) {
-                $dueSoonByMonth[$year][$month] = ($dueSoonByMonth[$year][$month] ?? 0) + 1;
-            } else {
-                $withinByMonth[$year][$month] = ($withinByMonth[$year][$month] ?? 0) + 1;
-            }
-        }
-        $totalBtzero = $totalBtzeroWithJob + $totalBtzeroWithoutJob;
-
-        $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        $years = array_keys($yearsMap);
-        rsort($years);
-        $selectedYear = (int) ($this->medaHistogramYear ?: now()->year);
-        if (!empty($years) && !in_array($selectedYear, $years, true)) {
-            $selectedYear = (int) $years[0];
-            $this->medaHistogramYear = $selectedYear;
-        }
-
-        $overdueCounts = [];
-        $dueSoonCounts = [];
-        $withinCounts = [];
-        $monthTotals = [];
-        for ($m = 1; $m <= 12; $m++) {
-            $overdueCounts[] = (int) ($overdueByMonth[$selectedYear][$m] ?? 0);
-            $dueSoonCounts[] = (int) ($dueSoonByMonth[$selectedYear][$m] ?? 0);
-            $withinCounts[] = (int) ($withinByMonth[$selectedYear][$m] ?? 0);
-            $monthTotals[$m] = (int) ($totals[$selectedYear][$m] ?? 0);
-        }
-        $monthKeys = array_map(fn ($m) => sprintf('%04d-%02d', $selectedYear, $m), range(1, 12));
-        $selectedMonth = $this->medaHistogramBucket ? (int) substr($this->medaHistogramBucket, -2) : null;
-
-        $displayOverdueCounts = $overdueCounts;
-        $displayDueSoonCounts = $dueSoonCounts;
-        $displayWithinCounts = $withinCounts;
-
-        if ($selectedMonth) {
-            $displayOverdueCounts = array_map(
-                fn ($value, $index) => ($index + 1) === $selectedMonth ? $value : 0,
-                $overdueCounts,
-                array_keys($overdueCounts)
-            );
-            $displayDueSoonCounts = array_map(
-                fn ($value, $index) => ($index + 1) === $selectedMonth ? $value : 0,
-                $dueSoonCounts,
-                array_keys($dueSoonCounts)
-            );
-            $displayWithinCounts = array_map(
-                fn ($value, $index) => ($index + 1) === $selectedMonth ? $value : 0,
-                $withinCounts,
-                array_keys($withinCounts)
-            );
-        }
-
-        return [
-            'total_with_job' => $totalWithJob,
-            'total_without_job' => $totalWithoutJob,
-            'total_btzero' => $totalBtzero,
-            'total_btzero_with_job' => $totalBtzeroWithJob,
-            'total_btzero_without_job' => $totalBtzeroWithoutJob,
-            'total' => $totalWithJob + $totalWithoutJob + $totalBtzero,
-            'years' => $years,
-            'selectedYear' => $selectedYear,
-            'selectedMonth' => $selectedMonth,
-            'monthTotals' => $monthTotals,
-            'source' => $this->medaHistogramSource,
-            'chart' => [
-                'type' => 'bar',
-                'data' => [
-                    'labels' => $monthNames,
-                    'datasets' => [
-                        [
-                            'type' => 'bar',
-                            'label' => 'Vencidos',
-                            'data' => $displayOverdueCounts,
-                            'backgroundColor' => 'rgba(220,53,69,0.8)',
-                            'borderColor' => 'rgba(15,23,42,.45)',
-                            'borderWidth' => 1,
-                            'stack' => 'prazo',
-                        ],
-                        [
-                            'type' => 'bar',
-                            'label' => 'Vencendo',
-                            'data' => $displayDueSoonCounts,
-                            'backgroundColor' => 'rgba(255,193,7,0.8)',
-                            'borderColor' => 'rgba(15,23,42,.45)',
-                            'borderWidth' => 1,
-                            'stack' => 'prazo',
-                        ],
-                        [
-                            'type' => 'bar',
-                            'label' => 'A vencer',
-                            'data' => $displayWithinCounts,
-                            'backgroundColor' => 'rgba(25,135,84,0.8)',
-                            'borderColor' => 'rgba(15,23,42,.45)',
-                            'borderWidth' => 1,
-                            'stack' => 'prazo',
-                        ],
-                    ],
-                ],
-                'options' => [
-                    'responsive' => true,
-                    'maintainAspectRatio' => false,
-                    'plugins' => [
-                        'legend' => ['position' => 'top'],
-                        'title' => [
-                            'display' => true,
-                            'text' => 'Histograma de previsões mensais (em aberto)',
-                        ],
-                    ],
-                    'scales' => [
-                        'x' => ['stacked' => true],
-                        'y' => [
-                            'stacked' => true,
-                            'beginAtZero' => true,
-                            'title' => [
-                                'display' => true,
-                                'text' => 'Qtd de medidas',
-                            ],
-                        ],
-                    ],
-                    'onClickFilter' => [
-                        'enabled' => true,
-                        'method' => 'setMedaHistogramBucket',
-                        'mode' => 'index',
-                        'intersect' => false,
-                        'allowLabelFallback' => true,
-                        'keys' => $monthKeys,
-                    ],
-                ],
-            ],
-        ];
+        return match ($normalized) {
+            'overdue', 'vencido', 'vencidos' => 'overdue',
+            'due_soon', 'vencendo' => 'due_soon',
+            'within', 'a_vencer', 'a vencer' => 'within',
+            default => null,
+        };
     }
 
-    protected function buildMedaOpenDispatchList(): array
+    protected function applyMedaSegmentCondition($query, string $column, ?string $segment): void
     {
-        $validJobCondition = function ($jobQuery): void {
-            $jobQuery->where(function ($statusQuery) {
-                $statusQuery->whereNull('status')
-                    ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-            });
-        };
+        $normalizedSegment = $this->normalizeMedaHistogramSegment($segment);
+        if (!$normalizedSegment) {
+            return;
+        }
 
+        $todayStart = now()->startOfDay();
+        $dueSoonEnd = $todayStart->copy()->addDays(3)->endOfDay();
+
+        if ($normalizedSegment === 'overdue') {
+            $query->where($column, '<', $todayStart);
+            return;
+        }
+
+        if ($normalizedSegment === 'due_soon') {
+            $query->whereBetween($column, [$todayStart, $dueSoonEnd]);
+            return;
+        }
+
+        $query->where($column, '>', $dueSoonEnd);
+    }
+
+    protected function applyMedaDesiredDateWindowFilter(Builder $query, string $filter): void
+    {
+        $today = now()->startOfDay();
+        $tomorrow = $today->copy()->addDay();
+        $thirdDay = $today->copy()->addDays(3);
+        $dueSoonEnd = $today->copy()->addDays(3)->endOfDay();
+
+        $query->where(function (Builder $scope) use ($filter, $today, $tomorrow, $thirdDay, $dueSoonEnd) {
+            $scope->whereHas('protest', function ($p) use ($filter, $today, $tomorrow, $thirdDay, $dueSoonEnd) {
+                $p->where('tipoNota', 'NA')
+                    ->whereNotNull('dtConclusaoDesej');
+
+                if ($filter === 'overdue') {
+                    $p->where('dtConclusaoDesej', '<', $today);
+                } elseif ($filter === 'due_soon') {
+                    $p->whereBetween('dtConclusaoDesej', [$today, $dueSoonEnd]);
+                } elseif ($filter === 'today') {
+                    $p->whereDate('dtConclusaoDesej', $today);
+                } elseif ($filter === 'tomorrow') {
+                    $p->whereDate('dtConclusaoDesej', $tomorrow);
+                } elseif ($filter === 'in_3_days') {
+                    $p->whereDate('dtConclusaoDesej', $thirdDay);
+                }
+            })->orWhere(function (Builder $sub) use ($filter, $today, $tomorrow, $thirdDay, $dueSoonEnd) {
+                $sub->whereNotNull('dtFimMedidaDesej')
+                    ->whereHas('protest', function ($tipo) {
+                        $tipo->where(function ($t) {
+                            $t->where('tipoNota', '!=', 'NA')
+                                ->orWhereNull('tipoNota');
+                        });
+                    });
+
+                if ($filter === 'overdue') {
+                    $sub->where('dtFimMedidaDesej', '<', $today);
+                } elseif ($filter === 'due_soon') {
+                    $sub->whereBetween('dtFimMedidaDesej', [$today, $dueSoonEnd]);
+                } elseif ($filter === 'today') {
+                    $sub->whereDate('dtFimMedidaDesej', $today);
+                } elseif ($filter === 'tomorrow') {
+                    $sub->whereDate('dtFimMedidaDesej', $tomorrow);
+                } elseif ($filter === 'in_3_days') {
+                    $sub->whereDate('dtFimMedidaDesej', $thirdDay);
+                }
+            });
+        });
+    }
+
+    protected function applyMedaHistogramFilterOnOpenMeasures(Builder $query): void
+    {
+        $selectedSegment = $this->normalizeMedaHistogramSegment($this->medaHistogramStackFilter);
+        $hasBucket = $this->medaHistogramBucket && preg_match('/^\d{4}\-\d{2}$/', $this->medaHistogramBucket);
+        $bucketYear = null;
+        $bucketMonth = null;
+
+        if ($hasBucket) {
+            [$bucketYear, $bucketMonth] = explode('-', $this->medaHistogramBucket);
+            $bucketYear = (int) $bucketYear;
+            $bucketMonth = (int) $bucketMonth;
+        }
+
+        if (!$hasBucket && !$selectedSegment) {
+            return;
+        }
+
+        if ($this->medaHistogramSource === 'sla') {
+            $query->whereHas('ProtestJobs', function ($jobQuery) use ($bucketYear, $bucketMonth, $hasBucket, $selectedSegment) {
+                $jobQuery->where(function ($statusQuery) {
+                    $statusQuery->whereNull('status')
+                        ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
+                })->whereNull('finished_at')
+                    ->whereNotNull('sla_due_at');
+
+                if ($hasBucket) {
+                    $jobQuery->whereYear('sla_due_at', $bucketYear)
+                        ->whereMonth('sla_due_at', $bucketMonth);
+                }
+
+                $this->applyMedaSegmentCondition($jobQuery, 'sla_due_at', $selectedSegment);
+            });
+            return;
+        }
+
+        $query->where(function (Builder $scope) use ($bucketYear, $bucketMonth, $hasBucket, $selectedSegment) {
+            $scope->whereHas('protest', function ($p) use ($bucketYear, $bucketMonth, $hasBucket, $selectedSegment) {
+                $p->where('tipoNota', 'NA')
+                    ->whereNotNull('dtConclusaoDesej');
+
+                if ($hasBucket) {
+                    $p->whereYear('dtConclusaoDesej', $bucketYear)
+                        ->whereMonth('dtConclusaoDesej', $bucketMonth);
+                }
+
+                $this->applyMedaSegmentCondition($p, 'dtConclusaoDesej', $selectedSegment);
+            })->orWhere(function ($sub) use ($bucketYear, $bucketMonth, $hasBucket, $selectedSegment) {
+                $sub->whereNotNull('dtFimMedidaDesej')
+                    ->whereHas('protest', function ($tipo) {
+                        $tipo->where(function ($t) {
+                            $t->where('tipoNota', '!=', 'NA')
+                                ->orWhereNull('tipoNota');
+                        });
+                    });
+
+                if ($hasBucket) {
+                    $sub->whereYear('dtFimMedidaDesej', $bucketYear)
+                        ->whereMonth('dtFimMedidaDesej', $bucketMonth);
+                }
+
+                $this->applyMedaSegmentCondition($sub, 'dtFimMedidaDesej', $selectedSegment);
+            });
+        });
+    }
+
+    protected function buildMedaOpenBaseQuery(bool $applyDispatchFilter = true, bool $applyDueWindowFilter = true): Builder
+    {
         $query = MedProtest::query()
-            ->with([
-                'protest:id,nota,tipoNota,codecodf,dtAberturaNota,dtConclusaoDesej,type,txtGrpCodificacao',
-                'ProtestJobs' => function ($jobQuery) use ($validJobCondition) {
-                    $validJobCondition($jobQuery);
-                    $jobQuery->with('owner:id,name')
-                        ->orderByDesc('sent_at')
-                        ->orderByDesc('id');
-                },
-            ])
             ->where('statusSist', 'MEDA')
             ->where(function (Builder $scope) {
                 $scope->whereHas('protest', function ($p) {
@@ -1873,57 +1840,366 @@ class UserSlaDashboard extends Component
         $query = $this->applyMedProtestTypeFilter($query);
         $query = $this->applyComplaintFiltersToMedProtestQuery($query);
 
-        if ($this->medaHistogramBucket && preg_match('/^\d{4}\-\d{2}$/', $this->medaHistogramBucket)) {
-            [$bucketYear, $bucketMonth] = explode('-', $this->medaHistogramBucket);
-            $bucketYear = (int) $bucketYear;
-            $bucketMonth = (int) $bucketMonth;
+        if ($this->medaHistogramBtzeroFilter === 'without_btzero') {
+            $query->notIdentifiedAsBtzero();
+        } elseif ($this->medaHistogramBtzeroFilter === 'only_btzero') {
+            $query->identifiedAsBtzero();
+        }
 
-            if ($this->medaHistogramSource === 'sla') {
-                $query->whereHas('ProtestJobs', function ($jobQuery) use ($bucketYear, $bucketMonth) {
-                    $jobQuery->where(function ($statusQuery) {
-                        $statusQuery->whereNull('status')
-                            ->orWhere('status', '!=', ProtestJobStatus::CANCELED->value);
-                    })->whereNull('finished_at')
-                        ->whereYear('sla_due_at', $bucketYear)
-                        ->whereMonth('sla_due_at', $bucketMonth);
-                });
-            } else {
-                $query->where(function (Builder $scope) use ($bucketYear, $bucketMonth) {
-                    $scope->whereHas('protest', function ($p) use ($bucketYear, $bucketMonth) {
-                        $p->where('tipoNota', 'NA')
-                            ->whereNotNull('dtConclusaoDesej')
-                            ->whereYear('dtConclusaoDesej', $bucketYear)
-                            ->whereMonth('dtConclusaoDesej', $bucketMonth);
-                    })->orWhere(function ($sub) use ($bucketYear, $bucketMonth) {
-                        $sub->whereNotNull('dtFimMedidaDesej')
-                            ->whereYear('dtFimMedidaDesej', $bucketYear)
-                            ->whereMonth('dtFimMedidaDesej', $bucketMonth)
-                            ->whereHas('protest', function ($tipo) {
-                                $tipo->where(function ($t) {
-                                    $t->where('tipoNota', '!=', 'NA')
-                                        ->orWhereNull('tipoNota');
-                                });
-                            });
-                    });
-                });
+        if ($applyDispatchFilter) {
+            if ($this->medaDispatchFilter === 'with_job') {
+                $query->whereHas('ProtestJobs');
+            } elseif ($this->medaDispatchFilter === 'without_job') {
+                $query->whereDoesntHave('ProtestJobs');
             }
         }
 
-        if ($this->medaDispatchFilter === 'with_job') {
-            $query->whereHas('ProtestJobs', $validJobCondition);
-        } elseif ($this->medaDispatchFilter === 'without_job') {
-            $query->where('statusSist', 'MEDA')
-                ->whereDoesntHave('ProtestJobs', $validJobCondition);
+        if ($applyDueWindowFilter && !empty($this->medaDueWindowFilter)) {
+            $this->applyMedaDesiredDateWindowFilter($query, $this->medaDueWindowFilter);
         }
 
+        if (!empty($this->medaOpenNoteTypeFilter)) {
+            $noteType = mb_strtoupper((string) $this->medaOpenNoteTypeFilter);
+            $query->whereHas('protest', function ($protestQuery) use ($noteType) {
+                $protestQuery->whereRaw('UPPER(COALESCE(tipoNota, "")) = ?', [$noteType]);
+            });
+        }
+
+        return $query;
+    }
+
+    protected function buildMedaOpenDesiredHistogram(Carbon $start, Carbon $end): array
+    {
+        $query = $this->buildMedaOpenBaseQuery()
+            ->with(['protest:id,tipoNota,dtConclusaoDesej,txtGrpCodificacao'])
+            ->with([
+                'ProtestJobs' => function ($jobQuery) {
+                    $jobQuery->with('owner:id,name')
+                        ->orderByDesc('sent_at')
+                        ->orderByDesc('id');
+                },
+            ])
+            ->withCount([
+                'ProtestJobs as all_jobs_count',
+            ]);
+
+        $measures = $query->get();
+
+        $withJobByMonth = [];
+        $withoutJobByMonth = [];
+        $btzeroWithJobByMonth = [];
+        $btzeroWithoutJobByMonth = [];
+        $totals = [];
+        $overdueByMonth = [];
+        $dueSoonByMonth = [];
+        $withinByMonth = [];
+        $totalWithJob = 0;
+        $totalWithoutJob = 0;
+        $totalBtzero = 0;
+        $totalBtzeroWithJob = 0;
+        $totalBtzeroWithoutJob = 0;
+
+        foreach ($measures as $measure) {
+            $desiredDate = (mb_strtoupper((string) ($measure->protest?->tipoNota ?? '')) === 'NA')
+                ? $measure->protest?->dtConclusaoDesej
+                : $measure->dtFimMedidaDesej;
+
+            $hasJob = ((int) ($measure->all_jobs_count ?? 0)) > 0;
+            $isBtzero = $this->isBtzeroMeasure($measure);
+
+            $bucketDate = null;
+            if ($this->medaHistogramSource === 'sla') {
+                $pendingJob = $measure->ProtestJobs->first(function ($job) {
+                    $statusRaw = $job->status ?? '';
+                    $status = $statusRaw instanceof ProtestJobStatus
+                        ? $statusRaw->value
+                        : mb_strtolower((string) $statusRaw);
+                    $isCanceled = $status === ProtestJobStatus::CANCELED->value;
+                    $isConfirmed = (bool) ($job->confirmed ?? false);
+                    return !$isCanceled
+                        && !$isConfirmed
+                        && is_null($job->finished_at)
+                        && !is_null($job->sla_due_at);
+                });
+                // Mantém o universo idêntico ao da lista: se não houver SLA de job,
+                // cai para data desejada da medida.
+                $bucketDate = $pendingJob?->sla_due_at ?? $desiredDate;
+            } else {
+                $bucketDate = $desiredDate;
+            }
+
+            if (!$bucketDate) {
+                continue;
+            }
+
+            $normalized = Carbon::parse($bucketDate)->copy()->startOfDay();
+            $key = $normalized->format('Y-m');
+
+            if ($isBtzero) {
+                if ($hasJob) {
+                    $btzeroWithJobByMonth[$key] = ($btzeroWithJobByMonth[$key] ?? 0) + 1;
+                    $totalBtzeroWithJob++;
+                } else {
+                    $btzeroWithoutJobByMonth[$key] = ($btzeroWithoutJobByMonth[$key] ?? 0) + 1;
+                    $totalBtzeroWithoutJob++;
+                }
+            } else {
+                if ($hasJob) {
+                    $withJobByMonth[$key] = ($withJobByMonth[$key] ?? 0) + 1;
+                    $totalWithJob++;
+                } else {
+                    $withoutJobByMonth[$key] = ($withoutJobByMonth[$key] ?? 0) + 1;
+                    $totalWithoutJob++;
+                }
+            }
+
+            $totals[$key] = ($totals[$key] ?? 0) + 1;
+            $diff = now()->startOfDay()->diffInDays($normalized, false);
+            if ($diff < 0) {
+                $overdueByMonth[$key] = ($overdueByMonth[$key] ?? 0) + 1;
+            } elseif ($diff <= 3) {
+                $dueSoonByMonth[$key] = ($dueSoonByMonth[$key] ?? 0) + 1;
+            } else {
+                $withinByMonth[$key] = ($withinByMonth[$key] ?? 0) + 1;
+            }
+        }
+        $totalBtzero = $totalBtzeroWithJob + $totalBtzeroWithoutJob;
+
+        $monthKeys = array_keys($totals);
+        sort($monthKeys);
+        $selectedBucket = in_array((string) $this->medaHistogramBucket, $monthKeys, true)
+            ? (string) $this->medaHistogramBucket
+            : null;
+        $overdueCounts = [];
+        $dueSoonCounts = [];
+        $withinCounts = [];
+        $monthTotals = [];
+        $monthLabels = [];
+        foreach ($monthKeys as $bucketKey) {
+            $overdueCounts[] = (int) ($overdueByMonth[$bucketKey] ?? 0);
+            $dueSoonCounts[] = (int) ($dueSoonByMonth[$bucketKey] ?? 0);
+            $withinCounts[] = (int) ($withinByMonth[$bucketKey] ?? 0);
+            $monthTotals[$bucketKey] = (int) ($totals[$bucketKey] ?? 0);
+            $monthLabels[] = Carbon::createFromFormat('Y-m', $bucketKey)->format('m/Y');
+        }
+        $monthLabelsMap = [];
+        foreach ($monthKeys as $index => $bucketKey) {
+            $monthLabelsMap[$bucketKey] = $monthLabels[$index] ?? $bucketKey;
+        }
+
+        $displayMonthKeys = $monthKeys;
+        $displayMonthLabels = $monthLabels;
+        $displayOverdueCounts = $overdueCounts;
+        $displayDueSoonCounts = $dueSoonCounts;
+        $displayWithinCounts = $withinCounts;
+
+        if ($selectedBucket) {
+            $idx = array_search($selectedBucket, $monthKeys, true);
+            if ($idx !== false) {
+                $displayMonthKeys = [$selectedBucket];
+                $displayMonthLabels = [$monthLabels[$idx] ?? $selectedBucket];
+                $displayOverdueCounts = [(int) ($overdueCounts[$idx] ?? 0)];
+                $displayDueSoonCounts = [(int) ($dueSoonCounts[$idx] ?? 0)];
+                $displayWithinCounts = [(int) ($withinCounts[$idx] ?? 0)];
+            }
+        }
+
+        $overdueTotal = (int) array_sum($displayOverdueCounts);
+        $dueSoonTotal = (int) array_sum($displayDueSoonCounts);
+        $withinTotal = (int) array_sum($displayWithinCounts);
+        $stackTotals = array_map(
+            fn ($overdue, $dueSoon, $within) => (int) $overdue + (int) $dueSoon + (int) $within,
+            $displayOverdueCounts,
+            $displayDueSoonCounts,
+            $displayWithinCounts
+        );
+
+        return [
+            'total_with_job' => $totalWithJob,
+            'total_without_job' => $totalWithoutJob,
+            'total_btzero' => $totalBtzero,
+            'total_btzero_with_job' => $totalBtzeroWithJob,
+            'total_btzero_without_job' => $totalBtzeroWithoutJob,
+            'total' => $totalWithJob + $totalWithoutJob + $totalBtzero,
+            'years' => [],
+            'selectedYear' => null,
+            'selectedMonth' => null,
+            'selectedBucket' => $selectedBucket,
+            'selectedSegment' => $this->normalizeMedaHistogramSegment($this->medaHistogramStackFilter),
+            'monthKeys' => $monthKeys,
+            'monthTotals' => $monthTotals,
+            'monthLabels' => $monthLabelsMap,
+            'source' => $this->medaHistogramSource,
+            'chart' => [
+                'type' => 'bar',
+                'data' => [
+                    'labels' => $displayMonthLabels,
+                    'datasets' => [
+                        [
+                            'type' => 'bar',
+                            'label' => "Vencidos ({$overdueTotal})",
+                            'data' => $displayOverdueCounts,
+                            'backgroundColor' => 'rgba(33,46,62,0.85)',
+                            'borderColor' => '#212E3E',
+                            'borderWidth' => 1,
+                            'stack' => 'prazo',
+                            'datalabels' => [
+                                'display' => false,
+                            ],
+                        ],
+                        [
+                            'type' => 'bar',
+                            'label' => "Vencendo ({$dueSoonTotal})",
+                            'data' => $displayDueSoonCounts,
+                            'backgroundColor' => 'rgba(40,255,82,0.85)',
+                            'borderColor' => '#28FF52',
+                            'borderWidth' => 1,
+                            'stack' => 'prazo',
+                            'datalabels' => [
+                                'display' => false,
+                            ],
+                        ],
+                        [
+                            'type' => 'bar',
+                            'label' => "A vencer ({$withinTotal})",
+                            'data' => $displayWithinCounts,
+                            'backgroundColor' => 'rgba(124,149,153,0.85)',
+                            'borderColor' => '#7C9599',
+                            'borderWidth' => 1,
+                            'stack' => 'prazo',
+                            'datalabels' => [
+                                'display' => true,
+                                'labels' => [
+                                    'total' => [
+                                        'display' => true,
+                                        'anchor' => 'end',
+                                        'align' => 'top',
+                                        'offset' => 8,
+                                        'color' => '#1f2937',
+                                        'font' => ['weight' => 'bold', 'size' => 11],
+                                        'formatter' => '__TOTAL_FROM_SERIES__',
+                                        'totalSeries' => $stackTotals,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'options' => [
+                    'responsive' => true,
+                    'maintainAspectRatio' => false,
+                    'layout' => [
+                        'padding' => [
+                            'top' => 10,
+                        ],
+                    ],
+                    'plugins' => [
+                        'legend' => [
+                            'position' => 'top',
+                            'labels' => [
+                                'padding' => 14,
+                            ],
+                        ],
+                        'title' => [
+                            'display' => true,
+                            'text' => 'Histograma de previsões mensais (em aberto)',
+                        ],
+                        'datalabels' => [
+                            'display' => true,
+                        ],
+                    ],
+                    'scales' => [
+                        'x' => ['stacked' => true],
+                        'y' => [
+                            'stacked' => true,
+                            'beginAtZero' => true,
+                            'grace' => '20%',
+                            'title' => [
+                                'display' => true,
+                                'text' => 'Qtd de medidas',
+                            ],
+                        ],
+                    ],
+                    'onClickFilter' => [
+                        'enabled' => true,
+                        'method' => 'setMedaHistogramStackSelection',
+                        'mode' => 'index',
+                        'intersect' => false,
+                        'allowLabelFallback' => true,
+                        'withDataset' => true,
+                        'keys' => $displayMonthKeys,
+                        'datasetKeys' => ['overdue', 'due_soon', 'within'],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    protected function buildMedaOpenDispatchList(): array
+    {
+        $query = $this->buildMedaOpenBaseQuery()
+            ->with([
+                'protest:id,nota,tipoNota,codecodf,dtAberturaNota,dtConclusaoDesej,type,txtGrpCodificacao',
+                'ProtestJobs' => function ($jobQuery) {
+                    $jobQuery->with(['owner:id,name', 'creator:id,name'])
+                        ->orderByDesc('sent_at')
+                        ->orderByDesc('id');
+                },
+            ]);
+
+        if ($this->medaDoneOpenCreatorId) {
+            $creatorId = (string) $this->medaDoneOpenCreatorId;
+            $query->whereHas('ProtestJobs', function ($jobQuery) use ($creatorId) {
+                $jobQuery->where('created_by', $creatorId)
+                    ->whereNotNull('finished_at')
+                    ->where('status', ProtestJobStatus::DONE->value);
+            })->whereHas('ProtestJobs')
+                ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                    $jobQuery->where(function ($pending) {
+                        $pending->whereNull('finished_at')
+                            ->orWhere('status', '!=', ProtestJobStatus::DONE->value);
+                    });
+                });
+
+            // Garante alinhamento com o painel de agrupamento:
+            // o criador filtrado precisa ser o do último job concluído da medida.
+            $query->whereExists(function ($subQuery) use ($creatorId) {
+                $subQuery->selectRaw('1')
+                    ->from('protest_jobs as pj')
+                    ->whereColumn('pj.med_protest_id', 'med_protests.id')
+                    ->where('pj.created_by', $creatorId)
+                    ->whereNotNull('pj.finished_at')
+                    ->where('pj.status', ProtestJobStatus::DONE->value)
+                    ->whereRaw(
+                        'pj.id = (
+                            SELECT pj2.id
+                            FROM protest_jobs pj2
+                            WHERE pj2.med_protest_id = med_protests.id
+                            ORDER BY pj2.finished_at DESC, pj2.id DESC
+                            LIMIT 1
+                        )'
+                    );
+            });
+        }
+
+        $this->applyMedaHistogramFilterOnOpenMeasures($query);
+
         $totalWithoutDispatch = (clone $query)
-            ->where('statusSist', 'MEDA')
-            ->whereDoesntHave('ProtestJobs', $validJobCondition)
+            ->whereDoesntHave('ProtestJobs')
             ->count();
 
         $totalDispatchedOpen = (clone $query)
-            ->whereHas('ProtestJobs', $validJobCondition)
+            ->whereHas('ProtestJobs')
             ->count();
+
+        $noteTypeCounts = ['NA' => 0, 'OU' => 0, 'PR' => 0];
+        $typeRows = (clone $query)->with(['protest:id,tipoNota'])->get();
+        foreach ($typeRows as $measure) {
+            $type = mb_strtoupper((string) ($measure->protest?->tipoNota ?? ''));
+            if (isset($noteTypeCounts[$type])) {
+                $noteTypeCounts[$type]++;
+            }
+        }
 
         $list = $query
             ->orderByRaw("
@@ -1941,7 +2217,23 @@ class UserSlaDashboard extends Component
         $now = now()->startOfDay();
 
         $list->setCollection($list->getCollection()->map(function (MedProtest $measure) use ($now) {
-            $pendingJob = $measure->ProtestJobs->first();
+            $pendingJob = $measure->ProtestJobs->first(function ($job) {
+                $statusRaw = $job->status ?? '';
+                $status = $statusRaw instanceof ProtestJobStatus
+                    ? $statusRaw->value
+                    : mb_strtolower((string) $statusRaw);
+                return $status === '' || $status !== ProtestJobStatus::CANCELED->value;
+            }) ?? $measure->ProtestJobs->first();
+            $displayJob = $pendingJob;
+            if (!empty($this->medaDoneOpenCreatorId)) {
+                $displayJob = $measure->ProtestJobs->first(function ($job) {
+                    return !is_null($job->finished_at)
+                        && (
+                            $job->status === ProtestJobStatus::DONE
+                            || (string) $job->status === ProtestJobStatus::DONE->value
+                        );
+                }) ?? $pendingJob;
+            }
             $desiredAt = $this->resolveMeasureDesiredDate($measure);
             $statusSist = mb_strtoupper((string) ($measure->statusSist ?? ''));
             $isMede = $statusSist === 'MEDE';
@@ -1966,9 +2258,14 @@ class UserSlaDashboard extends Component
                     if ($deltaDesired < 0) {
                         $desiredInfo['class'] = 'bg-danger';
                         $desiredInfo['detail'] = 'Vencido ha ' . abs($deltaDesired) . ' d';
-                    } elseif ($deltaDesired === 0) {
-                        $desiredInfo['class'] = 'bg-warning text-dark';
-                        $desiredInfo['detail'] = 'Vence hoje';
+                    } elseif ($deltaDesired <= 3) {
+                        if ($deltaDesired === 0) {
+                            $desiredInfo['class'] = 'bg-warning text-danger';
+                            $desiredInfo['detail'] = 'Vence hoje';
+                        } else {
+                            $desiredInfo['class'] = 'bg-warning text-dark';
+                            $desiredInfo['detail'] = 'Vence em ' . $deltaDesired . ' d';
+                        }
                     } else {
                         $desiredInfo['class'] = 'bg-success';
                         $desiredInfo['detail'] = 'Faltam ' . $deltaDesired . ' d';
@@ -2003,9 +2300,14 @@ class UserSlaDashboard extends Component
                     if ($deltaSla < 0) {
                         $slaInfo['class'] = 'bg-danger';
                         $slaInfo['detail'] = 'Vencido ha ' . max(1, abs($deltaSla)) . ' d';
-                    } elseif ($nowDateTime->isSameDay($slaDueAt)) {
-                        $slaInfo['class'] = 'bg-warning text-dark';
-                        $slaInfo['detail'] = 'Vence hoje';
+                    } elseif ($deltaSla <= 3) {
+                        if ($nowDateTime->isSameDay($slaDueAt)) {
+                            $slaInfo['class'] = 'bg-warning text-danger';
+                            $slaInfo['detail'] = 'Vence hoje';
+                        } else {
+                            $slaInfo['class'] = 'bg-warning text-dark';
+                            $slaInfo['detail'] = 'Vence em ' . $deltaSla . ' d';
+                        }
                     } else {
                         $slaInfo['class'] = 'bg-success';
                         $slaInfo['detail'] = 'Faltam ' . $deltaSla . ' d';
@@ -2013,10 +2315,11 @@ class UserSlaDashboard extends Component
                 }
             }
 
-            $statusSlaLabel = $pendingJob?->status_label ?? 'Não Despachado';
-            $statusSlaClass = $pendingJob?->status_badge_class ?? 'badge bg-secondary';
+            $statusSlaLabel = $displayJob?->status_label ?? 'Não Despachado';
+            $statusSlaClass = $displayJob?->status_badge_class ?? 'badge bg-secondary';
 
             return [
+                'id' => $measure->id,
                 'med_id' => $measure->med_id,
                 'nota' => $measure->protest->nota ?? '---',
                 'tipo_nota' => $measure->protest->tipoNota ?? '---',
@@ -2027,12 +2330,13 @@ class UserSlaDashboard extends Component
                 'abertura_reclamacao' => $measure->protest?->dtAberturaNota?->format('d/m/Y') ?? '---',
                 'abertura_medida' => $measure->dtCriacaoMedida?->format('d/m/Y') ?? '---',
                 'desired_info' => $desiredInfo,
-                'despachado_em' => $pendingJob?->sent_at?->format('d/m/Y H:i') ?? '---',
+                'despachado_em' => $displayJob?->sent_at?->format('d/m/Y H:i') ?? '---',
                 'sla_info' => $slaInfo,
                 'sap_status' => $isMede ? 'ENC' : 'ABER',
                 'sap_class' => $isMede ? 'bg-success' : 'bg-warning text-dark',
-                'responsavel' => $pendingJob?->owner?->name ?? 'Sem responsável',
-                'has_dispatch' => (bool) $pendingJob,
+                'despachante' => $this->formatFirstAndLastName($displayJob?->creator?->name, 'Sem despachante'),
+                'responsavel' => $this->formatFirstAndLastName($displayJob?->owner?->name, 'Sem responsável'),
+                'has_dispatch' => $measure->ProtestJobs->isNotEmpty(),
                 'status_sla_label' => $statusSlaLabel,
                 'status_sla_class' => $statusSlaClass,
             ];
@@ -2043,6 +2347,138 @@ class UserSlaDashboard extends Component
             'total' => $totalWithoutDispatch + $totalDispatchedOpen,
             'total_without_dispatch' => $totalWithoutDispatch,
             'total_dispatched_open' => $totalDispatchedOpen,
+            'note_type_counts' => $noteTypeCounts,
+        ];
+    }
+
+    protected function buildMedaDueWindowSummaryCounts(): array
+    {
+        $base = $this->buildMedaOpenBaseQuery(applyDispatchFilter: true, applyDueWindowFilter: false);
+        $this->applyMedaHistogramFilterOnOpenMeasures($base);
+
+        $counts = [
+            'overdue' => (clone $base),
+            'due_soon' => (clone $base),
+            'today' => (clone $base),
+            'tomorrow' => (clone $base),
+            'in_3_days' => (clone $base),
+        ];
+
+        $this->applyMedaDesiredDateWindowFilter($counts['overdue'], 'overdue');
+        $this->applyMedaDesiredDateWindowFilter($counts['due_soon'], 'due_soon');
+        $this->applyMedaDesiredDateWindowFilter($counts['today'], 'today');
+        $this->applyMedaDesiredDateWindowFilter($counts['tomorrow'], 'tomorrow');
+        $this->applyMedaDesiredDateWindowFilter($counts['in_3_days'], 'in_3_days');
+
+        return [
+            'overdue' => $counts['overdue']->count(),
+            'due_soon' => $counts['due_soon']->count(),
+            'today' => $counts['today']->count(),
+            'tomorrow' => $counts['tomorrow']->count(),
+            'in_3_days' => $counts['in_3_days']->count(),
+            'selected' => $this->medaDueWindowFilter,
+        ];
+    }
+
+    protected function buildMedaNoteTypeSummaryCounts(): array
+    {
+        $base = $this->buildMedaOpenBaseQuery(applyDispatchFilter: true, applyDueWindowFilter: false);
+        $this->applyMedaHistogramFilterOnOpenMeasures($base);
+
+        $counts = [
+            'NA' => (clone $base),
+            'OU' => (clone $base),
+            'PR' => (clone $base),
+        ];
+
+        foreach ($counts as $key => $query) {
+            $query->whereHas('protest', function ($protestQuery) use ($key) {
+                $protestQuery->whereRaw('UPPER(COALESCE(tipoNota, "")) = ?', [$key]);
+            });
+        }
+
+        return [
+            'NA' => $counts['NA']->count(),
+            'OU' => $counts['OU']->count(),
+            'PR' => $counts['PR']->count(),
+            'selected' => $this->medaOpenNoteTypeFilter,
+        ];
+    }
+
+    protected function buildMedaDoneOpenByOwnerPanel(): array
+    {
+        $query = $this->buildMedaOpenBaseQuery(applyDispatchFilter: false)
+            ->with([
+                'protest:id,nota,tipoNota,codecodf,dtAberturaNota,dtConclusaoDesej,txtGrpCodificacao,cidade',
+                'ProtestJobs' => function ($jobQuery) {
+                    $jobQuery->with('creator:id,name')
+                        ->orderByDesc('finished_at')
+                        ->orderByDesc('id');
+                },
+            ])
+            ->whereHas('ProtestJobs')
+            ->whereDoesntHave('ProtestJobs', function ($jobQuery) {
+                $jobQuery->where(function ($pending) {
+                    $pending->whereNull('finished_at')
+                        ->orWhere('status', '!=', ProtestJobStatus::DONE->value);
+                });
+            });
+
+        $this->applyMedaHistogramFilterOnOpenMeasures($query);
+
+        $measures = $query->get();
+        $groups = [];
+        $now = now();
+
+        foreach ($measures as $measure) {
+            $doneJob = $measure->ProtestJobs->first(function ($job) {
+                return !is_null($job->finished_at)
+                    && ($job->status === ProtestJobStatus::DONE || (string) $job->status === ProtestJobStatus::DONE->value);
+            });
+
+            $creatorId = trim((string) ($doneJob?->created_by ?? ''));
+            $creatorName = $this->formatFirstAndLastName($doneJob?->creator?->name, 'Sem despachante');
+            $groupKey = $creatorId !== '' ? 'u_' . $creatorId : 'u_0';
+            $type = mb_strtoupper((string) ($measure->protest?->tipoNota ?? ''));
+            $isOuPr = in_array($type, ['OU', 'PR'], true);
+            $isOver24h = $doneJob?->finished_at
+                ? $doneJob->finished_at->copy()->lte($now->copy()->subHours(24))
+                : false;
+
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = [
+                    'creator_id' => $creatorId !== '' ? $creatorId : null,
+                    'creator_name' => $creatorName,
+                    'total' => 0,
+                    'na' => 0,
+                    'ou' => 0,
+                    'pr' => 0,
+                    'ou_pr_over24h' => 0,
+                ];
+            }
+
+            $groups[$groupKey]['total']++;
+            if ($type === 'NA') {
+                $groups[$groupKey]['na']++;
+            } elseif ($type === 'OU') {
+                $groups[$groupKey]['ou']++;
+            } elseif ($type === 'PR') {
+                $groups[$groupKey]['pr']++;
+            }
+
+            if ($isOuPr && $isOver24h) {
+                $groups[$groupKey]['ou_pr_over24h']++;
+            }
+        }
+
+        $groups = collect($groups)->sortByDesc(function ($row) {
+            return ($row['ou_pr_over24h'] * 100000) + $row['total'];
+        })->values()->all();
+
+        return [
+            'groups' => $groups,
+            'selected_creator_id' => $this->medaDoneOpenCreatorId,
+            'total' => count($measures),
         ];
     }
 
@@ -2165,7 +2601,7 @@ class UserSlaDashboard extends Component
                 'desired_info' => $desiredInfo,
                 'sap_status' => $isMede ? 'ENC' : 'ABER',
                 'sap_class' => $isMede ? 'bg-success' : 'bg-warning text-dark',
-                'responsavel' => $pendingJob?->owner?->name ?? 'Sem responsável',
+                'responsavel' => $this->formatFirstAndLastName($pendingJob?->owner?->name, 'Sem responsável'),
                 'resultado' => $measure->result ?? '---',
             ];
         }));
@@ -3360,6 +3796,9 @@ class UserSlaDashboard extends Component
         $medaSnapshot           = $this->buildMedaSnapshot($start, $end);
         $medaOpenHistogram      = $this->buildMedaOpenDesiredHistogram($start, $end);
         $medaOpenDispatchList   = $this->buildMedaOpenDispatchList();
+        $medaDoneOpenByOwner    = $this->buildMedaDoneOpenByOwnerPanel();
+        $medaOpenNoteSummary    = $this->buildMedaNoteTypeSummaryCounts();
+        $medaDueSummary         = $this->buildMedaDueWindowSummaryCounts();
         $generalProtestsList    = $this->buildGeneralProtestsList($start, $end);
         $complaintsNaPanel      = $this->buildComplaintsNaPanel($start, $end);
         $complaintsOuPanel      = $this->buildComplaintsOuPanel($start, $end);
@@ -3389,6 +3828,9 @@ class UserSlaDashboard extends Component
             'medaSnapshot'            => $medaSnapshot,
             'medaOpenHistogram'       => $medaOpenHistogram,
             'medaOpenDispatchList'    => $medaOpenDispatchList,
+            'medaDoneOpenByOwner'     => $medaDoneOpenByOwner,
+            'medaOpenNoteSummary'     => $medaOpenNoteSummary,
+            'medaDueSummary'          => $medaDueSummary,
             'generalProtestsList'     => $generalProtestsList,
             'complaintsNaPanel'       => $complaintsNaPanel,
             'complaintsOuPanel'       => $complaintsOuPanel,

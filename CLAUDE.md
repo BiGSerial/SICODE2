@@ -92,5 +92,12 @@ Arquitetura em camadas dentro de `app/Services/Wall/`:
 - `Fixed/*DashboardDataService` — telas fixas (ADS, Project Review, Reclamações)
 - `Support/CacheLockTrait` — stale-while-revalidate com lock distribuído
 
+#### Padrão obrigatório para gráficos (Chart.js)
+- Nunca substituir `chart.data.datasets` por um novo array (`chart.data.datasets = ...`).
+- Sempre atualizar datasets in-place (ex.: `Object.assign` por índice, `push` para novos, `splice` para remover excedentes).
+- Em estado "sem dados", mostrar overlay/estado vazio sem limpar datasets do chart.
+- Não chamar update com `labels=[]` e `datasets=[]` apenas para "limpar visual"; preserve o último estado por baixo do overlay.
+- Aplicar esse padrão em qualquer gráfico novo ou manutenção (incluindo dashboards fixos ADS/Project Review/Reclamações).
+
 ### Pint (formatação)
 Preset PSR-12 com regras adicionais: `=` e `=>` alinhados por coluna, imports agrupados, trailing comma obrigatória em multiline. Executar `./vendor/bin/pint --dirty` antes de commitar.

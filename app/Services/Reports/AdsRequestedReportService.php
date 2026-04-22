@@ -150,6 +150,7 @@ class AdsRequestedReportService
     {
         [$start, $end] = $this->resolveDateRange($filters);
         $granularity = $this->resolveChartGranularity($filters, $start, $end);
+        $hasRequestDateScope = filled($filters['date_in'] ?? null) || filled($filters['date_out'] ?? null);
         $requested = [];
         $delivered = [];
         $openBacklog = [];
@@ -167,7 +168,16 @@ class AdsRequestedReportService
             $cursor->addDay();
         }
 
-        $requestedRows = $this->buildNowBaseQuery($filters, false)
+        $requestedBaseQuery = $this->buildNowBaseQuery($filters, false)
+            ->whereNotIn('ar.status', [
+                AdsRequestStatus::CANCELED->value,
+                AdsRequestStatus::FAILED->value,
+            ]);
+        if ($hasRequestDateScope) {
+            $requestedBaseQuery->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()]);
+        }
+
+        $requestedRows = (clone $requestedBaseQuery)
             ->selectRaw('DATE(ar.created_at) as ref_date, COUNT(*) as total')
             ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->groupBy('ref_date')
@@ -180,11 +190,17 @@ class AdsRequestedReportService
             }
         }
 
-        $deliveredRows = $this->buildNowBaseQuery($filters, false)
-            ->whereNotNull('ar.completed_at')
+        $terminalRowsBaseQuery = $this->buildNowBaseQuery($filters, false)
             ->where('ar.status', AdsRequestStatus::DONE->value)
-            ->selectRaw('DATE(ar.completed_at) as ref_date, COUNT(*) as total')
-            ->whereBetween('ar.completed_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->whereNotNull(DB::raw('COALESCE(ar.delivered_at, ar.completed_at)'));
+
+        if ($hasRequestDateScope) {
+            $terminalRowsBaseQuery->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()]);
+        }
+
+        $deliveredRows = (clone $terminalRowsBaseQuery)
+            ->selectRaw('DATE(COALESCE(ar.delivered_at, ar.completed_at)) as ref_date, COUNT(*) as total')
+            ->whereBetween(DB::raw('COALESCE(ar.delivered_at, ar.completed_at)'), [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->groupBy('ref_date')
             ->get();
 
@@ -195,15 +211,16 @@ class AdsRequestedReportService
             }
         }
 
-        $openingBacklog = (int) $this->buildNowBaseQuery($filters, false)
-            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
-            ->where('ar.status', '!=', AdsRequestStatus::FAILED->value)
-            ->where('ar.created_at', '<', $start->copy()->startOfDay())
-            ->where(function ($q) use ($start) {
-                $q->whereNull('ar.completed_at')
-                    ->orWhere('ar.completed_at', '>=', $start->copy()->startOfDay());
-            })
-            ->count();
+        $openingBacklog = 0;
+        if (!$hasRequestDateScope) {
+            $openingBacklog = (int) $this->buildNowBaseQuery($filters, false)
+                ->whereIn(
+                    'ar.status',
+                    array_map(static fn (AdsRequestStatus $status) => $status->value, self::ACTIVE_STATUSES)
+                )
+                ->where('ar.created_at', '<', $start->copy()->startOfDay())
+                ->count();
+        }
 
         $runningBacklog = $openingBacklog;
         foreach (array_keys($labels) as $key) {
@@ -212,25 +229,21 @@ class AdsRequestedReportService
             $openBacklog[$key] = max(0, $runningBacklog);
         }
 
-        $queueBase = $this->buildNowBaseQuery($filters, false)
-            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
-            ->where('ar.status', '!=', AdsRequestStatus::FAILED->value);
+        $overdueDeliveredRows = (clone $terminalRowsBaseQuery)
+            ->whereRaw(
+                'TIMESTAMPDIFF(HOUR, ar.created_at, COALESCE(ar.delivered_at, ar.completed_at)) > ?',
+                [self::ADS_DEADLINE_HOURS]
+            )
+            ->selectRaw('DATE(COALESCE(ar.delivered_at, ar.completed_at)) as ref_date, COUNT(*) as total')
+            ->whereBetween(DB::raw('COALESCE(ar.delivered_at, ar.completed_at)'), [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->groupBy('ref_date')
+            ->get();
 
-        foreach (array_keys($labels) as $key) {
-            $dayEnd = Carbon::createFromFormat('Y-m-d', $key)->endOfDay();
-            // Conta como atrasada a partir de 00:00 do 2o dia apos a criacao.
-            // Ex.: criado em 02/04 fica no prazo ate 03/04 23:59:59 e atrasa em 04/04 00:00.
-            $overdueThreshold = $dayEnd->copy()->subDays(2)->endOfDay();
-
-            $overdueCount = (clone $queueBase)
-                ->where('ar.created_at', '<=', $overdueThreshold)
-                ->where(function ($q) use ($dayEnd) {
-                    $q->whereNull('ar.completed_at')
-                        ->orWhere('ar.completed_at', '>', $dayEnd);
-                })
-                ->count();
-
-            $overdueBacklog[$key] = (int) $overdueCount;
+        foreach ($overdueDeliveredRows as $row) {
+            $dateKey = (string) ($row->ref_date ?? '');
+            if (array_key_exists($dateKey, $overdueBacklog)) {
+                $overdueBacklog[$dateKey] = (int) ($row->total ?? 0);
+            }
         }
 
         $orderedKeys = array_keys($labels);
@@ -261,7 +274,7 @@ class AdsRequestedReportService
                 $deliveredByMonth[$monthKey] += (int) ($deliveredSeries[$index] ?? 0);
                 // backlog acumulado no fim do mês (último dia processado do mês)
                 $openByMonth[$monthKey] = (int) ($openSeries[$index] ?? 0);
-                $overdueByMonth[$monthKey] = (int) ($overdueSeries[$index] ?? 0);
+                $overdueByMonth[$monthKey] += (int) ($overdueSeries[$index] ?? 0);
             }
 
             $orderedKeys = array_keys($labelsByMonth);
@@ -274,18 +287,8 @@ class AdsRequestedReportService
 
         $requestedTotal = (int) array_sum($requestedSeries);
         $deliveredTotal = (int) array_sum($deliveredSeries);
-        $requestedNonCanceledTotal = (int) $this->buildNowBaseQuery($filters, false)
-            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
-            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-            ->count();
-        $deliveredNonCanceledTotal = (int) $this->buildNowBaseQuery($filters, false)
-            ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
-            ->where('ar.status', AdsRequestStatus::DONE->value)
-            ->whereNotNull('ar.completed_at')
-            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-            ->count();
-        $completionRate = $requestedNonCanceledTotal > 0
-            ? round(($deliveredNonCanceledTotal / $requestedNonCanceledTotal) * 100, 1)
+        $completionRate = $requestedTotal > 0
+            ? round(($deliveredTotal / $requestedTotal) * 100, 1)
             : 0.0;
         $backlogAvg = !empty($openSeries) ? round(array_sum($openSeries) / count($openSeries), 1) : 0.0;
         $backlogPeak = !empty($openSeries) ? (int) max($openSeries) : 0;
@@ -439,7 +442,7 @@ class AdsRequestedReportService
         $reuseRate = $total > 0 ? round(($reused / $total) * 100, 1) : 0.0;
 
         return [
-            'labels' => ['Reaproveitadas', 'Enfileiradas'],
+            'labels' => ['Solicitações Reaproveitadas', 'Novas Solicitações'],
             'values' => [$reused, $queued],
             'colors' => ['rgba(5,150,105,0.85)', 'rgba(59,130,246,0.8)'],
             'total' => $total,
@@ -719,9 +722,30 @@ class AdsRequestedReportService
     {
         $dateIn = $filters['date_in'] ?? null;
         $dateOut = $filters['date_out'] ?? null;
+        $completedIn = $filters['completed_in'] ?? null;
+        $completedOut = $filters['completed_out'] ?? null;
+        $chartPeriod = strtolower(trim((string) ($filters['chart_period'] ?? '')));
 
-        $start = $dateIn ? Carbon::parse($dateIn)->startOfDay() : now()->startOfMonth();
-        $end = $dateOut ? Carbon::parse($dateOut)->endOfDay() : now()->endOfDay();
+        $startRef = $dateIn ?: $completedIn;
+        $endRef = $dateOut ?: $completedOut;
+
+        if ($startRef && $endRef) {
+            $start = Carbon::parse($startRef)->startOfDay();
+            $end = Carbon::parse($endRef)->endOfDay();
+        } else {
+            $anchor = $endRef ? Carbon::parse($endRef)->startOfDay() : now()->startOfDay();
+            if ($chartPeriod === '12m') {
+                $start = $anchor->copy()->subMonthsNoOverflow(11)->startOfMonth();
+                $end = $anchor->copy()->endOfDay();
+            } elseif ($chartPeriod === '30d') {
+                $start = $anchor->copy()->subDays(29)->startOfDay();
+                $end = $anchor->copy()->endOfDay();
+            } else {
+                // default compat: 7 dias
+                $start = $anchor->copy()->subDays(6)->startOfDay();
+                $end = $anchor->copy()->endOfDay();
+            }
+        }
 
         if ($end->lt($start)) {
             [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
@@ -732,6 +756,14 @@ class AdsRequestedReportService
 
     private function resolveChartGranularity(array $filters, Carbon $start, Carbon $end): string
     {
+        $period = strtolower(trim((string) ($filters['chart_period'] ?? '')));
+        if ($period === '12m') {
+            return 'month';
+        }
+        if (in_array($period, ['7d', '30d', 'custom'], true)) {
+            return 'day';
+        }
+
         $requested = (string) ($filters['chart_granularity'] ?? '');
         if (in_array($requested, ['day', 'month'], true)) {
             return $requested;

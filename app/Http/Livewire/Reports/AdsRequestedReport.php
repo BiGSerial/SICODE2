@@ -143,7 +143,7 @@ class AdsRequestedReport extends Component
             $this->date_in = $monthStart->toDateString();
             $this->date_out = $monthEnd->toDateString();
             $this->chartPeriod = 'custom';
-            $this->chartGranularity = 'month';
+            $this->chartGranularity = 'day';
             $this->resetPage();
             $this->dispatchFiltersToCharts();
             return;
@@ -313,6 +313,7 @@ class AdsRequestedReport extends Component
     private function filters(): array
     {
         $isCustom = $this->chartPeriod === 'custom';
+        $effectiveGranularity = $this->chartPeriod === '12m' ? 'month' : 'day';
         $activeDateType = $this->resolveActiveDateType();
         $dateIn = null;
         $dateOut = null;
@@ -321,23 +322,37 @@ class AdsRequestedReport extends Component
 
         if ($activeDateType === 'completed') {
             $anchor = $this->resolveAnchorDate('completed');
+            $normalizedIn = $this->normalizeDateOrNull($this->completed_in);
+            $normalizedOut = $this->normalizeDateOrNull($this->completed_out);
             if ($isCustom) {
-                $completedIn = $this->normalizeDateOrNull($this->completed_in) ?? $anchor->toDateString();
-                $completedOut = $this->normalizeDateOrNull($this->completed_out) ?? $anchor->toDateString();
+                $completedIn = $normalizedIn ?? $anchor->toDateString();
+                $completedOut = $normalizedOut ?? $anchor->toDateString();
             } else {
-                [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
-                $completedIn = $start;
-                $completedOut = $end;
+                if ($normalizedIn && $normalizedOut) {
+                    $completedIn = $normalizedIn;
+                    $completedOut = $normalizedOut;
+                } else {
+                    [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
+                    $completedIn = $start;
+                    $completedOut = $end;
+                }
             }
         } else {
             $anchor = $this->resolveAnchorDate('request');
+            $normalizedIn = $this->normalizeDateOrNull($this->date_in);
+            $normalizedOut = $this->normalizeDateOrNull($this->date_out);
             if ($isCustom) {
-                $dateIn = $this->normalizeDateOrNull($this->date_in) ?? $anchor->toDateString();
-                $dateOut = $this->normalizeDateOrNull($this->date_out) ?? $anchor->toDateString();
+                $dateIn = $normalizedIn ?? $anchor->toDateString();
+                $dateOut = $normalizedOut ?? $anchor->toDateString();
             } else {
-                [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
-                $dateIn = $start;
-                $dateOut = $end;
+                if ($normalizedIn && $normalizedOut) {
+                    $dateIn = $normalizedIn;
+                    $dateOut = $normalizedOut;
+                } else {
+                    [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
+                    $dateIn = $start;
+                    $dateOut = $end;
+                }
             }
         }
 
@@ -350,7 +365,8 @@ class AdsRequestedReport extends Component
             'completed_out' => $completedOut,
             'search' => $this->search,
             'companyIds' => $this->companyIds,
-            'chart_granularity' => $this->chartGranularity,
+            'chart_period' => $this->chartPeriod,
+            'chart_granularity' => $effectiveGranularity,
         ];
     }
 
@@ -417,22 +433,7 @@ class AdsRequestedReport extends Component
 
     private function syncGranularityFromDateRange(): void
     {
-        $activeDateType = $this->resolveActiveDateType();
-        $startRaw = $activeDateType === 'completed' ? $this->completed_in : $this->date_in;
-        $endRaw = $activeDateType === 'completed' ? $this->completed_out : $this->date_out;
-
-        if (!$this->isValidDate((string) $startRaw) || !$this->isValidDate((string) $endRaw)) {
-            return;
-        }
-
-        $start = Carbon::parse($startRaw)->startOfDay();
-        $end = Carbon::parse($endRaw)->startOfDay();
-        if ($end->lt($start)) {
-            [$start, $end] = [$end, $start];
-        }
-
-        $days = $start->diffInDays($end) + 1;
-        $this->chartGranularity = $days > 120 ? 'month' : 'day';
+        $this->chartGranularity = $this->chartPeriod === '12m' ? 'month' : 'day';
     }
 
     private function resolveActiveDateType(): string

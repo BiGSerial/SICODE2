@@ -77,6 +77,12 @@ class AdsFixedDashboardDataService
         $queue     = $this->adsService->queueDonutSeries($baseFilters);
         $reuse     = $this->adsService->reuseEconomyDonutSeries($baseFilters);
 
+        $periodDays = max(1, (int) ($summary['period_days'] ?? count($flowMonth['labels'] ?? []) ?: 1));
+        $requestedTotal = (int) ($flowMonth['analytics']['requested_total'] ?? 0);
+        $deliveredTotal = (int) ($flowMonth['analytics']['delivered_total'] ?? 0);
+        $openedDailyAvg = round($requestedTotal / $periodDays, 2);
+        $deliveredDailyAvg = round($deliveredTotal / $periodDays, 2);
+
         $labelCount    = max(1, count($flowChart['labels'] ?? []));
         $lineMeanOpen  = (float) ($flowChart['analytics']['backlog_avg'] ?? 0);
         $lineMeanOver  = (float) ($flowChart['analytics']['overdue_avg'] ?? 0);
@@ -142,11 +148,11 @@ class AdsFixedDashboardDataService
         ];
 
         $kpis = [
-            'queue_total'   => (int) ($summary['opened_count'] ?? 0),
+            'queue_total'   => $requestedTotal,
             'in_analysis'   => (int) ($summary['in_progress_now_count'] ?? 0),
             'returned'      => (int) ($queue['total'] ?? 0),
-            'previous_done' => (int) ($flowMonth['analytics']['delivered_total'] ?? 0),
-            'previous_ready' => (int) ($flowMonth['analytics']['requested_total'] ?? 0),
+            'previous_done' => $deliveredTotal,
+            'previous_ready' => $requestedTotal,
         ];
 
         return [
@@ -158,15 +164,15 @@ class AdsFixedDashboardDataService
             'ads_chart'            => ['kind' => 'dashboard', 'title' => 'Dashboard ADS', 'labels' => [], 'datasets' => []],
             'ads_dashboard'        => [
                 'top_cards' => [
-                    ['label' => 'Abertas no período',        'value' => (string) ((int) ($summary['opened_count'] ?? 0))],
-                    ['label' => 'Média de aberturas/dia',   'value' => number_format((float) ($summary['opened_daily_avg'] ?? 0), 2, ',', '.')],
-                    ['label' => 'Média de entregas/dia',    'value' => number_format((float) ($summary['delivered_daily_avg'] ?? 0), 2, ',', '.')],
+                    ['label' => 'Abertas no período',        'value' => (string) $requestedTotal],
+                    ['label' => 'Média de aberturas/dia',   'value' => number_format($openedDailyAvg, 2, ',', '.')],
+                    ['label' => 'Média de entregas/dia',    'value' => number_format($deliveredDailyAvg, 2, ',', '.')],
                     ['label' => 'Tempo médio de entrega',   'value' => (string) ($summary['delivered_avg_label'] ?? '0')],
                     ['label' => 'Em execução agora',        'value' => (string) ((int) ($summary['in_progress_now_count'] ?? 0))],
                 ],
                 'middle_cards' => [
-                    ['label' => 'Solicitadas',       'value' => (int) ($flowMonth['analytics']['requested_total'] ?? 0)],
-                    ['label' => 'Concluídas',        'value' => (int) ($flowMonth['analytics']['delivered_total'] ?? 0)],
+                    ['label' => 'Solicitadas',       'value' => $requestedTotal],
+                    ['label' => 'Concluídas',        'value' => $deliveredTotal],
                     ['label' => 'Taxa de conclusão', 'value' => number_format((float) ($flowMonth['analytics']['completion_rate'] ?? 0), 1, ',', '.') . '%'],
                     ['label' => 'Abertas agora',     'value' => (int) ($flowMonth['analytics']['current_open'] ?? 0)],
                     ['label' => 'Atrasadas agora',   'value' => (int) ($flowMonth['analytics']['current_overdue'] ?? 0)],

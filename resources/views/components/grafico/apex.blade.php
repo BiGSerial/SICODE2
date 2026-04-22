@@ -242,9 +242,25 @@
                     intersect
                 };
 
-                const elements = chart.getElementsAtEventForMode(evt, mode, queryOptions, true);
+                // 1) Tenta capturar o segmento exato sob o cursor (importante para barras empilhadas).
+                const exactElements = chart.getElementsAtEventForMode(
+                    evt,
+                    'nearest',
+                    { intersect: true },
+                    true
+                );
 
-                let index = elements?.length ? elements[0].index : null;
+                let index = exactElements?.length ? exactElements[0].index : null;
+                let datasetIndex = exactElements?.length ? exactElements[0].datasetIndex : null;
+
+                // 2) Fallback para comportamento por coluna/índice.
+                const elements = chart.getElementsAtEventForMode(evt, mode, queryOptions, true);
+                if (index === null && elements?.length) {
+                    index = elements[0].index;
+                }
+                if (datasetIndex === null && elements?.length) {
+                    datasetIndex = elements[0].datasetIndex;
+                }
 
                 if (index === null && clickFilter?.allowLabelFallback) {
                     const xScale = chart.scales?.x;
@@ -291,12 +307,18 @@
                 const keys = clickFilter?.keys ?? [];
                 const value = keys[index] ?? chart.data?.labels?.[index] ?? null;
                 if (!value) return;
+                const datasetKeys = Array.isArray(clickFilter?.datasetKeys) ? clickFilter.datasetKeys : [];
+                const datasetKey = datasetIndex !== null ? (datasetKeys[datasetIndex] ?? null) : null;
+                const datasetLabel = datasetIndex !== null ? (chart.data?.datasets?.[datasetIndex]?.label ?? null) : null;
 
                 if (clickFilter?.jsEvent) {
                     window.dispatchEvent(new CustomEvent(String(clickFilter.jsEvent), {
                         detail: {
                             value,
                             index,
+                            datasetIndex,
+                            datasetKey,
+                            datasetLabel,
                             label: chart.data?.labels?.[index] ?? null,
                             chartId
                         }
@@ -308,6 +330,10 @@
                     if (!root) return;
                     const componentId = root.getAttribute('wire:id');
                     if (!componentId) return;
+                    if (clickFilter?.withDataset === true) {
+                        Livewire.find(componentId).call(clickFilter.method, value, datasetKey, datasetLabel);
+                        return;
+                    }
                     Livewire.find(componentId).call(clickFilter.method, value);
                 }
             };
@@ -334,7 +360,7 @@
                     const dsIndex = Number(cfg?.datasetIndex ?? 0);
                     const dataset = chart?.data?.datasets?.[dsIndex] ?? null;
                     const meta = chart?.getDatasetMeta?.(dsIndex);
-                    if (!$dataset) {
+                    if (!dataset) {
                         return;
                     }
 

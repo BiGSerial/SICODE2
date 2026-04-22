@@ -224,116 +224,23 @@
             </p>
         </div>
 
-        <div class="filters-container">
-            <div class="row g-2 align-items-end">
-                <div class="col-lg-2 col-md-3 col-6">
-                    <label class="filter-label">
-                        <i class="ri-calendar-line me-1"></i> Início
-                    </label>
-                    <input type="date" wire:model="dt_in" class="filter-select" max="{{ date('Y-m-d') }}">
-                </div>
-                <div class="col-lg-2 col-md-3 col-6">
-                    <label class="filter-label">
-                        <i class="ri-calendar-line me-1"></i> Fim
-                    </label>
-                    <input type="date" wire:model="dt_out" class="filter-select" max="{{ date('Y-m-d') }}">
-                </div>
-                <div class="col-lg-2 col-md-3 col-6">
-                    <label class="filter-label">
-                        <i class="ri-filter-2-line me-1"></i> Tipo
-                    </label>
-                    <select wire:model="advanceFilter" class="filter-select">
-                        <option value="all">Todos</option>
-                        <option value="advance">Avanço Parceiro</option>
-                        <option value="normal">Reclamações normais</option>
-                    </select>
-                </div>
-                <div class="col-lg-2 col-md-3 col-6">
-                    <label class="filter-label">
-                        <i class="ri-user-3-line me-1"></i> Usuário
-                    </label>
-                    <select wire:model="userId" class="filter-select">
-                        <option value="">Todos</option>
-                        @foreach ($usersOptions as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-lg-4 col-md-12">
-                    <label class="filter-label">
-                        <i class="ri-search-line me-1"></i> Buscar por reclamação
-                    </label>
-                    <input type="text" wire:model.debounce.500ms="complaintSearch" class="filter-select"
-                        placeholder="Nota, CodF, grupo, classificação, cidade...">
-                </div>
-
-                <div class="col-lg-3 col-md-6">
-                    <label class="filter-label">
-                        <i class="ri-file-list-3-line me-1"></i> Tipo de nota
-                    </label>
-                    <select wire:model="complaintNoteTypes" multiple class="filter-select" size="4">
-                        @foreach ($complaintNoteTypeOptions as $option)
-                            <option value="{{ $option }}">{{ $option }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-lg-3 col-md-6">
-                    <label class="filter-label">
-                        <i class="ri-price-tag-3-line me-1"></i> Classificação reclamação
-                    </label>
-                    <select wire:model="complaintClassifications" multiple class="filter-select" size="4">
-                        @foreach ($complaintClassificationOptions as $option)
-                            <option value="{{ $option }}">{{ $option }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-lg-3 col-md-6">
-                    <label class="filter-label">
-                        <i class="ri-map-pin-line me-1"></i> Município
-                    </label>
-                    <select wire:model="complaintCities" multiple class="filter-select" size="4">
-                        @foreach ($complaintCityOptions as $option)
-                            <option value="{{ $option }}">{{ $option }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-lg-3 col-md-6">
-                    <label class="filter-label">
-                        <i class="ri-map-pin-user-line me-1"></i> Tipo de protesto
-                    </label>
-                    <select wire:model="protestTypes" multiple class="filter-select" size="4">
-                        @foreach ($protestTypeOptions as $option)
-                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="col-12">
-                    <button class="btn btn-light fw-semibold text-primary px-4" wire:click="exportJobs"
-                        wire:loading.attr="disabled" wire:target="exportJobs">
-                        <span wire:loading.remove wire:target="exportJobs">
-                            <i class="ri-file-excel-2-line me-1"></i>
-                            Exportar Atividades de Reclamação
-                        </span>
-                        <span wire:loading wire:target="exportJobs">
-                            <i class="ri-loader-4-line me-1"></i>
-                            Preparando arquivo...
-                        </span>
-                    </button>
-                </div>
-            </div>
+        <div class="small text-white-50">
+            Filtros detalhados movidos para o bloco destacado após a lista consolidada de medidas em aberto.
         </div>
     </div>
 
-    <div class="modern-card mb-4">
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-xxl-8">
+    <div class="modern-card mb-0 h-100">
         <div class="modern-card-body">
             <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
                 <div>
                     <div class="modern-card-title mb-1">
-                        <i class="ri-bar-chart-box-line me-1"></i> MEDAs consolidados em aberto
+                        <i class="ri-bar-chart-box-line me-1"></i> Medidas em aberto consolidadas
                     </div>
                     <div class="small text-muted">
-                        Histograma mensal por data desejada (regra NA / OU-PR), com BT Zero em série separada.
+                        Histograma mensal (mês/ano) de medidas em aberto por data desejada (regra NA / OU-PR), sem recorte
+                        temporal. O filtro aplicado aqui reflete a lista abaixo.
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -351,14 +258,7 @@
                         <option value="without_btzero">BT Zero: Sem BT Zero</option>
                         <option value="only_btzero">BT Zero: Apenas BT Zero</option>
                     </select>
-                    <select wire:model="medaHistogramYear" class="form-select form-select-sm" style="min-width: 110px;">
-                        @forelse (($medaOpenHistogram['years'] ?? []) as $year)
-                            <option value="{{ $year }}">{{ $year }}</option>
-                        @empty
-                            <option value="{{ now()->year }}">{{ now()->year }}</option>
-                        @endforelse
-                    </select>
-                    @if (!empty($medaOpenHistogram['selectedMonth']))
+                    @if (!empty($medaOpenHistogram['selectedBucket']))
                         <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearMedaHistogramFilter">
                             Limpar mês
                         </button>
@@ -392,22 +292,72 @@
                     </div>
                 </div>
             </div>
+            <div class="d-flex justify-content-center gap-2 flex-wrap mb-2">
+                <button type="button"
+                    class="btn btn-sm {{ ($medaOpenNoteSummary['selected'] ?? null) === 'NA' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                    wire:click="setMedaOpenNoteTypeFilter('NA')">
+                    NA: {{ $medaOpenNoteSummary['NA'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaOpenNoteSummary['selected'] ?? null) === 'OU' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                    wire:click="setMedaOpenNoteTypeFilter('OU')">
+                    OU: {{ $medaOpenNoteSummary['OU'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaOpenNoteSummary['selected'] ?? null) === 'PR' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                    wire:click="setMedaOpenNoteTypeFilter('PR')">
+                    PR: {{ $medaOpenNoteSummary['PR'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaDueSummary['selected'] ?? null) === 'overdue' ? 'btn-danger' : 'btn-outline-danger' }}"
+                    wire:click="setMedaDueWindowFilter('overdue')">
+                    Vencido: {{ $medaDueSummary['overdue'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaDueSummary['selected'] ?? null) === 'due_soon' ? 'btn-warning' : 'btn-outline-warning' }}"
+                    wire:click="setMedaDueWindowFilter('due_soon')">
+                    Vencendo: {{ $medaDueSummary['due_soon'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaDueSummary['selected'] ?? null) === 'today' ? 'btn-warning' : 'btn-outline-warning' }}"
+                    wire:click="setMedaDueWindowFilter('today')">
+                    Hoje: {{ $medaDueSummary['today'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaDueSummary['selected'] ?? null) === 'tomorrow' ? 'btn-warning' : 'btn-outline-warning' }}"
+                    wire:click="setMedaDueWindowFilter('tomorrow')">
+                    Amanhã: {{ $medaDueSummary['tomorrow'] ?? 0 }}
+                </button>
+                <button type="button"
+                    class="btn btn-sm {{ ($medaDueSummary['selected'] ?? null) === 'in_3_days' ? 'btn-warning' : 'btn-outline-warning' }}"
+                    wire:click="setMedaDueWindowFilter('in_3_days')">
+                    Em 3 dias: {{ $medaDueSummary['in_3_days'] ?? 0 }}
+                </button>
+                @if (!empty($medaOpenNoteSummary['selected']) || !empty($medaDueSummary['selected']))
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                        wire:click="clearMedaQuickFilters">
+                        Limpar filtros de tipo/prazo
+                    </button>
+                @endif
+            </div>
 
-            <div class="dashboard-histogram-wrap" wire:ignore>
-                <x-grafico.apex :chart="$medaOpenHistogram['chart']" chartId="medaOpenDesiredHistogram" class="w-100" />
+            <div class="row justify-content-center">
+                <div class="col-12 col-xxl-11">
+                    <div class="dashboard-histogram-wrap" wire:ignore>
+                        <x-grafico.apex :chart="$medaOpenHistogram['chart']" chartId="medaOpenDesiredHistogram" class="w-100" />
+                    </div>
+                </div>
             </div>
             @php
-                $selectedYear = (int) ($medaOpenHistogram['selectedYear'] ?? now()->year);
-                $selectedMonth = (int) ($medaOpenHistogram['selectedMonth'] ?? 0);
+                $selectedBucket = (string) ($medaOpenHistogram['selectedBucket'] ?? '');
                 $monthTotals = (array) ($medaOpenHistogram['monthTotals'] ?? []);
-                $monthLabels = [1 => 'Jan', 2 => 'Fev', 3 => 'Mar', 4 => 'Abr', 5 => 'Mai', 6 => 'Jun', 7 => 'Jul', 8 => 'Ago', 9 => 'Set', 10 => 'Out', 11 => 'Nov', 12 => 'Dez'];
+                $monthLabels = (array) ($medaOpenHistogram['monthLabels'] ?? []);
             @endphp
             <div class="d-flex flex-wrap gap-2 mt-3 justify-content-center">
-                @foreach ($monthLabels as $monthNumber => $monthLabel)
+                @foreach ($monthLabels as $bucketKey => $monthLabel)
                     @php
-                        $bucketKey = sprintf('%04d-%02d', $selectedYear, $monthNumber);
-                        $isActive = $selectedMonth === $monthNumber;
-                        $hasData = ((int) ($monthTotals[$monthNumber] ?? 0)) > 0;
+                        $isActive = $selectedBucket === $bucketKey;
+                        $hasData = ((int) ($monthTotals[$bucketKey] ?? 0)) > 0;
                     @endphp
                     <button type="button"
                         class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}"
@@ -416,6 +366,89 @@
                         {{ $monthLabel }}
                     </button>
                 @endforeach
+            </div>
+        </div>
+    </div>
+        </div>
+        <div class="col-12 col-xxl-4">
+            <div class="modern-card mb-0 h-100">
+                <div class="modern-card-body">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                        <div>
+                            <div class="modern-card-title mb-1">
+                                <i class="ri-alert-line me-1"></i> Concluído e Aberto no SAP
+                            </div>
+                            <div class="small text-muted">
+                                Medidas com todos os jobs concluídos, porém ainda em MEDA. Responsável aqui é o despachante (created_by).
+                            </div>
+                            <div class="alert alert-warning py-2 px-3 mt-2 mb-0 small">
+                                <i class="ri-information-line me-1"></i>Os dados podem divergir devido ao tempo de atualização das informações com o SAP.
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark">Total medidas: {{ $medaDoneOpenByOwner['total'] ?? 0 }}</span>
+                            @if (!empty($medaDoneOpenByOwner['selected_creator_id']))
+                                <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="setMedaDoneOpenCreator(null)">
+                                    Limpar responsável
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-compact mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Despachante (created_by)</th>
+                                    <th class="text-center">Total</th>
+                                    <th class="text-center">NA</th>
+                                    <th class="text-center">OU</th>
+                                    <th class="text-center">PR</th>
+                                    <th class="text-center">OU/PR > 24h</th>
+                                    <th class="text-center">Filtrar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse (($medaDoneOpenByOwner['groups'] ?? []) as $group)
+                                    @php
+                                        $selectedCreatorId = (string) ($medaDoneOpenByOwner['selected_creator_id'] ?? '');
+                                        $groupCreatorId = (string) ($group['creator_id'] ?? '');
+                                        $isActiveOwner = $selectedCreatorId !== '' && $selectedCreatorId === $groupCreatorId;
+                                    @endphp
+                                    <tr>
+                                        <td>{{ $group['creator_name'] }}</td>
+                                        <td class="text-center">{{ $group['total'] }}</td>
+                                        <td class="text-center">{{ $group['na'] }}</td>
+                                        <td class="text-center">{{ $group['ou'] }}</td>
+                                        <td class="text-center">{{ $group['pr'] }}</td>
+                                        <td class="text-center">
+                                            <span class="badge {{ ($group['ou_pr_over24h'] ?? 0) > 0 ? 'bg-danger' : 'bg-secondary' }}">
+                                                {{ $group['ou_pr_over24h'] }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (!empty($group['creator_id']))
+                                                <button type="button"
+                                                    class="btn btn-sm {{ $isActiveOwner ? 'btn-primary' : 'btn-outline-primary' }}"
+                                                    wire:click="setMedaDoneOpenCreator('{{ $group['creator_id'] }}')">
+                                                    {{ $isActiveOwner ? 'Aplicado' : 'Filtrar' }}
+                                                </button>
+                                            @else
+                                                <span class="text-muted">---</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-3">
+                                            Nenhuma medida encontrada neste critério.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -428,11 +461,11 @@
                         <i class="ri-table-2 me-1"></i> Lista consolidada de medidas em aberto
                     </div>
                     <div class="small text-muted">
-                        Base MEDA com data desejada válida, refletindo o histograma selecionado.
+                        Base de medidas em aberto sem recorte temporal, refletindo exatamente o gráfico selecionado.
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <select wire:model="openDispatchBtzeroFilter" class="form-select form-select-sm"
+                    <select wire:model="medaHistogramBtzeroFilter" class="form-select form-select-sm"
                         style="min-width: 180px;">
                         <option value="all">Todos</option>
                         <option value="without_btzero">Sem BT Zero</option>
@@ -443,6 +476,9 @@
                         {{ $medaOpenDispatchList['total_dispatched_open'] ?? 0 }}</span>
                     <span class="badge bg-secondary">Não Despachado:
                         {{ $medaOpenDispatchList['total_without_dispatch'] ?? 0 }}</span>
+                    <span class="badge bg-light text-dark">NA: {{ $medaOpenDispatchList['note_type_counts']['NA'] ?? 0 }}</span>
+                    <span class="badge bg-light text-dark">OU: {{ $medaOpenDispatchList['note_type_counts']['OU'] ?? 0 }}</span>
+                    <span class="badge bg-light text-dark">PR: {{ $medaOpenDispatchList['note_type_counts']['PR'] ?? 0 }}</span>
                 </div>
             </div>
 
@@ -463,7 +499,8 @@
                             <th>Encerrado / SLA</th>
                             <th>Status SLA</th>
                             <th>SAP</th>
-                            <th>Responsável</th>
+                            <th>Despachante / Responsável</th>
+                            <th>Abrir</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -509,11 +546,26 @@
                                 </td>
                                 <td><span class="{{ $row['status_sla_class'] }}">{{ $row['status_sla_label'] }}</span></td>
                                 <td><span class="badge {{ $row['sap_class'] }}">{{ $row['sap_status'] }}</span></td>
-                                <td>{{ $row['responsavel'] }}</td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span><strong>Despachante:</strong> {{ $row['despachante'] ?? 'Sem despachante' }}</span>
+                                        <span><strong>Responsável:</strong> {{ $row['responsavel'] ?? 'Sem responsável' }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    @if (!empty($row['id']))
+                                        <a href="{{ route('protests.dispatch.view', ['protest' => $row['id']]) }}"
+                                            class="btn btn-sm btn-outline-secondary" title="Abrir protesto/medida">
+                                            <i class="ri-external-link-line"></i>
+                                        </a>
+                                    @else
+                                        <span class="text-muted">---</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="14" class="text-center text-muted py-3">
+                                <td colspan="15" class="text-center text-muted py-3">
                                     Nenhuma medida encontrada para os critérios atuais.
                                 </td>
                             </tr>
@@ -527,6 +579,104 @@
                     {{ $medaOpenDispatchList['items']->links() }}
                 </div>
             @endif
+        </div>
+    </div>
+
+    <div class="dashboard-header mb-4">
+        <div class="header-content mb-3">
+            <div class="d-flex align-items-center mb-2">
+                <div class="header-icon me-3">
+                    <i class="ri-filter-2-line"></i>
+                </div>
+                <div>
+                    <h3 class="header-title mb-0" style="font-size:1.4rem;">Filtros Analíticos</h3>
+                    <div class="header-subtitle">
+                        Ajuste período, usuário e universo da análise
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="filters-container">
+            <div class="row g-2 align-items-end">
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label"><i class="ri-calendar-line me-1"></i> Início</label>
+                    <input type="date" wire:model="dt_in" class="filter-select" max="{{ date('Y-m-d') }}">
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label"><i class="ri-calendar-line me-1"></i> Fim</label>
+                    <input type="date" wire:model="dt_out" class="filter-select" max="{{ date('Y-m-d') }}">
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label"><i class="ri-filter-2-line me-1"></i> Tipo</label>
+                    <select wire:model="advanceFilter" class="filter-select">
+                        <option value="all">Todos</option>
+                        <option value="advance">Avanço Parceiro</option>
+                        <option value="normal">Reclamações normais</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                    <label class="filter-label"><i class="ri-user-3-line me-1"></i> Usuário</label>
+                    <select wire:model="userId" class="filter-select">
+                        <option value="">Todos</option>
+                        @foreach ($usersOptions as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-4 col-md-12">
+                    <label class="filter-label"><i class="ri-search-line me-1"></i> Buscar por reclamação</label>
+                    <input type="text" wire:model.debounce.500ms="complaintSearch" class="filter-select"
+                        placeholder="Nota, CodF, grupo, classificação, cidade...">
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label"><i class="ri-file-list-3-line me-1"></i> Tipo de nota</label>
+                    <select wire:model="complaintNoteTypes" multiple class="filter-select" size="4">
+                        @foreach ($complaintNoteTypeOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label"><i class="ri-price-tag-3-line me-1"></i> Classificação reclamação</label>
+                    <select wire:model="complaintClassifications" multiple class="filter-select" size="4">
+                        @foreach ($complaintClassificationOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label"><i class="ri-map-pin-line me-1"></i> Município</label>
+                    <select wire:model="complaintCities" multiple class="filter-select" size="4">
+                        @foreach ($complaintCityOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="filter-label"><i class="ri-map-pin-user-line me-1"></i> Tipo de protesto</label>
+                    <select wire:model="protestTypes" multiple class="filter-select" size="4">
+                        @foreach ($protestTypeOptions as $option)
+                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <button class="btn btn-light fw-semibold text-primary px-4" wire:click="exportJobs"
+                        wire:loading.attr="disabled" wire:target="exportJobs">
+                        <span wire:loading.remove wire:target="exportJobs">
+                            <i class="ri-file-excel-2-line me-1"></i>
+                            Exportar Atividades de Reclamação
+                        </span>
+                        <span wire:loading wire:target="exportJobs">
+                            <i class="ri-loader-4-line me-1"></i>
+                            Preparando arquivo...
+                        </span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

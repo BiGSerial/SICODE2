@@ -205,6 +205,20 @@ Chaves de cache por tipo:
 
 ---
 
+## Padrão Obrigatório - Atualização de Gráficos (Chart.js)
+
+Para qualquer gráfico novo ou alteração de gráfico existente no WALL V2:
+
+1. Atualizar datasets in-place, sem substituir o array `chart.data.datasets`.
+2. Preservar estado interno do Chart.js (`_metasets`) para animação correta `x -> y`.
+3. Em "sem dados", exibir overlay/empty-state sem limpar os datasets atuais.
+4. Não usar `updateChartData(..., [], [], ...)` para ocultar dados.
+5. Reaplicar esse padrão também nos dashboards fixos (`ads_dashboard`, `project_review_dashboard`, `complaints_dashboard`).
+
+Motivo: substituir o array de datasets ou limpar explicitamente datasets faz o Chart.js perder referência do estado anterior e tende a animar `valor_antigo -> 0 -> valor_novo`.
+
+---
+
 ## Próximas Evoluções Sugeridas
 
 1. Tornar `payment_note_filter` stateless (passar filtros via `sourceConfig` em vez de `$_SESSION`).
