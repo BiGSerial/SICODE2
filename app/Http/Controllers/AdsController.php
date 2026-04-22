@@ -15,6 +15,7 @@ class AdsController extends Controller
     public function realtimeQueueDonut(Request $request, AdsRequestedReportService $service)
     {
         $filters = [
+            'statusFilter' => $request->query('statusFilter', 'all'),
             'date_in' => $request->query('date_in'),
             'date_out' => $request->query('date_out'),
             'completed_in' => $request->query('completed_in'),
@@ -22,6 +23,7 @@ class AdsController extends Controller
             'status_exact' => $request->query('status_exact'),
             'search' => $request->query('search'),
             'companyIds' => (array) $request->query('companyIds', []),
+            'chart_period' => $request->query('chart_period'),
         ];
 
         $series = $service->queueDonutSeries($filters);
@@ -47,10 +49,25 @@ class AdsController extends Controller
                         'easing' => 'easeOutCubic',
                     ],
                     'plugins' => [
-                        'legend' => ['position' => 'bottom'],
+                        'legend' => ['position' => 'top'],
                         'title' => [
                             'display' => true,
                             'text' => 'Fila atual (status pendentes)',
+                        ],
+                        'datalabels' => [
+                            'display' => true,
+                            'color' => '#ffffff',
+                            'font' => ['weight' => '600', 'size' => 11],
+                            'formatter' => '__DOUGHNUT_PERCENT_LABEL__',
+                        ],
+                        'centerText' => [
+                            'display' => true,
+                            'text' => (string) ((int) ($series['total'] ?? 0)),
+                            'subtext' => 'Total',
+                            'font' => '700 34px sans-serif',
+                            'subFont' => '600 12px sans-serif',
+                            'color' => '#1f2937',
+                            'subColor' => '#6b7280',
                         ],
                     ],
                     'onClickFilter' => [
@@ -76,6 +93,7 @@ class AdsController extends Controller
             'status_exact' => $request->query('status_exact'),
             'search' => $request->query('search'),
             'companyIds' => (array) $request->query('companyIds', []),
+            'chart_period' => $request->query('chart_period'),
         ];
 
         $series = $service->reuseEconomyDonutSeries($filters);
@@ -104,10 +122,25 @@ class AdsController extends Controller
                         'easing' => 'easeOutCubic',
                     ],
                     'plugins' => [
-                        'legend' => ['position' => 'bottom'],
+                        'legend' => ['position' => 'top'],
                         'title' => [
                             'display' => true,
                             'text' => 'Economia por reaproveitamento de ADS',
+                        ],
+                        'datalabels' => [
+                            'display' => true,
+                            'color' => '#ffffff',
+                            'font' => ['weight' => '600', 'size' => 11],
+                            'formatter' => '__DOUGHNUT_PERCENT_LABEL__',
+                        ],
+                        'centerText' => [
+                            'display' => true,
+                            'text' => (string) ((int) ($series['total'] ?? 0)),
+                            'subtext' => 'Total',
+                            'font' => '700 34px sans-serif',
+                            'subFont' => '600 12px sans-serif',
+                            'color' => '#1f2937',
+                            'subColor' => '#6b7280',
                         ],
                     ],
                 ],
@@ -118,6 +151,7 @@ class AdsController extends Controller
     public function realtimeDemandDelivery(Request $request, AdsRequestedReportService $service)
     {
         $filters = [
+            'statusFilter' => $request->query('statusFilter', 'all'),
             'date_in' => $request->query('date_in'),
             'date_out' => $request->query('date_out'),
             'completed_in' => $request->query('completed_in'),
@@ -125,6 +159,7 @@ class AdsController extends Controller
             'status_exact' => $request->query('status_exact'),
             'search' => $request->query('search'),
             'companyIds' => (array) $request->query('companyIds', []),
+            'chart_period' => $request->query('chart_period'),
             'chart_granularity' => $request->query('chart_granularity'),
         ];
 
@@ -159,6 +194,7 @@ class AdsController extends Controller
                             'fill' => false,
                             'borderWidth' => 1.5,
                             'datalabels' => [
+                                'display' => true,
                                 'anchor' => 'end',
                                 'align' => 'top',
                                 'offset' => 6,
@@ -176,6 +212,7 @@ class AdsController extends Controller
                             'fill' => false,
                             'borderWidth' => 1.5,
                             'datalabels' => [
+                                'display' => true,
                                 'anchor' => 'end',
                                 'align' => 'bottom',
                                 'offset' => 6,

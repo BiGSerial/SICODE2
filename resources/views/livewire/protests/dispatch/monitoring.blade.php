@@ -191,9 +191,14 @@
 
 @php
     if (!function_exists('reduceName')) {
-        function reduceName(string $name, bool $first = false)
+        function reduceName($name, bool $first = false): string
         {
-            $name = explode(' ', trim($name));
+            $normalized = trim((string) ($name ?? ''));
+            if ($normalized === '') {
+                return '';
+            }
+
+            $name = preg_split('/\s+/', $normalized) ?: [];
 
             if ($first) {
                 return $name[0] ?? '';
@@ -420,20 +425,13 @@
             <div class="card h-100 shadow-sm border-0">
                 <div class="card-body histogram-card-body">
                     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
-                        <div class="fw-semibold">Histograma de Previsões Mensais</div>
+                        <div class="fw-semibold">Histograma de Medidas em Aberto</div>
                         <div class="d-flex gap-2">
                             <select class="form-select form-select-sm" wire:model="histogramSource" style="min-width: 170px;">
                                 <option value="desired">Data desejada (MEDA)</option>
                                 <option value="sla">Data SLA (não concluídos)</option>
                             </select>
-                            <select class="form-select form-select-sm" wire:model="histogramYear" style="min-width: 110px;">
-                                @forelse (($histogramData['years'] ?? []) as $year)
-                                    <option value="{{ $year }}">{{ $year }}</option>
-                                @empty
-                                    <option value="{{ now()->year }}">{{ now()->year }}</option>
-                                @endforelse
-                            </select>
-                            @if (!empty($histogramData['selectedMonth']))
+                            @if (!empty($histogramData['selectedBucket']))
                                 <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearHistogramFilter">
                                     Limpar mês
                                 </button>
@@ -445,28 +443,26 @@
                         <canvas id="monitoringHistogram"></canvas>
                     </div>
                     @php
-                        $selectedMonth = (int) ($histogramData['selectedMonth'] ?? 0);
-                        $series = (array) ($histogramData['series'] ?? []);
-                        $overdue = array_values((array) ($series['overdue'] ?? []));
-                        $dueSoon = array_values((array) ($series['dueSoon'] ?? []));
-                        $within = array_values((array) ($series['within'] ?? []));
-                        $monthLabels = [1 => 'Jan', 2 => 'Fev', 3 => 'Mar', 4 => 'Abr', 5 => 'Mai', 6 => 'Jun', 7 => 'Jul', 8 => 'Ago', 9 => 'Set', 10 => 'Out', 11 => 'Nov', 12 => 'Dez'];
+                        $selectedBucket = (string) ($histogramData['selectedBucket'] ?? '');
+                        $monthKeys = (array) ($histogramData['monthKeys'] ?? []);
+                        $monthTotals = (array) ($histogramData['monthTotals'] ?? []);
+                        $monthLabels = (array) ($histogramData['monthLabels'] ?? []);
                     @endphp
                     <div class="d-flex flex-wrap gap-2 mt-3 justify-content-center">
-                        @foreach ($monthLabels as $monthNumber => $monthLabel)
+                        @foreach ($monthKeys as $monthKey)
                             @php
-                                $index = $monthNumber - 1;
-                                $monthTotal = (int) ($overdue[$index] ?? 0) + (int) ($dueSoon[$index] ?? 0) + (int) ($within[$index] ?? 0);
-                                $isActive = $selectedMonth === $monthNumber;
+                                $monthTotal = (int) ($monthTotals[$monthKey] ?? 0);
+                                $isActive = $selectedBucket !== '' && $selectedBucket === $monthKey;
+                                $monthLabel = $monthLabels[$monthKey] ?? $monthKey;
                             @endphp
                             <button type="button" class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}"
                                 @disabled($monthTotal <= 0)
-                                wire:click="setHistogramBucket({{ $monthNumber }})">
+                                wire:click="setHistogramBucket('{{ $monthKey }}')">
                                 {{ $monthLabel }}
                             </button>
                         @endforeach
                     </div>
-                    <small class="text-muted">Clique em uma barra para filtrar a lista pelo mesmo mês/ano.</small>
+                    <small class="text-muted">Clique no segmento da barra para filtrar a lista por faixa de prazo. Use os botões para isolar o mês.</small>
                 </div>
             </div>
         </div>
@@ -704,6 +700,7 @@
                     @foreach ($lists as $item)
                         @php
                             $wish = getWishDate($item);
+                            $todayStart = now()->startOfDay();
                             $statusSist = mb_strtoupper((string) ($item->medProtest?->statusSist ?? ''));
                             $isMede = $statusSist === 'MEDE';
                             $isMeda = $statusSist === 'MEDA';
@@ -714,7 +711,8 @@
                             $dueLeft = $item->sla_due_at;
 
                             if ($wish) {
-                                $daysToWish = now()->diffInDays($wish, false);
+                                $wishStart = $wish->copy()->startOfDay();
+                                $daysToWish = $todayStart->diffInDays($wishStart, false);
 
                                 if ($daysToWish < 0) {
                                     $wishClass = 'text-bg-danger';
@@ -729,7 +727,8 @@
                             }
 
                             if ($dueLeft) {
-                                $dueDaysLeft = now()->diffInDays($dueLeft, false);
+                                $dueLeftStart = $dueLeft->copy()->startOfDay();
+                                $dueDaysLeft = $todayStart->diffInDays($dueLeftStart, false);
 
                                 if ($dueDaysLeft < 0) {
                                     $dueSlaClass = 'text-bg-danger';
@@ -746,7 +745,7 @@
                             $slaFinishedDiff = null;
                             $slaFinishedClass = 'text-bg-secondary';
                             if ($item->finished_at && $dueLeft) {
-                                $slaFinishedDiff = $dueLeft->diffInDays($item->finished_at, false);
+                                $slaFinishedDiff = $dueLeft->copy()->startOfDay()->diffInDays($item->finished_at->copy()->startOfDay(), false);
                                 $slaFinishedClass = $slaFinishedDiff >= 0 ? 'text-bg-success' : 'text-bg-danger';
                             }
 
@@ -839,7 +838,7 @@
                                 <div class="d-flex flex-column align-items-center gap-1">
                                     <span>{{ $aperture ? $aperture->format('d/m/Y') : '---' }}</span>
                                     <span class="badge text-bg-secondary" title="Dias Aberto">
-                                        {{ $aperture?->diffInDays(now(), true) }} d
+                                        {{ $aperture?->copy()?->startOfDay()?->diffInDays($todayStart, true) }} d
                                     </span>
                                 </div>
                             </td>
@@ -850,7 +849,7 @@
                                         <span>{{ $medFinishedAt ? $medFinishedAt->format('d/m/Y') : '---' }}</span>
                                         @if ($medFinishedAt && $desiredReference)
                                             @php
-                                                $measureDiff = $desiredReference->diffInDays($medFinishedAt, false);
+                                                $measureDiff = $desiredReference->copy()->startOfDay()->diffInDays($medFinishedAt->copy()->startOfDay(), false);
                                                 $measureClass = $measureDiff >= 0 ? 'text-bg-success' : 'text-bg-danger';
                                             @endphp
                                             <span class="badge {{ $measureClass }}"
@@ -890,7 +889,7 @@
                                 <div class="d-flex flex-column align-items-center gap-1">
                                     <span>{{ $item->sent_at ? $item->sent_at->format('d/m/Y') : '---' }}</span>
                                     <span class="badge text-bg-secondary" title="Dias Aberto">
-                                        {{ $item->sent_at?->diffInDays(now(), true) }} d
+                                        {{ $item->sent_at?->copy()?->startOfDay()?->diffInDays($todayStart, true) }} d
                                     </span>
                                 </div>
                             </td>
@@ -964,7 +963,7 @@
                                     </button>
 
                                     <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        wire:click="goTo({{ $item->protest?->nota }})" title="Seguir">
+                                        wire:click="goTo({{ $item->medProtest?->id ?? 0 }})" title="Seguir">
                                         <i class="ri-bookmark-line"></i>
                                     </button>
                                 </div>
@@ -1033,90 +1032,101 @@
 
                     const labels = payload.labels || [];
                     const series = payload.series || {};
-                    const overdueData = series.overdue || [];
-                    const dueSoonData = series.dueSoon || [];
-                    const withinData = series.within || [];
-                    const selectedMonth = payload.selectedMonth ? Number(payload.selectedMonth) : null;
-                    const sourceLabel = payload.source === 'sla' ? 'SLA (não concluídos)' : 'Data desejada (MEDA)';
-                    const filterBySelectedMonth = (data) => selectedMonth
-                        ? labels.map((_, i) => ((i + 1) === selectedMonth ? Number(data[i] ?? 0) : 0))
-                        : data;
-                    const displayOverdueData = filterBySelectedMonth(overdueData);
-                    const displayDueSoonData = filterBySelectedMonth(dueSoonData);
-                    const displayWithinData = filterBySelectedMonth(withinData);
+                    const overdueData = (series.overdue || []).map((n) => Number(n ?? 0));
+                    const dueSoonData = (series.dueSoon || []).map((n) => Number(n ?? 0));
+                    const withinData = (series.within || []).map((n) => Number(n ?? 0));
+                    const displayOverdueData = (series.displayOverdue || overdueData).map((n) => Number(n ?? 0));
+                    const displayDueSoonData = (series.displayDueSoon || dueSoonData).map((n) => Number(n ?? 0));
+                    const displayWithinData = (series.displayWithin || withinData).map((n) => Number(n ?? 0));
+                    const displayMonthKeys = payload.monthKeys || [];
+                    const selectedStack = payload.selectedStack || null;
+                    const totalsByMonth = labels.map((_, i) =>
+                        Number(displayOverdueData[i] ?? 0) + Number(displayDueSoonData[i] ?? 0) + Number(displayWithinData[i] ?? 0)
+                    );
+                    const sum = (arr) => (arr || []).reduce((acc, n) => acc + Number(n || 0), 0);
+                    const overdueTotal = sum(displayOverdueData);
+                    const dueSoonTotal = sum(displayDueSoonData);
+                    const withinTotal = sum(displayWithinData);
 
-                    const activeBg = (active, color) => {
-                        if (!active) {
-                            return color;
-                        }
-
-                        return color.replace('0.75', '0.95').replace('0.80', '1');
-                    };
-
-                    const overdueBg = labels.map((_, idx) => {
-                        const month = idx + 1;
-                        return activeBg(selectedMonth === month, 'rgba(220, 53, 69, 0.80)');
-                    });
-
-                    const dueSoonBg = labels.map((_, idx) => {
-                        const month = idx + 1;
-                        return activeBg(selectedMonth === month, 'rgba(255, 193, 7, 0.80)');
-                    });
-
-                    const withinBg = labels.map((_, idx) => {
-                        const month = idx + 1;
-                        return activeBg(selectedMonth === month, 'rgba(25, 135, 84, 0.80)');
-                    });
-
-                    const border = labels.map((_, idx) => {
-                        const month = idx + 1;
-                        return selectedMonth === month ? 'rgba(15, 23, 42, 1)' : 'rgba(15, 23, 42, 0.45)';
-                    });
+                    const segmentIsActive = (key) => !selectedStack || selectedStack === key;
+                    const marine = segmentIsActive('overdue') ? 'rgba(33,46,62,0.85)' : 'rgba(33,46,62,0.18)';
+                    const electric = segmentIsActive('due_soon') ? 'rgba(40,255,82,0.85)' : 'rgba(40,255,82,0.18)';
+                    const slate = segmentIsActive('within') ? 'rgba(124,149,153,0.85)' : 'rgba(124,149,153,0.18)';
 
                     if (monitoringHistogramChart) {
                         monitoringHistogramChart.destroy();
                     }
+
+                    const totalsPlugin = {
+                        id: 'monitoringHistogramTotals',
+                        afterDatasetsDraw(chart) {
+                            const {
+                                ctx
+                            } = chart;
+                            const datasetMeta = chart.getDatasetMeta(0);
+                            if (!datasetMeta || !datasetMeta.data) return;
+                            ctx.save();
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.fillStyle = '#1f2937';
+                            ctx.font = '600 11px sans-serif';
+
+                            datasetMeta.data.forEach((bar, index) => {
+                                const total = Number(totalsByMonth[index] ?? 0);
+                                if (total <= 0) return;
+                                const x = bar.x;
+                                const y = bar.y - 6;
+                                ctx.fillText(String(total), x, y);
+                            });
+                            ctx.restore();
+                        }
+                    };
 
                     monitoringHistogramChart = new Chart(canvas.getContext('2d'), {
                         type: 'bar',
                         data: {
                             labels,
                             datasets: [{
-                                label: `Vencidos - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                                label: `Vencidos (${overdueTotal})`,
                                 data: displayOverdueData,
-                                backgroundColor: overdueBg,
-                                borderColor: border,
+                                backgroundColor: marine,
+                                borderColor: '#212E3E',
                                 borderWidth: 1,
                                 borderRadius: 6,
                                 stack: 'prazo',
                             }, {
-                                label: `Vencendo (até 3 dias) - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                                label: `Vencendo (${dueSoonTotal})`,
                                 data: displayDueSoonData,
-                                backgroundColor: dueSoonBg,
-                                borderColor: border,
+                                backgroundColor: electric,
+                                borderColor: '#28FF52',
                                 borderWidth: 1,
                                 borderRadius: 6,
                                 stack: 'prazo',
                             }, {
-                                label: `A vencer - ${sourceLabel} (${payload.selectedYear ?? ''})`,
+                                label: `A vencer (${withinTotal})`,
                                 data: displayWithinData,
-                                backgroundColor: withinBg,
-                                borderColor: border,
+                                backgroundColor: slate,
+                                borderColor: '#7C9599',
                                 borderWidth: 1,
                                 borderRadius: 6,
                                 stack: 'prazo',
                             }]
                         },
+                        plugins: [totalsPlugin],
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: {
-                                    display: true
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        padding: 14
+                                    }
                                 },
                                 tooltip: {
                                     callbacks: {
-                                        label: (ctx) => `${ctx.dataset.label.split(' - ')[0]}: ${ctx.parsed.y} item(ns)`
+                                        label: (ctx) => `${ctx.dataset.label.split('(')[0].trim()}: ${ctx.parsed.y} item(ns)`
                                     }
                                 }
                             },
@@ -1132,12 +1142,18 @@
                                     }
                                 }
                             },
-                            onClick: (evt, elements) => {
-                                if (!elements.length) {
+                            onClick: (evt) => {
+                                const exact = monitoringHistogramChart.getElementsAtEventForMode(evt, 'nearest', {
+                                    intersect: true
+                                }, true);
+                                if (!exact.length) {
                                     return;
                                 }
 
-                                const month = elements[0].index + 1;
+                                const element = exact[0];
+                                const bucket = displayMonthKeys[Number(element.index)] || null;
+                                const segment = ['overdue', 'due_soon', 'within'][Number(element.datasetIndex)] || null;
+                                if (!segment) return;
                                 const root = canvas.closest('[wire\\:id]');
                                 if (!root) {
                                     return;
@@ -1148,7 +1164,7 @@
                                     return;
                                 }
 
-                                Livewire.find(componentId).call('setHistogramBucket', month);
+                                Livewire.find(componentId).call('setHistogramStackSelection', bucket, segment);
                             }
                         }
                     });

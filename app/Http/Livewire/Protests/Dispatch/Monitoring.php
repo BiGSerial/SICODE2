@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Protests\Dispatch;
 use App\Enum\ProtestJobStatus;
 use App\Enum\ProtestJobPriority;
 use App\Jobs\Protests\ExportMonitoringProtestJobsJob;
+use App\Models\MedProtest;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -48,8 +49,8 @@ class Monitoring extends Component
     public bool $hideBtzero = true;
     public ?string $deadlineCardFilter = null;
     public string $histogramSource = 'desired';
-    public ?int $histogramYear = null;
-    public ?int $histogramMonth = null;
+    public ?string $histogramBucket = null; // YYYY-MM
+    public ?string $histogramStackFilter = null; // overdue | due_soon | within
 
     protected $queryString = [
         'perPage'    => ['except' => 50],
@@ -67,8 +68,8 @@ class Monitoring extends Component
         'sortDirection' => ['except' => 'asc'],
         'deadlineCardFilter' => ['except' => null],
         'histogramSource' => ['except' => 'desired'],
-        'histogramYear' => ['except' => null],
-        'histogramMonth' => ['except' => null],
+        'histogramBucket' => ['except' => null],
+        'histogramStackFilter' => ['except' => null],
     ];
 
     protected $listeners = [
@@ -90,7 +91,6 @@ class Monitoring extends Component
             $this->hideBtzero = false;
         }
 
-        $this->histogramYear = $this->histogramYear ?: (int) now()->year;
         $this->userViewer = collect((array) $this->userViewer)->filter()->values()->all();
         $this->typeNote = collect((array) $this->typeNote)->filter()->values()->all();
         $this->protestType = collect((array) $this->protestType)->filter()->values()->all();
@@ -250,13 +250,57 @@ class Monitoring extends Component
             $this->histogramSource = 'desired';
         }
 
-        $this->histogramMonth = null;
+        $this->histogramBucket = null;
+        $this->histogramStackFilter = null;
         $this->resetPage();
     }
 
-    public function updatedHistogramYear(): void
+    protected function normalizeHistogramSegment(?string $segment): ?string
     {
-        $this->histogramMonth = null;
+        $value = strtolower(trim((string) $segment));
+        $value = str_replace('-', '_', $value);
+
+        return match ($value) {
+            'overdue', 'vencido', 'vencidos' => 'overdue',
+            'due_soon', 'vencendo' => 'due_soon',
+            'within', 'a_vencer', 'a vencer' => 'within',
+            default => null,
+        };
+    }
+
+    protected function applyHistogramSegmentCondition($query, string $column, ?string $segment): void
+    {
+        $normalized = $this->normalizeHistogramSegment($segment);
+        if (!$normalized) {
+            return;
+        }
+
+        $today = now()->startOfDay();
+        $dueSoonEnd = $today->copy()->addDays(3)->endOfDay();
+
+        if ($normalized === 'overdue') {
+            $query->where($column, '<', $today);
+            return;
+        }
+
+        if ($normalized === 'due_soon') {
+            $query->whereBetween($column, [$today, $dueSoonEnd]);
+            return;
+        }
+
+        $query->where($column, '>', $dueSoonEnd);
+    }
+
+    public function setHistogramStackSelection(?string $bucket = null, ?string $segment = null): void
+    {
+        unset($bucket);
+
+        $normalized = $this->normalizeHistogramSegment($segment);
+        if (!$normalized) {
+            return;
+        }
+
+        $this->histogramStackFilter = $this->histogramStackFilter === $normalized ? null : $normalized;
         $this->resetPage();
     }
 
@@ -286,10 +330,15 @@ class Monitoring extends Component
             ->toArray();
     }
 
-    public function goTo($protestNote)
+    public function goTo(int $medProtestId)
     {
+        $med = MedProtest::query()->select('id')->find($medProtestId);
+        if (!$med) {
+            return;
+        }
+
         return redirect()->route('protests.dispatch.view', [
-            'protest' => $protestNote,
+            'protest' => $med->id,
         ]);
     }
 
@@ -334,6 +383,9 @@ class Monitoring extends Component
                 'closer:id,name',
             ])
             ->where('confirmed', '!=', true)
+            ->whereHas('medProtest', function ($q) {
+                $q->where('statusSist', 'MEDA');
+            })
             ->orderBy('id');
 
         if ($this->showOnlyBtzero) {
@@ -341,11 +393,8 @@ class Monitoring extends Component
                 $q->identifiedAsBtzero();
             });
         } elseif ($this->hideBtzero) {
-            $query->where(function ($sub) {
-                $sub->whereNull('med_protest_id')
-                    ->orWhereHas('medProtest', function ($q) {
-                        $q->notIdentifiedAsBtzero();
-                    });
+            $query->whereHas('medProtest', function ($q) {
+                $q->notIdentifiedAsBtzero();
             });
         }
 
@@ -493,16 +542,55 @@ class Monitoring extends Component
             }
         }
 
-        if (!$ignoreHistogramFilter && $this->histogramMonth && $this->histogramYear) {
+        $hasHistogramBucket = !$ignoreHistogramFilter
+            && $this->histogramBucket
+            && preg_match('/^\d{4}\-\d{2}$/', (string) $this->histogramBucket);
+        $selectedStack = !$ignoreHistogramFilter ? $this->normalizeHistogramSegment($this->histogramStackFilter) : null;
+
+        $bucketYear = null;
+        $bucketMonth = null;
+        if ($hasHistogramBucket) {
+            [$bucketYear, $bucketMonth] = explode('-', (string) $this->histogramBucket);
+            $bucketYear = (int) $bucketYear;
+            $bucketMonth = (int) $bucketMonth;
+        }
+
+        if ($hasHistogramBucket || $selectedStack) {
             if ($this->histogramSource === 'sla') {
                 $query->whereNull('finished_at')
-                    ->whereYear('sla_due_at', (int) $this->histogramYear)
-                    ->whereMonth('sla_due_at', (int) $this->histogramMonth);
+                    ->whereNotNull('sla_due_at');
+
+                if ($hasHistogramBucket) {
+                    $query->whereYear('sla_due_at', $bucketYear)
+                        ->whereMonth('sla_due_at', $bucketMonth);
+                }
+
+                $this->applyHistogramSegmentCondition($query, 'sla_due_at', $selectedStack);
             } else {
-                $query->whereHas('medProtest', function ($sub) {
-                    $sub->where('statusSist', 'MEDA')
-                        ->whereYear('dtFimMedidaDesej', (int) $this->histogramYear)
-                        ->whereMonth('dtFimMedidaDesej', (int) $this->histogramMonth);
+                $query->whereHas('medProtest', function ($sub) use ($hasHistogramBucket, $bucketYear, $bucketMonth, $selectedStack) {
+                    $sub->where(function ($scope) use ($hasHistogramBucket, $bucketYear, $bucketMonth, $selectedStack) {
+                        $scope->whereHas('protest', function ($p) use ($hasHistogramBucket, $bucketYear, $bucketMonth, $selectedStack) {
+                            $p->where('tipoNota', 'NA')->whereNotNull('dtConclusaoDesej');
+                            if ($hasHistogramBucket) {
+                                $p->whereYear('dtConclusaoDesej', $bucketYear)
+                                    ->whereMonth('dtConclusaoDesej', $bucketMonth);
+                            }
+                            $this->applyHistogramSegmentCondition($p, 'dtConclusaoDesej', $selectedStack);
+                        })->orWhere(function ($mp) use ($hasHistogramBucket, $bucketYear, $bucketMonth, $selectedStack) {
+                            $mp->whereHas('protest', function ($p) {
+                                $p->where(function ($t) {
+                                    $t->where('tipoNota', '!=', 'NA')->orWhereNull('tipoNota');
+                                });
+                            })->whereNotNull('dtFimMedidaDesej');
+
+                            if ($hasHistogramBucket) {
+                                $mp->whereYear('dtFimMedidaDesej', $bucketYear)
+                                    ->whereMonth('dtFimMedidaDesej', $bucketMonth);
+                            }
+
+                            $this->applyHistogramSegmentCondition($mp, 'dtFimMedidaDesej', $selectedStack);
+                        });
+                    });
                 });
             }
         }
@@ -767,100 +855,119 @@ class Monitoring extends Component
             'sortDirection',
             'deadlineCardFilter',
             'onlySelectedUser',
-            'histogramMonth',
+            'histogramBucket',
+            'histogramStackFilter',
         ]);
         $this->loadUserViewerList();
         $this->loadProtestTypeOptions();
         $this->resetPage();
     }
 
-    public function setHistogramBucket(?int $month = null): void
+    public function setHistogramBucket(?string $bucket = null): void
     {
-        if (!$month || $month < 1 || $month > 12) {
+        if (!$bucket || !preg_match('/^\d{4}\-\d{2}$/', $bucket)) {
             return;
         }
 
-        $this->histogramMonth = $this->histogramMonth === $month ? null : $month;
+        $this->histogramBucket = $this->histogramBucket === $bucket ? null : $bucket;
         $this->resetPage();
     }
 
     public function clearHistogramFilter(): void
     {
-        $this->histogramMonth = null;
+        $this->histogramBucket = null;
+        $this->histogramStackFilter = null;
         $this->resetPage();
     }
 
     public function getHistogramDataProperty(): array
     {
         $jobs = $this->baseQuery(ignoreDeadlineFilter: false, ignoreHistogramFilter: true)->get();
-        $monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
         $totals = [];
         $overdueByMonth = [];
         $dueSoonByMonth = [];
         $withinByMonth = [];
-        $yearsMap = [];
         $now = now();
 
         foreach ($jobs as $job) {
             $bucketDate = null;
+            $desiredDate = $this->resolveDesiredDate($job);
 
             if ($this->histogramSource === 'sla') {
-                $bucketDate = $job->sla_due_at;
+                $bucketDate = $job->sla_due_at ?? $desiredDate;
             } else {
-                $bucketDate = $this->resolveDesiredDate($job);
+                $bucketDate = $desiredDate;
             }
 
             if (!$bucketDate) {
                 continue;
             }
 
-            $year = (int) $bucketDate->format('Y');
-            $month = (int) $bucketDate->format('n');
-            $yearsMap[$year] = true;
-            $totals[$year][$month] = ($totals[$year][$month] ?? 0) + 1;
+            $monthKey = $bucketDate->format('Y-m');
+            $totals[$monthKey] = ($totals[$monthKey] ?? 0) + 1;
 
             $diff = $now->diffInDays($bucketDate, false);
             if ($diff < 0) {
-                $overdueByMonth[$year][$month] = ($overdueByMonth[$year][$month] ?? 0) + 1;
+                $overdueByMonth[$monthKey] = ($overdueByMonth[$monthKey] ?? 0) + 1;
             } elseif ($diff <= 3) {
-                $dueSoonByMonth[$year][$month] = ($dueSoonByMonth[$year][$month] ?? 0) + 1;
+                $dueSoonByMonth[$monthKey] = ($dueSoonByMonth[$monthKey] ?? 0) + 1;
             } else {
-                $withinByMonth[$year][$month] = ($withinByMonth[$year][$month] ?? 0) + 1;
+                $withinByMonth[$monthKey] = ($withinByMonth[$monthKey] ?? 0) + 1;
             }
         }
 
-        $years = array_keys($yearsMap);
-        rsort($years);
-
-        $selectedYear = (int) ($this->histogramYear ?: now()->year);
-        if (!empty($years) && !in_array($selectedYear, $years, true)) {
-            $selectedYear = (int) $years[0];
-            $this->histogramYear = $selectedYear;
-        }
-
-        $counts = [];
+        $monthKeys = array_keys($totals);
+        sort($monthKeys);
         $overdueCounts = [];
         $dueSoonCounts = [];
         $withinCounts = [];
-        for ($m = 1; $m <= 12; $m++) {
-            $counts[] = (int) ($totals[$selectedYear][$m] ?? 0);
-            $overdueCounts[] = (int) ($overdueByMonth[$selectedYear][$m] ?? 0);
-            $dueSoonCounts[] = (int) ($dueSoonByMonth[$selectedYear][$m] ?? 0);
-            $withinCounts[] = (int) ($withinByMonth[$selectedYear][$m] ?? 0);
+        $monthTotals = [];
+        $monthLabels = [];
+        foreach ($monthKeys as $monthKey) {
+            $overdueCounts[] = (int) ($overdueByMonth[$monthKey] ?? 0);
+            $dueSoonCounts[] = (int) ($dueSoonByMonth[$monthKey] ?? 0);
+            $withinCounts[] = (int) ($withinByMonth[$monthKey] ?? 0);
+            $monthTotals[$monthKey] = (int) ($totals[$monthKey] ?? 0);
+            $monthLabels[$monthKey] = Carbon::createFromFormat('Y-m', $monthKey)->format('m/Y');
+        }
+
+        $selectedBucket = in_array((string) $this->histogramBucket, $monthKeys, true)
+            ? (string) $this->histogramBucket
+            : null;
+
+        $displayMonthKeys = $monthKeys;
+        $displayLabels = array_values($monthLabels);
+        $displayOverdueCounts = $overdueCounts;
+        $displayDueSoonCounts = $dueSoonCounts;
+        $displayWithinCounts = $withinCounts;
+
+        if ($selectedBucket) {
+            $index = array_search($selectedBucket, $monthKeys, true);
+            if ($index !== false) {
+                $displayMonthKeys = [$selectedBucket];
+                $displayLabels = [$monthLabels[$selectedBucket] ?? $selectedBucket];
+                $displayOverdueCounts = [(int) ($overdueCounts[$index] ?? 0)];
+                $displayDueSoonCounts = [(int) ($dueSoonCounts[$index] ?? 0)];
+                $displayWithinCounts = [(int) ($withinCounts[$index] ?? 0)];
+            }
         }
 
         return [
-            'labels' => $monthNames,
-            'counts' => $counts,
+            'labels' => $displayLabels,
+            'monthKeys' => $displayMonthKeys,
+            'monthTotals' => $monthTotals,
+            'monthLabels' => $monthLabels,
             'series' => [
                 'overdue' => $overdueCounts,
                 'dueSoon' => $dueSoonCounts,
                 'within' => $withinCounts,
+                'displayOverdue' => $displayOverdueCounts,
+                'displayDueSoon' => $displayDueSoonCounts,
+                'displayWithin' => $displayWithinCounts,
             ],
-            'years' => $years,
-            'selectedYear' => $selectedYear,
-            'selectedMonth' => $this->histogramMonth,
+            'selectedBucket' => $selectedBucket,
+            'selectedStack' => $this->normalizeHistogramSegment($this->histogramStackFilter),
             'source' => $this->histogramSource,
         ];
     }
@@ -883,6 +990,8 @@ class Monitoring extends Component
             'showOnlyBtzero' => $this->showOnlyBtzero,
             'hideBtzero' => $this->hideBtzero,
             'deadlineCardFilter' => $this->deadlineCardFilter,
+            'histogramBucket' => $this->histogramBucket,
+            'histogramStackFilter' => $this->histogramStackFilter,
         ];
 
         ExportMonitoringProtestJobsJob::dispatch($filters, (string) auth()->id());

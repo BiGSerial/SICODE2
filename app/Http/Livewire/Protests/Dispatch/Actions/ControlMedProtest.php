@@ -430,6 +430,7 @@ class ControlMedProtest extends Component
 
                 'sla_due_at'     => $data['sla_due_at'] ?? null,
                 'notes'          => $data['notes'] ?? null,
+                'sent_at'        => now(),
             ]);
 
             // garante fluxo mínimo antes de finalizar

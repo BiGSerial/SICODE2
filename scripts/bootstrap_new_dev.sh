@@ -630,6 +630,7 @@ echo -e "${YELLOW}Iniciando WinSCP...${NC}"
 "$WINSCP_EXE" /script="$TMP_SCRIPT_WIN"
 rm -f "$TMP_SCRIPT"
 echo -e "${GREEN}Deploy finalizado.${NC}"
+echo -e "${BLUE}Executado em:${NC} $(date '+%d/%m/%Y %H:%M:%S %Z')"
 EOF
 
     chmod +x "${DEPLOY_SICODE2_SCRIPT}"

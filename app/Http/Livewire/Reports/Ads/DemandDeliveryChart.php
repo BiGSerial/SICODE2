@@ -45,6 +45,7 @@ class DemandDeliveryChart extends Component
                         'fill' => false,
                         'borderWidth' => 1.5,
                         'datalabels' => [
+                            'display' => true,
                             'anchor' => 'end',
                             'align' => 'top',
                             'offset' => 6,
@@ -62,6 +63,7 @@ class DemandDeliveryChart extends Component
                         'fill' => false,
                         'borderWidth' => 1.5,
                         'datalabels' => [
+                            'display' => true,
                             'anchor' => 'end',
                             'align' => 'bottom',
                             'offset' => 6,

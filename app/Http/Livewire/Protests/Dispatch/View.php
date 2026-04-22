@@ -55,7 +55,24 @@ class View extends Component
     {
         $this->readOnly = $readOnly;
 
-        $this->protest = Protest::where('nota', $request->route('protest'))
+        $routeRef = (string) $request->route('protest');
+
+        $protestQuery = Protest::query();
+        if ($routeRef !== '' && ctype_digit($routeRef)) {
+            $med = MedProtest::query()
+                ->select('id', 'protest_id')
+                ->find((int) $routeRef);
+
+            if ($med?->protest_id) {
+                $protestQuery->whereKey($med->protest_id);
+            } else {
+                $protestQuery->where('nota', $routeRef);
+            }
+        } else {
+            $protestQuery->where('nota', $routeRef);
+        }
+
+        $this->protest = $protestQuery
             ->with([
                 'medProtests',
                 'medProtests.notes',

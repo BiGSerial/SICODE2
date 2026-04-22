@@ -10,12 +10,8 @@
     <div class="small text-muted mb-1 text-end">
         Economia no período: <strong id="ads-reuse-economy-rate">{{ number_format($reuseRate, 1, ',', '.') }}%</strong>
     </div>
-    <div class="small text-muted mb-2 text-end">
-        Reaproveitadas: <strong id="ads-reuse-economy-reused">{{ $reused }}</strong> /
-        Enfileiradas: <strong id="ads-reuse-economy-queued">{{ $queued }}</strong>
-    </div>
     <div class="flex-grow-1" style="min-height: 0; overflow: hidden;">
-        <div class="w-100 h-100" style="height: 255px; max-height: 255px; overflow: hidden;">
+        <div class="w-100 h-100" style="height: 285px; max-height: 285px; overflow: hidden;">
             <x-grafico.apex :chart="$chart" chartId="adsReuseEconomyDonut" class="w-100 h-100" />
         </div>
     </div>

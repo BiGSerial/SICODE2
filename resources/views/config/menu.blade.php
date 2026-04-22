@@ -23,6 +23,11 @@
                             <i class="bi bi-circle"></i> <span>HISTÓRICO DE CONFIGURAÇÕES</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('config.wall.index') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-circle"></i> <span>WALL PRODUÇÃO</span>
+                        </a>
+                    </li>
 
 
                 </div>

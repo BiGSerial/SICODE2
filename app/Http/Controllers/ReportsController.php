@@ -98,4 +98,41 @@ class ReportsController extends Controller
     {
         return view('reports.protest-mede');
     }
+
+    public function productionWall()
+    {
+        return view('reports.production-wall');
+    }
+
+    public function productionWallV2(int $wall)
+    {
+        return view('reports.production-wall-v2', [
+            'wallId' => $wall,
+            'screenId' => null,
+        ]);
+    }
+
+    public function productionWallV2Screen(int $wall, int $screen)
+    {
+        return view('reports.production-wall-v2', [
+            'wallId' => $wall,
+            'screenId' => $screen,
+        ]);
+    }
+
+    public function productionWallV2Vue(int $wall)
+    {
+        return view('reports.production-wall-v2-vue', [
+            'wallId' => $wall,
+            'screenId' => null,
+        ]);
+    }
+
+    public function productionWallV2VueScreen(int $wall, int $screen)
+    {
+        return view('reports.production-wall-v2-vue', [
+            'wallId' => $wall,
+            'screenId' => $screen,
+        ]);
+    }
 }

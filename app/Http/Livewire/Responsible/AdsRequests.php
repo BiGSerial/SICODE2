@@ -429,27 +429,33 @@ class AdsRequests extends Component
         try {
             $user = $request->requestedBy()->first();
             $company = $request->company()->first();
+            $status = $request->status instanceof AdsRequestStatus
+                ? $request->status->value
+                : AdsRequestStatus::QUEUED->value;
+            $payload = [
+                'batch_id' => $request->batch_id,
+                'note' => $noteNumber,
+                'company' => $company?->name,
+                'status' => $status,
+                'attempts' => $request->attempts ?? 0,
+                'partner' => $request->partner ? 1 : 0,
+                'register' => $user?->Registration,
+                'user' => $user?->name,
+                'email' => $user?->email,
+                'description' => $request->description,
+                'completed_at' => $request->completed_at,
+                'created_at' => $request->created_at,
+                'updated_at' => $request->updated_at,
+            ];
+            $sqlTable = DB::connection('sqlsrv2')->table('sicode.dbo.ads_requests');
 
-            DB::connection('sqlsrv2')
-                ->table('sicode.dbo.ads_requests')
-                ->insert([
-                    'sicode_id' => $request->id,
-                    'batch_id' => $request->batch_id,
-                    'note' => $noteNumber,
-                    'company' => $company?->name,
-                    'status' => $request->status->value,
-                    'attempts' => $request->attempts ?? 0,
-                    'partner' => $request->partner ? 1 : 0,
-                    'register' => $user?->Registration,
-                    'user' => $user?->name,
-                    'email' => $user?->email,
-                    'description' => $request->description,
-                    'completed_at' => $request->completed_at,
-                    'created_at' => $request->created_at,
-                    'updated_at' => $request->updated_at,
-                ]);
+            if ($sqlTable->where('sicode_id', $request->id)->exists()) {
+                $sqlTable->where('sicode_id', $request->id)->update($payload);
+            } else {
+                $sqlTable->insert(array_merge(['sicode_id' => $request->id], $payload));
+            }
 
-            return true;
+            return $this->syncRequestFromSqlServer($request);
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -457,10 +463,10 @@ class AdsRequests extends Component
         }
     }
 
-    protected function syncCanceledToSqlServer(AdsRequest $request): void
+    protected function syncCanceledToSqlServer(AdsRequest $request): bool
     {
         try {
-            DB::connection('sqlsrv2')
+            $affected = DB::connection('sqlsrv2')
                 ->table('sicode.dbo.ads_requests')
                 ->where('sicode_id', $request->id)
                 ->update([
@@ -468,8 +474,16 @@ class AdsRequests extends Component
                     'updated_at' => now(),
                     'completed_at' => $request->canceled_at ?? now(),
                 ]);
+
+            if ((int) $affected === 0) {
+                $noteNumber = $request->note?->note ?? (string) $request->note_id;
+                return $this->mirrorToSqlServer($request, $noteNumber);
+            }
+
+            return $this->syncRequestFromSqlServer($request);
         } catch (\Throwable $exception) {
             report($exception);
+            return false;
         }
     }
 
@@ -715,26 +729,19 @@ class AdsRequests extends Component
                 continue;
             }
 
-            if ($request->status === AdsRequestStatus::CANCELED && $sqlRow->status !== AdsRequestStatus::CANCELED->value) {
-                $this->syncCanceledToSqlServer($request);
-                $updated++;
+            if (
+                $request->status === AdsRequestStatus::CANCELED
+                && $this->normalizeSqlStatus((string) $sqlRow->status) !== AdsRequestStatus::CANCELED->value
+            ) {
+                if ($this->syncCanceledToSqlServer($request)) {
+                    $updated++;
+                } else {
+                    $failed++;
+                }
                 continue;
             }
 
-            $request->fill([
-                'status' => $sqlRow->status,
-                'attempts' => (int) ($sqlRow->attempts ?? 0),
-                'description' => $sqlRow->description,
-                'url' => $sqlRow->url,
-                'completed_at' => $sqlRow->completed_at,
-                'sqlserver_id' => $sqlRow->id,
-                'completed' => $sqlRow->status === AdsRequestStatus::DONE->value,
-                'updated_at' => $sqlRow->updated_at,
-            ]);
-
-            if ($request->isDirty()) {
-                $request->timestamps = false;
-                $request->save();
+            if ($this->applySqlRowToLocalRequest($request, $sqlRow)) {
                 $updated++;
             }
         }
@@ -832,6 +839,62 @@ class AdsRequests extends Component
         }
 
         return $rows->keyBy('sicode_id');
+    }
+
+    protected function syncRequestFromSqlServer(AdsRequest $request): bool
+    {
+        $sqlRow = SqlAdsRequest::query()
+            ->where('sicode_id', $request->id)
+            ->latest('updated_at')
+            ->first();
+
+        if (!$sqlRow && $request->sqlserver_id) {
+            $sqlRow = SqlAdsRequest::query()->find($request->sqlserver_id);
+        }
+
+        if (!$sqlRow) {
+            return false;
+        }
+
+        $this->applySqlRowToLocalRequest($request, $sqlRow);
+
+        return true;
+    }
+
+    protected function applySqlRowToLocalRequest(AdsRequest $request, $sqlRow): bool
+    {
+        $sqlStatus = $this->normalizeSqlStatus($sqlRow->status)
+            ?? ($request->status instanceof AdsRequestStatus ? $request->status->value : AdsRequestStatus::QUEUED->value);
+
+        $request->fill([
+            'status' => $sqlStatus,
+            'attempts' => (int) ($sqlRow->attempts ?? 0),
+            'description' => $sqlRow->description,
+            'url' => $sqlRow->url,
+            'completed_at' => $sqlRow->completed_at,
+            'sqlserver_id' => $sqlRow->id,
+            'completed' => $sqlStatus === AdsRequestStatus::DONE->value,
+            'updated_at' => $sqlRow->updated_at,
+        ]);
+
+        if (!$request->isDirty()) {
+            return false;
+        }
+
+        $request->timestamps = false;
+        $request->save();
+
+        return true;
+    }
+
+    protected function normalizeSqlStatus(?string $status): ?string
+    {
+        $normalized = mb_strtoupper(trim((string) $status));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return AdsRequestStatus::tryFrom($normalized)?->value;
     }
 
 }
