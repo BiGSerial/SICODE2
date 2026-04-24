@@ -94,6 +94,15 @@
             cursor: pointer;
         }
 
+        .highlightable-row:hover {
+            background-color: rgba(15, 118, 110, 0.10) !important;
+            box-shadow: inset 0 0 0 999px rgba(15, 118, 110, 0.10);
+        }
+
+        .highlightable-row:hover td {
+            background-color: transparent !important;
+        }
+
         .highlightable-row td {
             vertical-align: middle;
         }
@@ -245,8 +254,21 @@
             <div class="meta">Fila de despacho, prazos e acompanhamento de SLA</div>
         </div>
         <div class="text-lg-end">
-            <div class="meta">Jobs em tela</div>
-            <div><strong>{{ $lists->total() ?? 0 }}</strong></div>
+            <div class="meta">Base em andamento (menu)</div>
+            <div>
+                <strong>{{ $coreTotal ?? 0 }}</strong>
+                <span class="badge bg-success ms-1">{{ $coreDonePending ?? 0 }} done pendente</span>
+            </div>
+            <div class="meta mt-1">Após filtros variáveis: <strong>{{ $lists->total() ?? 0 }}</strong></div>
+        </div>
+    </div>
+
+    <div class="alert alert-secondary border mb-3 py-2">
+        <div class="small fw-semibold mb-1">Filtros fixos (core da página)</div>
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (($fixedFilters ?? []) as $fixedFilter)
+                <span class="badge text-bg-light border">{{ $fixedFilter }}</span>
+            @endforeach
         </div>
     </div>
 
@@ -431,6 +453,11 @@
                                 <option value="desired">Data desejada (MEDA)</option>
                                 <option value="sla">Data SLA (não concluídos)</option>
                             </select>
+                            <select class="form-select form-select-sm" wire:model="histogramStatusScope" style="min-width: 190px;">
+                                <option value="meda">Status Medida: MEDA</option>
+                                <option value="mede">Status Medida: MEDE</option>
+                                <option value="both">Status Medida: MEDA + MEDE</option>
+                            </select>
                             @if (!empty($histogramData['selectedBucket']))
                                 <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearHistogramFilter">
                                     Limpar mês
@@ -477,7 +504,7 @@
                     <div class="status-summary-body">
                         <span class="status-summary-label">Vencendo hoje</span>
                         <span class="status-summary-value">{{ $deadlineSummary['due_today'] ?? 0 }}</span>
-                        <small>Baseado em dtFimMedidaDesej</small>
+                        <small>Apenas medidas em aberto (MEDA)</small>
                     </div>
                 </button>
                 <button type="button"
@@ -489,7 +516,7 @@
                     <div class="status-summary-body">
                         <span class="status-summary-label">Vencidos</span>
                         <span class="status-summary-value">{{ $deadlineSummary['overdue'] ?? 0 }}</span>
-                        <small>Data desejada anterior a hoje</small>
+                        <small>Apenas medidas em aberto (MEDA)</small>
                     </div>
                 </button>
                 <button type="button"
@@ -501,7 +528,7 @@
                     <div class="status-summary-body">
                         <span class="status-summary-label">Finalizados pendentes</span>
                         <span class="status-summary-value">{{ $deadlineSummary['finished_pending'] ?? 0 }}</span>
-                        <small>Status done e aguardando confirmação</small>
+                        <small>Exceção: finalizados sem confirmação (todos os status)</small>
                     </div>
                 </button>
             </div>
@@ -510,6 +537,30 @@
 
     {{-- ================== LISTA PRINCIPAL ================== --}}
     @if ($lists->count())
+        @if (!empty($variableFilters))
+            <div class="alert alert-warning border mb-2 py-2">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <div class="small fw-semibold mb-1">Filtros variáveis ativos (estão reduzindo a lista)</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach ($variableFilters as $filter)
+                                <span class="badge text-bg-warning border border-dark-subtle">
+                                    {{ $filter['source'] }}: {{ $filter['label'] }}
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-dark" wire:click="cleanFilters">
+                        Limpar filtros variáveis
+                    </button>
+                </div>
+            </div>
+        @else
+            <div class="alert alert-success border mb-2 py-2">
+                <span class="small fw-semibold">Sem filtros variáveis ativos. A lista está sem restrição adicional.</span>
+            </div>
+        @endif
+
         {{-- PaginaÃ§Ã£o topo --}}
         <div class="summary-bar mb-2">
             <div class="d-flex justify-content-between align-items-center">
