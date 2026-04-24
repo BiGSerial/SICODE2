@@ -10,6 +10,7 @@ use App\Models\Protest;
 use App\Models\ProtestJob;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -49,6 +50,7 @@ class Monitoring extends Component
     public bool $hideBtzero = true;
     public ?string $deadlineCardFilter = null;
     public string $histogramSource = 'desired';
+    public string $histogramStatusScope = 'meda'; // meda | mede | both
     public ?string $histogramBucket = null; // YYYY-MM
     public ?string $histogramStackFilter = null; // overdue | due_soon | within
 
@@ -68,6 +70,7 @@ class Monitoring extends Component
         'sortDirection' => ['except' => 'asc'],
         'deadlineCardFilter' => ['except' => null],
         'histogramSource' => ['except' => 'desired'],
+        'histogramStatusScope' => ['except' => 'meda'],
         'histogramBucket' => ['except' => null],
         'histogramStackFilter' => ['except' => null],
     ];
@@ -99,6 +102,9 @@ class Monitoring extends Component
         $this->priorityFilter = collect((array) $this->priorityFilter)->filter()->values()->all();
         $this->sapStatusFilter = collect((array) $this->sapStatusFilter)->filter()->values()->all();
         $this->ownerScope = collect((array) $this->ownerScope)->filter()->values()->all();
+        if (!in_array($this->histogramStatusScope, ['meda', 'mede', 'both'], true)) {
+            $this->histogramStatusScope = 'meda';
+        }
 
         $this->loadUserViewerList();
         $this->loadNoteTypeOptions();
@@ -255,6 +261,17 @@ class Monitoring extends Component
         $this->resetPage();
     }
 
+    public function updatedHistogramStatusScope($value): void
+    {
+        if (!in_array($value, ['meda', 'mede', 'both'], true)) {
+            $this->histogramStatusScope = 'meda';
+        }
+
+        $this->histogramBucket = null;
+        $this->histogramStackFilter = null;
+        $this->resetPage();
+    }
+
     protected function normalizeHistogramSegment(?string $segment): ?string
     {
         $value = strtolower(trim((string) $segment));
@@ -289,6 +306,18 @@ class Monitoring extends Component
         }
 
         $query->where($column, '>', $dueSoonEnd);
+    }
+
+    protected function applyHistogramStatusScope($query): void
+    {
+        if ($this->histogramStatusScope === 'both') {
+            return;
+        }
+
+        $status = $this->histogramStatusScope === 'mede' ? 'MEDE' : 'MEDA';
+        $query->whereHas('medProtest', function ($sub) use ($status) {
+            $sub->where('statusSist', $status);
+        });
     }
 
     public function setHistogramStackSelection(?string $bucket = null, ?string $segment = null): void
@@ -367,10 +396,34 @@ class Monitoring extends Component
         $this->resetPage();
     }
 
+    protected function coreQuery(): Builder
+    {
+        $query = ProtestJob::query()
+            ->where(function ($q) {
+                $q->whereNull('confirmed')
+                    ->orWhere('confirmed', false);
+            });
+
+        if ($this->showOnlyBtzero) {
+            $query->whereHas('medProtest', function ($q) {
+                $q->identifiedAsBtzero();
+            });
+        } elseif ($this->hideBtzero) {
+            $query->where(function ($q) {
+                $q->whereNull('med_protest_id')
+                    ->orWhereHas('medProtest', function ($sub) {
+                        $sub->notIdentifiedAsBtzero();
+                    });
+            });
+        }
+
+        return $query;
+    }
+
     /** Query base dos jobs */
     protected function baseQuery(bool $ignoreDeadlineFilter = false, bool $ignoreHistogramFilter = false)
     {
-        $query = ProtestJob::query()
+        $query = $this->coreQuery()
             ->with([
                 'medProtest',
                 'medProtest.Comments' => function ($q) {
@@ -382,21 +435,7 @@ class Monitoring extends Component
                 'creator:id,name',
                 'closer:id,name',
             ])
-            ->where('confirmed', '!=', true)
-            ->whereHas('medProtest', function ($q) {
-                $q->where('statusSist', 'MEDA');
-            })
             ->orderBy('id');
-
-        if ($this->showOnlyBtzero) {
-            $query->whereHas('medProtest', function ($q) {
-                $q->identifiedAsBtzero();
-            });
-        } elseif ($this->hideBtzero) {
-            $query->whereHas('medProtest', function ($q) {
-                $q->notIdentifiedAsBtzero();
-            });
-        }
 
         // Filtro por responsável / hierarquia
         $query->when(!empty($this->userViewer), function ($q) {
@@ -520,6 +559,9 @@ class Monitoring extends Component
             $today = now()->toDateString();
 
             if ($this->deadlineCardFilter === 'due_today') {
+                $query->whereHas('medProtest', function ($sub) {
+                    $sub->where('statusSist', 'MEDA');
+                });
                 $query->where(function ($q) use ($today) {
                     $q->whereHas('protest', function ($sub) use ($today) {
                         $sub->where('tipoNota', 'NA')
@@ -529,6 +571,9 @@ class Monitoring extends Component
                     });
                 });
             } elseif ($this->deadlineCardFilter === 'overdue') {
+                $query->whereHas('medProtest', function ($sub) {
+                    $sub->where('statusSist', 'MEDA');
+                });
                 $query->where(function ($q) use ($today) {
                     $q->whereHas('protest', function ($sub) use ($today) {
                         $sub->where('tipoNota', 'NA')
@@ -556,6 +601,8 @@ class Monitoring extends Component
         }
 
         if ($hasHistogramBucket || $selectedStack) {
+            $this->applyHistogramStatusScope($query);
+
             if ($this->histogramSource === 'sla') {
                 $query->whereNull('finished_at')
                     ->whereNotNull('sla_due_at');
@@ -707,6 +754,117 @@ class Monitoring extends Component
         return $query;
     }
 
+    public function getCoreTotalProperty(): int
+    {
+        return (clone $this->coreQuery())->count();
+    }
+
+    public function getCoreDonePendingProperty(): int
+    {
+        return (clone $this->coreQuery())
+            ->where('status', ProtestJobStatus::DONE->value)
+            ->count();
+    }
+
+    public function getFixedFiltersProperty(): array
+    {
+        $filters = [
+            'Somente atividades em andamento (não confirmadas)',
+        ];
+
+        if ($this->showOnlyBtzero) {
+            $filters[] = 'Escopo fixo: apenas BT Zero';
+        } elseif ($this->hideBtzero) {
+            $filters[] = 'Escopo fixo: sem BT Zero';
+        }
+
+        return $filters;
+    }
+
+    public function getVariableFiltersProperty(): array
+    {
+        $filters = [];
+
+        if ($this->search !== '') {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Busca geral'];
+        }
+
+        if (!empty($this->userViewer)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Responsável/hierarquia'];
+        }
+
+        if ($this->onlySelectedUser) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Apenas usuário selecionado'];
+        }
+
+        if (!empty($this->typeNote)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Tipo de nota'];
+        }
+
+        if (!empty($this->protestType)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Tipo de reclamação'];
+        }
+
+        if (!empty($this->jobStatusFilter)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Status do job'];
+        }
+
+        if (!empty($this->priorityFilter)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Prioridade'];
+        }
+
+        if (!empty($this->sapStatusFilter)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Status SAP'];
+        }
+
+        if (!empty($this->ownerScope)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Escopo de responsável'];
+        }
+
+        if (!empty($this->slaFilter)) {
+            $filters[] = ['source' => 'Formulário', 'label' => 'Faixa SLA'];
+        }
+
+        if ($this->deadlineCardFilter) {
+            $label = match ($this->deadlineCardFilter) {
+                'due_today' => 'Card: Vencendo hoje (apenas MEDA)',
+                'overdue' => 'Card: Vencidos (apenas MEDA)',
+                'finished_pending' => 'Card: Finalizados pendentes',
+                default => 'Card de prazo',
+            };
+            $filters[] = ['source' => 'Cards de prazo', 'label' => $label];
+        }
+
+        if ($this->histogramBucket) {
+            $label = preg_match('/^\d{4}\-\d{2}$/', $this->histogramBucket)
+                ? Carbon::createFromFormat('Y-m', $this->histogramBucket)->format('m/Y')
+                : $this->histogramBucket;
+            $filters[] = ['source' => 'Histograma', 'label' => 'Mês selecionado: '.$label];
+        }
+
+        if ($this->histogramStackFilter) {
+            $segment = $this->normalizeHistogramSegment($this->histogramStackFilter);
+            $segmentLabel = match ($segment) {
+                'overdue' => 'Faixa: vencidos',
+                'due_soon' => 'Faixa: vencendo até 3 dias',
+                'within' => 'Faixa: a vencer',
+                default => 'Faixa de prazo',
+            };
+            $filters[] = ['source' => 'Histograma', 'label' => $segmentLabel];
+        }
+
+        if ($this->histogramBucket || $this->histogramStackFilter) {
+            $scopeLabel = match ($this->histogramStatusScope) {
+                'mede' => 'Status medida: MEDE',
+                'both' => 'Status medida: MEDA + MEDE',
+                default => 'Status medida: MEDA',
+            };
+            $filters[] = ['source' => 'Histograma', 'label' => $scopeLabel];
+        }
+
+        return $filters;
+    }
+
     /** Lista paginada */
     public function getListsProperty()
     {
@@ -809,6 +967,11 @@ class Monitoring extends Component
                 $finishedPending++;
             }
 
+            $isMeda = mb_strtoupper((string) ($job->medProtest?->statusSist ?? '')) === 'MEDA';
+            if (!$isMeda) {
+                continue;
+            }
+
             $desiredDate = $this->resolveDesiredDate($job);
 
             if (!$desiredDate) {
@@ -855,6 +1018,7 @@ class Monitoring extends Component
             'sortDirection',
             'deadlineCardFilter',
             'onlySelectedUser',
+            'histogramStatusScope',
             'histogramBucket',
             'histogramStackFilter',
         ]);
@@ -882,7 +1046,9 @@ class Monitoring extends Component
 
     public function getHistogramDataProperty(): array
     {
-        $jobs = $this->baseQuery(ignoreDeadlineFilter: false, ignoreHistogramFilter: true)->get();
+        $jobs = $this->baseQuery(ignoreDeadlineFilter: false, ignoreHistogramFilter: true);
+        $this->applyHistogramStatusScope($jobs);
+        $jobs = $jobs->get();
 
         $totals = [];
         $overdueByMonth = [];
@@ -992,6 +1158,7 @@ class Monitoring extends Component
             'deadlineCardFilter' => $this->deadlineCardFilter,
             'histogramBucket' => $this->histogramBucket,
             'histogramStackFilter' => $this->histogramStackFilter,
+            'histogramStatusScope' => $this->histogramStatusScope,
         ];
 
         ExportMonitoringProtestJobsJob::dispatch($filters, (string) auth()->id());
@@ -1009,6 +1176,10 @@ class Monitoring extends Component
     {
         return view('livewire.protests.dispatch.monitoring', [
             'lists'          => $this->lists,
+            'coreTotal' => $this->coreTotal,
+            'coreDonePending' => $this->coreDonePending,
+            'fixedFilters' => $this->fixedFilters,
+            'variableFilters' => $this->variableFilters,
             'userViewerList' => $this->userViewerList,
             'noteTypeOptions' => $this->noteTypeOptions,
             'protestTypeOptions' => $this->protestTypeOptions,
