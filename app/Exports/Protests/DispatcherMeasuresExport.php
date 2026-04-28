@@ -80,6 +80,9 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                 'protests.dtAberturaNota as protest_dt_abertura_nota',
                 'protests.dtConclusaoDesej as protest_dt_conclusao_desej',
                 'protests.type',
+                'protests.txtGrpCodificacao as protest_txt_grp_codificacao',
+                'protests.descCausa as protest_desc_causa',
+                'protests.descSubCausa as protest_desc_sub_causa',
                 'protests.statUsuar as protest_stat_usuar',
                 'first_job.id as job_id',
                 'first_job.sent_at as job_sent_at',
@@ -111,6 +114,9 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             $row->protest_tipo_nota,
             $protestType,
             $row->type,
+            $row->protest_txt_grp_codificacao,
+            $row->protest_desc_causa,
+            $row->protest_desc_sub_causa,
             $row->statusSist,
             $row->protest_stat_usuar,
             $row->statMedida,
@@ -139,6 +145,9 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             'Tipo Nota',
             'Tipo Reclamacão',
             'Categoria Reclamação',
+            'Grupo Codificação',
+            'Descrição de Causa',
+            'Descrição Sub Causa',
             'Status Medida',
             'Conclusao Nota',
             'Conclusao Medida',
@@ -223,9 +232,9 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                             ]);
                         }
 
-                        $onTimeCell = $sheet->getCell("O{$row}")->getValue();
+                        $onTimeCell = $sheet->getCell("R{$row}")->getValue();
                         if ($onTimeCell === 'Sim') {
-                            $sheet->getStyle("O{$row}")->applyFromArray([
+                            $sheet->getStyle("R{$row}")->applyFromArray([
                                 'font' => ['bold' => true, 'color' => ['rgb' => '047857']],
                                 'fill' => [
                                     'fillType' => Fill::FILL_SOLID,
@@ -233,7 +242,7 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                                 ],
                             ]);
                         } elseif ($onTimeCell === 'Nao') {
-                            $sheet->getStyle("O{$row}")->applyFromArray([
+                            $sheet->getStyle("R{$row}")->applyFromArray([
                                 'font' => ['bold' => true, 'color' => ['rgb' => 'B91C1C']],
                                 'fill' => [
                                     'fillType' => Fill::FILL_SOLID,
