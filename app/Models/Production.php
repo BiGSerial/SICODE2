@@ -148,6 +148,11 @@ class Production extends Model
         return $this->belongsToMany(File::class);
     }
 
+    public function morphFiles(): MorphToMany
+    {
+        return $this->morphToMany(File::class, 'fileable')->withTimestamps();
+    }
+
     public function Reclaim()
     {
         return $this->hasOne(Reclaim::class);

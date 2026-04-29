@@ -99,6 +99,7 @@ $version = (object) json_decode(file_get_contents('../appver.json'));
     <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
 
     @stack('script')
+    @stack('scripts')
 
     @livewireScripts
 

@@ -25,6 +25,8 @@ class FixExistingTacitAds extends Command
             $query = DB::table('adsforms as af')
                 ->join('work_reports as wr', 'wr.id', '=', 'af.work_report_id')
                 ->where('af.tacit', true)
+                ->where('wr.rejected', false)
+                ->where('wr.canceled', false)
                 ->select([
                     'af.id',
                     'af.tacit_due_at',

@@ -22,7 +22,10 @@ class RetrofitTacitDeliveredWithoutFiles extends Command
             $chunkSize = max(100, (int) $this->option('chunk'));
 
             $query = DB::table('adsforms as af')
+                ->join('work_reports as wr', 'wr.id', '=', 'af.work_report_id')
                 ->where('af.tacit', true)
+                ->where('wr.rejected', false)
+                ->where('wr.canceled', false)
                 ->whereNotNull('af.tacit_delivered_at')
                 ->whereNotExists(function ($subQuery) {
                     $subQuery->select(DB::raw(1))

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Partner\Forms;
 use App\Models\WorkReport;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class Reworkreports extends Workreports
 {
@@ -27,6 +28,8 @@ class Reworkreports extends Workreports
 
     public function mount(?string $token = null)
     {
+        $this->requireFilesForSubmit = false;
+
         if (!$token) {
             abort(403);
         }
@@ -112,7 +115,7 @@ class Reworkreports extends Workreports
                 return;
             }
 
-            if ($this->form['changes'] == true && !$this->hasFiles) {
+            if ($this->requireFilesForSubmit && $this->form['changes'] == true && !$this->hasFiles) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
@@ -138,7 +141,7 @@ class Reworkreports extends Workreports
             } elseif ($this->hasExistingAds) {
                 $adsMessage = $this->asBool($this->keepExistingAds)
                     ? '<p>A ADS existente será mantida. A data de entrega da ADS será atualizada para a data deste reenvio e o prazo de fiscalização será recalculado a partir da nova data.</p>'
-                    : '<p>A ADS existente será removida. O usuário terá 6 dias, contados a partir deste reenvio, para entregar uma nova ADS na aba <strong>Entregar ADS</strong>.</p>';
+                    : '<p>A ADS existente será removida. Se houver arquivo vinculado à ADS, ele será apagado do servidor e a associação da ADS será removida. O usuário terá 6 dias, contados a partir deste reenvio, para enviar a ADS pela área <strong>Entregar ADS</strong>.</p>';
             }
 
             $this->dispatchBrowserEvent('alertar', [
@@ -368,7 +371,17 @@ class Reworkreports extends Workreports
             return;
         }
 
+        $adsFiles = $adsForm->Files()->get();
         $adsForm->Files()->detach();
+
+        foreach ($adsFiles as $file) {
+            if ($file->path && Storage::exists($file->path)) {
+                Storage::delete($file->path);
+            }
+
+            $file->delete();
+        }
+
         $adsForm->delete();
     }
 
@@ -387,8 +400,9 @@ class Reworkreports extends Workreports
             ->where('user_id', auth()->id())
             ->where(function ($q) {
                 foreach ($this->existingFileTypes as $type) {
-                    $q->orWhere('file_name', 'like', $type . '\_%');
+                    $q->orWhere('file_name', 'like', $type . '%');
                 }
+                $q->orWhere('file_name', 'like', '%INFO%');
             })
             ->exists();
     }
@@ -403,8 +417,9 @@ class Reworkreports extends Workreports
             ->where('user_id', auth()->id())
             ->where(function ($q) {
                 foreach ($this->existingFileTypes as $type) {
-                    $q->orWhere('file_name', 'like', $type . '\_%');
+                    $q->orWhere('file_name', 'like', $type . '%');
                 }
+                $q->orWhere('file_name', 'like', '%INFO%');
             })
             ->pluck('files.id')
             ->all();

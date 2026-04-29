@@ -32,8 +32,11 @@ class FillMissingTacitOrderServiceCost extends Command
                 ->whereExists(function ($sub) {
                     $sub->select(DB::raw(1))
                         ->from('order_work_report as owr')
+                        ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
                         ->join('adsforms as af', 'af.work_report_id', '=', 'owr.work_report_id')
                         ->whereColumn('owr.order_id', 'o.id')
+                        ->where('wr.rejected', false)
+                        ->where('wr.canceled', false)
                         ->where('af.tacit', true);
                 })
                 ->orderBy('o.id');

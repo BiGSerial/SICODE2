@@ -398,18 +398,30 @@ class CreateGenFiles extends Component
 
     public function existingFiles()
     {
-        $query = $this->workReport
-            ? $this->workReport->Files()
-            : $this->note->Files();
-
-        $query->where('user_id', auth()->id())
+        $query = File::query()
+            ->where('user_id', auth()->id())
             ->orderBy('file_name');
+
+        if ($this->workReport) {
+            $workReportId = $this->workReport->id;
+            $noteId = $this->note->id;
+
+            $query->where(function ($q) use ($workReportId, $noteId) {
+                $q->where('note_id', $noteId)
+                    ->orWhereHas('WorkReports', function ($workReportQuery) use ($workReportId) {
+                        $workReportQuery->whereKey($workReportId);
+                    });
+            });
+        } else {
+            $query->where('note_id', $this->note->id);
+        }
 
         if (!empty($this->existingFileTypes)) {
             $query->where(function ($q) {
                 foreach ($this->existingFileTypes as $type) {
-                    $q->orWhere('file_name', 'like', $type . '\_%');
+                    $q->orWhere('file_name', 'like', $type . '%');
                 }
+                $q->orWhere('file_name', 'like', '%INFO%');
             });
         }
 

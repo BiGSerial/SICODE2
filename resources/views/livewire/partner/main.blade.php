@@ -1,82 +1,105 @@
 @php
     use Carbon\Carbon;
 
-    $palette = ['#0f766e', '#0891b2', '#334155', '#16a34a', '#ca8a04', '#dc2626', '#7c3aed', '#ea580c'];
-
-    $viabilityChart = [
-        'type' => 'doughnut',
+    $ageHistogramChart = [
+        'type' => 'bar',
         'data' => [
-            'labels' => $dadospizza1['labels'],
+            'labels' => $openViabilityAgeHistogram['labels'] ?? [],
             'datasets' => [[
-                'data' => $dadospizza1['data'],
-                'backgroundColor' => array_slice($palette, 0, max(count($dadospizza1['data']), 1)),
-                'borderWidth' => 0,
-            ]],
-        ],
-        'options' => [
-            'cutout' => '62%',
-            'plugins' => [
-                'legend' => ['position' => 'bottom'],
-            ],
-        ],
-    ];
-
-    $backlogChartData = [
-        'type' => 'doughnut',
-        'data' => [
-            'labels' => $dadosBacklog['labels'],
-            'datasets' => [[
-                'data' => $dadosBacklog['data'],
-                'backgroundColor' => array_slice($palette, 0, max(count($dadosBacklog['data']), 1)),
-                'borderWidth' => 0,
-            ]],
-        ],
-        'options' => [
-            'cutout' => '62%',
-            'plugins' => [
-                'legend' => ['position' => 'bottom'],
-            ],
-        ],
-    ];
-
-    $dailyChart = [
-        'type' => 'line',
-        'data' => [
-            'labels' => $dadosDailyViability['labels'],
-            'datasets' => [[
-                'label' => 'Viabilidades',
-                'data' => $dadosDailyViability['data'],
+                'label' => 'Viabilidades em aberto',
+                'data' => $openViabilityAgeHistogram['data'] ?? [],
+                'backgroundColor' => '#0f766e',
                 'borderColor' => '#0f766e',
-                'backgroundColor' => 'rgba(15,118,110,0.20)',
-                'fill' => true,
-                'tension' => 0.25,
-                'pointRadius' => 3,
+                'borderRadius' => 6,
+                'maxBarThickness' => 34,
             ]],
+        ],
+        'options' => [
+            'plugins' => [
+                'legend' => ['display' => false],
+                'tooltip' => [
+                    'callbacks' => [
+                        'label' => '__VALUE_LABEL__',
+                    ],
+                ],
+            ],
+            'scales' => [
+                'x' => [
+                    'title' => ['display' => true, 'text' => 'Dias desde o envio'],
+                    'grid' => ['display' => false],
+                ],
+                'y' => [
+                    'beginAtZero' => true,
+                    'title' => ['display' => true, 'text' => 'Quantidade'],
+                    'ticks' => ['precision' => 0],
+                ],
+            ],
+        ],
+    ];
+
+    $d5AgeHistogramChart = [
+        'type' => 'bar',
+        'data' => [
+            'labels' => $openD5AgeHistogram['labels'] ?? [],
+            'datasets' => $openD5AgeHistogram['datasets'] ?? [],
         ],
         'options' => [
             'plugins' => [
                 'legend' => ['display' => true, 'position' => 'top'],
+                'tooltip' => [
+                    'callbacks' => [
+                        'label' => '__VALUE_LABEL__',
+                    ],
+                ],
             ],
             'scales' => [
-                'y' => ['beginAtZero' => true],
+                'x' => [
+                    'stacked' => true,
+                    'title' => ['display' => true, 'text' => 'Dias desde o despacho'],
+                    'grid' => ['display' => false],
+                ],
+                'y' => [
+                    'stacked' => true,
+                    'beginAtZero' => true,
+                    'title' => ['display' => true, 'text' => 'Quantidade'],
+                    'ticks' => ['precision' => 0],
+                ],
             ],
         ],
     ];
 
-    $rejectionChart = [
-        'type' => 'doughnut',
+    $rejectedWorkReasonChartConfig = [
+        'type' => 'bar',
         'data' => [
-            'labels' => $dadospizza2['labels'],
+            'labels' => $rejectedWorkReasons['labels'] ?? [],
             'datasets' => [[
-                'data' => $dadospizza2['data'],
-                'backgroundColor' => array_slice($palette, 0, max(count($dadospizza2['data']), 1)),
-                'borderWidth' => 0,
+                'label' => 'Informes rejeitados',
+                'data' => $rejectedWorkReasons['data'] ?? [],
+                'backgroundColor' => '#dc2626',
+                'borderColor' => '#dc2626',
+                'borderRadius' => 6,
+                'maxBarThickness' => 26,
             ]],
         ],
         'options' => [
-            'cutout' => '62%',
+            'indexAxis' => 'y',
             'plugins' => [
-                'legend' => ['position' => 'bottom'],
+                'legend' => ['display' => false],
+                'tooltip' => [
+                    'callbacks' => [
+                        'label' => '__VALUE_LABEL__',
+                    ],
+                ],
+            ],
+            'scales' => [
+                'x' => [
+                    'beginAtZero' => true,
+                    'title' => ['display' => true, 'text' => 'Quantidade'],
+                    'ticks' => ['precision' => 0],
+                ],
+                'y' => [
+                    'grid' => ['display' => false],
+                ],
             ],
         ],
     ];
@@ -139,6 +162,7 @@
             color: var(--pd-ink);
         }
 
+        .metric-card,
         .pd-kpi {
             background: var(--pd-surface);
             border: 1px solid var(--pd-border);
@@ -146,8 +170,19 @@
             padding: 0.95rem;
             box-shadow: var(--pd-shadow);
             min-height: 108px;
+            position: relative;
+            overflow: hidden;
         }
 
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--pd-primary), var(--pd-primary-2));
+        }
+
+        .metric-label,
         .pd-kpi small {
             color: var(--pd-muted);
             text-transform: uppercase;
@@ -156,6 +191,7 @@
             font-weight: 700;
         }
 
+        .metric-value,
         .pd-kpi .value {
             color: var(--pd-ink);
             font-size: 1.65rem;
@@ -164,6 +200,7 @@
             margin-top: 0.25rem;
         }
 
+        .metric-subtitle,
         .pd-kpi .hint {
             margin-top: 0.35rem;
             color: var(--pd-muted);
@@ -171,12 +208,65 @@
             line-height: 1.25;
         }
 
+        .metric-card.warn .metric-value,
         .pd-kpi.warn .value {
             color: var(--pd-warn);
         }
 
+        .metric-card.danger .metric-value,
         .pd-kpi.danger .value {
             color: var(--pd-danger);
+        }
+
+        .metric-card.money {
+            background: linear-gradient(135deg, #0f172a 0%, #0f766e 72%, #0891b2 100%);
+            border-color: transparent;
+            color: #f8fafc;
+        }
+
+        .metric-card.money::before {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .metric-card.money .metric-label,
+        .metric-card.money .metric-subtitle {
+            color: rgba(248, 250, 252, 0.78);
+        }
+
+        .metric-card.money .metric-value {
+            color: #ffffff;
+            font-size: 1.45rem;
+            line-height: 1.15;
+        }
+
+        .pd-section-title {
+            margin: 0 0 0.75rem;
+            color: var(--pd-ink);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .pd-disclaimer {
+            border: 1px solid rgba(180, 83, 9, 0.35);
+            border-left: 5px solid var(--pd-warn);
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            box-shadow: 0 10px 24px rgba(180, 83, 9, 0.12);
+            color: #78350f;
+            font-size: 0.82rem;
+            line-height: 1.35;
+            padding: 0.85rem 1rem;
+            max-width: 760px;
+        }
+
+        .pd-subsection-title {
+            color: #334155;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
         }
 
         .pd-table thead th {
@@ -195,6 +285,32 @@
             height: 290px;
             max-width: 380px;
             margin: 0 auto;
+        }
+
+        .chart-card {
+            background: var(--pd-surface);
+            border: 1px solid var(--pd-border);
+            border-radius: 12px;
+            box-shadow: var(--pd-shadow);
+            overflow: hidden;
+        }
+
+        .chart-card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--pd-border);
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(8, 145, 178, 0.08));
+        }
+
+        .chart-card-body {
+            padding: 1.25rem;
+        }
+
+        .pd-chart-histogram {
+            height: 360px;
+        }
+
+        .pd-chart-horizontal {
+            height: 380px;
         }
 
         .pd-legal-note {
@@ -276,122 +392,224 @@
 
     <div class="row g-2 mb-3">
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi">
-                <small>Viabilidade pendente</small>
-                <div class="value">{{ $kpis['pending_viability'] ?? 0 }}</div>
-                <div class="hint">Ainda não concluídas</div>
+            <div class="metric-card">
+                <div class="metric-label">Viabilidade pendente</div>
+                <div class="metric-value">{{ $kpis['pending_viability'] ?? 0 }}</div>
+                <div class="metric-subtitle">Ainda não concluídas</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi warn">
-                <small>Viabilidade a vencer</small>
-                <div class="value">{{ $kpis['viability_due_soon'] ?? 0 }}</div>
-                <div class="hint">Vence em até {{ $daysAhead }} dias</div>
+            <div class="metric-card warn">
+                <div class="metric-label">Viabilidade a vencer</div>
+                <div class="metric-value">{{ $kpis['viability_due_soon'] ?? 0 }}</div>
+                <div class="metric-subtitle">Vence em até {{ $daysAhead }} dias</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi warn">
-                <small>ADS tácita a vencer</small>
-                <div class="value">{{ $kpis['work_without_ads_due_soon'] ?? 0 }}</div>
-                <div class="hint">A vencer</div>
+            <div class="metric-card warn">
+                <div class="metric-label">Entregas de ADS a vencer</div>
+                <div class="metric-value">{{ $kpis['work_without_ads_due_soon'] ?? 0 }}</div>
+                <div class="metric-subtitle">A vencer</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi danger">
-                <small>ADS tácita vencida</small>
-                <div class="value">{{ $kpis['work_without_ads_overdue'] ?? 0 }}</div>
-                <div class="hint">Acima do prazo</div>
+            <div class="metric-card">
+                <div class="metric-label">D5 aguardando solução</div>
+                <div class="metric-value">{{ $kpis['d5_pending'] ?? 0 }}</div>
+                <div class="metric-subtitle">Pendentes de fechamento</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi">
-                <small>D5 aguardando solução</small>
-                <div class="value">{{ $kpis['d5_pending'] ?? 0 }}</div>
-                <div class="hint">Pendentes de fechamento</div>
+            <div class="metric-card">
+                <div class="metric-label">D5 devolvidos</div>
+                <div class="metric-value">{{ $kpis['d5_returned'] ?? 0 }}</div>
+                <div class="metric-subtitle">Aguardando retorno</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi">
-                <small>D5 devolvidos</small>
-                <div class="value">{{ $kpis['d5_returned'] ?? 0 }}</div>
-                <div class="hint">Aguardando retorno</div>
+            <div class="metric-card danger">
+                <div class="metric-label">Viabilidades rejeitadas</div>
+                <div class="metric-value">{{ $kpis['viability_rejected_waiting'] ?? 0 }}</div>
+                <div class="metric-subtitle">Aguardando resposta</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi danger">
-                <small>Viabilidades rejeitadas</small>
-                <div class="value">{{ $kpis['viability_rejected_waiting'] ?? 0 }}</div>
-                <div class="hint">Aguardando resposta</div>
+            <div class="metric-card danger">
+                <div class="metric-label">Informes rejeitados</div>
+                <div class="metric-value">{{ $kpis['informs_rejected'] ?? 0 }}</div>
+                <div class="metric-subtitle">Com devolução</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi danger">
-                <small>Informes rejeitados</small>
-                <div class="value">{{ $kpis['informs_rejected'] ?? 0 }}</div>
-                <div class="hint">Com devolução</div>
+            <div class="metric-card warn">
+                <div class="metric-label">Reclamações pendentes</div>
+                <div class="metric-value">{{ $kpis['reclaims_pending'] ?? 0 }}</div>
+                <div class="metric-subtitle">Aguardando solução</div>
             </div>
         </div>
-        <div class="col-6 col-lg-3 col-xl-2">
-            <div class="pd-kpi warn">
-                <small>Reclamações pendentes</small>
-                <div class="value">{{ $kpis['reclaims_pending'] ?? 0 }}</div>
-                <div class="hint">Aguardando solução</div>
+    </div>
+
+    <div class="mb-3">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 align-items-lg-start mb-2">
+            <h3 class="pd-section-title">Informes</h3>
+            <div class="pd-disclaimer">
+                <strong>Valores apenas ilustrativos.</strong> Correspondem somente aos valores informados pela parceira
+                nas ADS dos informes válidos do período e nos parciais solicitados. Não representam validação financeira,
+                medição aprovada ou valor autorizado para pagamento.
+            </div>
+        </div>
+        <div class="pd-subsection-title mb-2">Informes parciais</div>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2 mb-3">
+            <div class="col">
+                <div class="metric-card">
+                    <div class="metric-label">Parciais totais</div>
+                    <div class="metric-value">{{ $workReportKpis['partials_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Solicitados no período</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card danger">
+                    <div class="metric-label">Parciais rejeitadas</div>
+                    <div class="metric-value">{{ $workReportKpis['partials_rejected_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Não aprovadas para pagamento</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card">
+                    <div class="metric-label">Parciais finalizadas</div>
+                    <div class="metric-value">{{ $workReportKpis['partials_completed_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Aprovadas e pagas no fluxo</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card money">
+                    <div class="metric-label">Valor total parcial solicitado</div>
+                    <div class="metric-value">
+                        R$ {{ number_format($workReportKpis['partials_amount_total'] ?? 0, 2, ',', '.') }}
+                    </div>
+                    <div class="metric-subtitle">Somente parciais pagas válidas</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pd-subsection-title mb-2">Informes finais</div>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-2">
+            <div class="col">
+                <div class="metric-card">
+                    <div class="metric-label">Obras informadas</div>
+                    <div class="metric-value">{{ $workReportKpis['informed_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Total por conclusão informada</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card danger">
+                    <div class="metric-label">Cancelados/Rejeitados</div>
+                    <div class="metric-value">{{ $workReportKpis['canceled_rejected_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Dentro dos informes do período</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card">
+                    <div class="metric-label">ADS entregues</div>
+                    <div class="metric-value">{{ $workReportKpis['ads_delivered_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Vinculadas aos informes válidos</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card warn">
+                    <div class="metric-label">ADS não entregues</div>
+                    <div class="metric-value">{{ $workReportKpis['ads_not_delivered_total'] ?? 0 }}</div>
+                    <div class="metric-subtitle">Informes válidos sem ADS entregue</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="metric-card money">
+                    <div class="metric-label">Valor solicitado</div>
+                    <div class="metric-value">
+                        R$ {{ number_format($workReportKpis['ads_amount_total'] ?? 0, 2, ',', '.') }}
+                    </div>
+                    <div class="metric-subtitle">Somatório das ADS válidas</div>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="row g-3">
         <div class="col-12 col-xl-8">
-            <div class="row g-3">
-                <div class="col-12 col-lg-6">
-                    <div class="card pd-panel" wire:ignore.self>
-                        <div class="card-header">
-                            <h6 class="mb-0">Status de Viabilidade</h6>
+            <div class="chart-card" wire:ignore.self>
+                <div class="chart-card-header d-flex flex-column flex-lg-row justify-content-between gap-3">
+                    <div>
+                        <h6 class="mb-1">Histograma de viabilidades em aberto</h6>
+                        <div class="text-muted small">Distribuição por dias desde o envio para a parceira.</div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <div class="badge text-bg-light border text-dark">
+                            Total: {{ $openViabilityAgeHistogram['total'] ?? 0 }}
                         </div>
-                        <div class="card-body" wire:ignore>
-                            <div class="pd-chart-donut">
-                                <x-grafico.apex :chart="$viabilityChart" chartId="partner_viability_status" class="w-100" />
-                            </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Média: {{ number_format($openViabilityAgeHistogram['average'] ?? 0, 1, ',', '.') }} dias
+                        </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Maior idade: {{ $openViabilityAgeHistogram['oldest'] ?? 0 }} dias
                         </div>
                     </div>
                 </div>
+                <div class="chart-card-body" wire:ignore>
+                    <div class="pd-chart-histogram">
+                        <x-grafico.apex :chart="$ageHistogramChart" :chartId="$viabilityAgeChart" class="w-100" />
+                    </div>
+                </div>
+            </div>
 
-                <div class="col-12 col-lg-6">
-                    <div class="card pd-panel" wire:ignore.self>
-                        <div class="card-header">
-                            <h6 class="mb-0">Backlog Geral</h6>
+            <div class="chart-card mt-3" wire:ignore.self>
+                <div class="chart-card-header d-flex flex-column flex-lg-row justify-content-between gap-3">
+                    <div>
+                        <h6 class="mb-1">Histograma de D5 em espera</h6>
+                        <div class="text-muted small">Distribuição por dias desde o despacho para a parceira.</div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <div class="badge text-bg-light border text-dark">
+                            Total: {{ $openD5AgeHistogram['total'] ?? 0 }}
                         </div>
-                        <div class="card-body" wire:ignore>
-                            <div class="pd-chart-donut">
-                                <x-grafico.apex :chart="$backlogChartData" chartId="partner_backlog" class="w-100" />
-                            </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Em espera: {{ $openD5AgeHistogram['waiting_total'] ?? 0 }}
+                        </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Rejeitados: {{ $openD5AgeHistogram['rejected_total'] ?? 0 }}
+                        </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Passivos: {{ $openD5AgeHistogram['passive_total'] ?? 0 }}
+                        </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Média: {{ number_format($openD5AgeHistogram['average'] ?? 0, 1, ',', '.') }} dias
+                        </div>
+                        <div class="badge text-bg-light border text-dark">
+                            Maior idade: {{ $openD5AgeHistogram['oldest'] ?? 0 }} dias
                         </div>
                     </div>
                 </div>
+                <div class="chart-card-body" wire:ignore>
+                    <div class="pd-chart-histogram">
+                        <x-grafico.apex :chart="$d5AgeHistogramChart" :chartId="$d5AgeChart" class="w-100" />
+                    </div>
+                </div>
+            </div>
 
-                <div class="col-12">
-                    <div class="card pd-panel" wire:ignore.self>
-                        <div class="card-header">
-                            <h6 class="mb-0">Entrada diária de Viabilidades</h6>
-                        </div>
-                        <div class="card-body" wire:ignore>
-                            <div style="min-height: 290px;">
-                                <x-grafico.apex :chart="$dailyChart" chartId="partner_daily_viability" class="w-100" />
-                            </div>
+            <div class="chart-card mt-3" wire:ignore.self>
+                <div class="chart-card-header d-flex flex-column flex-lg-row justify-content-between gap-3">
+                    <div>
+                        <h6 class="mb-1">Motivos de informes rejeitados</h6>
+                        <div class="text-muted small">Quantidade de devoluções por motivo no período selecionado.</div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <div class="badge text-bg-light border text-dark">
+                            Total: {{ $rejectedWorkReasons['total'] ?? 0 }}
                         </div>
                     </div>
                 </div>
-
-                <div class="col-12 col-lg-6">
-                    <div class="card pd-panel" wire:ignore.self>
-                        <div class="card-header">
-                            <h6 class="mb-0">Motivos de rejeição de Informes</h6>
-                        </div>
-                        <div class="card-body" wire:ignore>
-                            <div class="pd-chart-donut">
-                                <x-grafico.apex :chart="$rejectionChart" chartId="partner_rejection_reasons" class="w-100" />
-                            </div>
-                        </div>
+                <div class="chart-card-body" wire:ignore>
+                    <div class="pd-chart-horizontal">
+                        <x-grafico.apex :chart="$rejectedWorkReasonChartConfig" :chartId="$rejectedWorkReasonChart" class="w-100" />
                     </div>
                 </div>
             </div>
@@ -438,7 +656,7 @@
 
             <div class="card pd-panel mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">ADS tácitas a vencer</h6>
+                    <h6 class="mb-0">Entregas de ADS a vencer</h6>
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('partner.report.workedlist') }}">Ver informes</a>
                 </div>
 
@@ -470,7 +688,7 @@
                         </table>
                     </div>
                 @else
-                    <div class="card-body text-center text-muted">Sem ADS tácitas vencendo no horizonte atual.</div>
+                    <div class="card-body text-center text-muted">Sem entregas de ADS vencendo no horizonte atual.</div>
                 @endif
 
                 <div class="pd-legal-note">
@@ -491,7 +709,7 @@
 
             <div class="card pd-panel mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">ADS Vencidas em Atraso</h6>
+                    <h6 class="mb-0">Entregas de ADS em Atraso</h6>
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('partner.report.workedlist') }}">Ver informes</a>
                 </div>
 
@@ -509,10 +727,9 @@
                                 @foreach ($tacitAdsOverdueWithoutDelivery as $item)
                                     @php
                                         $dueDate = $item->Adsform?->tacit_due_at;
-                                        $daysFromInform = $item->created_at
-                                            ? $item->created_at->copy()->startOfDay()->diffInDays(now()->startOfDay())
+                                        $daysLate = $dueDate
+                                            ? max(0, $dueDate->copy()->startOfDay()->diffInDays(now()->startOfDay()))
                                             : 0;
-                                        $daysLate = max(0, $daysFromInform - 6);
                                     @endphp
                                     <tr>
                                         <td class="text-center fw-bold">{{ $item->note->note ?? '-' }}</td>
@@ -524,7 +741,7 @@
                         </table>
                     </div>
                 @else
-                    <div class="card-body text-center text-muted">Sem ADS vencidas em atraso.</div>
+                    <div class="card-body text-center text-muted">Sem entregas de ADS em atraso.</div>
                 @endif
 
                 <div class="pd-legal-note">

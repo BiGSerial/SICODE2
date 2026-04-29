@@ -48,6 +48,9 @@ Route::get('/profile/{id}', [App\Http\Controllers\HomeController::class, 'profil
 
 Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])->middleware('auth')->name('company');
 
+// Deve ficar fora de auth para não ser bloqueada pelo redirecionamento onlyparner.
+Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
+
 Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->middleware('auth')->group(function () {
 
     Route::prefix('/user')->name('user.')->group(function () {
@@ -266,7 +269,6 @@ Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->gr
 
 Route::middleware('auth')->group(function () {
     Route::get('impersonate/{userId}', [ImpersonationController::class, 'impersonate'])->name('impersonate');
-    Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
 });
 
 Route::prefix('/cancelamentos')->controller(CancellationController::class)->middleware('auth')->name('cancellations.')->group(function () {

@@ -148,7 +148,7 @@
                             </div>
                         </div>
 
-                        @if (!$requireFilesForSubmit)
+                        @if ($requireFilesForSubmit && !($reinform ?? false))
                             <div class="alert alert-warning d-flex align-items-start gap-2">
                                 <i class="ri-alert-line fs-5 mt-1"></i>
                                 <div>
@@ -272,8 +272,9 @@
                                         <input class="form-check-input" type="radio" id="keep_ads_no"
                                             value="0" wire:model="keepExistingAds">
                                         <label class="form-check-label" for="keep_ads_no">
-                                            Remover ADS existente. Será necessário entregar uma nova ADS na aba
-                                            <strong>Entregar ADS</strong>, com prazo de 6 dias a partir deste reenvio.
+                                            Remover ADS existente. Se houver arquivo vinculado, ele será apagado do
+                                            servidor junto com a associação da ADS. Será necessário enviar uma nova ADS
+                                            pela área <strong>Entregar ADS</strong>, com prazo de 6 dias a partir deste reenvio.
                                         </label>
                                     </div>
                                 </div>

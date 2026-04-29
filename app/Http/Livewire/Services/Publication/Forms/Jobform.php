@@ -260,7 +260,7 @@ class Jobform extends Component
 
                 DB::commit();
 
-                 $this->emitTo('files.manager.create-publication-files', 'saveFiles');
+                 $this->emitTo('files.manager.create-prod-files', 'saveFiles');
 
                 // $this->dispatchBrowserEvent('swal', [
                 //     'position' => 'center',
@@ -316,7 +316,7 @@ class Jobform extends Component
 
                 DB::commit();
 
-                $this->emitTo('files.manager.create-publication-files', 'saveFiles');
+                $this->emitTo('files.manager.create-prod-files', 'saveFiles');
 
                 // $this->dispatchBrowserEvent('swal', [
                 //     'position' => 'center',
@@ -345,7 +345,7 @@ class Jobform extends Component
     public function savedFiles()
     {
         $this->closeAll();
-        $this->emitTo('files.manager.create-publication-files', 'cleanFiles');
+        $this->emitTo('files.manager.create-prod-files', 'cleanFiles');
 
 
     }

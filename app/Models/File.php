@@ -51,6 +51,11 @@ class File extends Model
         return $this->belongsToMany(Production::class);
     }
 
+    public function MorphProductions()
+    {
+        return $this->morphedByMany(Production::class, 'fileable')->withTimestamps();
+    }
+
     public function Viabilities()
     {
         return $this->belongsToMany(Viability::class);

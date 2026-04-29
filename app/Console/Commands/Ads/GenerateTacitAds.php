@@ -59,12 +59,16 @@ class GenerateTacitAds extends Command
 
             $query = WorkReport::query()
                 ->where('rejected', false)
+                ->where('canceled', false)
                 ->whereNotNull('informed_at')
                 ->where('informed_at', '>=', $startAt)
                 ->where('informed_at', '<', $tacitOverdueThreshold)
                 ->whereHas('note.orders', function ($orderQuery) {
-                    $orderQuery->where('statusSist', 'like', 'ABER%')
-                        ->orWhere('statusSist', 'like', 'LIB%');
+                    $orderQuery->where('canceled', false)
+                        ->where(function ($statusQuery) {
+                            $statusQuery->where('statusSist', 'like', 'ABER%')
+                                ->orWhere('statusSist', 'like', 'LIB%');
+                        });
                 })
                 ->whereDoesntHave('adsform')
                 ->with(['note:id,note']);
@@ -141,7 +145,7 @@ class GenerateTacitAds extends Command
                         $requestsCreated += max(1, $recipientIds->count()); // simulado
                         $dryPreviewRows[] = [
                             'nota' => (string) ($workReport->note?->note ?? $workReport->note_id),
-                            'criado_em' => optional($workReport->created_at)->format('d/m/Y H:i:s'),
+                            'informado_em' => optional($workReport->informed_at)->format('d/m/Y H:i:s'),
                             'venceu_em' => $dueAt->format('d/m/Y H:i:s'),
                             'destinatarios' => (string) $recipientIds->count(),
                         ];
@@ -312,12 +316,12 @@ class GenerateTacitAds extends Command
                 $this->warn('DRY RUN: espelhamento no SQL Server não foi executado.');
                 if (!empty($dryPreviewRows)) {
                     $this->newLine();
-                    $this->info('Lista simulada (nota, criado em, venceu em):');
+                    $this->info('Lista simulada (nota, informado em, venceu em):');
                     $this->table(
-                        ['Nota', 'Criado em', 'Venceu em', 'Destinatários'],
+                        ['Nota', 'Informado em', 'Venceu em', 'Destinatários'],
                         array_map(fn ($row) => [
                             $row['nota'],
-                            $row['criado_em'],
+                            $row['informado_em'],
                             $row['venceu_em'],
                             $row['destinatarios'],
                         ], $dryPreviewRows)

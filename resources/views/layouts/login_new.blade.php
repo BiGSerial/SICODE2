@@ -158,6 +158,7 @@ $version = (object) json_decode(file_get_contents('../appver.json'));
     </script>
 
     @stack('script')
+    @stack('scripts')
 </body>
 
 </html>
