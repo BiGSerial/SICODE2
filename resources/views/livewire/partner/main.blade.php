@@ -17,6 +17,14 @@
         'options' => [
             'plugins' => [
                 'legend' => ['display' => false],
+                'datalabels' => [
+                    'display' => true,
+                    'anchor' => 'end',
+                    'align' => 'top',
+                    'color' => '#0f172a',
+                    'font' => ['weight' => '700', 'size' => 11],
+                    'formatter' => '__VALUE_LABEL_NONZERO__',
+                ],
                 'tooltip' => [
                     'callbacks' => [
                         'label' => '__VALUE_LABEL__',
@@ -45,7 +53,19 @@
         ],
         'options' => [
             'plugins' => [
-                'legend' => ['display' => true, 'position' => 'top'],
+                'legend' => [
+                    'display' => true,
+                    'position' => 'top',
+                    'labels' => [
+                        'generateLabels' => '__LEGEND_WITH_TOTAL__',
+                    ],
+                ],
+                'datalabels' => [
+                    'display' => true,
+                    'color' => '#0f172a',
+                    'font' => ['weight' => '700', 'size' => 10],
+                    'formatter' => '__VALUE_LABEL_NONZERO__',
+                ],
                 'tooltip' => [
                     'callbacks' => [
                         'label' => '__VALUE_LABEL__',
@@ -85,6 +105,14 @@
             'indexAxis' => 'y',
             'plugins' => [
                 'legend' => ['display' => false],
+                'datalabels' => [
+                    'display' => true,
+                    'anchor' => 'end',
+                    'align' => 'right',
+                    'color' => '#0f172a',
+                    'font' => ['weight' => '700', 'size' => 11],
+                    'formatter' => '__VALUE_LABEL_NONZERO__',
+                ],
                 'tooltip' => [
                     'callbacks' => [
                         'label' => '__VALUE_LABEL__',
@@ -453,10 +481,10 @@
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 align-items-lg-start mb-2">
             <h3 class="pd-section-title">Informes</h3>
             <div class="pd-disclaimer">
-                <strong>Valores apenas ilustrativos.</strong> Correspondem somente aos valores informados pela parceira
-                nas ADS dos informes válidos do período e nos parciais solicitados. Não representam validação financeira,
-                medição aprovada ou valor autorizado para pagamento.
-            </div>
+    <strong class="fs-5">Valores meramente informativos.</strong>
+    Os valores apresentados correspondem exclusivamente às informações fornecidas pela parceira nas ADS dos informes e nos parciais solicitados válidos do período filtrado.
+    <strong>Esses valores não constituem validação financeira, medição aprovada ou autorização para pagamento.</strong>
+</div>
         </div>
         <div class="pd-subsection-title mb-2">Informes parciais</div>
         <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2 mb-3">
@@ -487,7 +515,7 @@
                     <div class="metric-value">
                         R$ {{ number_format($workReportKpis['partials_amount_total'] ?? 0, 2, ',', '.') }}
                     </div>
-                    <div class="metric-subtitle">Somente parciais pagas válidas</div>
+                    <div class="metric-subtitle">Somente parciais válidas</div>
                 </div>
             </div>
         </div>
@@ -512,14 +540,14 @@
                 <div class="metric-card">
                     <div class="metric-label">ADS entregues</div>
                     <div class="metric-value">{{ $workReportKpis['ads_delivered_total'] ?? 0 }}</div>
-                    <div class="metric-subtitle">Vinculadas aos informes válidos</div>
+                    <div class="metric-subtitle">Vinculadas aos informes válidos*</div>
                 </div>
             </div>
             <div class="col">
                 <div class="metric-card warn">
                     <div class="metric-label">ADS não entregues</div>
                     <div class="metric-value">{{ $workReportKpis['ads_not_delivered_total'] ?? 0 }}</div>
-                    <div class="metric-subtitle">Informes válidos sem ADS entregue</div>
+                    <div class="metric-subtitle">Informes válidos* sem ADS entregue</div>
                 </div>
             </div>
             <div class="col">
@@ -528,9 +556,12 @@
                     <div class="metric-value">
                         R$ {{ number_format($workReportKpis['ads_amount_total'] ?? 0, 2, ',', '.') }}
                     </div>
-                    <div class="metric-subtitle">Somatório das ADS válidas</div>
+                    <div class="metric-subtitle">Somatório das ADS válidas*</div>
                 </div>
             </div>
+        </div>
+        <div class="small text-muted mt-2">
+            * Válidos são informes que não foram cancelados nem rejeitados.
         </div>
     </div>
 
@@ -556,7 +587,7 @@
                 </div>
                 <div class="chart-card-body" wire:ignore>
                     <div class="pd-chart-histogram">
-                        <x-grafico.apex :chart="$ageHistogramChart" :chartId="$viabilityAgeChart" class="w-100" />
+                        <x-grafico.apex :chart="$ageHistogramChart" :chartId="$viabilityAgeChart" :showDataLabels="true" class="w-100" />
                     </div>
                 </div>
             </div>
@@ -590,7 +621,7 @@
                 </div>
                 <div class="chart-card-body" wire:ignore>
                     <div class="pd-chart-histogram">
-                        <x-grafico.apex :chart="$d5AgeHistogramChart" :chartId="$d5AgeChart" class="w-100" />
+                        <x-grafico.apex :chart="$d5AgeHistogramChart" :chartId="$d5AgeChart" :showDataLabels="true" class="w-100" />
                     </div>
                 </div>
             </div>
@@ -609,7 +640,7 @@
                 </div>
                 <div class="chart-card-body" wire:ignore>
                     <div class="pd-chart-horizontal">
-                        <x-grafico.apex :chart="$rejectedWorkReasonChartConfig" :chartId="$rejectedWorkReasonChart" class="w-100" />
+                        <x-grafico.apex :chart="$rejectedWorkReasonChartConfig" :chartId="$rejectedWorkReasonChart" :showDataLabels="true" class="w-100" />
                     </div>
                 </div>
             </div>
