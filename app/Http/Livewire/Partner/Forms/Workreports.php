@@ -677,7 +677,7 @@ class Workreports extends Component
 
     }
 
-    private function buildAcceptanceMeta(): array
+    protected function buildAcceptanceMeta(): array
     {
         $meta = [];
 
@@ -719,7 +719,7 @@ class Workreports extends Component
             ->get(['id', 'name']);
     }
 
-    private function canInformNote(?Note $note): bool
+    protected function canInformNote(?Note $note): bool
     {
         if (!$note) {
             return false;

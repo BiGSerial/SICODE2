@@ -68,7 +68,7 @@
                             </td>
                             <td class="text-center align-middle">
                                 <i class="ri-play-circle-fill align-middle text-success fs-4" style="cursor: pointer;"
-                                    wire:click="$emitTo('partner.actions.worked-return-form', 'toReturnWork', {{ $list }})"></i>
+                                    wire:click="reinform({{ $list->id }})"></i>
                             </td>
                         </tr>
                     @endforeach
@@ -76,7 +76,4 @@
             </table>
         </div>
     @endif
-
-    {{-- LivewireComponents --}}
-    @livewire('partner.actions.worked-return-form', key('modal-return-worked-form'))
 </div>

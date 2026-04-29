@@ -44,6 +44,11 @@ class PartnerController extends Controller
         return view('partner.workedRejectedList');
     }
 
+    public function reinformWorkreport(string $token)
+    {
+        return view('partner.reinform_workreport', ['token' => $token]);
+    }
+
     public function rejectedViabList()
     {
         return view('partner.rejected_list');
