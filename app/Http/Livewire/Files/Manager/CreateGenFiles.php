@@ -64,6 +64,7 @@ class CreateGenFiles extends Component
     protected $listeners = [
         'saveFiles',
         'cleanFiles' => 'closeAll',
+        'setWorkReportId',
     ];
 
     public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null, bool $manage_existing = false, array $existing_file_types = [], ?WorkReport $work_report = null)
@@ -75,6 +76,11 @@ class CreateGenFiles extends Component
         $this->manageExisting = $manage_existing;
         $this->existingFileTypes = $existing_file_types;
         $this->workReport = $work_report;
+    }
+
+    public function setWorkReportId(int $workReportId): void
+    {
+        $this->workReport = WorkReport::find($workReportId);
     }
 
     public function updatedFiles()

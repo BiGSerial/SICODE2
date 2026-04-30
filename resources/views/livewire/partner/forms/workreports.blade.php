@@ -480,15 +480,22 @@
                                             dos ativos cadastrados e instalados.
                                         </div>
                                     </div>
-                                    @livewire(
-                                        'files.manager.create-gen-files',
-                                        [
+                                    @php
+                                        $fileUploaderParams = [
                                             'note' => $note,
                                             'service' => 'INFORME DE OBRA',
                                             'manage_existing' => $reinform ?? false,
                                             'existing_file_types' => $existingFileTypes ?? ['ASBUILT', 'CROQUI', 'EVIDENCIA', 'FTVEO', 'IMAGEM', 'LISTA', 'PROJETO', 'OUTROS'],
-                                            'work_report' => $workReport ?? null,
-                                        ],
+                                        ];
+
+                                        if (($reinform ?? false) && isset($workReport) && $workReport) {
+                                            $fileUploaderParams['work_report'] = $workReport;
+                                        }
+                                    @endphp
+
+                                    @livewire(
+                                        'files.manager.create-gen-files',
+                                        $fileUploaderParams,
                                         key('files_forms_' . $note->id . '_' . (($reinform ?? false) ? 'reinform' : 'new'))
                                     )
                                 </div>

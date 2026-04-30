@@ -18,6 +18,7 @@ class Workreports extends Component
     public $companies = [];
 
     public ?Note $note = null;
+    public ?WorkReport $workReport = null;
     public $preNote;
     public $notes;
     public $search;
@@ -377,6 +378,8 @@ class Workreports extends Component
                 DB::commit();
 
                 if ($this->hasFiles) {
+                    $this->workReport = $form;
+                    $this->emitTo('files.manager.create-gen-files', 'setWorkReportId', $form->id);
 
                     // Emite comando SAVE para o componente Laravel.
                     $this->emitTo('files.manager.create-gen-files', 'saveFiles');
@@ -627,6 +630,7 @@ class Workreports extends Component
         $this->search = "";
         $this->notes = "";
         $this->hasPartial = "";
+        $this->workReport = null;
     }
 
     public function calcelForm()
