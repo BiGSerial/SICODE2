@@ -158,9 +158,17 @@
                             </div>
                         @endif
 
+                        @php
+                            $activeWorkForm = $note->WorkForm;
+                            $latestReturnwork = ($activeWorkForm && $activeWorkForm->rejected)
+                                ? ($activeWorkForm->LatestReturnwork
+                                    ?? $activeWorkForm->Returnwork()->latest('id')->first())
+                                : null;
+                        @endphp
+
                         <!-- Orders Section -->
-                        <div class="row mb-4">
-                            <div class="col-md-6">
+                        <div class="row mb-4 g-3">
+                            <div class="{{ $latestReturnwork ? 'col-md-6' : 'col-md-12' }}">
                                 <div class="card shadow-sm h-100">
                                     <div class="card-header bg-light">
                                         <h5 class="card-title mb-0">
@@ -226,6 +234,42 @@
                                     </div>
                                 </div>
                             </div>
+
+                            @if ($latestReturnwork)
+                                <div class="col-md-6">
+                                    <div class="card shadow-sm h-100 border-warning border-top border-2">
+                                        <div class="card-header bg-warning-subtle">
+                                            <h5 class="card-title mb-0">
+                                                <i class="ri-error-warning-line me-2"></i>Ultima Rejeicao Ativa
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="text-muted small mb-1">Motivo da rejeicao</div>
+                                                <div class="fw-semibold">{{ $latestReturnwork->category ?: 'Nao informado' }}</div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="text-muted small mb-1">Descricao</div>
+                                                <div class="bg-light border rounded p-2 small">
+                                                    {!! nl2br(e($latestReturnwork->text_obs ?: 'Nao informada')) !!}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div class="text-muted small mb-1">Rejeitado por</div>
+                                                <div>
+                                                    <span class="fw-semibold">{{ $latestReturnwork->User?->name ?: 'Nao informado' }}</span>
+                                                    <span class="text-muted"> em </span>
+                                                    <span class="fw-semibold">
+                                                        {{ $latestReturnwork->created_at ? $latestReturnwork->created_at->format('d/m/Y H:i') : 'Nao informado' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         @if (session()->has('message'))
