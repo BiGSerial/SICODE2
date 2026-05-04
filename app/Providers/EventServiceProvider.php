@@ -2,10 +2,15 @@
 
 namespace App\Providers;
 
+use App\Listeners\LogScheduledTask;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Console\Events\ScheduledBackgroundTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskSkipped;
+use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
-use Illuminate\Support\Facades\Event;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -17,6 +22,21 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         Registered::class => [
             SendEmailVerificationNotification::class,
+        ],
+        ScheduledTaskStarting::class => [
+            LogScheduledTask::class,
+        ],
+        ScheduledTaskFinished::class => [
+            LogScheduledTask::class,
+        ],
+        ScheduledBackgroundTaskFinished::class => [
+            LogScheduledTask::class,
+        ],
+        ScheduledTaskFailed::class => [
+            LogScheduledTask::class,
+        ],
+        ScheduledTaskSkipped::class => [
+            LogScheduledTask::class,
         ],
     ];
 

@@ -227,6 +227,7 @@ class Kernel extends ConsoleKernel
     protected function scheduleCommand(Schedule $schedule, string $command, string $logName)
     {
         return $schedule->command($command)
+            ->name($this->scheduleDisplayName($logName))
             ->withoutOverlapping(180)
             ->appendOutputTo(storage_path("logs/scheduler/{$logName}.log"));
     }
@@ -246,8 +247,50 @@ class Kernel extends ConsoleKernel
             ->implode(' && ');
 
         return $schedule->exec($chain)
+            ->name($this->scheduleDisplayName($logName))
             ->withoutOverlapping(180)
             ->appendOutputTo(storage_path("logs/scheduler/{$logName}.log"));
+    }
+
+    /**
+     * Nome amigável usado no schedule:list e no monitor web.
+     */
+    protected function scheduleDisplayName(string $logName): string
+    {
+        return [
+            'exports-clear-old' => 'Limpar Exports',
+            'chk-integridade' => 'Base OV',
+            'wpas-log' => 'Log de WPAs',
+            'sync-base-orders-operations' => 'Base Ordens e Operações',
+            'upd-baseov-prazos-full' => 'Prazo Base OV',
+            'upd-base-ep' => 'Base EP',
+            'sync-protests' => 'Sincronizar reclamações',
+            'prune-protest-and-check-sla' => 'Limpar MED e SLA',
+            'check-protest-jobs-sla' => 'Checar SLA reclamações',
+            'sync-log-protest-jobs' => 'Log reclamações SQL',
+            'sync-costs-and-viability-values' => 'Custos e valores viab.',
+            'transfer-log' => 'Log transferências',
+            'notestop-log' => 'Log notas paradas',
+            'log-viability' => 'Log viabilidades',
+            'log-inform' => 'Log Informes Final',
+            'log-rejected-viab' => 'Log viab. rejeitadas',
+            'users-log' => 'Log usuários',
+            'log-inform-return' => 'Log Info. Rejeitados.',
+            'reclaims' => 'Log Retorno Interno',
+            'informs-ads-log' => 'Log ADS Informes',
+            'log-external-entities' => 'Log entidades externas',
+            'log-informs-smc' => 'Log informes SMC',
+            'sync-log-partials-informs' => 'Log Informe parciais',
+            'log-production' => 'Log produção',
+            'log-hiring-and-hired-status' => 'Log contratação',
+            'log-hiring-and-hired-status-night' => 'Log contratação full',
+            'check-tacit' => 'Checar tácita',
+            'tacit-in-approval' => 'Tácita em aprovação',
+            'tacit-to-approval' => 'Tácita para aprovação',
+            'ads-generate-tacit' => 'Gerar ADS tácita',
+            'fix-operation-order' => 'Corrigir operação pedido',
+            'sync-ads-requests' => 'Sincronizar ADS',
+        ][$logName] ?? str($logName)->replace('-', ' ')->headline()->toString();
     }
 
     /**

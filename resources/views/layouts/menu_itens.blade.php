@@ -57,6 +57,7 @@
                             ['label' => 'PAINEL CONFIGURAÇÕES', 'route' => 'config.main', 'icon' => 'ri-home-gear-fill'],
                             ['label' => 'STATUS SERVER', 'route' => 'config.system.status', 'icon' => 'ri-server-line'],
                             ['label' => 'LOG LOG', 'route' => 'config.system.history', 'icon' => 'ri-file-list-3-line'],
+                            ['label' => 'SCHEDULE', 'route' => 'config.system.schedule', 'icon' => 'ri-calendar-schedule-line', 'can' => 'superadm'],
                         ],
                     ],
                 ],
