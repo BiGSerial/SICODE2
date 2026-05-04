@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\Notestatus;
 use App\Models\Production;
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class ProductionLog extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -67,7 +69,7 @@ class ProductionLog extends Command
 
         $this->info("<bg=blue;fg=white> INFO </> <fg=white;options=bold> Total de {$totalProductions} registros a serem processados.</>");
 
-        $progressBar = new ProgressBar($this->output, $totalProductions);
+        $progressBar = $this->createProgressBar($totalProductions);
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Iniciando sincronização em massa...');
 

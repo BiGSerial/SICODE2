@@ -48,6 +48,9 @@ Route::get('/profile/{id}', [App\Http\Controllers\HomeController::class, 'profil
 
 Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])->middleware('auth')->name('company');
 
+// Deve ficar fora de auth para não ser bloqueada pelo redirecionamento onlyparner.
+Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
+
 Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->middleware('auth')->group(function () {
 
     Route::prefix('/user')->name('user.')->group(function () {
@@ -88,6 +91,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/status', 'systemStatus')->name('status');
         Route::get('/history', 'systemHistory')->name('history');
+        Route::get('/schedule', 'systemSchedule')->middleware('can:superadm')->name('schedule');
     });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
@@ -266,7 +270,6 @@ Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->gr
 
 Route::middleware('auth')->group(function () {
     Route::get('impersonate/{userId}', [ImpersonationController::class, 'impersonate'])->name('impersonate');
-    Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
 });
 
 Route::prefix('/cancelamentos')->controller(CancellationController::class)->middleware('auth')->name('cancellations.')->group(function () {
@@ -360,6 +363,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/workreport', 'workreport')->name('report.workreport');
     Route::get('/workedlist', 'workedlist')->name('report.workedlist');
     Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
+    Route::get('/rejectedWorked/reinform/{token}', 'reinformWorkreport')->name('report.reinformWorkreport');
     Route::get('/rejected_viability_list', 'rejectedViabList')->name('rejected.viability');
     Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');

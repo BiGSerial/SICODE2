@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class FixUserAssignments extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'fix:user-assignments
                             {--dry : Executa em modo simulação (não grava no banco)}
                             {--since= : Considera apenas completados com created_at >= (YYYY-MM-DD)}';
@@ -44,7 +46,7 @@ class FixUserAssignments extends Command
             ];
         }
 
-        $progress = new ProgressBar($this->output, count($groupedKeys));
+        $progress = $this->createProgressBar(count($groupedKeys));
         $progress->setFormat('<info>%current%/%max%</info> [%bar%] %percent:3s%% | %elapsed:6s%');
         $progress->start();
 

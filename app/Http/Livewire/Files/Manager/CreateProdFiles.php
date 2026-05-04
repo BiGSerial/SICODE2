@@ -2,9 +2,11 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
+use App\Helpers\SelectOptions;
 use App\Models\File;
 use App\Models\Production;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -46,6 +48,13 @@ class CreateProdFiles extends Component
 {
     use WithFileUploads;
 
+    private const ALLOWED_EXTENSIONS = [
+        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+        'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+        'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp',
+    ];
+    private const MAX_FILE_SIZE_BYTES = 40 * 1024 * 1024; // 40MB
+
     public ?Production $production = null;
     public $needFiles;
     public $alertFile = false;
@@ -53,16 +62,20 @@ class CreateProdFiles extends Component
     public $tempFiles = [];
     public $uploadType;
     public $services;
+    public string $filesTypeMethod = 'getProductionFilesType';
 
     protected $listeners = [
         'saveFiles',
         'cleanFiles' => 'closeAll',
     ];
 
-    public function mount(Production $production, bool $needFiles = false)
+    public function mount(Production $production, bool $needFiles = false, ?string $filesTypeMethod = null)
     {
         $this->production = $production;
         $this->needFiles = $needFiles;
+        if ($filesTypeMethod) {
+            $this->filesTypeMethod = $filesTypeMethod;
+        }
     }
 
     public function updatedFiles()
@@ -73,14 +86,7 @@ class CreateProdFiles extends Component
             foreach ($this->files as $file) {
 
                 // Bloqueio de arquivos não permitidos e limite de 10MB
-                $allowedExtensions = [
-                    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
-                    'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
-                    'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp',
-                ];
-                $maxSizeBytes = 40 * 1024 * 1024; // 40MB
-
-                if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {
+                if (!in_array(strtolower($file->getClientOriginalExtension()), self::ALLOWED_EXTENSIONS)) {
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'warning',
@@ -90,11 +96,11 @@ class CreateProdFiles extends Component
                     continue;
                 }
 
-                if ($file->getSize() > $maxSizeBytes) {
+                if ($file->getSize() > self::MAX_FILE_SIZE_BYTES) {
                     $this->dispatchBrowserEvent('swal', [
                         'position' => 'center',
                         'icon'     => 'warning',
-                        'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
+                        'title'    => 'Tamanho excede 40MB: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
                     continue;
@@ -275,7 +281,7 @@ class CreateProdFiles extends Component
             $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
 
             if (Storage::exists($caminho)) {
-                File::create([
+                $createdFile = File::create([
                     'note_id' => $this->production->note->id,
                     'user_id' => Auth()->User()->id,
                     'service_id' => $saveFile['service_id'],
@@ -286,6 +292,8 @@ class CreateProdFiles extends Component
                     'suspicious' => $saveFile['suspicious'],
                     'noexists' => false,
                 ]);
+
+                $this->associateFileToProduction($createdFile);
             } else {
                 DB::rollback();
 
@@ -326,6 +334,28 @@ class CreateProdFiles extends Component
 
         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:41943', // 40MB
     ];
+
+    private function associateFileToProduction(File $file): void
+    {
+        if (!$this->production || !Schema::hasTable('fileables')) {
+            return;
+        }
+
+        $this->production->morphFiles()->syncWithoutDetaching([$file->id]);
+    }
+
+    public function getFilesTypeOptions(): array
+    {
+        $method = $this->filesTypeMethod;
+
+        if (!method_exists(SelectOptions::class, $method)) {
+            $method = 'getProductionFilesType';
+        }
+
+        $options = SelectOptions::{$method}();
+
+        return is_array($options) ? $options : [];
+    }
 
 
 

@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\SicodeSql\InformLog;
 use App\Models\WorkReport;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class InformLogs extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -39,7 +41,7 @@ class InformLogs extends Command
         $days = $this->option('days');
 
         $workReports = WorkReport::whereDate('updated_at', '>=', Carbon::now()->startOfDay()->subDays($days))->count();
-        $progressBar = new ProgressBar($this->output, $workReports);
+        $progressBar = $this->createProgressBar($workReports);
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
 

@@ -2,17 +2,19 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOV as Edp_depcBaseOV;
 use App\Models\{Bancoupdate, HistoricNote, Note};
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class BaseOV extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -55,7 +57,7 @@ class BaseOV extends Command
         $this->info('');
 
         // ProgressBar com tempo restante
-        $bar = new ProgressBar($this->output, $total);
+        $bar = $this->createProgressBar($total);
         $bar->setFormat("%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% (ETA: %remaining%)");
         $bar->setMessage('start', 'message');
         $bar->start();

@@ -31,20 +31,23 @@ class ImpersonationController extends Controller
 
     public function stopImpersonating()
     {
+        $originalUserId = Session::get('impersonate');
 
-        // $originalUserId = Session::get('impersonate');
-        $originalUser = User::find(Session::get('impersonate'));
+        if (!$originalUserId) {
+            return redirect('/')->with('error', 'Sessão de impersonate não encontrada.');
+        }
 
+        // Limpa a marca de impersonate mesmo em caso de inconsistência.
+        Session::forget('impersonate');
 
+        $originalUser = User::withTrashed()->find($originalUserId);
 
         if ($originalUser) {
             Auth()->login($originalUser);
 
-            Session::forget('impersonate');
-
-            return redirect('/')->with('success', 'Você parou de se passar por alguem');
+            return redirect('/')->with('success', 'Você parou de se passar por alguém');
         }
 
-        return redirect()->back()->with('error', 'Usuario original não encontrado.');
+        return redirect('/')->with('error', 'Usuário original não encontrado.');
     }
 }

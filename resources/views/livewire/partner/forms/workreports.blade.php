@@ -90,8 +90,8 @@
                     <div class="card-body p-4 p-md-5">
                         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
                             <div>
-                                <span class="badge badge-soft">Entrega oficial</span>
-                                <h3 class="fw-bold mb-1">Informe de Entrega de Obra</h3>
+                                <span class="badge badge-soft">{{ ($reinform ?? false) ? 'Reenvio oficial' : 'Entrega oficial' }}</span>
+                                <h3 class="fw-bold mb-1">{{ ($reinform ?? false) ? 'Reenviar Informe de Obra' : 'Informe de Entrega de Obra' }}</h3>
                                 <p class="text-muted mb-0">Confirme as informações com atenção.</p>
                             </div>
                             <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -148,7 +148,7 @@
                             </div>
                         </div>
 
-                        @if (!$requireFilesForSubmit)
+                        @if ($requireFilesForSubmit && !($reinform ?? false))
                             <div class="alert alert-warning d-flex align-items-start gap-2">
                                 <i class="ri-alert-line fs-5 mt-1"></i>
                                 <div>
@@ -158,9 +158,17 @@
                             </div>
                         @endif
 
+                        @php
+                            $activeWorkForm = $note->WorkForm;
+                            $latestReturnwork = ($activeWorkForm && $activeWorkForm->rejected)
+                                ? ($activeWorkForm->LatestReturnwork
+                                    ?? $activeWorkForm->Returnwork()->latest('id')->first())
+                                : null;
+                        @endphp
+
                         <!-- Orders Section -->
-                        <div class="row mb-4">
-                            <div class="col-md-6">
+                        <div class="row mb-4 g-3">
+                            <div class="{{ $latestReturnwork ? 'col-md-6' : 'col-md-12' }}">
                                 <div class="card shadow-sm h-100">
                                     <div class="card-header bg-light">
                                         <h5 class="card-title mb-0">
@@ -226,6 +234,42 @@
                                     </div>
                                 </div>
                             </div>
+
+                            @if ($latestReturnwork)
+                                <div class="col-md-6">
+                                    <div class="card shadow-sm h-100 border-warning border-top border-2">
+                                        <div class="card-header bg-warning-subtle">
+                                            <h5 class="card-title mb-0">
+                                                <i class="ri-error-warning-line me-2"></i>Ultima Rejeicao Ativa
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <div class="text-muted small mb-1">Motivo da rejeicao</div>
+                                                <div class="fw-semibold">{{ $latestReturnwork->category ?: 'Nao informado' }}</div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <div class="text-muted small mb-1">Descricao</div>
+                                                <div class="bg-light border rounded p-2 small">
+                                                    {!! nl2br(e($latestReturnwork->text_obs ?: 'Nao informada')) !!}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div class="text-muted small mb-1">Rejeitado por</div>
+                                                <div>
+                                                    <span class="fw-semibold">{{ $latestReturnwork->User?->name ?: 'Nao informado' }}</span>
+                                                    <span class="text-muted"> em </span>
+                                                    <span class="fw-semibold">
+                                                        {{ $latestReturnwork->created_at ? $latestReturnwork->created_at->format('d/m/Y H:i') : 'Nao informado' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         @if (session()->has('message'))
@@ -233,6 +277,51 @@
                                 <i class="ri-check-double-line me-2"></i>{{ session('message') }}
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"
                                     aria-label="Close"></button>
+                            </div>
+                        @endif
+
+                        @if (($reinform ?? false) && ($hasTacitAds ?? false))
+                            <div class="card shadow-sm mb-4 border-warning border-top border-2">
+                                <div class="card-header bg-warning-subtle">
+                                    <h5 class="mb-0"><i class="ri-file-warning-line me-2"></i>ADS tácita associada</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">
+                                        Este informe possui ADS tácita. O vencimento de uma ADS tácita não pode ser
+                                        alterado pelo reenvio do informe.
+                                    </p>
+                                </div>
+                            </div>
+                        @elseif (($reinform ?? false) && ($hasExistingAds ?? false))
+                            <div class="card shadow-sm mb-4 border-warning border-top border-2">
+                                <div class="card-header bg-warning-subtle">
+                                    <h5 class="mb-0"><i class="ri-file-warning-line me-2"></i>ADS já associada</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-3">
+                                        Já existe uma ADS para este informe. Escolha como deseja tratar essa ADS no
+                                        reenvio.
+                                    </p>
+
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" id="keep_ads_yes"
+                                            value="1" wire:model="keepExistingAds">
+                                        <label class="form-check-label" for="keep_ads_yes">
+                                            Manter ADS existente. A data de entrega da ADS será atualizada para a data
+                                            do reenvio do informe e o prazo de fiscalização será contado a partir da nova data.
+                                        </label>
+                                    </div>
+
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" id="keep_ads_no"
+                                            value="0" wire:model="keepExistingAds">
+                                        <label class="form-check-label" for="keep_ads_no">
+                                            Remover ADS existente. Se houver arquivo vinculado, ele será apagado do
+                                            servidor junto com a associação da ADS. Será necessário enviar uma nova ADS
+                                            pela área <strong>Entregar ADS</strong>, com prazo de 6 dias a partir deste reenvio.
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         @endif
 
@@ -435,10 +524,23 @@
                                             dos ativos cadastrados e instalados.
                                         </div>
                                     </div>
+                                    @php
+                                        $fileUploaderParams = [
+                                            'note' => $note,
+                                            'service' => 'INFORME DE OBRA',
+                                            'manage_existing' => $reinform ?? false,
+                                            'existing_file_types' => $existingFileTypes ?? ['ASBUILT', 'CROQUI', 'EVIDENCIA', 'FTVEO', 'IMAGEM', 'LISTA', 'PROJETO', 'OUTROS'],
+                                        ];
+
+                                        if (($reinform ?? false) && isset($workReport) && $workReport) {
+                                            $fileUploaderParams['work_report'] = $workReport;
+                                        }
+                                    @endphp
+
                                     @livewire(
                                         'files.manager.create-gen-files',
-                                        ['note' => $note, 'service' => 'INFORME DE OBRA'],
-                                        key('files_forms_' . $note->id)
+                                        $fileUploaderParams,
+                                        key('files_forms_' . $note->id . '_' . (($reinform ?? false) ? 'reinform' : 'new'))
                                     )
                                 </div>
                             </div>
@@ -733,10 +835,42 @@
                                 </div>
                             </div>
 
+                            @if (($reinform ?? false) && !empty($acceptanceHistory))
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0"><i class="ri-history-line me-2"></i>Histórico de Aceites</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Data</th>
+                                                        <th>Nome</th>
+                                                        <th>Usuário</th>
+                                                        <th>Origem</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($acceptanceHistory as $acceptance)
+                                                        <tr>
+                                                            <td>{{ $acceptance['acceptance_at'] ?? $acceptance['captured_at'] ?? $acceptance['collected_at'] ?? '---' }}</td>
+                                                            <td>{{ $acceptance['acceptance_name'] ?? '---' }}</td>
+                                                            <td>{{ $acceptance['app_user']['name'] ?? '---' }}</td>
+                                                            <td>{{ $acceptance['server_ip'] ?? $acceptance['host'] ?? '---' }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+
                             <!-- Form Buttons -->
                             <div class="d-flex gap-2 mb-4">
                                 <button class="btn btn-primary" type="submit">
-                                    <i class="ri-save-line me-1"></i> ENVIAR INFORME
+                                    <i class="ri-save-line me-1"></i> {{ ($reinform ?? false) ? 'REENVIAR INFORME' : 'ENVIAR INFORME' }}
                                 </button>
                                 <button class="btn btn-danger" type="reset" wire:click='calcelForm()'>
                                     <i class="ri-close-line me-1"></i> CANCELAR

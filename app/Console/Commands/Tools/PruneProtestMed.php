@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\MedProtest;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
 class PruneProtestMed extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -85,7 +88,7 @@ class PruneProtestMed extends Command
         }
 
         $this->line('Processando registros...');
-        $bar = $this->output->createProgressBar($totalCandidates);
+        $bar = $this->createProgressBar($totalCandidates);
         $bar->start();
 
         $deletedCount = 0;

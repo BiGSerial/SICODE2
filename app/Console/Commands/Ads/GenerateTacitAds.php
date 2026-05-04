@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Ads;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Enum\AdsRequestStatus;
 use App\Models\AdsRequest;
@@ -18,11 +19,12 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class GenerateTacitAds extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'ads:generate-tacit {--dry : Simula a execução sem criar/espelhar registros}';
 
     protected $description = 'Cria ADS tácita automaticamente para WorkReports vencidos sem ADS.';
@@ -59,12 +61,16 @@ class GenerateTacitAds extends Command
 
             $query = WorkReport::query()
                 ->where('rejected', false)
+                ->where('canceled', false)
                 ->whereNotNull('informed_at')
                 ->where('informed_at', '>=', $startAt)
                 ->where('informed_at', '<', $tacitOverdueThreshold)
                 ->whereHas('note.orders', function ($orderQuery) {
-                    $orderQuery->where('statusSist', 'like', 'ABER%')
-                        ->orWhere('statusSist', 'like', 'LIB%');
+                    $orderQuery->where('canceled', false)
+                        ->where(function ($statusQuery) {
+                            $statusQuery->where('statusSist', 'like', 'ABER%')
+                                ->orWhere('statusSist', 'like', 'LIB%');
+                        });
                 })
                 ->whereDoesntHave('adsform')
                 ->with(['note:id,note']);
@@ -84,7 +90,7 @@ class GenerateTacitAds extends Command
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
 
-            $bar = new ProgressBar($this->output, $total);
+            $bar = $this->createProgressBar($total);
             $bar->start();
 
             $query->orderBy('id')->chunkById(200, function (Collection $workReports) use (
@@ -141,7 +147,7 @@ class GenerateTacitAds extends Command
                         $requestsCreated += max(1, $recipientIds->count()); // simulado
                         $dryPreviewRows[] = [
                             'nota' => (string) ($workReport->note?->note ?? $workReport->note_id),
-                            'criado_em' => optional($workReport->created_at)->format('d/m/Y H:i:s'),
+                            'informado_em' => optional($workReport->informed_at)->format('d/m/Y H:i:s'),
                             'venceu_em' => $dueAt->format('d/m/Y H:i:s'),
                             'destinatarios' => (string) $recipientIds->count(),
                         ];
@@ -312,12 +318,12 @@ class GenerateTacitAds extends Command
                 $this->warn('DRY RUN: espelhamento no SQL Server não foi executado.');
                 if (!empty($dryPreviewRows)) {
                     $this->newLine();
-                    $this->info('Lista simulada (nota, criado em, venceu em):');
+                    $this->info('Lista simulada (nota, informado em, venceu em):');
                     $this->table(
-                        ['Nota', 'Criado em', 'Venceu em', 'Destinatários'],
+                        ['Nota', 'Informado em', 'Venceu em', 'Destinatários'],
                         array_map(fn ($row) => [
                             $row['nota'],
-                            $row['criado_em'],
+                            $row['informado_em'],
                             $row['venceu_em'],
                             $row['destinatarios'],
                         ], $dryPreviewRows)

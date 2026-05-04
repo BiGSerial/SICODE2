@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\Notestatus;
 use App\Models\Prodtransfer;
 use App\Models\SicodeSql\TransferProdLog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class TransferLog extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -36,7 +38,7 @@ class TransferLog extends Command
         
         $transfers = Prodtransfer::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Production', 'From', 'To', 'Service')->get();
 
-        $progressBar = new ProgressBar($this->output, $transfers->count());
+        $progressBar = $this->createProgressBar($transfers->count());
 
         $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
 

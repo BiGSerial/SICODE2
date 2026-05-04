@@ -47,7 +47,8 @@ class ReceiveAdsfomrm extends Component
     ];
 
     protected $rules = [
-        'file' => 'nullable|file|mimes:xlsx,xls|max:30720', // 30 MB in kilobytes
+        // mimes:xlsx falha em Linux pois finfo detecta xlsx como application/zip (xlsx é ZIP internamente)
+        'file' => 'nullable|file|mimetypes:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/zip,application/x-ole-storage|max:30720',
     ];
 
     protected $messages = [

@@ -3,10 +3,12 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Models\FiveNote;
+use App\Models\Partial;
 use App\Models\Reclaim;
 use App\Models\ReturnWork;
 use App\Models\Viability;
 use App\Models\WorkReport;
+use App\Models\Adsform;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -21,6 +23,9 @@ class Main extends Component
     public $pizza2;
     public $backlogChart;
     public $dailyViabilityChart;
+    public $viabilityAgeChart;
+    public $d5AgeChart;
+    public $rejectedWorkReasonChart;
 
     public $month;
     public $dt_ini;
@@ -28,6 +33,7 @@ class Main extends Component
 
     public int $daysAhead = 3;
     public array $kpis = [];
+    public array $workReportKpis = [];
 
     public $dadospizza1 = [
         'labels' => ['A', 'B', 'C'],
@@ -49,12 +55,37 @@ class Main extends Component
         'data' => [10, 20, 70],
     ];
 
+    public $dadosViabilityAgeHistogram = [
+        'labels' => [],
+        'data' => [],
+        'total' => 0,
+        'oldest' => 0,
+        'average' => 0,
+    ];
+
+    public $dadosD5AgeHistogram = [
+        'labels' => [],
+        'data' => [],
+        'total' => 0,
+        'oldest' => 0,
+        'average' => 0,
+    ];
+
+    public $dadosRejectedWorkReasons = [
+        'labels' => [],
+        'data' => [],
+        'total' => 0,
+    ];
+
     public function mount()
     {
         $this->pizza1 = 'chart-' . Str::random(8);
         $this->pizza2 = 'chart-' . Str::random(8);
         $this->backlogChart = 'chart-' . Str::random(8);
         $this->dailyViabilityChart = 'chart-' . Str::random(8);
+        $this->viabilityAgeChart = 'chart-' . Str::random(8);
+        $this->d5AgeChart = 'chart-' . Str::random(8);
+        $this->rejectedWorkReasonChart = 'chart-' . Str::random(8);
 
         $this->month = now()->format('Y-m');
         $this->dt_ini = now()->startOfMonth()->format('Y-m-d');
@@ -65,11 +96,11 @@ class Main extends Component
 
     public function toUpdateGraphs()
     {
-        $this->atualizarViabilityCounts();
-        $this->atualizaReturnWorkReports();
         $this->kpis = $this->getDashboardKpis();
-        $this->atualizaBacklogChart();
-        $this->atualizaDailyViability();
+        $this->workReportKpis = $this->getWorkReportPeriodKpis();
+        $this->atualizaViabilityAgeHistogram();
+        $this->atualizaD5AgeHistogram();
+        $this->atualizaRejectedWorkReasonChart();
     }
 
     public function updatedMonth()
@@ -178,6 +209,7 @@ class Main extends Component
     public function getTacitAdsOverdueWithoutDelivery(): Collection
     {
         $query = WorkReport::query()->active()
+            ->where('rejected', false)
             ->whereHas('Adsform', function ($q) {
                 $q->where('tacit', true)
                     ->whereNull('tacit_delivered_at')
@@ -250,6 +282,77 @@ class Main extends Component
             'viability_rejected_waiting' => $rejectedViabilityBase->count(),
             'reclaims_pending' => $reclaimsBase->distinct('reclaims.id')->count('reclaims.id'),
             'informs_rejected' => (clone $baseWorkReport)->where('rejected', true)->count(),
+        ];
+    }
+
+    public function getWorkReportPeriodKpis(): array
+    {
+        $baseQuery = WorkReport::query()
+            ->whereNotNull('informed_at');
+
+        if (!empty($this->dt_ini)) {
+            $baseQuery->whereDate('informed_at', '>=', $this->dt_ini);
+        }
+
+        if (!empty($this->dt_fim)) {
+            $baseQuery->whereDate('informed_at', '<=', $this->dt_fim);
+        }
+
+        $this->scopeByCompany($baseQuery);
+
+        $validBaseQuery = (clone $baseQuery)
+            ->where('canceled', false)
+            ->where('rejected', false);
+
+        $workReportIds = (clone $baseQuery)->select('id');
+        $validWorkReportIds = (clone $validBaseQuery)->select('id');
+        $adsBaseQuery = Adsform::query()
+            ->whereIn('work_report_id', $validWorkReportIds)
+            ->where(function ($q) {
+                $q->where('tacit', false)
+                    ->orWhereNull('tacit')
+                    ->orWhereNotNull('tacit_delivered_at');
+            });
+
+        $partialBaseQuery = Partial::query();
+
+        if (!empty($this->dt_ini)) {
+            $partialBaseQuery->whereDate('created_at', '>=', $this->dt_ini);
+        }
+
+        if (!empty($this->dt_fim)) {
+            $partialBaseQuery->whereDate('created_at', '<=', $this->dt_fim);
+        }
+
+        $this->scopeByCompany($partialBaseQuery);
+
+        $validInformedTotal = (clone $validBaseQuery)->count();
+        $adsDeliveredTotal = (clone $adsBaseQuery)->distinct('work_report_id')->count('work_report_id');
+        $partialsTotal = (clone $partialBaseQuery)->count();
+        $paidNotRejectedPartialsQuery = (clone $partialBaseQuery)
+            ->where('payment', true)
+            ->where('deny', false);
+        $partialsAmountTotal = (float) (clone $paidNotRejectedPartialsQuery)->sum('value');
+
+        return [
+            'informed_total' => (clone $baseQuery)->count(),
+            'valid_informed_total' => $validInformedTotal,
+            'canceled_rejected_total' => (clone $baseQuery)
+                ->where(function ($q) {
+                    $q->where('canceled', true)
+                        ->orWhere('rejected', true);
+                })
+                ->count(),
+            'ads_delivered_total' => $adsDeliveredTotal,
+            'ads_not_delivered_total' => max(0, $validInformedTotal - $adsDeliveredTotal),
+            'ads_amount_total' => (float) (clone $adsBaseQuery)->sum('amount'),
+            'partials_total' => $partialsTotal,
+            'partials_rejected_total' => (clone $partialBaseQuery)->where('deny', true)->count(),
+            'partials_completed_total' => (clone $partialBaseQuery)
+                ->where('payment', true)
+                ->where('deny', false)
+                ->count(),
+            'partials_amount_total' => $partialsAmountTotal,
         ];
     }
 
@@ -326,6 +429,7 @@ class Main extends Component
 
         return $baseQuery->selectRaw('count(*) as total, category')
             ->groupBy('category')
+            ->orderByDesc('total')
             ->get();
     }
 
@@ -354,6 +458,30 @@ class Main extends Component
         $this->updateDataPizza($this->pizza2, $labels, $data);
     }
 
+    public function atualizaRejectedWorkReasonChart(): void
+    {
+        $returnWorkReports = $this->getReturnWorkReports();
+
+        $labels = $returnWorkReports
+            ->map(fn ($item) => filled($item->category) ? $item->category : 'Sem motivo informado')
+            ->toArray();
+        $data = $returnWorkReports->pluck('total')->map(fn ($total) => (int) $total)->toArray();
+
+        $this->dadosRejectedWorkReasons = [
+            'labels' => $labels,
+            'data' => $data,
+            'total' => array_sum($data),
+        ];
+
+        $this->dispatchHorizontalBarChart(
+            $this->rejectedWorkReasonChart,
+            $labels,
+            $data,
+            'Informes rejeitados',
+            '#dc2626'
+        );
+    }
+
     public function atualizaBacklogChart(): void
     {
         $kpis = $this->kpis ?: $this->getDashboardKpis();
@@ -361,7 +489,7 @@ class Main extends Component
         $labels = [
             'Viabilidade pendente',
             'Viabilidade a vencer',
-            'ADS tacita a vencer',
+            'Entregas de ADS a vencer',
             'D5 pendente',
             'Viabilidade rejeitada',
             'Reclamações pendentes',
@@ -419,6 +547,132 @@ class Main extends Component
         $this->updateDataPizza($this->dailyViabilityChart, $labels, $series);
     }
 
+    public function atualizaViabilityAgeHistogram(): void
+    {
+        $histogram = $this->getOpenViabilityAgeHistogram();
+
+        $this->dadosViabilityAgeHistogram = $histogram;
+        $this->dispatchBarChart(
+            $this->viabilityAgeChart,
+            $histogram['labels'],
+            $histogram['data'],
+            'Viabilidades em aberto',
+            '#0f766e',
+            'Dias desde o envio'
+        );
+    }
+
+    public function getOpenViabilityAgeHistogram(): array
+    {
+        $query = Viability::query()
+            ->where('approved', false)
+            ->where('rejected', false)
+            ->where('completed', false)
+            ->where('canceled', false)
+            ->whereNotNull('sended_at');
+
+        $this->scopeByCompany($query);
+
+        $buckets = array_fill(0, 22, 0);
+        $ages = [];
+
+        $query->get(['sended_at'])->each(function ($viability) use (&$buckets, &$ages) {
+            $age = max(0, Carbon::parse($viability->sended_at)->startOfDay()->diffInDays(now()->startOfDay(), false));
+            $bucket = min($age, 21);
+
+            $buckets[$bucket]++;
+            $ages[] = $age;
+        });
+
+        $labels = array_map(fn ($day) => (string) $day, range(0, 20));
+        $labels[] = '21+';
+
+        return [
+            'labels' => $labels,
+            'data' => array_values($buckets),
+            'total' => count($ages),
+            'oldest' => empty($ages) ? 0 : max($ages),
+            'average' => empty($ages) ? 0 : round(array_sum($ages) / count($ages), 1),
+        ];
+    }
+
+    public function atualizaD5AgeHistogram(): void
+    {
+        $histogram = $this->getOpenD5AgeHistogram();
+
+        $this->dadosD5AgeHistogram = $histogram;
+        $this->dispatchD5StackedChart($this->d5AgeChart, $histogram);
+    }
+
+    public function getOpenD5AgeHistogram(): array
+    {
+        $query = FiveNote::query()
+            ->where('visible_partner', true)
+            ->where('is_completed', false)
+            ->whereNotNull('dispatch_at');
+
+        $this->scopeByCompany($query);
+
+        $waitingBuckets = array_fill(0, 31, 0);
+        $rejectedBuckets = array_fill(0, 31, 0);
+        $ages = [];
+        $passiveTotal = 0;
+
+        $query->get(['dispatch_at', 'returned', 'isPassive'])->each(function ($fiveNote) use (&$waitingBuckets, &$rejectedBuckets, &$ages, &$passiveTotal) {
+            $age = max(0, Carbon::parse($fiveNote->dispatch_at)->startOfDay()->diffInDays(now()->startOfDay(), false));
+            $bucket = min($age, 30);
+
+            if ($fiveNote->isPassive) {
+                $passiveTotal++;
+            }
+
+            if ($fiveNote->returned) {
+                $rejectedBuckets[$bucket]++;
+            } else {
+                $waitingBuckets[$bucket]++;
+            }
+
+            $ages[] = $age;
+        });
+
+        $labels = array_map(fn ($day) => (string) $day, range(0, 29));
+        $labels[] = '30+';
+        $waitingData = array_values($waitingBuckets);
+        $rejectedData = array_values($rejectedBuckets);
+
+        return [
+            'labels' => $labels,
+            'data' => $waitingData,
+            'rejected_data' => $rejectedData,
+            'datasets' => [
+                [
+                    'label' => 'Em espera',
+                    'data' => $waitingData,
+                    'backgroundColor' => '#2563eb',
+                    'borderColor' => '#2563eb',
+                    'borderRadius' => 6,
+                    'maxBarThickness' => 34,
+                    'stack' => 'd5',
+                ],
+                [
+                    'label' => 'Rejeitados',
+                    'data' => $rejectedData,
+                    'backgroundColor' => '#dc2626',
+                    'borderColor' => '#dc2626',
+                    'borderRadius' => 6,
+                    'maxBarThickness' => 34,
+                    'stack' => 'd5',
+                ],
+            ],
+            'total' => count($ages),
+            'waiting_total' => array_sum($waitingData),
+            'rejected_total' => array_sum($rejectedData),
+            'passive_total' => $passiveTotal,
+            'oldest' => empty($ages) ? 0 : max($ages),
+            'average' => empty($ages) ? 0 : round(array_sum($ages) / count($ages), 1),
+        ];
+    }
+
     public function exportSummaryCsv()
     {
         $kpis = $this->kpis ?: $this->getDashboardKpis();
@@ -433,8 +687,8 @@ class Main extends Component
             fputcsv($out, ['Indicador', 'Quantidade']);
             fputcsv($out, ['Viabilidade pendente', $kpis['pending_viability'] ?? 0]);
             fputcsv($out, ['Viabilidades a vencer', $kpis['viability_due_soon'] ?? 0]);
-            fputcsv($out, ['ADS tacita a vencer', $kpis['work_without_ads_due_soon'] ?? 0]);
-            fputcsv($out, ['ADS tacita vencida', $kpis['work_without_ads_overdue'] ?? 0]);
+            fputcsv($out, ['Entregas de ADS a vencer', $kpis['work_without_ads_due_soon'] ?? 0]);
+            fputcsv($out, ['Entregas de ADS em atraso', $kpis['work_without_ads_overdue'] ?? 0]);
             fputcsv($out, ['D5 pendentes', $kpis['d5_pending'] ?? 0]);
             fputcsv($out, ['D5 devolvidos', $kpis['d5_returned'] ?? 0]);
             fputcsv($out, ['Viabilidades rejeitadas aguardando resposta', $kpis['viability_rejected_waiting'] ?? 0]);
@@ -480,7 +734,7 @@ class Main extends Component
                     : null;
 
                 fputcsv($out, [
-                    'ADS tacita',
+                    'Entrega de ADS',
                     $item->note->note ?? '',
                     $item->company->name ?? '',
                     optional($item->informed_at)->format('d/m/Y H:i'),
@@ -498,6 +752,140 @@ class Main extends Component
         $this->dispatchBrowserEvent('updateGraph' . Str::studly($chartId), [
             'labels' => $labels,
             'data' => $data,
+        ]);
+
+        $this->dispatchBarChart($chartId, $labels, $data);
+    }
+
+    private function dispatchBarChart(
+        string $chartId = null,
+        array $labels = [],
+        array $data = [],
+        string $label = 'Viabilidades em aberto',
+        string $color = '#0f766e',
+        string $xTitle = 'Dias desde o envio'
+    ): void {
+        $this->dispatchBrowserEvent('chart-update', [
+            'chartId' => $chartId,
+            'chart' => [
+                'type' => 'bar',
+                'data' => [
+                    'labels' => $labels,
+                    'datasets' => [[
+                        'label' => $label,
+                        'data' => $data,
+                        'backgroundColor' => $color,
+                        'borderColor' => $color,
+                        'borderRadius' => 6,
+                        'maxBarThickness' => 34,
+                    ]],
+                ],
+                'options' => [
+                    'plugins' => [
+                        'legend' => ['display' => false],
+                        'tooltip' => [
+                            'callbacks' => [
+                                'label' => '__VALUE_LABEL__',
+                            ],
+                        ],
+                    ],
+                    'scales' => [
+                        'x' => [
+                            'title' => ['display' => true, 'text' => $xTitle],
+                            'grid' => ['display' => false],
+                        ],
+                        'y' => [
+                            'beginAtZero' => true,
+                            'title' => ['display' => true, 'text' => 'Quantidade'],
+                            'ticks' => ['precision' => 0],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function dispatchD5StackedChart(string $chartId = null, array $histogram = []): void
+    {
+        $this->dispatchBrowserEvent('chart-update', [
+            'chartId' => $chartId,
+            'chart' => [
+                'type' => 'bar',
+                'data' => [
+                    'labels' => $histogram['labels'] ?? [],
+                    'datasets' => $histogram['datasets'] ?? [],
+                ],
+                'options' => [
+                    'plugins' => [
+                        'legend' => ['display' => true, 'position' => 'top'],
+                        'tooltip' => [
+                            'callbacks' => [
+                                'label' => '__VALUE_LABEL__',
+                            ],
+                        ],
+                    ],
+                    'scales' => [
+                        'x' => [
+                            'stacked' => true,
+                            'title' => ['display' => true, 'text' => 'Dias desde o despacho'],
+                            'grid' => ['display' => false],
+                        ],
+                        'y' => [
+                            'stacked' => true,
+                            'beginAtZero' => true,
+                            'title' => ['display' => true, 'text' => 'Quantidade'],
+                            'ticks' => ['precision' => 0],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function dispatchHorizontalBarChart(
+        string $chartId = null,
+        array $labels = [],
+        array $data = [],
+        string $label = 'Registros',
+        string $color = '#dc2626'
+    ): void {
+        $this->dispatchBrowserEvent('chart-update', [
+            'chartId' => $chartId,
+            'chart' => [
+                'type' => 'bar',
+                'data' => [
+                    'labels' => $labels,
+                    'datasets' => [[
+                        'label' => $label,
+                        'data' => $data,
+                        'backgroundColor' => $color,
+                        'borderColor' => $color,
+                        'borderRadius' => 6,
+                        'maxBarThickness' => 26,
+                    ]],
+                ],
+                'options' => [
+                    'indexAxis' => 'y',
+                    'plugins' => [
+                        'legend' => ['display' => false],
+                        'tooltip' => [
+                            'callbacks' => [
+                                'label' => '__VALUE_LABEL__',
+                            ],
+                        ],
+                    ],
+                    'scales' => [
+                        'x' => [
+                            'beginAtZero' => true,
+                            'title' => ['display' => true, 'text' => 'Quantidade'],
+                            'ticks' => ['precision' => 0],
+                        ],
+                        'y' => [
+                            'grid' => ['display' => false],
+                        ],
+                    ],
+                ],
+            ],
         ]);
     }
 
@@ -518,6 +906,10 @@ class Main extends Component
             'dueSoon' => $this->getViabilityDueDate(),
             'workReportsWithoutAdsDueSoon' => $this->getWorkReportsWithoutAdsDueSoon(),
             'tacitAdsOverdueWithoutDelivery' => $this->getTacitAdsOverdueWithoutDelivery(),
+            'openViabilityAgeHistogram' => $this->dadosViabilityAgeHistogram,
+            'openD5AgeHistogram' => $this->dadosD5AgeHistogram,
+            'rejectedWorkReasons' => $this->dadosRejectedWorkReasons,
+            'workReportKpis' => $this->workReportKpis,
         ]);
     }
 }

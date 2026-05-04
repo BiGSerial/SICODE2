@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\HiringWaiting;
 use App\Models\SicodeSql\HiringStatus;
 use App\Models\Viability;
@@ -9,6 +10,8 @@ use Illuminate\Console\Command;
 
 class FixToHiringViabilities extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -35,7 +38,7 @@ class FixToHiringViabilities extends Command
             ->with('Note')
             ->get();
 
-        $progressBar = $this->output->createProgressBar(count($viabilities));
+        $progressBar = $this->createProgressBar(count($viabilities));
         $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s%');
         $progressBar->start();
 
@@ -61,7 +64,7 @@ class FixToHiringViabilities extends Command
             ->with('Note')
             ->get();
 
-        $progressBar = $this->output->createProgressBar(count($hiringWaitings));
+        $progressBar = $this->createProgressBar(count($hiringWaitings));
         $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s%');
         $progressBar->start();
 

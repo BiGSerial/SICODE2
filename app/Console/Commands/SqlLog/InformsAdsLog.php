@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Adsform;
 use App\Models\SicodeSql\LogAdsInforms;
 use Illuminate\Console\Command;
 
 class InformsAdsLog extends Command
 {
+    use ShowsProgress;
+
     private const SQLSERVER_BIND_LIMIT = 2100;
 
     /**
@@ -29,6 +32,8 @@ class InformsAdsLog extends Command
      */
     public function handle()
     {
+        $removedLogs = $this->syncDeletedAdsLogs();
+
         $full = !(LogAdsInforms::count() > 0);
         $now = now();
         $basePayload = [
@@ -55,12 +60,15 @@ class InformsAdsLog extends Command
         $totalSteps = Adsform::count();
 
         if ($totalSteps == 0) {
-            $this->info('Nenhum registro encontrado.');
+            $this->info('Nenhum registro de ADS encontrado para envio.');
+            if ($removedLogs > 0) {
+                $this->warn("Registros removidos do log SQL por exclusão local: {$removedLogs}");
+            }
             return;
         }
 
         // Configure o ProgressBar
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
         $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia
@@ -136,6 +144,10 @@ class InformsAdsLog extends Command
                     }
                 }
             });
+
+        if ($removedLogs > 0) {
+            $this->warn("Registros removidos do log SQL por exclusão local: {$removedLogs}");
+        }
     }
 
     private function safeBatchSizeForSqlServer(int $columnsPerRow, int $defaultBatch): int
@@ -148,5 +160,46 @@ class InformsAdsLog extends Command
         $maxByBinds = max(1, $maxByBinds);
 
         return min($defaultBatch, $maxByBinds);
+    }
+
+    private function syncDeletedAdsLogs(): int
+    {
+        $removed = 0;
+
+        LogAdsInforms::query()
+            ->select('id', 'adsform_id')
+            ->orderBy('id')
+            ->chunkById(1000, function ($rows) use (&$removed) {
+                $adsIds = $rows
+                    ->pluck('adsform_id')
+                    ->filter(fn ($id) => !is_null($id))
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (empty($adsIds)) {
+                    return;
+                }
+
+                $existingAdsIds = Adsform::query()
+                    ->whereIn('id', $adsIds)
+                    ->pluck('id')
+                    ->all();
+
+                $existingMap = array_fill_keys($existingAdsIds, true);
+
+                $toDelete = $rows
+                    ->filter(function ($row) use ($existingMap) {
+                        return !isset($existingMap[$row->adsform_id]);
+                    })
+                    ->pluck('id')
+                    ->all();
+
+                if (!empty($toDelete)) {
+                    $removed += LogAdsInforms::query()->whereIn('id', $toDelete)->delete();
+                }
+            });
+
+        return $removed;
     }
 }

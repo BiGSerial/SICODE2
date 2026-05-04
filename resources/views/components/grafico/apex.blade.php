@@ -134,6 +134,17 @@
                     return;
                 }
 
+                if (value === '__VALUE_LABEL_NONZERO__') {
+                    node[key] = function(v) {
+                        const numeric = Number(v ?? 0);
+                        if (!Number.isFinite(numeric) || numeric === 0) {
+                            return '';
+                        }
+                        return String(numeric);
+                    };
+                    return;
+                }
+
                 if (value === '__PERCENT_LABEL__') {
                     node[key] = function(v) {
                         const numeric = Number(v ?? 0);
@@ -212,6 +223,30 @@
                                 lineJoin: 'miter',
                                 hidden: !chart.isDatasetVisible(i),
                                 datasetIndex: i
+                            };
+                        });
+                    };
+                    return;
+                }
+
+                if (value === '__LEGEND_WITH_TOTAL__') {
+                    node[key] = function(chart) {
+                        const baseGenerator = Chart.defaults.plugins.legend.labels.generateLabels;
+                        const labels = baseGenerator(chart);
+                        const datasets = chart?.data?.datasets ?? [];
+
+                        return labels.map((legendItem) => {
+                            const ds = datasets[legendItem.datasetIndex] ?? null;
+                            const total = Array.isArray(ds?.data)
+                                ? ds.data.reduce((acc, item) => {
+                                    const n = Number(item ?? 0);
+                                    return acc + (Number.isFinite(n) ? n : 0);
+                                }, 0)
+                                : 0;
+
+                            return {
+                                ...legendItem,
+                                text: `${legendItem.text} (${total})`,
                             };
                         });
                     };

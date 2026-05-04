@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\{City};
 use App\Models\Edp_depc\City as OriginCity;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class CityUpdate extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -36,7 +38,7 @@ class CityUpdate extends Command
         $this->info('INIT UPDATE CITIES BD');
         $origin_count         = OriginCity::count();
         $log = new RegistroJson('upd_cities', $this->options(), $origin_count);
-        $progressBar    = new ProgressBar($this->output, $origin_count);
+        $progressBar    = $this->createProgressBar($origin_count);
         $updated = 0;
         $created = 0;
 

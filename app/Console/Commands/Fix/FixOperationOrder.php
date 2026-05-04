@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Edp_depc\BaseOperation;
 use App\Models\Order;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class FixOperationOrder extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -50,7 +52,7 @@ class FixOperationOrder extends Command
 
             if($orders) {
 
-                $progressBar2 = new ProgressBar($this->output, $orders->count(), 0.2);
+                $progressBar2 = $this->createProgressBar($orders->count(), 0.2);
 
                 foreach ($orders as $order) {
 

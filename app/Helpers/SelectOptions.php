@@ -479,6 +479,12 @@ class SelectOptions
         ];
     }
 
+    // Files Type for Production flow (mantém compatibilidade com o padrão geral)
+    public static function getProductionFilesType()
+    {
+        return static::getFilesType();
+    }
+
     // FIles Type ADS Options
     public static function getAdsFilesType()
     {
@@ -489,6 +495,17 @@ class SelectOptions
             (object)['reason' => 'IMAGEM EQUIPAMENTO', 'value' => 'IMG_EQUIP'],
             (object)['reason' => 'NOTA DE DESELIGAMENTO', 'value' => 'NOTEDES'],
             (object)['reason' => 'PLANILHA CLIENTES', 'value' => 'PLANCLIE'],
+        ];
+    }
+
+    public static function getPublicationFilesType()
+    {
+        return [
+
+            (object)['reason' => 'PRE-COMPARAÇÃO', 'value' => 'PRECOMP'],
+            (object)['reason' => 'IMAGEM', 'value' => 'IMAGEM'],
+            (object)['reason' => 'PROJETO (Projeto EO, CAD... Sem Anot. a Mão)', 'value' => 'PROJETO'],
+            (object)['reason' => 'OUTROS...', 'value' => 'OUTROS'],
         ];
     }
 

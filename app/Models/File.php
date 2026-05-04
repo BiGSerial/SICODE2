@@ -51,6 +51,11 @@ class File extends Model
         return $this->belongsToMany(Production::class);
     }
 
+    public function MorphProductions()
+    {
+        return $this->morphedByMany(Production::class, 'fileable')->withTimestamps();
+    }
+
     public function Viabilities()
     {
         return $this->belongsToMany(Viability::class);
@@ -69,6 +74,11 @@ class File extends Model
     public function Externals()
     {
         return $this->morphedByMany(External::class, 'fileable');
+    }
+
+    public function WorkReports()
+    {
+        return $this->morphedByMany(WorkReport::class, 'fileable')->withTimestamps();
     }
 
     public function isTacitAdsRestricted(): bool

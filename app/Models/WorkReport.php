@@ -98,6 +98,11 @@ class WorkReport extends Model
         return $this->hasOne(Adsform::class);
     }
 
+    public function Files()
+    {
+        return $this->morphToMany(File::class, 'fileable')->withTimestamps();
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('canceled', false);

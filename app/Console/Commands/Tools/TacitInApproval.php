@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Production;
 use App\Models\Reclaim;
 use App\Models\Service;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Storage;
 
 class TacitInApproval extends Command
 {
+    use ShowsProgress;
+
     private $userId;
     private $serviceId;
 
@@ -57,7 +60,7 @@ class TacitInApproval extends Command
         $totalSteps = ViabilityApproval::where('approved', false)
                         ->count();
 
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
         $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia
@@ -324,7 +327,7 @@ class TacitInApproval extends Command
         //     ->where('approved', false)
         //     ->count();
 
-        // $bar = $this->output->createProgressBar($totalSteps);
+        // $bar = $this->createProgressBar($totalSteps);
         // $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         // $bar->setBarCharacter('<fg=green>█</>');
         // $bar->setEmptyBarCharacter('<fg=red>░</>');

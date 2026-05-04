@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Files\Manager;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Viability as ViabilityModel;
+use App\Models\WorkReport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -49,6 +50,7 @@ class CreateGenFiles extends Component
 
     public ?Note $note = null;
     public ?ViabilityModel $viability = null;
+    public ?WorkReport $workReport = null;
     public ?int $viabilityId = null;
     public bool $alertFile = false;
     public string $service;
@@ -56,18 +58,29 @@ class CreateGenFiles extends Component
     public $tempFiles = [];
     public $uploadType;
     public $services;
+    public bool $manageExisting = false;
+    public array $existingFileTypes = [];
 
     protected $listeners = [
         'saveFiles',
         'cleanFiles' => 'closeAll',
+        'setWorkReportId',
     ];
 
-    public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null)
+    public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null, bool $manage_existing = false, array $existing_file_types = [], ?WorkReport $work_report = null)
     {
         $this->note = $note;
         $this->service = $service;
         $this->viability = $viability;
         $this->viabilityId = $viability_id ?: ($viability?->id ? (int) $viability->id : null);
+        $this->manageExisting = $manage_existing;
+        $this->existingFileTypes = $existing_file_types;
+        $this->workReport = $work_report;
+    }
+
+    public function setWorkReportId(int $workReportId): void
+    {
+        $this->workReport = WorkReport::find($workReportId);
     }
 
     public function updatedFiles()
@@ -148,6 +161,8 @@ class CreateGenFiles extends Component
 
     public function checkFilesExists()
     {
+        $hasExistingFiles = $this->manageExisting && $this->existingFiles()->exists();
+
         if (count($this->tempFiles)) {
 
             $this->alertFile = false;
@@ -178,8 +193,10 @@ class CreateGenFiles extends Component
             }
 
             $this->emitUp('hasFile', true);
+            $this->emitUp('hasPendingFile', true);
         } else {
-            $this->emitUp('hasFile', false);
+            $this->emitUp('hasFile', $hasExistingFiles);
+            $this->emitUp('hasPendingFile', false);
         }
     }
 
@@ -193,6 +210,35 @@ class CreateGenFiles extends Component
             }
             unset($this->tempFiles[$index]);
         }
+
+        $this->checkFilesExists();
+    }
+
+    public function removeExistingFile(int $fileId)
+    {
+        if (!$this->manageExisting) {
+            return;
+        }
+
+        $file = $this->existingFiles()->whereKey($fileId)->first();
+
+        if (!$file) {
+            return;
+        }
+
+        DB::transaction(function () use ($file) {
+            $file->Adsforms()->detach();
+            $file->Viabilities()->detach();
+            $file->Forms()->detach();
+            $file->Productions()->detach();
+            $file->Parcials()->detach();
+
+            if ($file->path && Storage::exists($file->path)) {
+                Storage::delete($file->path);
+            }
+
+            $file->delete();
+        });
 
         $this->checkFilesExists();
     }
@@ -316,6 +362,10 @@ class CreateGenFiles extends Component
                         $targetViability->Files()->syncWithoutDetaching([$file->id]);
                     }
                 }
+
+                if ($file && $this->workReport) {
+                    $this->workReport->Files()->syncWithoutDetaching([$file->id]);
+                }
             } else {
                 DB::rollback();
 
@@ -350,6 +400,42 @@ class CreateGenFiles extends Component
         $this->emitUp('savedFiles');
 
         $this->closeAll();
+    }
+
+    public function existingFiles()
+    {
+        $query = File::query()->orderBy('file_name');
+
+        if ($this->workReport) {
+            $workReportId = $this->workReport->id;
+            $noteId       = $this->note->id;
+
+            $query->where(function ($q) use ($workReportId, $noteId) {
+                // Arquivos legados: somente os _INFO_ da nota (sem filtro de usuário)
+                $q->where(function ($inner) use ($noteId) {
+                    $inner->where('note_id', $noteId)
+                        ->where('file_name', 'like', '%_INFO_%');
+                })
+                // Arquivos diretamente vinculados ao WorkReport via morph
+                ->orWhereHas('WorkReports', function ($sub) use ($workReportId) {
+                    $sub->whereKey($workReportId);
+                });
+            });
+        } else {
+            $query->where('user_id', auth()->id())
+                ->where('note_id', $this->note->id);
+        }
+
+        if (!empty($this->existingFileTypes)) {
+            $query->where(function ($q) {
+                foreach ($this->existingFileTypes as $type) {
+                    $q->orWhere('file_name', 'like', $type . '%');
+                }
+                $q->orWhere('file_name', 'like', '%INFO%');
+            });
+        }
+
+        return $query->distinct();
     }
 
 

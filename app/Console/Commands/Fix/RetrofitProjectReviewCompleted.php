@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Production;
 use App\Models\ProjectReviewDraft;
 use App\Models\ProjectReviewFinding;
@@ -10,6 +11,8 @@ use Illuminate\Console\Command;
 
 class RetrofitProjectReviewCompleted extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'sicode:retrofit_project_review_completed
         {--dry-run : Apenas simula sem gravar alterações}
         {--chunk=500 : Tamanho do chunk para processamento}';
@@ -36,7 +39,7 @@ class RetrofitProjectReviewCompleted extends Command
         $updated = 0;
         $skipped = 0;
 
-        $bar = $this->output->createProgressBar($total);
+        $bar = $this->createProgressBar($total);
         $bar->start();
 
         $baseQuery->orderBy('id')->chunk($chunkSize, function ($productions) use ($dryRun, &$updated, &$skipped, $bar) {

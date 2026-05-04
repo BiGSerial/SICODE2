@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\RamalReport;
 use App\Models\SicodeSql\LogInformsSmc;
 use Carbon\Carbon;
@@ -9,6 +10,8 @@ use Illuminate\Console\Command;
 
 class InformsSMC extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -47,7 +50,7 @@ class InformsSMC extends Command
         }
 
         $this->info("<bg=blue;fg=white> INFO </> <fg=white;options=bold> {$total} registros encontrados para sincronização </>");
-        $bar = $this->output->createProgressBar($total);
+        $bar = $this->createProgressBar($total);
         $bar->start();
 
         $upsertBatchSize = 50;

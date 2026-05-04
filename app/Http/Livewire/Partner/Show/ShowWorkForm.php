@@ -16,7 +16,13 @@ class ShowWorkForm extends Component
     public function show_form(WorkReport $form)
     {
 
-        $this->form = $form->load(['Equipment', 'Meeters']);
+        $this->form = $form->load([
+            'Company',
+            'Equipment',
+            'Meeters',
+            'Note.Files.Service',
+            'Orders',
+        ]);
 
         // dd($this->form);
 

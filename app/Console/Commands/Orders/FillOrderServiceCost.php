@@ -2,17 +2,19 @@
 
 namespace App\Console\Commands\Orders;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseCosts;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class FillOrderServiceCost extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'orders:fill-service-cost
         {--cutoff= : Data de corte (YYYY-MM-DD) usando created_at das fontes}
         {--order= : Número da ordem para checagem pontual}
@@ -103,7 +105,7 @@ class FillOrderServiceCost extends Command
             $withoutCost = 0;
             $skippedNoCost = 0;
 
-            $bar = new ProgressBar($this->output, $total);
+            $bar = $this->createProgressBar($total);
             $bar->start();
 
             $query->chunkById($chunkSize, function ($rows) use (

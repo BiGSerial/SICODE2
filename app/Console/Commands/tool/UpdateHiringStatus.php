@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\tool;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\SicodeSql\HiringStatus;
 use Illuminate\Console\Command;
 use Maatwebsite\Excel\Facades\Excel;
@@ -10,6 +11,8 @@ use Carbon\Carbon;
 
 class UpdateHiringStatus extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'hiringstatus:update
                             {file=toHiringConsolidado-20250422-1405.xlsx : Arquivo Excel em storage/app/uploads}';
 
@@ -36,7 +39,7 @@ class UpdateHiringStatus extends Command
         // 2) Remove o cabeçalho e pega só as linhas de dados
         $dataRows = $collection->slice(1);
 
-        $this->output->progressStart($dataRows->count());
+        $this->progressStart($dataRows->count());
 
         foreach ($dataRows as $row) {
             // 3) Combina cabeçalho + valores em array associativo
@@ -88,10 +91,10 @@ class UpdateHiringStatus extends Command
                 ]
             );
 
-            $this->output->progressAdvance();
+            $this->progressAdvance();
         }
 
-        $this->output->progressFinish();
+        $this->progressFinish();
         $this->info('Importação concluída com sucesso!');
 
         return 0;

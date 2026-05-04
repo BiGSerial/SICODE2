@@ -2,11 +2,14 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Wpa;
 use Illuminate\Console\Command;
 
 class fixServiceWpa extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -31,7 +34,7 @@ class fixServiceWpa extends Command
         if ($count > 0) {
             $this->info("{$count} Wpa(s) found without service_id");
 
-            $progressBar = $this->output->createProgressBar($count);
+            $progressBar = $this->createProgressBar($count);
 
             $progressBar->setFormat('%current%/%max% [upd: %upd% |np: %np% |err: %err%] [%bar%] %elapsed%/%estimated% | %memory%');
 

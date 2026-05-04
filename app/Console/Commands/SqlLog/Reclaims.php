@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Reclaim;
 use App\Models\SicodeSql\ReclaimLog;
 use Illuminate\Console\Command;
 
 class Reclaims extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -36,7 +39,7 @@ class Reclaims extends Command
 
 
         // Configure o ProgressBar
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
 
         // Estilo customizado para uma aparência moderna e elegante
         // $bar->setFormatDefinition('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Illuminate\Console\Command;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\AdsImportRaw;
@@ -9,10 +10,11 @@ use App\Models\edp_cipqa\OldAdsList;
 use App\Models\OldAdsInform;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class ExpurgoParcialExecel extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -87,7 +89,7 @@ class ExpurgoParcialExecel extends Command
 
         // Cria a barra de progresso
         $totalRows = count($allAdsData);
-        $progressBar = new ProgressBar($this->output, $totalRows);
+        $progressBar = $this->createProgressBar($totalRows);
         $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s%'); // Formatação da barra
         $progressBar->start();
 

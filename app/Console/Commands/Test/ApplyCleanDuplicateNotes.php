@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Test;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Note;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -13,6 +14,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 class ApplyCleanDuplicateNotes extends Command
 {
+    use ShowsProgress;
+
     /**
      * Adicionada a opção --force para controle de execução.
      * @var string
@@ -62,7 +65,7 @@ class ApplyCleanDuplicateNotes extends Command
         $io->section('Etapa 2/5: Processando e ' . ($isDryRun ? 'simulando' : 'aplicando') . ' correções...');
         $chunkSize = 50;
         $noteChunks = $duplicateNoteNames->chunk($chunkSize);
-        $processingBar = $this->output->createProgressBar($duplicateNoteNames->count());
+        $processingBar = $this->createProgressBar($duplicateNoteNames->count());
         $processingBar->setFormat(' Processando Grupo %current%/%max% [%bar%] %percent:3s%%');
         $processingBar->start();
 

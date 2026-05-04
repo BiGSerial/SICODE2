@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,8 @@ use App\Models\SicodeSql\HiringStatus;
 
 class HiringStatusLog extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -59,7 +62,7 @@ class HiringStatusLog extends Command
             ]);
 
         $total = $query->count();
-        $bar = $this->output->createProgressBar($total);
+        $bar = $this->createProgressBar($total);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s%');
         $bar->start();
 
