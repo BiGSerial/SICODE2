@@ -2,17 +2,19 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\SicodeSql\InformLog;
 use App\Models\Form;
 use App\Models\SicodeSql\ViabReject;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 use function Laravel\Prompts\form;
 
 class ViabRejectedLog extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -42,7 +44,7 @@ class ViabRejectedLog extends Command
         $days = $this->option('days');
 
         $forms = Form::where('rejected', true)->whereDate('updated_at', '>=', Carbon::now()->subDays($days))->get();
-        $progressBar = new ProgressBar($this->output, $forms->count());
+        $progressBar = $this->createProgressBar($forms->count());
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
 

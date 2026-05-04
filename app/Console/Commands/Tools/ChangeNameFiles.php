@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use App\Models\File;
 
 class ChangeNameFiles extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -38,7 +41,7 @@ class ChangeNameFiles extends Command
         }
 
         // Inicializa a barra de progresso
-        $this->output->progressStart($totalFiles);
+        $this->progressStart($totalFiles);
 
         // Inicializa contadores
         $ignored = 0;
@@ -57,7 +60,7 @@ class ChangeNameFiles extends Command
                 if (!Storage::exists($currentPath)) {
                     // $this->warn("Arquivo não encontrado: $currentPath. Ignorando...");
                     $ignored++;
-                    $this->output->progressAdvance();
+                    $this->progressAdvance();
                     continue;
                 }
 
@@ -67,7 +70,7 @@ class ChangeNameFiles extends Command
                     if (!Storage::move($currentPath, $expectedPath)) {
                         $this->error("Erro ao renomear o arquivo: $currentPath");
                         $errors++;
-                        $this->output->progressAdvance();
+                        $this->progressAdvance();
                         continue;
                     }
 
@@ -78,12 +81,12 @@ class ChangeNameFiles extends Command
                 }
 
                 // Avança a barra de progresso
-                $this->output->progressAdvance();
+                $this->progressAdvance();
             }
         });
 
         // Finaliza a barra de progresso
-        $this->output->progressFinish();
+        $this->progressFinish();
 
         // Exibe o resumo
         $this->info("Sincronização concluída!");

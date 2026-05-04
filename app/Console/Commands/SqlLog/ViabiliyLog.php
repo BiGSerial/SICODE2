@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\Viabilitiesstatus;
 use App\Http\Livewire\Construction\Hiring\Actions\Waitinghiring;
 use App\Models\HiringWaiting;
@@ -9,10 +10,11 @@ use App\Models\SicodeSql\ViabilityLog;
 use App\Models\Viability;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class ViabiliyLog extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -40,7 +42,7 @@ class ViabiliyLog extends Command
 
         $days = $this->option('days');
 
-        $progressBar = new ProgressBar($this->output, Viability::whereDate('updated_at', '>=', Carbon::now()->subDays($days))->count());
+        $progressBar = $this->createProgressBar(Viability::whereDate('updated_at', '>=', Carbon::now()->subDays($days))->count());
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
         $progressBar->setMessage('Inserting in bulk');
 

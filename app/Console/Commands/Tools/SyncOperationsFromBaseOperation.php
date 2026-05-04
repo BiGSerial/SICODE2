@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Edp_depc\BaseOperation as Edp_depcBaseOperation;
 use App\Models\Order;
 use App\Models\Operation;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class SyncOperationsFromBaseOperation extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'sicode:tools_sync_operations
                             {--limit=0 : Limita a quantidade de operações da origem para teste}';
 
@@ -55,7 +57,7 @@ class SyncOperationsFromBaseOperation extends Command
         }
 
         // Progress bar
-        $progressBar = new ProgressBar($this->output, $totalRecords);
+        $progressBar = $this->createProgressBar($totalRecords);
         $progressBar->setFormat("<bg=blue;fg=white>SYNC OPERATIONS: %current%/%max% </><fg=white;options=bold> [C: %ctd%/U: %upd%/NO: %noorder%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </>\n<bg=blue;fg=white>READING: </> %message%");
         $progressBar->setMessage('Iniciando...', 'message');
         $progressBar->setMessage('0', 'ctd');

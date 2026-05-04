@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Ads;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Enum\AdsRequestStatus;
 use App\Models\AdsRequest;
@@ -18,11 +19,12 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class GenerateTacitAds extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'ads:generate-tacit {--dry : Simula a execução sem criar/espelhar registros}';
 
     protected $description = 'Cria ADS tácita automaticamente para WorkReports vencidos sem ADS.';
@@ -88,7 +90,7 @@ class GenerateTacitAds extends Command
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
 
-            $bar = new ProgressBar($this->output, $total);
+            $bar = $this->createProgressBar($total);
             $bar->start();
 
             $query->orderBy('id')->chunkById(200, function (Collection $workReports) use (

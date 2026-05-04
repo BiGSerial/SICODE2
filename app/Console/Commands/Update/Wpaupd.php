@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\Wpaupdstatus;
 use App\Models\Wpa;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class Wpaupd extends Command
 {
+    use ShowsProgress;
+
     protected $signature   = 'sicode:upd_wpa';
     protected $description = 'Update WPA status from SQL Base (bulk upsert)';
 
@@ -33,7 +35,7 @@ class Wpaupd extends Command
                 return Command::SUCCESS;
             }
 
-            $progressBar = new ProgressBar($this->output, $total);
+            $progressBar = $this->createProgressBar($total);
             $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s%');
             $progressBar->start();
 

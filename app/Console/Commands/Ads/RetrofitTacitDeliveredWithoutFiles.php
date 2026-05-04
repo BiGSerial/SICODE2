@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands\Ads;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class RetrofitTacitDeliveredWithoutFiles extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'ads:retrofit-tacit-delivered-without-files
         {--dry : Simula sem gravar alterações}
         {--chunk=500 : Tamanho do lote de processamento}';
@@ -53,7 +55,7 @@ class RetrofitTacitDeliveredWithoutFiles extends Command
             $updated = 0;
             $dryPreview = [];
 
-            $bar = new ProgressBar($this->output, $total);
+            $bar = $this->createProgressBar($total);
             $bar->start();
 
             $query->chunkById($chunkSize, function ($rows) use ($dryRun, &$processed, &$updated, &$dryPreview, $bar) {

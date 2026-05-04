@@ -6,8 +6,6 @@ use App\Models\Edp_depc\BaseOV;
 use App\Models\Note;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Output\ConsoleOutput;
 
 class fixBaseDestiny extends Command
 {

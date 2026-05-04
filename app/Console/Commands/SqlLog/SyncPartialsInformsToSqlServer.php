@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Partial;
 use App\Models\SicodeSql\LogPartialsInforms;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class SyncPartialsInformsToSqlServer extends Command
 {
+    use ShowsProgress;
+
     private array $columnLimits = [];
 
     protected $signature = 'sicode:sync-log-partials-informs
@@ -83,7 +85,7 @@ class SyncPartialsInformsToSqlServer extends Command
 
         $this->line("Registros para enviar: {$total}");
 
-        $bar = $this->output->createProgressBar($total);
+        $bar = $this->createProgressBar($total);
         $bar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s% %message%');
         $bar->setMessage('Preparando...');
         $bar->start();

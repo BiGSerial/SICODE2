@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOperation as Edp_depcBaseOperation;
 use App\Models\Order;
@@ -9,11 +10,12 @@ use App\Models\Operation;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class BaseOperation extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'sicode:upd_baseOperation';
     protected $description = 'Update Base Operation from SQLSERVER.';
 
@@ -41,7 +43,7 @@ class BaseOperation extends Command
         $log = new RegistroJson('upd_baseOperation', $this->option(), $totalRecords);
 
         // ===== Barra de progresso
-        $progressBar = new ProgressBar($this->output, $totalRecords);
+        $progressBar = $this->createProgressBar($totalRecords);
         $progressBar->setFormat("<bg=blue;fg=white>UPDATE OPERATION: %current%/%max% </><fg=white;options=bold> [Loop: %cloop%/%tloop%][C: %ctd%/U: %upd%/NF: %nf%]</> <fg=green> [%bar%] </><fg=white;options=bold> %percent%%</> <bg=red;options=bold> %elapsed:6s%/%estimated:-6s% </>\n<bg=blue;fg=white>READING: </> %message%");
         $progressBar->setMessage('Processing');
         $progressBar->start();

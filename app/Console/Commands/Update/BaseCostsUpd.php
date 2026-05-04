@@ -2,17 +2,18 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseCosts;
 use App\Models\Order;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Throwable;
 
 class BaseCostsUpd extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -43,8 +44,7 @@ class BaseCostsUpd extends Command
             $updated = 0;
 
             if (count($ordens) > 0) {
-                $output = new ConsoleOutput();
-                $progressBar = new ProgressBar($output, count($ordens));
+                $progressBar = $this->createProgressBar(count($ordens));
                 $progressBar->start();
 
                 // Processa as ordens em chunks de 500

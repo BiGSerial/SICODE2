@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\ProtestJob;
 use App\Models\SicodeSql\LogProtestJobs;
 use Illuminate\Console\Command;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class SyncLogProtestJobsToSqlServer extends Command
 {
+    use ShowsProgress;
+
     private array $columnLimits = [];
 
     protected $signature = 'sicode:sync-log-protest-jobs
@@ -85,7 +88,7 @@ class SyncLogProtestJobsToSqlServer extends Command
         $this->line("Registros para enviar: {$total}");
 
         // Progress bar moderno
-        $bar = $this->output->createProgressBar($total);
+        $bar = $this->createProgressBar($total);
         $bar->setFormat(" %current%/%max%  [%bar%]  %percent:3s%%  ⏱ %elapsed:6s%  💾 %memory:6s%  %message%");
         $bar->setBarCharacter('█');
         $bar->setEmptyBarCharacter('░');

@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands\fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Order;
 use App\Models\Viability;
 use Illuminate\Console\Command;
 
 class ViabilityValues extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -35,7 +38,7 @@ class ViabilityValues extends Command
 
 
             if ($total > 0) {
-                $this->output->progressStart($total);
+                $this->progressStart($total);
                 Viability::where('value', '<', 1.0)->orWhereNull('value')->chunk(500, function ($viabilities) {
                     foreach ($viabilities as $viability) {
 
@@ -60,10 +63,10 @@ class ViabilityValues extends Command
                             $viability->save();
                         }
 
-                        $this->output->progressAdvance();
+                        $this->progressAdvance();
                     }
                 });
-                $this->output->progressFinish();
+                $this->progressFinish();
             }
 
 

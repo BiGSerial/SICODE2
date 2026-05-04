@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\SicodeSql\UserSqlLog;
 use App\Models\User;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class UsersLog extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -29,7 +31,7 @@ class UsersLog extends Command
     public function handle()
     {
         $userCount = User::count();
-        $progressBar = new ProgressBar($this->output, $userCount);
+        $progressBar = $this->createProgressBar($userCount);
         $progressBar->setFormat(' <bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%% %elapsed:6s%/%estimated:-6s% %message%');
 
         $progressBar->start();

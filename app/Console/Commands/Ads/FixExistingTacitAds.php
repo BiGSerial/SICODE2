@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands\Ads;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class FixExistingTacitAds extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'ads:fix-existing-tacit
         {--dry : Simula sem gravar alterações}
         {--chunk=500 : Tamanho do lote de processamento}';
@@ -50,7 +52,7 @@ class FixExistingTacitAds extends Command
             $processed = 0;
             $dryDeleteList = [];
 
-            $bar = new ProgressBar($this->output, $total);
+            $bar = $this->createProgressBar($total);
             $bar->start();
 
             $query->chunkById($chunkSize, function ($rows) use ($dryRun, &$dueUpdated, &$tacitCleared, &$adsDeleted, &$processed, &$dryDeleteList, $bar) {

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOperationResp;
 use App\Models\OperationResp;
@@ -12,6 +13,8 @@ use Throwable;
 
 class OperationRespUpd extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -40,7 +43,7 @@ class OperationRespUpd extends Command
         ->count();
 
 
-        $progressbar = $this->output->createProgressBar($operation);
+        $progressbar = $this->createProgressBar($operation);
 
         $progressbar->setFormat('%current%/%max% [ins: %ins% |upd: %upd% |nf: %nf% |err: %err%] [%bar%] %elapsed%/%estimated% | %memory%');
 

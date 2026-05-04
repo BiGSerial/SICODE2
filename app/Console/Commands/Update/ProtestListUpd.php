@@ -2,17 +2,19 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseProtest;
 use App\Models\MedProtest;
 use App\Models\Protest;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class ProtestListUpd extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -48,7 +50,7 @@ class ProtestListUpd extends Command
         $total = $baseQuery->count();
         $log->setTotal($total);
 
-        $bar = new ProgressBar($this->output, $total);
+        $bar = $this->createProgressBar($total);
         $bar->setFormat(
             '<bg=blue;fg=white>UPDATE PROTEST MED LIST: %current%/%max% </>' .
             '<fg=white;options=bold> [%tins%][I: %ins%/U: %upd%] </>' .

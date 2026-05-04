@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\{Bancoupdate, HistoricNote, Note};
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class LoteBaseOV extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -40,7 +42,7 @@ class LoteBaseOV extends Command
             $log = new RegistroJson('upd_baseOV_lote', $this->options(), $totalRecords);
             $totalInserts = ceil($totalRecords / $chunkSize);
 
-            $progressBar = new ProgressBar($this->output, $totalRecords);
+            $progressBar = $this->createProgressBar($totalRecords);
             $progressBar->setFormat('%current%/%max% Chunks: [%tins%/%itotal%] [I: %ins%/U: %upd%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s% %message%');
             $progressBar->setMessage($totalInserts, 'itotal');
             $progressBar->setMessage('Inserting in bulk');

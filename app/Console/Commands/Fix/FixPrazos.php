@@ -2,17 +2,19 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\{Bancoupdate, HistoricNote, Note};
 use App\Models\Edp_depc\BaseOV;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class FixPrazos extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -85,7 +87,7 @@ class FixPrazos extends Command
             return ['total' => 0, 'ins' => 0, 'upd' => 0, 'err' => 0, 'ne' => 0, 'dif' => 0];
         }
 
-        $progressBar = new ProgressBar($this->output, $total);
+        $progressBar = $this->createProgressBar($total);
 
         $progressBar->setFormat('<bg=blue;fg=white>%current%/%max% </> [%tins%][E: %err% / I: %ins% / U: %upd% / NE: %ne% / D: %dif%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s%');
         $progressBar->start();
@@ -188,7 +190,7 @@ class FixPrazos extends Command
             $log->setTotal($total);
         }
 
-        $progressBar = new ProgressBar($this->output, $total);
+        $progressBar = $this->createProgressBar($total);
 
         $progressBar->setFormat('<bg=blue;fg=white>%current%/%max% </> [%tins%][E: %err% / NE: %ne%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s%');
 

@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class TacitLogic extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -49,7 +51,7 @@ class TacitLogic extends Command
             $log->setTotal($viabilitiesToUpdate->count());
             $updatedCount = 0;
 
-            $progressBar = new ProgressBar($this->output, $viabilitiesToUpdate->count());
+            $progressBar = $this->createProgressBar($viabilitiesToUpdate->count());
             $progressBar->setFormat('<bg=blue;fg=white;options=bold> %current%/%max% </><fg=white;options=bold> <fg=green;options=bold> [%bar%] </> %percent%%');
 
 

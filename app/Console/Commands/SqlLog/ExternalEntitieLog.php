@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\ExternalComment;
 use App\Models\Note;
 use App\Models\SicodeSql\LogExternalEntities;
@@ -9,6 +10,8 @@ use Illuminate\Console\Command;
 
 class ExternalEntitieLog extends Command
 {
+    use ShowsProgress;
+
     protected $signature   = 'sicode:log_externalEntities';
     protected $description = 'Adds a log of external entities to the SQL database';
 
@@ -31,7 +34,7 @@ class ExternalEntitieLog extends Command
         }
 
         // Inicializa a barra de progresso
-        $bar = $this->output->createProgressBar($totalNotes);
+        $bar = $this->createProgressBar($totalNotes);
         $bar->setFormat('verbose'); // mostra "current/total" e tempo estimado
         $bar->start();
 

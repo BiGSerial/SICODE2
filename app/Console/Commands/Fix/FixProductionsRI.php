@@ -2,11 +2,14 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Reclaim;
 use Illuminate\Console\Command;
 
 class FixProductionsRI extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -31,7 +34,7 @@ class FixProductionsRI extends Command
             return $query->where('created_at', '>=', now()->subDays($this->option('days'))->startOfDay());
         })->count();
 
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
         $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia

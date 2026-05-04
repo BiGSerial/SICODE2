@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Adsform;
 use App\Models\SicodeSql\LogAdsInforms;
 use Illuminate\Console\Command;
 
 class InformsAdsLog extends Command
 {
+    use ShowsProgress;
+
     private const SQLSERVER_BIND_LIMIT = 2100;
 
     /**
@@ -65,7 +68,7 @@ class InformsAdsLog extends Command
         }
 
         // Configure o ProgressBar
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
         $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia

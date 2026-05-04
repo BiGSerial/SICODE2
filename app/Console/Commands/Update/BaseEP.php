@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\City;
 use App\Models\Edp_depc\BaseEP as Edp_depcBaseEP;
@@ -10,11 +11,12 @@ use App\Models\Note;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class BaseEP extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -45,7 +47,7 @@ class BaseEP extends Command
         // --- ETAPA 1: Processamento Principal em Lotes ---
         // Lemos a tabela de origem em pedaços para manter o uso de memória baixo.
         $total = Edp_depcBaseEP::query()->count();
-        $bar = new ProgressBar($this->output, $total);
+        $bar = $this->createProgressBar($total);
         $bar->start();
 
         $dataToUpsert = [];

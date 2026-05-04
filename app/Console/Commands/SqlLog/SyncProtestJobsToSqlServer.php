@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Services\SqlLog\SyncProtestJobsToSqlServerService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -9,6 +10,8 @@ use Symfony\Component\Console\Helper\ProgressBar;
 
 class SyncProtestJobsToSqlServer extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'sqllog:sync-protest-jobs
         {--full : Sincroniza todos os registros}
         {--hours=2 : Quantidade de horas para modo incremental}
@@ -68,7 +71,7 @@ class SyncProtestJobsToSqlServer extends Command
                         return;
                     }
 
-                    $bar = $this->output->createProgressBar($total);
+                    $bar = $this->createProgressBar($total);
                     $bar->setFormat(' %current%/%max% [%bar%] %percent:3s%%  %elapsed:6s%');
                     $bar->setBarCharacter('█');
                     $bar->setEmptyBarCharacter('░');
