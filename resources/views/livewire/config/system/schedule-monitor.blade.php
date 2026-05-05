@@ -1,6 +1,6 @@
 @php use Carbon\Carbon; @endphp
 
-<div class="schedule-monitor" wire:poll.10000ms="refreshData">
+<div class="schedule-monitor" wire:poll.30000ms="refreshData">
     <style>
         .schedule-monitor {
             --sm-bg: #f6f7fb;
@@ -186,6 +186,14 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        .schedule-monitor .running-command-title {
+            overflow-wrap: anywhere;
+        }
+
+        .schedule-monitor .pid-badge {
+            font-variant-numeric: tabular-nums;
+        }
     </style>
 
     @php
@@ -228,9 +236,15 @@
             </div>
         @endif
 
+        @if ($stopMessage)
+            <div class="alert alert-{{ $stopStatus }} py-2">
+                {{ $stopMessage }}
+            </div>
+        @endif
+
         <div class="row g-3">
             <div class="col-12 col-xl-8">
-                <div class="panel mb-3">
+                <div class="panel mb-3" wire:poll.2000ms.visible="refreshRunningCommands">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
                         <div>
                             <strong>Em execucao agora</strong>
@@ -238,7 +252,7 @@
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <span class="refresh-indicator text-muted">
-                                <span class="spinner-border" wire:loading wire:target="refreshData" aria-hidden="true"></span>
+                                <span class="spinner-border" wire:loading wire:target="refreshRunningCommands" aria-hidden="true"></span>
                             </span>
                             <span class="badge text-bg-warning">{{ count($runningCommands ?? []) }}</span>
                         </div>
@@ -247,15 +261,45 @@
                         @forelse ($runningCommands as $run)
                             <div class="list-group-item d-flex flex-column flex-md-row justify-content-between gap-2"
                                 wire:key="running-command-{{ $run['source'] }}-{{ $run['id'] }}">
-                                <div>
+                                <div class="running-command-title">
                                     <span class="badge text-bg-warning me-2">RUNNING</span>
-                                    <span class="fw-semibold">{{ $run['command'] }}</span>
-                                </div>
-                                <div class="small text-muted">
-                                    @if (!empty($run['started_at']))
-                                        inicio: {{ Carbon::parse($run['started_at'])->format('d/m/Y H:i:s') }} |
+                                    @if (!empty($run['pid']))
+                                        <span class="badge text-bg-secondary pid-badge me-2">PID {{ $run['pid'] }}</span>
                                     @endif
-                                    rodando ha {{ $run['elapsed'] }}
+                                    <span class="fw-semibold">{{ $run['command'] }}</span>
+                                    @if (!empty($run['command_detail']) && $run['command_detail'] !== $run['command'])
+                                        <div class="small text-muted mt-1 ps-md-5">
+                                            {{ $run['command_detail'] }}
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="d-flex align-items-center justify-content-md-end gap-2">
+                                    <div class="small text-muted text-md-end">
+                                        @if (!empty($run['started_at']))
+                                            inicio: {{ Carbon::parse($run['started_at'])->format('d/m/Y H:i:s') }} |
+                                        @endif
+                                        rodando ha {{ $run['elapsed'] }}
+                                    </div>
+                                    @can('superadm')
+                                        @if (!empty($run['can_stop']) && !empty($run['pid']))
+                                            @php
+                                                $stopAction = !empty($run['log_id'])
+                                                    ? "stopRunningCommand('{$run['log_id']}', '{$run['pid']}')"
+                                                    : "stopDetectedProcess('{$run['pid']}')";
+                                            @endphp
+                                            <button class="btn btn-sm btn-outline-danger" type="button"
+                                                wire:click="{{ $stopAction }}"
+                                                wire:loading.attr="disabled"
+                                                wire:target="{{ $stopAction }}"
+                                                title="Parar processo">
+                                                <i class="bi bi-stop-fill"></i>
+                                                <span class="visually-hidden">Parar</span>
+                                                <span class="spinner-border spinner-border-sm ms-1" wire:loading
+                                                    wire:target="{{ $stopAction }}"
+                                                    aria-hidden="true"></span>
+                                            </button>
+                                        @endif
+                                    @endcan
                                 </div>
                             </div>
                         @empty
@@ -267,16 +311,29 @@
                 </div>
 
                 <div class="panel">
-                    <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                    <div class="card-header bg-white d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2">
                         <div>
                             <strong>Historico recente</strong>
                             <div class="small text-muted">Inicio, fim e resultado oficial dos eventos do Scheduler</div>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+                            <input type="search"
+                                class="form-control form-control-sm"
+                                style="min-width: 220px"
+                                placeholder="Buscar processo, PID ou status"
+                                wire:model.debounce.500ms="recentSearch">
+                            <select class="form-select form-select-sm" style="width: 86px" wire:model="recentPerPage">
+                                <option value="15">15</option>
+                                <option value="30">30</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
                             <span class="refresh-indicator text-muted">
                                 <span class="spinner-border" wire:loading wire:target="refreshData" aria-hidden="true"></span>
                             </span>
-                            <span class="badge text-bg-secondary">{{ count($recentLogs ?? []) }}</span>
+                            <span class="badge text-bg-secondary">
+                                {{ method_exists($recentLogs, 'total') ? $recentLogs->total() : count($recentLogs ?? []) }}
+                            </span>
                         </div>
                     </div>
                     <div class="table-wrap">
@@ -285,6 +342,7 @@
                                 <tr>
                                     <th>Tarefa</th>
                                     <th>Status</th>
+                                    <th>PID</th>
                                     <th>Previsto</th>
                                     <th>Inicio</th>
                                     <th>Fim</th>
@@ -308,6 +366,7 @@
                                     <tr wire:key="recent-log-{{ $log['id'] }}" title="{{ $log['fail_reason'] ?? '' }}">
                                         <td class="fw-semibold">{{ $log['task'] }}</td>
                                         <td><span class="badge {{ $badge }}">{{ $status }}</span></td>
+                                        <td class="pid-badge">{{ $log['process_id'] ?? 'N/A' }}</td>
                                         <td>{{ !empty($log['scheduled_at']) ? Carbon::parse($log['scheduled_at'])->format('d/m H:i:s') : 'N/A' }}</td>
                                         <td>{{ !empty($log['started_at']) ? Carbon::parse($log['started_at'])->format('d/m H:i:s') : 'N/A' }}</td>
                                         <td>{{ !empty($log['finished_at']) ? Carbon::parse($log['finished_at'])->format('d/m H:i:s') : 'N/A' }}</td>
@@ -318,12 +377,17 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="text-center text-muted py-4">Nenhum log encontrado.</td>
+                                        <td colspan="10" class="text-center text-muted py-4">Nenhum log encontrado.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
+                    @if (method_exists($recentLogs, 'links') && $recentLogs->hasPages())
+                        <div class="px-3 py-2 border-top bg-white">
+                            {{ $recentLogs->links() }}
+                        </div>
+                    @endif
                 </div>
             </div>
 
