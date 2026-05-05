@@ -335,11 +335,7 @@ class Main extends Component
 
                     $user = Auth()->User()->name;
 
-                    if (trim($this->user_s)) {
-                        $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
-                    } else {
-                        $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
-                    }
+                    $user_info = $this->dispatchRecipientInfo();
 
                     if ($production) {
                         Notetimeline::Create([
@@ -375,11 +371,7 @@ class Main extends Component
 
                     $user = Auth()->User()->name;
 
-                    if (trim($this->user_s)) {
-                        $user_info = 'Atribuiu a NOTA/OV para: ' . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
-                    } else {
-                        $user_info = 'Despachou a NOTA/OV para:' . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
-                    }
+                    $user_info = $this->dispatchRecipientInfo();
 
                     if ($production) {
                         Notetimeline::Create([
@@ -403,7 +395,7 @@ class Main extends Component
             $info = '<br>';
 
             foreach ($erros as $err) {
-                $info .= $err . ' => ' . isset($err->load('User')->User->name) ? $err->load('User')->User->name : 'Desconhecido'.'\n';
+                $info .= $this->productionAssignmentLabel($err) . '<br>';
             }
 
             $this->dispatchBrowserEvent('swal', [
@@ -632,6 +624,36 @@ class Main extends Component
         } catch (\Throwable $th) {
             return [];
         }
+    }
+
+    private function dispatchRecipientInfo(): string
+    {
+        if (trim((string) $this->user_s)) {
+            $userName = User::find($this->user_s)?->name ?? 'Desconhecido';
+
+            return "Atribuiu a NOTA/OV para: {$userName}";
+        }
+
+        $companyName = Company::find($this->company_s)?->name ?? 'Desconhecido';
+
+        return "Despachou a NOTA/OV para: {$companyName}";
+    }
+
+    private function productionAssignmentLabel(Production $production): string
+    {
+        $production->loadMissing(['Note', 'User', 'Company']);
+
+        $note = $production->Note?->note ?? $production->note_id;
+
+        if ($production->User) {
+            return "{$note} => {$production->User->name}";
+        }
+
+        if ($production->Company) {
+            return "{$note} => {$production->Company->name} (sem usuário atribuído)";
+        }
+
+        return "{$note} => Desconhecido";
     }
 
     public function render()
