@@ -72,6 +72,17 @@ class LogScheduledTask
 
         $duration = $runtime ?? ($log->started_at ? $log->started_at->diffInSeconds($finishedAt) : null);
 
+        if ($log->stopped_at) {
+            $log->update([
+                'status' => ScheduleExecutionLog::STATUS_FAIL,
+                'finished_at' => $finishedAt,
+                'duration_seconds' => $duration,
+                'exit_code' => $task->exitCode,
+                'exception_message' => $log->exception_message ?: 'Execucao interrompida manualmente pelo monitor do schedule.',
+            ]);
+            return;
+        }
+
         $log->update([
             'status' => ((int) $task->exitCode === 0) ? ScheduleExecutionLog::STATUS_DONE : ScheduleExecutionLog::STATUS_FAIL,
             'finished_at' => $finishedAt,
@@ -94,6 +105,17 @@ class LogScheduledTask
                 'exit_code' => $task->exitCode,
                 'exception_message' => $this->limitText($exception->getMessage()),
             ]));
+            return;
+        }
+
+        if ($log->stopped_at) {
+            $log->update([
+                'status' => ScheduleExecutionLog::STATUS_FAIL,
+                'finished_at' => $finishedAt,
+                'duration_seconds' => $log->started_at ? $log->started_at->diffInSeconds($finishedAt) : null,
+                'exit_code' => $task->exitCode,
+                'exception_message' => $log->exception_message ?: 'Execucao interrompida manualmente pelo monitor do schedule.',
+            ]);
             return;
         }
 
@@ -120,10 +142,29 @@ class LogScheduledTask
 
     private function latestRunningLog(Event $task): ?ScheduleExecutionLog
     {
-        return ScheduleExecutionLog::query()
-            ->where('event_hash', $this->eventHash($task))
-            ->where('status', ScheduleExecutionLog::STATUS_RUNNING)
-            ->whereNull('finished_at')
+        $query = ScheduleExecutionLog::query()
+            ->where('event_hash', $this->eventHash($task));
+
+        if (Schema::hasColumn('schedule_execution_logs', 'stopped_at')) {
+            $query->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->where('status', ScheduleExecutionLog::STATUS_RUNNING)
+                        ->whereNull('finished_at');
+                })->orWhere(function ($query) {
+                    $query->whereNotNull('stopped_at')
+                        ->where('started_at', '>=', now()->subHours(12));
+                })->orWhere(function ($query) {
+                    $query->where('status', ScheduleExecutionLog::STATUS_FAIL)
+                        ->where('exception_message', 'like', 'Processo PID % nao esta mais em execucao no sistema.')
+                        ->where('started_at', '>=', now()->subHours(12));
+                });
+            });
+        } else {
+            $query->where('status', ScheduleExecutionLog::STATUS_RUNNING)
+                ->whereNull('finished_at');
+        }
+
+        return $query
             ->orderByDesc('started_at')
             ->first();
     }
