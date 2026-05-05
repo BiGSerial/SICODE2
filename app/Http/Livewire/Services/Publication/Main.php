@@ -196,10 +196,10 @@ class Main extends Component
         $check = Production::where('note_id', $this->note->id)->where(function ($q) {
             return $q->where('completed', false)
                 ->Where('service_id', $this->service->uuid);
-        })->with('User', 'Service')->first();
+        })->with('User', 'Company', 'Service')->first();
 
         if ($check) {
-            $name = $check->User ? $check->User->name : 'Desconhecido';
+            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

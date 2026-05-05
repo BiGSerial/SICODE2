@@ -231,14 +231,16 @@ class Main extends Component
         $check = Production::where('note_id', $this->note->id)->where(function ($q) {
             return $q->where('completed', false)
                 ->orWhere('dt_note', $this->note->dt_status);
-        })->with('User', 'Service')->first();
+        })->with('User', 'Company', 'Service')->first();
 
         if ($check) {
+            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OOOOPS! NOTA/OV TRATADA OU EM TRATAMENTO',
-                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$check->User->name}</strong>",
+                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$name}</strong>",
 
             ]);
 
