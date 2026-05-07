@@ -107,8 +107,13 @@ class CreateAdsFiles extends Component
         if (count($this->tempFiles)) {
 
             $this->alertFile = false;
+            $hasAsbuilt = false;
 
             foreach ($this->tempFiles as &$temp_file) {
+
+                if ($temp_file['uploadType'] === 'ASBUILT') {
+                    $hasAsbuilt = true;
+                }
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
                     $this->alertFile = true;
@@ -118,8 +123,10 @@ class CreateAdsFiles extends Component
 
 
             $this->emitUp('hasFile', true);
+            $this->emitUp('hasAsbuiltFile', $hasAsbuilt);
         } else {
             $this->emitUp('hasFile', false);
+            $this->emitUp('hasAsbuiltFile', false);
         }
     }
 

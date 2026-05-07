@@ -1,6 +1,11 @@
 {
-    "appver": "1.33.0",
+    "appver": "1.33.1",
     "historic": [
+        {
+            "version": "1.33.1",
+            "description": "Fix Upload Files in Aprovals and Input agree in Work Informs.",
+            "date": "2026-05-07"
+        },
         {
             "version": "1.33.0",
             "description": "Wall Fix, Monitor Schedule page and Use Laravel Schedule System ",

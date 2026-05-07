@@ -22,6 +22,9 @@ class Reworkreports extends Workreports
         'confirm_informe',
         'send_informe',
         'hasFile',
+        'hasAsbuilt',
+        'hasPendingAsbuilt',
+        'hasEvidenceFile',
         'hasPendingFile',
         'savedFiles',
     ];
@@ -115,12 +118,17 @@ class Reworkreports extends Workreports
                 return;
             }
 
-            if ($this->requireFilesForSubmit && $this->form['changes'] == true && !$this->hasFiles) {
+            if ($this->changesBecameTrueOnReinform() && !$this->hasPendingAsbuilt) {
+                $this->showMissingAsbuiltFeedbackForChangedProjectAnswer();
+                return;
+            }
+
+            if ($this->requiresAsbuiltConfirmation() && !$this->asBool($this->form['asbuilt_confirmation'] ?? false)) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
-                    'title'    => 'Erros de Validação',
-                    'html'     => 'É obrigatório anexar o AsBuilt da obra executada.',
+                    'title'    => 'Confirmação do ASBUILT obrigatória',
+                    'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
                 ]);
                 return;
             }
@@ -180,6 +188,21 @@ class Reworkreports extends Workreports
             return;
         }
 
+        if ($this->changesBecameTrueOnReinform() && !$this->hasPendingAsbuilt) {
+            $this->showMissingAsbuiltFeedbackForChangedProjectAnswer();
+            return;
+        }
+
+        if ($this->requiresAsbuiltConfirmation() && !$this->asBool($this->form['asbuilt_confirmation'] ?? false)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Confirmação do ASBUILT obrigatória',
+                'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
+            ]);
+            return;
+        }
+
         $informedAt = now();
 
         DB::beginTransaction();
@@ -222,13 +245,16 @@ class Reworkreports extends Workreports
                 return;
             }
 
-            $this->dispatchBrowserEvent('swal', [
+            $this->dispatchBrowserEvent('swal-redirect', [
                 'position' => 'center',
                 'icon'     => 'success',
                 'title'    => 'Informe reenviado com sucesso',
+                'timer'    => 1800,
+                'showConfirmButton' => false,
+                'url'      => route('partner.report.rejectedWorked'),
             ]);
 
-            return redirect()->route('partner.report.rejectedWorked');
+            return;
         } catch (\Throwable $th) {
             DB::rollBack();
 
@@ -245,7 +271,14 @@ class Reworkreports extends Workreports
     {
         $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
 
-        return redirect()->route('partner.report.rejectedWorked');
+        $this->dispatchBrowserEvent('swal-redirect', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Informe reenviado com sucesso',
+            'timer'    => 1800,
+            'showConfirmButton' => false,
+            'url'      => route('partner.report.rejectedWorked'),
+        ]);
     }
 
     public function hasPendingFile(bool $hasPendingFile)
@@ -277,6 +310,7 @@ class Reworkreports extends Workreports
             'informer' => $this->workReport->informer,
             'acceptance_accepted' => false,
             'acceptance_name' => null,
+            'asbuilt_confirmation' => false,
         ];
 
         $this->temp_orders = $this->workReport->Orders
@@ -388,6 +422,44 @@ class Reworkreports extends Workreports
     protected function asBool($value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    protected function requiresAsbuiltForSubmit(): bool
+    {
+        return $this->changesBecameTrueOnReinform();
+    }
+
+    protected function requiresAsbuiltConfirmation(): bool
+    {
+        return $this->changesBecameTrueOnReinform() || $this->hasPendingAsbuilt;
+    }
+
+    protected function changesBecameTrueOnReinform(): bool
+    {
+        if (!$this->workReport) {
+            return false;
+        }
+
+        return !$this->asBool($this->workReport->changes)
+            && $this->asBool($this->form['changes'] ?? false);
+    }
+
+    protected function showMissingAsbuiltFeedbackForChangedProjectAnswer(): void
+    {
+        $this->showAsbuiltMissingFeedback = true;
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'ASBUILT obrigatório no reenvio',
+            'html'     => '<div class="text-start">
+                <div class="alert alert-warning py-2 mb-3">
+                    <strong>A obrigatoriedade ocorreu porque a informação do projeto foi alterada neste reenvio.</strong>
+                </div>
+                <p class="mb-2">No informe anterior, <strong>Houve Alterações no projeto?</strong> estava marcado como <strong>Não</strong>. Neste reenvio, a informação foi alterada para <strong>Sim</strong>.</p>
+                <p class="mb-0">Por isso, selecione o tipo de envio <strong>ASBUILT</strong>, anexe o ASBUILT atualizado e confirme a veracidade da informação antes de reenviar.</p>
+            </div>',
+        ]);
     }
 
     protected function hasExistingInformeFiles(): bool

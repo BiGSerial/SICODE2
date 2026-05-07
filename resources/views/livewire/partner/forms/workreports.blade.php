@@ -148,16 +148,6 @@
                             </div>
                         </div>
 
-                        @if ($requireFilesForSubmit && !($reinform ?? false))
-                            <div class="alert alert-warning d-flex align-items-start gap-2">
-                                <i class="ri-alert-line fs-5 mt-1"></i>
-                                <div>
-                                    <strong>Aviso operacional:</strong> para este informe, é necessário anexar o
-                                    <strong>VTEO (Viabilidade Técnica de Execução de Obras)</strong>.
-                                </div>
-                            </div>
-                        @endif
-
                         @php
                             $activeWorkForm = $note->WorkForm;
                             $latestReturnwork = ($activeWorkForm && $activeWorkForm->rejected)
@@ -524,6 +514,40 @@
                                             dos ativos cadastrados e instalados.
                                         </div>
                                     </div>
+                                    @if (!($reinform ?? false))
+                                        <div class="alert alert-warning d-flex align-items-start" role="alert">
+                                            <i class="ri-file-warning-line me-2 fs-5"></i>
+                                            <div>
+                                                <strong>ASBUILT obrigatório:</strong> anexe o ASBUILT de acordo com a
+                                                informação declarada em <strong>Houve Alterações no projeto?</strong>.
+                                                Se houve alteração, anexe o ASBUILT com as alterações executadas. Se não
+                                                houve alteração, o executor declara, sob sua responsabilidade, que a obra foi
+                                                executada conforme o projeto original, devendo anexar o projeto seguido da
+                                                informação <strong>executado conforme projeto</strong> registrada no ASBUILT.
+                                                Informações divergentes da execução realizada em campo poderão acarretar
+                                                retrabalho, reprovação no encerramento da obra e aplicação das tratativas e
+                                                sanções cabíveis.
+                                            </div>
+                                        </div>
+                                    @endif
+                                    @if ($showAsbuiltMissingFeedback)
+                                        <div class="alert alert-danger d-flex align-items-start border border-danger" role="alert">
+                                            <i class="ri-error-warning-line me-2 fs-5"></i>
+                                            <div>
+                                                @if ($reinform ?? false)
+                                                    <strong>ASBUILT obrigatório pela alteração da informação.</strong>
+                                                    No informe anterior, <strong>Houve Alterações no projeto?</strong>
+                                                    estava marcado como <strong>Não</strong>. Neste reenvio, foi alterado
+                                                    para <strong>Sim</strong>. Anexe o ASBUILT e confirme a veracidade
+                                                    da informação antes de reenviar.
+                                                @else
+                                                    <strong>ASBUILT não anexado.</strong> Para enviar o informe, selecione
+                                                    <strong>ASBUILT</strong> no Tipo de Envio e anexe o arquivo antes de
+                                                    confirmar a entrega.
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                     @php
                                         $fileUploaderParams = [
                                             'note' => $note,
@@ -542,6 +566,27 @@
                                         $fileUploaderParams,
                                         key('files_forms_' . $note->id . '_' . (($reinform ?? false) ? 'reinform' : 'new'))
                                     )
+
+                                    @if ($this->shouldShowAsbuiltConfirmation())
+                                        <div class="alert alert-success d-flex align-items-start mt-3" role="alert">
+                                            <i class="ri-checkbox-circle-line me-2 fs-5"></i>
+                                            <div class="w-100">
+                                                <label class="form-check-label fw-semibold d-flex gap-2 align-items-start">
+                                                    <input type="checkbox"
+                                                        class="form-check-input mt-1 @error('form.asbuilt_confirmation') is-invalid @enderror"
+                                                        id="asbuilt_confirmation"
+                                                        wire:model.defer="form.asbuilt_confirmation">
+                                                    <span>
+                                                        Confirmo que o ASBUILT anexado corresponde à informação
+                                                        declarada sobre alteração ou não alteração do projeto.
+                                                    </span>
+                                                </label>
+                                                @error('form.asbuilt_confirmation')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
 
@@ -888,6 +933,19 @@
     <script>
         // Initialize tooltips instead of popovers for better mobile experience
         document.addEventListener('livewire:load', function() {
+            window.addEventListener('swal-redirect', function(e) {
+                const detail = e.detail || {};
+                const url = detail.url;
+                const options = { ...detail };
+                delete options.url;
+
+                Swal.fire(options).then(() => {
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+            });
+
             const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
             [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 
@@ -898,9 +956,9 @@
                 });
             });
 
-            const metaField = document.getElementById('acceptance_meta_json');
-
             function collectMetaBase() {
+                const asbuiltConfirmation = document.getElementById('asbuilt_confirmation');
+
                 return {
                     user_agent: navigator.userAgent || null,
                     user_agent_data: navigator.userAgentData ? {
@@ -945,6 +1003,10 @@
                     local_os_username: null,
                     local_machine_hostname: null,
                     local_user_capture_method: null,
+                    asbuilt_visual_confirmation: {
+                        checkbox_visible: Boolean(asbuiltConfirmation),
+                        checkbox_checked: Boolean(asbuiltConfirmation?.checked),
+                    },
                     signature_input_version: 'v2',
                 };
             }
@@ -1017,6 +1079,8 @@
             }
 
             async function fillAcceptanceMeta() {
+                const metaField = document.getElementById('acceptance_meta_json');
+
                 if (!metaField) {
                     return;
                 }
