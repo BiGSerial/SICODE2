@@ -81,6 +81,11 @@ class File extends Model
         return $this->morphedByMany(WorkReport::class, 'fileable')->withTimestamps();
     }
 
+    public function Reclaims()
+    {
+        return $this->morphedByMany(Reclaim::class, 'fileable')->withTimestamps();
+    }
+
     public function isTacitAdsRestricted(): bool
     {
         return $this->Adsforms()

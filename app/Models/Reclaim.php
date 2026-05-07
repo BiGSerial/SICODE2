@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Reclaim extends Model
 {
@@ -81,5 +82,10 @@ class Reclaim extends Model
     public function Subcategory()
     {
         return $this->belongsTo(Subcategory::class);
+    }
+
+    public function Files(): MorphToMany
+    {
+        return $this->morphToMany(File::class, 'fileable')->withTimestamps();
     }
 }
