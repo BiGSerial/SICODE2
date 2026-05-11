@@ -255,7 +255,7 @@
             </div>
 
             @if ($process && $myAds && $myAds->exists())
-                <div wire:ignore wire:key="ADS_FORM" class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
+                <div wire:key="ADS_FORM" class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
                     <div class="card-header bg-white border-0 p-4 pb-2">
                         <h5 class="mb-0 fw-bold">Dados extraídos da ADS</h5>
                     </div>
@@ -325,10 +325,25 @@
                     </div>
 
                     <div class="card-body border-top">
-                        @livewire('files.manager.create-ads-files', ['note' => $note, 'service' => 'IFINAL'], key('ADS_final_files'))
+                        @livewire('files.manager.create-ads-files', ['note' => $note, 'service' => 'CFINAL'], key('ADS_final_files'))
                     </div>
 
                     <div class="card-footer bg-white border-0 p-4 pt-0">
+                        @if ($hasAsbuiltFile)
+                            <div class="card border-warning border-2 shadow-sm mb-3">
+                                <div class="card-header bg-warning-subtle d-flex align-items-center gap-2">
+                                    <i class="ri-alert-line fs-5 text-warning-emphasis"></i>
+                                    <strong>ASBUILT complementar anexado</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">
+                                        O ASBUILT não substitui o arquivo anterior nem respalda alteração da informação
+                                        validada e confirmada na declaração de entrega de obras.
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
+
                         <div class="d-grid d-md-flex justify-content-md-end gap-2">
                             <button type="button" class="btn btn-primary px-4" wire:click="toSave">
                                 Confirmar envio

@@ -32,6 +32,7 @@ class ReceiveAdsfomrm extends Component
     public $observation;
     public $amount;
     public $hasFile = false;
+    public bool $hasAsbuiltFile = false;
     public $lateDeliveryAfterSubmit = null;
 
     // Serialized state for $theAds
@@ -43,6 +44,7 @@ class ReceiveAdsfomrm extends Component
     protected $listeners = [
         'confirm_save' => 'save',
         'hasFile',
+        'hasAsbuiltFile',
         'savedFiles'
     ];
 
@@ -95,6 +97,11 @@ class ReceiveAdsfomrm extends Component
     public function hasFile($hasFile)
     {
         $this->hasFile = $hasFile;
+    }
+
+    public function hasAsbuiltFile(bool $hasAsbuiltFile)
+    {
+        $this->hasAsbuiltFile = $hasAsbuiltFile;
     }
 
     public function savedFiles()
@@ -425,6 +432,8 @@ class ReceiveAdsfomrm extends Component
         $this->amount = '';
         $this->theAdsPath = null;
         $this->lateDeliveryAfterSubmit = null;
+        $this->hasFile = false;
+        $this->hasAsbuiltFile = false;
     }
 
     private function isAdsClosed(): bool

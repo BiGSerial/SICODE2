@@ -23,7 +23,7 @@
                                 data-bs-toggle="collapse" data-bs-target="#showUseType" aria-expanded="false"
                                 aria-controls="showUseType"></i></label>
                         <select class="form-select border-secondary @error('uploadType') is-invalid @enderror"
-                            id="upload_type" wire:model="uploadType" required style="max-width: 350px;">
+                            id="upload_type" wire:model="uploadType" style="max-width: 350px;">
                             <option value="" selected>Selecione o tipo de envio</option>
                             @foreach (SelectOptions::getFilesType() as $fileType)
                                 <option value="{{ $fileType->value }}">{{ $fileType->reason }}</option>

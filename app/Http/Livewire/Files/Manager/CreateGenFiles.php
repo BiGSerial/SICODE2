@@ -179,12 +179,21 @@ class CreateGenFiles extends Component
     public function checkFilesExists()
     {
         $hasExistingFiles = $this->manageExisting && $this->existingFiles()->exists();
+        $hasExistingAsbuilt = $this->manageExisting && $this->existingFiles()
+            ->where('file_name', 'like', 'ASBUILT%')
+            ->exists();
+        $hasExistingNonAsbuiltFile = $this->manageExisting && $this->existingFiles()
+            ->where('file_name', 'not like', 'ASBUILT%')
+            ->exists();
 
         if (count($this->tempFiles)) {
 
             $this->alertFile = false;
 
             $FVTO = 0;
+            $hasAsbuilt = $hasExistingAsbuilt;
+            $hasPendingAsbuilt = false;
+            $hasNonAsbuiltFile = $hasExistingNonAsbuiltFile;
 
 
 
@@ -193,6 +202,13 @@ class CreateGenFiles extends Component
 
                 if ($temp_file['uploadType'] == "FTVEO") {
                     $FVTO++;
+                }
+
+                if ($temp_file['uploadType'] == "ASBUILT") {
+                    $hasAsbuilt = true;
+                    $hasPendingAsbuilt = true;
+                } else {
+                    $hasNonAsbuiltFile = true;
                 }
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
@@ -210,9 +226,15 @@ class CreateGenFiles extends Component
             }
 
             $this->emitUp('hasFile', true);
+            $this->emitUp('hasAsbuilt', $hasAsbuilt);
+            $this->emitUp('hasPendingAsbuilt', $hasPendingAsbuilt);
+            $this->emitUp('hasEvidenceFile', $hasNonAsbuiltFile);
             $this->emitUp('hasPendingFile', true);
         } else {
             $this->emitUp('hasFile', $hasExistingFiles);
+            $this->emitUp('hasAsbuilt', $hasExistingAsbuilt);
+            $this->emitUp('hasPendingAsbuilt', false);
+            $this->emitUp('hasEvidenceFile', $hasExistingNonAsbuiltFile);
             $this->emitUp('hasPendingFile', false);
         }
     }
