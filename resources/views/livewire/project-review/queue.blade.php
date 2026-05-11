@@ -234,9 +234,9 @@
                 <h2 class="mb-0">ANÁLISE PROJETO</h2>
                 <div>Lista para analisar</div>
             </div>
-            <div class="col-12 col-lg-6">
+            <div class="col-12 col-lg-8">
                 <div class="row g-2">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <div class="filter-card">
                         <label class="form-label">Empresa</label>
                         <select class="form-select" wire:model="company_id">
@@ -247,7 +247,17 @@
                         </select>
                         </div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
+                        <div class="filter-card">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" wire:model="note_type_filter">
+                            <option value="">Todos</option>
+                            <option value="retorno">Apenas Retorno</option>
+                            <option value="inicial">Apenas Inicial</option>
+                        </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
                         <div class="filter-card">
                         <label class="form-label">Custo (51%+)</label>
                         <select class="form-select" wire:model="cost_share_filter">
@@ -258,10 +268,44 @@
                         </select>
                         </div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <div class="filter-card">
-                        <label class="form-label">Buscar</label>
-                        <input type="text" class="form-control" wire:model.debounce.500ms="search" placeholder="Nota, pedido, descrição...">
+                        <label class="form-label">Itens por página</label>
+                        <select class="form-select" wire:model="perPage">
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="filter-card">
+                        <label class="form-label">Buscar nota</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" wire:model.debounce.500ms="search" placeholder="Nota, pedido, descrição...">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#queueMassSearchModal">
+                                Em massa
+                            </button>
+                        </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="filter-card">
+                        <label class="form-label">Filtro de Custo</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" wire:model="cost_metric">
+                                <option value="">Campo</option>
+                                <option value="total_cost">TOTAL</option>
+                                <option value="company_cost">EMPRESA</option>
+                                <option value="client_cost">CLIENTE</option>
+                            </select>
+                            <select class="form-select" style="max-width: 90px;" wire:model="cost_operator">
+                                <option value=">">&gt;</option>
+                                <option value="<">&lt;</option>
+                            </select>
+                            <input type="number" step="0.01" min="0" class="form-control" wire:model.debounce.500ms="cost_value" placeholder="Valor">
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -456,11 +500,38 @@
             </div>
             <div class="card-body">
                 @if($lists instanceof \Illuminate\Contracts\Pagination\Paginator || $lists instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-                    <div class="small text-muted mb-2">
-                        Mostrando {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} registros.
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <div class="small text-muted">
+                            Mostrando {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} registros.
+                        </div>
                     </div>
                     {{ $lists->links() }}
                 @endif
+            </div>
+        </div>
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="queueMassSearchModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Buscar Nota/OV em massa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Cole os códigos (nota ou OV)</label>
+                    <textarea
+                        class="form-control"
+                        rows="8"
+                        wire:model.debounce.500ms="mass_search"
+                        placeholder="Separe por vírgula, espaço ou quebra de linha"></textarea>
+                    <div class="small text-muted mt-2">
+                        Exemplo: 12345, 67890 ou uma linha por código.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
         </div>
     </div>

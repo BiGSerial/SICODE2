@@ -28,10 +28,16 @@ class Queue extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $search = '';
+    public string $mass_search = '';
     public string $company_id = '';
     public string $cost_share_filter = '';
+    public string $cost_metric = '';
+    public string $cost_operator = '>';
+    public ?string $cost_value = null;
+    public string $note_type_filter = '';
     public string $tab = 'pending';
     public string $mode = 'pending';
+    public int $perPage = 30;
     public bool $selectPage = false;
     public array $selectedProductionIds = [];
 
@@ -80,6 +86,12 @@ class Queue extends Component
         $this->resetPage();
     }
 
+    public function updatingMassSearch(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
     public function updatingCompanyId(): void
     {
         $this->clearBulkSelection();
@@ -87,6 +99,36 @@ class Queue extends Component
     }
 
     public function updatingCostShareFilter(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingCostMetric(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingCostOperator(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingCostValue(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingNoteTypeFilter(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingPerPage(): void
     {
         $this->clearBulkSelection();
         $this->resetPage();
@@ -139,11 +181,17 @@ class Queue extends Component
             ")
             ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc')
-            ->paginate(30);
+            ->paginate($this->resolvePerPage());
 
         $this->syncDraftFlagsForPage($lists);
 
         return $lists;
+    }
+
+    private function resolvePerPage(): int
+    {
+        $allowed = [30, 50, 100, 200];
+        return in_array($this->perPage, $allowed, true) ? $this->perPage : 30;
     }
 
     public function exportList(): void
@@ -205,13 +253,43 @@ class Queue extends Component
             });
         }
 
+        $massTokens = collect(preg_split('/[\s,;\n\r\t]+/', trim($this->mass_search)) ?: [])
+            ->map(fn ($token) => trim((string) $token))
+            ->filter()
+            ->unique()
+            ->values();
+        if ($massTokens->isNotEmpty()) {
+            $query->where(function ($outer) use ($massTokens) {
+                $outer->whereHas('Note', function ($noteQuery) use ($massTokens) {
+                    $noteQuery->where(function ($noteWhere) use ($massTokens) {
+                        foreach ($massTokens as $token) {
+                            $noteWhere->orWhere('note', 'like', '%' . $token . '%')
+                                ->orWhere('numPedido', 'like', '%' . $token . '%');
+                        }
+                    });
+                })->orWhereHas('ProjectReviewCycles.Orders', function ($orderQuery) use ($massTokens) {
+                    $orderQuery->where(function ($orderWhere) use ($massTokens) {
+                        foreach ($massTokens as $token) {
+                            $orderWhere->orWhere('order_number', 'like', '%' . $token . '%');
+                        }
+                    });
+                });
+            });
+        }
+
         if ($this->company_id !== '') {
             $query->where('company_id', $this->company_id);
         }
 
+        if ($this->note_type_filter === 'retorno') {
+            $query->whereHas('Note', fn ($q) => $q->where('type_note', 2));
+        } elseif ($this->note_type_filter === 'inicial') {
+            $query->whereHas('Note', fn ($q) => $q->where('type_note', '!=', 2));
+        }
+
         $costFilter = $this->cost_share_filter;
         if (in_array($costFilter, ['client_51', 'company_51', 'both_51'], true)) {
-            $query->whereHas('ProjectReviewCycles.Orders', function ($orderQuery) use ($costFilter) {
+            $this->applyLatestCycleOrdersFilter($query, function ($orderQuery) use ($costFilter) {
                 $ratioExprClient = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
                 $ratioExprCompany = '(project_review_orders.company_cost / NULLIF(project_review_orders.total_cost, 0))';
 
@@ -234,15 +312,48 @@ class Queue extends Component
             });
         }
 
+        if (in_array($this->cost_metric, ['total_cost', 'company_cost', 'client_cost'], true)
+            && in_array($this->cost_operator, ['>', '<'], true)
+            && is_numeric($this->cost_value)
+        ) {
+            $metric = $this->cost_metric;
+            $operator = $this->cost_operator;
+            $value = (float) $this->cost_value;
+
+            $this->applyLatestCycleOrdersFilter($query, function ($orderQuery) use ($metric, $operator, $value) {
+                $orderQuery->where($metric, $operator, $value);
+            });
+        }
+
         return $query;
+    }
+
+    private function applyLatestCycleOrdersFilter($query, \Closure $orderFilter): void
+    {
+        $query->whereHas('ProjectReviewCycles', function ($cycleQuery) use ($orderFilter) {
+            $cycleQuery
+                ->whereRaw('project_review_cycles.id = (
+                    SELECT prc2.id
+                    FROM project_review_cycles prc2
+                    WHERE prc2.production_id = project_review_cycles.production_id
+                    ORDER BY prc2.round_number DESC, prc2.id DESC
+                    LIMIT 1
+                )')
+                ->whereHas('Orders', $orderFilter);
+        });
     }
 
     private function exportFilters(): array
     {
         return [
             'search' => $this->search,
+            'mass_search' => $this->mass_search,
             'company_id' => $this->company_id,
             'cost_share_filter' => $this->cost_share_filter,
+            'cost_metric' => $this->cost_metric,
+            'cost_operator' => $this->cost_operator,
+            'cost_value' => $this->cost_value,
+            'note_type_filter' => $this->note_type_filter,
             'tab' => $this->tab,
         ];
     }
