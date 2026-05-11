@@ -46,7 +46,7 @@ class ListToPayment extends Component
 
     public function updated($name, $value)
     {
-        if (in_array($name, ['search','status','types','dateFrom','dateTo','perPage'])) {
+        if (in_array($name, ['search','status','types','entities','rubricas','dateFrom','dateTo','perPage'])) {
             $this->resetPage();
         }
     }
@@ -109,7 +109,16 @@ class ListToPayment extends Component
     public function baseQuery()
     {
         return External::query()
-            ->select('externals.*')
+            ->select([
+                'externals.id',
+                'externals.note_id',
+                'externals.entity_id',
+                'externals.user_id',
+                'externals.status',
+                'externals.completed',
+                'externals.created_at',
+                'externals.updated_at',
+            ])
             ->selectSub(
                 DB::table('external_comments')
                     ->selectRaw('MAX(created_at)')
@@ -171,7 +180,7 @@ class ListToPayment extends Component
                     'filter' => new \App\Support\Filters\InArray('entity', 'entity_type_id'),
             ],
             'rubricas' => [
-                    'value'  => $this->types,
+                    'value'  => $this->rubricas,
                     'filter' => new \App\Support\Filters\InArray('note', 'rubrica'),
             ],
 

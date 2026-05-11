@@ -47,23 +47,20 @@ class History extends Component
     public function getRowsProperty()
     {
         return Production::query()
+            ->select(['id', 'note_id', 'user_id', 'company_id', 'status'])
             ->with([
-                'Note',
-                'User',
-                'Company',
+                'Note:id,note,numPedido,material',
+                'User:id,name',
+                'Company:id,name',
                 'ProjectReviewCycles' => function ($q) {
-                    $q->with(['Orders', 'DecidedBy'])->latest('round_number');
+                    $q->select(['id', 'production_id', 'round_number', 'decision', 'submitted_at', 'decided_by'])
+                        ->with([
+                            'Orders:id,cycle_id,sort_order,order_number,total_cost,company_cost,client_cost',
+                            'DecidedBy:id,name',
+                        ])
+                        ->latest('round_number');
                 },
             ])
-            ->withCount([
-                'ProjectReviewCycles as rejected_cycles_count' => function ($q) {
-                    $q->where('decision', 'REJECTED');
-                },
-                'Notetimelines as rejected_status_timeline_count' => function ($q) {
-                    $q->where('status', Production::STATUS_REJECTED_PROJECT_REVIEW);
-                },
-            ])
-            ->withMax('ProjectReviewCycles as latest_round_number', 'round_number')
             ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
             ->whereHas('ProjectReviewCycles', function ($q) {
                 $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
@@ -78,10 +75,14 @@ class History extends Component
             })
             ->when($this->company_id !== '', fn($q) => $q->where('company_id', $this->company_id))
             ->when($this->from, function ($q) {
-                $q->whereHas('ProjectReviewCycles', fn ($cq) => $cq->whereDate('submitted_at', '>=', $this->from));
+                $q->whereHas('ProjectReviewCycles', function ($cq) {
+                    $cq->where('submitted_at', '>=', $this->from . ' 00:00:00');
+                });
             })
             ->when($this->to, function ($q) {
-                $q->whereHas('ProjectReviewCycles', fn ($cq) => $cq->whereDate('submitted_at', '<=', $this->to));
+                $q->whereHas('ProjectReviewCycles', function ($cq) {
+                    $cq->where('submitted_at', '<=', $this->to . ' 23:59:59');
+                });
             })
             ->orderByDesc('id')
             ->paginate(30);
