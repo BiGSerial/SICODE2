@@ -19,3 +19,12 @@ yarn-error.log
 /.vscode
 /.history
 registroUpdate.json
+
+# Local docs/config for AI agents (do not commit)
+/docs/agente/
+/.agents/
+/.claude/
+/.codex
+/.cursor/
+.cursorrules
+.windsurfrules
