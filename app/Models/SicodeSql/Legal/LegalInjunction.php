@@ -46,11 +46,6 @@ class LegalInjunction extends Model
         'Data Inicial' => 'datetime',
         'Prazo Fatal de Redirecionamento' => 'datetime',
         'Data Alteração' => 'datetime',
-
-        // Casts usados quando a consulta vier com aliases normalizados
-        'started_at' => 'datetime',
-        'redirect_deadline_at' => 'datetime',
-        'changed_at' => 'datetime',
     ];
 
     public const NORMALIZED_COLUMNS = [

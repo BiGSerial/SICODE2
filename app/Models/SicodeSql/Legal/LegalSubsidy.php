@@ -43,10 +43,6 @@ class LegalSubsidy extends Model
     protected $casts = [
         'Data Limite' => 'datetime',
         'Data Alteração' => 'datetime',
-
-        // Casts usados quando a consulta vier com aliases normalizados
-        'deadline_at' => 'datetime',
-        'changed_at' => 'datetime',
     ];
 
     public const NORMALIZED_COLUMNS = [

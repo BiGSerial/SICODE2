@@ -45,11 +45,6 @@ class LegalJudgment extends Model
         'Data Decisão' => 'datetime',
         'Prazo Cumprimento' => 'datetime',
         'Data Alteração' => 'datetime',
-
-        // Casts usados quando a consulta vier com aliases normalizados
-        'decision_at' => 'datetime',
-        'compliance_deadline_at' => 'datetime',
-        'changed_at' => 'datetime',
     ];
 
     public const NORMALIZED_COLUMNS = [
