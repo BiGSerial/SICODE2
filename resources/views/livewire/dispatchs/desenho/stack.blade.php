@@ -477,8 +477,7 @@
                         </thead>
                         <tbody>
                             @php
-                                function getDaysStatus($list): array
-                                {
+                                $getDaysStatus = static function ($list): array {
                                     $days = $list->dt_status->diffInDays(now());
 
                                     if ($days > 6) {
@@ -493,11 +492,11 @@
                                         'days' => $days,
                                         'bgColor' => $bgColor,
                                     ];
-                                }
+                                };
                             @endphp
                             @foreach ($lists as $list)
                                 @php
-                                    $dstatus = getDaysStatus($list->note);
+                                    $dstatus = $getDaysStatus($list->note);
                                 @endphp
                                 <tr wire:key="line-{{ $list->id }}"
                                     class="align-middle

@@ -424,9 +424,115 @@
                 </section>
             @endif
 
+            @if (!$this->isSapReleaseFinalizeFlow)
+            <section id="resultado-desenho" class="mb-4">
+                <h2 class="h5 mb-3">{{ $production->d5 ? '3' : '2' }}. Resultado do Desenho</h2>
+                <div class="card-soft">
+                    <div class="card-body">
+                        <form>
+                            <div class="row g-3 align-items-end no-edge">
+                                <div class="col-lg-4">
+                                    <label class="form-label fw-semibold">Finalidade</label>
+                                    <select class="form-select @error('preresult') is-invalid @enderror" wire:model="preresult"
+                                        @disabled($production && (int) $production->status === \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW)>
+                                        @if ($production->d5)
+                                            <option value="RESOLUCAO INTERNA">RESOLUÇÃO INTERNA (RI)</option>
+                                        @else
+                                            <option value="">Selecione...</option>
+                                            <option value="ANALISE">ANÁLISE</option>
+                                            <option value="NORMAL">NORMAL</option>
+                                            <option value="REVALIDACAO">REVALIDAÇÃO</option>
+                                            <option value="CUSTO MODULAR">CUSTO MODULAR</option>
+                                            <option value="PROPOSTA MELHORAMENTO">PROPOSTA MELHORAMENTO</option>
+                                        @endif
+                                    </select>
+                                    @error('preresult')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Postes</label>
+                                    <input type="number" min="0" max="300" class="form-control @error('postes') is-invalid @enderror"
+                                        wire:model="postes" @disabled(($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') || in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
+                                    @error('postes')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="col-md-5">
+                                    <label class="form-label fw-semibold">Conclusão</label>
+                                    <select class="form-select @error('conclusion') is-invalid @enderror" wire:model="conclusion">
+                                        <option value="">Selecione...</option>
+                                        @if ($production->d5)
+                                            @foreach (SelectOptions::getReclaimsOptions() as $opt)
+                                                <option value="{{ $opt->value }}">{{ $opt->info }}</option>
+                                            @endforeach
+                                        @else
+                                            @foreach (SelectOptions::getDrawConclusions() as $opt)
+                                                <option value="{{ $opt->value }}">{{ $opt->reason }}</option>
+                                            @endforeach
+                                        @endif
+                                    </select>
+                                    @error('conclusion')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-2 no-edge">
+                                @if (($preresult === 'NORMAL' || $preresult === 'REVALIDACAO') && !$production->d5)
+                                    <div class="col-auto form-check ms-2">
+                                        <input class="form-check-input @error('eo') is-invalid @enderror" type="checkbox" wire:model="eo" id="eoCheck">
+                                        <label class="form-check-label" for="eoCheck">EO</label>
+                                    </div>
+                                    <div class="col-auto form-check">
+                                        <input class="form-check-input @error('iproject') is-invalid @enderror" type="checkbox" wire:model="iproject" id="ipCheck">
+                                        <label class="form-check-label" for="ipCheck">iProject</label>
+                                    </div>
+                                    <div class="col-auto form-check">
+                                        <input class="form-check-input @error('cad') is-invalid @enderror" type="checkbox" wire:model="cad" id="cadCheck">
+                                        <label class="form-check-label" for="cadCheck">AutoCad</label>
+                                    </div>
+                                    <div class="col-auto form-check">
+                                        <input class="form-check-input @error('cadastro') is-invalid @enderror" type="checkbox" wire:model="cadastro" id="cadCadastroCheck">
+                                        <label class="form-check-label" for="cadCadastroCheck">Cadastro</label>
+                                    </div>
+                                @endif
+
+                                @if ($cadastro)
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Postes Cadastro</label>
+                                        <input type="number" min="0" max="300" class="form-control @error('postes_c') is-invalid @enderror" wire:model="postes_c">
+                                        @error('postes_c')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                @endif
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+            @else
+            <section id="sap-release-flow" class="mb-4">
+                <h2 class="h5 mb-3">2. Finalização no SAP</h2>
+                <div class="card-soft border-success">
+                    <div class="card-body">
+                        <div class="alert alert-success mb-0">
+                            <strong>Liberado para finalizar.</strong><br>
+                            Esta nota já foi aprovada na Análise de Projeto com necessidade de liberação no SAP.
+                            Neste fluxo, não é necessário ajustar campos técnicos de desenho.
+                            Se precisar, apenas anexe novo arquivo e registre informações adicionais antes de finalizar.
+                        </div>
+                    </div>
+                </div>
+            </section>
+            @endif
+
             @if ($this->shouldSendToProjectReview)
                 <section id="project-review-data" class="mb-4">
-                    <h2 class="h5 mb-3">{{ $production->d5 ? '3' : '2' }}. Dados para Análise de Projeto</h2>
+                    <h2 class="h5 mb-3">{{ $production->d5 ? '4' : '3' }}. Dados para Análise de Projeto</h2>
                         <div class="card-soft">
                         <div class="card-body">
                             <h6 class="mb-3">Ordens e Valores</h6>
@@ -559,114 +665,9 @@
                 </section>
             @endif
 
-            @if (!$this->isSapReleaseFinalizeFlow)
-            <section id="resultado-desenho" class="mb-4">
-                <h2 class="h5 mb-3">{{ ($production->d5 || $this->shouldSendToProjectReview) ? '3' : '2' }}. Resultado do Desenho</h2>
-                <div class="card-soft">
-                    <div class="card-body">
-                        <form>
-                            <div class="row g-3 align-items-end no-edge">
-                                <div class="col-lg-4">
-                                    <label class="form-label fw-semibold">Finalidade</label>
-                                    <select class="form-select @error('preresult') is-invalid @enderror" wire:model="preresult">
-                                        @if ($production->d5)
-                                            <option value="RESOLUCAO INTERNA">RESOLUÇÃO INTERNA (RI)</option>
-                                        @else
-                                            <option value="">Selecione...</option>
-                                            <option value="ANALISE">ANÁLISE</option>
-                                            <option value="NORMAL">NORMAL</option>
-                                            <option value="REVALIDACAO">REVALIDAÇÃO</option>
-                                            <option value="CUSTO MODULAR">CUSTO MODULAR</option>
-                                            <option value="PROPOSTA MELHORAMENTO">PROPOSTA MELHORAMENTO</option>
-                                        @endif
-                                    </select>
-                                    @error('preresult')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Postes</label>
-                                    <input type="number" min="0" max="300" class="form-control @error('postes') is-invalid @enderror"
-                                        wire:model="postes" @disabled(($preresult !== 'NORMAL' && $preresult !== 'REVALIDACAO') || in_array($conclusion, ['ARQUIVADO', 'RETORNADO LEVANTAMENTO']))>
-                                    @error('postes')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-
-                                <div class="col-md-5">
-                                    <label class="form-label fw-semibold">Conclusão</label>
-                                    <select class="form-select @error('conclusion') is-invalid @enderror" wire:model="conclusion">
-                                        <option value="">Selecione...</option>
-                                        @if ($production->d5)
-                                            @foreach (SelectOptions::getReclaimsOptions() as $opt)
-                                                <option value="{{ $opt->value }}">{{ $opt->info }}</option>
-                                            @endforeach
-                                        @else
-                                            @foreach (SelectOptions::getDrawConclusions() as $opt)
-                                                <option value="{{ $opt->value }}">{{ $opt->reason }}</option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                    @error('conclusion')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <div class="row g-3 mt-2 no-edge">
-                                @if (($preresult === 'NORMAL' || $preresult === 'REVALIDACAO') && !$production->d5)
-                                    <div class="col-auto form-check ms-2">
-                                        <input class="form-check-input @error('eo') is-invalid @enderror" type="checkbox" wire:model="eo" id="eoCheck">
-                                        <label class="form-check-label" for="eoCheck">EO</label>
-                                    </div>
-                                    <div class="col-auto form-check">
-                                        <input class="form-check-input @error('iproject') is-invalid @enderror" type="checkbox" wire:model="iproject" id="ipCheck">
-                                        <label class="form-check-label" for="ipCheck">iProject</label>
-                                    </div>
-                                    <div class="col-auto form-check">
-                                        <input class="form-check-input @error('cad') is-invalid @enderror" type="checkbox" wire:model="cad" id="cadCheck">
-                                        <label class="form-check-label" for="cadCheck">AutoCad</label>
-                                    </div>
-                                    <div class="col-auto form-check">
-                                        <input class="form-check-input @error('cadastro') is-invalid @enderror" type="checkbox" wire:model="cadastro" id="cadCadastroCheck">
-                                        <label class="form-check-label" for="cadCadastroCheck">Cadastro</label>
-                                    </div>
-                                @endif
-
-                                @if ($cadastro)
-                                    <div class="col-md-3">
-                                        <label class="form-label fw-semibold">Postes Cadastro</label>
-                                        <input type="number" min="0" max="300" class="form-control @error('postes_c') is-invalid @enderror" wire:model="postes_c">
-                                        @error('postes_c')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                @endif
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </section>
-            @else
-            <section id="sap-release-flow" class="mb-4">
-                <h2 class="h5 mb-3">2. Finalização no SAP</h2>
-                <div class="card-soft border-success">
-                    <div class="card-body">
-                        <div class="alert alert-success mb-0">
-                            <strong>Liberado para finalizar.</strong><br>
-                            Esta nota já foi aprovada na Análise de Projeto com necessidade de liberação no SAP.
-                            Neste fluxo, não é necessário ajustar campos técnicos de desenho.
-                            Se precisar, apenas anexe novo arquivo e registre informações adicionais antes de finalizar.
-                        </div>
-                    </div>
-                </div>
-            </section>
-            @endif
-
             @if ($production->status === 31 && $this->shouldSendToProjectReview)
                 <section id="project-review-rejected" class="mb-4">
-                    <h2 class="h5 mb-3 text-danger">{{ $this->shouldSendToProjectReview ? '4' : '3' }}. Apontamentos da Reprovação</h2>
+                <h2 class="h5 mb-3 text-danger">{{ $this->shouldSendToProjectReview ? '4' : '3' }}. Apontamentos da Reprovação</h2>
                     <div class="card border-danger shadow-sm">
                         <div class="card-body">
                             @php
@@ -803,7 +804,7 @@
             @endif
 
             <section id="arquivos-info" class="mb-5">
-                <h2 class="h5 mb-3">{{ $this->isSapReleaseFinalizeFlow ? '3' : ($this->shouldSendToProjectReview ? '5' : '4') }}. Arquivos & Informações</h2>
+                <h2 class="h5 mb-3">{{ $this->isSapReleaseFinalizeFlow ? '3' : ($this->shouldSendToProjectReview ? ((int) ($production->status ?? 0) === \App\Models\Production::STATUS_REJECTED_PROJECT_REVIEW ? '5' : '4') : '3') }}. Arquivos & Informações</h2>
                 <div class="card-soft">
                     <div class="card-body">
                         @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => $needFiles], key('production_' . $production->id))
@@ -864,6 +865,8 @@
 
 <script>
     (function() {
+        const orderGuardNoteReference = @json((string) ($note->note ?? ''));
+
         function applyBrMoneyMaskToInput(input) {
             if (!input || input.dataset.brBound === '1') return;
 
@@ -1117,11 +1120,20 @@
         }
 
         function bindOrderNumberGuard() {
+            function noteRequiresPrefix200(noteValue) {
+                const digits = String(noteValue || '').replace(/\D+/g, '');
+                if (!digits.length) return false;
+                return Number(digits.charAt(0)) >= 4;
+            }
+
             function getOrderNumberValidationMessage(rawValue) {
                 const value = String(rawValue || '').trim();
                 if (!value.length) return null;
                 if (!/^\d+$/.test(value)) return 'Número da ordem inválido: use apenas números.';
-                if (value.length < 6 || value.length > 12) return 'Número da ordem inválido: informe de 6 a 12 dígitos.';
+                if (value.length !== 12) return 'Número da ordem inválido: informe exatamente 12 dígitos.';
+                if (noteRequiresPrefix200(orderGuardNoteReference) && !/^200/.test(value)) {
+                    return 'Número da ordem inválido: para esta Nota/OV o prefixo deve iniciar com 200.';
+                }
                 if (!/^(170|190|150|200)/.test(value)) return 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
                 return null;
             }
@@ -1149,9 +1161,6 @@
                         if (invalid) {
                             feedback.textContent = message;
                         }
-                    }
-                    if (addButton) {
-                        addButton.disabled = invalid;
                     }
                 };
 
@@ -1181,6 +1190,35 @@
                     block: 'center'
                 });
             }
+        });
+
+        window.addEventListener('confirmProjectReviewNewOrderPrefix', function(e) {
+            const payload = e.detail || {};
+            const componentId = payload.componentId || null;
+            const orderNumber = payload.orderNumber || '---';
+            const prefix = payload.prefix || '---';
+
+            Swal.fire({
+                title: 'Confirmar nova ordem com prefixo existente?',
+                html: `
+                    <div class="text-start">
+                        <p class="mb-2">Você está adicionando a ordem <strong>${orderNumber}</strong> com prefixo <strong>${prefix}</strong> já existente nesta reprovação.</p>
+                        <p class="mb-2">Normalmente isso indica <strong>correção da ordem existente</strong>, não inclusão de novo número.</p>
+                        <p class="mb-0 text-danger"><strong>Confirma ciência</strong> de que não cancelar o número anterior pode gerar problemas nas próximas etapas?</p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, incluir novo número',
+                cancelButtonText: 'Não, vou corrigir o existente',
+                confirmButtonColor: '#0f766e',
+            }).then((result) => {
+                if (!result.isConfirmed || !componentId) return;
+                const component = Livewire.find(componentId);
+                if (component) {
+                    component.call('confirmAddOrderAfterPrefixCheck');
+                }
+            });
         });
     })();
 </script>

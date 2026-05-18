@@ -668,7 +668,99 @@
                                             }
 
                                             $sumNet = round($sumIncrease - $sumEconomy, 2);
+
+                                            $baseCycle = $cyclesAsc->first();
+                                            $currentCycle = $cyclesAsc->first(function ($cy) use ($selectedCycle) {
+                                                return (int) ($cy->id ?? 0) === (int) ($selectedCycle->id ?? 0);
+                                            }) ?: $selectedCycle;
+
+                                            $normalizeOrderRows = function ($ordersCollection) {
+                                                $rows = collect($ordersCollection ?? collect())
+                                                    ->map(function ($ord) {
+                                                        $orderNumber = (string) ($ord->order_number ?? '');
+                                                        $digits = preg_replace('/\D+/', '', $orderNumber);
+                                                        $prefix = strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+
+                                                        return [
+                                                            'order_number' => $orderNumber,
+                                                            'prefix' => $prefix,
+                                                            'total_cost' => (float) ($ord->total_cost ?? 0),
+                                                            'company_cost' => (float) ($ord->company_cost ?? 0),
+                                                            'client_cost' => (float) ($ord->client_cost ?? 0),
+                                                        ];
+                                                    })
+                                                    ->values();
+
+                                                $withPrefix = $rows->filter(fn ($row) => in_array($row['prefix'], ['170', '190', '150', '200'], true))
+                                                    ->groupBy('prefix')
+                                                    ->map(fn ($group) => $group->last())
+                                                    ->all();
+
+                                                if (count($withPrefix)) {
+                                                    return collect($withPrefix)->values();
+                                                }
+
+                                                return $rows;
+                                            };
+
+                                            $baseRows = $normalizeOrderRows($baseCycle?->Orders ?? collect())->values();
+                                            $currentRows = $normalizeOrderRows($currentCycle?->Orders ?? collect())->values();
+
+                                            $maxRows = max($baseRows->count(), $currentRows->count());
+                                            $comparisonRows = collect(range(0, max(0, $maxRows - 1)))->map(function ($idx) use ($baseRows, $currentRows) {
+                                                $old = $baseRows->get($idx);
+                                                $new = $currentRows->get($idx);
+
+                                                $oldTotal = (float) ($old['total_cost'] ?? 0);
+                                                $newTotal = (float) ($new['total_cost'] ?? 0);
+
+                                                return [
+                                                    'old_order' => $old['order_number'] ?? '---',
+                                                    'new_order' => $new['order_number'] ?? '---',
+                                                    'old_total' => $oldTotal,
+                                                    'new_total' => $newTotal,
+                                                    'delta_total' => round($newTotal - $oldTotal, 2),
+                                                ];
+                                            })->values();
                                         @endphp
+                                        <div class="fw-semibold mb-1">Comparativo de ordens (origem x rodada {{ $selectedCycle->round_number }})</div>
+                                        <div class="table-responsive border rounded mb-3" style="max-height: 220px;">
+                                            <table class="table table-sm mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Ordem original</th>
+                                                        <th>Total original</th>
+                                                        <th>Ordem rodada atual</th>
+                                                        <th>Total rodada atual</th>
+                                                        <th>Delta</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($comparisonRows as $cmp)
+                                                        <tr>
+                                                            <td>{{ $cmp['old_order'] }}</td>
+                                                            <td>{{ number_format((float) $cmp['old_total'], 2, ',', '.') }}</td>
+                                                            <td>{{ $cmp['new_order'] }}</td>
+                                                            <td>{{ number_format((float) $cmp['new_total'], 2, ',', '.') }}</td>
+                                                            <td class="{{ $cmp['delta_total'] > 0 ? 'text-danger' : ($cmp['delta_total'] < 0 ? 'text-success' : 'text-muted') }}">
+                                                                {{ number_format(abs((float) $cmp['delta_total']), 2, ',', '.') }}
+                                                                @if($cmp['delta_total'] > 0)
+                                                                    (aumento)
+                                                                @elseif($cmp['delta_total'] < 0)
+                                                                    (economia)
+                                                                @else
+                                                                    (mantido)
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="5" class="text-center text-muted">Sem dados para comparar ordens.</td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
                                         <div class="fw-semibold mb-1">Histórico por ordem</div>
                                         <div class="table-responsive border rounded" style="max-height: 240px;">
                                             <table class="table table-sm mb-0">
@@ -737,7 +829,9 @@
                                     <div class="card-body small">
                                         @php
                                             $noteFiles = ($selectedProduction?->Note?->Files ?? collect())
-                                                ->sortBy(fn($f) => [($f->service->service ?? 'OUTROS'), ($f->file_name ?? '')])
+                                                ->sortByDesc(function ($f) {
+                                                    return strtotime((string) ($f->created_at ?? '1970-01-01 00:00:00'));
+                                                })
                                                 ->values();
                                             $fileServices = $noteFiles
                                                 ->map(fn($f) => [

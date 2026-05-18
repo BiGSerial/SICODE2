@@ -257,6 +257,7 @@
                                     <th scope="col" class="fw-bold">Descrição</th>
                                     <th scope="col" class="fw-bold">Postes_L</th>
                                     <th scope="col" class="fw-bold">DStatus</th>
+                                    <th scope="col" class="fw-bold">Dias Despachado</th>
                                     <th scope="col" class="fw-bold">Dias Atribuido</th>
                                     <th scope="col" class="fw-bold">Prazo Real</th>
                                     <th scope="col" class="fw-bold">Status</th>
@@ -265,8 +266,7 @@
                             </thead>
                             <tbody>
                                 @php
-                                    function getDaysStatus($list): array
-                                    {
+                                    $getDaysStatus = static function ($list): array {
                                         $days = $list->dt_status->diffInDays(now());
 
                                         if ($days > 6) {
@@ -281,12 +281,12 @@
                                             'days' => $days,
                                             'bgColor' => $bgColor,
                                         ];
-                                    }
+                                    };
 
                                 @endphp
                                 @foreach ($lists as $list)
                                     @php
-                                        $dstatus = getDaysStatus($list->note);
+                                        $dstatus = $getDaysStatus($list->note);
                                         $isProjectReviewTracked =
                                             in_array((int) $list->status, [30, 31, 32], true) &&
                                             (bool) ($list->has_project_review_cycle ?? false);
@@ -385,6 +385,9 @@
                                     {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                                     ">
                                             {{ $dstatus['days'] }}
+                                        </td>
+                                        <td class="fw-light text-center">
+                                            {{ $list->dispatch_at ? Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) : '---' }}
                                         </td>
                                         <td class="fw-light text-center">
                                             {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
