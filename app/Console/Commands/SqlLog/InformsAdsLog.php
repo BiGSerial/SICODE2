@@ -18,7 +18,9 @@ class InformsAdsLog extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:informs-ads-log';
+    protected $signature = 'sicode:informs-ads-log
+                            {--days=1 : Quantidade de dias para buscar atualizações incrementais}
+                            {--full : Força processamento completo de todos os registros}';
 
     /**
      * The console command description.
@@ -34,7 +36,10 @@ class InformsAdsLog extends Command
     {
         $removedLogs = $this->syncDeletedAdsLogs();
 
-        $full = !(LogAdsInforms::count() > 0);
+        $daysOption = (int) $this->option('days');
+        $days = $daysOption > 0 ? $daysOption : 1;
+        $forceFull = (bool) $this->option('full');
+        $full = $forceFull || !(LogAdsInforms::count() > 0);
         $now = now();
         $basePayload = [
             'adsform_id' => null,
@@ -57,7 +62,13 @@ class InformsAdsLog extends Command
         ];
         $limitBatch = $this->safeBatchSizeForSqlServer(count($basePayload), 100);
 
-        $totalSteps = Adsform::count();
+        $query = Adsform::query()
+            ->with(['note:id,note', 'user:id,name'])
+            ->when(!$full, function ($query) use ($days) {
+                return $query->where('updated_at', '>=', now()->subDays($days));
+            });
+
+        $totalSteps = (clone $query)->count();
 
         if ($totalSteps == 0) {
             $this->info('Nenhum registro de ADS encontrado para envio.');
@@ -65,6 +76,12 @@ class InformsAdsLog extends Command
                 $this->warn("Registros removidos do log SQL por exclusão local: {$removedLogs}");
             }
             return;
+        }
+
+        if ($full) {
+            $this->info('Modo geral habilitado: enviando todos os registros de ADS.');
+        } else {
+            $this->info("Modo incremental: enviando atualizações dos últimos {$days} dia(s).");
         }
 
         // Configure o ProgressBar
@@ -77,11 +94,7 @@ class InformsAdsLog extends Command
         $bar->start();
 
 
-        Adsform::query()
-            ->with(['note:id,note', 'user:id,name'])
-            ->when(!$full, function ($query) {
-                return $query->where('updated_at', '>=', now()->subDays(1));
-            })
+        $query
             ->chunk(1000, function ($adsforms) use ($bar, $full, $limitBatch, $now) {
 
                 $dataBatch = [];
