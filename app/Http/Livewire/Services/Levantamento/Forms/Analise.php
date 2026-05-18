@@ -75,6 +75,8 @@ class Analise extends Component
     public $analise;
 
     public $postes;
+    public $postes_c;
+    public $cadastro;
 
     public $hasFile = false;
 
@@ -144,12 +146,16 @@ class Analise extends Component
             // $this->endereco = $this->analise->endereco;
             // $this->documento = $this->analise->documento;
             $this->postes = (int) $this->analise->postes_u;
+            $this->postes_c = $this->production->postes_c;
+            $this->cadastro = (bool) $this->production->cadastro;
             $this->doe    = $this->analise->doe;
             $this->ma     = $this->analise->ma;
         } else {
             $this->clean_form();
             $this->production->Analise()->create();
             $this->analise = ModelsAnalise::where('production_id', $productionId)->first();
+            $this->postes_c = $this->production->postes_c;
+            $this->cadastro = (bool) $this->production->cadastro;
         }
 
         if ($this->production && $this->note) {
@@ -383,6 +389,8 @@ class Analise extends Component
             'status'       => 5,
             'completed_at' => date('Y-m-d H:i:s'),
             'postes_u'     => (int) $this->postes,
+            'cadastro'     => $this->cadastro ? true : false,
+            'postes_c'     => $this->postes_c ? (int) $this->postes_c : 0,
             'ma'          => $this->ma ? true : false,
             'completed'    => true,
             'confirmed'    => false,
@@ -621,6 +629,8 @@ class Analise extends Component
         $this->card        = null;
         $this->view_form   = false;
         $this->postes      = '';
+        $this->postes_c    = '';
+        $this->cadastro    = false;
 
     }
 
@@ -648,6 +658,8 @@ class Analise extends Component
         $this->area          = '';
         $this->endereco      = '';
         $this->postes        = '';
+        $this->postes_c      = '';
+        $this->cadastro      = false;
         $this->ma          = false;
 
     }
