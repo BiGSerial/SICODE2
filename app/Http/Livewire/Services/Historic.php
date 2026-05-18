@@ -17,6 +17,7 @@ class Historic extends Component
     public $perPage = 100;
 
     public $search;
+    public $file_search;
 
     public $rubrica_s = [];
 
@@ -126,6 +127,11 @@ class Historic extends Component
             ->when($this->search, function ($q, $s) {
                 return $q->whereRelation('Note', 'note', 'like', '%' . $s . '%')
                     ->orwhereRelation('Note', 'material', 'like', '%' . $s . '%');
+            })
+            ->when($this->file_search, function ($q, $s) {
+                $q->whereHas('Note.Files', function ($fq) use ($s) {
+                    $fq->where('file_name', 'like', '%' . $s . '%');
+                });
             })
             ->when($this->date_prod_s, function ($q) {
                 $q->whereRaw('DATE_FORMAT(completed_at, "%Y-%m") = ?', [$this->date_prod_s]);

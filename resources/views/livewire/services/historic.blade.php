@@ -4,19 +4,65 @@
     use App\Custom\Notestatus;
     use App\Models\Production;
 @endphp
-<div>
+<div class="historic-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
+    <style>
+        .historic-page {
+            --hist-bg: #f4f7fb;
+            --hist-surface: #ffffff;
+            --hist-border: #dde5ef;
+            background: radial-gradient(circle at 10% 0%, #dcfce7, transparent 35%),
+                radial-gradient(circle at 90% 10%, #dbeafe, transparent 30%),
+                var(--hist-bg);
+            padding: 1rem 0 1.5rem;
+        }
 
-    <div class="row justify-content-between">
-        <div class="mb-3 col-3">
+        .historic-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e);
+            color: #f8fafc;
+            border-radius: 0.6rem;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .historic-filters {
+            background: var(--hist-surface);
+            border: 1px solid var(--hist-border);
+            border-radius: 0.55rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+        }
+
+        .historic-table-card {
+            background: var(--hist-surface);
+            border: 1px solid var(--hist-border);
+            border-radius: 0.6rem;
+            overflow: hidden;
+        }
+    </style>
+
+    <div class="historic-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0 fw-bold">HISTÓRICO DE ARQUIVOS - {{ mb_strtoupper($service->service) }}</h5>
+        <small>Filtros rápidos e revisão versionada por produção</small>
+    </div>
+
+    <div class="historic-filters">
+        <div class="row justify-content-between g-2">
+        <div class="mb-1 col-12 col-md-4 col-lg-3">
             <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
+            <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
                 id="search" placeholder="Buscar">
         </div>
-        <div class="mb-3 col-3">
+        <div class="mb-1 col-12 col-md-4 col-lg-3">
+            <label for="file_search" class="form-label">Arquivo</label>
+            <input wire:model.bounce.2s="file_search" type="text" class="form-control border border-secondary"
+                id="file_search" placeholder="Nome do arquivo">
+        </div>
+        <div class="mb-1 col-12 col-md-4 col-lg-3">
             <label for="search" class="form-label">Período:</label>
-            <select class="form-control border border-2 border-secondary" aria-label="Seleção período"
+            <select class="form-control border border-secondary" aria-label="Seleção período"
                 wire:model="date_prod_s">
                 <option value="" selected>Selecione um Período</option>
                 @if ($date_prod_l)
@@ -29,6 +75,8 @@
 
             </select>
         </div>
+        </div>
+    </div>
         {{-- <div class="btn-group mb-3">
             <div class="dropdown mx-1">
                 <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
@@ -110,7 +158,7 @@
             </div>
         </div>
     @endif
-    <dic class="card">
+    <dic class="historic-table-card card border-0">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -201,7 +249,10 @@
                                     </td>
                                     <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <x-files.select-download-list :files='$list->Note->Files' />
+                                        <div class="d-flex align-items-center gap-2">
+                                            <x-files.select-download-list :files='$list->Note->Files' />
+                                            @livewire('services.historic.file-revision-modal', ['production' => $list, 'historicServiceId' => $service->uuid], key('hist-rev-' . $service->uuid . '-' . $list->id))
+                                        </div>
                                     <td class="fw-light">{{ $list->Note->rubrica }}</td>
                                     <td class="fw-light">{{ $list->Note->lexp }}</td>
                                     <td class="fw-light">{{ $list->Note->group1 }}</td>
