@@ -1,8 +1,6 @@
 @php
     use Carbon\Carbon;
     use Carbon\CarbonInterval;
-    use App\Custom\Notestatus;
-    use App\Models\Production;
 @endphp
 <div class="historic-page">
     {{-- Carrega o Loading da página --}}
@@ -52,8 +50,15 @@
         <div class="row justify-content-between g-2">
         <div class="mb-1 col-12 col-md-4 col-lg-3">
             <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
-                id="search" placeholder="Buscar">
+            <div class="input-group">
+                <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
+                    id="search" placeholder="Buscar (aceita múltiplos por espaço, vírgula ou quebra de linha)">
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#multi_search_modal"
+                    type="button" title="Busca múltipla">
+                    <i class="ri-file-copy-line"></i>
+                </button>
+            </div>
+            <small class="text-muted">Use o ícone para colar/copiar múltiplos registros.</small>
         </div>
         <div class="mb-1 col-12 col-md-4 col-lg-3">
             <label for="file_search" class="form-label">Arquivo</label>
@@ -74,6 +79,31 @@
                 @endif
 
             </select>
+        </div>
+        <div class="mb-1 col-12 col-md-4 col-lg-3">
+            <label for="date_field" class="form-label">Data de referência</label>
+            <select id="date_field" class="form-control border border-secondary" wire:model="date_field">
+                <option value="completed_at">Conclusão</option>
+                <option value="att_at">Início</option>
+                <option value="dispatch_at">Despacho</option>
+            </select>
+        </div>
+        <div class="mb-1 col-12 col-md-3 col-lg-2">
+            <label for="date_from" class="form-label">Data inicial</label>
+            <input id="date_from" type="date" class="form-control border border-secondary" wire:model="date_from">
+        </div>
+        <div class="mb-1 col-12 col-md-3 col-lg-2">
+            <label for="date_to" class="form-label">Data final</label>
+            <input id="date_to" type="date" class="form-control border border-secondary" wire:model="date_to">
+        </div>
+        <div class="mb-1 col-12 col-md-6 col-lg-4 d-flex align-items-end gap-2">
+            @if (count($multi_search_terms ?? []))
+                <span class="badge text-bg-primary">Busca múltipla: {{ count($multi_search_terms ?? []) }}</span>
+            @endif
+            <button class="btn btn-outline-secondary" type="button" wire:click="clearDateFilters">Limpar datas</button>
+            @if (count($multi_search_terms ?? []))
+                <button class="btn btn-outline-danger" type="button" wire:click="clearMultiSearch">Limpar múltipla</button>
+            @endif
         </div>
         </div>
     </div>
@@ -158,7 +188,7 @@
             </div>
         </div>
     @endif
-    <dic class="historic-table-card card border-0">
+    <div class="historic-table-card card border-0">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -200,11 +230,6 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @php
-                                $progresso = Production::whereIn('note_id', $lists->pluck('note_id'))
-                                    ->where('completed', true)
-                                    ->get();
-                            @endphp
                             @foreach ($lists as $list)
                                 <tr
                                     class="align-middle
@@ -232,14 +257,8 @@
                                         @endif
 
                                     </td>
-                                    @php
-                                        $count = $progresso
-                                            ->where('note_id', $list->note_id)
-                                            ->where('status_note', '>', $list->status_note)
-                                            ->count();
-                                    @endphp
                                     <td class="fw-light">
-                                        @if ($count)
+                                        @if ((int) $list->higher_confirmed_count > 0)
                                             <span data-bs-toggle="tooltip" data-bs-placement="top"
                                                 data-bs-custom-class="custom-tooltip"
                                                 data-bs-title="Existe Status Superior Confirmado">
@@ -279,7 +298,7 @@
         @endif
 
 
-    </dic>
+    </div>
     @if ($lists->count())
         <div class="row">
             <div class="col-6">
@@ -340,6 +359,31 @@
         </div>
     </div>
 
+    <div wire:ignore.self class="modal fade" id="multi_search_modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header text-bg-primary">
+                    <h5 class="modal-title">Busca múltipla de registros</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="multi_search_input" class="form-label">
+                        Informe notas separadas por espaço, vírgula, ponto e vírgula ou quebra de linha
+                    </label>
+                    <textarea id="multi_search_input" rows="6" class="form-control"
+                        wire:model.defer="multi_search_input"
+                        placeholder="Ex: 30001234&#10;30001235&#10;30001236"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" wire:click="clearMultiSearch">Limpar</button>
+                    <button type="button" class="btn btn-primary" wire:click="applyMultiSearch" data-bs-dismiss="modal">
+                        Aplicar busca
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- <div wire:init="checkOpen"></div> --}}
 
 </div>
@@ -373,5 +417,6 @@
             const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
             myModal.show();
         })
+
     </script>
 @endpush

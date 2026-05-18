@@ -130,7 +130,8 @@
         <div class="file-accordion-body py-0">
             @endif
             @php
-                $icon = \App\Helpers\FileIcon::getIcon($file->ext)->icon;
+                $iconMeta = \App\Helpers\FileIcon::getIcon($file->ext);
+                $icon = is_object($iconMeta) ? ($iconMeta->icon ?? 'ri-file-fill text-danger') : 'ri-file-fill text-danger';
                 $isTacitAdsFile = in_array($file->id, $adsTacitFileIds, true);
             @endphp
             <li wire:key="file-{{ $file->id }}" class="text-center py-1">

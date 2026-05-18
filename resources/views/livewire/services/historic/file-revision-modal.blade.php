@@ -20,7 +20,7 @@
         }
 
         .revision-modal .modal-header {
-            background: #0d6efd;
+            background: #225E66;
             border-bottom: 1px solid rgba(255, 255, 255, .18);
         }
 
@@ -47,14 +47,14 @@
         }
 
         .revision-option:hover {
-            border-color: #0d6efd;
-            box-shadow: 0 0 0 .12rem rgba(13, 110, 253, .15);
+            border-color: #225E66;
+            box-shadow: 0 0 0 .12rem rgba(34, 94, 102, .15);
         }
 
         .revision-option.active {
-            border-color: #0d6efd;
-            background: #eaf2ff;
-            color: #0b3d91;
+            border-color: #225E66;
+            background: #eaf4f5;
+            color: #143F47;
         }
 
         .revision-option .meta {
@@ -63,7 +63,7 @@
         }
 
         .revision-option.active .meta {
-            color: #0b3d91;
+            color: #225E66;
         }
 
         .rev-badge {
@@ -76,14 +76,14 @@
         }
 
         .revision-option.active .rev-badge {
-            background: #0d6efd;
+            background: #225E66;
             color: #ffffff;
         }
 
         .revision-guide {
-            border: 1px solid #cfe2ff;
-            background: #f5f9ff;
-            color: #274c77;
+            border: 1px solid #9fc3c8;
+            background: #eef6f7;
+            color: #225E66;
             border-radius: .5rem;
             padding: .6rem .75rem;
             font-size: .9rem;
@@ -111,14 +111,14 @@
         }
 
         .revision-flow-chip.active {
-            border-color: #0d6efd;
-            background: #eaf2ff;
-            color: #0b3d91;
+            border-color: #225E66;
+            background: #eaf4f5;
+            color: #143F47;
         }
 
         .pending-files-table thead th {
-            background: #eaf2ff;
-            color: #1e3a5f;
+            background: #225E66;
+            color: #ffffff;
             border-bottom: 1px solid #dbe3ef;
         }
 
@@ -185,14 +185,19 @@
                                     $previewUrl = $previews[$file->id] ?? null;
                                     $rowIcon = FileIcon::getIcon(strtolower((string) $file->ext));
                                 @endphp
-                                <div class="revision-option {{ $isActive ? 'active' : '' }}"
+                                <div wire:key="revision-file-row-{{ $production->id }}-{{ $rowId }}"
+                                    class="revision-option {{ $isActive ? 'active' : '' }}"
                                     wire:click="toggleSelectedFile({{ $rowId }})">
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="d-flex align-items-center justify-content-center rounded-3"
                                             style="width:44px;height:44px;background:rgba(255,255,255,.07);">
                                             @if ($previewUrl)
-                                                <img src="{{ $previewUrl }}" alt="{{ $baseName }}"
-                                                    style="width:100%;height:100%;object-fit:cover;border-radius:.4rem;">
+                                                <img wire:key="revision-file-img-{{ $production->id }}-{{ $rowId }}-{{ md5((string) $previewUrl) }}"
+                                                    src="{{ $previewUrl }}" alt="{{ $baseName }}"
+                                                    style="width:100%;height:100%;object-fit:cover;border-radius:.4rem;"
+                                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                                                <i class="{{ $rowIcon->icon ?? 'ri-file-fill text-secondary' }} fs-4"
+                                                    style="display:none;"></i>
                                             @else
                                                 <i class="{{ $rowIcon->icon ?? 'ri-file-fill text-secondary' }} fs-4"></i>
                                             @endif
@@ -384,7 +389,7 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
                     <button type="button" class="btn btn-info text-white" wire:click="confirmSaveRevision" wire:loading.attr="disabled"
                         @disabled((!$selectedFileId && !$uploadType) || (!$selectedFileId && count($this->pendingUploads) === 0) || ($selectedFileId && !$appendSheets && !$upload) || ($selectedFileId && $appendSheets && count($this->pendingUploads) === 0))
-                        style="background:#0d6efd;border-color:#0d6efd;">
+                        style="background:#225E66;border-color:#225E66;">
                         <span wire:loading.remove wire:target="confirmSaveRevision,saveRevision">Enviar revisão</span>
                         <span wire:loading wire:target="confirmSaveRevision,saveRevision">Enviando...</span>
                     </button>

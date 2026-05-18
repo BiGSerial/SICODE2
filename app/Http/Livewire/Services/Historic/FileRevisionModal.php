@@ -41,7 +41,7 @@ class FileRevisionModal extends Component
     public function getFilesProperty()
     {
         $production = $this->resolveProduction();
-        $serviceId = (string) ($this->historicServiceId ?: $production->service_id);
+        $serviceId = $this->targetServiceId($production);
 
         return File::query()
             ->where('note_id', (int) $production->note_id)
@@ -187,7 +187,7 @@ class FileRevisionModal extends Component
             $createdFile = File::create([
                 'note_id' => $selected->note_id,
                 'user_id' => Auth::id(),
-                'service_id' => $selected->service_id ?: $this->production->service_id,
+                'service_id' => $this->targetServiceId($this->production),
                 'file_name' => $nextName,
                 'original_name' => $this->upload->getClientOriginalName(),
                 'path' => $path,
@@ -366,12 +366,13 @@ class FileRevisionModal extends Component
         $uploads = $this->normalizedNewUploads();
 
         $production = $this->resolveProduction();
-        $serviceAbrev = mb_strtoupper(substr((string) optional($production->Service)->service, 0, 4));
+        $targetServiceId = $this->targetServiceId($production);
+        $serviceAbrev = mb_strtoupper(substr((string) optional($this->resolveServiceForContext($production))->service, 0, 4));
         $prefix = $this->uploadType.'_'.$serviceAbrev.'_'.$production->Note->note;
 
         $baseExists = File::query()
             ->where('note_id', (int) $production->note_id)
-            ->where('service_id', (string) $production->service_id)
+            ->where('service_id', $targetServiceId)
             ->where('file_name', 'like', $prefix.'_F%_Rev%')
             ->exists();
 
@@ -403,7 +404,7 @@ class FileRevisionModal extends Component
                 $createdFile = File::create([
                     'note_id' => $production->note->id,
                     'user_id' => Auth::id(),
-                    'service_id' => $production->service_id,
+                    'service_id' => $targetServiceId,
                     'file_name' => $fileName,
                     'original_name' => $uploadedFile->getClientOriginalName(),
                     'path' => $path,
@@ -417,6 +418,7 @@ class FileRevisionModal extends Component
 
             DB::commit();
             $this->finishSuccess('Novo(s) arquivo(s) enviado(s) com sucesso');
+            $this->emitUp('refreshLists');
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
@@ -460,7 +462,7 @@ class FileRevisionModal extends Component
 
         $groupFiles = File::query()
             ->where('note_id', (int) $selected->note_id)
-            ->where('service_id', (string) $selected->service_id)
+            ->where('service_id', $this->targetServiceId($this->production))
             ->where('file_name', 'like', $sheetMeta['prefix'].'_F%_Rev'.$sheetMeta['rev'])
             ->orderBy('created_at')
             ->orderBy('id')
@@ -510,7 +512,7 @@ class FileRevisionModal extends Component
                 $createdFile = File::create([
                     'note_id' => $selected->note_id,
                     'user_id' => Auth::id(),
-                    'service_id' => $selected->service_id ?: $this->production->service_id,
+                    'service_id' => $this->targetServiceId($this->production),
                     'file_name' => $newName,
                     'original_name' => $uploadedFile->getClientOriginalName(),
                     'path' => $path,
@@ -524,6 +526,8 @@ class FileRevisionModal extends Component
 
             DB::commit();
             $this->finishSuccess('Folhas adicionadas e grupo renumerado com sucesso');
+            $this->emitUp('refreshLists');
+
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
@@ -546,8 +550,10 @@ class FileRevisionModal extends Component
             'timer' => 1500,
         ]);
         $this->emitUp('refresh');
+        $this->emitUp('refreshHistoric');
         $this->emitUp('$refresh');
         $this->emitSelf('$refresh');
+        $this->emitUp('refreshLists');
         $this->dispatchBrowserEvent('close-file-revision-modal', [
             'modalId' => 'fileRevisionModal-'.$this->productionId,
         ]);
@@ -708,5 +714,23 @@ class FileRevisionModal extends Component
             ->findOrFail($this->productionId);
 
         return $production;
+    }
+
+    private function targetServiceId(?Production $production = null): string
+    {
+        $production = $production ?: $this->production ?: $this->resolveProduction();
+
+        return (string) ($this->historicServiceId ?: $production->service_id);
+    }
+
+    private function resolveServiceForContext(Production $production)
+    {
+        if (!$this->historicServiceId || (string) $this->historicServiceId === (string) $production->service_id) {
+            return $production->Service;
+        }
+
+        return \App\Models\Service::query()
+            ->where('uuid', (string) $this->historicServiceId)
+            ->first();
     }
 }
