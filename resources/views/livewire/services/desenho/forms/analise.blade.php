@@ -1123,7 +1123,7 @@
             function noteRequiresPrefix200(noteValue) {
                 const digits = String(noteValue || '').replace(/\D+/g, '');
                 if (!digits.length) return false;
-                return Number(digits.charAt(0)) >= 4;
+                return Number(digits.charAt(0)) >= 3;
             }
 
             function getOrderNumberValidationMessage(rawValue) {

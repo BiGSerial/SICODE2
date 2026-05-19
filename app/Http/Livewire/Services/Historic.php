@@ -15,7 +15,7 @@ class Historic extends Component
 
     public $service;
 
-    public $perPage = 100;
+    public $perPage = 50;
 
     public $search;
     public $file_search;
@@ -81,6 +81,8 @@ class Historic extends Component
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+        $this->user_l = collect();
+        $this->date_prod_l = collect();
 
         // $this->date_prod_l = Production::Where('service_id', $this->service->uuid)
         //                     ->where('user_id', Auth()->User()->id)
@@ -171,22 +173,8 @@ class Historic extends Component
             ? $this->date_field
             : 'completed_at';
 
-        $this->date_prod_l = Production::Where('service_id', $this->service->uuid)
-            ->when($this->user_s, function ($q) {
-                return $q->where('user_id', $this->user_s);
-            }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
-            })
-            ->where('completed', true)
-            ->where('rejected', false)
-            ->selectRaw('DATE_FORMAT(completed_at, "%Y-%m") as mes_ano, COUNT(*) as total')
-            ->groupBy('mes_ano')
-            ->orderBy('mes_ano')
-            ->get();
-
-        $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%' . $this->user_search . '%');
-        })->orderBy('name')->get();
+        $this->date_prod_l = $this->buildDatePeriods();
+        $this->user_l = $this->buildUsersList();
 
         $searchTerms = $this->buildSearchTerms();
 
@@ -222,10 +210,22 @@ class Historic extends Component
                 $q->whereDate($dateField, '<=', $this->date_to);
             })
             ->with(['Note' => function ($query) {
-                $query->select(['id', 'note', 'rubrica', 'lexp', 'group1', 'material', 'nstats'])
-                    ->orderBy('dt_status', 'asc');
-            }, 'Note.Files:id,note_id,service_id,file_name,path,ext', 'Note.Files.Service:uuid,service', 'Analise'])
-            ->select('productions.*')
+                $query->select(['id', 'note', 'rubrica', 'lexp', 'group1', 'material', 'nstats']);
+            }, 'Note.Files:id,note_id,service_id,file_name,path,ext', 'Note.Files.Service:uuid,service'])
+            ->select([
+                'productions.id',
+                'productions.note_id',
+                'productions.service_id',
+                'productions.user_id',
+                'productions.status_note',
+                'productions.completed',
+                'productions.completed_at',
+                'productions.att_at',
+                'productions.stopped',
+                'productions.confirmed',
+                'productions.transferred',
+                'productions.d5',
+            ])
             ->selectSub(function ($q) {
                 $q->from('productions as p2')
                     ->selectRaw('COUNT(*)')
@@ -249,6 +249,39 @@ class Historic extends Component
             ->take(300)
             ->values()
             ->all();
+    }
+
+    private function buildDatePeriods()
+    {
+        return Production::query()
+            ->where('service_id', $this->service->uuid)
+            ->when($this->user_s, function ($q) {
+                return $q->where('user_id', $this->user_s);
+            }, function ($q) {
+                return $q->where('user_id', Auth()->user()->id);
+            })
+            ->where('completed', true)
+            ->where('rejected', false)
+            ->selectRaw('DATE_FORMAT(completed_at, "%Y-%m") as mes_ano, COUNT(*) as total')
+            ->groupBy('mes_ano')
+            ->orderByDesc('mes_ano')
+            ->get();
+    }
+
+    private function buildUsersList()
+    {
+        if (!auth()->user()?->can('superadm')) {
+            return collect();
+        }
+
+        return User::query()
+            ->when($this->user_search, function ($q) {
+                return $q->where('name', 'like', '%' . $this->user_search . '%');
+            })
+            ->select(['id', 'name'])
+            ->orderBy('name')
+            ->limit($this->user_search ? 300 : 80)
+            ->get();
     }
 
     public function render()

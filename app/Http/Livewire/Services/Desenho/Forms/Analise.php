@@ -1095,7 +1095,7 @@ class Analise extends Component
         }
 
         $first = (int) substr($digits, 0, 1);
-        return $first >= 4;
+        return $first >= 3;
     }
 
     private function extractOrderPrefix(string $orderNumber): string
