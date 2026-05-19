@@ -1,7 +1,7 @@
 @extends('layouts.login_new')
 
 <?php
-$version = (object) json_decode(file_get_contents('../appver.json'));
+$version = (object) json_decode(file_get_contents(base_path('appver.json')));
 ?>
 
 @section('content')

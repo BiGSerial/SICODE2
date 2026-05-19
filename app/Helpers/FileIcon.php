@@ -2,17 +2,15 @@
 
 namespace App\Helpers;
 
-use Hamcrest\Core\IsTypeOf;
-
 class FileIcon
 {
     public static function getIcon($ext)
     {
-
-
         if (!$ext) {
-            return '';
+            return (object) ['icon' => 'ri-file-fill text-danger'];
         }
+
+        $ext = strtolower(trim((string) $ext));
 
         switch ($ext) {
             case "pdf":
@@ -40,7 +38,7 @@ class FileIcon
                 return (object)['icon' => 'bx bxs-cube text-warning'];
                 break;
             default:
-                return (object)['icon' => 'ri-file-fill text-danger'];
+                return (object) ['icon' => 'ri-file-fill text-danger'];
                 break;
         }
     }

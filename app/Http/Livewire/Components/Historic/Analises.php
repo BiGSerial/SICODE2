@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Components\Historic;
 
-use App\Models\{Analise, Production};
+use App\Models\Production;
 use Livewire\Component;
 
 class Analises extends Component
@@ -13,7 +13,27 @@ class Analises extends Component
 
     public $exibition;
 
-    public function mount($production_id)
+    public bool $isSingleton = false;
+
+    protected $listeners = [
+        'openHistoricAnalise' => 'loadAndOpen',
+    ];
+
+    public function mount($production_id = null, bool $isSingleton = false)
+    {
+        $this->isSingleton = $isSingleton;
+        if ($production_id) {
+            $this->doLoad($production_id);
+        }
+    }
+
+    public function loadAndOpen(int $productionId): void
+    {
+        $this->doLoad($productionId);
+        $this->dispatchBrowserEvent('show-analise-modal-singleton');
+    }
+
+    private function doLoad(int $productionId): void
     {
         $this->production = Production::with(['Analise' => function ($query) {
             return $query->select(
@@ -45,30 +65,30 @@ class Analises extends Component
                 'conclusion as Conclusão',
                 'protocol as Protocolo'
             );
-        }])->find($production_id);
+        }])->find($productionId);
 
-        // $this->production = Production::with('Analise')->find($production_id);
+        $this->conclusion = null;
+        $this->exibition = null;
 
-        // dd($this->production);
+        if ($this->production?->Analise) {
+            $this->exibition = collect($this->production->Analise->toArray())->map(function ($value, $key) {
+                return [
+                    'chave' => $key,
+                    'valor' => trim((string) $value) ? $value : null,
+                ];
+            });
 
-        if ($this->production) {
-
-            if ($this->production->Analise) {
-                $this->exibition = collect($this->production->Analise->toArray())->map(function ($value, $key) {
-                    return [
-                        'chave' => $key,
-                        'valor' => trim($value) ? $value : null,
-                    ];
-                });
-
-                $this->conclusion = $this->production->Analise['Conclusão'];
-            }
-
+            $this->conclusion = $this->production->Analise['Conclusão'];
         }
     }
 
     public function render()
     {
-        return view('livewire.components.historic.analises');
+        return view('livewire.components.historic.analises', [
+            'isSingleton' => $this->isSingleton,
+            'production'  => $this->production,
+            'conclusion'  => $this->conclusion,
+            'exibition'   => $this->exibition,
+        ]);
     }
 }
