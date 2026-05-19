@@ -87,10 +87,10 @@
         <ul class="dropdown-menu file-dropdown-menu py-0 edp-bg-gray" style="min-width: 350px;">
             <li
                 class="file-dropdown-header text-center fw-bold py-1 edp-bg-seoweedgreen-100 edp-text-green edp-text-verde-dark">
-                ARQUIVOS - {{ $files[0]->note->note }}
+                ARQUIVOS - {{ $files->first()->note->note }}
             </li>
 
-            <div class="file-accordion" data-accordion-id="fileAccordion-{{ $files[0]->note_id }}">
+            <div class="file-accordion" data-accordion-id="fileAccordion-{{ $files->first()->note_id }}">
                 @php
                     $service = '';
                     $accordionCounter = 0;

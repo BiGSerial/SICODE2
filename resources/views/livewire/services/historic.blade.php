@@ -268,7 +268,7 @@
                                     <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                         <div class="d-flex align-items-center gap-2">
-                                            <x-files.select-download-list :files='$list->Note->Files' />
+                                            <x-files.select-download-list :files='$list->Note->Files' :latest-only="true" />
                                             <button type="button" class="btn btn-sm btn-outline-success"
                                                 onclick="Livewire.emit('openFileRevisionModal', {{ $list->id }}, '{{ $service->uuid }}')">
                                                 <i class="ri-upload-cloud-2-line"></i> Revisar
