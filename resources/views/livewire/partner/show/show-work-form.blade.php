@@ -65,7 +65,10 @@
                             $groupedFiles = $files
                                 ->groupBy(fn ($file) => mb_strtoupper($file->service->service ?? 'OUTROS'))
                                 ->sortKeys();
-                            $previewFiles = $files->sortBy('file_name')->values();
+                            $previewFiles = $files
+                                ->filter(fn ($f) => in_array(mb_strtolower($f->ext), $imageExtensions, true))
+                                ->sortBy('file_name')
+                                ->values();
                             $modalScope = 'work-' . $form->id;
                         @endphp
 
@@ -182,20 +185,22 @@
                                                 @php
                                                     $paneId = $modalScope . '-pane-' . $loop->index;
                                                     $serviceFiles = $group->sortBy('file_name')->values();
+                                                    $imageFiles = $serviceFiles
+                                                        ->filter(fn ($file) => in_array(mb_strtolower($file->ext), $imageExtensions, true))
+                                                        ->values();
                                                     $documentFiles = $serviceFiles
                                                         ->reject(fn ($file) => in_array(mb_strtolower($file->ext), $imageExtensions, true))
                                                         ->values();
                                                 @endphp
                                                 <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}"
                                                     id="{{ $paneId }}" role="tabpanel" tabindex="0">
-                                                    <div class="work-thumb-grid mb-3">
-                                                        @foreach ($serviceFiles as $file)
-                                                            @php
-                                                                $isImageThumb = in_array(mb_strtolower($file->ext), $imageExtensions, true);
-                                                                $hasPreviewImage = $canPreviewImage($file);
-                                                                $previewIndex = $previewFiles->search(fn ($previewFile) => $previewFile->id === $file->id);
-                                                            @endphp
-                                                            @if ($isImageThumb)
+                                                    @if ($imageFiles->isNotEmpty())
+                                                        <div class="work-thumb-grid mb-3">
+                                                            @foreach ($imageFiles as $file)
+                                                                @php
+                                                                    $hasPreviewImage = $canPreviewImage($file);
+                                                                    $previewIndex = $previewFiles->search(fn ($previewFile) => $previewFile->id === $file->id);
+                                                                @endphp
                                                                 <div class="work-thumb work-thumb-image"
                                                                     title="Visualizar {{ $file->file_name }}">
                                                                     <button type="button" class="work-thumb-preview"
@@ -219,21 +224,9 @@
                                                                         <i class="ri-download-2-line"></i>
                                                                     </a>
                                                                 </div>
-                                                            @else
-                                                                <div class="work-thumb"
-                                                                    title="{{ $file->file_name }}">
-                                                                    <button type="button" class="work-thumb-preview"
-                                                                        data-work-preview-open
-                                                                        data-preview-modal="#{{ $modalScope }}-preview-modal"
-                                                                        data-preview-carousel="#{{ $modalScope }}-preview-carousel"
-                                                                        data-preview-index="{{ $previewIndex }}">
-                                                                        <span class="work-thumb-placeholder">SEM IMAGEM</span>
-                                                                        <span class="work-thumb-name">{{ $file->file_name }}</span>
-                                                                    </button>
-                                                                </div>
-                                                            @endif
-                                                        @endforeach
-                                                    </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
 
                                                     @if ($documentFiles->isNotEmpty())
                                                         <div class="work-file-list">
@@ -384,71 +377,71 @@
                             </div>
                         </div>
 
-                        @if ($previewFiles->isNotEmpty())
-                            <div class="modal fade work-preview-modal" id="{{ $modalScope }}-preview-modal"
-                                tabindex="-1" aria-hidden="true" wire:ignore.self>
-                                <div class="modal-dialog modal-xl modal-dialog-centered">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">VISUALIZAÇÃO RÁPIDA</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                aria-label="Fechar"></button>
-                                        </div>
-                                        <div class="modal-body p-0">
-                                            <div id="{{ $modalScope }}-preview-carousel" class="carousel slide"
-                                                data-bs-interval="false">
-                                                <div class="carousel-inner">
-                                                    @foreach ($previewFiles as $file)
-                                                        @php
-                                                            $isPreviewImage = in_array(mb_strtolower($file->ext), $imageExtensions, true);
-                                                            $hasPreviewImage = $canPreviewImage($file);
-                                                        @endphp
-                                                        <div class="carousel-item {{ $loop->first ? 'active' : '' }}">
-                                                            <div class="work-preview-stage">
-                                                                @if ($isPreviewImage && $hasPreviewImage)
-                                                                    <img src="{{ route('files.preview', ['file' => $file->id]) }}"
-                                                                        alt="{{ $file->file_name }}"
-                                                                        onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
-                                                                    <div class="work-preview-placeholder d-none">SEM IMAGEM</div>
-                                                                @else
-                                                                    <div class="work-preview-placeholder">SEM IMAGEM</div>
-                                                                @endif
-                                                            </div>
-                                                            <div class="work-preview-caption">
-                                                                <strong>{{ $file->file_name }}</strong>
-                                                                <a class="btn btn-sm btn-outline-primary"
-                                                                    href="{{ route('files.download', ['file' => $file->id]) }}">
-                                                                    <i class="ri-download-2-line me-1"></i>Baixar
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                                @if ($previewFiles->count() > 1)
-                                                    <button class="carousel-control-prev" type="button"
-                                                        data-bs-target="#{{ $modalScope }}-preview-carousel"
-                                                        data-bs-slide="prev">
-                                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                        <span class="visually-hidden">Anterior</span>
-                                                    </button>
-                                                    <button class="carousel-control-next" type="button"
-                                                        data-bs-target="#{{ $modalScope }}-preview-carousel"
-                                                        data-bs-slide="next">
-                                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                        <span class="visually-hidden">Próxima</span>
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
                     @endif
                 </div>
             </div>
         </div>
     </div>
+
+    @if ($form && $previewFiles->isNotEmpty())
+        <div class="modal fade work-preview-modal" id="{{ $modalScope }}-preview-modal"
+            tabindex="-1" aria-hidden="true" wire:ignore.self>
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">VISUALIZAÇÃO RÁPIDA</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <div id="{{ $modalScope }}-preview-carousel" class="carousel slide"
+                            data-bs-interval="false">
+                            <div class="carousel-inner">
+                                @foreach ($previewFiles as $file)
+                                    @php
+                                        $hasPreviewImage = $canPreviewImage($file);
+                                    @endphp
+                                    <div class="carousel-item {{ $loop->first ? 'active' : '' }}">
+                                        <div class="work-preview-stage">
+                                            @if ($hasPreviewImage)
+                                                <img src="{{ route('files.preview', ['file' => $file->id]) }}"
+                                                    alt="{{ $file->file_name }}"
+                                                    onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
+                                                <div class="work-preview-placeholder d-none">SEM IMAGEM</div>
+                                            @else
+                                                <div class="work-preview-placeholder">SEM IMAGEM</div>
+                                            @endif
+                                        </div>
+                                        <div class="work-preview-caption">
+                                            <strong>{{ $file->file_name }}</strong>
+                                            <a class="btn btn-sm btn-outline-primary"
+                                                href="{{ route('files.download', ['file' => $file->id]) }}">
+                                                <i class="ri-download-2-line me-1"></i>Baixar
+                                            </a>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @if ($previewFiles->count() > 1)
+                                <button class="carousel-control-prev" type="button"
+                                    data-bs-target="#{{ $modalScope }}-preview-carousel"
+                                    data-bs-slide="prev">
+                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Anterior</span>
+                                </button>
+                                <button class="carousel-control-next" type="button"
+                                    data-bs-target="#{{ $modalScope }}-preview-carousel"
+                                    data-bs-slide="next">
+                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Próxima</span>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
 
 @pushOnce('css')
