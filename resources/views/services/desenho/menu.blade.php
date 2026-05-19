@@ -9,7 +9,7 @@
             <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
-                        <a href="{{ route('services.accompany', ['service' => $service->uuid]) }}"
+                        <a href="{{ route('services.main', ['service' => $service->uuid]) }}"
                             class="nav-item text-white fw-normal">
                             <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i> <span>ACOMPANHAMENTO</span>
                             @livewire('components.count.countnotes', ['service' => $service->uuid], key($service->uuid))
