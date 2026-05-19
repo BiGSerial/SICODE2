@@ -211,7 +211,8 @@ class Historic extends Component
             })
             ->with(['Note' => function ($query) {
                 $query->select(['id', 'note', 'rubrica', 'lexp', 'group1', 'material', 'nstats']);
-            }, 'Note.Files:id,note_id,service_id,file_name,path,ext', 'Note.Files.Service:uuid,service'])
+            }, 'Note.Files:id,note_id,service_id,file_name,path,ext', 'Note.Files.Service:uuid,service',
+                'Analise:production_id,conclusion'])
             ->select([
                 'productions.id',
                 'productions.note_id',

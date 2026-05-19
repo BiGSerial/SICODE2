@@ -269,7 +269,10 @@
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
                                         <div class="d-flex align-items-center gap-2">
                                             <x-files.select-download-list :files='$list->Note->Files' />
-                                            @livewire('services.historic.file-revision-modal', ['production' => $list, 'historicServiceId' => $service->uuid], key('hist-rev-' . $service->uuid . '-' . $list->id))
+                                            <button type="button" class="btn btn-sm btn-outline-success"
+                                                onclick="Livewire.emit('openFileRevisionModal', {{ $list->id }}, '{{ $service->uuid }}')">
+                                                <i class="ri-upload-cloud-2-line"></i> Revisar
+                                            </button>
                                         </div>
                                     <td class="fw-light">{{ $list->Note->rubrica }}</td>
                                     <td class="fw-light">{{ $list->Note->lexp }}</td>
@@ -286,7 +289,12 @@
                                         {{ CarbonInterval::seconds($list->stopped)->cascade()->forHumans(['short' => true]) }}
                                     </td>
                                     <td class="fs-6">
-                                        @livewire('components.historic.analises', ['production_id' => $list->id], key('hist-' . $list->id))
+                                        @if ($list->Analise?->conclusion)
+                                            <a href="#" class="link-secondary fw-bold"
+                                                onclick="event.preventDefault(); Livewire.emit('openHistoricAnalise', {{ $list->id }})">
+                                                {{ $list->Analise->conclusion }}
+                                            </a>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
@@ -384,6 +392,10 @@
     </div>
 
     {{-- <div wire:init="checkOpen"></div> --}}
+
+    {{-- Singletons: um único componente por página para evitar N+1 de Livewire no loop --}}
+    @livewire('services.historic.file-revision-modal', ['isSingleton' => true])
+    @livewire('components.historic.analises', ['isSingleton' => true])
 
 </div>
 

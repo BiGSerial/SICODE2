@@ -1,7 +1,7 @@
 @php
     use App\Helpers\FileIcon;
 
-    $modalId = 'fileRevisionModal-' . $production->id;
+    $modalId = $isSingleton ? 'fileRevisionModalSingleton' : 'fileRevisionModal-' . ($production->id ?? 0);
     $files = $files ?? collect();
     $previews = $previews ?? [];
     $nextName = $nextName ?? null;
@@ -129,9 +129,11 @@
         }
     </style>
 
-    <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}">
-        <i class="ri-upload-cloud-2-line"></i> Revisar
-    </button>
+    @if (!$isSingleton)
+        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}">
+            <i class="ri-upload-cloud-2-line"></i> Revisar
+        </button>
+    @endif
 
     <div wire:ignore.self class="modal fade revision-modal" id="{{ $modalId }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -139,12 +141,19 @@
                 <div class="modal-header text-white">
                     <div>
                         <h5 class="modal-title mb-0">Revisão de arquivos</h5>
-                        <small class="opacity-75">{{ $production->Note->note }} - Produção #{{ $production->id }}</small>
+                        @if ($production)
+                            <small class="opacity-75">{{ $production->Note->note }} - Produção #{{ $production->id }}</small>
+                        @endif
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
+                    @if (!$production)
+                        <div class="text-center py-5">
+                            <span class="spinner-border text-secondary" role="status"></span>
+                        </div>
+                    @else
                     <div class="row g-3">
                         <div class="col-12">
                             <div class="revision-title-sm mb-2">SELECIONE O ARQUIVO</div>
@@ -231,6 +240,7 @@
                         @endif
 
                         @if (!$selectedFileId)
+                            {{-- 1. Tipo primeiro — habilita o input de arquivo --}}
                             <div class="col-12">
                                 <label class="form-label fw-semibold text-uppercase text-muted">Tipo do novo arquivo</label>
                                 <select class="form-select" wire:model="uploadType"
@@ -244,11 +254,18 @@
                                     <span class="text-danger small">{{ $message }}</span>
                                 @enderror
                                 @if (!$uploadType)
-                                    <div class="small text-danger mt-1">Seleção obrigatória para liberar o envio de novos arquivos.</div>
+                                    <div class="small text-muted mt-1">
+                                        <i class="ri-information-line"></i> Selecione o tipo para liberar o envio de arquivos.
+                                    </div>
                                 @endif
                             </div>
+
+                            {{-- 2. Arquivos — liberado após escolher o tipo --}}
                             <div class="col-12">
-                                <label class="form-label fw-semibold text-uppercase text-muted">Novos arquivos</label>
+                                <label class="form-label fw-semibold text-uppercase text-muted">
+                                    Arquivos
+                                    <span class="text-secondary fw-normal text-lowercase">(múltiplos permitidos · máx. 50 MB por arquivo)</span>
+                                </label>
                                 <input type="file" class="form-control" wire:model="newUploads" multiple
                                     @disabled(!$uploadType)
                                     style="background:#ffffff;border:1px dashed #94a3b8;color:#212529;"
@@ -259,11 +276,15 @@
                                 @error('newUploads.*')
                                     <span class="text-danger small">{{ $message }}</span>
                                 @enderror
+                                <div wire:loading wire:target="newUploads" class="small text-primary mt-1">
+                                    <span class="spinner-border spinner-border-sm me-1"></span> Processando arquivos…
+                                </div>
                                 @if ($uploadType && count($this->pendingUploads) === 0)
                                     <div class="small text-warning mt-1">Selecione um ou mais arquivos para continuar.</div>
                                 @endif
                             </div>
 
+                            {{-- Lista de arquivos prontos para envio --}}
                             @if (count($this->pendingUploads))
                                 <div class="col-12">
                                     <div class="table-responsive">
@@ -278,7 +299,7 @@
                                             <tbody>
                                                 @foreach ($this->pendingUploads as $idx => $pendingUpload)
                                                     @php
-                                                        $pendingExt = strtolower(pathinfo($pendingUpload->getClientOriginalName(), PATHINFO_EXTENSION));
+                                                        $pendingExt  = strtolower(pathinfo($pendingUpload->getClientOriginalName(), PATHINFO_EXTENSION));
                                                         $pendingIcon = FileIcon::getIcon($pendingExt);
                                                     @endphp
                                                     <tr>
@@ -383,25 +404,30 @@
                             @endif
                         @endif
                     </div>
+                    @endif
                 </div>
 
                 <div class="modal-footer border-top" style="border-color:#dbe3ef !important;background:#f8fbff;">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                    @if ($production)
                     <button type="button" class="btn btn-info text-white" wire:click="confirmSaveRevision" wire:loading.attr="disabled"
                         @disabled((!$selectedFileId && !$uploadType) || (!$selectedFileId && count($this->pendingUploads) === 0) || ($selectedFileId && !$appendSheets && !$upload) || ($selectedFileId && $appendSheets && count($this->pendingUploads) === 0))
                         style="background:#225E66;border-color:#225E66;">
                         <span wire:loading.remove wire:target="confirmSaveRevision,saveRevision">Enviar revisão</span>
                         <span wire:loading wire:target="confirmSaveRevision,saveRevision">Enviando...</span>
                     </button>
+                    @endif
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-@once
-    @push('script')
-        <script>
+@push('script')
+    <script>
+        if (!window.__fileRevisionModalListeners) {
+            window.__fileRevisionModalListeners = true;
+
             window.addEventListener('confirm-file-revision-upload', function(event) {
                 const payload = event.detail || {};
                 Swal.fire({
@@ -448,6 +474,13 @@
                 document.body.classList.remove('modal-open');
                 document.body.style.removeProperty('padding-right');
             });
-        </script>
-    @endpush
-@endonce
+
+            window.addEventListener('show-file-revision-modal-singleton', function() {
+                const modalEl = document.getElementById('fileRevisionModalSingleton');
+                if (!modalEl) return;
+                const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                modalInstance.show();
+            });
+        }
+    </script>
+@endpush

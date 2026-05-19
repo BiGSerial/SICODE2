@@ -695,14 +695,6 @@
             overflow-wrap: anywhere;
         }
 
-        .work-preview-modal {
-            z-index: 1065;
-        }
-
-        .modal-backdrop.show:nth-of-type(2) {
-            z-index: 1060;
-        }
-
         .work-preview-stage {
             display: grid;
             place-items: center;
@@ -846,6 +838,27 @@
             if (document.querySelector('.modal.show')) {
                 document.body.classList.add('modal-open');
             }
+        });
+
+        // Corrige z-index quando a obra ou o preview são abertos dentro de outro modal
+        // (ex.: viabilityDetailModal no search). nth-of-type é frágil pois depende da
+        // quantidade total de backdrops na página — calculamos dinamicamente.
+        document.addEventListener('show.bs.modal', function (event) {
+            const target = event.target;
+            if (target.id !== 'modal_form_work' && !target.classList.contains('work-preview-modal')) {
+                return;
+            }
+            const openCount = document.querySelectorAll('.modal.show').length;
+            if (openCount === 0) return;
+
+            const newZ = 1055 + openCount * 10;
+            target.style.zIndex = newZ;
+
+            setTimeout(function () {
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                const last = backdrops[backdrops.length - 1];
+                if (last) last.style.zIndex = newZ - 5;
+            }, 0);
         });
     </script>
 @endpushOnce

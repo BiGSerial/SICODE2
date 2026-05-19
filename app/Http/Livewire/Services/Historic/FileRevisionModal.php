@@ -16,7 +16,8 @@ class FileRevisionModal extends Component
 {
     use WithFileUploads;
 
-    public int $productionId;
+    public bool $isSingleton = false;
+    public int $productionId = 0;
     public ?string $historicServiceId = null;
     public ?Production $production = null;
     public ?int $selectedFileId = null;
@@ -26,20 +27,38 @@ class FileRevisionModal extends Component
     public $upload;
     public $newUploads = [];
 
+    protected $listeners = [
+        'openFileRevisionModal' => 'loadAndOpen',
+    ];
+
     protected $rules = [
         'upload' => 'nullable|file|max:41943',
         'newUploads.*' => 'nullable|file|max:41943',
     ];
 
-    public function mount(Production $production, ?string $historicServiceId = null): void
+    public function mount(?Production $production = null, ?string $historicServiceId = null, bool $isSingleton = false): void
     {
-        $this->productionId = (int) $production->id;
+        $this->isSingleton = $isSingleton;
+        if ($production?->exists) {
+            $this->productionId = (int) $production->id;
+            $this->historicServiceId = $historicServiceId;
+        }
+    }
+
+    public function loadAndOpen(int $productionId, string $historicServiceId): void
+    {
+        $this->productionId = $productionId;
         $this->historicServiceId = $historicServiceId;
+        $this->resetModalState();
         $this->production = $this->resolveProduction();
+        $this->dispatchBrowserEvent('show-file-revision-modal-singleton');
     }
 
     public function getFilesProperty()
     {
+        if (!$this->productionId) {
+            return collect();
+        }
         $production = $this->resolveProduction();
         $serviceId = $this->targetServiceId($production);
 
@@ -554,8 +573,11 @@ class FileRevisionModal extends Component
         $this->emitUp('$refresh');
         $this->emitSelf('$refresh');
         $this->emitUp('refreshLists');
+        $modalId = $this->isSingleton
+            ? 'fileRevisionModalSingleton'
+            : 'fileRevisionModal-'.$this->productionId;
         $this->dispatchBrowserEvent('close-file-revision-modal', [
-            'modalId' => 'fileRevisionModal-'.$this->productionId,
+            'modalId' => $modalId,
         ]);
     }
 
@@ -685,10 +707,12 @@ class FileRevisionModal extends Component
 
     public function render()
     {
-        $this->production = $this->resolveProduction();
-        $files = $this->selectableFiles;
-        $imageFiles = $this->imageFiles;
-        $otherFiles = $this->otherFiles;
+        if ($this->productionId) {
+            $this->production = $this->resolveProduction();
+        }
+        $files = $this->productionId ? $this->selectableFiles : collect();
+        $imageFiles = $this->productionId ? $this->imageFiles : collect();
+        $otherFiles = $this->productionId ? $this->otherFiles : collect();
         $previews = [];
 
         foreach ($imageFiles as $row) {
@@ -697,12 +721,18 @@ class FileRevisionModal extends Component
         }
 
         return view('livewire.services.historic.file-revision-modal', [
-            'files' => $files,
-            'imageFiles' => $imageFiles,
-            'otherFiles' => $otherFiles,
-            'previews' => $previews,
-            'nextName' => $this->nextName,
-            'selectedMeta' => $this->selectedFileMeta,
+            'isSingleton'      => $this->isSingleton,
+            'production'       => $this->production,
+            'selectedFileId'   => $this->selectedFileId,
+            'appendSheets'     => $this->appendSheets,
+            'prependSheets'    => $this->prependSheets,
+            'uploadType'       => $this->uploadType,
+            'files'            => $files,
+            'imageFiles'       => $imageFiles,
+            'otherFiles'       => $otherFiles,
+            'previews'         => $previews,
+            'nextName'          => $this->productionId ? $this->nextName : null,
+            'selectedMeta'      => $this->productionId ? $this->selectedFileMeta : null,
             'uploadTypeOptions' => $this->uploadTypeOptions,
         ]);
     }
