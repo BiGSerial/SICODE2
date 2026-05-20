@@ -206,4 +206,41 @@
         ],
     ];
 @endphp
+@if(Auth::check() && (Auth()->user()->can('legal.demands.triage') || Auth()->user()->can('legal.demands.answer') || Auth()->user()->can('legal.manager')))
+@php
+    $juridico_sections = [];
+
+    if (Auth()->user()->can('legal.demands.triage')) {
+        $juridico_sections[] = [
+            'label' => 'Controlador',
+            'items' => [
+                ['label' => 'FILA DE DEMANDAS', 'route' => 'legal.queue',  'icon' => 'bi-briefcase'],
+                ['label' => 'INBOX DE TRIAGEM',  'route' => 'legal.triage', 'icon' => 'bi-inbox'],
+            ],
+        ];
+    }
+
+    if (Auth()->user()->can('legal.demands.answer')) {
+        $juridico_sections[] = [
+            'label' => 'Executante',
+            'items' => [
+                ['label' => 'MINHAS ATRIBUIÇÕES', 'route' => 'legal.field.queue', 'icon' => 'bi-person-check'],
+            ],
+        ];
+    }
+
+    if (Auth()->user()->can('legal.manager')) {
+        $juridico_sections[] = [
+            'label' => 'Gestão',
+            'items' => [
+                ['label' => 'DASHBOARD',    'route' => 'legal.dashboard', 'icon' => 'bi-graph-up'],
+                ['label' => 'BUSCAR CASOS', 'route' => 'legal.cases',     'icon' => 'bi-search'],
+                ['label' => 'RELATÓRIOS',   'route' => 'legal.reports',   'icon' => 'bi-file-earmark-bar-graph'],
+            ],
+        ];
+    }
+@endphp
+<x-menu.dynamic-dropdown title="JURÍDICO" :sections="$juridico_sections" id-prefix="juridico" layout="inline" />
+@endif
+
 <x-menu.dynamic-dropdown title="BUSCAR" :sections="$search_sections" id-prefix="buscar" layout="inline" />

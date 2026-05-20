@@ -123,6 +123,25 @@
                     <input wire:model.defer="can_dispatch" class="form-check-input" type="checkbox" id="canDispatch">
                     <label class="form-check-label" for="canDispatch">Pode Despachar</label>
                 </div>
+
+                <div class="card mt-2">
+                    <n5 class="card-header text-white" style="background:#1e3a5f">MÓDULO JURÍDICO</n5>
+                </div>
+
+                <div class="form-check form-check-inline">
+                    <input wire:model.defer="legal_controller" class="form-check-input" type="checkbox" id="legalController">
+                    <label class="form-check-label" for="legalController">Controlador Jurídico</label>
+                </div>
+
+                <div class="form-check form-check-inline">
+                    <input wire:model.defer="legal_field" class="form-check-input" type="checkbox" id="legalField">
+                    <label class="form-check-label" for="legalField">Campo Jurídico</label>
+                </div>
+
+                <div class="form-check form-check-inline">
+                    <input wire:model.defer="legal_manager" class="form-check-input" type="checkbox" id="legalManager">
+                    <label class="form-check-label" for="legalManager">Gestor Jurídico</label>
+                </div>
             @endcan
 
         @endif

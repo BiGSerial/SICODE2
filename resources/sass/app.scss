@@ -7,6 +7,9 @@
 // Bootstrap
 @import 'bootstrap/scss/bootstrap';
 
+// Módulo Jurídico
+@import 'legal/legal';
+
 .btn-edp-primary:hover {
     background: $edp-btn-gradiente;
     color: #fff !important;

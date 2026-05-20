@@ -2,11 +2,8 @@
 
 namespace App\Providers;
 
-use App\Models\User;
-use App\Models\CancellationRequest;
-use App\Models\CancellationCategory;
-use App\Policies\CancellationRequestPolicy;
-use App\Policies\CancellationCategoryPolicy;
+use App\Models\{CancellationCategory, CancellationRequest, User};
+use App\Policies\{CancellationCategoryPolicy, CancellationRequestPolicy};
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -19,7 +16,7 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        CancellationRequest::class => CancellationRequestPolicy::class,
+        CancellationRequest::class  => CancellationRequestPolicy::class,
         CancellationCategory::class => CancellationCategoryPolicy::class,
     ];
 
@@ -29,16 +26,16 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $roles = [
-            'superadm' => 'Você precisa ser Super Administrador para acessar',
-            'admin' => 'Você precisa ser Administrador para acessar',
-            'management' => 'Você precisa ser Gerente para acessar',
-            'engineer' => 'Você precisa ser Engenheiro para acessar',
-            'operator' => 'Você precisa ser Operador para acessar',
-            'user' => 'Você precisa ser Usuário para acessar',
-            'responsible' => 'Você precisa ser Usuário Responsável para acessar',
-            'btzero' => 'Você precisa ser Usuario Btzero para acessar',
+            'superadm'     => 'Você precisa ser Super Administrador para acessar',
+            'admin'        => 'Você precisa ser Administrador para acessar',
+            'management'   => 'Você precisa ser Gerente para acessar',
+            'engineer'     => 'Você precisa ser Engenheiro para acessar',
+            'operator'     => 'Você precisa ser Operador para acessar',
+            'user'         => 'Você precisa ser Usuário para acessar',
+            'responsible'  => 'Você precisa ser Usuário Responsável para acessar',
+            'btzero'       => 'Você precisa ser Usuario Btzero para acessar',
             'can_dispatch' => 'Você precisa ser Usuário com permissão de despacho para acessar',
-            'analyst' => 'Você precisa ser Analista de Projeto para acessar',
+            'analyst'      => 'Você precisa ser Analista de Projeto para acessar',
         ];
 
         foreach ($roles as $role => $message) {
@@ -55,10 +52,12 @@ class AuthServiceProvider extends ServiceProvider
                 : Response::deny('Você precisa ser Administrador ou Super Administrador para acessar o Log Viewer');
         });
 
-        Gate::define('projectReviewReports', function (User $user) {
-            return ($user->superadm || $user->admin || $user->management || $user->contract)
-                ? Response::allow()
-                : Response::deny('Você não possui permissão para acessar os relatórios de Análise de Projeto.');
-        });
+        // Módulo Jurídico
+        Gate::define('legal.demands.triage', fn (User $u) => $u->legal_controller || $u->superadm || $u->admin);
+        Gate::define('legal.demands.assign', fn (User $u) => $u->legal_controller || $u->superadm || $u->admin);
+        Gate::define('legal.demands.review', fn (User $u) => $u->legal_controller || $u->superadm || $u->admin);
+        Gate::define('legal.demands.answer', fn (User $u) => $u->legal_field || $u->superadm || $u->admin);
+        Gate::define('legal.manager', fn (User $u) => $u->legal_manager || $u->superadm || $u->admin);
+        Gate::define('legal.reports', fn (User $u) => $u->legal_manager || $u->superadm || $u->admin);
     }
 }

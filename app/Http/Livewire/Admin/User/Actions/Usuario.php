@@ -2,12 +2,7 @@
 
 namespace App\Http\Livewire\Admin\User\Actions;
 
-use App\Models\City;
-use App\Models\Company;
-use App\Models\Contract;
-use App\Models\Service;
-use App\Models\ServiceUser;
-use App\Models\User;
+use App\Models\{City, Company, Contract, ServiceUser, User};
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 
@@ -26,80 +21,97 @@ class Usuario extends Component
         'can_dispatch',
         'analyst',
         'contract',
+        'legal_controller',
+        'legal_field',
+        'legal_manager',
     ];
 
     public $user;
+
     public ?User $userCompany = null;
+
     public $companyList;
+
     public $company;
+
     public $contractList;
+
     public $contract;
+
     public $serviceList;
+
     public $serviceSelect;
+
     public $regionList;
+
     public $region;
+
     public $cities;
+
     public $city;
+
     public $companySelect;
 
     // public $newUser;
     public $temporaryPassword;
+
     public $temporaryFirstPass;
 
-
-
-
-
     public $temporaryServices = [];
+
     public $temporaryCompanies = [];
 
-
-
     protected $listeners = [
-        'openUser' => 'openUser',
+        'openUser'    => 'openUser',
         'refreshuser' => '$refresh',
-        'newUser' => 'newUser',
-        'closeAll' => 'closeAll'
+        'newUser'     => 'newUser',
+        'closeAll'    => 'closeAll',
     ];
 
     protected $rules = [
-        'user.email' => 'required|email',
-        'user.name' => 'required|string|max:255',
-        'user.Registration' => 'string|max:80',
-        'company' => 'required|exists:companies,id',
-        'contract' => 'required|exists:contracts,id',
-        'user.company_id' => 'required|string|max:255',
-        'user.superadm' => 'boolean',
-        'user.admin' => 'boolean',
-        'user.management' => 'boolean',
-        'user.engineer' => 'boolean',
-        'user.operator' => 'boolean',
-        'user.user' => 'boolean',
-        'user.onlyparner' => 'boolean',
-        'user.contract' => 'boolean',
-        'user.responsible' => 'boolean',
-        'user.btzero' => 'boolean',
-        'user.can_dispatch' => 'boolean',
-        'user.analyst' => 'boolean',
-        'user.permission_locks' => 'nullable|array',
-        'user.permission_locks.superadm' => 'boolean',
-        'user.permission_locks.admin' => 'boolean',
-        'user.permission_locks.management' => 'boolean',
-        'user.permission_locks.engineer' => 'boolean',
-        'user.permission_locks.responsible' => 'boolean',
-        'user.permission_locks.operator' => 'boolean',
-        'user.permission_locks.user' => 'boolean',
-        'user.permission_locks.btzero' => 'boolean',
-        'user.permission_locks.onlyparner' => 'boolean',
-        'user.permission_locks.can_dispatch' => 'boolean',
-        'user.permission_locks.analyst' => 'boolean',
-        'user.permission_locks.contract' => 'boolean',
-        'regiaoControle' => 'string|in:norte,centroNorte,centroSul,sul',
+        'user.email'                             => 'required|email',
+        'user.name'                              => 'required|string|max:255',
+        'user.Registration'                      => 'string|max:80',
+        'company'                                => 'required|exists:companies,id',
+        'contract'                               => 'required|exists:contracts,id',
+        'user.company_id'                        => 'required|string|max:255',
+        'user.superadm'                          => 'boolean',
+        'user.admin'                             => 'boolean',
+        'user.management'                        => 'boolean',
+        'user.engineer'                          => 'boolean',
+        'user.operator'                          => 'boolean',
+        'user.user'                              => 'boolean',
+        'user.onlyparner'                        => 'boolean',
+        'user.contract'                          => 'boolean',
+        'user.responsible'                       => 'boolean',
+        'user.btzero'                            => 'boolean',
+        'user.can_dispatch'                      => 'boolean',
+        'user.analyst'                           => 'boolean',
+        'user.legal_controller'                  => 'boolean',
+        'user.legal_field'                       => 'boolean',
+        'user.legal_manager'                     => 'boolean',
+        'user.permission_locks'                  => 'nullable|array',
+        'user.permission_locks.superadm'         => 'boolean',
+        'user.permission_locks.admin'            => 'boolean',
+        'user.permission_locks.management'       => 'boolean',
+        'user.permission_locks.engineer'         => 'boolean',
+        'user.permission_locks.responsible'      => 'boolean',
+        'user.permission_locks.operator'         => 'boolean',
+        'user.permission_locks.user'             => 'boolean',
+        'user.permission_locks.btzero'           => 'boolean',
+        'user.permission_locks.onlyparner'       => 'boolean',
+        'user.permission_locks.can_dispatch'     => 'boolean',
+        'user.permission_locks.analyst'          => 'boolean',
+        'user.permission_locks.contract'         => 'boolean',
+        'user.permission_locks.legal_controller' => 'boolean',
+        'user.permission_locks.legal_field'      => 'boolean',
+        'user.permission_locks.legal_manager'    => 'boolean',
+        'regiaoControle'                         => 'string|in:norte,centroNorte,centroSul,sul',
     ];
 
     protected $casts = [
-        'superadm' => 'boolean',
-        'admin' => 'boolean',
+        'superadm'   => 'boolean',
+        'admin'      => 'boolean',
         'management' => 'boolean',
         // Outros campos booleanos
     ];
@@ -116,8 +128,7 @@ class Usuario extends Component
             $this->companyList = Company::where('id', Auth()->User()->company_id)->orderBy('name')->get();
         }
 
-
-        $this->cities = City::orderBy('cidade')->get();
+        $this->cities     = City::orderBy('cidade')->get();
         $this->regionList = City::orderBy('regiao')->distinct()->pluck('regiao');
     }
 
@@ -130,18 +141,17 @@ class Usuario extends Component
     {
         $this->user = User::findOrFail($user['id']);
 
-
         if ($this->user) {
             // dd($this->user);
 
             if (!$this->user->company_id) {
-                $this->user->company_id = isset($this->user->Employee->Contract->company->id) ? $this->user->Employee->Contract->company->id : null;
+                $this->user->company_id = $this->user->Employee->Contract->company->id ?? null;
                 $this->user->save();
             }
 
-            $this->contractList = Contract::where('company_id', $this->user->company_id)->get();
-            $this->company = isset($this->user->Employee->Contract->company->id) ? $this->user->Employee->Contract->company->id : '';
-            $this->contract = isset($this->user->Employee->Contract->id) ? $this->user->Employee->Contract->id : '';
+            $this->contractList           = Contract::where('company_id', $this->user->company_id)->get();
+            $this->company                = $this->user->Employee->Contract->company->id ?? '';
+            $this->contract               = $this->user->Employee->Contract->id ?? '';
             $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
 
             $this->dispatchBrowserEvent('showModal', [
@@ -158,15 +168,13 @@ class Usuario extends Component
         $this->contractList = Contract::where('company_id', $this->user->company_id)->get();
     }
 
-
     public function newUser()
     {
 
-
-        $this->user = new User();
+        $this->user                   = new User();
         $this->user->permission_locks = $this->normalizePermissionLocks([]);
 
-        $this->temporaryPassword = Hash::make(123456);
+        $this->temporaryPassword  = Hash::make(123456);
         $this->temporaryFirstPass = 1;
 
         $this->dispatchBrowserEvent('showModal', [
@@ -180,10 +188,10 @@ class Usuario extends Component
 
         if ($this->user->ToServices->count()) {
             ServiceUser::updateOrCreate(
-                ['user_id' => $this->user->id,
-                'service_id' => $this->serviceSelect],
+                ['user_id'       => $this->user->id,
+                    'service_id' => $this->serviceSelect],
                 [
-                    'service' => 0,
+                    'service'  => 0,
                     'dispatch' => 0,
                 ]
             );
@@ -193,11 +201,10 @@ class Usuario extends Component
                 return;
             }
 
-
             $this->temporaryServices[] = [
                 'service_id' => $this->serviceSelect,
-                'service' => false,
-                'dispatch' => false,
+                'service'    => false,
+                'dispatch'   => false,
             ];
 
         }
@@ -209,16 +216,14 @@ class Usuario extends Component
     {
 
         $this->user->companies()->syncWithoutDetaching([
-            $this->companySelect
+            $this->companySelect,
         ]);
 
         $this->emitSelf('refreshuser');
     }
 
-
     public function removeCompany($company_id)
     {
-
 
         if ($this->user->companies()->where('company_id', $company_id)->exists()) {
             $this->user->companies()->detach($company_id);
@@ -229,7 +234,7 @@ class Usuario extends Component
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'SEM EMPRESA PARA DESASSOCIAR',
-                'html'    => 'A Empresa selecionada não existe ou ja ',
+                'html'     => 'A Empresa selecionada não existe ou ja ',
                 'timer'    => 2500,
             ]);
 
@@ -238,13 +243,11 @@ class Usuario extends Component
 
     }
 
-
     public function ServiceOption($id, $column)
     {
         $service = ServiceUser::findOrFail($id);
 
         if ($service) {
-
 
             $service->$column = !$service->$column;
             $service->save();
@@ -265,19 +268,18 @@ class Usuario extends Component
         $this->emitSelf('refreshuser');
     }
 
-
-
     public function Save()
     {
-        $actor = auth()->user();
-        $isSuperAdm = (bool) ($actor?->superadm);
-        $actorLocks = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
+        $actor        = auth()->user();
+        $isSuperAdm   = (bool) ($actor?->superadm);
+        $actorLocks   = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
         $originalUser = null;
+
         if ($this->user?->id) {
             $originalUser = User::withTrashed()->find($this->user->id);
         }
-        $existingLocks = $this->normalizePermissionLocks((array) ($originalUser?->permission_locks ?? []));
-        $incomingLocks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
+        $existingLocks  = $this->normalizePermissionLocks((array) ($originalUser?->permission_locks ?? []));
+        $incomingLocks  = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
         $effectiveLocks = $isSuperAdm ? $incomingLocks : $existingLocks;
 
         if (!$isSuperAdm) {
@@ -295,14 +297,13 @@ class Usuario extends Component
         $this->user->permission_locks = $effectiveLocks;
 
         if ($this->temporaryFirstPass) {
-            $this->user->password = $this->temporaryPassword;
+            $this->user->password   = $this->temporaryPassword;
             $this->user->first_pass = $this->temporaryFirstPass;
 
-
             $copyArray = [
-                'name' => $this->user->name,
+                'name'    => $this->user->name,
                 'company' => $this->user->Company ? $this->user->Company->name : 'N/A',
-                'email' => $this->user->email,
+                'email'   => $this->user->email,
             ];
 
             $this->dispatchBrowserEvent('copySicodeAccess', $copyArray);
@@ -313,12 +314,12 @@ class Usuario extends Component
         if ($this->user->Employee) {
             // Atualiza o Employee existente
             $this->user->Employee()->update([
-                'contract_id' => $this->contract
+                'contract_id' => $this->contract,
             ]);
         } else {
             // Cria um novo Employee
             $this->user->Employee()->create([
-                'contract_id' => $this->contract
+                'contract_id' => $this->contract,
             ]);
         }
 
@@ -330,7 +331,7 @@ class Usuario extends Component
                             'service_id' => $service['service_id'],
                         ],
                         [
-                            'service' => $service['service'],
+                            'service'  => $service['service'],
                             'dispatch' => $service['dispatch'],
                         ]
                     );
@@ -357,7 +358,7 @@ class Usuario extends Component
 
     public function resetPassword()
     {
-        $this->temporaryPassword = Hash::make(123456);
+        $this->temporaryPassword  = Hash::make(123456);
         $this->temporaryFirstPass = 1;
 
         // dd($this->user);
@@ -393,8 +394,6 @@ class Usuario extends Component
         =====================================\n
         ";
 
-
-
         $this->dispatchBrowserEvent('copyToBoard', ['text' => $text]);
 
         $this->dispatchBrowserEvent('torrada', [
@@ -410,7 +409,7 @@ class Usuario extends Component
 
         $this->user = null;
 
-        $this->temporaryPassword = null;
+        $this->temporaryPassword  = null;
         $this->temporaryFirstPass = null;
 
         $this->dispatchBrowserEvent('hideModal');
@@ -423,8 +422,6 @@ class Usuario extends Component
         } else {
             $this->serviceList = null;
         }
-
-
 
         return view('livewire.admin.user.actions.usuario');
     }

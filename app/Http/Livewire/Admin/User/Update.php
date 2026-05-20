@@ -48,6 +48,14 @@ class Update extends Component
 
     public $onlyparner;
 
+    public $can_dispatch;
+
+    public $legal_controller;
+
+    public $legal_field;
+
+    public $legal_manager;
+
     protected $listeners = [
         'save_update_user'  => 'update',
         'toResetPass'       => 'to_reset_password',
@@ -58,18 +66,22 @@ class Update extends Component
     {
         $this->user_update = $user_id->load('Employee');
 
-        $this->name         = $this->user_update->name;
-        $this->email        = $this->user_update->email;
-        $this->superadm     = $this->user_update->superadm;
-        $this->admin        = $this->user_update->admin;
-        $this->management   = $this->user_update->management;
-        $this->engineer     = $this->user_update->engineer;
-        $this->operator     = $this->user_update->operator;
-        $this->user         = $this->user_update->user;
-        $this->contract     = $this->user_update->contract;
-        $this->registration = $this->user_update->Registration;
-        $this->bypassprod   = $this->user_update->bypassprod;
-        $this->onlyparner   = $this->user_update->onlyparner;
+        $this->name             = $this->user_update->name;
+        $this->email            = $this->user_update->email;
+        $this->superadm         = $this->user_update->superadm;
+        $this->admin            = $this->user_update->admin;
+        $this->management       = $this->user_update->management;
+        $this->engineer         = $this->user_update->engineer;
+        $this->operator         = $this->user_update->operator;
+        $this->user             = $this->user_update->user;
+        $this->contract         = $this->user_update->contract;
+        $this->registration     = $this->user_update->Registration;
+        $this->bypassprod       = $this->user_update->bypassprod;
+        $this->onlyparner       = $this->user_update->onlyparner;
+        $this->can_dispatch     = $this->user_update->can_dispatch;
+        $this->legal_controller = $this->user_update->legal_controller;
+        $this->legal_field      = $this->user_update->legal_field;
+        $this->legal_manager    = $this->user_update->legal_manager;
 
         if (isset($this->user_update->Employee)) {
             $this->company_s  = $this->user_update->Employee->Contract->company_id;
@@ -101,18 +113,22 @@ class Update extends Component
         //     $this->user = true;
         // }
 
-        $this->user_update->name         = ucwords(strtolower($this->name));
-        $this->user_update->email        = $this->email;
-        $this->user_update->Registration = $this->registration;
-        $this->user_update->superadm     = $this->superadm ? true : false;
-        $this->user_update->admin        = $this->admin ? true : false;
-        $this->user_update->management   = $this->management ? true : false;
-        $this->user_update->engineer     = $this->engineer ? true : false;
-        $this->user_update->operator     = $this->operator ? true : false;
-        $this->user_update->user         = $this->user ? true : false;
-        $this->user_update->contract     = $this->contract ? true : false;
-        $this->user_update->bypassprod   = $this->bypassprod ? true : false;
-        $this->user_update->onlyparner   = $this->onlyparner ? true : false;
+        $this->user_update->name             = ucwords(strtolower($this->name));
+        $this->user_update->email            = $this->email;
+        $this->user_update->Registration     = $this->registration;
+        $this->user_update->superadm         = $this->superadm ? true : false;
+        $this->user_update->admin            = $this->admin ? true : false;
+        $this->user_update->management       = $this->management ? true : false;
+        $this->user_update->engineer         = $this->engineer ? true : false;
+        $this->user_update->operator         = $this->operator ? true : false;
+        $this->user_update->user             = $this->user ? true : false;
+        $this->user_update->contract         = $this->contract ? true : false;
+        $this->user_update->bypassprod       = $this->bypassprod ? true : false;
+        $this->user_update->onlyparner       = $this->onlyparner ? true : false;
+        $this->user_update->can_dispatch     = $this->can_dispatch ? true : false;
+        $this->user_update->legal_controller = $this->legal_controller ? true : false;
+        $this->user_update->legal_field      = $this->legal_field ? true : false;
+        $this->user_update->legal_manager    = $this->legal_manager ? true : false;
 
         if (Auth()->User()->Contract) {
             $this->user_update->contract = true;
@@ -182,6 +198,7 @@ class Update extends Component
     {
 
         dd('Resetando senha do usuário: ' . $this->reset_user->name);
+
         try {
             $this->reset_user->password   = Hash::make(123456);
             $this->reset_user->first_pass = true;
@@ -215,24 +232,28 @@ class Update extends Component
 
     public function clean_all()
     {
-        $this->name         = '';
-        $this->email        = '';
-        $this->superadm     = false;
-        $this->admin        = false;
-        $this->management   = false;
-        $this->engineer     = false;
-        $this->operator     = false;
-        $this->user         = false;
-        $this->bypassprod   = false;
-        $this->contract     = false;
-        $this->company_s    = '';
-        $this->contract_s   = '';
-        $this->service_s    = '';
-        $this->contracts    = '';
-        $this->companies    = '';
-        $this->services     = '';
-        $this->registration = '';
-        $this->onlyparner   = false;
+        $this->name             = '';
+        $this->email            = '';
+        $this->superadm         = false;
+        $this->admin            = false;
+        $this->management       = false;
+        $this->engineer         = false;
+        $this->operator         = false;
+        $this->user             = false;
+        $this->bypassprod       = false;
+        $this->contract         = false;
+        $this->company_s        = '';
+        $this->contract_s       = '';
+        $this->service_s        = '';
+        $this->contracts        = '';
+        $this->companies        = '';
+        $this->services         = '';
+        $this->registration     = '';
+        $this->onlyparner       = false;
+        $this->can_dispatch     = false;
+        $this->legal_controller = false;
+        $this->legal_field      = false;
+        $this->legal_manager    = false;
 
         $this->dispatchBrowserEvent('hideModal');
     }

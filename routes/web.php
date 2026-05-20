@@ -1,9 +1,7 @@
 <?php
 
+use App\Http\Controllers\{AdminController, AdsController, BtzeroController, CancellationController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController};
 use App\Http\Controllers\Config\{ConfigController, WallController};
-use App\Http\Controllers\{AdminController, AdsController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
-use App\Models\Protest;
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Artisan, Auth, Route};
 
@@ -39,12 +37,10 @@ Auth::routes();
 //     Route::get('/logout', 'logout')->name('logout');
 //     Route::get('/change_pass', 'showChangePass')->name('show.change');
 
-
 // });
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->middleware('auth')->name('home');
 Route::get('/profile/{id}', [App\Http\Controllers\HomeController::class, 'profile'])->middleware('auth')->name('profile');
-
 
 Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])->middleware('auth')->name('company');
 
@@ -99,6 +95,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
         Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
         Route::post('/jobs_view/restart', function (Request $request) {
             Artisan::call('queue:restart');
+
             return response()->json(['ok' => true, 'message' => 'queue:restart enviado']);
         })->middleware('can:superadm', 'throttle:2,1')->name('restart_jobs');
     });
@@ -164,7 +161,6 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
     Route::get('/viab_returned', 'returned')->name('returned');
     Route::get('/waiting_list', 'waiting')->name('waiting');
     Route::get('/lookatnotes', 'lookatnotes')->name('lookatnotes');
-
 
     Route::prefix('/responser')->name('responser.')->group(function () {
         Route::get('/', 'responser_main')->name('main');
@@ -254,12 +250,9 @@ Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middlewar
     Route::get('/realtime/demand-delivery', 'realtimeDemandDelivery')->name('realtime.demand_delivery');
 });
 
-
-
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
     Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
 });
-
 
 Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->group(function () {
     Route::get('/testes', 'productions')->middleware('can:superadm')->name('productions');
@@ -279,7 +272,6 @@ Route::prefix('/cancelamentos')->controller(CancellationController::class)->midd
     Route::get('/historico', 'history')->name('history');
     Route::get('/{request}', 'show')->whereNumber('request')->name('show');
 });
-
 
 Route::prefix('/responsible')->controller(ResponsibleController::class)->middleware(['can:responsible'])->name('responsible.')->group(function () {
     Route::get('/', 'main')->name('main');
@@ -305,7 +297,6 @@ Route::prefix('/responsible')->controller(ResponsibleController::class)->middlew
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
 });
-
 
 Route::prefix('/engineers')->controller(EngineerController::class)->middleware(['can:engineer'])->name('engineers.')->group(function () {
     Route::get('/', 'main')->name('main');
@@ -354,7 +345,6 @@ Route::prefix('/project-review')->controller(ProjectReviewController::class)->mi
     Route::get('/categories', 'categories')->name('categories');
 });
 
-
 // Partners Route's
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main.viability');
@@ -396,7 +386,6 @@ Route::prefix('/system')->controller(SystemController::class)->name('system.')->
     Route::get('/commands/status/{pid}', 'checkStatus')->name('artisan.status');
 
 });
-
 
 Route::prefix('/protests')->controller(ProtestController::class)->name('protests.')->middleware('auth')->group(function () {
     Route::get('/common/overview', 'common_overview')->name('common.overview');
@@ -443,15 +432,10 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
     Route::get('/print/{medProtestId}', 'print')->name('print');
 });
 
-
-
-
-
 Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middleware('auth')->group(function () {
     Route::get('/chkList_FTVEO/{id?}', 'checkList')->name('checklist');
     Route::get('/chkListFiscal/{id?}', 'checkListFiscal')->name('checklistFiscal');
 });
-
 
 // Files Controller Manager
 Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function () {
@@ -463,4 +447,21 @@ Route::prefix('/files')->controller(FilesController::class)->name('files.')->mid
 
 Route::get('/info', function () {
     return phpinfo();
+});
+
+// Módulo Jurídico
+Route::prefix('juridico')->name('legal.')->middleware(['auth'])->controller(\App\Http\Controllers\LegalController::class)->group(function () {
+    // Controlador
+    Route::get('/fila', 'queue')->name('queue');
+    Route::get('/triagem', 'triage')->name('triage');
+    Route::get('/demanda/{uuid}', 'demandDetail')->name('demand.detail');
+
+    // Campo
+    Route::get('/minhas-tarefas', 'fieldQueue')->name('field.queue');
+    Route::get('/tarefa/{assignment_id}', 'fieldResponse')->name('field.response');
+
+    // Gestão
+    Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/casos', 'cases')->name('cases');
+    Route::get('/relatorios', 'reports')->name('reports');
 });

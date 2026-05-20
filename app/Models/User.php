@@ -4,18 +4,14 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\{Builder, SoftDeletes};
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use Illuminate\Support\{Collection, Str};
+use Illuminate\Support\Facades\{DB, Storage};
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -57,6 +53,9 @@ class User extends Authenticatable
         'btzero',
         'can_dispatch',
         'analyst',
+        'legal_controller',
+        'legal_field',
+        'legal_manager',
         'permission_locks',
     ];
 
@@ -80,24 +79,26 @@ class User extends Authenticatable
         'password'          => 'hashed',
 
         // booleans
-        'first_pass'   => 'boolean',
-        'bypassprod'   => 'boolean',
-        'engineer'     => 'boolean',
-        'onlyparner'   => 'boolean',
-        'superadm'     => 'boolean',
-        'admin'        => 'boolean',
-        'management'   => 'boolean',
-        'operator'     => 'boolean',
-        'user'         => 'boolean',
-        'contract'     => 'boolean',
-        'responsible'  => 'boolean',
-        'btzero'       => 'boolean',
-        'can_dispatch' => 'boolean',
-        'analyst'      => 'boolean',
+        'first_pass'       => 'boolean',
+        'bypassprod'       => 'boolean',
+        'engineer'         => 'boolean',
+        'onlyparner'       => 'boolean',
+        'superadm'         => 'boolean',
+        'admin'            => 'boolean',
+        'management'       => 'boolean',
+        'operator'         => 'boolean',
+        'user'             => 'boolean',
+        'contract'         => 'boolean',
+        'responsible'      => 'boolean',
+        'btzero'           => 'boolean',
+        'can_dispatch'     => 'boolean',
+        'analyst'          => 'boolean',
+        'legal_controller' => 'boolean',
+        'legal_field'      => 'boolean',
+        'legal_manager'    => 'boolean',
         'permission_locks' => 'array',
 
-        ];
-
+    ];
 
     protected $appends = [
         'avatar_url',
@@ -159,12 +160,10 @@ class User extends Authenticatable
         return $this->hasMany(UserAssignment::class);
     }
 
-
     public function UserProtest()
     {
         return $this->hasOne(ProtestUser::class);
     }
-
 
     /**
      * ESCOPO ESTÁTICO
@@ -244,8 +243,6 @@ class User extends Authenticatable
 
         return $ids->unique()->values();
     }
-
-
 
     public static function usersAtDepthGlobal(int $depth): Builder
     {
@@ -370,19 +367,18 @@ class User extends Authenticatable
             // Se eu sou DELEGADO, também enxergo as árvores de quem me delegou
             // (UserDelegation: principal_id -> delegate_id = $this->id)
             $principalIds = $this->delegationsReceived()->active()->pluck('principal_id');
-            $ids = $ids->merge($principalIds);
+            $ids          = $ids->merge($principalIds);
         }
 
         if ($includeDelegatesTreesForPrincipal) {
             // Se eu sou o DELEGADOR e quero incluir as árvores dos meus delegados
             // (UserDelegation: principal_id = $this->id -> delegate_id)
             $delegateIds = $this->delegationsGiven()->active()->pluck('delegate_id');
-            $ids = $ids->merge($delegateIds);
+            $ids         = $ids->merge($delegateIds);
         }
 
         return $ids->unique()->values();
     }
-
 
     public function depthsAvailable(bool $includeSelf = false, bool $includeDelegations = true, bool $includeDelegatesTreesForPrincipal = false): Collection
     {

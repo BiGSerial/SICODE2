@@ -94,6 +94,11 @@
                                         ['key' => 'analyst', 'label' => 'Analista'],
                                         ['key' => 'contract', 'label' => 'Terceirizado'],
                                     ];
+                                    $legalPermissions = [
+                                        ['key' => 'legal_controller', 'label' => 'Jurídico — Controlador'],
+                                        ['key' => 'legal_field',      'label' => 'Jurídico — Executante'],
+                                        ['key' => 'legal_manager',    'label' => 'Jurídico — Gestor'],
+                                    ];
                                 @endphp
                                 @if ($isSuperAdm)
                                     <div class="small text-muted mb-2">
@@ -131,6 +136,43 @@
                                             </div>
                                         </div>
                                     @endforeach
+                                </div>
+
+                                {{-- Módulo Jurídico --}}
+                                <div class="mt-3 pt-3 border-top">
+                                    <div class="small fw-semibold text-muted mb-2 d-flex align-items-center gap-2">
+                                        <i class="bi bi-briefcase-fill" style="color: var(--legal-primary, #1e3a5f)"></i>
+                                        Módulo Jurídico
+                                    </div>
+                                    <div class="row g-2">
+                                        @foreach ($legalPermissions as $permission)
+                                            @php
+                                                $key = $permission['key'];
+                                                $toggleId = 'perm_' . $key;
+                                                $lockId = 'lock_' . $key;
+                                                $locked = (bool) ($editorLocks[$key] ?? false);
+                                                $toggleDisabled = !$isSuperAdm && $locked;
+                                            @endphp
+                                            <div class="col-md-4">
+                                                <div class="d-flex align-items-center justify-content-between border rounded px-2 py-1 {{ $toggleDisabled ? 'opacity-75' : '' }}"
+                                                     style="border-color: #c7d2e0 !important; background: #f8fafc;">
+                                                    <div class="form-check form-switch mb-0">
+                                                        <input class="form-check-input" type="checkbox" id="{{ $toggleId }}"
+                                                            wire:model.defer="user.{{ $key }}"
+                                                            @disabled($toggleDisabled)
+                                                            {{ $toggleDisabled ? 'disabled' : '' }}>
+                                                        <label class="form-check-label small" for="{{ $toggleId }}">{{ $permission['label'] }}</label>
+                                                    </div>
+                                                    @if ($isSuperAdm)
+                                                        <div class="form-check mb-0 ms-2" title="Bloquear para Admin padrão">
+                                                            <input class="form-check-input" type="checkbox" id="{{ $lockId }}"
+                                                                wire:model.defer="user.permission_locks.{{ $key }}">
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
                         </div>
