@@ -144,20 +144,17 @@ class AdsRequests extends Component
                 continue;
             }
 
-            $hasActiveOrders = $note->Orders()
-                ->where(function ($query) {
-                    $query->where('statusSist', 'not like', 'ENT%')
-                        ->where('statusSist', 'not like', 'ENC%');
-                })
+            $hasLibOrder = $note->Orders()
+                ->where('statusSist', 'like', 'LIB%')
                 ->exists();
 
-            if (!$hasActiveOrders) {
+            if (!$hasLibOrder) {
                 $items[$noteNumber] = [
                     'note_number' => $noteNumber,
                     'note_id' => $note->id,
-                    'status_label' => 'Sem ordem ativa',
+                    'status_label' => 'Sem ordem LIB',
                     'status_class' => 'text-bg-warning',
-                    'message' => 'Todas as ORDERS estão em ENT ou ENC.',
+                    'message' => 'Não há ORDEM liberada para processar.',
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
