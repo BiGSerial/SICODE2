@@ -1,0 +1,79 @@
+# Planejamento: tabela de consolidação `note_inform_flows`
+
+## Objetivo
+Consolidar em uma única tabela os marcos de ciclo parcial/final da nota para análise operacional, rastreabilidade e leitura rápida do status atual.
+
+## Mapeamento de fontes
+- `notes`: dados principais da nota (`note`, `numPedido`, etc.).
+- `partials`: ciclos parciais e datas de decisão/supervisão/pagamento.
+- `work_reports`: fluxo final com `informed_at` e aceite/publicação (`acceptance_*`).
+- `adsforms`: envio ADS manual/tácito (`tacit`, `tacit_due_at`, `tacit_delivered_at`).
+- `productions`: marcos operacionais usados para resolver estágios do fluxo final.
+- `five_notes`: vínculo de D5 por nota (único por `note_id`).
+- `orders` + pivôs `order_partial` e `order_work_report`: número de ordem por ciclo.
+- `productionables`: vínculo entre `five_notes` e `productions` para amarrações do fluxo final.
+
+## Checklist de questionamentos (marcar conforme definição)
+- [ ] `fiscal_user_id` será `uuid` (referência a `users.id`)?
+- [ ] `order_number` será sempre derivado de `orders.ordem`?
+- [ ] Quais critérios definem elegibilidade de `work_report` final (`canceled = false`, `informed_at` preenchido, outros)?
+- [ ] Fonte oficial de `informed_at` no fluxo parcial e no fluxo final está fechada?
+- [ ] Regra oficial para `inform_type` (`partial`/`final`) está fechada?
+- [ ] Regra oficial para `ads_type` (`manual`/`tacit`/`not_sent`/`unknown`) está fechada?
+- [ ] Regra oficial para `ads_is_tacit` está fechada?
+- [ ] Fonte de `fiscalization_entered_at` está definida?
+- [ ] Fonte de `fiscal_assigned_at` está definida?
+- [ ] Fonte de `fiscal_user_name` está definida?
+- [ ] Regra para `fiscalization_completed_at` está definida?
+- [ ] Regra para baixa em SICODE (`fiscalization_closed_in_sicode` + data) está definida?
+- [ ] Regra para baixa em SAP (`fiscalization_closed_in_sap` + data) está definida?
+- [ ] Regra para identificar D5 (`has_d5`, `five_note_id`, `five_note_number`, `five_note_created_at`) está definida?
+- [ ] Regra de medição/pagamento (`measurement_entered_at`, `measurement_completed_at`, `measurement_exited_at`) está definida?
+- [ ] Critério para escolher `ads_production_id` no fluxo final está definido?
+- [ ] Critério para escolher `fiscalization_production_id` no fluxo final está definido?
+- [ ] Critério para escolher `measurement_production_id` no fluxo final está definido?
+- [ ] Regra de janela `final_cycle_started_at` e `final_cycle_ended_at` está definida?
+- [ ] Lista final de valores de `current_stage` foi fechada?
+- [ ] Regras de `blocking_reason` foram fechadas?
+- [ ] Estratégia de inativação (`active`) e histórico de recálculo foi fechada?
+- [ ] Chave idempotente `flow_key` está validada (`partial:{id}` / `work_report:{id}`)?
+- [ ] Política de `resolver_payload` (o que registrar e nível de detalhe) está definida?
+
+## Ajustes de contrato antes da implementação
+- `fiscal_user_id` deve ser `uuid` (compatível com `users.id`) e não `unsignedBigInteger`.
+- `order_number` em consolidado deve ser derivado de `orders.ordem`.
+- Definir regra de elegibilidade para `work_report_id` final (ex.: ativo e com `informed_at`).
+- Manter idempotência por `flow_key` (`partial:{id}` / `work_report:{id}`).
+
+## Plano de execução
+1. Definir regra canônica de cada coluna
+- Fonte primária por coluna.
+- Fallback por coluna.
+- Regras distintas para `flow_type = partial` e `flow_type = final`.
+
+2. Fechar contrato da tabela consolidada
+- Tipos, constraints e índices.
+- Enum operacional de `current_stage` e `blocking_reason`.
+
+3. Implementar migration e model
+- Migration de `note_inform_flows`.
+- Model com casts de data/bool/json e escopos de consulta.
+
+4. Backfill inicial (idempotente)
+- Job/command para `upsert` por `flow_key` em lotes.
+- Execução completa para histórico existente.
+
+5. Sincronização incremental
+- Atualização direcionada quando houver mudança em `partials`, `work_reports`, `adsforms`, `productions` e `five_notes`.
+
+6. Performance e observabilidade
+- Validar índices em consultas reais.
+- Registrar `calculated_at` e `resolver_payload` para auditoria.
+
+7. QA e reconciliação
+- Validar cenários: parcial, final, ADS tácito/manual, D5 e casos incompletos.
+- Comparar fonte vs consolidado e listar divergências.
+
+8. Virada de consumo
+- Migrar dashboards/consultas para ler da consolidada.
+- Manter reconciliação durante janela de estabilização.
