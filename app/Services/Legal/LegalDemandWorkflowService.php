@@ -31,20 +31,10 @@ class LegalDemandWorkflowService
         });
     }
 
-    public function sendToField(LegalDemand $demand, User $actor, ?string $toUserId, ?int $toTeamId, ?string $message, ?\DateTimeInterface $dueAt): LegalDemandAssignment
+    public function sendToField(LegalDemand $demand, User $actor, ?string $toUserId, ?string $toTeamId, ?string $message, ?\DateTimeInterface $dueAt): LegalDemandAssignment
     {
         $this->assertNotClosed($demand);
         $this->ensureAllowed($actor, 'legal.demands.assign');
-        $this->assertTransition($demand, [
-            LegalDemandInternalStatus::NEW_IMPORTED,
-            LegalDemandInternalStatus::TRIAGE,
-            LegalDemandInternalStatus::SENT_TO_FIELD,
-            LegalDemandInternalStatus::FIELD_RECEIVED,
-            LegalDemandInternalStatus::WAITING_FIELD_RESPONSE,
-            LegalDemandInternalStatus::RETURNED_BY_FIELD,
-            LegalDemandInternalStatus::UNDER_CONTROLLER_REVIEW,
-            LegalDemandInternalStatus::RETURNED_FOR_CORRECTION,
-        ], 'sent_to_field');
 
         if (!$toUserId && !$toTeamId) {
             throw new InvalidArgumentException('Envio exige usuário destino ou equipe destino.');
@@ -52,15 +42,16 @@ class LegalDemandWorkflowService
 
         return DB::transaction(function () use ($demand, $actor, $toUserId, $toTeamId, $message, $dueAt) {
             $assignment = LegalDemandAssignment::create([
-                'uuid' => (string) str()->uuid(),
                 'legal_demand_id' => $demand->id,
-                'assigned_by_user_id' => $actor->id,
-                'assigned_to_user_id' => $toUserId,
-                'assigned_to_team_id' => $toTeamId,
+                'from_user_id' => $actor->id,
+                'to_user_id' => $toUserId,
+                'to_team_id' => $toTeamId,
                 'status' => LegalDemandAssignmentStatus::SENT,
                 'message' => $message,
-                'due_at' => $dueAt,
                 'sent_at' => now(),
+                'metadata' => [
+                    'due_at' => $dueAt?->format('Y-m-d H:i:s'),
+                ],
             ]);
 
             $from = $demand->internal_status?->value;
@@ -69,17 +60,7 @@ class LegalDemandWorkflowService
             $demand->internal_status = LegalDemandInternalStatus::SENT_TO_FIELD;
             $demand->save();
 
-            $this->event(
-                $demand->id,
-                'sent_to_field',
-                $from,
-                LegalDemandInternalStatus::SENT_TO_FIELD->value,
-                $actor->id,
-                $toUserId,
-                $toTeamId,
-                'Demanda enviada para ponta.',
-                $assignment->id
-            );
+            $this->event($demand->id, 'sent_to_field', $from, LegalDemandInternalStatus::SENT_TO_FIELD->value, $actor->id, $toUserId, $toTeamId, 'Demanda enviada para ponta.', $assignment->id);
 
             return $assignment->refresh();
         });
@@ -87,7 +68,7 @@ class LegalDemandWorkflowService
 
     public function receiveInField(LegalDemandAssignment $assignment, User $actor): LegalDemandAssignment
     {
-        $demand = $assignment->LegalDemand;
+        $demand = $assignment->legalDemand;
         $this->assertNotClosed($demand);
         $this->ensureAllowed($actor, 'legal.demands.answer');
 
@@ -107,7 +88,7 @@ class LegalDemandWorkflowService
 
     public function answerFromField(LegalDemandAssignment $assignment, User $actor, ?string $responseSummary, bool $hasEvidence, ?string $impossibilityReason): LegalDemandAssignment
     {
-        $demand = $assignment->LegalDemand;
+        $demand = $assignment->legalDemand;
         $this->assertNotClosed($demand);
         $this->ensureAllowed($actor, 'legal.demands.answer');
 
@@ -119,7 +100,9 @@ class LegalDemandWorkflowService
         return DB::transaction(function () use ($assignment, $demand, $actor, $summary, $impossibilityReason) {
             $assignment->status = LegalDemandAssignmentStatus::ANSWERED;
             $assignment->answered_at = now();
-            $assignment->response_summary = $summary !== '' ? $summary : trim((string) $impossibilityReason);
+            $metadata = (array) ($assignment->metadata ?? []);
+            $metadata['response_summary'] = $summary !== '' ? $summary : trim((string) $impossibilityReason);
+            $assignment->metadata = $metadata;
             $assignment->save();
 
             $from = $demand->internal_status?->value;
@@ -133,21 +116,23 @@ class LegalDemandWorkflowService
 
     public function requestCorrection(LegalDemandAssignment $assignment, User $actor, string $note): LegalDemand
     {
-        $demand = $assignment->LegalDemand;
+        $demand = $assignment->legalDemand;
         $this->assertNotClosed($demand);
         $this->ensureAllowed($actor, 'legal.demands.review');
 
         return DB::transaction(function () use ($assignment, $demand, $actor, $note) {
             $assignment->status = LegalDemandAssignmentStatus::RETURNED_FOR_CORRECTION;
-            $assignment->controller_review_note = $note;
             $assignment->returned_at = now();
+            $metadata = (array) ($assignment->metadata ?? []);
+            $metadata['controller_review_note'] = $note;
+            $assignment->metadata = $metadata;
             $assignment->save();
 
             $from = $demand->internal_status?->value;
             $demand->internal_status = LegalDemandInternalStatus::RETURNED_FOR_CORRECTION;
             $demand->save();
 
-            $this->event($demand->id, 'returned_for_correction', $from, LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value, $actor->id, $assignment->assigned_to_user_id, $assignment->assigned_to_team_id, 'Controlador solicitou correção.', $assignment->id);
+            $this->event($demand->id, 'returned_for_correction', $from, LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value, $actor->id, $assignment->to_user_id, $assignment->to_team_id, 'Controlador solicitou correção.', $assignment->id);
             return $demand->refresh();
         });
     }
@@ -275,7 +260,7 @@ class LegalDemandWorkflowService
         ?string $toStatus,
         ?string $actorUserId,
         ?string $targetUserId,
-        ?int $targetTeamId,
+        ?string $targetTeamId,
         ?string $description,
         ?int $assignmentId = null
     ): void {
@@ -289,8 +274,8 @@ class LegalDemandWorkflowService
             'target_user_id' => $targetUserId,
             'target_team_id' => $targetTeamId,
             'description' => $description,
-            'metadata' => ['source' => 'legal_workflow'],
             'occurred_at' => now(),
+            'metadata' => ['source' => 'workflow'],
         ]);
     }
 }

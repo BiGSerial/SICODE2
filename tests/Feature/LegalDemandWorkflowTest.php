@@ -52,9 +52,9 @@ class LegalDemandWorkflowTest extends TestCase
         return LegalDemand::create([
             'uuid' => (string) str()->uuid(),
             'legal_case_id' => $case->id,
-            'source_type' => 'liminar',
+            'source_type' => 'injunction',
             'source_external_id' => 'EXT-1',
-            'source_record_key' => hash('sha256', uniqid('demand', true)),
+            'source_occurrence_key' => hash('sha256', uniqid('demand', true)),
             'source_hash' => hash('sha256', uniqid('hash', true)),
             'title' => 'Teste',
             'subject' => 'Assunto Teste',
@@ -89,10 +89,9 @@ class LegalDemandWorkflowTest extends TestCase
         $demand = $this->makeDemand(LegalDemandInternalStatus::CLOSED_EXTERNAL->value);
 
         $assignment = LegalDemandAssignment::create([
-            'uuid' => (string) str()->uuid(),
             'legal_demand_id' => $demand->id,
-            'assigned_by_user_id' => $actor->id,
-            'assigned_to_user_id' => $assignee->id,
+            'from_user_id' => $actor->id,
+            'to_user_id' => $assignee->id,
             'status' => 'sent',
             'sent_at' => now(),
         ]);
@@ -138,12 +137,12 @@ class LegalDemandWorkflowTest extends TestCase
         $this->assertDatabaseCount('legal_demand_assignments', 2);
         $this->assertDatabaseHas('legal_demand_assignments', [
             'id' => $first->id,
-            'assigned_to_user_id' => $assigneeA->id,
+            'to_user_id' => $assigneeA->id,
             'message' => 'Primeiro envio',
         ]);
         $this->assertDatabaseHas('legal_demand_assignments', [
             'id' => $second->id,
-            'assigned_to_user_id' => $assigneeB->id,
+            'to_user_id' => $assigneeB->id,
             'message' => 'Reenvio',
         ]);
         $this->assertDatabaseHas('legal_demands', [

@@ -20,17 +20,17 @@ class LegalDemandComment extends Model
         'visibility',
     ];
 
-    public function LegalDemand()
+    public function legalDemand()
     {
         return $this->belongsTo(LegalDemand::class);
     }
 
-    public function Assignment()
+    public function assignment()
     {
         return $this->belongsTo(LegalDemandAssignment::class, 'assignment_id');
     }
 
-    public function User()
+    public function user()
     {
         return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }

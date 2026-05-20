@@ -3,69 +3,46 @@
 namespace App\Models\SicodeSql\Legal;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
-class LegalInjunction extends Model
+class LegalInjunction extends ExternalLegalSource
 {
-    use HasFactory;
-
     protected $connection = 'sqlsrv2';
 
-    protected $table = 'dbo.subjus_liminares';
+    protected $table = 'subjus_r3_liminares';
 
-    protected $primaryKey = 'Número do Caso';
+    protected $primaryKey = 'case_number';
 
     public $incrementing = false;
 
     public $timestamps = false;
 
-    public const SOURCE_TYPE = 'legal_injunction';
+    protected $keyType = 'string';
 
-    protected $fillable = [
-        'Número do Caso',
-        'Número do Processo',
-        'Status',
-        'Empresa',
-        'Gestor do Processo',
-        'Escritório',
-        'Área Atual Responsável',
-        'Responsável Atual',
-        'Área Solicitante',
-        'Responsável Solicitante',
-        'Descrição',
-        'Data Inicial',
-        'Modalidade Liminar',
-        'Situação Liminar',
-        'Status Liminar',
-        'Prazo Fatal de Redirecionamento',
-        'Data Alteração',
-    ];
-
-    protected $casts = [
-        'Data Inicial' => 'datetime',
-        'Prazo Fatal de Redirecionamento' => 'datetime',
-        'Data Alteração' => 'datetime',
-    ];
+    public const SOURCE_TYPE = 'injunction';
 
     public const NORMALIZED_COLUMNS = [
-        'Número do Caso as external_case_number',
-        'Número do Processo as process_number',
-        'Status as external_status',
-        'Empresa as company_name',
-        'Gestor do Processo as process_manager',
-        'Escritório as law_firm',
-        'Área Atual Responsável as current_responsible_area',
-        'Responsável Atual as current_responsible_name',
-        'Área Solicitante as requesting_area',
-        'Responsável Solicitante as requesting_responsible_name',
-        'Descrição as description',
-        'Data Inicial as started_at',
-        'Modalidade Liminar as injunction_modality',
-        'Situação Liminar as injunction_situation',
-        'Status Liminar as injunction_status',
-        'Prazo Fatal de Redirecionamento as redirect_deadline_at',
-        'Data Alteração as changed_at',
+        'case_number',
+        'process_number',
+        'company_name',
+        'process_status',
+        'status_situation',
+        'injunction_subject',
+        'injunction_description',
+        'analysis_at',
+        'start_at',
+        'deadline_at',
+        'execution_at',
+        'current_responsible_area',
+        'current_responsible_name',
+        'required_area',
+        'requesting_responsible_name',
+        'responsible_area',
+        'opposing_party',
+        'process_manager',
+        'city',
+        'region',
+        'regional',
+        'observation',
     ];
 
     public function scopeNormalized(Builder $query): Builder
@@ -75,28 +52,34 @@ class LegalInjunction extends Model
 
     public function toNormalizedArray(): array
     {
-        return [
-            'source_type' => self::SOURCE_TYPE,
+        $raw = $this->getAttributes();
+        $base = $this->normalizedBasePayload(self::SOURCE_TYPE, $raw);
 
-            'external_case_number' => $this->external_case_number ?? $this->{'Número do Caso'} ?? null,
-            'process_number' => $this->process_number ?? $this->{'Número do Processo'} ?? null,
-            'external_status' => $this->external_status ?? $this->{'Status'} ?? null,
-            'company_name' => $this->company_name ?? $this->{'Empresa'} ?? null,
-            'process_manager' => $this->process_manager ?? $this->{'Gestor do Processo'} ?? null,
-            'law_firm' => $this->law_firm ?? $this->{'Escritório'} ?? null,
-            'current_responsible_area' => $this->current_responsible_area ?? $this->{'Área Atual Responsável'} ?? null,
-            'current_responsible_name' => $this->current_responsible_name ?? $this->{'Responsável Atual'} ?? null,
-            'requesting_area' => $this->requesting_area ?? $this->{'Área Solicitante'} ?? null,
-            'requesting_responsible_name' => $this->requesting_responsible_name ?? $this->{'Responsável Solicitante'} ?? null,
-            'description' => $this->description ?? $this->{'Descrição'} ?? null,
-            'started_at' => $this->started_at ?? $this->{'Data Inicial'} ?? null,
-            'injunction_modality' => $this->injunction_modality ?? $this->{'Modalidade Liminar'} ?? null,
-            'injunction_situation' => $this->injunction_situation ?? $this->{'Situação Liminar'} ?? null,
-            'injunction_status' => $this->injunction_status ?? $this->{'Status Liminar'} ?? null,
-            'redirect_deadline_at' => $this->redirect_deadline_at ?? $this->{'Prazo Fatal de Redirecionamento'} ?? null,
-            'changed_at' => $this->changed_at ?? $this->{'Data Alteração'} ?? null,
-
-            'raw_payload' => $this->getAttributes(),
-        ];
+        return array_merge($base, [
+            'company_name' => $this->normalizeText($raw['company_name'] ?? null),
+            'external_status' => $this->normalizeText($raw['process_status'] ?? null),
+            'external_flow_status' => $this->normalizeText($raw['status_situation'] ?? null),
+            'subject' => $this->normalizeText($raw['injunction_subject'] ?? null),
+            'service_type' => $this->normalizeServiceType($raw['status_situation'] ?? null),
+            'description' => $this->normalizeText($raw['injunction_description'] ?? null),
+            'source_analysis_at' => $raw['analysis_at'] ?? null,
+            'source_started_at' => $raw['start_at'] ?? null,
+            'source_due_at' => $raw['deadline_at'] ?? null,
+            'source_executed_at' => $raw['execution_at'] ?? null,
+            'source_changed_at' => $raw['execution_at'] ?? null,
+            'origin_area_name' => $this->normalizeText($raw['required_area'] ?? null),
+            'target_area_name' => $this->normalizeText($raw['current_responsible_area'] ?? null),
+            'target_person_name' => $this->normalizeText($raw['current_responsible_name'] ?? null),
+            'requesting_responsible_name' => $this->normalizeText($raw['requesting_responsible_name'] ?? null),
+            'responsible_area_name' => $this->normalizeText($raw['responsible_area'] ?? null),
+            'opposing_party' => $this->normalizeText($raw['opposing_party'] ?? null),
+            'process_manager' => $this->normalizeText($raw['process_manager'] ?? null),
+            'required_area' => $this->normalizeText($raw['required_area'] ?? null),
+            'city' => $this->normalizeText($raw['city'] ?? null),
+            'region' => $this->normalizeText($raw['region'] ?? null),
+            'regional' => $this->normalizeText($raw['regional'] ?? null),
+            'observation' => $this->normalizeText($raw['observation'] ?? null),
+            'raw_payload' => $raw,
+        ]);
     }
 }

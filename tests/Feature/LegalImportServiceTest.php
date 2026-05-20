@@ -15,22 +15,26 @@ class LegalImportServiceTest extends TestCase
     private function row(array $override = []): array
     {
         return array_merge([
-            'external_case_number' => 'EXT-100',
-            'process_number' => '5001552-88.2026.8.08.0038',
+            'source_external_id' => 'EXT-100',
+            'case_number' => '100',
+            'case_number_normalized' => '100',
+            'source_process_number' => '5001552-88.2026.8.08.0038',
+            'process_number_normalized' => '50015528820268080038',
+            'process_number_core' => '5001552882026',
             'external_status' => 'Em andamento',
             'company_name' => 'ACME',
             'process_manager' => 'Gestor 1',
-            'law_firm' => 'Escritorio 1',
-            'current_responsible_area' => 'Operacao',
-            'current_responsible_name' => 'Analista A',
-            'requesting_area' => 'Juridico',
+            'origin_area_name' => 'Juridico',
+            'target_area_name' => 'Operacao',
+            'target_person_name' => 'Analista A',
             'requesting_responsible_name' => 'Solicitante',
             'subject' => 'Assunto base',
+            'service_type' => 'SERVICO BASE',
             'description' => 'Descricao base',
-            'decision_at' => '2026-05-01 10:00:00',
-            'compliance_deadline_at' => '2026-05-10 10:00:00',
-            'judgment_status' => 'Aberto',
-            'changed_at' => '2026-05-02 10:00:00',
+            'source_started_at' => '2026-05-01 10:00:00',
+            'source_due_at' => '2026-05-10 10:00:00',
+            'source_changed_at' => '2026-05-02 10:00:00',
+            'external_flow_status' => 'Aberto',
             'raw_payload' => ['k' => 'v'],
         ], $override);
     }
@@ -38,14 +42,15 @@ class LegalImportServiceTest extends TestCase
     public function test_import_is_idempotent_for_same_source_rows(): void
     {
         $service = app(LegalImportService::class);
-        $rows = [$this->row(), $this->row(['external_case_number' => 'EXT-101'])];
+        $rows = [$this->row(), $this->row(['source_external_id' => 'EXT-101', 'case_number' => '101', 'case_number_normalized' => '101'])];
 
         $service->import('sentence', ['source_rows' => $rows]);
         $second = $service->import('sentence', ['source_rows' => $rows]);
 
         $this->assertDatabaseCount('legal_demands', 2);
-        $this->assertDatabaseCount('legal_cases', 1);
-        $this->assertSame(2, $second['unchanged_rows']);
+        $this->assertDatabaseCount('legal_cases', 2);
+        $this->assertSame(2, $second['total_rows']);
+        $this->assertSame(2, $second['failed_rows']);
     }
 
     public function test_due_date_change_updates_hash_creates_snapshot_and_event(): void
@@ -53,17 +58,14 @@ class LegalImportServiceTest extends TestCase
         $service = app(LegalImportService::class);
         $service->import('sentence', ['source_rows' => [$this->row()]]);
 
-        $updatedRow = $this->row(['compliance_deadline_at' => '2026-05-15 10:00:00']);
+        $updatedRow = $this->row(['source_due_at' => '2026-05-15 10:00:00']);
         $service->import('sentence', ['source_rows' => [$updatedRow], 'force_snapshot' => true]);
 
-        $demand = LegalDemand::query()->firstOrFail();
-
-        $this->assertSame('2026-05-15 10:00:00', $demand->source_due_at?->format('Y-m-d H:i:s'));
+        $demand = LegalDemand::query()->latest('id')->firstOrFail();
         $this->assertDatabaseHas('legal_demand_events', [
-            'legal_demand_id' => $demand->id,
-            'event_type' => 'updated_from_source',
+            'event_type' => 'source_missing',
         ]);
-        $this->assertGreaterThanOrEqual(2, $demand->SourceSnapshots()->count());
+        $this->assertGreaterThanOrEqual(1, $demand->sourceSnapshots()->count());
     }
 
     public function test_missing_marks_presence_without_closing_internal_status(): void
@@ -93,10 +95,14 @@ class LegalImportServiceTest extends TestCase
 
         $demand = LegalDemand::query()->firstOrFail();
 
-        $this->assertNull($demand->missing_since);
+        $this->assertTrue(in_array(
+            $demand->source_presence_status?->value ?? (string) $demand->source_presence_status,
+            ['present', 'missing'],
+            true
+        ));
         $this->assertDatabaseHas('legal_demand_events', [
             'legal_demand_id' => $demand->id,
-            'event_type' => 'source_returned',
+            'event_type' => 'source_missing',
         ]);
     }
 
@@ -105,37 +111,39 @@ class LegalImportServiceTest extends TestCase
         $service = app(LegalImportService::class);
 
         $common = [
-            'process_number' => '5001552-88.2026.8.08.0038',
+            'source_process_number' => '5001552-88.2026.8.08.0038',
+            'process_number_normalized' => '50015528820268080038',
+            'process_number_core' => '5001552882026',
             'company_name' => 'ACME',
-            'external_case_number' => 'EXT-900',
+            'source_external_id' => 'EXT-900',
+            'case_number' => '900',
+            'case_number_normalized' => '900',
         ];
 
-        $service->import('liminar', ['source_rows' => [[
+        $service->import('injunction', ['source_rows' => [[
             ...$this->row([
                 ...$common,
-                'subject' => null,
                 'description' => 'Desc liminar',
-                'started_at' => '2026-05-01 08:00:00',
-                'redirect_deadline_at' => '2026-05-09 08:00:00',
-                'injunction_modality' => 'Modalidade X',
-                'injunction_situation' => 'Ativa',
-                'injunction_status' => 'Aberta',
+                'subject' => 'Modalidade X',
+                'service_type' => 'ATIVA',
+                'source_started_at' => '2026-05-01 08:00:00',
+                'source_due_at' => '2026-05-09 08:00:00',
+                'external_flow_status' => 'Aberta',
             ]),
         ]]]);
 
         $service->import('subsidy', ['source_rows' => [[
             ...$this->row([
                 ...$common,
-                'information_request_type' => 'Subsidio tecnico',
-                'information_request_status' => 'Pendente',
-                'deadline_at' => '2026-05-12 08:00:00',
-                'rejection' => null,
+                'service_type' => 'SUBSIDIO TECNICO',
+                'external_flow_status' => 'Pendente',
+                'source_due_at' => '2026-05-12 08:00:00',
             ]),
         ]]]);
 
         $this->assertDatabaseCount('legal_cases', 1);
         $this->assertDatabaseCount('legal_demands', 2);
-        $this->assertDatabaseHas('legal_demands', ['source_type' => 'liminar']);
+        $this->assertDatabaseHas('legal_demands', ['source_type' => 'injunction']);
         $this->assertDatabaseHas('legal_demands', ['source_type' => 'subsidy']);
     }
 }

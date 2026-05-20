@@ -6,10 +6,10 @@ use App\Services\Legal\LegalImportService;
 
 class ImportLegalInjunctionsCommand extends BaseLegalImportCommand
 {
-    protected $signature = 'legal:import-liminares
+    protected $signature = 'legal:import-injunctions
         {--dry : Simula sem gravar}
         {--limit= : Limite de linhas}
-        {--since= : Filtra por Data Alteração (YYYY-MM-DD ou datetime)}
+        {--since= : Filtra por data de mudança (YYYY-MM-DD ou datetime)}
         {--force-snapshot : Força snapshot mesmo sem alteração}
         {--no-missing-check : Não marca ausentes na origem}';
 
@@ -17,6 +17,6 @@ class ImportLegalInjunctionsCommand extends BaseLegalImportCommand
 
     public function handle(LegalImportService $service): int
     {
-        return $this->runImport($service, 'liminar');
+        return $this->runImport($service, 'injunction');
     }
 }

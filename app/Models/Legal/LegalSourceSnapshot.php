@@ -17,26 +17,31 @@ class LegalSourceSnapshot extends Model
         'import_batch_id',
         'source_type',
         'source_external_id',
-        'source_record_key',
+        'source_case_number_normalized',
+        'source_process_number_core',
+        'source_entity_key',
+        'source_occurrence_key',
         'source_hash',
         'raw_payload',
+        'normalized_payload',
+        'changed_fields',
         'seen_at',
     ];
 
     protected $casts = [
         'source_type' => LegalDemandSourceType::class,
         'raw_payload' => 'array',
+        'normalized_payload' => 'array',
+        'changed_fields' => 'array',
         'seen_at' => 'datetime',
     ];
 
-    public $timestamps = false;
-
-    public function LegalDemand()
+    public function legalDemand()
     {
         return $this->belongsTo(LegalDemand::class);
     }
 
-    public function ImportBatch()
+    public function importBatch()
     {
         return $this->belongsTo(LegalImportBatch::class, 'import_batch_id');
     }

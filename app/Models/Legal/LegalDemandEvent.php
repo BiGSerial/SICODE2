@@ -15,6 +15,7 @@ class LegalDemandEvent extends Model
     protected $fillable = [
         'legal_demand_id',
         'assignment_id',
+        'import_batch_id',
         'event_type',
         'from_status',
         'to_status',
@@ -31,24 +32,27 @@ class LegalDemandEvent extends Model
         'occurred_at' => 'datetime',
     ];
 
-    public $timestamps = false;
-
-    public function LegalDemand()
+    public function legalDemand()
     {
         return $this->belongsTo(LegalDemand::class);
     }
 
-    public function Assignment()
+    public function assignment()
     {
         return $this->belongsTo(LegalDemandAssignment::class, 'assignment_id');
     }
 
-    public function Actor()
+    public function importBatch()
+    {
+        return $this->belongsTo(LegalImportBatch::class, 'import_batch_id');
+    }
+
+    public function actor()
     {
         return $this->belongsTo(User::class, 'actor_user_id')->withTrashed();
     }
 
-    public function TargetUser()
+    public function targetUser()
     {
         return $this->belongsTo(User::class, 'target_user_id')->withTrashed();
     }

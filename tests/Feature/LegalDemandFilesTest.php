@@ -47,9 +47,9 @@ class LegalDemandFilesTest extends TestCase
         return LegalDemand::create([
             'uuid' => (string) str()->uuid(),
             'legal_case_id' => $case->id,
-            'source_type' => 'liminar',
+            'source_type' => 'injunction',
             'source_external_id' => 'EXT-1',
-            'source_record_key' => hash('sha256', uniqid('file-demand', true)),
+            'source_occurrence_key' => hash('sha256', uniqid('file-demand', true)),
             'source_hash' => hash('sha256', uniqid('file-hash', true)),
             'title' => 'Demanda',
             'subject' => 'Assunto',
@@ -104,10 +104,7 @@ class LegalDemandFilesTest extends TestCase
         $service = new LegalDemandFileService();
 
         $service->attach($demand, $file, $controller, [
-            'category' => 'final_response',
             'visibility' => 'external_ready',
-            'is_final_response' => true,
-            'can_be_sent_external' => true,
         ]);
 
         $this->assertSame(1, $service->queryExternalReady($demand)->count());
@@ -131,7 +128,7 @@ class LegalDemandFilesTest extends TestCase
 
         $this->assertDatabaseHas('legal_demand_files', [
             'id' => $link->id,
-            'file_id' => $file->id,
+            'path' => 'tmp/arquivo_teste.pdf',
         ]);
         $this->assertNotNull(LegalDemandFile::find($link->id)?->removed_at);
         $this->assertDatabaseHas('legal_demand_events', [

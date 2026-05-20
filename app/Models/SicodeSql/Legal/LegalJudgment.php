@@ -3,67 +3,45 @@
 namespace App\Models\SicodeSql\Legal;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
-class LegalJudgment extends Model
+class LegalJudgment extends ExternalLegalSource
 {
-    use HasFactory;
-
     protected $connection = 'sqlsrv2';
 
-    protected $table = 'dbo.subjus_sentencas';
+    protected $table = 'subjus_r3_sentencas';
 
-    protected $primaryKey = 'Número do Caso';
+    protected $primaryKey = 'case_number';
 
     public $incrementing = false;
 
     public $timestamps = false;
 
-    public const SOURCE_TYPE = 'legal_judgment';
+    protected $keyType = 'string';
 
-    protected $fillable = [
-        'Número do Caso',
-        'Número do Processo',
-        'Status',
-        'Nome Empresa',
-        'Gestor do Processo',
-        'Escritório',
-        'Área Atual Responsável',
-        'Responsável Atual',
-        'Área Solicitante',
-        'Responsável Solicitante',
-        'Assunto',
-        'Data Decisão',
-        'Prazo Cumprimento',
-        'Acordo',
-        'Status Sentença',
-        'Data Alteração',
-    ];
-
-    protected $casts = [
-        'Data Decisão' => 'datetime',
-        'Prazo Cumprimento' => 'datetime',
-        'Data Alteração' => 'datetime',
-    ];
+    public const SOURCE_TYPE = 'sentence';
 
     public const NORMALIZED_COLUMNS = [
-        'Número do Caso as external_case_number',
-        'Número do Processo as process_number',
-        'Status as external_status',
-        'Nome Empresa as company_name',
-        'Gestor do Processo as process_manager',
-        'Escritório as law_firm',
-        'Área Atual Responsável as current_responsible_area',
-        'Responsável Atual as current_responsible_name',
-        'Área Solicitante as requesting_area',
-        'Responsável Solicitante as requesting_responsible_name',
-        'Assunto as subject',
-        'Data Decisão as decision_at',
-        'Prazo Cumprimento as compliance_deadline_at',
-        'Acordo as agreement',
-        'Status Sentença as judgment_status',
-        'Data Alteração as changed_at',
+        'case_number',
+        'process_number',
+        'company_name',
+        'process_status',
+        'status_situation',
+        'sentence_subject',
+        'injunction_description',
+        'analysis_at',
+        'start_at',
+        'deadline_at',
+        'execution_at',
+        'responsible_name',
+        'required_area',
+        'requesting_responsible_name',
+        'responsible_area',
+        'opposing_party',
+        'process_manager',
+        'city',
+        'region',
+        'regional',
+        'observation',
     ];
 
     public function scopeNormalized(Builder $query): Builder
@@ -73,27 +51,34 @@ class LegalJudgment extends Model
 
     public function toNormalizedArray(): array
     {
-        return [
-            'source_type' => self::SOURCE_TYPE,
+        $raw = $this->getAttributes();
+        $base = $this->normalizedBasePayload(self::SOURCE_TYPE, $raw);
 
-            'external_case_number' => $this->external_case_number ?? $this->{'Número do Caso'} ?? null,
-            'process_number' => $this->process_number ?? $this->{'Número do Processo'} ?? null,
-            'external_status' => $this->external_status ?? $this->{'Status'} ?? null,
-            'company_name' => $this->company_name ?? $this->{'Nome Empresa'} ?? null,
-            'process_manager' => $this->process_manager ?? $this->{'Gestor do Processo'} ?? null,
-            'law_firm' => $this->law_firm ?? $this->{'Escritório'} ?? null,
-            'current_responsible_area' => $this->current_responsible_area ?? $this->{'Área Atual Responsável'} ?? null,
-            'current_responsible_name' => $this->current_responsible_name ?? $this->{'Responsável Atual'} ?? null,
-            'requesting_area' => $this->requesting_area ?? $this->{'Área Solicitante'} ?? null,
-            'requesting_responsible_name' => $this->requesting_responsible_name ?? $this->{'Responsável Solicitante'} ?? null,
-            'subject' => $this->subject ?? $this->{'Assunto'} ?? null,
-            'decision_at' => $this->decision_at ?? $this->{'Data Decisão'} ?? null,
-            'compliance_deadline_at' => $this->compliance_deadline_at ?? $this->{'Prazo Cumprimento'} ?? null,
-            'agreement' => $this->agreement ?? $this->{'Acordo'} ?? null,
-            'judgment_status' => $this->judgment_status ?? $this->{'Status Sentença'} ?? null,
-            'changed_at' => $this->changed_at ?? $this->{'Data Alteração'} ?? null,
-
-            'raw_payload' => $this->getAttributes(),
-        ];
+        return array_merge($base, [
+            'company_name' => $this->normalizeText($raw['company_name'] ?? null),
+            'external_status' => $this->normalizeText($raw['process_status'] ?? null),
+            'external_flow_status' => $this->normalizeText($raw['status_situation'] ?? null),
+            'subject' => $this->normalizeText($raw['sentence_subject'] ?? null),
+            'service_type' => $this->normalizeServiceType($raw['status_situation'] ?? null),
+            'description' => $this->normalizeText($raw['injunction_description'] ?? null),
+            'source_analysis_at' => $raw['analysis_at'] ?? null,
+            'source_started_at' => $raw['start_at'] ?? null,
+            'source_due_at' => $raw['deadline_at'] ?? null,
+            'source_executed_at' => $raw['execution_at'] ?? null,
+            'source_changed_at' => $raw['execution_at'] ?? null,
+            'origin_area_name' => $this->normalizeText($raw['required_area'] ?? null),
+            'target_area_name' => $this->normalizeText($raw['responsible_name'] ?? null),
+            'target_person_name' => null,
+            'requesting_responsible_name' => $this->normalizeText($raw['requesting_responsible_name'] ?? null),
+            'responsible_area_name' => $this->normalizeText($raw['responsible_area'] ?? null),
+            'opposing_party' => $this->normalizeText($raw['opposing_party'] ?? null),
+            'process_manager' => $this->normalizeText($raw['process_manager'] ?? null),
+            'required_area' => $this->normalizeText($raw['required_area'] ?? null),
+            'city' => $this->normalizeText($raw['city'] ?? null),
+            'region' => $this->normalizeText($raw['region'] ?? null),
+            'regional' => $this->normalizeText($raw['regional'] ?? null),
+            'observation' => $this->normalizeText($raw['observation'] ?? null),
+            'raw_payload' => $raw,
+        ]);
     }
 }

@@ -14,56 +14,50 @@ class LegalDemandAssignment extends Model
     protected $table = 'legal_demand_assignments';
 
     protected $fillable = [
-        'uuid',
         'legal_demand_id',
-        'assigned_by_user_id',
-        'assigned_to_user_id',
-        'assigned_to_team_id',
+        'from_user_id',
+        'to_user_id',
+        'to_team_id',
         'status',
-        'message',
-        'due_at',
         'sent_at',
         'received_at',
         'answered_at',
         'returned_at',
-        'cancelled_at',
-        'closed_at',
-        'response_summary',
-        'controller_review_note',
+        'message',
+        'answer',
+        'metadata',
     ];
 
     protected $casts = [
         'status' => LegalDemandAssignmentStatus::class,
-        'due_at' => 'datetime',
         'sent_at' => 'datetime',
         'received_at' => 'datetime',
         'answered_at' => 'datetime',
         'returned_at' => 'datetime',
-        'cancelled_at' => 'datetime',
-        'closed_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
-    public function LegalDemand()
+    public function legalDemand()
     {
         return $this->belongsTo(LegalDemand::class);
     }
 
-    public function AssignedBy()
+    public function fromUser()
     {
-        return $this->belongsTo(User::class, 'assigned_by_user_id')->withTrashed();
+        return $this->belongsTo(User::class, 'from_user_id')->withTrashed();
     }
 
-    public function AssignedTo()
+    public function toUser()
     {
-        return $this->belongsTo(User::class, 'assigned_to_user_id')->withTrashed();
+        return $this->belongsTo(User::class, 'to_user_id')->withTrashed();
     }
 
-    public function Events()
+    public function events()
     {
         return $this->hasMany(LegalDemandEvent::class, 'assignment_id')->orderBy('occurred_at');
     }
 
-    public function Files()
+    public function files()
     {
         return $this->hasMany(LegalDemandFile::class, 'assignment_id');
     }

@@ -2,7 +2,6 @@
 
 namespace App\Models\Legal;
 
-use App\Models\File;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,55 +15,44 @@ class LegalDemandFile extends Model
     protected $fillable = [
         'legal_demand_id',
         'assignment_id',
-        'file_id',
-        'uploaded_by_user_id',
-        'category',
+        'uploaded_by',
+        'file_name',
+        'original_name',
+        'path',
+        'mime_type',
+        'size',
         'visibility',
-        'can_be_sent_external',
-        'is_evidence',
-        'is_final_response',
         'removed_at',
+        'removed_by',
     ];
 
     protected $casts = [
-        'can_be_sent_external' => 'boolean',
-        'is_evidence' => 'boolean',
-        'is_final_response' => 'boolean',
+        'size' => 'integer',
         'removed_at' => 'datetime',
     ];
 
-    public function LegalDemand()
+    public function legalDemand()
     {
         return $this->belongsTo(LegalDemand::class);
     }
 
-    public function Assignment()
+    public function assignment()
     {
         return $this->belongsTo(LegalDemandAssignment::class, 'assignment_id');
     }
 
-    public function File()
+    public function uploadedBy()
     {
-        return $this->belongsTo(File::class);
+        return $this->belongsTo(User::class, 'uploaded_by')->withTrashed();
     }
 
-    public function UploadedBy()
+    public function removedBy()
     {
-        return $this->belongsTo(User::class, 'uploaded_by_user_id')->withTrashed();
+        return $this->belongsTo(User::class, 'removed_by')->withTrashed();
     }
 
     public function scopeActive($query)
     {
         return $query->whereNull('removed_at');
-    }
-
-    public function scopeByCategory($query, string $category)
-    {
-        return $query->where('category', $category);
-    }
-
-    public function scopeByVisibility($query, string $visibility)
-    {
-        return $query->where('visibility', $visibility);
     }
 }

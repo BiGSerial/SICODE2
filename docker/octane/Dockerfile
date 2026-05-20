@@ -1,8 +1,12 @@
-FROM php:8.5-cli-bookworm
+FROM php:8.4-cli-bookworm
 
 WORKDIR /var/www/html
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y curl gnupg2 ca-certificates && rm -rf /var/lib/apt/lists/* && set -eux; \
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg; \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/mssql-release.list
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive ACCEPT_EULA=Y apt-get install -y \
     git \
     curl \
     unzip \
@@ -15,6 +19,9 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libicu-dev \
     libpq-dev \
+    gnupg2 \
+    unixodbc-dev \
+    msodbcsql18 \
     default-mysql-client \
     postgresql-client \
     nodejs \
@@ -33,9 +40,8 @@ RUN apt-get update && apt-get install -y \
         gd \
         intl \
         opcache \
-    && pecl install redis \
-    && pecl install openswoole \
-    && docker-php-ext-enable redis openswoole \
+    && pecl install redis openswoole sqlsrv pdo_sqlsrv \
+    && docker-php-ext-enable redis openswoole sqlsrv pdo_sqlsrv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

@@ -21,19 +21,27 @@ class LegalImportBatch extends Model
         'updated_rows',
         'unchanged_rows',
         'missing_rows',
+        'returned_rows',
         'failed_rows',
         'status',
         'error_message',
+        'metadata',
     ];
 
     protected $casts = [
         'source_type' => LegalDemandSourceType::class,
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
-    public function SourceSnapshots()
+    public function sourceSnapshots()
     {
         return $this->hasMany(LegalSourceSnapshot::class, 'import_batch_id');
+    }
+
+    public function events()
+    {
+        return $this->hasMany(LegalDemandEvent::class, 'import_batch_id');
     }
 }

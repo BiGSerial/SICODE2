@@ -46,14 +46,6 @@ class LegalObservabilityService
                 LegalDemandInternalStatus::FIELD_RECEIVED->value,
                 LegalDemandInternalStatus::WAITING_FIELD_RESPONSE->value,
             ])->count(),
-            'total_devolvidas_pela_ponta' => LegalDemand::query()->where('internal_status', LegalDemandInternalStatus::RETURNED_BY_FIELD->value)->count(),
-            'total_em_revisao_controlador' => LegalDemand::query()->where('internal_status', LegalDemandInternalStatus::UNDER_CONTROLLER_REVIEW->value)->count(),
-            'total_prontas_para_encerrar_externo' => LegalDemand::query()->where('internal_status', LegalDemandInternalStatus::READY_TO_CLOSE_EXTERNAL->value)->count(),
-            'total_encerradas_internamente_sem_encerramento_externo' => LegalDemand::query()
-                ->where('internal_status', LegalDemandInternalStatus::CLOSED_INTERNAL->value)
-                ->whereNull('external_closed_at')
-                ->count(),
-            'total_reabertas' => LegalDemand::query()->where('internal_status', LegalDemandInternalStatus::REOPENED->value)->count(),
             'total_missing_source' => LegalDemand::query()->where('source_presence_status', LegalSourcePresenceStatus::MISSING->value)->count(),
         ];
     }
@@ -64,51 +56,24 @@ class LegalObservabilityService
             ->select('source_type')
             ->selectRaw('COUNT(*) as total')
             ->selectRaw('SUM(CASE WHEN source_due_at IS NOT NULL AND source_due_at < NOW() THEN 1 ELSE 0 END) as overdue')
-            ->selectRaw('SUM(CASE WHEN internal_status = ? THEN 1 ELSE 0 END) as reopened', [LegalDemandInternalStatus::REOPENED->value])
             ->selectRaw('SUM(CASE WHEN source_presence_status = ? THEN 1 ELSE 0 END) as missing', [LegalSourcePresenceStatus::MISSING->value])
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, first_seen_at, COALESCE(closed_at, NOW()))) as avg_hours_cycle')
             ->groupBy('source_type')
             ->orderBy('source_type')
-            ->get();
-    }
-
-    public function byTargetArea(): Collection
-    {
-        return LegalDemand::query()
-            ->selectRaw('COALESCE(target_area_name, "N/A") as target_area_name')
-            ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(CASE WHEN source_due_at IS NOT NULL AND source_due_at < NOW() THEN 1 ELSE 0 END) as overdue')
-            ->selectRaw('SUM(CASE WHEN current_assigned_user_id IS NULL AND current_assigned_team_id IS NULL THEN 1 ELSE 0 END) as without_responsible')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, first_seen_at, COALESCE(closed_at, NOW()))) as avg_hours_cycle')
-            ->groupBy('target_area_name')
-            ->orderByDesc('total')
             ->get();
     }
 
     public function byAssignee(): Collection
     {
         return LegalDemandAssignment::query()
-            ->leftJoin('users', 'users.id', '=', 'legal_demand_assignments.assigned_to_user_id')
+            ->leftJoin('users', 'users.id', '=', 'legal_demand_assignments.to_user_id')
+            ->leftJoin('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
             ->selectRaw('COALESCE(users.name, "N/A") as assignee_name')
             ->selectRaw('COUNT(*) as received_total')
             ->selectRaw('SUM(CASE WHEN legal_demand_assignments.answered_at IS NULL THEN 1 ELSE 0 END) as pending_answer')
-            ->selectRaw('SUM(CASE WHEN legal_demand_assignments.due_at IS NOT NULL AND legal_demand_assignments.due_at < NOW() AND legal_demand_assignments.answered_at IS NULL THEN 1 ELSE 0 END) as overdue')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, legal_demand_assignments.received_at, COALESCE(legal_demand_assignments.answered_at, NOW()))) as avg_response_hours')
+            ->selectRaw('SUM(CASE WHEN legal_demands.source_due_at IS NOT NULL AND legal_demands.source_due_at < NOW() AND legal_demand_assignments.answered_at IS NULL THEN 1 ELSE 0 END) as overdue')
             ->groupBy('assignee_name')
             ->orderByDesc('received_total')
             ->get();
-    }
-
-    public function bottlenecks(): array
-    {
-        return [
-            'avg_hours_import_to_triage' => $this->avgEventDiffHours('imported', 'triage_started'),
-            'avg_hours_triage_to_sent' => $this->avgEventDiffHours('triage_started', 'sent_to_field'),
-            'avg_hours_sent_to_received' => $this->avgAssignmentDiffHours('sent_at', 'received_at'),
-            'avg_hours_received_to_answered' => $this->avgAssignmentDiffHours('received_at', 'answered_at'),
-            'avg_hours_answered_to_closed_internal' => $this->avgEventDiffHours('field_answered', 'internal_closed'),
-            'avg_hours_closed_internal_to_closed_external' => $this->avgEventDiffHours('internal_closed', 'external_closed'),
-        ];
     }
 
     public function importHealth(int $lastDays = 7): Collection
@@ -134,11 +99,22 @@ class LegalObservabilityService
                     'updated_rows' => $batch->updated_rows,
                     'unchanged_rows' => $batch->unchanged_rows,
                     'missing_rows' => $batch->missing_rows,
+                    'returned_rows' => $batch->returned_rows,
                     'failed_rows' => $batch->failed_rows,
                     'status' => $batch->status,
                     'error_message' => $batch->error_message,
                 ];
             });
+    }
+
+    public function bottlenecks(): array
+    {
+        return [
+            'avg_hours_import_to_triage' => $this->avgEventDiffHours('imported', 'triage_started'),
+            'avg_hours_triage_to_sent' => $this->avgEventDiffHours('triage_started', 'sent_to_field'),
+            'avg_hours_sent_to_received' => $this->avgAssignmentDiffHours('sent_at', 'received_at'),
+            'avg_hours_received_to_answered' => $this->avgAssignmentDiffHours('received_at', 'answered_at'),
+        ];
     }
 
     private function avgAssignmentDiffHours(string $fromColumn, string $toColumn): ?float

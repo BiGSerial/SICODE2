@@ -4,7 +4,7 @@ namespace App\Enum;
 
 enum LegalDemandSourceType: string
 {
-    case LIMINAR = 'liminar';
+    case INJUNCTION = 'injunction';
     case SENTENCE = 'sentence';
     case SUBSIDY = 'subsidy';
 
