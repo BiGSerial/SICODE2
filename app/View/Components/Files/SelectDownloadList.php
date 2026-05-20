@@ -8,7 +8,7 @@ use Illuminate\View\Component;
 
 class SelectDownloadList extends Component
 {
-    public function __construct(public $files, public bool $latestOnly = false)
+    public function __construct(public $files, public bool $latestOnly = true)
     {
         if ($latestOnly && $files) {
             $this->files = $this->filterLatestRevisions($files);
