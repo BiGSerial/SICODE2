@@ -77,11 +77,112 @@
             box-shadow: 0 16px 32px rgba(15,23,42,.08);
             overflow: hidden;
         }
+        .table-card .card-header {
+            padding: .8rem 1rem;
+            border-bottom: 1px solid #253247;
+        }
+        .table-card .card-body {
+            padding: 1rem;
+        }
         .table-card .table thead th {
             font-size: .75rem;
             text-transform: uppercase;
             letter-spacing: .06em;
             white-space: nowrap;
+        }
+
+        .queue-toolbar {
+            display: grid;
+            grid-template-columns: 36px minmax(250px, 2.1fr) minmax(90px, .8fr) minmax(180px, 1.3fr) minmax(180px, 1.1fr) minmax(150px, .9fr) minmax(180px, 1fr) minmax(170px, 1fr) 52px;
+            gap: .5rem;
+            padding: .7rem .9rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #dbe3ee;
+            align-items: center;
+        }
+
+        .queue-toolbar .col-label {
+            font-size: .73rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #607087;
+            font-weight: 700;
+        }
+
+        .queue-list {
+            padding: .7rem;
+            background: #f8fafc;
+        }
+
+        .queue-item {
+            display: grid;
+            grid-template-columns: 36px minmax(250px, 2.1fr) minmax(90px, .8fr) minmax(180px, 1.3fr) minmax(180px, 1.1fr) minmax(150px, .9fr) minmax(180px, 1fr) minmax(170px, 1fr) 52px;
+            gap: .5rem;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #dbe3ee;
+            border-left: 4px solid #cbd5e1;
+            border-radius: .8rem;
+            padding: .65rem .7rem;
+            margin-bottom: .55rem;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, .05);
+        }
+
+        .queue-item.queue-overdue {
+            border-left-color: #ef4444;
+            background: #fff7f7;
+        }
+
+        .queue-item.queue-returned {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .queue-meta {
+            line-height: 1.25;
+        }
+
+        .queue-process-link {
+            color: #1e3a5f;
+            font-weight: 700;
+            text-decoration: none;
+            font-size: .95rem;
+        }
+
+        .queue-process-link:hover {
+            text-decoration: underline;
+        }
+
+        .queue-subtext {
+            color: #4b5563;
+            font-size: .78rem;
+            margin-top: .2rem;
+        }
+
+        .queue-chip-col {
+            display: flex;
+            flex-direction: column;
+            gap: .2rem;
+            align-items: flex-start;
+        }
+
+        .queue-user {
+            font-size: .84rem;
+            color: #1f2937;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        .queue-user-muted {
+            font-size: .77rem;
+            color: #6b7280;
+        }
+
+        @media (max-width: 1500px) {
+            .queue-toolbar,
+            .queue-item {
+                min-width: 1320px;
+            }
         }
 
         .bulk-bar {
@@ -105,19 +206,27 @@
 
                     <div class="d-flex flex-wrap gap-2">
                         <div class="lq-kpi" wire:click="setTab('all')">
-                            <div class="lq-kpi-val">{{ $kpis['total_active'] }}</div>
+                            <div class="lq-kpi-val">
+                                <livewire:legal.controller.kpi-value metric="total_active" :wire:key="'kpi-total-active'" />
+                            </div>
                             <div class="lq-kpi-lbl">Total ativas</div>
                         </div>
                         <div class="lq-kpi danger" wire:click="setTab('overdue')">
-                            <div class="lq-kpi-val">{{ $kpis['overdue'] }}</div>
+                            <div class="lq-kpi-val">
+                                <livewire:legal.controller.kpi-value metric="overdue" :wire:key="'kpi-overdue'" />
+                            </div>
                             <div class="lq-kpi-lbl">Vencidas</div>
                         </div>
                         <div class="lq-kpi warning" wire:click="setTab('in_field')">
-                            <div class="lq-kpi-val">{{ $kpis['awaiting_field'] }}</div>
+                            <div class="lq-kpi-val">
+                                <livewire:legal.controller.kpi-value metric="awaiting_field" :wire:key="'kpi-awaiting-field'" />
+                            </div>
                             <div class="lq-kpi-lbl">Aguard. Campo</div>
                         </div>
                         <div class="lq-kpi success" wire:click="setTab('returned')">
-                            <div class="lq-kpi-val">{{ $kpis['returned_today'] }}</div>
+                            <div class="lq-kpi-val">
+                                <livewire:legal.controller.kpi-value metric="returned_today" :wire:key="'kpi-returned-today'" />
+                            </div>
                             <div class="lq-kpi-lbl">Retornaram hoje</div>
                         </div>
                     </div>
@@ -190,21 +299,19 @@
         <div class="summary-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
             <ul class="nav nav-tabs border-0 gap-1 mb-0">
                 @foreach([
-                    ['all',      'Todas',       null],
-                    ['triage',   'Triagem',     $tabCounts['triage']],
-                    ['in_field', 'Em Campo',    $tabCounts['in_field']],
-                    ['returned', 'Retornadas',  $tabCounts['returned']],
-                    ['overdue',  'Vencidas',    $tabCounts['overdue']],
-                    ['closed',   'Encerradas',  $tabCounts['closed']],
-                ] as [$key, $label, $count])
+                    ['all',      'Todas',      false],
+                    ['triage',   'Triagem',    true],
+                    ['in_field', 'Em Campo',   true],
+                    ['returned', 'Retornadas', true],
+                    ['overdue',  'Vencidas',   true],
+                    ['closed',   'Encerradas', true],
+                ] as [$key, $label, $hasBadge])
                     <li class="nav-item">
                         <button class="nav-link py-1 px-2 {{ $tab === $key ? 'active fw-bold' : '' }}"
                                 wire:click="setTab('{{ $key }}')">
                             {{ $label }}
-                            @if($count !== null)
-                                <span class="badge {{ $key === 'overdue' ? 'bg-danger' : 'bg-secondary' }} ms-1">
-                                    {{ $count }}
-                                </span>
+                            @if($hasBadge)
+                                <livewire:legal.controller.tab-count-badge :tab="$key" :wire:key="'tab-count-'.$key" />
                             @endif
                         </button>
                     </li>
@@ -236,200 +343,161 @@
             </div>
         @endif
 
-        {{-- TABELA --}}
+        {{-- LISTA --}}
         <div class="table-card" wire:loading.class="opacity-50">
             <div class="card-header text-bg-dark fw-bold">
                 Jurídico › Fila de Demandas
             </div>
+            <div class="queue-toolbar">
+                <div>
+                    <input type="checkbox" class="form-check-input"
+                           wire:model="selectAll"
+                           wire:click="$set('selectedIds', $event.target.checked ? {{ $demands->pluck('id')->toJson() }} : [])" />
+                </div>
+                <div class="col-label">
+                    <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
+                            wire:click="sortBy('source_case_number')">
+                        Processo / Empresa
+                        @if($sortBy === 'source_case_number')
+                            <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
+                        @endif
+                    </button>
+                </div>
+                <div class="col-label">Tipo</div>
+                <div class="col-label">Parte Adversa</div>
+                <div class="col-label">Área Responsável</div>
+                <div class="col-label">
+                    <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
+                            wire:click="sortBy('source_due_at')">
+                        Prazo
+                        @if($sortBy === 'source_due_at')
+                            <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
+                        @endif
+                    </button>
+                </div>
+                <div class="col-label">Situação</div>
+                <div class="col-label">Responsáveis</div>
+                <div class="col-label text-center">Ação</div>
+            </div>
 
-            <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width:36px">
-                                <input type="checkbox" class="form-check-input"
-                                       wire:model="selectAll"
-                                       wire:click="$set('selectedIds', $event.target.checked ? {{ $demands->pluck('id')->toJson() }} : [])" />
-                            </th>
-                            <th>
-                                <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
-                                        wire:click="sortBy('source_case_number')">
-                                    Processo / Empresa
-                                    @if($sortBy === 'source_case_number')
-                                        <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
-                                    @endif
-                                </button>
-                            </th>
-                            <th style="width:95px">Tipo</th>
-                            <th>Parte Adversa</th>
-                            <th>Área Responsável</th>
-                            <th style="width:120px">
-                                <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
-                                        wire:click="sortBy('source_due_at')">
-                                    Prazo
-                                    @if($sortBy === 'source_due_at')
-                                        <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
-                                    @endif
-                                </button>
-                            </th>
-                            <th style="width:130px">Situação</th>
-                            <th>Controlador</th>
-                            <th>Em Campo</th>
-                            <th style="width:46px"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($demands as $demand)
-                            @php
-                                $isOverdue  = $demand->source_due_at && $demand->source_due_at->isPast();
-                                $isReturned = in_array(
-                                    $demand->internal_status instanceof \BackedEnum
-                                        ? $demand->internal_status->value
-                                        : $demand->internal_status,
-                                    ['returned_by_field', 'under_controller_review', 'returned_for_correction']
-                                );
-                                $rowClass = $isOverdue ? 'table-danger' : ($isReturned ? 'table-warning' : '');
+            <div class="queue-list">
+                @forelse($demands as $demand)
+                    @php
+                        $isOverdue  = $demand->source_due_at && $demand->source_due_at->isPast();
+                        $isReturned = in_array(
+                            $demand->internal_status instanceof \BackedEnum
+                                ? $demand->internal_status->value
+                                : $demand->internal_status,
+                            ['returned_by_field', 'under_controller_review', 'returned_for_correction']
+                        );
 
-                                $sourceTypeVal = $demand->source_type instanceof \BackedEnum
-                                    ? $demand->source_type->value
-                                    : $demand->source_type;
+                        $sourceTypeVal = $demand->source_type instanceof \BackedEnum
+                            ? $demand->source_type->value
+                            : $demand->source_type;
 
-                                $tipoLabel = match($sourceTypeVal) {
-                                    'injunction' => 'Liminar',
-                                    'sentence'   => 'Sentença',
-                                    'subsidy'    => 'Subsídio',
-                                    default      => $sourceTypeVal ?? '—',
-                                };
-                                $tipoBg = match($sourceTypeVal) {
-                                    'injunction' => 'bg-danger text-white',
-                                    'sentence'   => 'bg-warning text-dark',
-                                    'subsidy'    => 'bg-info text-dark',
-                                    default      => 'bg-secondary text-white',
-                                };
-                            @endphp
-                            <tr class="{{ $rowClass }}" wire:key="demand-row-{{ $demand->id }}">
+                        $tipoLabel = match($sourceTypeVal) {
+                            'injunction' => 'Liminar',
+                            'sentence'   => 'Sentença',
+                            'subsidy'    => 'Subsídio',
+                            default      => $sourceTypeVal ?? '—',
+                        };
+                        $tipoBg = match($sourceTypeVal) {
+                            'injunction' => 'bg-danger text-white',
+                            'sentence'   => 'bg-warning text-dark',
+                            'subsidy'    => 'bg-info text-dark',
+                            default      => 'bg-secondary text-white',
+                        };
+                    @endphp
 
-                                <td>
-                                    <input type="checkbox" class="form-check-input"
-                                           wire:model="selectedIds" value="{{ $demand->id }}" />
-                                </td>
+                    <div class="queue-item {{ $isOverdue ? 'queue-overdue' : ($isReturned ? 'queue-returned' : '') }}"
+                         wire:key="demand-row-{{ $demand->id }}">
+                        <div>
+                            <input type="checkbox" class="form-check-input"
+                                   wire:model="selectedIds" value="{{ $demand->id }}" />
+                        </div>
 
-                                {{-- Processo + Empresa + Descrição + Gestor --}}
-                                <td style="min-width:220px; max-width:300px">
-                                    <a href="{{ route('legal.demand.detail', $demand->uuid) }}"
-                                       class="fw-bold text-decoration-none d-block"
-                                       style="color:#1e3a5f; font-size:.92rem; letter-spacing:.01em">
-                                        {{ $demand->source_case_number ?? $demand->source_process_number ?? 'S/N' }}
-                                    </a>
-                                    @if($demand->legalCase?->company_name)
-                                        <div class="mt-1" style="font-size:.78rem; color:#374151">
-                                            <i class="bi bi-building me-1 opacity-60"></i>{{ $demand->legalCase->company_name }}
-                                        </div>
-                                    @endif
-                                    @if($demand->subject)
-                                        <div class="mt-1 fw-semibold" style="font-size:.8rem; color:#1f2937; line-height:1.35"
-                                             title="{{ $demand->subject }}">
-                                            {{ Str::limit($demand->subject, 60) }}
-                                        </div>
-                                    @endif
-                                    @if($demand->process_manager)
-                                        <div class="text-muted mt-1" style="font-size:.74rem">
-                                            <i class="bi bi-person-badge me-1 opacity-60"></i>{{ $demand->process_manager }}
-                                        </div>
-                                    @endif
-                                </td>
+                        <div class="queue-meta">
+                            <a href="{{ route('legal.demand.detail', $demand->uuid) }}" class="queue-process-link">
+                                {{ $demand->source_case_number ?? $demand->source_process_number_masked ?? 'S/N' }}
+                            </a>
+                            <div class="queue-subtext">
+                                {{ $demand->legalCase?->company_name ?: 'Empresa não informada' }}
+                            </div>
+                            @if($demand->subject)
+                                <div class="queue-subtext" title="{{ $demand->subject }}" data-bs-toggle="tooltip">
+                                    <i class="bi bi-card-text me-1"></i>{{ Str::limit($demand->subject, 74) }}
+                                </div>
+                            @endif
+                            @if($demand->process_manager)
+                                <div class="queue-subtext">
+                                    <i class="bi bi-person-badge me-1"></i>{{ $demand->process_manager }}
+                                </div>
+                            @endif
+                        </div>
 
-                                {{-- Tipo --}}
-                                <td>
-                                    <span class="badge {{ $tipoBg }}" style="font-size:.8rem">
-                                        {{ $tipoLabel }}
-                                    </span>
-                                </td>
+                        <div>
+                            <span class="badge {{ $tipoBg }}" style="font-size:.78rem">
+                                {{ $tipoLabel }}
+                            </span>
+                        </div>
 
-                                {{-- Parte Adversa --}}
-                                <td style="max-width:170px">
-                                    @if($demand->opposing_party)
-                                        <span class="d-block text-truncate" style="font-size:.82rem"
-                                              title="{{ $demand->opposing_party }}" data-bs-toggle="tooltip">
-                                            {{ $demand->opposing_party }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
+                        <div class="queue-meta">
+                            @if($demand->opposing_party)
+                                <span title="{{ $demand->opposing_party }}" data-bs-toggle="tooltip">
+                                    {{ Str::limit($demand->opposing_party, 42) }}
+                                </span>
+                            @else
+                                <span class="text-muted">Não informado</span>
+                            @endif
+                        </div>
 
-                                {{-- Área Responsável --}}
-                                <td style="max-width:155px">
-                                    @php $area = $demand->responsible_area_name ?? $demand->origin_area_name; @endphp
-                                    @if($area)
-                                        <span class="d-block text-truncate" style="font-size:.82rem"
-                                              title="{{ $area }}" data-bs-toggle="tooltip">
-                                            {{ $area }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
+                        <div class="queue-meta">
+                            @php $area = $demand->responsible_area_name ?? $demand->origin_area_name; @endphp
+                            @if($area)
+                                <span title="{{ $area }}" data-bs-toggle="tooltip">{{ Str::limit($area, 40) }}</span>
+                            @else
+                                <span class="text-muted">Não informada</span>
+                            @endif
+                        </div>
 
-                                {{-- Prazo --}}
-                                <td>
-                                    <x-legal.due-date-chip :date="$demand->source_due_at" />
-                                </td>
+                        <div>
+                            <x-legal.due-date-chip :date="$demand->source_due_at" :executedAt="$demand->source_executed_at" />
+                        </div>
 
-                                {{-- Situação --}}
-                                <td>
-                                    <x-legal.status-badge :status="$demand->internal_status" />
-                                    @if($demand->external_status)
-                                        <div class="text-muted mt-1" style="font-size:.72rem; line-height:1.2"
-                                             title="Status no sistema externo" data-bs-toggle="tooltip">
-                                            <i class="bi bi-box-arrow-in-right me-1 opacity-60"></i>{{ $demand->external_status }}
-                                        </div>
-                                    @endif
-                                </td>
+                        <div class="queue-chip-col">
+                            <x-legal.status-badge :status="$demand->internal_status" />
+                            @php $extBadge = $demand->externalStatusBadge(); @endphp
+                            <span class="badge {{ $extBadge['class'] }} d-inline-flex align-items-center gap-1"
+                                  style="font-size:.72rem; max-width:170px; white-space:normal; line-height:1.2"
+                                  title="{{ $demand->external_flow_status ?? $demand->external_status ?? '' }}"
+                                  data-bs-toggle="tooltip">
+                                <i class="bi {{ $extBadge['icon'] }}"></i>
+                                {{ Str::limit($demand->external_flow_status ?? $demand->external_status ?? '—', 32) }}
+                            </span>
+                        </div>
 
-                                {{-- Controlador --}}
-                                <td style="max-width:135px">
-                                    @if($demand->controller)
-                                        <span class="d-block text-truncate {{ $demand->controller_user_id !== auth()->id() ? 'text-muted' : 'fw-semibold' }}"
-                                              style="font-size:.82rem"
-                                              title="{{ $demand->controller->name }}">
-                                            {{ $demand->controller->name }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
+                        <div class="queue-meta">
+                            <div class="queue-user">
+                                {{ $demand->controller?->name ?? 'Sem controlador' }}
+                            </div>
+                            <div class="queue-user-muted">
+                                Campo: {{ $demand->currentAssignee?->name ?? '—' }}
+                            </div>
+                        </div>
 
-                                {{-- Em Campo --}}
-                                <td style="max-width:135px">
-                                    @if($demand->currentAssignee)
-                                        <span class="d-block text-truncate" style="font-size:.82rem"
-                                              title="{{ $demand->currentAssignee->name }}">
-                                            {{ $demand->currentAssignee->name }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-
-                                {{-- Ação --}}
-                                <td>
-                                    <a href="{{ route('legal.demand.detail', $demand->uuid) }}"
-                                       class="btn btn-sm btn-outline-secondary" title="Ver detalhes">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="10" class="text-center text-muted py-5">
-                                    <i class="bi bi-inbox fs-2 d-block mb-2 opacity-40"></i>
-                                    Nenhuma demanda encontrada para os filtros aplicados.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        <div class="text-center">
+                            <a href="{{ route('legal.demand.detail', $demand->uuid) }}"
+                               class="btn btn-sm btn-outline-secondary" title="Ver detalhes">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-center text-muted py-5 bg-white border rounded-3">
+                        <i class="bi bi-inbox fs-2 d-block mb-2 opacity-40"></i>
+                        Nenhuma demanda encontrada para os filtros aplicados.
+                    </div>
+                @endforelse
             </div>
 
             <div class="card-body">
@@ -474,8 +542,8 @@
                                   placeholder="Instruções para o executante..."></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Prazo interno</label>
-                        <input type="date" class="form-control" wire:model="bulkAssignDueAt" />
+                        <label class="form-label fw-semibold">Prazo interno (data e hora)</label>
+                        <input type="datetime-local" class="form-control" wire:model="bulkAssignDueAt" />
                     </div>
                 </div>
                 <div class="modal-footer">

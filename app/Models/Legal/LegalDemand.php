@@ -2,13 +2,10 @@
 
 namespace App\Models\Legal;
 
-use App\Enum\LegalDemandInternalStatus;
-use App\Enum\LegalDemandSourceType;
-use App\Enum\LegalSourcePresenceStatus;
+use App\Enum\{LegalDemandInternalStatus, LegalDemandSourceType, LegalSourcePresenceStatus};
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\{Builder, Model};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
 class LegalDemand extends Model
 {
@@ -78,23 +75,23 @@ class LegalDemand extends Model
     ];
 
     protected $casts = [
-        'source_type' => LegalDemandSourceType::class,
-        'source_analysis_at' => 'datetime',
-        'source_started_at' => 'datetime',
-        'source_due_at' => 'datetime',
-        'source_executed_at' => 'datetime',
-        'source_changed_at' => 'datetime',
-        'first_seen_at' => 'datetime',
-        'last_seen_at' => 'datetime',
-        'missing_since' => 'datetime',
-        'missing_count' => 'integer',
-        'source_presence_status' => LegalSourcePresenceStatus::class,
-        'internal_status' => LegalDemandInternalStatus::class,
-        'closed_at' => 'datetime',
-        'external_closed_at' => 'datetime',
-        'needs_identity_review' => 'boolean',
+        'source_type'                => LegalDemandSourceType::class,
+        'source_analysis_at'         => 'datetime',
+        'source_started_at'          => 'datetime',
+        'source_due_at'              => 'datetime',
+        'source_executed_at'         => 'datetime',
+        'source_changed_at'          => 'datetime',
+        'first_seen_at'              => 'datetime',
+        'last_seen_at'               => 'datetime',
+        'missing_since'              => 'datetime',
+        'missing_count'              => 'integer',
+        'source_presence_status'     => LegalSourcePresenceStatus::class,
+        'internal_status'            => LegalDemandInternalStatus::class,
+        'closed_at'                  => 'datetime',
+        'external_closed_at'         => 'datetime',
+        'needs_identity_review'      => 'boolean',
         'source_identity_confidence' => 'integer',
-        'raw_payload' => 'array',
+        'raw_payload'                => 'array',
     ];
 
     public function legalCase()
@@ -177,5 +174,100 @@ class LegalDemand extends Model
     public function scopeReturnedForCorrection(Builder $query): Builder
     {
         return $query->where('internal_status', LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value);
+    }
+
+    /**
+     * Termos que indicam encerramento no fluxo externo (status_situation).
+     * Comparação case-insensitive via UPPER() no SQL.
+     */
+    public static function externalClosedTerms(): array
+    {
+        return ['ENCERRAD', 'ARQUIVAD', 'CUMPRIDO', 'EXTINTO', 'CANCELAD'];
+    }
+
+    public function scopeExternallyClosed(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereNotNull('external_closed_at');
+
+            foreach (static::externalClosedTerms() as $term) {
+                $q->orWhereRaw('UPPER(COALESCE(external_flow_status, \'\')) LIKE ?', ["%{$term}%"]);
+                $q->orWhereRaw('UPPER(COALESCE(external_status, \'\')) LIKE ?', ["%{$term}%"]);
+            }
+        });
+    }
+
+    public function scopeExternallyActive(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereNull('external_closed_at');
+
+            foreach (static::externalClosedTerms() as $term) {
+                $q->whereRaw('UPPER(COALESCE(external_flow_status, \'\')) NOT LIKE ?', ["%{$term}%"]);
+                $q->whereRaw('UPPER(COALESCE(external_status, \'\')) NOT LIKE ?', ["%{$term}%"]);
+            }
+        });
+    }
+
+    public function isExternallyClosed(): bool
+    {
+        $flow = strtoupper(trim((string) ($this->external_flow_status ?? '')));
+
+        foreach (static::externalClosedTerms() as $term) {
+            if (str_contains($flow, $term)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function externalStatusBadge(): array
+    {
+        $flow = strtoupper(trim((string) ($this->external_flow_status ?? '')));
+        $proc = strtoupper(trim((string) ($this->external_status ?? '')));
+
+        if ($this->isExternallyClosed()) {
+            return ['class' => 'bg-secondary text-white', 'icon' => 'bi-lock-fill'];
+        }
+
+        if (str_contains($flow, 'AGUARD') || str_contains($flow, 'PEND')) {
+            return ['class' => 'bg-warning text-dark', 'icon' => 'bi-hourglass-split'];
+        }
+
+        if (str_contains($proc, 'SUSPENSO') || str_contains($flow, 'SUSPENS')) {
+            return ['class' => 'bg-orange text-white', 'icon' => 'bi-pause-circle'];
+        }
+
+        if (str_contains($proc, 'ATIVO') || str_contains($flow, 'ANDAMENT')) {
+            return ['class' => 'bg-success text-white', 'icon' => 'bi-check-circle'];
+        }
+
+        return ['class' => 'bg-light text-muted border', 'icon' => 'bi-dash-circle'];
+    }
+
+    public static function formatProcessNumber(?string $value): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $value);
+        if ($digits === '') {
+            return null;
+        }
+
+        $digits = str_pad(substr($digits, -20), 20, '0', STR_PAD_LEFT);
+
+        return sprintf(
+            '%s-%s.%s.%s.%s.%s',
+            substr($digits, 0, 7),
+            substr($digits, 7, 2),
+            substr($digits, 9, 4),
+            substr($digits, 13, 1),
+            substr($digits, 14, 2),
+            substr($digits, 16, 4),
+        );
+    }
+
+    public function getSourceProcessNumberMaskedAttribute(): ?string
+    {
+        return static::formatProcessNumber($this->source_process_number);
     }
 }

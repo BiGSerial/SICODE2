@@ -17,4 +17,29 @@ enum LegalDemandAssignmentStatus: string
     {
         return array_map(fn(self $case) => $case->value, self::cases());
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::SENT => 'Enviada',
+            self::RECEIVED => 'Recebida',
+            self::IN_PROGRESS => 'Em andamento',
+            self::ANSWERED => 'Respondida',
+            self::RETURNED_TO_CONTROLLER => 'Retornada ao controlador',
+            self::RETURNED_FOR_CORRECTION => 'Devolvida para correção',
+            self::CANCELLED => 'Cancelada',
+            self::CLOSED => 'Encerrada',
+        };
+    }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::ANSWERED, self::RETURNED_TO_CONTROLLER, self::CLOSED => 'badge bg-success',
+            self::RETURNED_FOR_CORRECTION, self::CANCELLED => 'badge bg-danger',
+            self::IN_PROGRESS => 'badge bg-warning text-dark',
+            self::RECEIVED => 'badge bg-info text-dark',
+            self::SENT => 'badge bg-primary',
+        };
+    }
 }

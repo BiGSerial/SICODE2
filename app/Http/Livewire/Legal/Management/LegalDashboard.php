@@ -76,75 +76,88 @@ class LegalDashboard extends Component
         return Cache::remember($this->cacheKey(), 180, function () {
             [$from, $to] = $this->periodDates();
 
-            $base = fn () => $this->applyGlobalFilters(LegalDemand::query());
+            // active = externallyActive + filtros globais; closed = externally OR internally closed
+            $active = fn () => $this->applyGlobalFilters(LegalDemand::externallyActive());
+            $closed = fn () => $this->applyGlobalFilters(LegalDemand::query())->where(function ($q) {
+                $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored']);
+
+                foreach (LegalDemand::externalClosedTerms() as $term) {
+                    $q->orWhereRaw('UPPER(external_flow_status) LIKE ?', ["%{$term}%"]);
+                }
+            });
 
             $kpis = [
-                'total_active' => $base()->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])->count(),
-                'overdue'      => $base()->overdue()->count(),
-                'overdue_7d'   => $base()->overdue()->whereRaw('DATEDIFF(NOW(), source_due_at) > 7')->count(),
-                'in_field'     => $base()->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count(),
-                'resolved'     => $base()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])->count(),
-                'resolved_int' => $base()->where('internal_status', 'closed_internal')->whereBetween('closed_at', [$from, $to])->count(),
-                'resolved_ext' => $base()->where('internal_status', 'closed_external')->whereBetween('closed_at', [$from, $to])->count(),
+                'total_active' => $active()->whereNotIn('internal_status', ['cancelled', 'ignored'])->count(),
+                'overdue'      => $active()->overdue()->count(),
+                'overdue_7d'   => $active()->overdue()->whereRaw('DATEDIFF(NOW(), source_due_at) > 7')->count(),
+                'in_field'     => $active()->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count(),
+                'resolved'     => $closed()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])->count(),
+                'resolved_int' => $closed()->where('internal_status', 'closed_internal')->whereBetween('closed_at', [$from, $to])->count(),
+                'resolved_ext' => $closed()->where('internal_status', 'closed_external')->whereBetween('closed_at', [$from, $to])->count(),
             ];
 
-            // SLA: demandas fechadas no prazo / total fechadas no período
-            $resolvedInPeriod = $base()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])->count();
-            $resolvedOnTime   = $base()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])
+            // SLA: demandas internamente fechadas no prazo / total fechadas no período
+            $resolvedInPeriod = $closed()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])->count();
+            $resolvedOnTime   = $closed()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])
                 ->whereRaw('closed_at <= source_due_at OR source_due_at IS NULL')->count();
             $kpis['sla'] = $resolvedInPeriod > 0 ? round(($resolvedOnTime / $resolvedInPeriod) * 100) : null;
 
-            // Funil por status
+            // Funil por status (ativos excluem externamente encerrados)
             $statusFunnel = [
-                'new_imported' => $base()->where('internal_status', 'new_imported')->count(),
-                'triage'       => $base()->whereIn('internal_status', ['triage', 'waiting_controller_action'])->count(),
-                'in_field'     => $base()->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count(),
-                'returned'     => $base()->whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction'])->count(),
-                'ready_close'  => $base()->where('internal_status', 'ready_to_close_external')->count(),
-                'closed'       => $base()->whereIn('internal_status', ['closed_internal', 'closed_external'])->count(),
+                'new_imported' => $active()->where('internal_status', 'new_imported')->count(),
+                'triage'       => $active()->whereIn('internal_status', ['triage', 'waiting_controller_action'])->count(),
+                'in_field'     => $active()->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count(),
+                'returned'     => $active()->whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction'])->count(),
+                'ready_close'  => $active()->where('internal_status', 'ready_to_close_external')->count(),
+                'closed'       => $closed()->count(),
             ];
 
-            // Distribuição por tipo
-            $byType = $base()->whereNotIn('internal_status', ['cancelled', 'ignored'])
+            // Distribuição por tipo (apenas ativos)
+            $byType = $active()->whereNotIn('internal_status', ['cancelled', 'ignored'])
                 ->selectRaw('source_type, COUNT(*) as total')
                 ->groupBy('source_type')
                 ->pluck('total', 'source_type');
 
-            // Top 5 áreas
-            $topAreas = $base()->whereNotIn('internal_status', ['cancelled', 'ignored'])
+            // Top 5 áreas (apenas ativos)
+            $topAreas = $active()->whereNotIn('internal_status', ['cancelled', 'ignored'])
                 ->selectRaw('origin_area_name, COUNT(*) as total')
                 ->groupBy('origin_area_name')
                 ->orderByDesc('total')
                 ->limit(5)
                 ->get();
 
-            // Heatmap: criticidade × tipo
+            // Heatmap: criticidade × tipo (apenas ativos)
             $heatmap = [];
 
             foreach (['injunction', 'sentence', 'subsidy'] as $type) {
                 $heatmap[$type] = [
-                    'overdue' => $base()->where('source_type', $type)->overdue()->count(),
-                    '3d'      => $base()->where('source_type', $type)->whereBetween('source_due_at', [now(), now()->addDays(3)])->count(),
-                    '7d'      => $base()->where('source_type', $type)->whereBetween('source_due_at', [now()->addDays(3), now()->addDays(7)])->count(),
-                    'no_date' => $base()->where('source_type', $type)->whereNull('source_due_at')->count(),
+                    'overdue' => $active()->where('source_type', $type)->overdue()->count(),
+                    '3d'      => $active()->where('source_type', $type)->whereBetween('source_due_at', [now(), now()->addDays(3)])->count(),
+                    '7d'      => $active()->where('source_type', $type)->whereBetween('source_due_at', [now()->addDays(3), now()->addDays(7)])->count(),
+                    'no_date' => $active()->where('source_type', $type)->whereNull('source_due_at')->count(),
                 ];
             }
 
-            // Ranking executantes
+            // Ranking executantes (atribuições abertas em demandas ativas)
             $executors = LegalDemandAssignment::query()
                 ->join('users', 'users.id', '=', 'legal_demand_assignments.to_user_id')
-                ->selectRaw('users.id, users.name, COUNT(*) as active_count, SUM(CASE WHEN legal_demands.source_due_at < NOW() THEN 1 ELSE 0 END) as overdue_count')
                 ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
+                ->selectRaw('users.id, users.name, COUNT(*) as active_count, SUM(CASE WHEN legal_demands.source_due_at < NOW() AND legal_demands.source_executed_at IS NULL THEN 1 ELSE 0 END) as overdue_count')
                 ->whereNotIn('legal_demand_assignments.status', ['cancelled', 'closed', 'answered'])
+                ->where(function ($q) {
+                    foreach (LegalDemand::externalClosedTerms() as $term) {
+                        $q->whereRaw('UPPER(COALESCE(legal_demands.external_flow_status, \'\')) NOT LIKE ?', ["%{$term}%"]);
+                    }
+                })
                 ->groupBy('users.id', 'users.name')
                 ->orderByDesc('active_count')
                 ->limit(10)
                 ->get();
 
-            // Top 10 críticos
-            $criticalDemands = $base()
+            // Top 10 críticos (apenas ativos)
+            $criticalDemands = $active()
                 ->with(['currentAssignee'])
-                ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
+                ->whereNotIn('internal_status', ['cancelled', 'ignored'])
                 ->orderByRaw('ISNULL(source_due_at) ASC')
                 ->orderBy('source_due_at', 'asc')
                 ->limit(10)
@@ -154,7 +167,7 @@ class LegalDashboard extends Component
             $alerts = [];
 
             if ($kpis['overdue'] > 0) {
-                $withoutResponsible = $base()->overdue()->whereNull('current_assigned_user_id')->count();
+                $withoutResponsible = $active()->overdue()->whereNull('current_assigned_user_id')->count();
 
                 if ($withoutResponsible > 0) {
                     $alerts[] = ['level' => 'danger', 'message' => "{$withoutResponsible} demandas vencidas sem responsável designado"];
@@ -165,7 +178,7 @@ class LegalDashboard extends Component
             if ($lastBatch && \Carbon\Carbon::parse($lastBatch->created_at)->diffInHours(now()) > 24) {
                 $alerts[] = ['level' => 'warning', 'message' => 'Batch de importação não executado há mais de 24h'];
             }
-            $needsReview = $base()->where('needs_identity_review', true)->count();
+            $needsReview = $active()->where('needs_identity_review', true)->count();
 
             if ($needsReview > 0) {
                 $alerts[] = ['level' => 'accent', 'message' => "{$needsReview} demandas precisam revisão de identidade"];

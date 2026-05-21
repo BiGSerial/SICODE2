@@ -13,4 +13,24 @@ enum LegalSourcePresenceStatus: string
     {
         return array_map(fn(self $case) => $case->value, self::cases());
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::PRESENT => 'Presente',
+            self::MISSING => 'Ausente',
+            self::RETURNED => 'Retornado',
+            self::IGNORED => 'Ignorado',
+        };
+    }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::PRESENT => 'badge bg-success',
+            self::MISSING => 'badge bg-danger',
+            self::RETURNED => 'badge bg-warning text-dark',
+            self::IGNORED => 'badge bg-secondary',
+        };
+    }
 }

@@ -221,9 +221,10 @@ class DemandDetail extends Component
             : $this->demand->internal_status;
 
         return view('livewire.legal.controller.demand-detail', [
-            'fieldUsers'        => $fieldUsers,
-            'currentAssignment' => $currentAssignment,
-            'statusValue'       => $statusValue,
+            'fieldUsers'         => $fieldUsers,
+            'currentAssignment'  => $currentAssignment,
+            'statusValue'        => $statusValue,
+            'isExternallyClosed' => $this->demand->isExternallyClosed(),
         ]);
     }
 }

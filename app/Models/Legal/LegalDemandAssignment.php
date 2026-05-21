@@ -4,6 +4,7 @@ namespace App\Models\Legal;
 
 use App\Enum\LegalDemandAssignmentStatus;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,12 +30,12 @@ class LegalDemandAssignment extends Model
     ];
 
     protected $casts = [
-        'status' => LegalDemandAssignmentStatus::class,
-        'sent_at' => 'datetime',
+        'status'      => LegalDemandAssignmentStatus::class,
+        'sent_at'     => 'datetime',
         'received_at' => 'datetime',
         'answered_at' => 'datetime',
         'returned_at' => 'datetime',
-        'metadata' => 'array',
+        'metadata'    => 'array',
     ];
 
     public function legalDemand()
@@ -43,6 +44,11 @@ class LegalDemandAssignment extends Model
     }
 
     public function fromUser()
+    {
+        return $this->belongsTo(User::class, 'from_user_id')->withTrashed();
+    }
+
+    public function sentBy()
     {
         return $this->belongsTo(User::class, 'from_user_id')->withTrashed();
     }
@@ -60,5 +66,20 @@ class LegalDemandAssignment extends Model
     public function files()
     {
         return $this->hasMany(LegalDemandFile::class, 'assignment_id');
+    }
+
+    public function getDueAtAttribute(): ?Carbon
+    {
+        $raw = data_get($this->metadata, 'due_at');
+
+        if (!$raw) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

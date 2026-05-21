@@ -99,6 +99,7 @@ class TriageInbox extends Component
     {
         return LegalDemand::query()
             ->with(['legalCase', 'lastSeenImportBatch'])
+            ->externallyActive()
             ->whereIn('internal_status', ['new_imported', 'triage'])
             ->when($this->search, function ($q) {
                 $s = "%{$this->search}%";
@@ -121,16 +122,11 @@ class TriageInbox extends Component
         $demands    = $this->query()->limit($this->loadedCount)->get();
         $totalCount = $this->query()->count();
 
-        $newCount    = LegalDemand::where('internal_status', 'new_imported')->count();
-        $triageCount = LegalDemand::where('internal_status', 'triage')->count();
-
         $lastBatch = LegalImportBatch::latest('created_at')->first();
 
         return view('livewire.legal.controller.triage-inbox', [
             'demands'     => $demands,
             'totalCount'  => $totalCount,
-            'newCount'    => $newCount,
-            'triageCount' => $triageCount,
             'lastBatch'   => $lastBatch,
         ]);
     }

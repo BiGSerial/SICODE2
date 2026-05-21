@@ -35,16 +35,25 @@ class AssignmentResponse extends Component
 
     // UI
     public bool $confirmingSend = false;
+    public bool $confirmingFileSave = false;
 
     public function mount(int $assignment_id): void
     {
         abort_unless(auth()->user()->can('legal.demands.answer'), 403);
 
         $this->assignmentId = $assignment_id;
-        $this->assignment   = LegalDemandAssignment::with(['legalDemand.legalCase', 'legalDemand.files', 'sentBy'])
-            ->findOrFail($assignment_id);
+        $assignment = LegalDemandAssignment::with(['legalDemand.legalCase', 'legalDemand.files', 'sentBy'])
+            ->whereKey($assignment_id)
+            ->where('to_user_id', auth()->id())
+            ->first();
 
-        abort_unless($this->assignment->to_user_id === auth()->id(), 403);
+        if (!$assignment) {
+            session()->flash('warning', 'A tarefa informada não está mais disponível.');
+            redirect()->route('legal.field.queue');
+            return;
+        }
+
+        $this->assignment = $assignment;
 
         $this->demand = $this->assignment->legalDemand;
     }
@@ -77,6 +86,68 @@ class AssignmentResponse extends Component
     public function cancelConfirm(): void
     {
         $this->confirmingSend = false;
+    }
+
+    public function updatedUploadFiles(): void
+    {
+        $this->hasEvidence = !empty($this->uploadFiles);
+    }
+
+    public function removeUploadFile(int $index): void
+    {
+        if (!isset($this->uploadFiles[$index])) {
+            return;
+        }
+
+        unset($this->uploadFiles[$index]);
+        $this->uploadFiles = array_values($this->uploadFiles);
+        $this->hasEvidence = !empty($this->uploadFiles);
+    }
+
+    public function startSaveFilesConfirm(): void
+    {
+        $this->validate([
+            'uploadFiles' => 'required|array|min:1',
+            'uploadFiles.*' => 'file|max:10240',
+        ]);
+
+        $this->confirmingFileSave = true;
+    }
+
+    public function cancelSaveFilesConfirm(): void
+    {
+        $this->confirmingFileSave = false;
+    }
+
+    public function saveFilesToTask(): void
+    {
+        $this->validate([
+            'uploadFiles' => 'required|array|min:1',
+            'uploadFiles.*' => 'file|max:10240',
+        ]);
+
+        $fileService = app(LegalDemandFileService::class);
+
+        foreach ($this->uploadFiles as $file) {
+            $fileService->store(
+                demand:       $this->demand,
+                file:         $file,
+                uploadedBy:   auth()->user(),
+                visibility:   'shared',
+                assignmentId: $this->assignment->id,
+            );
+        }
+
+        $this->uploadFiles = [];
+        $this->hasEvidence = false;
+        $this->confirmingFileSave = false;
+        $this->demand->refresh()->load('files');
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Arquivos salvos na tarefa',
+            'timer' => 1800,
+        ]);
     }
 
     public function submitResponse(): void

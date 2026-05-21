@@ -225,14 +225,17 @@ class DemandQueue extends Component
         $query = LegalDemand::query()
             ->with(['legalCase', 'controller', 'currentAssignee']);
 
-        // Tab filters
+        // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
         match ($this->tab) {
-            'triage'   => $query->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action']),
-            'in_field' => $query->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response']),
-            'returned' => $query->whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction']),
-            'overdue'  => $query->overdue(),
-            'closed'   => $query->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored']),
-            default    => $query->whereNotIn('internal_status', ['cancelled', 'ignored']),
+            'triage'   => $query->externallyActive()->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action']),
+            'in_field' => $query->externallyActive()->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response']),
+            'returned' => $query->externallyActive()->whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction']),
+            'overdue'  => $query->externallyActive()->overdue(),
+            'closed'   => $query->where(function ($q) {
+                $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
+                    ->orWhere(fn ($sub) => $sub->externallyClosed());
+            }),
+            default => $query->externallyActive()->whereNotIn('internal_status', ['cancelled', 'ignored']),
         };
 
         if ($this->search) {
@@ -274,45 +277,22 @@ class DemandQueue extends Component
         return $query;
     }
 
-    private function tabCounts(): array
-    {
-        return [
-            'triage'   => LegalDemand::whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])->count(),
-            'in_field' => LegalDemand::whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count(),
-            'returned' => LegalDemand::whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction'])->count(),
-            'overdue'  => LegalDemand::overdue()->count(),
-            'closed'   => LegalDemand::whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])->count(),
-        ];
-    }
-
-    private function kpis(): array
-    {
-        return [
-            'total_active'   => LegalDemand::whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])->count(),
-            'overdue'        => LegalDemand::overdue()->count(),
-            'awaiting_field' => LegalDemand::whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count(),
-            'returned_today' => LegalDemand::whereIn('internal_status', ['returned_by_field'])
-                ->whereDate('updated_at', today())->count(),
-        ];
-    }
-
     public function render()
     {
         $demands     = $this->baseQuery()->paginate($this->perPage);
         $controllers = User::whereIn(
             'id',
-            LegalDemand::whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
-            ->pluck('controller_user_id')
-            ->filter()
-            ->unique()
+            LegalDemand::externallyActive()
+                ->whereNotIn('internal_status', ['cancelled', 'ignored'])
+                ->pluck('controller_user_id')
+                ->filter()
+                ->unique()
         )->orderBy('name')->get();
 
         $fieldUsers = User::orderBy('name')->get();
 
         return view('livewire.legal.controller.demand-queue', [
             'demands'     => $demands,
-            'kpis'        => $this->kpis(),
-            'tabCounts'   => $this->tabCounts(),
             'controllers' => $controllers,
             'fieldUsers'  => $fieldUsers,
         ]);

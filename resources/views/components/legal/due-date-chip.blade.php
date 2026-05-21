@@ -1,9 +1,15 @@
 @props([
     'date',
-    'showIcon' => true,
+    'showIcon'   => true,
+    'executedAt' => null,
 ])
 @php
-    if (!$date) {
+    if ($executedAt) {
+        $ex     = \Carbon\Carbon::parse($executedAt);
+        $onTime = !$date || $ex->lte(\Carbon\Carbon::parse($date));
+        $dueFmt = $date ? \Carbon\Carbon::parse($date)->format('d/m/Y') : null;
+        $tooltip = 'Cumprido em ' . $ex->format('d/m/Y') . ($dueFmt ? ' · prazo era ' . $dueFmt : '');
+    } elseif (!$date) {
         $label   = 'Sem prazo';
         $icon    = '';
         $class   = 'text-muted';
@@ -35,7 +41,22 @@
         }
     }
 @endphp
-<span class="{{ $class }}" title="{{ $tooltip }}" data-bs-toggle="tooltip">
-    @if($showIcon && $icon) {{ $icon }} @endif
-    {{ $label }}
-</span>
+
+@if($executedAt)
+    {{-- Demanda encerrada: mostra prazo original + se foi no prazo --}}
+    <span title="{{ $tooltip }}" data-bs-toggle="tooltip" style="line-height:1.3">
+        @if($dueFmt)
+            <span class="text-muted d-block" style="font-size:.8em">Prazo: {{ $dueFmt }}</span>
+        @else
+            <span class="text-muted d-block" style="font-size:.8em">Sem prazo</span>
+        @endif
+        <span class="{{ $onTime ? 'text-success' : 'text-danger' }} fw-semibold">
+            {{ $onTime ? '✓ No prazo' : '⚠ Fora do prazo' }}
+        </span>
+    </span>
+@else
+    <span class="{{ $class }}" title="{{ $tooltip }}" data-bs-toggle="tooltip">
+        @if($showIcon && $icon) {{ $icon }} @endif
+        {{ $label }}
+    </span>
+@endif

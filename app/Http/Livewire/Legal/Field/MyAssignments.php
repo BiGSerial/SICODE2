@@ -61,6 +61,7 @@ class MyAssignments extends Component
     private function baseQuery()
     {
         $query = LegalDemandAssignment::query()
+            ->select('legal_demand_assignments.*')
             ->where('to_user_id', auth()->id())
             ->with(['legalDemand.legalCase', 'sentBy'])
             ->whereNotIn('status', ['cancelled', 'closed']);
@@ -88,7 +89,7 @@ class MyAssignments extends Component
                 WHEN status IN ('sent') THEN 2
                 ELSE 3
             END")
-            ->orderByRaw("ISNULL(legal_demands.source_due_at, '9999-12-31') ASC")
+            ->orderByRaw("IFNULL(legal_demands.source_due_at, '9999-12-31') ASC")
             ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id');
     }
 
