@@ -104,7 +104,7 @@ class EquipmentsDeclared extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filters = $_SESSION['filter'][$this->filter_group];

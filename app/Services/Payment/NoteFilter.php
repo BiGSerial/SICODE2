@@ -28,7 +28,7 @@ class NoteFilter
     {
         // Carrega filtros de sessão se existirem
         if (\PHP_SESSION_ACTIVE !== session_status()) {
-            @session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         if (isset($_SESSION['filter'][$filterGroup]) && is_array($_SESSION['filter'][$filterGroup])) {
             $this->filters = $_SESSION['filter'][$filterGroup];

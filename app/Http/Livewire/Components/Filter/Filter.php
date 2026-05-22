@@ -71,7 +71,7 @@ class Filter extends Component
         $this->myKey        = $myKey;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
@@ -91,7 +91,7 @@ class Filter extends Component
         if ($mkey == $this->myKey) {
 
             if (!(session_status() == PHP_SESSION_ACTIVE)) {
-                session_start();
+                if (!session()->isStarted()) { session()->start(); }
             }
 
             if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
@@ -167,7 +167,7 @@ class Filter extends Component
     public function applyFilter()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         $_SESSION['filter'][$this->group_filter][$this->myKey] = $this->items;
@@ -179,7 +179,7 @@ class Filter extends Component
     public function removeFilter()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {

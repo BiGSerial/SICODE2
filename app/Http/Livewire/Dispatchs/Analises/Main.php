@@ -116,9 +116,10 @@ class Main extends Component
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        $this->group1_l = $this->lists->orderBy('group1')->get()->pluck('group1')->unique();
-        $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
-        $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
+        // Evita carregar toda a lista em memória no mount.
+        $this->group1_l = Note::query()->select('group1')->whereNotNull('group1')->distinct()->orderBy('group1')->pluck('group1');
+        $this->group2_l = Note::query()->select('group2')->whereNotNull('group2')->distinct()->orderBy('group2')->pluck('group2');
+        $this->group5_l = Note::query()->select('group5')->whereNotNull('group5')->distinct()->orderBy('group5')->pluck('group5');
 
 
     }
@@ -480,14 +481,7 @@ class Main extends Component
 
     public function getListsProperty()
     {
-
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filter = session('filter.' . $this->filter_group, []);
 
         $query = Note::query()->excludeCanceledFullDone();
 
@@ -615,7 +609,9 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
+        $paginatedLists = $this->lists->paginate($this->perPage);
+
+        $this->filteredLists = $paginatedLists->filter(function ($list) {
 
             return !$list->Productions
                 ->where('status_note', $list->nstats)
@@ -692,7 +688,7 @@ class Main extends Component
         }
 
         return view('livewire.dispatchs.analises.main', [
-            'lists'  => $this->lists->paginate($this->perPage),
+            'lists'  => $paginatedLists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }

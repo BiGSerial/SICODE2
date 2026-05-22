@@ -16,7 +16,7 @@ class NoteFilter
         $this->btzeroform = $btzeroform;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$filterGroup])) {

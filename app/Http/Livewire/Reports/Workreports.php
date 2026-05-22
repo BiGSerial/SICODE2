@@ -189,7 +189,7 @@ class Workreports extends Component
     private function loadFilters(): array
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         
         return $_SESSION['filter'][$this->filter_group] ?? [];

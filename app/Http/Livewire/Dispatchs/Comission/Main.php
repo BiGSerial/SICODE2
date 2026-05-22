@@ -129,7 +129,7 @@ class Main extends Component
         $this->service = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
         if (isset($_SESSION['filtro']) && $_SESSION['filtro']) {
             if (isset($_SESSION['filtro']['rubrica'])) {
                 $this->rubrica_s = $_SESSION['filtro']['rubrica'];
@@ -199,7 +199,7 @@ class Main extends Component
     {
         $this->gotoPage(1);
         // session()->put('filtro', $this->rubrica_s);
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
         $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
         $_SESSION['filtro']['city'] = $this->city_s;
         $_SESSION['filtro']['district'] = $this->district_s;
@@ -217,7 +217,7 @@ class Main extends Component
         $this->district_s = [];
         $this->region_s = [];
 
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
         if (isset($_SESSION['filtro'])) {
             unset($_SESSION['filtro']);
         }

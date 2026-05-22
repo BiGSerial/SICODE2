@@ -16,7 +16,7 @@ class RemoveAll extends Component
     public function clean_all_filters()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         session()->forget("filter.{$this->group_filter}");

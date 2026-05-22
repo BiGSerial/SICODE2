@@ -137,7 +137,7 @@ class Main extends Component
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {

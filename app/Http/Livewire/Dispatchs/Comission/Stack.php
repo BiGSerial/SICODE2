@@ -121,7 +121,7 @@ class Stack extends Component
     private function ensureFilterState(): void
     {
         if (\PHP_SESSION_ACTIVE !== session_status()) {
-            @session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         $this->filter = $_SESSION['filter'][$this->filterGroup] ?? [];

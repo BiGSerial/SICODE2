@@ -168,7 +168,7 @@ class Stack extends Component
         $this->gotoPage(1);
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
@@ -195,7 +195,7 @@ class Stack extends Component
 
         $this->multiSearch = [];
 
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
 
         if (isset($_SESSION['filtro'])) {
             unset($_SESSION['filtro']);

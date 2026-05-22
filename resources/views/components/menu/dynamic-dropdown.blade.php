@@ -185,7 +185,7 @@
         </a>
         {{ $triggerAppend ?? '' }}
         <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
-            style="background-color: #dbd8d8; width: {{ $width }};">
+            style="width: {{ $width }};">
             @include('components.menu.partials.services-dropdown-style')
 
             @if ($layout === 'inline')

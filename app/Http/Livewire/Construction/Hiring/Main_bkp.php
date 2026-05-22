@@ -99,7 +99,7 @@ class Main_bkp extends Component
         }
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
 
@@ -125,7 +125,7 @@ class Main_bkp extends Component
             return (new HiringListExport($query))->download(date('YmdHis-') . 'exportOrdersList.xlsx');
         } else {
             if (!(session_status() == PHP_SESSION_ACTIVE)) {
-                session_start();
+                if (!session()->isStarted()) { session()->start(); }
             }
 
             if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -772,7 +772,7 @@ class Main_bkp extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {

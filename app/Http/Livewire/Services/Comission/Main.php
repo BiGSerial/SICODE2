@@ -134,7 +134,7 @@ class Main extends Component
     public function filter_save()
     {
         // session()->put('filtro', $this->rubrica_s);
-        // session_start();
+        // if (!session()->isStarted()) { session()->start(); }
         // $_SESSION['filtro'] = $this->rubrica_s;
         $this->emit('refresh_service');
 
@@ -144,7 +144,7 @@ class Main extends Component
     {
         $this->rubrica_s = [];
 
-        // session_start();
+        // if (!session()->isStarted()) { session()->start(); }
         // if (isset($_SESSION['filtro'])) {
         //     unset($_SESSION['filtro']);
         // }
