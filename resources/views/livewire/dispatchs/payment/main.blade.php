@@ -87,6 +87,7 @@
                     </button>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -555,6 +556,18 @@
                 <div>
                     <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
                         wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="px-3 pt-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="multiSearchAnySituation"
+                            wire:model="multi_search_any_situation">
+                        <label class="form-check-label text-danger" for="multiSearchAnySituation">
+                            Buscar notas em qualquer situação (modo de risco)
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        Use apenas quando necessário. Este modo pode exibir notas fora do fluxo padrão e exige conferência manual antes do despacho.
+                    </small>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>

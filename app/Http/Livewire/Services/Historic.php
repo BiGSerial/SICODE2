@@ -203,10 +203,10 @@ class Historic extends Component
             ->when($this->date_prod_s, function ($q) {
                 $q->whereRaw('DATE_FORMAT(completed_at, "%Y-%m") = ?', [$this->date_prod_s]);
             })
-            ->when($this->date_from, function ($q) {
+            ->when($this->date_from, function ($q) use ($dateField) {
                 $q->whereDate($dateField, '>=', $this->date_from);
             })
-            ->when($this->date_to, function ($q) {
+            ->when($this->date_to, function ($q) use ($dateField) {
                 $q->whereDate($dateField, '<=', $this->date_to);
             })
             ->with(['Note' => function ($query) {

@@ -16,6 +16,7 @@ use App\Models\ProjectReviewSubcategory;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -538,82 +539,127 @@ class Queue extends Component
     public function openReview(int $productionId): void
     {
         $this->resetReviewForm();
+        Log::info('project_review.openReview.start', ['production_id' => $productionId, 'user_id' => auth()->id()]);
 
-        $this->selectedProduction = Production::with([
-            'Note',
-            'Note.Files.Service',
-            'User',
-            'Company',
-            'Service',
-            'Files',
-            'Analise',
-            'ProjectReviewCycles' => function ($q) {
-                $q->with([
+        try {
+            $this->selectedProduction = Production::with([
+                'Note',
+                'User',
+                'Company',
+                'Service',
+                'Analise',
+                'ProjectReviewCycles' => function ($q) {
+                    $q->with([
+                        'Orders',
+                        'DecidedBy',
+                    ])->latest('round_number');
+                },
+            ])->findOrFail($productionId);
+
+            $this->selectedCycle = ProjectReviewCycle::query()
+                ->with([
                     'Orders',
                     'Findings.Subcategory.Category',
                     'Findings.Item',
                     'DecidedBy',
                     'Messages.User',
-                ])->latest('round_number');
-            },
-        ])->findOrFail($productionId);
+                ])
+                ->where('production_id', $this->selectedProduction->id)
+                ->orderByRaw("CASE WHEN decision = 'PENDING' THEN 0 ELSE 1 END")
+                ->orderByDesc('round_number')
+                ->orderByDesc('id')
+                ->first();
 
-        $this->selectedCycle = $this->selectedProduction->ProjectReviewCycles
-            ->firstWhere('decision', 'PENDING')
-            ?: $this->selectedProduction->ProjectReviewCycles->first();
+            if (!$this->selectedCycle) {
+                Log::warning('project_review.openReview.no_cycle', ['production_id' => $productionId]);
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Rodada não encontrada',
+                    'html' => 'Não encontramos rodadas de Análise de Projeto para esta produção.',
+                    'timer' => 3500,
+                ]);
+                return;
+            }
 
-        $this->drawingProduction = $this->resolveDrawingProduction($this->selectedProduction);
+            if ($this->selectedCycle) {
+                $this->findingRows = $this->selectedCycle->Findings->map(function ($f) {
+                    return [
+                        'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
+                        'subcategory_id' => (int) $f->subcategory_id,
+                        'item_id' => $f->item_id ? (int) $f->item_id : null,
+                        'item_name' => optional($f->Item)->name,
+                        'origin' => (string) ($f->origin ?: 'PROJETO'),
+                        'action_type' => $f->action_type,
+                        'quantity' => $f->quantity,
+                        'note' => $f->note,
+                        'is_conform' => false,
+                    ];
+                })->values()->all();
 
-        if ($this->selectedCycle) {
-            $this->findingRows = $this->selectedCycle->Findings->map(function ($f) {
-                return [
-                    'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
-                    'subcategory_id' => (int) $f->subcategory_id,
-                    'item_id' => $f->item_id ? (int) $f->item_id : null,
-                    'item_name' => optional($f->Item)->name,
-                    'origin' => (string) ($f->origin ?: 'PROJETO'),
-                    'action_type' => $f->action_type,
-                    'quantity' => $f->quantity,
-                    'note' => $f->note,
-                    'is_conform' => false,
-                ];
-            })->values()->all();
+                if (
+                    $this->selectedCycle->decision === 'PENDING'
+                    && empty($this->findingRows)
+                ) {
+                    $previousRejectedCycle = $this->selectedProduction->ProjectReviewCycles
+                        ->where('round_number', '<', $this->selectedCycle->round_number)
+                        ->where('decision', 'REJECTED')
+                        ->sortByDesc('round_number')
+                        ->first();
 
-            if (
-                $this->selectedCycle->decision === 'PENDING'
-                && empty($this->findingRows)
-            ) {
-                $previousRejectedCycle = $this->selectedProduction->ProjectReviewCycles
-                    ->where('round_number', '<', $this->selectedCycle->round_number)
-                    ->where('decision', 'REJECTED')
-                    ->sortByDesc('round_number')
-                    ->first();
+                    if ($previousRejectedCycle) {
+                        $previousRejectedCycle = ProjectReviewCycle::query()
+                            ->with([
+                                'Findings.Subcategory.Category',
+                                'Findings.Item',
+                            ])
+                            ->find($previousRejectedCycle->id);
+                    }
 
-                if ($previousRejectedCycle) {
-                    $this->findingRows = $previousRejectedCycle->Findings->map(function ($f) {
-                        return [
-                            'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
-                            'subcategory_id' => (int) $f->subcategory_id,
-                            'item_id' => $f->item_id ? (int) $f->item_id : null,
-                            'item_name' => optional($f->Item)->name,
-                            'origin' => (string) ($f->origin ?: 'PROJETO'),
-                            'action_type' => $f->action_type,
-                            'quantity' => $f->quantity,
-                            'note' => $f->note,
-                            'is_conform' => false,
-                        ];
-                    })->values()->all();
+                    if ($previousRejectedCycle) {
+                        $this->findingRows = $previousRejectedCycle->Findings->map(function ($f) {
+                            return [
+                                'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
+                                'subcategory_id' => (int) $f->subcategory_id,
+                                'item_id' => $f->item_id ? (int) $f->item_id : null,
+                                'item_name' => optional($f->Item)->name,
+                                'origin' => (string) ($f->origin ?: 'PROJETO'),
+                                'action_type' => $f->action_type,
+                                'quantity' => $f->quantity,
+                                'note' => $f->note,
+                                'is_conform' => false,
+                            ];
+                        })->values()->all();
+                    }
                 }
             }
+
+            $this->restoreDraft();
+
+            if ($this->selectedPointLabel === '') {
+                $this->selectedPointLabel = $this->normalizePointLabel($this->availablePointLabels->first() ?? '');
+            }
+
+            Log::info('project_review.openReview.success', [
+                'production_id' => $this->selectedProduction->id ?? null,
+                'cycle_id' => $this->selectedCycle->id ?? null,
+                'round' => $this->selectedCycle->round_number ?? null,
+            ]);
+            $this->dispatchBrowserEvent('showModal', ['id' => 'projectReviewModal']);
+        } catch (\Throwable $e) {
+            report($e);
+            Log::error('project_review.openReview.error', [
+                'production_id' => $productionId,
+                'message' => $e->getMessage(),
+            ]);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'Não foi possível abrir a análise',
+                'html' => 'A solicitação falhou ao carregar os dados da produção. Atualize a tela e tente novamente.',
+                'timer' => 4200,
+            ]);
         }
-
-        $this->restoreDraft();
-
-        if ($this->selectedPointLabel === '') {
-            $this->selectedPointLabel = $this->normalizePointLabel($this->availablePointLabels->first() ?? '');
-        }
-
-        $this->dispatchBrowserEvent('showModal', ['id' => 'projectReviewModal']);
     }
 
     public function openReviewFromNotification($productionId): void
@@ -1564,6 +1610,15 @@ class Queue extends Component
             ->first();
 
         if (!$draft) {
+            // Fallback: quando o ciclo mudou, reaproveita o rascunho mais recente da produção do mesmo usuário.
+            $draft = ProjectReviewDraft::query()
+                ->where('production_id', $this->selectedProduction->id)
+                ->where('user_id', auth()->id())
+                ->latest('updated_at')
+                ->first();
+        }
+
+        if (!$draft) {
             return;
         }
 
@@ -1744,7 +1799,7 @@ class Queue extends Component
 
     public function render()
     {
-        $lists = $this->selectedProduction ? collect() : $this->lists;
+        $lists = $this->lists;
 
         return view('livewire.project-review.queue', [
             'lists' => $lists,

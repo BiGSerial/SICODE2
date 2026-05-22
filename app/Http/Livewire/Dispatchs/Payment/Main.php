@@ -75,6 +75,7 @@ class Main extends Component
     public $typeNote = '';
 
     public $filter_d5 = false;
+    public $multi_search_any_situation = false;
 
     // Grupo de filtro (usado pelo NoteFilter)
     private $filter_group = 'payments';
@@ -162,6 +163,19 @@ class Main extends Component
     public function filterD5()
     {
         $this->filter_d5 = !$this->filter_d5;
+    }
+
+    public function updatedMultiSearchAnySituation($value)
+    {
+        if ((bool) $value && !empty($this->advanceSearch)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Modo de risco ativado',
+                'html'     => 'Você habilitou a busca em qualquer situação. Isso pode exibir notas fora do fluxo padrão e aumentar risco operacional. Use apenas com conferência manual.',
+                'timer'    => 5000,
+            ]);
+        }
     }
 
     /**
@@ -343,6 +357,7 @@ class Main extends Component
         $this->group5_s   = [];
 
         $this->multiSearch = [];
+        $this->multi_search_any_situation = false;
 
         if (!isset($_SESSION)) {
             session_start();
@@ -440,9 +455,14 @@ class Main extends Component
         }
 
         // 4) Confirmação
+        $message = "Você está prestes a despachar {$this->notes->count()} nota(s) para {$para}.";
+        if ($this->multi_search_any_situation && !empty($this->multiSearch)) {
+            $message .= "<br><br><div class='text-start'><strong>Atenção:</strong> a busca em qualquer situação da busca em massa está ativa. Esta operação pode incluir notas fora do fluxo padrão. Revise a seleção antes de confirmar.</div>";
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a despachar {$this->notes->count()} nota(s) para {$para}.",
+            'msg'           => $message,
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Despache!',
             'btnCanceltxt'  => 'Não, Cancele',
@@ -688,6 +708,7 @@ class Main extends Component
         $this->type           = '';
         $this->additionalData = [];
         $this->multiSearch    = [];
+        $this->multi_search_any_situation = false;
         $this->advanceSearch  = '';
         $this->search         = '';
     }
@@ -701,6 +722,9 @@ class Main extends Component
             $multi = preg_split("/[\n,; ]+/", $this->advanceSearch);
             $multi = array_filter(array_map('trim', $multi));
             $this->multiSearch = array_values($multi);
+        } else {
+            $this->multiSearch = [];
+            $this->multi_search_any_situation = false;
         }
 
         if (count($this->multiSearch)) {
@@ -719,8 +743,11 @@ class Main extends Component
      */
     private function baseQuery()
     {
-        $base = $this->noteFilter
-            ->filter($this->search, $this->filter_group)
+        $useAnySituationFromMassSearch = $this->multi_search_any_situation && !empty($this->multiSearch);
+
+        $base = ($useAnySituationFromMassSearch
+            ? Note::query()
+            : $this->noteFilter->filter($this->search, $this->filter_group))
             ->select([
                 'notes.id',
                 'notes.note',

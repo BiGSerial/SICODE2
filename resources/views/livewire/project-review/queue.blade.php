@@ -49,6 +49,24 @@
             border: 1px solid var(--oe-border);
             border-radius: 1rem;
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            overflow: visible;
+        }
+
+        .table-card > .card-header {
+            padding: .8rem 1rem;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+        }
+
+        .table-card > .card-body {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .table-card .table-responsive {
+            margin: 0 1rem 1rem 1rem;
+            border: 1px solid var(--oe-border);
+            border-radius: .75rem;
             overflow: hidden;
         }
 
@@ -372,11 +390,6 @@
                             @php
                                 $cycle = collect($prod->ProjectReviewCycles)->sortByDesc('round_number')->first();
                                 $orders = $cycle?->Orders ?? collect();
-                                if ($orders->isEmpty()) {
-                                    $orders = $prod->ProjectReviewCycles->first(function ($c) {
-                                        return $c->Orders->count() > 0;
-                                    })?->Orders ?? collect();
-                                }
                                 $orders = collect($orders)
                                     ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
                                     ->values();
@@ -490,7 +503,15 @@
                                     {{ $prazoRealValue }}
                                 </td>
                                 <td>{{ $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---' }}</td>
-                                <td><button class="btn btn-sm btn-outline-primary" wire:click="openReview({{ $prod->id }})">Abrir</button></td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        wire:click.prevent="openReview({{ (int) $prod->id }})"
+                                    >
+                                        Abrir
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr><td colspan="13" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
@@ -584,7 +605,7 @@
                                             }
 
                                             $historyGrouped = $orderHistory
-                                                ->groupBy('order_number')
+                                                ->groupBy(fn ($row) => trim((string) ($row['order_number'] ?? '')))
                                                 ->map(function ($rows) {
                                                     $rows = collect($rows)->sortBy('round')->values();
                                                     $prev = null;
@@ -594,7 +615,8 @@
                                                         $prev = (float) $row['total_cost'];
                                                         return $row;
                                                     });
-                                                });
+                                                })
+                                                ->sortKeysUsing(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b));
 
                                             // Totalizador da diferença por rodada (não por número da ordem),
                                             // para cobrir cenários de troca/cancelamento de ordem entre ciclos.
@@ -667,8 +689,6 @@
                                                 }
                                             }
 
-                                            $sumNet = round($sumIncrease - $sumEconomy, 2);
-
                                             $baseCycle = $cyclesAsc->first();
                                             $currentCycle = $cyclesAsc->first(function ($cy) use ($selectedCycle) {
                                                 return (int) ($cy->id ?? 0) === (int) ($selectedCycle->id ?? 0);
@@ -705,6 +725,19 @@
 
                                             $baseRows = $normalizeOrderRows($baseCycle?->Orders ?? collect())->values();
                                             $currentRows = $normalizeOrderRows($currentCycle?->Orders ?? collect())->values();
+                                            if ($currentRows->isEmpty()) {
+                                                $fallbackCycleWithOrders = $cyclesAsc
+                                                    ->filter(function ($cy) use ($currentCycle) {
+                                                        return (int) ($cy->round_number ?? 0) <= (int) ($currentCycle->round_number ?? 0)
+                                                            && collect($cy->Orders ?? collect())->count() > 0;
+                                                    })
+                                                    ->sortByDesc('round_number')
+                                                    ->first();
+
+                                                if ($fallbackCycleWithOrders) {
+                                                    $currentRows = $normalizeOrderRows($fallbackCycleWithOrders->Orders ?? collect())->values();
+                                                }
+                                            }
 
                                             $maxRows = max($baseRows->count(), $currentRows->count());
                                             $comparisonRows = collect(range(0, max(0, $maxRows - 1)))->map(function ($idx) use ($baseRows, $currentRows) {
@@ -722,6 +755,17 @@
                                                     'delta_total' => round($newTotal - $oldTotal, 2),
                                                 ];
                                             })->values();
+
+                                            // O totalizador deve refletir exatamente o comparativo exibido acima.
+                                            $sumIncrease = round((float) $comparisonRows->sum(function ($row) {
+                                                $delta = (float) ($row['delta_total'] ?? 0);
+                                                return $delta > 0 ? $delta : 0;
+                                            }), 2);
+                                            $sumEconomy = round((float) $comparisonRows->sum(function ($row) {
+                                                $delta = (float) ($row['delta_total'] ?? 0);
+                                                return $delta < 0 ? abs($delta) : 0;
+                                            }), 2);
+                                            $sumNet = round($sumIncrease - $sumEconomy, 2);
                                         @endphp
                                         <div class="fw-semibold mb-1">Comparativo de ordens (origem x rodada {{ $selectedCycle->round_number }})</div>
                                         <div class="table-responsive border rounded mb-3" style="max-height: 220px;">
@@ -1237,6 +1281,13 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="d-flex align-items-center justify-content-center py-5">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
+                                <div class="small text-muted">Carregando dados da análise...</div>
                             </div>
                         </div>
                     @endif

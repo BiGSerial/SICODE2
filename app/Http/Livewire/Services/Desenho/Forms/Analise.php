@@ -1533,7 +1533,6 @@ class Analise extends Component
                 : now();
             if (!$isSapReleaseFinalizeFlow && $sendToProjectReview) {
                 $this->validateProjectReviewPayload();
-                $hasProjectReviewChanges = $this->hasProjectReviewPayloadChanges();
 
                 $nextRound = ((int) $this->production->ProjectReviewCycles()->max('round_number')) + 1;
 
@@ -1546,16 +1545,14 @@ class Analise extends Component
                     'decision' => 'PENDING',
                 ]);
 
-                if ($hasProjectReviewChanges) {
-                    foreach (array_values($this->reviewOrders) as $index => $row) {
-                        $cycle->Orders()->create([
-                            'order_number' => trim((string) $row['order_number']),
-                            'total_cost' => (float) $row['total_cost'],
-                            'company_cost' => (float) $row['company_cost'],
-                            'client_cost' => (float) $row['client_cost'],
-                            'sort_order' => $index,
-                        ]);
-                    }
+                foreach (array_values($this->reviewOrders) as $index => $row) {
+                    $cycle->Orders()->create([
+                        'order_number' => trim((string) $row['order_number']),
+                        'total_cost' => (float) $row['total_cost'],
+                        'company_cost' => (float) $row['company_cost'],
+                        'client_cost' => (float) $row['client_cost'],
+                        'sort_order' => $index,
+                    ]);
                 }
             }
 

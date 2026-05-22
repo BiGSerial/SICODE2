@@ -21,7 +21,16 @@ class CheckPartial extends Component
     public function show_form(Partial $form)
     {
 
-        $this->form = $form->load(['Note', 'Company', 'User', 'Engineer', 'Supervisor', 'Payer']);
+        $this->form = $form->load([
+            'Note',
+            'Company',
+            'User',
+            'Engineer',
+            'Supervisor',
+            'Payer',
+            'Orders',
+            'Files.Service',
+        ]);
 
         // dd($this->form);
 
