@@ -4,795 +4,651 @@
     use App\Enum\ProtestJobStatus;
 @endphp
 
-<div>
-    {{-- Loading --}}
-    <x-show-loading />
+<div class="monitoring-page">
+    <div class="container-fluid">
+        <x-show-loading />
 
-    {{-- Top Controls --}}
-    <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
-        <div class="flex-grow-1 position-relative">
-            <input wire:model.debounce.500ms="search" class="form-control" id="searchInput" placeholder="Buscar..." />
-            <button type="button"
-                class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2 border-0"
-                data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca mÃºltipla">
-                <i class="ri-checkbox-multiple-blank-line"></i>
-            </button>
-        </div>
-
-        <select class="form-select w-auto" wire:model="perPage">
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-        </select>
-
-        @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'protests', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
-        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'protests', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'protests', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-        @livewire('components.filter.remove-all', ['group_filter' => 'protests'], key('removeAll'))
-
-        <div class="d-flex gap-2">
-            <div class="form-group">
-                <label for="protestTypeFilter" class="form-label small mb-1">Tipo de Protesto</label>
-                <select id="protestTypeFilter" class="form-select form-select-sm" wire:model="selectedProtestType"
-                    style="min-width: 180px;">
-                    <option value="">Todos</option>
-                    @foreach ($protest_Types as $type)
-                        <option value="{{ $type->protest_type }}">{{ $type->protest_type_label }}</option>
-                    @endforeach
-                </select>
+        <div class="monitoring-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>RECLAMAÇÕES EM ABERTO</h2>
+                <div class="meta">Fila de despacho sem atividade válida em andamento</div>
             </div>
-
-            <div class="form-group">
-                <label for="tipoNotaFilter" class="form-label small mb-1">Tipo de Nota</label>
-                <select id="tipoNotaFilter" class="form-select form-select-sm" wire:model="selectedTipoNota"
-                    style="min-width: 150px;">
-                    <option value="">Todos</option>
-                    @foreach ($tipoNotas as $tipo)
-                        <option value="{{ $tipo->tipoNota }}">{{ $tipo->tipoNota }}</option>
-                    @endforeach
-                </select>
+            <div class="text-lg-end">
+                <div class="meta">Itens na fila</div>
+                <div><strong>{{ $lists->total() ?? 0 }}</strong></div>
             </div>
         </div>
-    </div>
 
-    {{-- Cards resumo por status --}}
-    <div class="row g-3 mb-4">
-        <div class="col-md-6 col-lg-6">
-            <button type="button"
-                class="status-summary-card status-summary-card--warning {{ $statusCardFilter === 'due_today' ? 'is-active' : '' }}"
-                wire:click="setStatusCardFilter('due_today')">
-                <div class="status-summary-icon">
-                    <i class="ri-timer-2-line"></i>
+        <div class="card mb-3 border-0 bg-transparent filters-grid">
+            <div class="card-body px-0">
+                <div class="filter-card">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <label for="perPageSelect">Registros por página</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-7 col-lg-6">
+                            <div class="form-floating position-relative">
+                                <input wire:model.debounce.500ms="search" class="form-control border border-secondary"
+                                    id="searchInput" placeholder="Buscar por nota, cidade ou classificação..." />
+                                <label for="searchInput">Buscar por nota, cidade ou classificação</label>
+
+                                <button type="button"
+                                    class="btn btn-outline-secondary position-absolute top-50 translate-middle-y me-2 border-0"
+                                    style="right: .35rem;" data-bs-toggle="modal" data-bs-target="#buscarMultiModal"
+                                    title="Busca múltipla">
+                                    <i class="ri-checkbox-multiple-blank-line"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" id="filterTypeNote" wire:model="selectedTipoNota" multiple size="4">
+                                    @foreach ($tipoNotas as $tipo)
+                                        <option value="{{ $tipo->tipoNota }}">{{ $tipo->tipoNota }}</option>
+                                    @endforeach
+                                </select>
+                                <label for="filterTypeNote">Tipo de nota</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" id="filterProtestType"
+                                    wire:model="selectedProtestType" multiple size="4">
+                                    @foreach ($protest_Types as $type)
+                                        <option value="{{ $type->protest_type }}">{{ $type->protest_type_label }}</option>
+                                    @endforeach
+                                </select>
+                                <label for="filterProtestType">Tipo de Reclamação</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 align-items-end mt-0 mt-md-3">
+                        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" id="filterCity" wire:model="cityFilter" multiple size="4">
+                                    @foreach ($cityOptions as $city)
+                                        <option value="{{ $city }}">{{ $city }}</option>
+                                    @endforeach
+                                </select>
+                                <label for="filterCity">Município</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" id="filterCodf" wire:model="selectedCodf" multiple size="4">
+                                    @foreach ($codfOptions as $codf)
+                                        <option value="{{ $codf }}">{{ $codf }}</option>
+                                    @endforeach
+                                </select>
+                                <label for="filterCodf">CodF</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-secondary"
+                                wire:click="$set('search',''); $set('advanceSearch',''); $set('multisearch',[]); $set('selectedTipoNota',[]); $set('selectedProtestType',[]); $set('cityFilter', []); $set('selectedCodf', []); $set('statusCardFilter', null); $set('histogramBucket', null); $set('page',1)">
+                                <i class="ri-eraser-line me-1"></i>
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="status-summary-body">
-                    <span class="status-summary-label">Vencendo hoje</span>
-                    <span class="status-summary-value">{{ $dueTodayCount }}</span>
-                    <small>dtFimMedidaDesej = hoje</small>
-                </div>
-            </button>
+            </div>
         </div>
-        <div class="col-md-6 col-lg-6">
-            <button type="button"
-                class="status-summary-card status-summary-card--danger {{ $statusCardFilter === 'overdue' ? 'is-active' : '' }}"
-                wire:click="setStatusCardFilter('overdue')">
-                <div class="status-summary-icon">
-                    <i class="ri-error-warning-line"></i>
-                </div>
-                <div class="status-summary-body">
-                    <span class="status-summary-label">Vencidos</span>
-                    <span class="status-summary-value">{{ $overdueCount }}</span>
-                    <small>dtFimMedidaDesej < hoje</small>
-                </div>
-            </button>
-        </div>
-    </div>
 
-    {{-- Header da tabela / aÃ§Ãµes --}}
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <h5 class="mb-0 text-uppercase d-flex align-items-center gap-2">
-            <i class="ri-alert-line"></i>
-            Reclamações
-        </h5>
-
-        <button wire:click="exportToExcel" class="btn btn-success btn-sm">
-            <i class="ri-file-excel-2-line me-1"></i>
-            Exportar Excel
-        </button>
-    </div>
-
-    <div class="d-flex justify-content-between align-items-center mt-2">
-        {{ $lists->links() }}
-        <div class="text-muted small">
-            Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }}
-            registros
-        </div>
-    </div>
-    {{-- Tabela compacta --}}
-    <div class="table-responsive bg-white shadow-sm rounded">
-        <table class="table table-sm table-hover modern-table align-middle mb-0">
-            <thead class="table-dark">
-                <tr class="align-middle text-center">
-                    {{-- <th style="width:15px;">#M</th> --}}
-                    <th style="width:15px;">M</th>
-                    <th>Nota</th>
-                    <th>Tipo</th>
-                    <th>Cod</th>
-                    <th>TipoReclamação</th>
-                    <th>TxCodeMedida</th>
-                    <th>CausaRaiz</th>
-                    <th>Origem</th>
-                    <th>Município</th>
-                    <th>Abertura Reclamação</th>
-                    <th>Abertura Medida</th>
-                    <th>Tempo Medida</th>
-                    <th>Desejada</th>
-                    <th>Status Resposta</th>
-                    <th style="width:48px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($lists as $protest)
-                    @php
-                        $activeMed =
-                            $protest->medProtests->sortByDesc('dtCriacaoMedida')->firstWhere('statusSist', 'MEDA') ??
-                            $protest->medProtests->sortByDesc('dtCriacaoMedida')->first();
-                        $startDate = $protest->dtAberturaNota;
-                        $startMedDate = optional($activeMed)->dtCriacaoMedida;
-
-                        $deadline =
-                            $protest->tipoNota === 'NA'
-                                ? $protest->dtConclusaoDesej
-                                : optional($activeMed)->dtFimMedidaDesej;
-
-                        $elapsed = $startDate
-                            ? Carbon::parse($startDate)
-                                ->startOfDay()
-                                ->diffInDays(now()->startOfDay())
-                            : '—';
-                        $elapsedMed = $startMedDate
-                            ? Carbon::parse($startMedDate)
-                                ->startOfDay()
-                                ->diffInDays(now()->startOfDay())
-                            : '—';
-
-                        $deadlineBadge = [
-                            'label' => 'Sem prazo',
-                            'class' => 'badge bg-secondary-subtle text-secondary',
-                            'date' => '—',
-                        ];
-
-                        if ($deadline) {
-                            $deadlineDate = Carbon::parse($deadline);
-                            $deadlineBadge['date'] = $deadlineDate->format('d/m/Y');
-
-                            if ($deadlineDate->endOfDay()->isPast()) {
-                                $deadlineBadge['label'] = 'Vencido';
-                                $deadlineBadge['class'] = 'badge text-bg-danger bg-opacity-70';
-                            } elseif ($deadlineDate->diffInDays() <= 2) {
-                                $deadlineBadge['label'] = 'Vencendo';
-                                $deadlineBadge['class'] = 'badge  text-bg-warning bg-opacity-50';
-                            } else {
-                                $deadlineBadge['label'] = 'No prazo';
-                                $deadlineBadge['class'] = 'badge  text-bg-success bg-opacity-70';
-                            }
-                        }
-
-                        $latestJob = $activeMed?->ProtestJobs->first();
-                        $jobStatusLabel = 'Sem Job';
-                        $jobStatusClass = 'badge bg-secondary-subtle text-secondary';
-
-                        if ($latestJob) {
-                            $statusValue = $latestJob->status;
-                            $enum =
-                                $statusValue instanceof ProtestJobStatus
-                                    ? $statusValue
-                                    : ProtestJobStatus::tryFrom((string) $statusValue);
-
-                            $jobStatusLabel = $enum ? $enum->label() : Str::headline((string) $statusValue);
-
-                            $jobStatusClass = match ($enum?->value ?? (string) $statusValue) {
-                                'done' => 'badge bg-success-subtle text-success',
-                                'waiting' => 'badge bg-dark-subtle text-dark',
-                                'in_progress' => 'badge bg-warning-subtle text-warning',
-                                'canceled' => 'badge bg-danger-subtle text-danger',
-                                default => 'badge bg-primary-subtle text-primary',
-                            };
-                        }
-                    @endphp
-                    <tr wire:key="list-{{ $protest->id }}"
-                        ondblclick="window.location.href='{{ route('protests.dispatch.view', ['protest' => $protest->nota]) }}'"
-                        class="align-middle text-center">
-                        {{-- <td>{{ $protest->medProtests->count() }}</td> --}}
-                        <td>{{ $activeMed?->med_id ?? '—' }}</td>
-                        <td class="fw-semibold">{{ $protest->nota }}</td>
-                        <td>{{ $protest->tipoNota }}</td>
-                        <td>{{ $activeMed?->codMedida ?? '—' }}</td>
-                        <td>{{ $activeMed?->txtCodMedida ?? '—' }}</td>
-                        <td class="small">{{ $activeMed?->txtCodCodificacao ?? '—' }}</td>
-                        <td class="small">{{ Str::limit($protest->descCausa ?? '—', 22) }}</td>
-                        <td class="small">{{ Str::limit($protest->descricao ?? '—', 22) }}</td>
-                        <td class="small">{{ $protest->cidade ?? '—' }}</td>
-                        <td>{{ optional($startDate)->format('d/m/Y') ?? '—' }}</td>
-                        <td>{{ optional($startMedDate)->format('d/m/Y') ?? '—' }}</td>
-                        <td>
-                            <div class="d-flex flex-column lh-1">
-                                <span class="fw-semibold badge text-bg-secondary">{{ $elapsedMed }} d</span>
-                                @if ($startMedDate)
-                                    <small
-                                        class="text-muted">{{ $startMedDate->diffForHumans(['short' => true]) }}</small>
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-lg-8">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body histogram-card-body">
+                        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                            <div class="fw-semibold">Histograma de Previsões Mensais (Em aberto)</div>
+                            <div class="d-flex gap-2">
+                                <select class="form-select form-select-sm" wire:model="histogramSource" style="min-width: 170px;">
+                                    <option value="desired">Data desejada</option>
+                                    <option value="sla">Data SLA (se existir)</option>
+                                </select>
+                                @if (!empty($histogramData['selectedBucket']))
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearHistogramFilter">
+                                        Limpar mês
+                                    </button>
                                 @endif
                             </div>
-                        </td>
-                        <td>
-                            <span class="{{ $deadlineBadge['class'] }}">
-                                {{ $deadlineBadge['date'] }} · {{ $deadlineBadge['label'] }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="{{ $jobStatusClass }}">{{ $jobStatusLabel }}</span>
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
-                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="ri-more-2-fill"></i>
+                        </div>
+                        <div id="lists-histogram-data" data-payload='@json($histogramData)'></div>
+                        <div class="histogram-chart-wrap" wire:ignore>
+                            <canvas id="listsHistogram"></canvas>
+                        </div>
+                        @php
+                            $selectedBucket = (string) ($histogramData['selectedBucket'] ?? '');
+                            $monthKeys = (array) ($histogramData['monthKeys'] ?? []);
+                            $monthTotals = (array) ($histogramData['monthTotals'] ?? []);
+                            $monthLabels = (array) ($histogramData['monthLabels'] ?? []);
+                        @endphp
+                        <div class="d-flex flex-wrap gap-2 mt-3 justify-content-center">
+                            @foreach ($monthKeys as $monthKey)
+                                @php
+                                    $monthTotal = (int) ($monthTotals[$monthKey] ?? 0);
+                                    $isActive = $selectedBucket !== '' && $selectedBucket === $monthKey;
+                                    $monthLabel = $monthLabels[$monthKey] ?? $monthKey;
+                                @endphp
+                                <button type="button" class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                    @disabled($monthTotal <= 0)
+                                    wire:click="setHistogramBucket('{{ $monthKey }}')">
+                                    {{ $monthLabel }}
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <button class="dropdown-item" type="button"
-                                            wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $activeMed->id }})">
-                                            <i class="ri-send-plane-line me-1"></i> Gerenciar / Criar atividade
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button class="dropdown-item" type="button"
-                                            wire:click="confirmAutoDemand({{ $activeMed->id }})">
-                                            <i class="ri-robot-line me-1"></i> Auto demanda
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button class="dropdown-item" type="button"
-                                            wire:click="goTo({{ $protest->nota }})">
-                                            <i class="ri-external-link-line me-1"></i> Abrir protesto
-                                        </button>
-                                    </li>
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="13" class="text-center py-4 text-muted">
-                            Nenhuma reclamação encontrada.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    {{-- PaginaÃ§Ã£o --}}
-    <div class="d-flex justify-content-between align-items-center mt-2">
-        {{ $lists->links() }}
-        <div class="text-muted small">
-            Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }}
-            registros
-        </div>
-    </div>
-
-    {{-- Drawer lateral de detalhes --}}
-    @if ($showDetails && $selected)
-        <div class="details-drawer details-drawer--modern shadow">
-            <!-- Header -->
-            <div class="drawer-header">
-                <div class="drawer-title">
-                    <div class="drawer-icon">
-                        <i class="ri-file-list-3-line"></i>
+                            @endforeach
+                        </div>
+                        <small class="text-muted">Clique no stack da barra para filtrar a lista por tipo de prazo. Use os botões abaixo para isolar o mês.</small>
                     </div>
-                    <div>
-                        <h5 class="mb-0">Nota #{{ $selected->nota }}</h5>
-                        <small class="text-muted">Ficha detalhada</small>
-                    </div>
-                </div>
-
-                <button class="btn btn-light btn-sm drawer-close" wire:click="closeDetails" aria-label="Fechar">
-                    <i class="ri-close-line"></i>
-                </button>
-            </div>
-
-            <!-- Status Strip -->
-            <div class="drawer-strip">
-                <span
-                    class="badge rounded-pill bg-{{ !$selected->dtConclusaoDesej->isPast() ? 'success' : 'danger' }} me-2">
-                    <i
-                        class="{{ !$selected->dtConclusaoDesej->isPast() ? 'ri-check-line' : 'ri-error-warning-line' }} me-1"></i>
-                    {{ !$selected->dtConclusaoDesej->isPast() ? 'No Prazo' : 'Vencido' }}
-                </span>
-
-                <div class="chip">
-                    <i class="ri-community-line me-1"></i>{{ $selected->cidade }}
-                </div>
-                <div class="chip">
-                    <i class="ri-price-tag-3-line me-1"></i>{{ $selected->txtGrpCodificacao }}
                 </div>
             </div>
-
-            <!-- Content (scrollable) -->
-            <div class="drawer-content">
-                <div class="info-grid">
-                    <div class="info-card">
-                        <div class="info-label"><i class="ri-map-pin-line me-1"></i>Município</div>
-                        <div class="info-value">{{ $selected->cidade }}</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-label"><i class="ri-folder-2-line me-1"></i>Grupo</div>
-                        <div class="info-value">{{ $selected->txtGrpCodificacao }}</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-label"><i class="ri-time-line me-1"></i>Abertura</div>
-                        <div class="info-value">{{ $selected->dtAberturaNota?->format('d/m/Y') }}</div>
-                    </div>
-                    <div class="info-card">
-                        <div class="info-label"><i class="ri-flag-line me-1"></i>Desejada</div>
-                        <div class="info-value">{{ $selected->dtConclusaoDesej?->format('d/m/Y') }}</div>
-                    </div>
-                </div>
-
-                <div class="divider"></div>
-
-                <div class="desc-block">
-                    <div class="desc-title">
-                        <i class="ri-information-line me-2"></i>Descrição
-                    </div>
-                    <p class="mb-0 text-secondary">
-                        {{ $selected->comments->last()?->message }}
-                    </p>
-                </div>
-
-                {{-- Timeline opcional (sÃ³ exibe se tiver datas) --}}
-                {{-- @php
-                    $timeline = [
-                        [
-                            'icon' => 'ri-file-add-line',
-                            'label' => 'Abertura',
-                            'date' => $selected->dtAberturaNota?->format('d/m/Y'),
-                        ],
-                        [
-                            'icon' => 'ri-flag-2-line',
-                            'label' => 'Desejada',
-                            'date' => $selected->dtConclusaoDesej?->format('d/m/Y'),
-                        ],
-                    ];
-                @endphp
-                <div class="divider"></div>
-                <div class="timeline">
-                    @foreach ($timeline as $t)
-                        @if (!empty($t['date']))
-                            <div class="timeline-item">
-                                <div class="timeline-dot"><i class="{{ $t['icon'] }}"></i></div>
-                                <div class="timeline-content">
-                                    <div class="timeline-label">{{ $t['label'] }}</div>
-                                    <div class="timeline-date">{{ $t['date'] }}</div>
-                                </div>
-                            </div>
-                        @endif
-                    @endforeach
-                </div> --}}
-
-                @if ($selected->medProtests->isNotEmpty())
-                    <div class="divider"></div>
-                    <h6 class="mb-3"><i class="ri-shield-check-line me-2"></i>Medidas</h6>
-                    <table class="table table-sm table-condensed table-striped">
-                        <tr class='text-center'>
-                            <th>Status</th>
-                            <th>Dt Abertura</th>
-                            <th>Desejada</th>
-                            <th>Responsável</th>
-                            <th>Enviado Em</th>
-                        </tr>
-                        @foreach ($selected->medProtests as $medida)
-                            <tr class="text-center align-middle">
-                                <td
-                                    class='@if ($medida->statusSist == 'MEDE') text-bg-secondary
-                                    @elseif($medida->statusSist == 'MEDA') text-bg-success @endif'>
-                                    {{ $medida->statusSist }}</td>
-                                <td>{{ $medida->dtCriacaoMedida?->format('d/m/Y') }}</td>
-                                <td>{{ $medida->dtFimMedidaDesej?->format('d/m/Y') }}</td>
-                                <td>{{ $medida->assignments?->where('user', true)->first()?->User?->name ?? '---' }}
-                                </td>
-                                <td>{{ $medida->assignments?->where('user', true)->first()?->created_at?->format('d/m/Y H:i') ?? '---' }}
-                                </td>
-                            </tr>
-                        @endforeach
-                    </table>
-                @else
-                    <div class="alert alert-info mt-3">
-                        <i class="ri-information-line me-1"></i> Nenhuma medida direcionada.
-                    </div>
-                @endif
-            </div>
-
-            <!-- Footer -->
-            <div class="drawer-footer">
-                <button class="btn btn-outline-secondary" wire:click="closeDetails">
-                    <i class="ri-arrow-go-back-line me-1"></i> Fechar
-                </button>
-                <button class="btn btn-primary" wire:click="goTo({{ $selected->nota }})">
-                    <i class="ri-external-link-line me-1"></i> Abrir Detalhes
-                </button>
-            </div>
-        </div>
-        <div class="details-drawer-backdrop" wire:click="closeDetails"></div>
-    @endif
-
-
-    {{-- Modal: Busca MÃºltipla --}}
-    <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content shadow">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="buscarMultiLabel">
-                        <i class="ri-search-2-line me-2"></i>
-                        Busca Multiplas de Notas
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-floating">
-                        <textarea class="form-control" id="advanceSearch" style="height: 200px;"
-                            placeholder="Cole aqui vários valores (vírgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
-                        <label for="advanceSearch">Números / valores</label>
-                    </div>
-                    <div class="form-text">
-                        Separe por vírgula <strong>,</strong> ou por quebra de linha.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary" wire:click="buscarMulti" data-bs-dismiss="modal">
-                        <i class="ri-check-line me-1"></i>Aplicar Filtro
+            <div class="col-12 col-lg-4">
+                <div class="d-flex flex-column gap-3 h-100">
+                    <button type="button"
+                        class="status-summary-card status-summary-card--warning {{ $statusCardFilter === 'due_today' ? 'is-active' : '' }}"
+                        wire:click="setStatusCardFilter('due_today')">
+                        <div class="status-summary-icon">
+                            <i class="ri-timer-2-line"></i>
+                        </div>
+                        <div class="status-summary-body">
+                            <span class="status-summary-label">Vencendo hoje</span>
+                            <span class="status-summary-value">{{ $dueTodayCount }}</span>
+                            <small>Data desejada = hoje</small>
+                        </div>
+                    </button>
+                    <button type="button"
+                        class="status-summary-card status-summary-card--danger {{ $statusCardFilter === 'overdue' ? 'is-active' : '' }}"
+                        wire:click="setStatusCardFilter('overdue')">
+                        <div class="status-summary-icon">
+                            <i class="ri-error-warning-line"></i>
+                        </div>
+                        <div class="status-summary-body">
+                            <span class="status-summary-label">Vencidos</span>
+                            <span class="status-summary-value">{{ $overdueCount }}</span>
+                            <small>Data desejada anterior a hoje</small>
+                        </div>
                     </button>
                 </div>
             </div>
         </div>
+
+        @if ($lists->count())
+            <div class="summary-bar mb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    {{ $lists->links() }}
+                    <div class="text-muted small">
+                        Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
+                        {{ $lists->total() }} registros
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="card-header table-title-hero d-flex justify-content-between align-items-center">
+                    <h5 class="card-title my-0">RECLAMAÇÕES EM ABERTO</h5>
+                    <button wire:click="exportToExcel" class="btn btn-sm btn-outline-light">
+                        <i class="ri-file-excel-2-line me-1"></i>Exportar Excel
+                    </button>
+                </div>
+
+                <div class="table-scroll-shell">
+                <table class="table table-sm table-striped table-condensed mb-0">
+                    <thead class="table-dark">
+                        <tr class="align-middle text-center sticky-top" style="top: 0;">
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('med_id')">M @if($sortBy==='med_id')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('nota')">Nota @if($sortBy==='nota')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('tipo_nota')">Tipo @if($sortBy==='tipo_nota')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('cod')">Cód @if($sortBy==='cod')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('codf')">CodF @if($sortBy==='codf')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('tipo_reclamacao')">Tipo Reclamação @if($sortBy==='tipo_reclamacao')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('tx_cod_medida')">TxCodeMedida @if($sortBy==='tx_cod_medida')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('causa_raiz')">CausaRaiz @if($sortBy==='causa_raiz')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('origem')">Origem @if($sortBy==='origem')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('municipio')">Município @if($sortBy==='municipio')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('abertura_nota')">Abertura Reclamação @if($sortBy==='abertura_nota')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('abertura_medida')">Abertura Medida @if($sortBy==='abertura_medida')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th>Tempo Medida</th>
+                            <th><button type="button" class="btn btn-link p-0 text-white text-decoration-none fw-bold" wire:click="sortByColumn('vencimento')">Desejada @if($sortBy==='vencimento')<i class="ri-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }}-s-line"></i>@endif</button></th>
+                            <th>Status Resposta</th>
+                            <th style="width:48px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($lists as $medProtest)
+                            @php
+                                $protest = $medProtest->Protest;
+                                $startDate = $protest?->dtAberturaNota;
+                                $startMedDate = $medProtest->dtCriacaoMedida;
+                                $deadline =
+                                    ($protest?->tipoNota === 'NA')
+                                        ? $protest?->dtConclusaoDesej
+                                        : $medProtest->dtFimMedidaDesej;
+                                $elapsedMed = $startMedDate
+                                    ? Carbon::parse($startMedDate)->startOfDay()->diffInDays(now()->startOfDay())
+                                    : '—';
+
+                                $deadlineBadge = ['label' => 'Sem prazo', 'class' => 'badge text-bg-secondary', 'date' => '—'];
+                                if ($deadline) {
+                                    $deadlineDate = Carbon::parse($deadline);
+                                    $deadlineBadge['date'] = $deadlineDate->format('d/m/Y');
+                                    if ($deadlineDate->endOfDay()->isPast()) {
+                                        $deadlineBadge['label'] = 'Vencido';
+                                        $deadlineBadge['class'] = 'badge text-bg-danger';
+                                    } elseif ($deadlineDate->diffInDays() <= 2) {
+                                        $deadlineBadge['label'] = 'Vencendo';
+                                        $deadlineBadge['class'] = 'badge text-bg-warning';
+                                    } else {
+                                        $deadlineBadge['label'] = 'No prazo';
+                                        $deadlineBadge['class'] = 'badge text-bg-success';
+                                    }
+                                }
+
+                                $latestJob = $medProtest?->ProtestJobs->first();
+                                $jobStatusLabel = 'Sem Job';
+                                $jobStatusClass = 'badge text-bg-secondary';
+                                if ($latestJob) {
+                                    $statusValue = $latestJob->status;
+                                    $enum = $statusValue instanceof ProtestJobStatus ? $statusValue : ProtestJobStatus::tryFrom((string) $statusValue);
+                                    $jobStatusLabel = $enum ? $enum->label() : Str::headline((string) $statusValue);
+                                    $jobStatusClass = match ($enum?->value ?? (string) $statusValue) {
+                                        'done' => 'badge text-bg-success',
+                                        'waiting' => 'badge text-bg-dark',
+                                        'in_progress' => 'badge text-bg-warning',
+                                        'canceled' => 'badge text-bg-danger',
+                                        default => 'badge text-bg-primary',
+                                    };
+                                }
+                            @endphp
+                            <tr class="align-middle text-center" wire:key="list-med-{{ $medProtest->id }}"
+                                ondblclick="window.location.href='{{ route('protests.dispatch.view', ['protest' => $medProtest->id]) }}'">
+                                <td>{{ $medProtest->med_id ?? '—' }}</td>
+                                <td class="fw-semibold">{{ $protest?->nota ?? '—' }}</td>
+                                <td>{{ $protest?->tipoNota ?? '—' }}</td>
+                                <td>{{ $medProtest->codMedida ?? '—' }}</td>
+                                <td>{{ $protest?->codecodf ?? '—' }}</td>
+                                <td class="small text-uppercase">{{ $protest?->txtGrpCodificacao ?? '—' }}</td>
+                                <td>{{ $medProtest->txtCodMedida ?? '—' }}</td>
+                                <td class="small">{{ Str::limit($protest?->descCausa ?? '—', 22) }}</td>
+                                <td class="small">{{ Str::limit($protest?->descricao ?? '—', 22) }}</td>
+                                <td class="small">{{ $protest?->cidade ?? '—' }}</td>
+                                <td>{{ optional($startDate)->format('d/m/Y') ?? '—' }}</td>
+                                <td>{{ optional($startMedDate)->format('d/m/Y') ?? '—' }}</td>
+                                <td><span class="badge text-bg-secondary">{{ $elapsedMed }} d</span></td>
+                                <td><span class="{{ $deadlineBadge['class'] }}">{{ $deadlineBadge['date'] }} · {{ $deadlineBadge['label'] }}</span></td>
+                                <td><span class="{{ $jobStatusClass }}">{{ $jobStatusLabel }}</span></td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="ri-more-2-fill"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            @if ($medProtest)
+                                                <li>
+                                                    <button class="dropdown-item" type="button"
+                                                        wire:click.prevent="$emitTo('protests.dispatch.actions.control-med-protest', 'openModProtestControl', {{ $medProtest->id }})">
+                                                        <i class="ri-send-plane-line me-1"></i> Gerenciar / Criar atividade
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button class="dropdown-item" type="button"
+                                                        wire:click="confirmAutoDemand({{ $medProtest->id }})">
+                                                        <i class="ri-robot-line me-1"></i> Auto demanda
+                                                    </button>
+                                                </li>
+                                            @endif
+                                            <li>
+                                                <button class="dropdown-item" type="button" wire:click="goTo({{ $medProtest->id }})">
+                                                    <i class="ri-external-link-line me-1"></i> Abrir protesto
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="16" class="text-center py-4 text-muted">Nenhuma reclamação encontrada.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+                </div>
+            </div>
+
+            <div class="summary-bar mt-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    {{ $lists->links() }}
+                    <div class="text-muted small">
+                        Exibindo {{ $lists->firstItem() ?? 0 }} - {{ $lists->lastItem() ?? 0 }} de
+                        {{ $lists->total() }} registros
+                    </div>
+                </div>
+            </div>
+        @else
+            <div class="card">
+                <div class="card-body text-center">
+                    <p class="mb-0">Não há registros para exibir com os filtros atuais.</p>
+                </div>
+            </div>
+        @endif
+
+        <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="buscarMultiLabel">
+                            <i class="ri-search-2-line me-2"></i>
+                            Busca Múltipla de Notas
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-floating">
+                            <textarea class="form-control" id="advanceSearch" style="height: 200px;"
+                                placeholder="Cole aqui vários valores (vírgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
+                            <label for="advanceSearch">Números / valores</label>
+                        </div>
+                        <div class="form-text">
+                            Separe por vírgula <strong>,</strong> ou por quebra de linha.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary" wire:click="buscarMulti" data-bs-dismiss="modal">
+                            <i class="ri-check-line me-1"></i>Aplicar Filtro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest'))
+
+        @push('scripts')
+            <script>
+                document.addEventListener('livewire:load', () => {
+                    let listsHistogramChart = null;
+                    let lastSignature = null;
+
+                    document.addEventListener('show.bs.dropdown', (event) => {
+                        const shell = event.target.closest('.table-scroll-shell');
+                        if (shell) {
+                            shell.classList.add('is-dropdown-open');
+                        }
+                    });
+
+                    document.addEventListener('hide.bs.dropdown', (event) => {
+                        const shell = event.target.closest('.table-scroll-shell');
+                        if (shell) {
+                            shell.classList.remove('is-dropdown-open');
+                        }
+                    });
+
+                    const buildListsHistogram = () => {
+                        const canvas = document.getElementById('listsHistogram');
+                        const payloadNode = document.getElementById('lists-histogram-data');
+
+                        if (!canvas || !payloadNode || typeof Chart === 'undefined') {
+                            return;
+                        }
+
+                        const raw = payloadNode.dataset.payload || '{}';
+                        if (listsHistogramChart && lastSignature === raw) {
+                            return;
+                        }
+
+                        let payload;
+                        try {
+                            payload = JSON.parse(raw);
+                        } catch (e) {
+                            return;
+                        }
+
+                        const labels = payload.labels || [];
+                        const series = payload.series || {};
+                        const overdueData = series.overdue || [];
+                        const dueSoonData = series.dueSoon || [];
+                        const withinData = series.within || [];
+                        const selectedBucket = payload.selectedBucket || null;
+                        const selectedStack = payload.selectedStack || null;
+                        const displayOverdueData = (series.displayOverdue || overdueData).map((n) => Number(n ?? 0));
+                        const displayDueSoonData = (series.displayDueSoon || dueSoonData).map((n) => Number(n ?? 0));
+                        const displayWithinData = (series.displayWithin || withinData).map((n) => Number(n ?? 0));
+                        const displayMonthKeys = payload.monthKeys || [];
+                        const totalsByMonth = labels.map((_, i) =>
+                            Number(displayOverdueData[i] ?? 0) + Number(displayDueSoonData[i] ?? 0) + Number(displayWithinData[i] ?? 0)
+                        );
+
+                        const sum = (arr) => (arr || []).reduce((acc, n) => acc + Number(n || 0), 0);
+                        const overdueTotal = sum(displayOverdueData);
+                        const dueSoonTotal = sum(displayDueSoonData);
+                        const withinTotal = sum(displayWithinData);
+
+                        const segmentIsActive = (key) => !selectedStack || selectedStack === key;
+                        const marine = segmentIsActive('overdue') ? 'rgba(33,46,62,0.85)' : 'rgba(33,46,62,0.18)';
+                        const electric = segmentIsActive('due_soon') ? 'rgba(40,255,82,0.85)' : 'rgba(40,255,82,0.18)';
+                        const slate = segmentIsActive('within') ? 'rgba(124,149,153,0.85)' : 'rgba(124,149,153,0.18)';
+
+                        if (listsHistogramChart) {
+                            listsHistogramChart.destroy();
+                        }
+
+                        const totalsPlugin = {
+                            id: 'listsHistogramTotals',
+                            afterDatasetsDraw(chart) {
+                                const { ctx } = chart;
+                                const datasetMeta = chart.getDatasetMeta(0);
+                                if (!datasetMeta || !datasetMeta.data) return;
+                                ctx.save();
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+                                ctx.fillStyle = '#1f2937';
+                                ctx.font = '600 11px sans-serif';
+
+                                datasetMeta.data.forEach((bar, index) => {
+                                    const total = Number(totalsByMonth[index] ?? 0);
+                                    if (total <= 0) return;
+                                    const x = bar.x;
+                                    const y = bar.y - 6;
+                                    ctx.fillText(String(total), x, y);
+                                });
+                                ctx.restore();
+                            }
+                        };
+
+                        listsHistogramChart = new Chart(canvas.getContext('2d'), {
+                            type: 'bar',
+                            data: {
+                                labels,
+                                datasets: [{
+                                    label: `Vencidos (${overdueTotal})`,
+                                    data: displayOverdueData,
+                                    backgroundColor: marine,
+                                    borderColor: '#212E3E',
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    stack: 'prazo',
+                                }, {
+                                    label: `Vencendo (${dueSoonTotal})`,
+                                    data: displayDueSoonData,
+                                    backgroundColor: electric,
+                                    borderColor: '#28FF52',
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    stack: 'prazo',
+                                }, {
+                                    label: `A vencer (${withinTotal})`,
+                                    data: displayWithinData,
+                                    backgroundColor: slate,
+                                    borderColor: '#7C9599',
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    stack: 'prazo',
+                                }],
+                            },
+                            plugins: [totalsPlugin],
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                layout: {
+                                    padding: { top: 10 }
+                                },
+                                scales: {
+                                    x: { stacked: true },
+                                    y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grace: '20%' },
+                                },
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                        labels: { padding: 14 }
+                                    }
+                                },
+                                onClick: (evt) => {
+                                    const exact = listsHistogramChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+                                    if (!exact.length) return;
+                                    const element = exact[0];
+                                    const bucket = displayMonthKeys[Number(element.index)] || null;
+                                    const segment = ['overdue', 'due_soon', 'within'][Number(element.datasetIndex)] || null;
+                                    if (!segment) return;
+                                    const root = canvas.closest('[wire\\:id]');
+                                    if (!root) return;
+                                    const componentId = root.getAttribute('wire:id');
+                                    if (!componentId) return;
+                                    Livewire.find(componentId).call('setHistogramStackSelection', bucket, segment);
+                                },
+                            },
+                        });
+
+                        lastSignature = raw;
+                    };
+
+                    buildListsHistogram();
+                    Livewire.hook('message.processed', () => buildListsHistogram());
+                });
+            </script>
+        @endpush
     </div>
-
-    {{-- Components Livewire --}}
-    @livewire('protests.dispatch.actions.control-med-protest', key('control-med-protest'))
-
 </div>
 
-<style>
-    .status-summary-card {
-        border: none;
-        border-radius: 16px;
-        padding: 1rem 1.2rem;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        transition: all .2s ease;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-        cursor: pointer;
-        position: relative;
-        background: #fff;
-    }
-
-    .status-summary-card .status-summary-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        font-size: 1.5rem;
-        background: rgba(255, 255, 255, 0.25);
-    }
-
-    .status-summary-card .status-summary-label {
-        font-size: .9rem;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        font-weight: 600;
-        display: block;
-    }
-
-    .status-summary-card .status-summary-value {
-        font-size: 1.9rem;
-        font-weight: 700;
-        line-height: 1;
-        display: block;
-    }
-
-    .status-summary-card small {
-        font-size: .78rem;
-        opacity: .8;
-    }
-
-    .status-summary-card.is-active {
-        transform: translateY(-4px);
-        box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
-    }
-
-    .status-summary-card--warning {
-        background: linear-gradient(135deg, #fff7e6, #ffe3b3);
-        color: #7a4d00;
-    }
-
-    .status-summary-card--danger {
-        background: linear-gradient(135deg, #ffe4e6, #ffb3c0);
-        color: #7c1d2c;
-    }
-
-    .status-summary-card--success {
-        background: linear-gradient(135deg, #e1f6ea, #a7e3c6);
-        color: #0f5132;
-    }
-
-    .status-summary-card--warning .status-summary-icon {
-        color: #a35d00;
-        background: rgba(255, 255, 255, 0.6);
-    }
-
-    .status-summary-card--danger .status-summary-icon {
-        color: #b4233b;
-        background: rgba(255, 255, 255, 0.6);
-    }
-
-    .status-summary-card--success .status-summary-icon {
-        color: #198754;
-        background: rgba(255, 255, 255, 0.6);
-    }
-
-    .modern-table th,
-    .modern-table td {
-        font-size: 0.98em;
-        vertical-align: middle;
-        padding: .40em .75em !important;
-    }
-
-    .modern-table .badge {
-        font-size: 1em;
-        padding: .36em 1.2em;
-        letter-spacing: .03em;
-    }
-
-    .details-drawer {
-        position: fixed;
-        top: 0;
-        right: 0;
-        height: 100vh;
-        width: 400px;
-        background: #fff;
-        border-left: 1px solid #eee;
-        z-index: 1201;
-        padding: 2rem 1.5rem 1rem 2rem;
-        box-shadow: -2px 0 18px rgba(0, 0, 0, 0.10);
-        animation: slideInDrawer .21s cubic-bezier(.6, -0.28, .74, .05);
-    }
-
-    /* --- Drawer Moderno --- */
-    .details-drawer--modern {
-        background: #ffffff;
-        border-left: 0;
-        width: 460px;
-        padding: 0;
-        overflow: hidden;
-        border-radius: 16px 0 0 16px;
-        box-shadow: -8px 0 28px rgba(0, 0, 0, .12);
-        backdrop-filter: saturate(1.2) blur(6px);
-    }
-
-    @media (max-width: 900px) {
-        .details-drawer--modern {
-            width: 100vw;
-            border-radius: 0;
+@push('css')
+    <style>
+        .monitoring-page {
+            --mp-bg: #f6f7fb;
+            --mp-surface: #ffffff;
+            --mp-muted: #6b7280;
+            --mp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%), radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%), var(--mp-bg);
+            padding: 1.5rem 0;
         }
-    }
 
-    /* Header com gradiente e blur */
-    .details-drawer--modern .drawer-header {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: linear-gradient(135deg, #0d6efd 0%, #4f8cff 100%);
-        color: #fff;
-        padding: 1rem 1.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 4px 16px rgba(13, 110, 253, .2);
-    }
-
-    .details-drawer--modern .drawer-title {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-    }
-
-    .details-drawer--modern .drawer-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, .15);
-        display: grid;
-        place-items: center;
-        font-size: 1.2rem;
-    }
-
-    /* BotÃ£o fechar */
-    .details-drawer--modern .drawer-close {
-        background: rgba(255, 255, 255, .15);
-        border: 0;
-        color: #fff;
-        transition: transform .15s ease, background .15s ease;
-    }
-
-    .details-drawer--modern .drawer-close:hover {
-        transform: rotate(90deg) scale(1.05);
-        background: rgba(255, 255, 255, .25);
-    }
-
-    /* Faixa de status + chips */
-    .details-drawer--modern .drawer-strip {
-        padding: .75rem 1.25rem;
-        background: linear-gradient(180deg, rgba(13, 110, 253, .06), rgba(13, 110, 253, 0));
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-        flex-wrap: wrap;
-    }
-
-    .details-drawer--modern .chip {
-        font-size: .82rem;
-        background: #f1f5ff;
-        color: #2752d3;
-        border: 1px solid #e3ebff;
-        padding: .25rem .6rem;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-    }
-
-    /* ConteÃºdo rolÃ¡vel */
-    .details-drawer--modern .drawer-content {
-        height: calc(100vh - 176px);
-        /* header + strip + footer */
-        overflow-y: auto;
-        padding: 1.25rem 1.25rem 1rem;
-        scrollbar-width: thin;
-        scrollbar-color: #b8c9ff transparent;
-    }
-
-    .details-drawer--modern .drawer-content::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .details-drawer--modern .drawer-content::-webkit-scrollbar-thumb {
-        background: #b8c9ff;
-        border-radius: 3px;
-    }
-
-    /* Grid de infos */
-    .details-drawer--modern .info-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .75rem;
-    }
-
-    @media (max-width: 480px) {
-        .details-drawer--modern .info-grid {
-            grid-template-columns: 1fr;
+        .monitoring-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1.5rem;
         }
-    }
 
-    .details-drawer--modern .info-card {
-        border: 1px solid #eef1f6;
-        border-radius: 12px;
-        padding: .75rem .9rem;
-        background: #fff;
-        transition: box-shadow .15s ease, transform .15s ease;
-    }
+        .monitoring-header h2 { font-weight: 700; margin: 0; }
+        .monitoring-header .meta { color: rgba(248, 250, 252, 0.75); font-size: .95rem; }
 
-    .details-drawer--modern .info-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
-    }
+        .filters-grid .filter-card {
+            background-color: var(--mp-surface);
+            border: 1px solid var(--mp-border);
+            border-radius: .9rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, .06);
+        }
 
-    .details-drawer--modern .info-label {
-        font-size: .78rem;
-        color: #6b7a90;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
+        .form-floating > .form-select[multiple] {
+            height: 8.5rem !important;
+            padding-top: 1.9rem;
+            padding-bottom: .6rem;
+        }
 
-    .details-drawer--modern .info-value {
-        font-weight: 600;
-        color: #2a2f3a;
-        margin-top: .15rem;
-    }
+        .summary-bar {
+            background: var(--mp-surface);
+            border: 1px solid var(--mp-border);
+            border-radius: .9rem;
+            padding: .75rem 1.25rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .05);
+        }
 
-    /* DescriÃ§Ã£o */
-    .details-drawer--modern .desc-block .desc-title {
-        font-weight: 700;
-        color: #334155;
-        margin-bottom: .4rem;
-        display: flex;
-        align-items: center;
-    }
+        .table-card {
+            background: var(--mp-surface);
+            border: 1px solid var(--mp-border);
+            border-radius: 1rem;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            overflow: visible;
+        }
+        .table-scroll-shell {
+            overflow: auto;
+            position: relative;
+        }
+        .table-scroll-shell.is-dropdown-open {
+            overflow: visible;
+        }
+        .table-scroll-shell .dropdown-menu {
+            z-index: 1080;
+        }
 
-    .details-drawer--modern .desc-block p {
-        background: #f8fafc;
-        border: 1px dashed #e5e7eb;
-        border-radius: 12px;
-        padding: .75rem .9rem;
-    }
+        .table-card .card-header {
+            padding: .75rem 1.25rem;
+            border-bottom: 0;
+            margin: 0;
+            border-radius: 1rem 1rem 0 0;
+        }
+        .table-card .card-header.table-title-hero {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+        }
+        .table-card .card-header .card-title { padding-left: .15rem; }
+        .table-card .table { margin-top: 0; margin-bottom: 0; }
+        .table-card .table thead th { border-top: 0; }
 
-    /* Timeline */
-    .details-drawer--modern .timeline {
-        position: relative;
-        margin-top: .5rem;
-        padding-left: .75rem;
-    }
+        .histogram-card-body { display: flex; flex-direction: column; }
+        .histogram-chart-wrap { position: relative; width: 100%; height: clamp(260px, 34vh, 420px); max-height: 420px; overflow: hidden; }
+        .histogram-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
-    .details-drawer--modern .timeline:before {
-        content: '';
-        position: absolute;
-        left: 10px;
-        top: 6px;
-        bottom: 6px;
-        width: 2px;
-        background: #e6ebff;
-    }
+        .status-summary-card {
+            border: none;
+            border-radius: 16px;
+            padding: 1rem 1.2rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all .2s ease;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, .08);
+            cursor: pointer;
+            background: #fff;
+        }
 
-    .details-drawer--modern .timeline-item {
-        display: flex;
-        gap: .75rem;
-        position: relative;
-        margin-bottom: .75rem;
-    }
+        .status-summary-card .status-summary-icon { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 1.5rem; background: rgba(255,255,255,.25); }
+        .status-summary-card .status-summary-label { font-size: .9rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; display: block; }
+        .status-summary-card .status-summary-value { font-size: 1.9rem; font-weight: 700; line-height: 1; display: block; }
+        .status-summary-card small { font-size: .78rem; opacity: .8; }
+        .status-summary-card.is-active { transform: translateY(-4px); box-shadow: 0 16px 30px rgba(15,23,42,.18); }
+        .status-summary-card--warning { background: linear-gradient(135deg, #fff7e6, #ffe3b3); color: #7a4d00; }
+        .status-summary-card--danger { background: linear-gradient(135deg, #ffe4e6, #ffb3c0); color: #7c1d2c; }
 
-    .details-drawer--modern .timeline-dot {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: #eaf0ff;
-        color: #345bff;
-        display: grid;
-        place-items: center;
-        z-index: 1;
-        border: 2px solid #fff;
-        box-shadow: 0 0 0 2px #e6ebff;
-    }
-
-    .details-drawer--modern .timeline-content .timeline-label {
-        font-size: .82rem;
-        color: #64748b;
-        margin-bottom: .1rem;
-    }
-
-    .details-drawer--modern .timeline-date {
-        font-weight: 600;
-        color: #1f2937;
-    }
-
-    /* Footer fixo */
-    .details-drawer--modern .drawer-footer {
-        position: sticky;
-        bottom: 0;
-        background: linear-gradient(0deg, #ffffff 80%, rgba(255, 255, 255, 0));
-        padding: .9rem 1.25rem 1.1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: .75rem;
-        border-top: 1px solid #eef1f6;
-    }
-
-    /* Divider suave */
-    .details-drawer--modern .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #eef1f6, transparent);
-        margin: .9rem 0 1rem;
-    }
-</style>
+        .table th .btn-link { font-size: .85rem; }
+    </style>
+@endpush

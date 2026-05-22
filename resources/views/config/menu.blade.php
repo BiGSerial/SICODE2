@@ -23,6 +23,18 @@
                             <i class="bi bi-circle"></i> <span>HISTÓRICO DE CONFIGURAÇÕES</span>
                         </a>
                     </li>
+                    @can('superadm')
+                        <li>
+                            <a href="{{ route('config.system.schedule') }}" class="nav-item text-white fw-normal">
+                                <i class="bi bi-circle"></i> <span>MONITOR DO SCHEDULE</span>
+                            </a>
+                        </li>
+                    @endcan
+                    <li>
+                        <a href="{{ route('config.wall.index') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-circle"></i> <span>WALL PRODUÇÃO</span>
+                        </a>
+                    </li>
 
 
                 </div>

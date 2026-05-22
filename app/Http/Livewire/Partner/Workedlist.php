@@ -25,6 +25,8 @@ class Workedlist extends Component
 
     public $search;
 
+    public $multiSearch;
+
     // search by date
     public $month;
     public $date_in;
@@ -76,9 +78,28 @@ class Workedlist extends Component
     public function cleanAll()
     {
         $this->search = '';
+        $this->multiSearch = '';
         $this->date_in = '';
         $this->date_out = '';
         $this->month = '';
+    }
+
+    public function applyMultiSearch()
+    {
+        $terms = $this->parseSearchTerms($this->multiSearch);
+
+        $this->search = implode(' ', $terms);
+        $this->resetPage();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage()
+    {
+        $this->resetPage();
     }
 
     public function downloadFile($id)
@@ -110,7 +131,7 @@ class Workedlist extends Component
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-        $query = WorkReport::query()->active();
+        $query = WorkReport::query();
 
 
         // $query->where('rejected', false);
@@ -140,14 +161,20 @@ class Workedlist extends Component
             }
 
             if ($this->date_in && $this->date_out) {
-                $query->whereBetween('informed_at', [$this->date_in, $this->date_out]);
+                $query->whereDate('informed_at', '>=', $this->date_in)
+                    ->whereDate('informed_at', '<=', $this->date_out);
             }
         }
 
-        if ($this->search) {
+        $searchTerms = $this->parseSearchTerms($this->search);
+
+        if (!empty($searchTerms)) {
             $query->where(function ($q) {
-                $q->WhereRelation('Note', 'note', 'like', "%$this->search%")
-                    ->orWhereRelation('Orders', 'ordem', 'like', "%$this->search%");
+                foreach ($this->parseSearchTerms($this->search) as $term) {
+                    $q->orWhereRelation('Note', 'note', 'like', "%{$term}%")
+                        ->orWhereRelation('Note', 'numPedido', 'like', "%{$term}%")
+                        ->orWhereRelation('Orders', 'ordem', 'like', "%{$term}%");
+                }
             });
         }
 
@@ -163,13 +190,28 @@ class Workedlist extends Component
             });
         }
 
-        $query->with(['Adsform', 'Note.OldAds' => function ($q) {
+        $query->with(['Note.Files', 'Note.OldAds' => function ($q) {
             $q->orderBy('date', 'asc');
-        }]);
+        }, 'Orders', 'Equipment', 'Company', 'Adsform']);
 
-        $query->orderBy('created_at', 'DESC');
+        $query->orderByRaw('COALESCE(informed_at, created_at) DESC')
+            ->orderByDesc('id');
 
         return $query;
+    }
+
+    private function parseSearchTerms(?string $value): array
+    {
+        if (!filled($value)) {
+            return [];
+        }
+
+        return collect(preg_split('/[\s,;]+/', trim($value)))
+            ->map(fn ($term) => trim($term))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function render()

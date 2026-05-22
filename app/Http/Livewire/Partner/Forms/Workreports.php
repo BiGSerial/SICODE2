@@ -18,11 +18,16 @@ class Workreports extends Component
     public $companies = [];
 
     public ?Note $note = null;
+    public ?WorkReport $workReport = null;
     public $preNote;
     public $notes;
     public $search;
     public $s_order;
     public bool $hasFiles = false;
+    public bool $hasAsbuilt = false;
+    public bool $hasPendingAsbuilt = false;
+    public bool $hasEvidenceFile = false;
+    public bool $showAsbuiltMissingFeedback = false;
     public $hasPartial;
     public $acceptance_meta_json;
 
@@ -58,6 +63,7 @@ class Workreports extends Component
         'responsible' => null,
         'acceptance_accepted' => false,
         'acceptance_name' => null,
+        'asbuilt_confirmation' => false,
     ];
 
     public $temp_orders = [];
@@ -68,6 +74,9 @@ class Workreports extends Component
         'confirm_informe',
         'send_informe',
         'hasFile',
+        'hasAsbuilt',
+        'hasPendingAsbuilt',
+        'hasEvidenceFile',
         'savedFiles',
     ];
 
@@ -86,6 +95,7 @@ class Workreports extends Component
         'form.informer' => 'required|string|max:255',
         'form.acceptance_accepted' => 'accepted',
         'form.acceptance_name' => 'required|string|max:255',
+        'form.asbuilt_confirmation' => 'nullable|boolean',
 
     ];
 
@@ -124,6 +134,7 @@ class Workreports extends Component
             'form.acceptance_accepted.accepted' => 'Você precisa aceitar o termo de responsabilidade do informe.',
             'form.acceptance_name.required' => 'Informe o nome completo para o aceite do termo.',
             'form.acceptance_name.string' => 'O campo [Nome do Aceite] deve ser uma string.',
+            'form.asbuilt_confirmation.accepted' => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração de projeto.',
         ];
     }
 
@@ -136,10 +147,34 @@ class Workreports extends Component
         $this->hasFiles = $hasFile;
     }
 
+    public function hasAsbuilt(bool $hasAsbuilt)
+    {
+        $this->hasAsbuilt = $hasAsbuilt;
+
+        if ($hasAsbuilt) {
+            $this->showAsbuiltMissingFeedback = false;
+        }
+    }
+
+    public function hasPendingAsbuilt(bool $hasPendingAsbuilt)
+    {
+        $this->hasPendingAsbuilt = $hasPendingAsbuilt;
+    }
+
+    public function hasEvidenceFile(bool $hasEvidenceFile)
+    {
+        $this->hasEvidenceFile = $hasEvidenceFile;
+    }
+
     public function savedFiles()
     {
         // Revebe chamado pelo Component de Arquivos;
         $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Informe entregue com sucesso',
+        ]);
         $this->note = null;
         $this->cleanAll();
         $this->initForm();
@@ -186,12 +221,27 @@ class Workreports extends Component
             return;
         }
 
-        if ($this->requireFilesForSubmit && !$this->hasFiles) {
+        if ($this->requiresAsbuiltForSubmit() && !$this->hasAsbuilt) {
+            $this->showMissingAsbuiltFeedback();
+            return;
+        }
+
+        if ($this->requireFilesForSubmit && !$this->hasEvidenceFile) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'Arquivos Obrigatórios',
                 'html'     => 'Desde do dia <strong>01/05/2025</strong>, tornou-se obrigatório o anexo de imagens evidenciando a obra, incluindo os ativos cadastrados. Favor anexar os arquivos antes de prosseguir.',
+            ]);
+            return;
+        }
+
+        if ($this->requiresAsbuiltConfirmation() && !$this->asBool($this->form['asbuilt_confirmation'] ?? false)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Confirmação do ASBUILT obrigatória',
+                'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
             ]);
             return;
         }
@@ -208,6 +258,7 @@ class Workreports extends Component
                     <div class="card">
                         <div class="card-body text-start">
                            <p>Você está preste a confirmar a obra ' . $this->note->note . '. Reforçamos que a confirmação PARCIAL da obra poderá acarretar atrasos, incluindo qualquer recursos oriundo em depedência deste informa.</p>
+                           <p>Você também confirmou que o ASBUILT anexado corresponde à informação declarada sobre alteração de projeto.</p>
                            <h4>Gostaria realmente de confirmar a conclusão desta OBRA?</h4>
                         </div>
                     </div>
@@ -290,12 +341,28 @@ class Workreports extends Component
 
         // dd($this->form['changes'], $this->hasFiles);
 
-        if ($this->form['changes'] == true && !$this->hasFiles) {
+        if ($this->requiresAsbuiltForSubmit() && !$this->hasAsbuilt) {
+            $this->showMissingAsbuiltFeedback();
+            return;
+        }
+
+        if ($this->requireFilesForSubmit && !$this->hasEvidenceFile) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Arquivos Obrigatórios',
+                'html'     => 'Desde do dia <strong>01/05/2025</strong>, tornou-se obrigatório o anexo de imagens evidenciando a obra, incluindo os ativos cadastrados. Favor anexar os arquivos antes de prosseguir.',
+            ]);
+
+            return;
+        }
+
+        if ($this->requiresAsbuiltConfirmation() && !$this->asBool($this->form['asbuilt_confirmation'] ?? false)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'Erros de Validação',
-                'html'     => 'É obrigatório anexar o AsBuilt da Obra Executada. (apenas PDF)',
+                'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
             ]);
 
             return;
@@ -364,25 +431,22 @@ class Workreports extends Component
                     ]);
                 }
 
-
-
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'Informe Entregue com Sucesso',
-                ]);
-
-
-
                 DB::commit();
 
                 if ($this->hasFiles) {
+                    $this->workReport = $form;
+                    $this->emitTo('files.manager.create-gen-files', 'setWorkReportId', $form->id);
 
                     // Emite comando SAVE para o componente Laravel.
                     $this->emitTo('files.manager.create-gen-files', 'saveFiles');
 
                     return;
                 } else {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'success',
+                        'title'    => 'Informe entregue com sucesso',
+                    ]);
                     $this->note = null;
                     $this->cleanAll();
                     $this->initForm();
@@ -627,6 +691,7 @@ class Workreports extends Component
         $this->search = "";
         $this->notes = "";
         $this->hasPartial = "";
+        $this->workReport = null;
     }
 
     public function calcelForm()
@@ -642,6 +707,11 @@ class Workreports extends Component
 
         $this->s_order = '';
         $this->equipment = '';
+        $this->hasFiles = false;
+        $this->hasAsbuilt = false;
+        $this->hasPendingAsbuilt = false;
+        $this->hasEvidenceFile = false;
+        $this->showAsbuiltMissingFeedback = false;
         $this->temp_orders = [];
         $this->temp_equipment = [];
         $this->form = [
@@ -659,6 +729,7 @@ class Workreports extends Component
             'responsible' => null,
             'acceptance_accepted' => false,
             'acceptance_name' => null,
+            'asbuilt_confirmation' => false,
         ];
         $this->model_equipment = [
             'type' => null,
@@ -677,7 +748,7 @@ class Workreports extends Component
 
     }
 
-    private function buildAcceptanceMeta(): array
+    protected function buildAcceptanceMeta(): array
     {
         $meta = [];
 
@@ -692,6 +763,12 @@ class Workreports extends Component
         $meta['server_host'] = request()->getHost();
         $meta['server_user_agent'] = request()->userAgent();
         $meta['captured_at'] = now()->toDateTimeString();
+        $meta['asbuilt_confirmation'] = [
+            'confirmed' => $this->requiresAsbuiltConfirmation() && $this->asBool($this->form['asbuilt_confirmation'] ?? false),
+            'has_asbuilt' => $this->hasAsbuilt,
+            'project_changes_declared' => $this->normalizeNullableBool($this->form['changes'] ?? null),
+            'message' => 'Usuário confirmou visualmente que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
+        ];
         $meta['app_user'] = [
             'id' => auth()->id(),
             'name' => auth()->user()?->name,
@@ -719,7 +796,7 @@ class Workreports extends Component
             ->get(['id', 'name']);
     }
 
-    private function canInformNote(?Note $note): bool
+    protected function canInformNote(?Note $note): bool
     {
         if (!$note) {
             return false;
@@ -737,5 +814,60 @@ class Workreports extends Component
         }
 
         return true;
+    }
+
+    protected function requiresAsbuiltForSubmit(): bool
+    {
+        return $this->requireFilesForSubmit;
+    }
+
+    protected function showMissingAsbuiltFeedback(): void
+    {
+        $this->showAsbuiltMissingFeedback = true;
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'ASBUILT obrigatório',
+            'html'     => '<div class="text-start">
+                <div class="alert alert-danger py-2 mb-3">
+                    <strong>Você não anexou o ASBUILT.</strong>
+                </div>
+                <div class="border rounded p-3 mb-3 bg-light">
+                    <p class="mb-2">No campo <strong>Tipo de Envio</strong>, selecione <strong>ASBUILT</strong> e anexe o arquivo de acordo com a informação declarada em <strong>Houve Alterações no projeto?</strong>.</p>
+                    <ul class="mb-0 ps-3">
+                        <li class="mb-2"><strong>Se houve alteração:</strong> anexe o ASBUILT com as alterações executadas.</li>
+                        <li><strong>Se não houve alteração:</strong> o executor declara, sob sua responsabilidade, que a obra foi executada conforme o projeto original, devendo anexar o projeto seguido da informação <strong>executado conforme projeto</strong> registrada no ASBUILT.</li>
+                    </ul>
+                </div>
+                <div class="alert alert-warning py-2 mb-0">
+                    Informações divergentes da execução realizada em campo poderão acarretar retrabalho, reprovação no encerramento da obra e aplicação das tratativas e sanções cabíveis.
+                </div>
+            </div>',
+        ]);
+    }
+
+    protected function requiresAsbuiltConfirmation(): bool
+    {
+        return $this->requiresAsbuiltForSubmit() && $this->hasAsbuilt;
+    }
+
+    public function shouldShowAsbuiltConfirmation(): bool
+    {
+        return $this->requiresAsbuiltConfirmation();
+    }
+
+    protected function asBool($value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    protected function normalizeNullableBool($value): ?bool
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return $this->asBool($value);
     }
 }

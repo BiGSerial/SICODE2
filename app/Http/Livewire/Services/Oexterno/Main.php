@@ -120,8 +120,14 @@ class Main extends Component
 
     public function mount($service)
     {
-        $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->service = Service::query()
+            ->select(['id', 'uuid', 'service', 'status'])
+            ->where('uuid', $service)
+            ->with('Status')
+            ->first();
+        $this->last_update = Note::query()
+            ->orderByDesc('dt_status')
+            ->value('dt_status');
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             session_start();
@@ -231,14 +237,16 @@ class Main extends Component
         $check = Production::where('note_id', $this->note->id)->where(function ($q) {
             return $q->where('completed', false)
                 ->orWhere('dt_note', $this->note->dt_status);
-        })->with('User', 'Service')->first();
+        })->with('User', 'Company', 'Service')->first();
 
         if ($check) {
+            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OOOOPS! NOTA/OV TRATADA OU EM TRATAMENTO',
-                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$check->User->name}</strong>",
+                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$name}</strong>",
 
             ]);
 
@@ -300,7 +308,22 @@ class Main extends Component
 
 
 
-        $query = Note::query()->excludeCanceledFullDone();
+        $query = Note::query()
+            ->select([
+                'id',
+                'note',
+                'material',
+                'numPedido',
+                'group2',
+                'lexp',
+                'rubrica',
+                'nstats',
+                'centerjob',
+                'type_note',
+                'dt_status',
+                'dt_created',
+            ])
+            ->excludeCanceledFullDone();
 
         // RuleBuilder::applyRules($query, $this->service->Status);
 
@@ -314,19 +337,25 @@ class Main extends Component
         // }
 
         $allowedStatuses = $this->statusFilter ? [(int) $this->statusFilter] : [20, 11];
+        $hasDirectSearch = filled(trim((string) $this->search));
+        $hasMultiSearch = !empty($this->multisearch);
+        $hasAnySearch = $hasDirectSearch || $hasMultiSearch;
 
-        $query->where(function ($q) use ($allowedStatuses) {
-            $q->where(function ($q) use ($allowedStatuses) {
-                $q->whereIn('nstats', $allowedStatuses);
+        if (!$hasAnySearch) {
+            $query->where(function ($q) use ($allowedStatuses) {
+                $q->whereIn('nstats', $allowedStatuses)
+                    ->orWhere(function ($qq) {
+                        $qq->where('centerjob', 'ORGAOEXT')
+                            ->where('type_note', 1);
+                    });
+            });
 
-            })->orWhere(function ($qq){
-                    $qq->where('centerjob', 'ORGAOEXT')
-                    ->where('type_note', 1);
-                });
-
-        });
-
-        $query->doesntHave('Externals');
+            // "Main/A Protocolar": fora das 4 caixas auxiliares.
+            // As 4 listas trabalham com registros em externals com completed = false.
+            $query->whereDoesntHave('Externals', function ($q) {
+                $q->where('completed', false);
+            });
+        }
 
         $query->when($this->search, function ($q) {
             $wildcard = str_contains($this->search, '*') || str_contains($this->search, '%')
@@ -386,8 +415,12 @@ class Main extends Component
         }
 
 
-        $query->with('Productions.User')
-         ->orderBy($this->column, $this->direction);
+        $query->with([
+            'Files:id,note_id,service_id,file_name,path,ext',
+            'Externals:id,note_id,entidade,status,completed,updated_at',
+            'Externals.Protocols:id,external_id,protocol,created_at',
+            'Externals.Comments:id,external_id,title,created_at,updated_at',
+        ])->orderBy($this->column, $this->direction);
 
 
         return $query;
@@ -399,9 +432,39 @@ class Main extends Component
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 
         return view('livewire.services.oexterno.main', [
-            'total'  => $this->notes->get(),
             'lists'  => $this->notes->paginate($this->perPage),
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
+    }
+
+    public function resolveFolderLabel(Note $note): array
+    {
+        $hasExternal = $note->externals && $note->externals->isNotEmpty();
+        $pendingExternal = $hasExternal
+            && $note->externals->contains(fn ($external) => (bool) !$external->completed);
+
+        if (!$pendingExternal) {
+            return ['label' => 'A PROTOCOLAR', 'badge' => 'text-bg-success'];
+        }
+
+        $pendingStatuses = collect($note->externals)
+            ->filter(fn ($external) => (bool) !$external->completed)
+            ->pluck('status')
+            ->filter()
+            ->values();
+
+        if ($pendingStatuses->contains('AGUARDANDO_PAGAMENTO')) {
+            return ['label' => 'AGUARDANDO PAGAMENTO', 'badge' => 'text-bg-danger'];
+        }
+
+        if ($pendingStatuses->contains('AGUARDANDO_TAXA')) {
+            return ['label' => 'AGUARDANDO TAXA', 'badge' => 'text-bg-info'];
+        }
+
+        if ($pendingStatuses->contains('AGUARDANDO_ORGAO')) {
+            return ['label' => 'AGUARDANDO ORGAO EXTERNO', 'badge' => 'text-bg-warning'];
+        }
+
+        return ['label' => 'STATUS INDEFINIDO', 'badge' => 'text-bg-dark'];
     }
 }

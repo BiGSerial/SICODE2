@@ -34,6 +34,7 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
 
     public function __construct(array $filters, string $userId)
     {
+        $this->onQueue('exports');
         $this->filters = $filters;
         $this->userId = $userId;
     }

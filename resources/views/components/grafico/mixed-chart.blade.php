@@ -7,17 +7,39 @@
             document.addEventListener('DOMContentLoaded', function() {
                 let labels = @json($labels);
                 let datasets = @json($data);
+                const showDataLabels = @json((bool) ($showDataLabels ?? false));
 
-                renderMixedChart('{{ $chartId }}', labels, datasets, '{{ $title ?? 'Gráfico' }}');
+                renderMixedChart('{{ $chartId }}', labels, datasets, '{{ $title ?? 'Gráfico' }}', showDataLabels);
             });
 
             document.addEventListener('updateMixedChart{{ Str::studly($chartId) }}', function(e) {
                 const newLabels = e.detail.labels;
                 const newDatasets = e.detail.data;
-                renderMixedChart('{{ $chartId }}', newLabels, newDatasets, '{{ $title ?? 'Gráfico' }}');
+                const showDataLabels = @json((bool) ($showDataLabels ?? false));
+                renderMixedChart('{{ $chartId }}', newLabels, newDatasets, '{{ $title ?? 'Gráfico' }}', showDataLabels);
             });
 
-            function renderMixedChart(chartId, labels, datasets, title) {
+            function renderMixedChart(chartId, labels, datasets, title, showDataLabels = false) {
+                const edpSemantic = {
+                    blue: '#263CC8',
+                    blueSoft: '#A8B1E9',
+                    green: '#225E66',
+                    greenSoft: '#91AFB3',
+                    red: '#E32C2C',
+                    yellow: '#F7D200',
+                    marine: '#212E3E',
+                    slate: '#7C9599'
+                };
+                const edpPalette = [
+                    edpSemantic.blue,
+                    edpSemantic.green,
+                    edpSemantic.red,
+                    edpSemantic.yellow,
+                    edpSemantic.blueSoft,
+                    edpSemantic.greenSoft,
+                    edpSemantic.marine,
+                    edpSemantic.slate
+                ];
                 let series = [];
 
                 // Calcule a média de cada conjunto de dados
@@ -32,12 +54,12 @@
                             yaxis: [{
                                 y: avg,
                                 seriesIndex: index,
-                                borderColor: '#000000',
+                                borderColor: edpSemantic.marine,
                                 label: {
-                                    borderColor: '#000000',
+                                    borderColor: edpSemantic.marine,
                                     style: {
                                         color: '#fff',
-                                        background: '#000000'
+                                        background: edpSemantic.marine
                                     },
                                     text: `Média (${dataset.name})`
                                 }
@@ -71,8 +93,8 @@
                         align: 'left'
                     },
                     dataLabels: {
-                        enabled: true,
-                        enabledOnSeries: [1] // Desabilita labels na série de barras
+                        enabled: showDataLabels,
+                        enabledOnSeries: showDataLabels ? [1] : []
                     },
                     xaxis: {
                         categories: labels,
@@ -83,18 +105,18 @@
                             },
                             axisBorder: {
                                 show: true,
-                                color: '#243446'
+                                color: edpSemantic.marine
                             },
                             labels: {
                                 style: {
-                                    colors: '#243446',
+                                    colors: edpSemantic.marine,
                                     fontSize: '12px'
                                 }
                             },
                             title: {
                                 text: "Eixo Y1",
                                 style: {
-                                    color: '#243446',
+                                    color: edpSemantic.marine,
                                     fontSize: '14px',
                                 }
                             },
@@ -106,18 +128,18 @@
                             },
                             axisBorder: {
                                 show: true,
-                                color: '#808080'
+                                color: edpSemantic.slate
                             },
                             labels: {
                                 style: {
-                                    colors: '#808080',
+                                    colors: edpSemantic.slate,
                                     fontSize: '12px'
                                 }
                             },
                             title: {
                                 text: "Eixo Y2",
                                 style: {
-                                    color: '#808080',
+                                    color: edpSemantic.slate,
                                     fontSize: '14px'
                                 }
                             }
@@ -135,6 +157,7 @@
                         horizontalAlign: 'left',
                         offsetX: 40
                     },
+                    colors: edpPalette,
                     annotations: {
                         yaxis: annotations.flat() // Use annotations aqui
                     },

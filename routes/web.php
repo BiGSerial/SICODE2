@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Config\ConfigController;
-use App\Http\Controllers\{AdminController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
+use App\Http\Controllers\Config\{ConfigController, WallController};
+use App\Http\Controllers\{AdminController, AdsController, BtzeroController, ConstructionController, CustomAuthController, DispatchController, EngineerController, FilesController, ImpersonationController, MonitorController, PartnerController, PdfController, ProjectReviewController, ProtestController, ReportsController, ResponsibleController, ServicesController, SystemController, TesteController, CancellationController};
 use App\Models\Protest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -48,6 +48,9 @@ Route::get('/profile/{id}', [App\Http\Controllers\HomeController::class, 'profil
 
 Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])->middleware('auth')->name('company');
 
+// Deve ficar fora de auth para não ser bloqueada pelo redirecionamento onlyparner.
+Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
+
 Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->middleware('auth')->group(function () {
 
     Route::prefix('/user')->name('user.')->group(function () {
@@ -88,6 +91,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/status', 'systemStatus')->name('status');
         Route::get('/history', 'systemHistory')->name('history');
+        Route::get('/schedule', 'systemSchedule')->middleware('can:superadm')->name('schedule');
     });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
@@ -98,6 +102,22 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
             return response()->json(['ok' => true, 'message' => 'queue:restart enviado']);
         })->middleware('can:superadm', 'throttle:2,1')->name('restart_jobs');
     });
+});
+
+Route::prefix('/config/wall')->controller(WallController::class)->name('config.wall.')->middleware('auth')->middleware('can:superadm')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/settings', 'updateSettings')->name('settings');
+    Route::post('/walls', 'storeWall')->name('wall.store');
+    Route::put('/walls/{wall}', 'updateWall')->name('wall.update');
+    Route::delete('/walls/{wall}', 'destroyWall')->name('wall.delete');
+
+    Route::post('/screens', 'storeScreen')->name('screen.store');
+    Route::put('/screens/{screen}', 'updateScreen')->name('screen.update');
+    Route::delete('/screens/{screen}', 'destroyScreen')->name('screen.delete');
+
+    Route::post('/screens/{screen}/items', 'storeItem')->name('item.store');
+    Route::put('/items/{item}', 'updateItem')->name('item.update');
+    Route::delete('/items/{item}', 'destroyItem')->name('item.delete');
 });
 
 Route::prefix('/services/{service}')->controller(ServicesController::class)->name('services.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
@@ -175,6 +195,25 @@ Route::prefix('/monitor')->controller(MonitorController::class)->name('monitor.'
 });
 
 Route::prefix('/reports')->controller(ReportsController::class)->name('reports.')->middleware('auth')->group(function () {
+    Route::get('/wall/production', 'productionWall')->middleware('can:superadm')->name('wall.production');
+    Route::get('/wall/{wall}/production-v2', 'productionWallV2')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->name('wall.production_v2');
+    Route::get('/wall/{wall}/production-v2/{screen}', 'productionWallV2Screen')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('wall.production_v2.screen');
+    Route::get('/wall/{wall}/production-v2-vue', 'productionWallV2Vue')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->name('wall.production_v2_vue');
+    Route::get('/wall/{wall}/production-v2-vue/{screen}', 'productionWallV2VueScreen')
+        ->middleware('can:superadm')
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('wall.production_v2_vue.screen');
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
     Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
@@ -196,6 +235,23 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
 });
 
+Route::prefix('/wall/v1')->controller(ReportsController::class)->name('wall.v1.')->middleware('auth')->middleware('can:superadm')->group(function () {
+    Route::get('/{wall}', 'productionWallV2')
+        ->whereNumber('wall')
+        ->name('show');
+    Route::get('/{wall}/{screen}', 'productionWallV2Screen')
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('screen');
+});
+
+Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middleware('auth')->group(function () {
+    Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/realtime/queue-donut', 'realtimeQueueDonut')->name('realtime.queue_donut');
+    Route::get('/realtime/reuse-economy-donut', 'realtimeReuseEconomyDonut')->name('realtime.reuse_economy_donut');
+    Route::get('/realtime/demand-delivery', 'realtimeDemandDelivery')->name('realtime.demand_delivery');
+});
+
 
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
@@ -214,7 +270,6 @@ Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->gr
 
 Route::middleware('auth')->group(function () {
     Route::get('impersonate/{userId}', [ImpersonationController::class, 'impersonate'])->name('impersonate');
-    Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
 });
 
 Route::prefix('/cancelamentos')->controller(CancellationController::class)->middleware('auth')->name('cancellations.')->group(function () {
@@ -308,6 +363,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/workreport', 'workreport')->name('report.workreport');
     Route::get('/workedlist', 'workedlist')->name('report.workedlist');
     Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
+    Route::get('/rejectedWorked/reinform/{token}', 'reinformWorkreport')->name('report.reinformWorkreport');
     Route::get('/rejected_viability_list', 'rejectedViabList')->name('rejected.viability');
     Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
     Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');

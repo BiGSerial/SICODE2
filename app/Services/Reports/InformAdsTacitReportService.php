@@ -83,7 +83,7 @@ class InformAdsTacitReportService
                     'n.note as note_number',
                     DB::raw('COALESCE(c.name, "—") as company_name'),
                     DB::raw($this->ordersAggregationExpression() . ' as order_numbers'),
-                    'wr.created_at as informed_delivery_at',
+                    'wr.informed_at as informed_delivery_at',
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                     DB::raw('SUM(COALESCE(o.service_cost, 0)) as base_amount'),
@@ -92,11 +92,11 @@ class InformAdsTacitReportService
                     'wr.id',
                     'n.note',
                     'c.name',
-                    'wr.created_at',
+                    'wr.informed_at',
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                 ])
-                ->orderByDesc('wr.created_at');
+                ->orderByDesc('wr.informed_at');
         }
 
         return $base
@@ -105,12 +105,12 @@ class InformAdsTacitReportService
                 'n.note as note_number',
                 DB::raw('COALESCE(c.name, "—") as company_name'),
                 'o.ordem as order_numbers',
-                'wr.created_at as informed_delivery_at',
+                'wr.informed_at as informed_delivery_at',
                 'af.tacit_due_at',
                 'af.tacit_delivered_at',
                 DB::raw('COALESCE(o.service_cost, 0) as base_amount'),
             ])
-            ->orderByDesc('wr.created_at')
+            ->orderByDesc('wr.informed_at')
             ->orderBy('o.ordem');
     }
 
@@ -174,6 +174,8 @@ class InformAdsTacitReportService
             ->join('order_work_report as owr', 'owr.work_report_id', '=', 'wr.id')
             ->join('orders as o', 'o.id', '=', 'owr.order_id')
             ->where('wr.rejected', false)
+            ->where('wr.canceled', false)
+            ->whereNotNull('wr.informed_at')
             ->where('o.canceled', false)
             ->where('o.statusSist', 'not like', 'CANC%')
             ->where('o.statusSist', 'not like', 'ENT%')

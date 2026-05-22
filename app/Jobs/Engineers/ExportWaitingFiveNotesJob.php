@@ -36,6 +36,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = $params;
         $this->userId = $userId;
     }
@@ -247,6 +248,8 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             $query->whereRelation('note', 'type_note', $filtersState['type']);
         }
 
+        $this->applyPassiveModeFilter($query, $filtersState);
+
         if (!empty($filtersState['city']) && is_array($filtersState['city'])) {
             $query->whereRelation('note', function ($noteQuery) use ($filtersState) {
                 $noteQuery->whereIn('nexp', $filtersState['city']);
@@ -259,16 +262,73 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             });
         }
 
-        if (!empty($filtersState['desired_between']) && is_array($filtersState['desired_between'])) {
-            $dateRange = $filtersState['desired_between'];
-            if (isset($dateRange['start'], $dateRange['end'])) {
-                $query->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']]);
-            }
-        }
+        $this->applyDesiredBetweenFilter($query, $filtersState);
 
         $query->orderByRaw('CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END');
         $query->orderBy('completed_at', 'asc');
         $query->orderBy('dispatch_at', 'asc');
+    }
+
+    protected function applyDesiredBetweenFilter(Builder $query, array $filtersState): void
+    {
+        if (empty($filtersState['desired_between']) || !is_array($filtersState['desired_between'])) {
+            return;
+        }
+
+        $dateRange = $filtersState['desired_between'];
+
+        if (!isset($dateRange['start'], $dateRange['end'])) {
+            return;
+        }
+
+        $periodColumn = $this->filterScalar($filtersState, 'period_column', 'dispatch');
+
+        if ($periodColumn === 'completed') {
+            $query->whereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
+            return;
+        }
+
+        if ($periodColumn === 'both') {
+            $query->where(function ($scope) use ($dateRange) {
+                $scope->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']])
+                    ->orWhereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
+            });
+            return;
+        }
+
+        $query->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']]);
+    }
+
+    protected function applyPassiveModeFilter(Builder $query, array $filtersState): void
+    {
+        $passiveMode = $this->filterScalar($filtersState, 'passive_mode', 'both');
+
+        if ($passiveMode === 'passive') {
+            $query->where('isPassive', true);
+            return;
+        }
+
+        if ($passiveMode === 'meta') {
+            $query->where(function ($scope) {
+                $scope->whereNull('isPassive')
+                    ->orWhere('isPassive', false);
+            });
+        }
+    }
+
+    protected function filterScalar(array $filtersState, string $key, string $default = ''): string
+    {
+        $value = $filtersState[$key] ?? $default;
+
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return (string) $value;
     }
 
     protected function shouldUseHistoricExport(): bool

@@ -144,11 +144,14 @@
         <div class="card mb-3 border-0 bg-transparent">
             <div class="card-body px-0">
                 <div class="row g-3 filters-grid">
-                    <div class="col-12 col-lg-5 col-xl-4">
+                    <div class="col-12 col-lg-6 col-xl-5">
                         <div class="filter-card">
-                            <h6>Pesquisa</h6>
+                            <h6>Pesquisa de Nota/OV</h6>
+                            <div class="small text-muted mb-2">
+                                Busca em qualquer nota com status 11/20 ou que ja passou por entidade externa.
+                            </div>
                             <div class="row g-2">
-                                <div class="col-12 col-sm-5">
+                                <div class="col-12 col-sm-4">
                                     <div class="form-floating w-100">
                                         <select class="form-select border border-secondary" wire:model="perPage"
                                             id="perPageSelect">
@@ -161,12 +164,12 @@
                                         <label for="perPageSelect">Registros por pagina</label>
                                     </div>
                                 </div>
-                                <div class="col-12 col-sm-7">
+                                <div class="col-12 col-sm-8">
                                     <div class="form-floating w-100 position-relative">
                                         <input wire:model.bounce.2s="search" type="text"
                                             class="form-control border border-secondary" id="search"
-                                            placeholder="Buscar">
-                                        <label for="search">Buscar</label>
+                                            placeholder="Buscar nota, pedido, material, protocolo...">
+                                        <label for="search">Buscar nota / pedido / protocolo</label>
                                         <button
                                             class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
                                             data-bs-toggle="modal" data-bs-target="#buscar_multi">
@@ -178,9 +181,9 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-lg-4 col-xl-3">
+                    <div class="col-12 col-lg-3 col-xl-3">
                         <div class="filter-card">
-                            <h6>Classificacao</h6>
+                            <h6>Classificacao rapida</h6>
                             <div class="mb-3">
                                 <small class="text-muted d-block mb-2">Tipo de nota</small>
                                 <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
@@ -216,7 +219,7 @@
                         </div>
                     </div>
 
-                    <div class="col-12 col-xl-5">
+                    <div class="col-12 col-lg-3 col-xl-4">
                         <div class="filter-card h-100">
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <h6 class="mb-0">Filtros adicionais</h6>
@@ -353,14 +356,13 @@
                                 <th scope="col" class="fw-bold text-center">Files</th>
                                 <th scope="col" class="fw-bold text-center">Protocolo</th>
                                 <th scope="col" class="fw-bold text-center">Ultimo Protocolo</th>
-                                <th scope="col" class="fw-bold text-center">Dt Protocolo</th>
-                                <th scope="col" class="fw-bold text-center">Sts Protocolo</th>
                                 <th scope="col" class="fw-bold text-center">Entidade</th>
                                 <th scope="col" class="fw-bold text-center">Rubrica</th>
                                 <th scope="col" class="fw-bold text-center">Grp 2</th>
                                 <th scope="col" class="fw-bold text-center">Municipio</th>
                                 <th scope="col" class="fw-bold text-center">Pedido</th>
                                 <th scope="col" class="fw-bold text-center">Status</th>
+                                <th scope="col" class="fw-bold text-center">Pasta atual</th>
                                 <th scope="col" class="fw-bold text-center">Ult Movimentacao</th>
                                 <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')"
                                     style="cursor: pointer;">Dias no Status
@@ -376,7 +378,6 @@
                                             class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
                                     @endif
                                 </th>
-                                <th scope="col" class="fw-bold text-center">Situacao</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -384,6 +385,9 @@
                                 @php
                                     $daysleft = new DaysLeft($list);
                                     $daysleft = $daysleft->getDaysLeft();
+                                    $color = 'text-bg-secondary';
+                                    $color2 = 'text-bg-secondary';
+                                    $statusDays = $list->dt_status?->startOfDay()->diffInDays() ?? 0;
                                     $getLastMovement = $list->externals
                                         ?->sortbydesc('updated_at')
                                         ->first()
@@ -398,6 +402,14 @@
                                         $color2 = 'text-bg-success';
                                     } else {
                                         $color2 = 'text-bg-warning';
+                                    }
+
+                                    if ($statusDays > 120) {
+                                        $color = 'text-bg-danger';
+                                    } elseif ($statusDays <= 60) {
+                                        $color = 'text-bg-success';
+                                    } else {
+                                        $color = 'text-bg-warning';
                                     }
                                 @endphp
                                 <tr class="align-middle" wire:key="{{ $list->id }}"
@@ -426,13 +438,8 @@
                                         @endif
                                     </td>
                                     <td class="fw-light text-center">
-                                        {{ $list->externals?->last()?->protocols?->last()?->protocol }}
-                                    </td>
-                                    <td class="fw-light text-center">
-                                        {{ $list->externals?->last()?->protocols?->last()?->created_at?->format('d/m/Y H:i:s') }}
-                                    </td>
-                                    <td class="fw-light text-center fw-bold">
-                                        {{ $list->externals?->last()?->Comments?->last()?->title }}
+                                        <p class="my-0 py-0">{{ $list->externals?->last()?->protocols?->last()?->protocol }}</p>
+                                        <p class="my-0 py-0">{{ $list->externals?->last()?->protocols?->last()?->created_at?->format('d/m/Y H:i:s') }}</p>
                                     </td>
                                     <td class="fw-light text-center">
                                         {{ $list->externals?->last()?->entidade }}
@@ -450,6 +457,10 @@
                                         <p class="my-0 py-0">{{ $list->nstats }}</p>
                                         <p class="my-0 py-0"><span class="test">{{ $list->centerjob }}</span></p>
                                     </td>
+                                    <td class="fw-light text-center">
+                                        @php($folder = $this->resolveFolderLabel($list))
+                                        <span class="badge {{ $folder['badge'] }}">{{ $folder['label'] }}</span>
+                                    </td>
 
                                     <td class="fw-light text-center ">
 
@@ -459,21 +470,10 @@
 
 
                                     </td>
-                                    @php
-                                        $days = $list->dt_status?->startOfDay()->diffInDays();
-
-                                        if ($days > 120) {
-                                            $color = 'text-bg-danger';
-                                        } elseif ($days <= 60) {
-                                            $color = 'text-bg-success';
-                                        } else {
-                                            $color = 'text-bg-warning';
-                                        }
-                                    @endphp
                                     <td class="fw-light text-center {{ $color }}">
 
                                         <p class="my-0 py-0 fw-bold">
-                                            {{ $list->dt_status->startOfDay()->diffInDays() }} dias</p>
+                                            {{ $statusDays }} dias</p>
                                         <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
 
                                     </td>
@@ -485,21 +485,6 @@
 
                                     </td>
 
-                                    <td class="fw-light text-center fw-bold">
-                                        @if ($list->externals->isNotEmpty())
-                                            @php
-                                                $completed = $list->externals->where('completed', true)->count();
-                                                $total = $list->externals->count();
-                                            @endphp
-                                            @if ($completed == $total)
-                                                <span class="badge text-bg-success">COMPLETADO</span>
-                                            @else
-                                                <span class="badge text-bg-primary">EM ANDAMENTO</span>
-                                            @endif
-                                        @else
-                                            <span class="badge text-bg-dark">SEM REGISTRO</span>
-                                        @endif
-                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>

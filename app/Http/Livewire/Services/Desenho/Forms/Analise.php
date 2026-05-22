@@ -109,6 +109,7 @@ class Analise extends Component
     public $order_input_total = '';
     public $order_input_company = '';
     public $order_input_client = '';
+    public ?array $pendingReviewOrderInsert = null;
 
     public $designer_note;
     public $riRequest = null;
@@ -122,6 +123,7 @@ class Analise extends Component
     public bool $viewOnlyProjectReview = false;
     public bool $allowProjectReviewHistory = false;
     public string $modalContext = 'finish';
+    public bool $hasProjectReviewCycles = false;
 
 
     // Files
@@ -174,8 +176,11 @@ class Analise extends Component
         $this->viewOnlyProjectReview = $isViewOnlyRequest;
         $this->allowProjectReviewHistory = (bool) ($data['allowProjectReviewHistory'] ?? false);
 
-        $this->production = Production::find($productionId);
-        $this->note       = Note::find($noteId);
+        $this->production = Production::withCount('ProjectReviewCycles')
+            ->with('Note')
+            ->find($productionId);
+        $this->note = $this->production?->Note ?: Note::find($noteId);
+        $this->hasProjectReviewCycles = ((int) ($this->production->project_review_cycles_count ?? 0)) > 0;
 
         if ($isViewOnlyRequest && !$this->canOpenProjectReviewReadonly()) {
             $this->dispatchBrowserEvent('swal', [
@@ -278,9 +283,6 @@ class Analise extends Component
         $latestCycle = $this->production->ProjectReviewCycles()
             ->with([
                 'Orders',
-                'Findings.Subcategory.Category',
-                'Findings.Item',
-                'Messages.User',
             ])
             ->latest('round_number')
             ->first();
@@ -305,15 +307,26 @@ class Analise extends Component
                 Production::STATUS_REJECTED_PROJECT_REVIEW,
                 Production::STATUS_RELEASED_TO_FINISH,
             ], true)) {
+                $latestCycle->loadMissing([
+                    'Findings.Subcategory.Category',
+                    'Findings.Item',
+                    'Messages.User',
+                ]);
+
                 $findings = $latestCycle->Findings->values();
 
                 $this->rejectedFindings = $this->mapRejectedFindingsForView($findings);
 
-                $this->reviewMessages = $latestCycle->Messages()
-                    ->with('User')
-                    ->orderByDesc('created_at')
-                    ->orderByDesc('id')
-                    ->get();
+                $this->reviewMessages = $latestCycle->Messages
+                    ->sortByDesc(function ($message) {
+                        return sprintf(
+                            '%s-%010d',
+                            optional($message->created_at)->format('Y-m-d H:i:s.u') ?? '',
+                            (int) ($message->id ?? 0)
+                        );
+                    })
+                    ->values()
+                    ->all();
             }
         }
 
@@ -386,6 +399,10 @@ class Analise extends Component
             return false;
         }
 
+        if (!$this->preResultRequiresProjectReview()) {
+            return false;
+        }
+
         return true;
     }
 
@@ -402,6 +419,42 @@ class Analise extends Component
             'ARQUIVADO',
             'DEPENDE DE ORGAO EXTERNO',
         ], true);
+    }
+
+    private function preResultRequiresProjectReview(): bool
+    {
+        $preResult = $this->normalizePreResult((string) $this->preresult);
+
+        // Sem seleção explícita, mantém o comportamento conservador (envia para análise).
+        if ($preResult === '') {
+            return true;
+        }
+
+        return in_array($preResult, [
+            'NORMAL',
+            'REVALIDACAO',
+        ], true);
+    }
+
+    private function normalizePreResult(string $value): string
+    {
+        $value = mb_strtoupper(trim($value));
+        $replacements = [
+            'Á' => 'A',
+            'À' => 'A',
+            'Â' => 'A',
+            'Ã' => 'A',
+            'É' => 'E',
+            'Ê' => 'E',
+            'Í' => 'I',
+            'Ó' => 'O',
+            'Ô' => 'O',
+            'Õ' => 'O',
+            'Ú' => 'U',
+            'Ç' => 'C',
+        ];
+
+        return strtr($value, $replacements);
     }
 
     // OPERAÇÕES COM ARQUIVOS
@@ -533,6 +586,18 @@ class Analise extends Component
 
     public function updatedPreresult()
     {
+        if ($this->isRejectedProjectReviewResubmission()) {
+            $this->preresult = (string) ($this->analise->preresult ?? $this->preresult);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'FINALIDADE BLOQUEADA',
+                'html'     => 'Em retorno da Análise de Projeto, a finalidade não pode ser alterada.',
+                'timer'    => 3200,
+            ]);
+            return;
+        }
+
         $this->postes     = ($this->analise?->postes && $this->analise?->postes > 0) ? $this->analise->postes : (($this->production->postes_u && $this->production->postes_u > 0) ? $this->production->postes_u : $this->note->postes);
         $this->updatedConclusion();
     }
@@ -677,6 +742,15 @@ class Analise extends Component
         $orderNumberError = $this->projectReviewOrderNumberError($newNumber);
         if (!is_null($orderNumberError)) {
             $this->addError('order_input_number', $orderNumberError);
+            if (str_contains($orderNumberError, 'prefixo')) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'PREFIXO INVÁLIDO PARA A NOTA/OV',
+                    'html'     => $orderNumberError,
+                    'timer'    => 3500,
+                ]);
+            }
             return;
         }
 
@@ -684,13 +758,71 @@ class Analise extends Component
             return trim((string) ($row['order_number'] ?? '')) === $newNumber;
         });
 
+        if ($this->isRejectedProjectReviewResubmission() && $this->hasLockedOrderNumber($newNumber)) {
+            $this->addError('order_input_number', 'Esta ordem já existe no retorno. A correção deve ser feita ajustando os valores da ordem já exibida.');
+            return;
+        }
+
         if ($exists) {
             $this->addError('order_input_number', 'Número de ordem já adicionado nesta submissão.');
             return;
         }
 
+        if ($this->isRejectedProjectReviewResubmission()) {
+            $prefix = $this->extractOrderPrefix($newNumber);
+            if ($prefix !== '' && $this->hasLockedOrderWithPrefix($prefix)) {
+                $this->pendingReviewOrderInsert = [
+                    'order_number' => $newNumber,
+                    'total_cost' => $total,
+                    'company_cost' => $company,
+                    'client_cost' => $client,
+                ];
+
+                $this->dispatchBrowserEvent('confirmProjectReviewNewOrderPrefix', [
+                    'componentId' => $this->id,
+                    'orderNumber' => $newNumber,
+                    'prefix' => $prefix,
+                ]);
+                return;
+            }
+        }
+
+        $this->appendReviewOrderRow($newNumber, $total, $company, $client);
+    }
+
+    public function confirmAddOrderAfterPrefixCheck(): void
+    {
+        if (!is_array($this->pendingReviewOrderInsert)) {
+            return;
+        }
+
+        $payload = $this->pendingReviewOrderInsert;
+        $this->pendingReviewOrderInsert = null;
+
+        $orderNumber = trim((string) ($payload['order_number'] ?? ''));
+        $total = isset($payload['total_cost']) ? (float) $payload['total_cost'] : null;
+        $company = isset($payload['company_cost']) ? (float) $payload['company_cost'] : null;
+        $client = isset($payload['client_cost']) ? (float) $payload['client_cost'] : null;
+
+        if ($orderNumber === '' || is_null($total) || is_null($company) || is_null($client)) {
+            return;
+        }
+
+        $exists = collect($this->reviewOrders)->contains(function ($row) use ($orderNumber) {
+            return trim((string) ($row['order_number'] ?? '')) === $orderNumber;
+        });
+        if ($exists) {
+            $this->addError('order_input_number', 'Número de ordem já adicionado nesta submissão.');
+            return;
+        }
+
+        $this->appendReviewOrderRow($orderNumber, $total, $company, $client);
+    }
+
+    private function appendReviewOrderRow(string $orderNumber, float $total, float $company, float $client): void
+    {
         $this->reviewOrders[] = [
-            'order_number' => $newNumber,
+            'order_number' => $orderNumber,
             'total_cost' => number_format($total, 2, ',', '.'),
             'company_cost' => number_format($company, 2, ',', '.'),
             'client_cost' => number_format($client, 2, ',', '.'),
@@ -701,6 +833,7 @@ class Analise extends Component
         $this->order_input_total = '';
         $this->order_input_company = '';
         $this->order_input_client = '';
+        $this->pendingReviewOrderInsert = null;
     }
 
     public function removeReviewOrder(int $index): void
@@ -915,6 +1048,10 @@ class Analise extends Component
         }
 
         $prefix = substr($number, 0, 3);
+        if ($this->noteRequiresPrefix200()) {
+            return $prefix === '200';
+        }
+
         return in_array($prefix, ['170', '190', '150', '200'], true);
     }
 
@@ -935,15 +1072,59 @@ class Analise extends Component
         }
 
         $len = strlen($value);
-        if ($len < 6 || $len > 12) {
-            return 'Número da ordem inválido: informe de 6 a 12 dígitos.';
+        if ($len !== 12) {
+            return 'Número da ordem inválido: informe exatamente 12 dígitos.';
         }
 
         if (!$this->hasAllowedProjectReviewOrderPrefix($value)) {
+            if ($this->noteRequiresPrefix200()) {
+                return 'Número da ordem inválido: para esta Nota/OV o prefixo deve iniciar com 200.';
+            }
             return 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
         }
 
         return null;
+    }
+
+    private function noteRequiresPrefix200(): bool
+    {
+        $noteValue = (string) ($this->note->note ?? '');
+        $digits = preg_replace('/\D+/', '', $noteValue);
+        if ($digits === '') {
+            return false;
+        }
+
+        $first = (int) substr($digits, 0, 1);
+        return $first >= 3;
+    }
+
+    private function extractOrderPrefix(string $orderNumber): string
+    {
+        $digits = preg_replace('/\D+/', '', $orderNumber);
+        return strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+    }
+
+    private function hasLockedOrderWithPrefix(string $prefix): bool
+    {
+        return collect($this->reviewOrders)->contains(function ($row) use ($prefix) {
+            if (empty($row['locked'])) {
+                return false;
+            }
+
+            $orderNumber = trim((string) ($row['order_number'] ?? ''));
+            return $this->extractOrderPrefix($orderNumber) === $prefix;
+        });
+    }
+
+    private function hasLockedOrderNumber(string $orderNumber): bool
+    {
+        return collect($this->reviewOrders)->contains(function ($row) use ($orderNumber) {
+            if (empty($row['locked'])) {
+                return false;
+            }
+
+            return trim((string) ($row['order_number'] ?? '')) === $orderNumber;
+        });
     }
 
     private function autofillCostTuple(?float $total, ?float $company, ?float $client): array
@@ -1159,17 +1340,23 @@ class Analise extends Component
             return;
         }
 
-        if (
-            !$isSapReleaseFinalizeFlow
-            && $this->requiresProjectReview
-            && !$this->isConclusionDirectCloseWithoutProjectReview()
-        ) {
+        if (!$isSapReleaseFinalizeFlow && $this->shouldSendToProjectReview) {
             if (!is_array($this->reviewOrders) || !count($this->reviewOrders)) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
                     'title'    => 'ORDENS OBRIGATÓRIAS',
                     'html'     => 'Para esta conclusão, é obrigatório informar ao menos uma ordem para análise.',
+                ]);
+                return;
+            }
+
+            if (!$this->hasFile && !$this->isRejectedProjectReviewResubmission()) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'ARQUIVO DE PROJETO OBRIGATÓRIO',
+                    'html'     => 'Para pré-resultado <strong>NORMAL</strong> ou <strong>REVALIDAÇÃO</strong>, é obrigatório anexar o arquivo do projeto antes do envio para análise.',
                 ]);
                 return;
             }
@@ -1346,7 +1533,6 @@ class Analise extends Component
                 : now();
             if (!$isSapReleaseFinalizeFlow && $sendToProjectReview) {
                 $this->validateProjectReviewPayload();
-                $hasProjectReviewChanges = $this->hasProjectReviewPayloadChanges();
 
                 $nextRound = ((int) $this->production->ProjectReviewCycles()->max('round_number')) + 1;
 
@@ -1359,16 +1545,14 @@ class Analise extends Component
                     'decision' => 'PENDING',
                 ]);
 
-                if ($hasProjectReviewChanges) {
-                    foreach (array_values($this->reviewOrders) as $index => $row) {
-                        $cycle->Orders()->create([
-                            'order_number' => trim((string) $row['order_number']),
-                            'total_cost' => (float) $row['total_cost'],
-                            'company_cost' => (float) $row['company_cost'],
-                            'client_cost' => (float) $row['client_cost'],
-                            'sort_order' => $index,
-                        ]);
-                    }
+                foreach (array_values($this->reviewOrders) as $index => $row) {
+                    $cycle->Orders()->create([
+                        'order_number' => trim((string) $row['order_number']),
+                        'total_cost' => (float) $row['total_cost'],
+                        'company_cost' => (float) $row['company_cost'],
+                        'client_cost' => (float) $row['client_cost'],
+                        'sort_order' => $index,
+                    ]);
                 }
             }
 
@@ -1542,6 +1726,7 @@ class Analise extends Component
         $this->selectedReviewPointFilter = '';
         $this->viewOnlyProjectReview = false;
         $this->allowProjectReviewHistory = false;
+        $this->hasProjectReviewCycles = false;
 
 
     }
@@ -1592,6 +1777,7 @@ class Analise extends Component
         $this->selectedReviewPointFilter = '';
         $this->viewOnlyProjectReview = false;
         $this->allowProjectReviewHistory = false;
+        $this->hasProjectReviewCycles = false;
 
     }
 
@@ -1611,11 +1797,10 @@ class Analise extends Component
             Production::STATUS_REJECTED_PROJECT_REVIEW,
             Production::STATUS_RELEASED_TO_FINISH,
         ], true)) {
-            return $this->allowProjectReviewHistory
-                && $this->production->ProjectReviewCycles()->exists();
+            return $this->allowProjectReviewHistory && $this->hasProjectReviewCycles;
         }
 
-        return $this->production->ProjectReviewCycles()->exists();
+        return $this->hasProjectReviewCycles;
     }
 
     private function isProjectReviewTracked(): bool
@@ -1632,7 +1817,7 @@ class Analise extends Component
             return false;
         }
 
-        return $this->production->ProjectReviewCycles()->exists();
+        return $this->hasProjectReviewCycles;
     }
 
     private function buildProjectReviewChatLinkForRecipient(User $recipient): string

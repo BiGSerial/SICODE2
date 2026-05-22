@@ -29,6 +29,7 @@ class ExportExternalReclaimsJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = array_merge([
             'dt_in' => null,
             'dt_out' => null,
@@ -70,9 +71,9 @@ class ExportExternalReclaimsJob implements ShouldQueue
             }
         } catch (\Throwable $exception) {
             Log::error('ExportExternalReclaimsJob falhou', [
-                'error_message' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString(),
-                'params' => $this->params,
+                'job' => static::class,
+                'user_id' => $this->userId,
+                'message' => $exception->getMessage(),
                 'attempt' => $this->attempts(),
             ]);
 

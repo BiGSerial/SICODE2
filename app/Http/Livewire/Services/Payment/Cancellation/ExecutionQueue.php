@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
+use App\Jobs\Dispatchs\ExportCancellationQueueJob;
 use App\Models\CancellationRequest;
 use App\Enum\CancellationRequestStatus;
 use App\Services\Payment\CancellationRequestService;
@@ -129,6 +130,21 @@ class ExecutionQueue extends Component
         $this->dispatchBrowserEvent('swal', [
             'icon' => 'success',
             'title' => "Assumidas: {$success}. Falhas: {$failed}.",
+        ]);
+    }
+
+    public function exportToExcel(): void
+    {
+        ExportCancellationQueueJob::dispatch([
+            'service_uuid' => $this->service,
+            'multiSearch' => $this->parseMultiSearch(),
+            'status' => CancellationRequestStatus::SUBMITTED->value,
+            'onlyUnassigned' => true,
+        ], (string) Auth::id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Exportação iniciada. Você será notificado quando concluir.',
         ]);
     }
 

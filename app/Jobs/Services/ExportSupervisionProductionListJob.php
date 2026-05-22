@@ -32,6 +32,7 @@ class ExportSupervisionProductionListJob implements ShouldQueue
 
     public function __construct(array $params)
     {
+        $this->onQueue('exports');
         $this->params = $params;
     }
 

@@ -52,12 +52,18 @@ class FiveNoteReportService
     {
         $dispatchFrom = $this->asStartOfDay($filters['dispatch_from'] ?? null);
         $dispatchTo = $this->asEndOfDay($filters['dispatch_to'] ?? null);
-        $completedFrom = $this->asStartOfDay($filters['completed_from'] ?? null);
-        $completedTo = $this->asEndOfDay($filters['completed_to'] ?? null);
         $companyId = isset($filters['company_id']) ? (string) $filters['company_id'] : '';
+        $passiveMode = $this->filterScalar($filters, 'passive_mode', 'both');
         $search = trim((string) ($filters['search'] ?? ''));
+        $openOnly = $this->filterScalar($filters, 'open_only', '0') === '1';
+        $directTerms = $this->normalizeTerms($filters['direct_terms'] ?? []);
+        if ($search !== '') {
+            $directTerms[] = $search;
+        }
+        $directTerms = array_values(array_unique(array_filter($directTerms)));
+        $hasDirectSearch = count($directTerms) > 0;
 
-        return FiveNote::query()
+        $query = FiveNote::query()
             ->with([
                 'note:id,note',
                 'company:id,name',
@@ -74,27 +80,34 @@ class FiveNoteReportService
                     ]);
                 },
             ])
-            ->when($dispatchFrom, fn ($q) => $q->where('dispatch_at', '>=', $dispatchFrom))
-            ->when($dispatchTo, fn ($q) => $q->where('dispatch_at', '<=', $dispatchTo))
-            ->when($completedFrom, fn ($q) => $q->where('completed_at', '>=', $completedFrom))
-            ->when($completedTo, fn ($q) => $q->where('completed_at', '<=', $completedTo))
-            ->when($companyId !== '', fn ($q) => $q->where('company_id', $companyId))
-            ->when($search !== '', function ($q) use ($search) {
-                $term = '%' . $search . '%';
-                $q->where(function ($sub) use ($term) {
-                    $sub->where('note_d5', 'like', $term)
-                        ->orWhere('loc_install', 'like', $term)
-                        ->orWhere('conjunto', 'like', $term)
-                        ->orWhere('pep', 'like', $term)
-                        ->orWhere('sintoms', 'like', $term)
-                        ->orWhere('reason', 'like', $term)
-                        ->orWhere('description', 'like', $term)
-                        ->orWhereHas('note', fn ($n) => $n->where('note', 'like', $term))
-                        ->orWhereHas('company', fn ($c) => $c->where('name', 'like', $term));
-                });
-            })
             ->orderByDesc('dispatch_at')
             ->orderByDesc('id');
+
+        if ($hasDirectSearch) {
+            $query->where(function ($scope) use ($directTerms) {
+                $scope->whereIn('note_d5', $directTerms)
+                    ->orWhereHas('note', fn ($noteQuery) => $noteQuery->whereIn('note', $directTerms));
+            });
+
+            return $query;
+        }
+
+        if (!$openOnly) {
+            $query->when($dispatchFrom, fn ($q) => $q->where('dispatch_at', '>=', $dispatchFrom))
+                ->when($dispatchTo, fn ($q) => $q->where('dispatch_at', '<=', $dispatchTo));
+        } else {
+            $query->where('is_archived', false);
+        }
+
+        $query->when($companyId !== '', fn ($q) => $q->where('company_id', $companyId))
+            ->when($passiveMode === 'passive', fn ($q) => $q->where('isPassive', true))
+            ->when($passiveMode === 'meta', function ($q) {
+                $q->where(function ($scope) {
+                    $scope->whereNull('isPassive')->orWhere('isPassive', false);
+                });
+            });
+
+        return $query;
     }
 
     /**
@@ -188,5 +201,42 @@ class FiveNoteReportService
         }
 
         return Carbon::parse($value)->format('d/m/Y H:i');
+    }
+
+    private function filterScalar(array $filters, string $key, string $default = ''): string
+    {
+        $value = $filters[$key] ?? $default;
+
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return (string) $value;
+    }
+
+    private function normalizeTerms($terms): array
+    {
+        if (is_string($terms)) {
+            $terms = [$terms];
+        }
+
+        if (!is_array($terms)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($terms as $term) {
+            $value = trim((string) $term);
+            if ($value !== '') {
+                $normalized[] = $value;
+            }
+        }
+
+        return array_values(array_unique($normalized));
     }
 }

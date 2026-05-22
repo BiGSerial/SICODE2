@@ -57,6 +57,7 @@
                             ['label' => 'PAINEL CONFIGURAÇÕES', 'route' => 'config.main', 'icon' => 'ri-home-gear-fill'],
                             ['label' => 'STATUS SERVER', 'route' => 'config.system.status', 'icon' => 'ri-server-line'],
                             ['label' => 'LOG LOG', 'route' => 'config.system.history', 'icon' => 'ri-file-list-3-line'],
+                            ['label' => 'SCHEDULE', 'route' => 'config.system.schedule', 'icon' => 'ri-calendar-schedule-line', 'can' => 'superadm'],
                         ],
                     ],
                 ],
@@ -74,7 +75,7 @@
             'open' => 'side',
             'can' => 'can_dispatch',
             'nodes' => [
-                ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill'],
+                ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill', 'iconClass' => 'text-danger'],
             ],
         ],
         [
@@ -197,6 +198,7 @@
                 ['label' => 'NOTAS/OVS', 'route' => 'reports.search', 'icon' => 'ri-search-eye-line'],
                 ['label' => 'CONSULTA D5', 'route' => 'reports.consulta_d5', 'icon' => 'ri-search-eye-line'],
                 ['label' => 'INFORMES', 'route' => 'reports.workreport', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports],
+                ['label' => 'ADS SOLICITADAS', 'route' => 'ads.dashboard', 'icon' => 'ri-survey-line', 'visible' => $can_view_workreports],
                 ['label' => 'SITUAÇÃO DE CONTRATAÇÃO', 'route' => 'reports.lookatnotes', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports],
                 ['label' => 'INFORMES REJEITADOS', 'route' => 'reports.rejecetedWorkreport', 'icon' => 'ri-search-eye-line', 'visible' => $can_view_workreports && !Auth()->user()->onlyparner],
                 ['label' => 'EQUIPAMENTOS DECLARADOS', 'route' => 'reports.equipments', 'icon' => 'ri-tools-line', 'visible' => $can_view_workreports],

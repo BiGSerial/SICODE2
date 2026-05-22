@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Production;
 use App\Models\SicodeSql\WpasLog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class WpasLogger extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -39,7 +41,7 @@ class WpasLogger extends Command
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> PREPARING WPAS NOTES SQL </>');
         $sql = WpasLog::count();
         $this->info("<bg=green;fg=white> DONE </> <fg=white;options=bold> {$sql} Log Registers. </>");
-        $progressBar = new ProgressBar($this->output, $wpas->count());
+        $progressBar = $this->createProgressBar($wpas->count());
 
         if ($wpas->count()) {
 

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\SqlLog;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Services\HiringStatus\HiringStatusBuilder;
@@ -10,6 +11,8 @@ use App\Models\Note;
 
 class HiredStatusLog extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'sicode:log_hired_status {--full}';
     protected $description = 'Reprocessa e atualiza o status de contratação para registros já existentes';
 
@@ -31,7 +34,7 @@ class HiredStatusLog extends Command
         $noteIds = $query->pluck('note_id')->toArray();
 
         $total = count($noteIds);
-        $bar = $this->output->createProgressBar($total);
+        $bar = $this->createProgressBar($total);
         $bar->start();
 
         // essas são as 10 colunas que o MERGE/VALUES sempre vai usar

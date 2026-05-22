@@ -8,7 +8,10 @@
     <a class="dropdown-item {{ $depth === 0 ? 'services-dropdown-direct-item' : '' }}" href="{{ $resolveHref($node) }}">
         <span class="d-flex align-items-center gap-2">
             @if (!empty($node['icon']))
-                <i class="{{ $node['icon'] }} align-middle text-primary"></i>
+                @php
+                    $iconBaseClass = trim((string) preg_replace('/\btext-\S+\b/', '', $node['icon']));
+                @endphp
+                <i class="{{ $iconBaseClass }} align-middle {{ $node['iconClass'] ?? 'text-primary' }}"></i>
             @endif
             {{ $node['label'] }}
         </span>

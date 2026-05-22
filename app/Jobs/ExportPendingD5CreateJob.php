@@ -33,6 +33,7 @@ class ExportPendingD5CreateJob implements ShouldQueue
 
     public function __construct(array $params, $userId)
     {
+        $this->onQueue('exports');
         $this->params = $params;
         $this->userId = $userId;
     }

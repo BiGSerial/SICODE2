@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Update;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\{BaseOrder as Edp_depcBaseOrder, City};
 use App\Models\Note;
@@ -10,11 +11,12 @@ use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class BaseOrder extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -57,7 +59,7 @@ class BaseOrder extends Command
             'denConjunto','dtEntrada','updated_at',
         ];
 
-        $bar = new ProgressBar($this->output, $total);
+        $bar = $this->createProgressBar($total);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% - <info>Updating Base Orders</info>');
         $this->output->writeln("<fg=yellow>Starting update process for Base Orders...</>\n");
 

@@ -32,6 +32,7 @@
             'route' => 'dispatch.main',
             'routeParams' => ['service' => $service->service_id],
             'icon' => $service->Service->icon,
+            'iconClass' => 'text-danger',
         ])
         ->values()
         ->all();

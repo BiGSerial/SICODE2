@@ -261,6 +261,148 @@
                                         </div>
                                     @endif
                                 </div>
+
+                                <div class="fivefx-section mt-4">
+                                    <h6 class="fivefx-k mb-2">Primeira solicitação ADS válida</h6>
+
+                                    @if ($firstValidAdsRequest)
+                                        <div class="table-responsive mb-0">
+                                            <table class="table table-sm table-dark table-hover border-secondary mb-0">
+                                                <thead>
+                                                    <tr class="text-secondary">
+                                                        <th scope="col">Solicitação</th>
+                                                        <th scope="col">Status</th>
+                                                        <th scope="col">Solicitado por</th>
+                                                        <th scope="col">Data entrega</th>
+                                                        <th scope="col">Tempo</th>
+                                                        <th scope="col">Link</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td>#{{ $firstValidAdsRequest['id'] }}</td>
+                                                        <td>{{ $firstValidAdsRequest['status'] }}</td>
+                                                        <td>{{ $firstValidAdsRequest['requested_by_name'] ?? '---' }}</td>
+                                                        <td>{{ $firstValidAdsRequest['delivered_at'] ?? '---' }}</td>
+                                                        <td>
+                                                            @php
+                                                                $withinDeadline = $firstValidAdsRequest['within_deadline'] ?? null;
+                                                                $badgeClass = $withinDeadline === null
+                                                                    ? 'text-bg-secondary'
+                                                                    : ($withinDeadline ? 'text-bg-success' : 'text-bg-danger');
+                                                            @endphp
+                                                            <span class="badge {{ $badgeClass }}">
+                                                                {{ $firstValidAdsRequest['elapsed'] ?? '---' }}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <a href="{{ $firstValidAdsRequest['url'] }}" target="_blank" rel="noopener noreferrer"
+                                                                class="btn btn-outline-info btn-sm fivefx-btn">
+                                                                <i class="ri-link me-1"></i>Abrir
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-secondary bg-opacity-25 mb-0">
+                                            Nenhuma solicitação ADS válida encontrada (status DONE e link preenchido).
+                                        </div>
+                                    @endif
+                                </div>
+
+                                <div class="fivefx-section mt-4">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <h6 class="fivefx-k mb-0">ADSForm vinculado</h6>
+                                        @if ($adsFormId)
+                                            <span class="badge text-bg-info">ID ADS: {{ $adsFormId }}</span>
+                                        @else
+                                            <span class="badge text-bg-secondary">Nao cadastrado</span>
+                                        @endif
+                                    </div>
+
+                                    @if (!$adsFormEnabled)
+                                        <div class="alert alert-secondary bg-opacity-25 mb-3">
+                                            Este WorkReport ainda nao possui ADSForm editavel no modal.
+                                        </div>
+                                        <button type="button" class="btn btn-outline-primary btn-sm fivefx-btn"
+                                            wire:click="enableAdsForm">
+                                            <i class="ri-add-circle-line me-1"></i>Criar/Editar ADSForm
+                                        </button>
+                                    @else
+                                        <div class="small text-muted mb-2">
+                                            Arquivos vinculados ao ADSForm: <strong>{{ $adsFilesCount }}</strong>
+                                        </div>
+
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label fivefx-k">Responsavel ADS</label>
+                                                <input type="text" class="form-control fivefx-control"
+                                                    wire:model.defer="adsName">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fivefx-k">Valor ADS</label>
+                                                <input type="text" class="form-control fivefx-control"
+                                                    wire:model.defer="adsAmount" placeholder="0,00">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fivefx-k">Contrato</label>
+                                                <input type="text" class="form-control fivefx-control"
+                                                    wire:model.defer="adsContract">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fivefx-k">Centro</label>
+                                                <input type="text" class="form-control fivefx-control"
+                                                    wire:model.defer="adsCenter">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fivefx-k">Deposito</label>
+                                                <input type="text" class="form-control fivefx-control"
+                                                    wire:model.defer="adsDeposit">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label fivefx-k">Observacao ADS</label>
+                                                <textarea class="form-control fivefx-control fivefx-textarea" rows="3"
+                                                    wire:model.defer="adsObs"></textarea>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input" type="checkbox" id="adsPartial"
+                                                        wire:model.defer="adsPartial">
+                                                    <label class="form-check-label" for="adsPartial">ADS Parcial</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input" type="checkbox" id="adsTacit"
+                                                        wire:model.defer="adsTacit">
+                                                    <label class="form-check-label" for="adsTacit">ADS Tacita</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6"></div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fivefx-k">Prazo tacito</label>
+                                                <input type="datetime-local" class="form-control fivefx-control"
+                                                    wire:model.defer="adsTacitDueAt">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fivefx-k">Tacita entregue em</label>
+                                                <input type="datetime-local" class="form-control fivefx-control"
+                                                    wire:model.defer="adsTacitDeliveredAt">
+                                            </div>
+                                        </div>
+
+                                        @if ($adsFormId)
+                                            <div class="mt-3">
+                                                <button type="button" class="btn btn-outline-danger btn-sm fivefx-btn"
+                                                    wire:click="requestDeleteAdsForm">
+                                                    <i class="ri-delete-bin-6-line me-1"></i>Excluir ADSForm
+                                                </button>
+                                            </div>
+                                        @endif
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>

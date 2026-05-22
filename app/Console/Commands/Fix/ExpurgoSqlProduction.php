@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Production;
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class ExpurgoSqlProduction extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -30,7 +32,7 @@ class ExpurgoSqlProduction extends Command
     {
         $sql_prod_count = SicodeSqlProduction::where('confirmed', false)->count();
 
-        $progress = new ProgressBar($this->output, $sql_prod_count);
+        $progress = $this->createProgressBar($sql_prod_count);
 
         $progress->start();
 

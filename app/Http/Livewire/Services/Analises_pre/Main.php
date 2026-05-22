@@ -347,7 +347,9 @@ class Main extends Component
             })->first();
 
         if ($check) {
-            $name = $check->User ? $check->User->name : 'Desconhecido';
+            $check->loadMissing(['User', 'Company', 'Service']);
+
+            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
             $status = Notestatus::status($check->status)->status;
 
             return [

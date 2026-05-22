@@ -133,6 +133,26 @@
                                 @enderror
                             </div>
 
+                            <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input @error('cadastro') is-invalid @enderror" type="checkbox"
+                                        wire:model="cadastro" id="levCadastroCheck">
+                                    <label class="form-check-label" for="levCadastroCheck">Cadastro</label>
+                                </div>
+
+                                @if ($cadastro)
+                                    <div style="max-width: 220px; width: 100%;">
+                                        <label class="form-label fw-semibold mb-1">Postes Cadastro</label>
+                                        <input type="number" min="0" max="500"
+                                            class="form-control border border-1 @error('postes_c') is-invalid @enderror"
+                                            wire:model.defer="postes_c">
+                                        @error('postes_c')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                @endif
+                            </div>
+
                         </form>
                     </div>
                 </div>

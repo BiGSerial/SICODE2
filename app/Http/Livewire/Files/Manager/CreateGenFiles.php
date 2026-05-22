@@ -5,6 +5,8 @@ namespace App\Http\Livewire\Files\Manager;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Viability as ViabilityModel;
+use App\Models\WorkReport;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -49,6 +51,7 @@ class CreateGenFiles extends Component
 
     public ?Note $note = null;
     public ?ViabilityModel $viability = null;
+    public ?WorkReport $workReport = null;
     public ?int $viabilityId = null;
     public bool $alertFile = false;
     public string $service;
@@ -56,18 +59,45 @@ class CreateGenFiles extends Component
     public $tempFiles = [];
     public $uploadType;
     public $services;
+    public bool $manageExisting = false;
+    public array $existingFileTypes = [];
+    public ?string $fileableType = null;
+    public ?int $fileableId = null;
 
     protected $listeners = [
         'saveFiles',
         'cleanFiles' => 'closeAll',
+        'setWorkReportId',
     ];
 
-    public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null)
+    public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null, bool $manage_existing = false, array $existing_file_types = [], ?WorkReport $work_report = null, ?string $fileable_type = null, ?int $fileable_id = null)
     {
         $this->note = $note;
         $this->service = $service;
         $this->viability = $viability;
         $this->viabilityId = $viability_id ?: ($viability?->id ? (int) $viability->id : null);
+        $this->manageExisting = $manage_existing;
+        $this->existingFileTypes = $existing_file_types;
+        $this->workReport = $this->persistedWorkReport($work_report);
+        $this->setFileable($fileable_type, $fileable_id);
+    }
+
+    public function setWorkReportId(int $workReportId): void
+    {
+        $this->workReport = $this->persistedWorkReport(WorkReport::find($workReportId));
+    }
+
+    public function setFileable(?string $fileableType = null, ?int $fileableId = null): void
+    {
+        if ($fileableType && $fileableId) {
+            $this->fileableType = $fileableType;
+            $this->fileableId = $fileableId;
+
+            return;
+        }
+
+        $this->fileableType = null;
+        $this->fileableId = null;
     }
 
     public function updatedFiles()
@@ -148,11 +178,22 @@ class CreateGenFiles extends Component
 
     public function checkFilesExists()
     {
+        $hasExistingFiles = $this->manageExisting && $this->existingFiles()->exists();
+        $hasExistingAsbuilt = $this->manageExisting && $this->existingFiles()
+            ->where('file_name', 'like', 'ASBUILT%')
+            ->exists();
+        $hasExistingNonAsbuiltFile = $this->manageExisting && $this->existingFiles()
+            ->where('file_name', 'not like', 'ASBUILT%')
+            ->exists();
+
         if (count($this->tempFiles)) {
 
             $this->alertFile = false;
 
             $FVTO = 0;
+            $hasAsbuilt = $hasExistingAsbuilt;
+            $hasPendingAsbuilt = false;
+            $hasNonAsbuiltFile = $hasExistingNonAsbuiltFile;
 
 
 
@@ -161,6 +202,13 @@ class CreateGenFiles extends Component
 
                 if ($temp_file['uploadType'] == "FTVEO") {
                     $FVTO++;
+                }
+
+                if ($temp_file['uploadType'] == "ASBUILT") {
+                    $hasAsbuilt = true;
+                    $hasPendingAsbuilt = true;
+                } else {
+                    $hasNonAsbuiltFile = true;
                 }
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
@@ -178,8 +226,16 @@ class CreateGenFiles extends Component
             }
 
             $this->emitUp('hasFile', true);
+            $this->emitUp('hasAsbuilt', $hasAsbuilt);
+            $this->emitUp('hasPendingAsbuilt', $hasPendingAsbuilt);
+            $this->emitUp('hasEvidenceFile', $hasNonAsbuiltFile);
+            $this->emitUp('hasPendingFile', true);
         } else {
-            $this->emitUp('hasFile', false);
+            $this->emitUp('hasFile', $hasExistingFiles);
+            $this->emitUp('hasAsbuilt', $hasExistingAsbuilt);
+            $this->emitUp('hasPendingAsbuilt', false);
+            $this->emitUp('hasEvidenceFile', $hasExistingNonAsbuiltFile);
+            $this->emitUp('hasPendingFile', false);
         }
     }
 
@@ -193,6 +249,35 @@ class CreateGenFiles extends Component
             }
             unset($this->tempFiles[$index]);
         }
+
+        $this->checkFilesExists();
+    }
+
+    public function removeExistingFile(int $fileId)
+    {
+        if (!$this->manageExisting) {
+            return;
+        }
+
+        $file = $this->existingFiles()->whereKey($fileId)->first();
+
+        if (!$file) {
+            return;
+        }
+
+        DB::transaction(function () use ($file) {
+            $file->Adsforms()->detach();
+            $file->Viabilities()->detach();
+            $file->Forms()->detach();
+            $file->Productions()->detach();
+            $file->Parcials()->detach();
+
+            if ($file->path && Storage::exists($file->path)) {
+                Storage::delete($file->path);
+            }
+
+            $file->delete();
+        });
 
         $this->checkFilesExists();
     }
@@ -278,8 +363,12 @@ class CreateGenFiles extends Component
     }
 
 
-    public function saveFiles()
+    public function saveFiles(?string $fileableType = null, ?int $fileableId = null)
     {
+        if ($fileableType && $fileableId) {
+            $this->setFileable($fileableType, $fileableId);
+        }
+
         if (count($this->tempFiles)) {
             foreach ($this->tempFiles as $tempFile) {
                 $this->rename($this->tempFiles, $tempFile['uploadType']);
@@ -316,6 +405,10 @@ class CreateGenFiles extends Component
                         $targetViability->Files()->syncWithoutDetaching([$file->id]);
                     }
                 }
+
+                if ($file) {
+                    $this->associateFileToTarget($file);
+                }
             } else {
                 DB::rollback();
 
@@ -350,6 +443,71 @@ class CreateGenFiles extends Component
         $this->emitUp('savedFiles');
 
         $this->closeAll();
+    }
+
+    public function existingFiles()
+    {
+        $query = File::query()->orderBy('file_name');
+
+        if ($this->workReport?->getKey()) {
+            $workReportId = $this->workReport->id;
+            $noteId       = $this->note->id;
+
+            $query->where(function ($q) use ($workReportId, $noteId) {
+                // Arquivos legados: somente os _INFO_ da nota (sem filtro de usuário)
+                $q->where(function ($inner) use ($noteId) {
+                    $inner->where('note_id', $noteId)
+                        ->where('file_name', 'like', '%_INFO_%');
+                })
+                // Arquivos diretamente vinculados ao WorkReport via morph
+                ->orWhereHas('WorkReports', function ($sub) use ($workReportId) {
+                    $sub->whereKey($workReportId);
+                });
+            });
+        } else {
+            $query->where('user_id', auth()->id())
+                ->where('note_id', $this->note->id);
+        }
+
+        if (!empty($this->existingFileTypes)) {
+            $query->where(function ($q) {
+                foreach ($this->existingFileTypes as $type) {
+                    $q->orWhere('file_name', 'like', $type . '%');
+                }
+                $q->orWhere('file_name', 'like', '%INFO%');
+            });
+        }
+
+        return $query->distinct();
+    }
+
+    private function persistedWorkReport(?WorkReport $workReport): ?WorkReport
+    {
+        return $workReport?->getKey() ? $workReport : null;
+    }
+
+    private function associateFileToTarget(File $file): void
+    {
+        $target = $this->fileableModel() ?: $this->workReport;
+
+        if (!$target?->getKey() || !method_exists($target, 'Files')) {
+            return;
+        }
+
+        $target->Files()->syncWithoutDetaching([$file->id]);
+    }
+
+    private function fileableModel(): ?Model
+    {
+        if (!$this->fileableType || !$this->fileableId) {
+            return null;
+        }
+
+        if (!class_exists($this->fileableType) || !is_subclass_of($this->fileableType, Model::class)) {
+            return null;
+        }
+
+        return $this->fileableType::find($this->fileableId);
     }
 
 

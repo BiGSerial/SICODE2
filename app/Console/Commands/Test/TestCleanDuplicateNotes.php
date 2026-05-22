@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands\Test;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Note;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 class TestCleanDuplicateNotes extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -79,7 +81,7 @@ class TestCleanDuplicateNotes extends Command
         $chunkSize = 50; // Define o tamanho do lote.
         $noteChunks = $duplicateNoteNames->chunk($chunkSize);
 
-        $processingBar = $this->output->createProgressBar($noteChunks->count());
+        $processingBar = $this->createProgressBar($noteChunks->count());
         $processingBar->setFormat(' Processando Lote %current%/%max% [%bar%] %percent:3s%%');
         $processingBar->start();
 

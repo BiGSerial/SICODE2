@@ -7,21 +7,30 @@
         </div>
     @endif
 
+    <div class="alert alert-warning border border-warning mb-3">
+        <strong>Aviso importante</strong><br>
+        Não serão enviados e-mails com as ADS. Antes de solicitar, verifique se o link já está disponível no SICODE.
+        Na pré-análise, o sistema já faz essa verificação automaticamente.<br>
+        <strong>Atenção:</strong> É obrigatório que o usuário responsável <strong>TENHA USUARIO EDP (email)</strong> para conseguir baixar os arquivos.
+        Os arquivos não ficam hospedados no SICODE.<br>
+        Se a solicitação estiver <strong>BLOQUEADA</strong> para o usuário, solicite a liberação.
+    </div>
+
     <div class="card mb-3">
         <div class="card-header edp-bg-seoweedgreen-100 text-white">
-            <h4 class="my-0">Solicitacao de pedidos ADS</h4>
+            <h4 class="my-0">Solicitação de pedidos ADS</h4>
         </div>
         <div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-12 col-lg-9">
-                    <label class="form-label">Notas (separe por virgula, espaco ou quebra de linha)</label>
+                    <label class="form-label">Notas (separe por vírgula, espaço ou quebra de linha)</label>
                     <textarea class="form-control border border-secondary" rows="3" wire:model.defer="notesInput"></textarea>
                 </div>
                 <div class="col-12 col-lg-3 d-flex gap-2">
                     <button class="btn btn-primary w-100" wire:click.prevent="analyzeNotes"
                         wire:loading.attr="disabled" wire:target="analyzeNotes,processRequests,confirmProcessRequests"
                         @if ($isProcessingRequests) disabled @endif>
-                        <i class="ri-search-line align-middle"></i> Pre-analisar
+                        <i class="ri-search-line align-middle"></i> Pré-analisar
                     </button>
                     <button class="btn btn-outline-secondary w-100" wire:click.prevent="clearPreview">
                         Limpar
@@ -35,7 +44,7 @@
         <div class="card-header">
             <div class="row">
                 <div class="col">
-                    <h5 class="my-0">Pre-analise</h5>
+                    <h5 class="my-0">Pré-análise</h5>
                 </div>
                 <div class="col d-flex justify-content-end align-items-center">
                     @php
@@ -54,6 +63,10 @@
                         @if (count($previewItems) === 0) disabled @endif>
                         Remover todos
                     </button>
+                    <button class="btn btn-outline-danger btn-sm ms-2" wire:click.prevent="removeSelectedPreview"
+                        @if (count($selectedPreviewItems ?? []) === 0) disabled @endif>
+                        Remover selecionados
+                    </button>
                 </div>
             </div>
         </div>
@@ -70,16 +83,23 @@
             <table class="table table-sm table-striped table-hover align-middle">
                 <thead>
                     <tr>
+                        <th class="text-center" style="width: 40px;"></th>
                         <th class="text-center">Nota</th>
                         <th>Status</th>
                         <th>Detalhe</th>
+                        <th class="text-center">BAIXAR ADS</th>
                         <th class="text-center">Anterior</th>
-                        <th class="text-center">Acao</th>
+                        <th class="text-center">Ação</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($previewItems as $item)
                         <tr wire:key="preview_{{ $item['note_number'] }}" @class(['table-danger' => !$item['can_process']])>
+                            <td class="text-center">
+                                <input type="checkbox" class="form-check-input"
+                                    wire:model="selectedPreviewItems"
+                                    value="{{ $item['note_number'] }}">
+                            </td>
                             <td class="text-center fw-bold">{{ $item['note_number'] }}</td>
                             <td>
                                 <span class="badge {{ $item['status_class'] }}">{{ $item['status_label'] }}</span>
@@ -91,6 +111,18 @@
                                     </div>
                                 @endif
                                 <div>{{ $item['message'] }}</div>
+                            </td>
+                            <td class="text-center">
+                                @if (!empty($item['last_url']))
+                                    <a href="{{ $item['last_url'] }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">
+                                        BAIXAR ADS
+                                    </a>
+                                    @if (!empty($item['last_url_age']))
+                                        <small class="text-muted d-block mt-1">{{ $item['last_url_age'] }}</small>
+                                    @endif
+                                @else
+                                    -
+                                @endif
                             </td>
                             <td class="text-center">
                                 @if ($item['previous_request_id'])
@@ -111,7 +143,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center py-4">Nenhuma nota analisada.</td>
+                            <td colspan="7" class="text-center py-4">Nenhuma nota analisada.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -120,30 +152,35 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header edp-bg-gray">
-            <div class="row align-items-end">
-                <div class="col">
-                    <h5 class="my-0">Solicitacoes em andamento</h5>
+        <div class="card-header edp-bg-seoweedgreen-100 text-white">
+            <div class="row align-items-end g-3">
+                <div class="col-12">
+                    <h5 class="my-0 fw-bold text-uppercase">Solicitações em andamento</h5>
                 </div>
-                <div class="col-12 col-lg-4">
-                    <label class="form-label">Buscar nota</label>
-                    <input type="text" class="form-control border border-secondary"
-                        wire:model.debounce.500ms="activeSearch" placeholder="Numero da nota">
+                <div class="col-12 col-lg-7">
+                    <label class="form-label">Buscar nota(s)</label>
+                    <textarea class="form-control border border-secondary" rows="2"
+                        wire:model.debounce.500ms="activeSearch"
+                        placeholder="Separe por vírgula, espaço ou quebra de linha"></textarea>
                 </div>
-                <div class="col-6 col-lg-2">
-                    <label class="form-label">Por pagina</label>
-                    <select class="form-select border border-secondary" wire:model="activePerPage">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                </div>
-                <div class="col-12 col-lg-2 d-flex align-items-end">
-                    <button class="btn btn-outline-primary w-100" wire:click.prevent="syncAllRequests"
-                        @if ($activeRequests->isEmpty() || !$sqlSyncEnabled) disabled @endif>
-                        Sincronizar todos
-                    </button>
+                <div class="col-12 col-lg-5">
+                    <div class="row g-2 justify-content-end">
+                        <div class="col-6 col-lg-4">
+                            <label class="form-label">Por página</label>
+                            <select class="form-select border border-secondary" wire:model="activePerPage">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-lg-8 d-flex align-items-end">
+                            <button class="btn btn-outline-light w-100" wire:click.prevent="syncAllRequests"
+                                @if ($activeRequests->isEmpty() || !$sqlSyncEnabled) disabled @endif>
+                                Sincronizar todos
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -154,8 +191,8 @@
                         <th class="text-center">Nota</th>
                         <th>Empresa</th>
                         <th>Status</th>
-                        <th>Descricao</th>
-                        <th class="text-center">Versao</th>
+                        <th>Descrição</th>
+                        <th class="text-center">Versão</th>
                         <th class="text-center">SQL Server</th>
                         <th class="text-center">Criado em</th>
                     </tr>
@@ -181,7 +218,7 @@
                                     $isSynced = $sqlStatus && $sqlStatus === $request->status?->value;
                                 @endphp
                                 @if (!$sqlStatus)
-                                    <span class="badge text-bg-warning">Nao encontrado</span>
+                                    <span class="badge text-bg-warning">Não encontrado</span>
                                 @elseif ($isSynced)
                                     <span class="badge text-bg-success">Sincronizado</span>
                                 @else
@@ -193,7 +230,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center py-4">Nenhuma solicitacao em andamento.</td>
+                            <td colspan="7" class="text-center py-4">Nenhuma solicitação em andamento.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -205,29 +242,30 @@
     </div>
 
     <div class="card mb-3">
-        <div class="card-header">
-            <div class="row align-items-end">
-                <div class="col">
-                    <h5 class="my-0">Historico de solicitacoes</h5>
+        <div class="card-header edp-bg-seoweedgreen-100 text-white">
+            <div class="row align-items-end g-3">
+                <div class="col-12">
+                    <h5 class="my-0 fw-bold text-uppercase">Histórico de solicitações</h5>
                 </div>
-                <div class="col-12 col-lg-10">
-                    <div class="row g-2">
-                        <div class="col-6 col-lg-3">
+                <div class="col-12 col-lg-6">
+                    <label class="form-label">Buscar nota(s)</label>
+                    <textarea class="form-control border border-secondary" rows="2"
+                        wire:model.debounce.500ms="historySearch"
+                        placeholder="Separe por vírgula, espaço ou quebra de linha"></textarea>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <div class="row g-2 justify-content-end">
+                        <div class="col-6 col-lg-4">
                             <label class="form-label">De</label>
                             <input type="date" class="form-control border border-secondary"
                                 wire:model="historyStart">
                         </div>
-                        <div class="col-6 col-lg-3">
-                            <label class="form-label">Ate</label>
+                        <div class="col-6 col-lg-4">
+                            <label class="form-label">Até</label>
                             <input type="date" class="form-control border border-secondary" wire:model="historyEnd">
                         </div>
-                        <div class="col-6 col-lg-3">
-                            <label class="form-label">Buscar nota</label>
-                            <input type="text" class="form-control border border-secondary"
-                                wire:model.debounce.500ms="historySearch" placeholder="Numero da nota">
-                        </div>
                         @if (auth()->user()?->superadm)
-                            <div class="col-6 col-lg-3">
+                            <div class="col-12 col-lg-4">
                                 <label class="form-label">Empresa</label>
                                 <select class="form-select border border-secondary" wire:model="historyCompanyId">
                                     <option value="">Todas</option>
@@ -237,8 +275,8 @@
                                 </select>
                             </div>
                         @endif
-                        <div class="col-6 col-lg-2">
-                            <label class="form-label">Por pagina</label>
+                        <div class="col-6 col-lg-4">
+                            <label class="form-label">Por página</label>
                             <select class="form-select border border-secondary" wire:model="historyPerPage">
                                 <option value="10">10</option>
                                 <option value="25">25</option>
@@ -246,13 +284,13 @@
                                 <option value="100">100</option>
                             </select>
                         </div>
-                        <div class="col-6 col-lg-2 d-flex align-items-end">
-                            <button class="btn btn-outline-secondary w-100" wire:click.prevent="clearHistoryFilters">
+                        <div class="col-6 col-lg-4 d-flex align-items-end">
+                            <button class="btn btn-outline-light w-100" wire:click.prevent="clearHistoryFilters">
                                 Limpar
                             </button>
                         </div>
-                        <div class="col-6 col-lg-2 d-flex align-items-end">
-                            <button class="btn btn-outline-success w-100" wire:click.prevent="exportHistory"
+                        <div class="col-12 col-lg-4 d-flex align-items-end">
+                            <button class="btn btn-light w-100" wire:click.prevent="exportHistory"
                                 @if ($historyRequests->total() === 0) disabled @endif>
                                 Exportar
                             </button>

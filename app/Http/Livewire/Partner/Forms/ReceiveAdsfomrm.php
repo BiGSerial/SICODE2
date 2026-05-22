@@ -32,6 +32,7 @@ class ReceiveAdsfomrm extends Component
     public $observation;
     public $amount;
     public $hasFile = false;
+    public bool $hasAsbuiltFile = false;
     public $lateDeliveryAfterSubmit = null;
 
     // Serialized state for $theAds
@@ -43,11 +44,13 @@ class ReceiveAdsfomrm extends Component
     protected $listeners = [
         'confirm_save' => 'save',
         'hasFile',
+        'hasAsbuiltFile',
         'savedFiles'
     ];
 
     protected $rules = [
-        'file' => 'nullable|file|mimes:xlsx,xls|max:30720', // 30 MB in kilobytes
+        // mimes:xlsx falha em Linux pois finfo detecta xlsx como application/zip (xlsx é ZIP internamente)
+        'file' => 'nullable|file|mimetypes:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/zip,application/x-ole-storage|max:30720',
     ];
 
     protected $messages = [
@@ -96,6 +99,11 @@ class ReceiveAdsfomrm extends Component
         $this->hasFile = $hasFile;
     }
 
+    public function hasAsbuiltFile(bool $hasAsbuiltFile)
+    {
+        $this->hasAsbuiltFile = $hasAsbuiltFile;
+    }
+
     public function savedFiles()
     {
         $html = null;
@@ -126,7 +134,14 @@ class ReceiveAdsfomrm extends Component
             $q->where('note', trim($this->search))
                 ->orWhereRelation('Orders', 'ordem', trim($this->search));
         })
-            ->with('WorkForm.Orders', 'Adsform', 'TempAdsInfos')->get();
+            ->with(
+                'WorkForm.Orders',
+                'WorkForm.LatestReturnwork.User',
+                'WorkForm.Adsform.Files',
+                'OldAds',
+                'TempAdsInfos'
+            )
+            ->get();
     }
 
     public function getNote($id)
@@ -203,11 +218,12 @@ class ReceiveAdsfomrm extends Component
     public function toSave()
     {
         if (!$this->note?->WorkForm || $this->note->WorkForm->rejected) {
+            $reason = $this->buildRejectedWorkFormReasonHtml($this->note);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
                 'title' => 'INFORME INVÁLIDO',
-                'html' => "Esta obra não possui Informe de Obra válido para entrega da ADS.",
+                'html' => "Esta obra não possui Informe de Obra válido para entrega da ADS." . ($reason ? "<br><br>{$reason}" : ''),
             ]);
             return;
         }
@@ -416,10 +432,24 @@ class ReceiveAdsfomrm extends Component
         $this->amount = '';
         $this->theAdsPath = null;
         $this->lateDeliveryAfterSubmit = null;
+        $this->hasFile = false;
+        $this->hasAsbuiltFile = false;
     }
 
     private function isAdsClosed(): bool
     {
+        if (!$this->note) {
+            return false;
+        }
+
+        $hasOldAds = $this->note->relationLoaded('OldAds')
+            ? $this->note->OldAds->isNotEmpty()
+            : $this->note->OldAds()->exists();
+
+        if ($hasOldAds) {
+            return true;
+        }
+
         if (!$this->note?->WorkForm?->Adsform) {
             return false;
         }
@@ -443,6 +473,51 @@ class ReceiveAdsfomrm extends Component
             </div>
             </div>
             ";
+    }
+
+    public function getRejectedWorkFormReasonProperty(): string
+    {
+        return $this->buildRejectedWorkFormReasonText($this->note);
+    }
+
+    private function buildRejectedWorkFormReasonText(?Note $note = null): string
+    {
+        $targetNote = $note ?: $this->note;
+        if (!$targetNote?->WorkForm?->rejected) {
+            return '';
+        }
+
+        $workForm = $targetNote->WorkForm;
+        $latestReturn = $workForm->relationLoaded('LatestReturnwork')
+            ? $workForm->LatestReturnwork
+            : $workForm->LatestReturnwork()->first();
+
+        $category = trim((string) ($latestReturn?->category ?? ''));
+        $textObs = trim((string) ($latestReturn?->text_obs ?? ''));
+
+        $parts = [];
+        if ($category !== '') {
+            $parts[] = "Motivo: {$category}";
+        }
+        if ($textObs !== '') {
+            $parts[] = "Observação: {$textObs}";
+        }
+
+        if (empty($parts)) {
+            return 'Informe rejeitado (sem detalhe registrado).';
+        }
+
+        return implode(' | ', $parts);
+    }
+
+    private function buildRejectedWorkFormReasonHtml(?Note $note = null): string
+    {
+        $text = $this->buildRejectedWorkFormReasonText($note);
+        if ($text === '') {
+            return '';
+        }
+
+        return "<strong>Motivo do bloqueio:</strong><br>{$text}";
     }
 
     private function isEligibleByOrderStatusRule(): bool

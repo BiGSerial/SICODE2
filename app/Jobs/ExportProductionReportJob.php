@@ -39,6 +39,7 @@ class ExportProductionReportJob implements ShouldQueue
 
     public function __construct($services, $monthYear, $dt_init, $dt_end, $user)
     {
+        $this->onQueue('exports');
         $this->services = $services;
         $this->monthYear = $monthYear;
         $this->dt_init = $dt_init;

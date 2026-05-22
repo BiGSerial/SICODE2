@@ -197,6 +197,64 @@ class WaitingFiveNotes extends Component
         }
     }
 
+    private function applyDesiredBetweenFilter(Builder $base): void
+    {
+        $dateRange = $this->returnFilterArray('desired_between');
+
+        if (!is_array($dateRange) || !isset($dateRange['start'], $dateRange['end'])) {
+            return;
+        }
+
+        $periodColumn = $this->filterScalar('period_column', 'dispatch');
+
+        if ($periodColumn === 'completed') {
+            $base->whereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
+            return;
+        }
+
+        if ($periodColumn === 'both') {
+            $base->where(function ($query) use ($dateRange) {
+                $query->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']])
+                    ->orWhereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
+            });
+            return;
+        }
+
+        $base->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']]);
+    }
+
+    private function applyPassiveModeFilter(Builder $base): void
+    {
+        $passiveMode = $this->filterScalar('passive_mode', 'both');
+
+        if ($passiveMode === 'passive') {
+            $base->where('isPassive', true);
+            return;
+        }
+
+        if ($passiveMode === 'meta') {
+            $base->where(function ($query) {
+                $query->whereNull('isPassive')
+                    ->orWhere('isPassive', false);
+            });
+        }
+    }
+
+    private function filterScalar(string $key, string $default = ''): string
+    {
+        $value = $this->filtersState[$key] ?? $default;
+
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return (string) $value;
+    }
+
     private function applyStatusFilter(Builder $base): void
     {
         switch ($this->statusFilter) {
@@ -282,6 +340,8 @@ class WaitingFiveNotes extends Component
 
         }
 
+        $this->applyPassiveModeFilter($base);
+
         if ($this->returnFilterArray('city')) {
             $base->whereRelation('note', function ($q) {
                 $q->whereIn('nexp', $this->returnFilterArray('city'));
@@ -294,12 +354,7 @@ class WaitingFiveNotes extends Component
             });
         }
 
-        if ($this->returnFilterArray('desired_between')) {
-            $dateRange = $this->returnFilterArray('desired_between');
-            if (isset($dateRange['start']) && isset($dateRange['end'])) {
-                $base->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']]);
-            }
-        }
+        $this->applyDesiredBetweenFilter($base);
 
 
         $hasNote = count($this->multiNote) > 0;

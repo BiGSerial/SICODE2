@@ -124,6 +124,9 @@
                 <h2>Solicitação #{{ $cancellationRequest->id }}</h2>
                 <span class="meta">Execução do cancelamento conforme escopo.</span>
             </div>
+            <button class="btn btn-outline-light me-2" wire:click="exportRequest" wire:loading.attr="disabled">
+                <i class="ri-file-excel-2-line align-middle"></i> Exportar
+            </button>
             <a class="btn btn-outline-light me-2" href="{{ url()->previous() }}">Voltar</a>
             @if($cancellationRequest->status === \App\Enum\CancellationRequestStatus::SUBMITTED && !$cancellationRequest->assigned_to)
                 <button class="btn btn-outline-light" wire:click="claim">Assumir</button>

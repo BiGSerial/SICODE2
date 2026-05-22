@@ -37,7 +37,7 @@ class RejectProject extends Component
         '9e2855529ed3d5bf67a254fe806sdsaw3333' => 'cancelReclaim',
         'clearAll',
         'filesFailed',
-        'filesSaved',
+        'savedFiles' => 'filesSaved',
         'update_list' => '$refresh',
     ];
 
@@ -326,7 +326,7 @@ class RejectProject extends Component
                 DB::commit();
 
                 if ($this->hasFile) {
-                    $this->emitTo('files.manager.create-gen-files', 'saveFiles');
+                    $this->emitTo('files.manager.create-gen-files', 'saveFiles', Reclaim::class, $reclaim->id);
 
 
 

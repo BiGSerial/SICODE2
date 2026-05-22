@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Payment\Cancellation;
 
 use App\Models\CancellationRequest;
 use App\Enum\CancellationRequestScope;
+use App\Jobs\Services\ExportCancellationExecutionOrdersJob;
 use App\Models\EvidenceFile;
 use App\Models\ServiceUser;
 use App\Models\User;
@@ -366,6 +367,21 @@ class QueueShow extends Component
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
         }
+    }
+
+    public function exportRequest(): void
+    {
+        $this->authorize('viewQueue', CancellationRequest::class);
+
+        ExportCancellationExecutionOrdersJob::dispatch([
+            'ids' => [$this->cancellationRequest->id],
+            'user_id' => (string) Auth::id(),
+        ]);
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Exportação iniciada. Você será notificado quando concluir.',
+        ]);
     }
 
     public function downloadEvidence(int $fileId): StreamedResponse

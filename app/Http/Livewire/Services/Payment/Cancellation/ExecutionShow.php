@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
 use App\Enum\CancellationEngineerApprovalStatus;
+use App\Jobs\Services\ExportCancellationExecutionOrdersJob;
 use App\Models\CancellationRequest;
 use App\Models\EvidenceFile;
 use App\Models\User;
@@ -309,6 +310,19 @@ class ExecutionShow extends Component
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
         }
+    }
+
+    public function exportRequest(): void
+    {
+        ExportCancellationExecutionOrdersJob::dispatch([
+            'ids' => [$this->cancellationRequest->id],
+            'user_id' => (string) Auth::id(),
+        ]);
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Exportação iniciada. Você será notificado quando concluir.',
+        ]);
     }
 
     public function downloadEvidence(int $fileId): StreamedResponse

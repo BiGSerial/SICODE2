@@ -23,7 +23,7 @@
                                 data-bs-toggle="collapse" data-bs-target="#showUseType" aria-expanded="false"
                                 aria-controls="showUseType"></i></label>
                         <select class="form-select border-secondary @error('uploadType') is-invalid @enderror"
-                            id="upload_type" wire:model="uploadType" required style="max-width: 350px;">
+                            id="upload_type" wire:model="uploadType" style="max-width: 350px;">
                             <option value="" selected>Selecione o tipo de envio</option>
                             @foreach (SelectOptions::getFilesType() as $fileType)
                                 <option value="{{ $fileType->value }}">{{ $fileType->reason }}</option>
@@ -138,6 +138,48 @@
                             </p>
                         </div>
                     @endif
+                @endif
+
+                @if ($manageExisting)
+                    @php
+                        $existingFiles = $this->existingFiles()->get();
+                    @endphp
+
+                    <div class="mt-4">
+                        <h5 class="fw-bold">Arquivos já vinculados</h5>
+
+                        @if ($existingFiles->count())
+                            <table class="table table-condensed table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center align-middle"></th>
+                                        <th class="text-center align-middle">Nome Arquivo</th>
+                                        <th class="text-center align-middle">Original</th>
+                                        <th class="text-center align-middle"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($existingFiles as $existingFile)
+                                        <tr wire:key="existing-file-{{ $existingFile->id }}">
+                                            <td class="text-center align-middle">
+                                                <i class="{{ FileIcon::getIcon($existingFile->ext)->icon }} fs-4 my-0 py-0"></i>
+                                            </td>
+                                            <td class="text-center align-middle">{{ $existingFile->file_name }}</td>
+                                            <td class="text-center align-middle">{{ $existingFile->original_name }}</td>
+                                            <td class="text-center align-middle">
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    wire:click.prevent="removeExistingFile({{ $existingFile->id }})">
+                                                    <i class="ri-delete-bin-2-line"></i> Remover
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        @else
+                            <div class="alert alert-warning mb-0">Nenhum arquivo de informe vinculado.</div>
+                        @endif
+                    </div>
                 @endif
 
             </div>

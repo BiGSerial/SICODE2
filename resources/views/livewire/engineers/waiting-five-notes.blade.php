@@ -26,6 +26,19 @@
                 ],
             ],
             [
+                'key' => 'passive_mode',
+                'label' => 'Meta / Passivo',
+                'type' => 'single',
+                'provider' => [
+                    'type' => 'static',
+                    'options' => [
+                        ['value' => 'both', 'label' => 'Meta + Passivo'],
+                        ['value' => 'meta', 'label' => 'Meta'],
+                        ['value' => 'passive', 'label' => 'Passivo'],
+                    ],
+                ],
+            ],
+            [
                 'key' => 'city',
                 'label' => 'Municipio',
                 'type' => 'multi',
@@ -54,8 +67,21 @@
                 ],
             ],
             [
+                'key' => 'period_column',
+                'label' => 'Período por',
+                'type' => 'single',
+                'provider' => [
+                    'type' => 'static',
+                    'options' => [
+                        ['value' => 'dispatch', 'label' => 'Despacho'],
+                        ['value' => 'completed', 'label' => 'Conclusão'],
+                        ['value' => 'both', 'label' => 'Despacho ou Conclusão'],
+                    ],
+                ],
+            ],
+            [
                 'key' => 'desired_between',
-                'label' => 'Desejada (de/ate)',
+                'label' => 'Período (de/ate)',
                 'type' => 'daterange',
                 'include_nulls' => false,
                 'treat_zero_date_as_null' => false,

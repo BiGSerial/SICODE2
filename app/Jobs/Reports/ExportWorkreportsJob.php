@@ -31,6 +31,7 @@ class ExportWorkreportsJob implements ShouldQueue
 
     public function __construct(array $params, string $userId)
     {
+        $this->onQueue('exports');
         $this->params = array_merge([
             'date_in' => null,
             'date_out' => null,

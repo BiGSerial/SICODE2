@@ -35,6 +35,7 @@ class ExportFiveNotesJob implements ShouldQueue
 
     public function __construct(array $params, $userId, string $context = 'waiting')
     {
+        $this->onQueue('exports');
         $this->params  = $params;
         $this->userId  = $userId;
         $this->context = $context;

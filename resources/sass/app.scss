@@ -1,5 +1,5 @@
 // Fonts
-@import url('https://fonts.bunny.net/css?family=Nunito');
+@import url('https://fonts.bunny.net/css?family=Mulish:300,400,500,600,700');
 
 // Variables
 @import 'variables';
@@ -51,18 +51,18 @@ a {
 
 a:hover {
     text-decoration: none;
-    color: #00fd00;
+    color: $edp-verde-70;
 }
 
 .btn-edp {
     background-color: $edp-verde-100;
-    color:rgb(32, 32, 32);
+    color: $edp-marineblue-100;
     animation-duration: 1s;
 }
 
 .btn-edp:hover {
-    background-color: #0fe40f;
-    color:rgb(32, 32, 32);
+    background-color: $edp-verde-70;
+    color: $edp-marineblue-100;
     animation-duration: 1s;
 }
 

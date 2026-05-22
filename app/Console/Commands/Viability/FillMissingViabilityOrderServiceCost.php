@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands\Viability;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Edp_depc\BaseCosts;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Throwable;
 
 class FillMissingViabilityOrderServiceCost extends Command
 {
+    use ShowsProgress;
+
     protected $signature = 'viability:fill-order-service-cost
         {--dry : Simula a execução sem gravar no banco}
         {--all : Atualiza todas as ordens vinculadas a viabilidade, mesmo com valor preenchido}
@@ -82,7 +84,7 @@ class FillMissingViabilityOrderServiceCost extends Command
             $updated = 0;
             $withoutCost = 0;
 
-            $bar = new ProgressBar($this->output, $total);
+            $bar = $this->createProgressBar($total);
             $bar->start();
 
             $query->chunkById($chunkSize, function ($rows) use (

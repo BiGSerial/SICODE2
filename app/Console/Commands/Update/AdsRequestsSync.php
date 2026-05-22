@@ -40,92 +40,53 @@ class AdsRequestsSync extends Command
         $this->info('Total rows: ' . $total);
 
         $updatedLocal = 0;
-        $updatedSql = 0;
         $skipped = 0;
         $missing = 0;
         $conflicts = 0;
-        $forcedDone = 0;
         $notifiedDone = 0;
-        $forceThreshold = now()->subHours(2);
-        $forceTag = '#ADS Liberada pelo Sistema (FORCE)';
 
-        $query->orderBy('id')->chunkById($chunkSize, function ($rows) use (&$updatedLocal, &$updatedSql, &$skipped, &$missing, &$conflicts, &$forcedDone, &$notifiedDone, $dryRun, $forceThreshold, $forceTag) {
+        $query->orderBy('id')->chunkById($chunkSize, function ($rows) use (&$updatedLocal, &$skipped, &$missing, &$conflicts, &$notifiedDone, $dryRun) {
             $sicodeIds = $rows->pluck('sicode_id')->filter()->values();
+            $sqlIds = $rows->pluck('id')->filter()->values();
             $localsById = $sicodeIds->isEmpty()
                 ? collect()
                 : AdsRequest::query()
                     ->whereIn('id', $sicodeIds)
                     ->get()
                     ->keyBy('id');
+            $localsBySqlId = $sqlIds->isEmpty()
+                ? collect()
+                : AdsRequest::query()
+                    ->whereIn('sqlserver_id', $sqlIds)
+                    ->get()
+                    ->keyBy('sqlserver_id');
 
             foreach ($rows as $row) {
-                if (!$row->sicode_id) {
-                    $skipped++;
-                    continue;
+                $local = null;
+                if ($row->sicode_id) {
+                    $local = $localsById->get($row->sicode_id);
                 }
-
-                $local = $localsById->get($row->sicode_id);
+                if (!$local) {
+                    $local = $localsBySqlId->get($row->id);
+                }
                 if (!$local) {
                     $missing++;
                     continue;
                 }
 
-                if ($this->shouldForceDoneFromUrl($row, $local, $forceThreshold)) {
-                    if (!$dryRun) {
-                        $this->forceDoneFromUrl($row, $local, $forceTag);
-                        if ($this->notifyDoneRequesterIfNeeded($local, false)) {
-                            $notifiedDone++;
-                        }
-                    }
-
-                    $forcedDone++;
-                    $updatedLocal++;
-                    $updatedSql++;
-                    continue;
-                }
-
-                $sqlUpdatedAt = $row->updated_at?->getTimestamp() ?? 0;
-                $localUpdatedAt = $local->updated_at?->getTimestamp() ?? 0;
-
-                if ($sqlUpdatedAt === $localUpdatedAt) {
-                    $skipped++;
-                    continue;
-                }
-
-                if ($localUpdatedAt > $sqlUpdatedAt) {
-                    $payloadSql = [
-                        'status' => $local->status instanceof AdsRequestStatus ? $local->status->value : $local->status,
-                        'attempts' => $local->attempts,
-                        'description' => $local->description,
-                        'url' => $local->url,
-                        'completed_at' => $local->completed_at,
-                        'partner' => $local->partner ? 1 : 0,
-                        'batch_id' => $local->batch_id,
-                        'updated_at' => $local->updated_at,
-                    ];
-
-                    if (!$dryRun) {
-                        $row->fill($payloadSql);
-                        $row->timestamps = false;
-                        $row->save();
-                        if ($this->notifyDoneRequesterIfNeeded($local, false)) {
-                            $notifiedDone++;
-                        }
-                    }
-
-                    $updatedSql++;
-                    continue;
-                }
-
+                $sqlStatus = $this->normalizeStatus($row->status);
+                $localStatus = $local->status instanceof AdsRequestStatus
+                    ? $local->status->value
+                    : $this->normalizeStatus($local->status);
                 $payloadLocal = [
-                    'status' => $row->status,
+                    'status' => $sqlStatus ?? $localStatus ?? AdsRequestStatus::QUEUED->value,
                     'attempts' => $row->attempts,
                     'description' => $row->description,
                     'url' => $row->url,
                     'completed_at' => $row->completed_at,
                     'partner' => $row->partner,
                     'batch_id' => $row->batch_id,
-                    'completed' => $row->status === AdsRequestStatus::DONE->value,
+                    'completed' => $sqlStatus === AdsRequestStatus::DONE->value,
                     'updated_at' => $row->updated_at,
                 ];
 
@@ -155,13 +116,11 @@ class AdsRequestsSync extends Command
         });
 
         $this->info('Updated SICODE: ' . $updatedLocal);
-        $this->info('Updated SQL Server: ' . $updatedSql);
         $this->info('Skipped: ' . $skipped);
         $this->info('Conflicts: ' . $conflicts);
         $this->info('Missing local: ' . $missing);
-        $this->info('Forced DONE (URL + >2h): ' . $forcedDone);
         $this->info('Notified DONE requester: ' . $notifiedDone);
-        $log->setUpdated($updatedLocal + $updatedSql);
+        $log->setUpdated($updatedLocal);
         $log->setNoteUpdated($skipped);
         if ($conflicts > 0 || $missing > 0) {
             $log->setErrorMessage("Conflitos={$conflicts}; MissingLocal={$missing}");
@@ -177,49 +136,6 @@ class AdsRequestsSync extends Command
 
             return self::FAILURE;
         }
-    }
-
-    private function shouldForceDoneFromUrl(SqlAdsRequest $row, AdsRequest $local, \Carbon\Carbon $threshold): bool
-    {
-        $sqlStatus = (string) ($row->status ?? '');
-        $localStatus = $local->status instanceof AdsRequestStatus ? $local->status->value : (string) $local->status;
-
-        return $sqlStatus !== AdsRequestStatus::DONE->value
-            && $localStatus !== AdsRequestStatus::DONE->value
-            && !empty($row->url)
-            && $local->created_at
-            && $local->created_at->lte($threshold);
-    }
-
-    private function forceDoneFromUrl(SqlAdsRequest $row, AdsRequest $local, string $forceTag): void
-    {
-        $doneAt = $row->completed_at ?? now();
-        $description = trim((string) ($row->description ?: ($local->description ?? '')));
-        if (!str_contains($description, $forceTag)) {
-            $description = trim($description . PHP_EOL . $forceTag);
-        }
-
-        $syncNow = now();
-
-        $row->fill([
-            'status' => AdsRequestStatus::DONE->value,
-            'description' => $description,
-            'completed_at' => $doneAt,
-            'updated_at' => $syncNow,
-        ]);
-        $row->timestamps = false;
-        $row->save();
-
-        $local->fill([
-            'status' => AdsRequestStatus::DONE->value,
-            'description' => $description,
-            'url' => $row->url,
-            'completed_at' => $doneAt,
-            'completed' => true,
-            'updated_at' => $syncNow,
-        ]);
-        $local->timestamps = false;
-        $local->save();
     }
 
     private function notifyDoneRequesterIfNeeded(AdsRequest $request, bool $dryRun): bool
@@ -255,10 +171,19 @@ class AdsRequestsSync extends Command
         $request->timestamps = false;
         $request->forceFill([
             'delivered_at' => now(),
-            'updated_at' => now(),
         ]);
         $request->save();
 
         return true;
+    }
+
+    private function normalizeStatus(mixed $status): ?string
+    {
+        $value = mb_strtoupper(trim((string) $status));
+        if ($value === '') {
+            return null;
+        }
+
+        return AdsRequestStatus::tryFrom($value)?->value;
     }
 }

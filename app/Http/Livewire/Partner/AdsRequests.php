@@ -10,6 +10,7 @@ use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
 use App\Models\SystemSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -22,6 +23,7 @@ class AdsRequests extends Component
 
     public $notesInput = '';
     public $previewItems = [];
+    public $selectedPreviewItems = [];
     public $activeSearch = '';
     public $activePerPage = 25;
 
@@ -95,7 +97,7 @@ class AdsRequests extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
-                'title' => 'Usuario sem empresa vinculada.',
+                'title' => 'Usuário sem empresa vinculada.',
                 'timer' => 4000,
             ]);
 
@@ -113,12 +115,14 @@ class AdsRequests extends Component
                 $items[$noteNumber] = [
                     'note_number' => $noteNumber,
                     'note_id' => null,
-                    'status_label' => 'Nao existe no SICODE',
+                    'status_label' => 'Não existe no SICODE',
                     'status_class' => 'text-bg-danger',
-                    'message' => 'Nao existe registro para esta nota no SICODE.',
+                    'message' => 'Não existe registro para esta nota no SICODE.',
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
+                    'last_url' => null,
+                    'last_url_age' => null,
                 ];
                 continue;
             }
@@ -130,36 +134,55 @@ class AdsRequests extends Component
                     'note_id' => $note->id,
                     'status_label' => 'Sem ordem',
                     'status_class' => 'text-bg-danger',
-                    'message' => 'Nao consta ORDERS para a nota selecionada.',
+                    'message' => 'Não há ORDERS para a nota selecionada.',
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
+                    'last_url' => null,
+                    'last_url_age' => null,
                 ];
                 continue;
             }
 
-            $hasActiveOrders = $note->Orders()
-                ->where(function ($query) {
-                    $query->where('statusSist', 'not like', 'ENT%')
-                        ->where('statusSist', 'not like', 'ENC%');
-                })
+            $hasLibOrder = $note->Orders()
+                ->where('statusSist', 'like', 'LIB%')
                 ->exists();
 
-            if (!$hasActiveOrders) {
+            if (!$hasLibOrder) {
                 $items[$noteNumber] = [
                     'note_number' => $noteNumber,
                     'note_id' => $note->id,
-                    'status_label' => 'Sem ordem ativa',
+                    'status_label' => 'Sem ordem LIB',
                     'status_class' => 'text-bg-warning',
-                    'message' => 'Todas as ORDERS estao em ENT ou ENC.',
+                    'message' => 'Não há ORDEM liberada para processar.',
                     'can_process' => false,
                     'previous_request_id' => null,
                     'previous_status' => null,
+                    'last_url' => null,
+                    'last_url_age' => null,
                 ];
                 continue;
             }
 
-            $previousRequest = $this->getActiveRequestFor($note->id, $companyId);
+            $previousRequest = $this->getActiveRequestFor($note->id, $companyId, (string) auth()->id());
+            $latestRequestWithUrl = $this->getLatestRequestWithUrlFor($note->id);
+
+            if ($latestRequestWithUrl) {
+                $items[$noteNumber] = [
+                    'note_number' => $noteNumber,
+                    'note_id' => $note->id,
+                    'status_label' => 'Aproveitar link',
+                    'status_class' => 'text-bg-info',
+                    'message' => 'Já existe ADS disponível para esta obra. Ao processar, a solicitação será finalizada localmente, sem novo envio para a fila do SQL.',
+                    'can_process' => true,
+                    'previous_request_id' => $previousRequest?->id,
+                    'previous_status' => $previousRequest?->status?->label(),
+                    'will_cancel' => false,
+                    'last_url' => $latestRequestWithUrl->url,
+                    'last_url_age' => $this->formatElapsed($latestRequestWithUrl->updated_at ?? $latestRequestWithUrl->completed_at ?? $latestRequestWithUrl->created_at),
+                ];
+                continue;
+            }
 
             if ($previousRequest) {
                 $items[$noteNumber] = [
@@ -167,11 +190,13 @@ class AdsRequests extends Component
                     'note_id' => $note->id,
                     'status_label' => 'Reagendar',
                     'status_class' => 'text-bg-warning',
-                    'message' => 'Solicitacao em andamento sera cancelada e reagendada.',
+                    'message' => 'Há uma solicitação em andamento. Ela será cancelada e reagendada.',
                     'can_process' => true,
                     'previous_request_id' => $previousRequest->id,
                     'previous_status' => $previousRequest->status?->label(),
                     'will_cancel' => true,
+                    'last_url' => $latestRequestWithUrl?->url,
+                    'last_url_age' => $this->formatElapsed($latestRequestWithUrl?->updated_at ?? $latestRequestWithUrl?->completed_at ?? $latestRequestWithUrl?->created_at),
                 ];
                 continue;
             }
@@ -186,10 +211,13 @@ class AdsRequests extends Component
                 'previous_request_id' => null,
                 'previous_status' => null,
                 'will_cancel' => false,
+                'last_url' => $latestRequestWithUrl?->url,
+                'last_url_age' => $this->formatElapsed($latestRequestWithUrl?->updated_at ?? $latestRequestWithUrl?->completed_at ?? $latestRequestWithUrl?->created_at),
             ];
         }
 
         $this->previewItems = $items;
+        $this->selectedPreviewItems = [];
     }
 
     public function removePreview(string $noteNumber)
@@ -197,16 +225,38 @@ class AdsRequests extends Component
         if (isset($this->previewItems[$noteNumber])) {
             unset($this->previewItems[$noteNumber]);
         }
+
+        $this->selectedPreviewItems = array_values(array_filter(
+            $this->selectedPreviewItems,
+            fn ($selected) => (string) $selected !== (string) $noteNumber
+        ));
+    }
+
+    public function removeSelectedPreview()
+    {
+        if (!$this->selectedPreviewItems) {
+            return;
+        }
+
+        foreach ($this->selectedPreviewItems as $noteNumber) {
+            if (isset($this->previewItems[$noteNumber])) {
+                unset($this->previewItems[$noteNumber]);
+            }
+        }
+
+        $this->selectedPreviewItems = [];
     }
 
     public function clearPreview()
     {
         $this->previewItems = [];
+        $this->selectedPreviewItems = [];
     }
 
     public function removeAllPreview()
     {
         $this->previewItems = [];
+        $this->selectedPreviewItems = [];
     }
 
     public function processRequests()
@@ -222,10 +272,10 @@ class AdsRequests extends Component
                 'msg' => $this->buildCancelNotesMessage($cancelNotes),
                 'icon' => 'warning',
                 'btnOktxt' => 'Sim, cancelar e reenviar',
-                'btnCanceltxt' => 'Nao, cancelar',
+                'btnCanceltxt' => 'Não, cancelar',
                 'action' => 'confirm_ads_requests_process',
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma solicitacao foi alterada.',
+                'cancel_msg' => 'Nenhuma solicitação foi alterada.',
             ]);
 
             return;
@@ -259,7 +309,7 @@ class AdsRequests extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'warning',
-                'title' => 'Nenhuma nota valida para processar.',
+                'title' => 'Nenhuma nota válida para processar.',
                 'timer' => 3000,
             ]);
             return;
@@ -273,7 +323,7 @@ class AdsRequests extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'warning',
-                'title' => 'Nao foi possivel concluir a solicitacao',
+                'title' => 'Não foi possível concluir a solicitação.',
                 'html' => $this->buildBlockedPreviewHtml(),
             ]);
             return;
@@ -288,7 +338,7 @@ class AdsRequests extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
-                'title' => 'Usuario sem empresa vinculada.',
+                'title' => 'Usuário sem empresa vinculada.',
                 'timer' => 4000,
             ]);
             return;
@@ -306,9 +356,44 @@ class AdsRequests extends Component
                     continue;
                 }
 
+                if (!empty($item['last_url'])) {
+                    $hasOwnRequest = AdsRequest::query()
+                        ->where('note_id', $item['note_id'])
+                        ->where('company_id', $companyId)
+                        ->where('requested_by', auth()->id())
+                        ->exists();
+
+                    if ($hasOwnRequest) {
+                        $skippedDuplicates++;
+                        continue;
+                    }
+
+                    $version = (int) AdsRequest::query()
+                        ->where('note_id', $item['note_id'])
+                        ->max('version');
+
+                    AdsRequest::query()->create([
+                        'requested_by' => auth()->id(),
+                        'company_id' => $companyId,
+                        'note_id' => $item['note_id'],
+                        'batch_id' => $batchId,
+                        'partner' => true,
+                        'completed' => true,
+                        'status' => AdsRequestStatus::DONE,
+                        'version' => $version + 1,
+                        'description' => 'ADS já disponível. Solicitação finalizada automaticamente com link já existente.',
+                        'url' => $item['last_url'],
+                        'completed_at' => now(),
+                    ]);
+
+                    $created++;
+                    continue;
+                }
+
                 $activeRequests = AdsRequest::query()
                     ->where('note_id', $item['note_id'])
                     ->where('company_id', $companyId)
+                    ->where('requested_by', auth()->id())
                     ->whereIn('status', $this->activeStatuses())
                     ->lockForUpdate()
                     ->orderByDesc('created_at')
@@ -375,11 +460,12 @@ class AdsRequests extends Component
         }
 
         $this->previewItems = [];
+        $this->selectedPreviewItems = [];
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon' => 'success',
-            'title' => $created . ' solicitacao(oes) criada(s).' . ($skippedDuplicates ? " {$skippedDuplicates} duplicada(s) ignorada(s)." : ''),
+            'title' => $created . ' solicitação(ões) criada(s).' . ($skippedDuplicates ? " {$skippedDuplicates} duplicada(s) ignorada(s)." : ''),
             'timer' => 3500,
         ]);
 
@@ -398,27 +484,33 @@ class AdsRequests extends Component
         try {
             $user = $request->requestedBy()->first();
             $company = $request->company()->first();
+            $status = $request->status instanceof AdsRequestStatus
+                ? $request->status->value
+                : AdsRequestStatus::QUEUED->value;
+            $payload = [
+                'batch_id' => $request->batch_id,
+                'note' => $noteNumber,
+                'company' => $company?->name,
+                'status' => $status,
+                'attempts' => $request->attempts ?? 0,
+                'partner' => $request->partner ? 1 : 0,
+                'register' => $user?->Registration,
+                'user' => $user?->name,
+                'email' => $user?->email,
+                'description' => $request->description,
+                'completed_at' => $request->completed_at,
+                'created_at' => $request->created_at,
+                'updated_at' => $request->updated_at,
+            ];
+            $sqlTable = DB::connection('sqlsrv2')->table('sicode.dbo.ads_requests');
 
-            DB::connection('sqlsrv2')
-                ->table('sicode.dbo.ads_requests')
-                ->insert([
-                    'sicode_id' => $request->id,
-                    'batch_id' => $request->batch_id,
-                    'note' => $noteNumber,
-                    'company' => $company?->name,
-                    'status' => $request->status->value,
-                    'attempts' => $request->attempts ?? 0,
-                    'partner' => $request->partner ? 1 : 0,
-                    'register' => $user?->Registration,
-                    'user' => $user?->name,
-                    'email' => $user?->email,
-                    'description' => $request->description,
-                    'completed_at' => $request->completed_at,
-                    'created_at' => $request->created_at,
-                    'updated_at' => $request->updated_at,
-                ]);
+            if ($sqlTable->where('sicode_id', $request->id)->exists()) {
+                $sqlTable->where('sicode_id', $request->id)->update($payload);
+            } else {
+                $sqlTable->insert(array_merge(['sicode_id' => $request->id], $payload));
+            }
 
-            return true;
+            return $this->syncRequestFromSqlServer($request);
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -426,11 +518,12 @@ class AdsRequests extends Component
         }
     }
 
-    protected function getActiveRequestFor(int $noteId, string $companyId): ?AdsRequest
+    protected function getActiveRequestFor(int $noteId, string $companyId, string $requestedBy): ?AdsRequest
     {
         return AdsRequest::query()
             ->where('note_id', $noteId)
             ->where('company_id', $companyId)
+            ->where('requested_by', $requestedBy)
             ->whereIn('status', $this->activeStatuses())
             ->latest('created_at')
             ->first();
@@ -438,11 +531,40 @@ class AdsRequests extends Component
 
     protected function activeStatuses(): array
     {
-        return [
-            AdsRequestStatus::QUEUED->value,
-            AdsRequestStatus::IN_PROGRESS->value,
-            AdsRequestStatus::RETRY->value,
-        ];
+        return collect(AdsRequestStatus::cases())
+            ->map(fn (AdsRequestStatus $status) => $status->value)
+            ->reject(fn (string $status) => in_array($status, [
+                AdsRequestStatus::DONE->value,
+                AdsRequestStatus::CANCELED->value,
+                AdsRequestStatus::FAILED->value,
+            ], true))
+            ->values()
+            ->all();
+    }
+
+    protected function getLatestRequestWithUrlFor(int $noteId): ?AdsRequest
+    {
+        return AdsRequest::query()
+            ->where('note_id', $noteId)
+            ->whereNotNull('url')
+            ->whereRaw("NULLIF(LTRIM(RTRIM(url)), '') IS NOT NULL")
+            ->latest('created_at')
+            ->first();
+    }
+
+    protected function formatElapsed($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        $date = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+        return $date->diffForHumans(now(), [
+            'parts' => 2,
+            'short' => true,
+            'syntax' => Carbon::DIFF_RELATIVE_TO_NOW,
+        ]);
     }
 
     protected function getCancelablePreviewNotes(): array
@@ -459,7 +581,7 @@ class AdsRequests extends Component
         $list = array_slice($notes, 0, 8);
         $extra = count($notes) > 8 ? ' e mais ' . (count($notes) - 8) . '...' : '';
 
-        return 'Existem solicitacoes em andamento que serao canceladas e reagendadas para as notas: <strong>' .
+        return 'Existem solicitações em andamento que serão canceladas e reagendadas para as notas: <strong>' .
             implode(', ', $list) . $extra . '</strong>. Deseja continuar?';
     }
 
@@ -489,10 +611,10 @@ class AdsRequests extends Component
         return "<div class='text-start'><p class='mb-2'>Nenhuma nota da lista está apta. Motivos:</p><ul class='mb-0'>{$items}</ul>{$extra}</div>";
     }
 
-    protected function syncCanceledToSqlServer(AdsRequest $request): void
+    protected function syncCanceledToSqlServer(AdsRequest $request): bool
     {
         try {
-            DB::connection('sqlsrv2')
+            $affected = DB::connection('sqlsrv2')
                 ->table('sicode.dbo.ads_requests')
                 ->where('sicode_id', $request->id)
                 ->update([
@@ -500,8 +622,16 @@ class AdsRequests extends Component
                     'updated_at' => now(),
                     'completed_at' => $request->canceled_at ?? now(),
                 ]);
+
+            if ((int) $affected === 0) {
+                $noteNumber = $request->note?->note ?? (string) $request->note_id;
+                return $this->mirrorToSqlServer($request, $noteNumber);
+            }
+
+            return $this->syncRequestFromSqlServer($request);
         } catch (\Throwable $exception) {
             report($exception);
+            return false;
         }
     }
 
@@ -527,6 +657,28 @@ class AdsRequests extends Component
     protected function parseNotesInput(): array
     {
         $raw = preg_split('/[\s,;]+/', trim((string) $this->notesInput));
+
+        return collect($raw)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function parseHistorySearchTerms(): array
+    {
+        $raw = preg_split('/[\s,;]+/', trim((string) $this->historySearch));
+
+        return collect($raw)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function parseActiveSearchTerms(): array
+    {
+        $raw = preg_split('/[\s,;]+/', trim((string) $this->activeSearch));
 
         return collect($raw)
             ->filter(fn ($value) => $value !== null && $value !== '')
@@ -589,10 +741,17 @@ class AdsRequests extends Component
             ->orderByDesc('created_at');
 
         if ($this->activeSearch) {
-            $search = trim($this->activeSearch);
-            $query->whereHas('note', function ($q) use ($search) {
-                $q->where('note', 'like', '%' . $search . '%');
-            });
+            $terms = $this->parseActiveSearchTerms();
+            if ($terms) {
+                $query->whereHas('note', function ($q) use ($terms) {
+                    if (count($terms) === 1) {
+                        $q->where('note', 'like', '%' . $terms[0] . '%');
+                        return;
+                    }
+
+                    $q->whereIn('note', $terms);
+                });
+            }
         }
 
         return $query->paginate($this->activePerPage, ['*'], 'activePage');
@@ -638,26 +797,19 @@ class AdsRequests extends Component
                 continue;
             }
 
-            if ($request->status === AdsRequestStatus::CANCELED && $sqlRow->status !== AdsRequestStatus::CANCELED->value) {
-                $this->syncCanceledToSqlServer($request);
-                $updated++;
+            if (
+                $request->status === AdsRequestStatus::CANCELED
+                && $this->normalizeSqlStatus((string) $sqlRow->status) !== AdsRequestStatus::CANCELED->value
+            ) {
+                if ($this->syncCanceledToSqlServer($request)) {
+                    $updated++;
+                } else {
+                    $failed++;
+                }
                 continue;
             }
 
-            $request->fill([
-                'status' => $sqlRow->status,
-                'attempts' => (int) ($sqlRow->attempts ?? 0),
-                'description' => $sqlRow->description,
-                'url' => $sqlRow->url,
-                'completed_at' => $sqlRow->completed_at,
-                'sqlserver_id' => $sqlRow->id,
-                'completed' => $sqlRow->status === AdsRequestStatus::DONE->value,
-                'updated_at' => $sqlRow->updated_at,
-            ]);
-
-            if ($request->isDirty()) {
-                $request->timestamps = false;
-                $request->save();
+            if ($this->applySqlRowToLocalRequest($request, $sqlRow)) {
                 $updated++;
             }
         }
@@ -690,12 +842,7 @@ class AdsRequests extends Component
             return;
         }
 
-        $sqlRow = SqlAdsRequest::query()
-            ->where('sicode_id', $request->id)
-            ->latest('updated_at')
-            ->first();
-
-        if (!$sqlRow) {
+        if (!$this->syncRequestFromSqlServer($request)) {
             $noteNumber = $request->note?->note ?? (string) $request->note_id;
 
             if ($this->mirrorToSqlServer($request, $noteNumber)) {
@@ -716,30 +863,6 @@ class AdsRequests extends Component
 
             return;
         }
-
-            $request->fill([
-                'status' => $sqlRow->status,
-                'attempts' => (int) ($sqlRow->attempts ?? 0),
-                'description' => $sqlRow->description,
-                'url' => $sqlRow->url,
-                'completed_at' => $sqlRow->completed_at,
-                'sqlserver_id' => $sqlRow->id,
-                'completed' => $sqlRow->status === AdsRequestStatus::DONE->value,
-                'updated_at' => $sqlRow->updated_at,
-            ]);
-
-        if (!$request->isDirty()) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon' => 'info',
-                'title' => 'Sem atualizacoes para esta solicitacao.',
-                'timer' => 3000,
-            ]);
-            return;
-        }
-
-        $request->timestamps = false;
-        $request->save();
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -763,10 +886,17 @@ class AdsRequests extends Component
             ]);
 
         if ($this->historySearch) {
-            $search = trim($this->historySearch);
-            $query->whereHas('note', function ($q) use ($search) {
-                $q->where('note', 'like', '%' . $search . '%');
-            });
+            $terms = $this->parseHistorySearchTerms();
+            if ($terms) {
+                $query->whereHas('note', function ($q) use ($terms) {
+                    if (count($terms) === 1) {
+                        $q->where('note', 'like', '%' . $terms[0] . '%');
+                        return;
+                    }
+
+                    $q->whereIn('note', $terms);
+                });
+            }
         }
 
         if ($this->historyCompanyId && auth()->user()?->superadm) {
@@ -829,5 +959,61 @@ class AdsRequests extends Component
         }
 
         return $rows->keyBy('sicode_id');
+    }
+
+    protected function syncRequestFromSqlServer(AdsRequest $request): bool
+    {
+        $sqlRow = SqlAdsRequest::query()
+            ->where('sicode_id', $request->id)
+            ->latest('updated_at')
+            ->first();
+
+        if (!$sqlRow && $request->sqlserver_id) {
+            $sqlRow = SqlAdsRequest::query()->find($request->sqlserver_id);
+        }
+
+        if (!$sqlRow) {
+            return false;
+        }
+
+        $this->applySqlRowToLocalRequest($request, $sqlRow);
+
+        return true;
+    }
+
+    protected function applySqlRowToLocalRequest(AdsRequest $request, $sqlRow): bool
+    {
+        $sqlStatus = $this->normalizeSqlStatus($sqlRow->status)
+            ?? ($request->status instanceof AdsRequestStatus ? $request->status->value : AdsRequestStatus::QUEUED->value);
+
+        $request->fill([
+            'status' => $sqlStatus,
+            'attempts' => (int) ($sqlRow->attempts ?? 0),
+            'description' => $sqlRow->description,
+            'url' => $sqlRow->url,
+            'completed_at' => $sqlRow->completed_at,
+            'sqlserver_id' => $sqlRow->id,
+            'completed' => $sqlStatus === AdsRequestStatus::DONE->value,
+            'updated_at' => $sqlRow->updated_at,
+        ]);
+
+        if (!$request->isDirty()) {
+            return false;
+        }
+
+        $request->timestamps = false;
+        $request->save();
+
+        return true;
+    }
+
+    protected function normalizeSqlStatus(?string $status): ?string
+    {
+        $normalized = mb_strtoupper(trim((string) $status));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return AdsRequestStatus::tryFrom($normalized)?->value;
     }
 }

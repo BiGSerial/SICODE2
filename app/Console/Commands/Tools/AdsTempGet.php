@@ -1,6 +1,7 @@
 <?php
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 
 
 use App\Models\Edp_cipqa\OldAdsList;
@@ -14,6 +15,8 @@ use PDOException;
 
 class AdsTempGet extends Command
 {
+    use ShowsProgress;
+
     /**
      * The name and signature of the console command.
      *
@@ -38,7 +41,7 @@ class AdsTempGet extends Command
         $totalSteps = OldAdsList::count();
 
         // Configure o ProgressBar
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
         $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Console\Commands\Concerns\ShowsProgress;
 use App\Http\Livewire\Construction\Hiring\Actions\Viability;
 use App\Models\Production;
 use App\Models\Reclaim;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Storage;
 
 class TacitToApproval extends Command
 {
+    use ShowsProgress;
+
     private $userId;
     private $serviceId;
     private $production;
@@ -76,7 +79,7 @@ class TacitToApproval extends Command
 
 
 
-        $bar = $this->output->createProgressBar($totalSteps);
+        $bar = $this->createProgressBar($totalSteps);
         $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
         $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia
@@ -214,7 +217,7 @@ class TacitToApproval extends Command
         //     'comentariosCriados' => [],
         // ];
 
-        // $bar = $this->output->createProgressBar($totalSteps);
+        // $bar = $this->createProgressBar($totalSteps);
         // $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
         // $bar->setBarCharacter('<fg=green>█</>');
         // $bar->setEmptyBarCharacter('<fg=red>░</>');

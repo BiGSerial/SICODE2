@@ -311,6 +311,9 @@
                 <h2>Execução #{{ $cancellationRequest->id }}</h2>
                 <span class="meta">Controle operacional de solicitação de cancelamento.</span>
             </div>
+            <button class="btn btn-outline-light me-2" wire:click="exportRequest" wire:loading.attr="disabled">
+                <i class="ri-file-excel-2-line align-middle"></i> Exportar
+            </button>
             <a class="btn btn-outline-light" href="{{ route('services.cancellations.ongoing', ['service' => $service]) }}">Voltar</a>
         </div>
 

@@ -16,6 +16,11 @@ class ConfigController extends Controller
         return view('config.system_history');
     }
 
+    public function systemSchedule()
+    {
+        return view('config.system_schedule');
+    }
+
     public function main()
     {
         return redirect()->route('config.system.status');

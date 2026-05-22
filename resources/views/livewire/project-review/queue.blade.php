@@ -49,6 +49,24 @@
             border: 1px solid var(--oe-border);
             border-radius: 1rem;
             box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            overflow: visible;
+        }
+
+        .table-card > .card-header {
+            padding: .8rem 1rem;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+        }
+
+        .table-card > .card-body {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .table-card .table-responsive {
+            margin: 0 1rem 1rem 1rem;
+            border: 1px solid var(--oe-border);
+            border-radius: .75rem;
             overflow: hidden;
         }
 
@@ -234,9 +252,9 @@
                 <h2 class="mb-0">ANÁLISE PROJETO</h2>
                 <div>Lista para analisar</div>
             </div>
-            <div class="col-12 col-lg-6">
+            <div class="col-12 col-lg-8">
                 <div class="row g-2">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <div class="filter-card">
                         <label class="form-label">Empresa</label>
                         <select class="form-select" wire:model="company_id">
@@ -247,7 +265,17 @@
                         </select>
                         </div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
+                        <div class="filter-card">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" wire:model="note_type_filter">
+                            <option value="">Todos</option>
+                            <option value="retorno">Apenas Retorno</option>
+                            <option value="inicial">Apenas Inicial</option>
+                        </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
                         <div class="filter-card">
                         <label class="form-label">Custo (51%+)</label>
                         <select class="form-select" wire:model="cost_share_filter">
@@ -258,10 +286,44 @@
                         </select>
                         </div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <div class="filter-card">
-                        <label class="form-label">Buscar</label>
-                        <input type="text" class="form-control" wire:model.debounce.500ms="search" placeholder="Nota, pedido, descrição...">
+                        <label class="form-label">Itens por página</label>
+                        <select class="form-select" wire:model="perPage">
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="filter-card">
+                        <label class="form-label">Buscar nota</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" wire:model.debounce.500ms="search" placeholder="Nota, pedido, descrição...">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#queueMassSearchModal">
+                                Em massa
+                            </button>
+                        </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="filter-card">
+                        <label class="form-label">Filtro de Custo</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" wire:model="cost_metric">
+                                <option value="">Campo</option>
+                                <option value="total_cost">TOTAL</option>
+                                <option value="company_cost">EMPRESA</option>
+                                <option value="client_cost">CLIENTE</option>
+                            </select>
+                            <select class="form-select" style="max-width: 90px;" wire:model="cost_operator">
+                                <option value=">">&gt;</option>
+                                <option value="<">&lt;</option>
+                            </select>
+                            <input type="number" step="0.01" min="0" class="form-control" wire:model.debounce.500ms="cost_value" placeholder="Valor">
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -328,11 +390,6 @@
                             @php
                                 $cycle = collect($prod->ProjectReviewCycles)->sortByDesc('round_number')->first();
                                 $orders = $cycle?->Orders ?? collect();
-                                if ($orders->isEmpty()) {
-                                    $orders = $prod->ProjectReviewCycles->first(function ($c) {
-                                        return $c->Orders->count() > 0;
-                                    })?->Orders ?? collect();
-                                }
                                 $orders = collect($orders)
                                     ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
                                     ->values();
@@ -446,7 +503,15 @@
                                     {{ $prazoRealValue }}
                                 </td>
                                 <td>{{ $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---' }}</td>
-                                <td><button class="btn btn-sm btn-outline-primary" wire:click="openReview({{ $prod->id }})">Abrir</button></td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        wire:click.prevent="openReview({{ (int) $prod->id }})"
+                                    >
+                                        Abrir
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr><td colspan="13" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
@@ -456,11 +521,38 @@
             </div>
             <div class="card-body">
                 @if($lists instanceof \Illuminate\Contracts\Pagination\Paginator || $lists instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
-                    <div class="small text-muted mb-2">
-                        Mostrando {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} registros.
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <div class="small text-muted">
+                            Mostrando {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} registros.
+                        </div>
                     </div>
                     {{ $lists->links() }}
                 @endif
+            </div>
+        </div>
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="queueMassSearchModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Buscar Nota/OV em massa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Cole os códigos (nota ou OV)</label>
+                    <textarea
+                        class="form-control"
+                        rows="8"
+                        wire:model.debounce.500ms="mass_search"
+                        placeholder="Separe por vírgula, espaço ou quebra de linha"></textarea>
+                    <div class="small text-muted mt-2">
+                        Exemplo: 12345, 67890 ou uma linha por código.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -513,7 +605,7 @@
                                             }
 
                                             $historyGrouped = $orderHistory
-                                                ->groupBy('order_number')
+                                                ->groupBy(fn ($row) => trim((string) ($row['order_number'] ?? '')))
                                                 ->map(function ($rows) {
                                                     $rows = collect($rows)->sortBy('round')->values();
                                                     $prev = null;
@@ -523,7 +615,8 @@
                                                         $prev = (float) $row['total_cost'];
                                                         return $row;
                                                     });
-                                                });
+                                                })
+                                                ->sortKeysUsing(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b));
 
                                             // Totalizador da diferença por rodada (não por número da ordem),
                                             // para cobrir cenários de troca/cancelamento de ordem entre ciclos.
@@ -596,8 +689,122 @@
                                                 }
                                             }
 
+                                            $baseCycle = $cyclesAsc->first();
+                                            $currentCycle = $cyclesAsc->first(function ($cy) use ($selectedCycle) {
+                                                return (int) ($cy->id ?? 0) === (int) ($selectedCycle->id ?? 0);
+                                            }) ?: $selectedCycle;
+
+                                            $normalizeOrderRows = function ($ordersCollection) {
+                                                $rows = collect($ordersCollection ?? collect())
+                                                    ->map(function ($ord) {
+                                                        $orderNumber = (string) ($ord->order_number ?? '');
+                                                        $digits = preg_replace('/\D+/', '', $orderNumber);
+                                                        $prefix = strlen($digits) >= 3 ? substr($digits, 0, 3) : '';
+
+                                                        return [
+                                                            'order_number' => $orderNumber,
+                                                            'prefix' => $prefix,
+                                                            'total_cost' => (float) ($ord->total_cost ?? 0),
+                                                            'company_cost' => (float) ($ord->company_cost ?? 0),
+                                                            'client_cost' => (float) ($ord->client_cost ?? 0),
+                                                        ];
+                                                    })
+                                                    ->values();
+
+                                                $withPrefix = $rows->filter(fn ($row) => in_array($row['prefix'], ['170', '190', '150', '200'], true))
+                                                    ->groupBy('prefix')
+                                                    ->map(fn ($group) => $group->last())
+                                                    ->all();
+
+                                                if (count($withPrefix)) {
+                                                    return collect($withPrefix)->values();
+                                                }
+
+                                                return $rows;
+                                            };
+
+                                            $baseRows = $normalizeOrderRows($baseCycle?->Orders ?? collect())->values();
+                                            $currentRows = $normalizeOrderRows($currentCycle?->Orders ?? collect())->values();
+                                            if ($currentRows->isEmpty()) {
+                                                $fallbackCycleWithOrders = $cyclesAsc
+                                                    ->filter(function ($cy) use ($currentCycle) {
+                                                        return (int) ($cy->round_number ?? 0) <= (int) ($currentCycle->round_number ?? 0)
+                                                            && collect($cy->Orders ?? collect())->count() > 0;
+                                                    })
+                                                    ->sortByDesc('round_number')
+                                                    ->first();
+
+                                                if ($fallbackCycleWithOrders) {
+                                                    $currentRows = $normalizeOrderRows($fallbackCycleWithOrders->Orders ?? collect())->values();
+                                                }
+                                            }
+
+                                            $maxRows = max($baseRows->count(), $currentRows->count());
+                                            $comparisonRows = collect(range(0, max(0, $maxRows - 1)))->map(function ($idx) use ($baseRows, $currentRows) {
+                                                $old = $baseRows->get($idx);
+                                                $new = $currentRows->get($idx);
+
+                                                $oldTotal = (float) ($old['total_cost'] ?? 0);
+                                                $newTotal = (float) ($new['total_cost'] ?? 0);
+
+                                                return [
+                                                    'old_order' => $old['order_number'] ?? '---',
+                                                    'new_order' => $new['order_number'] ?? '---',
+                                                    'old_total' => $oldTotal,
+                                                    'new_total' => $newTotal,
+                                                    'delta_total' => round($newTotal - $oldTotal, 2),
+                                                ];
+                                            })->values();
+
+                                            // O totalizador deve refletir exatamente o comparativo exibido acima.
+                                            $sumIncrease = round((float) $comparisonRows->sum(function ($row) {
+                                                $delta = (float) ($row['delta_total'] ?? 0);
+                                                return $delta > 0 ? $delta : 0;
+                                            }), 2);
+                                            $sumEconomy = round((float) $comparisonRows->sum(function ($row) {
+                                                $delta = (float) ($row['delta_total'] ?? 0);
+                                                return $delta < 0 ? abs($delta) : 0;
+                                            }), 2);
                                             $sumNet = round($sumIncrease - $sumEconomy, 2);
                                         @endphp
+                                        <div class="fw-semibold mb-1">Comparativo de ordens (origem x rodada {{ $selectedCycle->round_number }})</div>
+                                        <div class="table-responsive border rounded mb-3" style="max-height: 220px;">
+                                            <table class="table table-sm mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Ordem original</th>
+                                                        <th>Total original</th>
+                                                        <th>Ordem rodada atual</th>
+                                                        <th>Total rodada atual</th>
+                                                        <th>Delta</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($comparisonRows as $cmp)
+                                                        <tr>
+                                                            <td>{{ $cmp['old_order'] }}</td>
+                                                            <td>{{ number_format((float) $cmp['old_total'], 2, ',', '.') }}</td>
+                                                            <td>{{ $cmp['new_order'] }}</td>
+                                                            <td>{{ number_format((float) $cmp['new_total'], 2, ',', '.') }}</td>
+                                                            <td class="{{ $cmp['delta_total'] > 0 ? 'text-danger' : ($cmp['delta_total'] < 0 ? 'text-success' : 'text-muted') }}">
+                                                                {{ number_format(abs((float) $cmp['delta_total']), 2, ',', '.') }}
+                                                                @if($cmp['delta_total'] > 0)
+                                                                    (aumento)
+                                                                @elseif($cmp['delta_total'] < 0)
+                                                                    (economia)
+                                                                @else
+                                                                    (mantido)
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="5" class="text-center text-muted">Sem dados para comparar ordens.</td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
                                         <div class="fw-semibold mb-1">Histórico por ordem</div>
                                         <div class="table-responsive border rounded" style="max-height: 240px;">
                                             <table class="table table-sm mb-0">
@@ -666,7 +873,9 @@
                                     <div class="card-body small">
                                         @php
                                             $noteFiles = ($selectedProduction?->Note?->Files ?? collect())
-                                                ->sortBy(fn($f) => [($f->service->service ?? 'OUTROS'), ($f->file_name ?? '')])
+                                                ->sortByDesc(function ($f) {
+                                                    return strtotime((string) ($f->created_at ?? '1970-01-01 00:00:00'));
+                                                })
                                                 ->values();
                                             $fileServices = $noteFiles
                                                 ->map(fn($f) => [
@@ -1072,6 +1281,13 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="d-flex align-items-center justify-content-center py-5">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
+                                <div class="small text-muted">Carregando dados da análise...</div>
                             </div>
                         </div>
                     @endif

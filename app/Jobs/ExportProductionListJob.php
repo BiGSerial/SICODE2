@@ -34,6 +34,7 @@ class ExportProductionListJob implements ShouldQueue
      */
     public function __construct($params, $userId)
     {
+        $this->onQueue('exports');
         $this->params = array_merge([
             'complete' => false,
             'monthYear' => null,

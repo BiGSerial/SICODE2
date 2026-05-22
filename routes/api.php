@@ -32,6 +32,28 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+    Route::get('/reports/production-wall', \App\Http\Controllers\Api\Reports\ProductionWallDataController::class)
+        ->middleware(['web', 'auth', 'can:superadm'])
+        ->name('api.v1.reports.production_wall');
+    Route::get('/reports/walls/{wall}/production-v2', \App\Http\Controllers\Api\Reports\ProductionWallV2DataController::class)
+        ->middleware(['web', 'auth', 'can:superadm'])
+        ->whereNumber('wall')
+        ->name('api.v1.reports.production_wall_v2');
+    Route::get('/reports/walls/{wall}/production-v2/{screen}', \App\Http\Controllers\Api\Reports\ProductionWallV2ScreenDataController::class)
+        ->middleware(['web', 'auth', 'can:superadm'])
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('api.v1.reports.production_wall_v2.screen');
+    Route::get('/reports/walls/{wall}/production-v2/{screen}/items/{serviceId}/charts', \App\Http\Controllers\Api\Reports\ProductionWallV2ItemChartsController::class)
+        ->middleware(['web', 'auth', 'can:superadm'])
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('api.v1.reports.production_wall_v2.item_charts');
+    Route::get('/reports/walls/{wall}/production-v2/{screen}/fixed/project-review', \App\Http\Controllers\Api\Reports\ProductionWallV2FixedProjectReviewController::class)
+        ->middleware(['web', 'auth', 'can:superadm'])
+        ->whereNumber('wall')
+        ->whereNumber('screen')
+        ->name('api.v1.reports.production_wall_v2.fixed.project_review');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [\App\Http\Controllers\Api\AuthController::class, 'me']);
