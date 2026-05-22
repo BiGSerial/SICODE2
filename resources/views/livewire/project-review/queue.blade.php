@@ -372,11 +372,6 @@
                             @php
                                 $cycle = collect($prod->ProjectReviewCycles)->sortByDesc('round_number')->first();
                                 $orders = $cycle?->Orders ?? collect();
-                                if ($orders->isEmpty()) {
-                                    $orders = $prod->ProjectReviewCycles->first(function ($c) {
-                                        return $c->Orders->count() > 0;
-                                    })?->Orders ?? collect();
-                                }
                                 $orders = collect($orders)
                                     ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
                                     ->values();
@@ -490,7 +485,18 @@
                                     {{ $prazoRealValue }}
                                 </td>
                                 <td>{{ $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---' }}</td>
-                                <td><button class="btn btn-sm btn-outline-primary" wire:click="openReview({{ $prod->id }})">Abrir</button></td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#projectReviewModal"
+                                        wire:click.prevent="openReview({{ (int) $prod->id }})"
+                                        x-on:click.prevent.stop="$wire.openReview({{ (int) $prod->id }})"
+                                    >
+                                        Abrir
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr><td colspan="13" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
@@ -536,7 +542,7 @@
         </div>
     </div>
 
-    <div wire:ignore.self class="modal fade" id="projectReviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="projectReviewModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content border-0">
                 <div class="modal-header text-bg-dark">
@@ -584,7 +590,7 @@
                                             }
 
                                             $historyGrouped = $orderHistory
-                                                ->groupBy('order_number')
+                                                ->groupBy(fn ($row) => trim((string) ($row['order_number'] ?? '')))
                                                 ->map(function ($rows) {
                                                     $rows = collect($rows)->sortBy('round')->values();
                                                     $prev = null;
@@ -594,7 +600,8 @@
                                                         $prev = (float) $row['total_cost'];
                                                         return $row;
                                                     });
-                                                });
+                                                })
+                                                ->sortKeysUsing(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b));
 
                                             // Totalizador da diferença por rodada (não por número da ordem),
                                             // para cobrir cenários de troca/cancelamento de ordem entre ciclos.
@@ -1237,6 +1244,13 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="d-flex align-items-center justify-content-center py-5">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div>
+                                <div class="small text-muted">Carregando dados da análise...</div>
                             </div>
                         </div>
                     @endif
