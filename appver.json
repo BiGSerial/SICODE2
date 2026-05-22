@@ -1,6 +1,11 @@
 {
-    "appver": "1.33.1",
+    "appver": "1.34.0",
     "historic": [
+        {
+            "version": "1.34.0",
+            "description": "Fix major parts, alter flux in project review",
+            "date": "2026-05-22"
+        },
         {
             "version": "1.33.1",
             "description": "Fix Upload Files in Aprovals and Input agree in Work Informs.",

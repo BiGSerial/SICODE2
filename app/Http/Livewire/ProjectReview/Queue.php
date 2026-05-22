@@ -634,6 +634,8 @@ class Queue extends Component
                 }
             }
 
+            $this->restoreDraft();
+
             if ($this->selectedPointLabel === '') {
                 $this->selectedPointLabel = $this->normalizePointLabel($this->availablePointLabels->first() ?? '');
             }
@@ -1606,6 +1608,15 @@ class Queue extends Component
             ->where('cycle_id', $this->selectedCycle->id)
             ->where('user_id', auth()->id())
             ->first();
+
+        if (!$draft) {
+            // Fallback: quando o ciclo mudou, reaproveita o rascunho mais recente da produção do mesmo usuário.
+            $draft = ProjectReviewDraft::query()
+                ->where('production_id', $this->selectedProduction->id)
+                ->where('user_id', auth()->id())
+                ->latest('updated_at')
+                ->first();
+        }
 
         if (!$draft) {
             return;
