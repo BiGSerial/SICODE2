@@ -43,13 +43,7 @@ class PartialList extends Component
 
     public function getListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filters = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filters = session('filter.' . $this->filter_group, []);
 
         $query = Partial::query();
         $query->where('allow', 0)

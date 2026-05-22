@@ -148,7 +148,7 @@ class ViabWaiting extends Component
         }
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
 

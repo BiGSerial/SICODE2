@@ -487,7 +487,7 @@ class Main extends Component
         // Inicialização da sessão (movida para fora da função, idealmente em um middleware ou construtor)
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {

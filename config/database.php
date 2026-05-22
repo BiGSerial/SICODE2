@@ -3,11 +3,19 @@
 use Illuminate\Support\Str;
 
 $mysqlSslCaOption = null;
-if (class_exists(\Pdo\Mysql::class) && defined(\Pdo\Mysql::class . '::ATTR_SSL_CA')) {
-    $mysqlSslCaOption = constant(\Pdo\Mysql::class . '::ATTR_SSL_CA');
-} elseif (PHP_VERSION_ID < 80500 && defined('PDO::MYSQL_ATTR_SSL_CA')) {
-    // Backward compatibility for older PHP versions where Pdo\Mysql::ATTR_SSL_CA is unavailable.
+if (PHP_VERSION_ID >= 80500) {
+    // PHP 8.5+: prefer the new constant and avoid deprecated PDO::MYSQL_ATTR_SSL_CA.
+    if (class_exists(\Pdo\Mysql::class) && defined(\Pdo\Mysql::class . '::ATTR_SSL_CA')) {
+        $mysqlSslCaOption = constant(\Pdo\Mysql::class . '::ATTR_SSL_CA');
+    }
+} elseif (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+    // PHP <= 8.4 compatibility.
     $mysqlSslCaOption = constant('PDO::MYSQL_ATTR_SSL_CA');
+}
+
+$mysqlOptions = [];
+if ($mysqlSslCaOption !== null) {
+    $mysqlOptions[$mysqlSslCaOption] = env('MYSQL_ATTR_SSL_CA');
 }
 
 return [
@@ -67,9 +75,7 @@ return [
             'strict'         => true,
             'engine'         => null,
             'options'        => extension_loaded('pdo_mysql')
-                ? array_filter([
-                    $mysqlSslCaOption => env('MYSQL_ATTR_SSL_CA'),
-                ], fn ($value, $key) => !is_null($key) && !is_null($value), ARRAY_FILTER_USE_BOTH)
+                ? array_filter($mysqlOptions, fn ($value) => !is_null($value))
                 : [],
         ],
 

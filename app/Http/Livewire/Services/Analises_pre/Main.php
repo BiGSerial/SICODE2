@@ -53,7 +53,7 @@ class Main extends Component
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
 
         if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {
             $this->rubrica_s = $_SESSION['filtro']['rubrica'];
@@ -241,7 +241,7 @@ class Main extends Component
     public function filter_save()
     {
 
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
         $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
         $this->emit('refresh_service');
 
@@ -255,7 +255,7 @@ class Main extends Component
         $this->selected = [];
         $this->selectAll = false;
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro'])) {

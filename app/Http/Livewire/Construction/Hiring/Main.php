@@ -234,7 +234,7 @@ class Main extends Component
     {
         // Ensure session is active
         if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         // Initialize filter from session if available

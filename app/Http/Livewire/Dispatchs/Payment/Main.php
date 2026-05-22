@@ -330,7 +330,7 @@ class Main extends Component
         $this->gotoPage(1);
 
         if (!isset($_SESSION)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         $_SESSION['filtro']['desenho']['rubrica']  = $this->rubrica_s;
         $_SESSION['filtro']['desenho']['city']     = $this->city_s;
@@ -360,7 +360,7 @@ class Main extends Component
         $this->multi_search_any_situation = false;
 
         if (!isset($_SESSION)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         if (isset($_SESSION['filtro']['desenho'])) {
             unset($_SESSION['filtro']['desenho']);

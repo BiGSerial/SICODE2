@@ -120,7 +120,7 @@ class Stack extends Component
     public function filterUser($user_id)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         $this->filters = $_SESSION['filter'][$this->filter_group]['user'] = [$user_id];
@@ -204,7 +204,7 @@ class Stack extends Component
 
         // session()->put('filtro', $this->rubrica_s);
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
             // }
             // $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
             // $_SESSION['filtro']['city']     = $this->city_s;
@@ -232,7 +232,7 @@ class Stack extends Component
         // $this->multiSearch = [];
 
         // if (!(session_status() == PHP_SESSION_ACTIVE)) {
-        //     session_start();
+        //     if (!session()->isStarted()) { session()->start(); }
         // }
 
         // if (isset($_SESSION['filtro'])) {
@@ -618,7 +618,7 @@ class Stack extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {

@@ -41,7 +41,7 @@ class Advancedsearch extends Component
     public function mount()
     {
         if (session_status() == PHP_SESSION_NONE) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['searchAdvanced'])) {
@@ -57,7 +57,7 @@ class Advancedsearch extends Component
     {
 
         if (session_status() == PHP_SESSION_NONE) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         $_SESSION['filtro']['searchAdvanced']['group2']    = $this->group2;
@@ -71,7 +71,7 @@ class Advancedsearch extends Component
     public function removeFilter()
     {
         if (session_status() == PHP_SESSION_NONE) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         $this->group2      = [];

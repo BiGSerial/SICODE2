@@ -115,7 +115,7 @@ class Main extends Component
         $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
         $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
 
-        session_start();
+        if (!session()->isStarted()) { session()->start(); }
 
         if (isset($_SESSION['filtro']['desenho']) && $_SESSION['filtro']['desenho']) {
             if (isset($_SESSION['filtro']['desenho']['rubrica'])) {
@@ -222,7 +222,7 @@ class Main extends Component
         $this->gotoPage(1);
 
         if (!isset($_SESSION)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         $_SESSION['filtro']['desenho']['rubrica']  = $this->rubrica_s;
         $_SESSION['filtro']['desenho']['city']     = $this->city_s;
@@ -252,7 +252,7 @@ class Main extends Component
         $this->multiSearch = [];
 
         if (!isset($_SESSION)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['desenho'])) {

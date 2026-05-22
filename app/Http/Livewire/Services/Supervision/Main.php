@@ -138,7 +138,7 @@ class Main extends Component
 
     public function blockWaiting($status)
     {
-        // Sem session_start(); use helper nativo
+        // Sem if (!session()->isStarted()) { session()->start(); } use helper nativo
         $waitingForm = session('waitingForm');
         return $waitingForm && (int)$status !== 27;
     }

@@ -69,7 +69,7 @@ class Main extends Component
         $this->service = Service::where('uuid', $service)->first();
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
@@ -100,7 +100,7 @@ class Main extends Component
     public function blockWaiting($status)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['waitingForm']) && $status != 27) {
@@ -188,10 +188,10 @@ class Main extends Component
     {
 
         // if (!(session_status() == PHP_SESSION_ACTIVE)) {
-        //     session_start();
+        //     if (!session()->isStarted()) { session()->start(); }
         // }
         // session()->put('filtro', $this->rubrica_s);
-        // session_start();
+        // if (!session()->isStarted()) { session()->start(); }
         // $_SESSION['filtro'] = $this->rubrica_s;
         $this->emit('refresh_service');
     }
@@ -214,7 +214,7 @@ class Main extends Component
     {
         $this->rubrica_s = [];
 
-        // session_start();
+        // if (!session()->isStarted()) { session()->start(); }
         // if (isset($_SESSION['filtro'])) {
         //     unset($_SESSION['filtro']);
         // }
@@ -226,7 +226,7 @@ class Main extends Component
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {

@@ -86,7 +86,8 @@ class AllNotifies extends Component
             'timer'    => 2000,
         ]);
 
-        $this->emitSelf('refresh_list');
+        $this->emit('refresh_list');
+        $this->emitTo('components.notify.notifys', 'refresh_list');
     }
 
     public function delete($id): void
@@ -118,7 +119,8 @@ class AllNotifies extends Component
             'timer'    => 1500,
         ]);
 
-        $this->emitSelf('refresh_list');
+        $this->emit('refresh_list');
+        $this->emitTo('components.notify.notifys', 'refresh_list');
     }
 
     public function delete_all(): void
@@ -137,8 +139,12 @@ class AllNotifies extends Component
             'title'    => 'Todas as notificações foram apagadas!',
             'timer'    => 1800,
         ]);
+        $this->dispatchBrowserEvent('hideModal', [
+            'id' => 'notificationsModal',
+        ]);
 
-        $this->emitSelf('refresh_list');
+        $this->emit('refresh_list');
+        $this->emitTo('components.notify.notifys', 'refresh_list');
     }
 
 
@@ -168,10 +174,7 @@ class AllNotifies extends Component
             $filePath = $payload->downloadStoragePath();
 
             if (Storage::exists($filePath)) {
-                $fileName = basename($filePath);
-                return response()->streamDownload(function () use ($filePath) {
-                    echo Storage::get($filePath);
-                }, $fileName);
+                return Storage::download($filePath, basename($filePath));
             }
 
             $this->dispatchBrowserEvent('swal', [
@@ -186,6 +189,36 @@ class AllNotifies extends Component
         if (!empty($payload->actionUrl())) {
             return redirect($payload->actionUrl());
         }
+
+        $this->emit('refresh_list');
+        $this->emitTo('components.notify.notifys', 'refresh_list');
+    }
+
+    public function markAsRead($id): void
+    {
+        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $user = Auth::user();
+        if (!$user || $id === '') {
+            return;
+        }
+
+        $notification = $user->notifications()->whereKey($id)->first()
+            ?: DatabaseNotification::query()
+                ->whereKey($id)
+                ->where('notifiable_id', $user->getKey())
+                ->where('notifiable_type', $user->getMorphClass())
+                ->first();
+
+        if (!$notification) {
+            return;
+        }
+
+        if ($notification->read_at === null) {
+            $notification->markAsRead();
+        }
+
+        $this->emit('refresh_list');
+        $this->emitTo('components.notify.notifys', 'refresh_list');
     }
 
     public function render()

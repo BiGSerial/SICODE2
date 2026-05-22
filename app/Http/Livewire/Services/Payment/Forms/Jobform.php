@@ -97,7 +97,7 @@ class Jobform extends Component
         if ($this->production->status != 4) {
 
             if (!(session_status() == PHP_SESSION_ACTIVE)) {
-                session_start();
+                if (!session()->isStarted()) { session()->start(); }
             }
 
             if (isset($_SESSION['waitingForm'])) {
@@ -188,7 +188,7 @@ class Jobform extends Component
     public function waitingForm()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
 

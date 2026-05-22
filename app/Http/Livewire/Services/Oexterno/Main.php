@@ -130,7 +130,7 @@ class Main extends Component
             ->value('dt_status');
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {

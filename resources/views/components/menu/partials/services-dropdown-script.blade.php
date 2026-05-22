@@ -1,16 +1,18 @@
 <script>
-    (function() {
+    (function () {
         const root = document.currentScript.closest('.services-dropdown');
         if (!root) return;
         const dropdown = root.closest('.dropdown');
 
+        // Fecha todos os painéis (chamado quando o dropdown fecha)
         const resetMenus = () => {
-            root.querySelectorAll('.menu-panel').forEach((panel) => panel.classList.remove('is-open'));
-            root.querySelectorAll('.submenu-panel').forEach((panel) => panel.classList.remove('is-open'));
-            root.querySelectorAll('.js-menu-toggle').forEach((toggle) => toggle.classList.remove('is-active'));
-            root.querySelectorAll('.js-submenu-toggle').forEach((toggle) => toggle.classList.remove('is-active'));
+            root.querySelectorAll('.menu-panel, .sd-submenu-panel')
+                .forEach(p => p.classList.remove('is-open'));
+            root.querySelectorAll('.js-menu-toggle, .js-submenu-toggle')
+                .forEach(t => t.classList.remove('is-active'));
         };
 
+        // Acorda toggles do layout "panel" legado
         root.querySelectorAll('.js-menu-toggle').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -19,11 +21,11 @@
                 const target = root.querySelector(btn.dataset.target);
                 if (!target) return;
 
-                root.querySelectorAll('.menu-panel').forEach((panel) => {
-                    if (panel !== target) panel.classList.remove('is-open');
+                root.querySelectorAll('.menu-panel').forEach(p => {
+                    if (p !== target) p.classList.remove('is-open');
                 });
-                root.querySelectorAll('.js-menu-toggle').forEach((toggle) => {
-                    if (toggle !== btn) toggle.classList.remove('is-active');
+                root.querySelectorAll('.js-menu-toggle').forEach(t => {
+                    if (t !== btn) t.classList.remove('is-active');
                 });
 
                 const open = target.classList.toggle('is-open');
@@ -31,6 +33,7 @@
             });
         });
 
+        // Acorda toggles de sub-dropdown (layout "inline" e legado)
         root.querySelectorAll('.js-submenu-toggle').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -38,37 +41,36 @@
 
                 const target = root.querySelector(btn.dataset.target);
                 if (!target) return;
-                const mode = btn.dataset.openMode || 'side';
-                const currentSubmenu = btn.closest('.submenu');
-                const scope = currentSubmenu?.parentElement || root;
+
+                const mode           = btn.dataset.openMode || 'side';
+                const currentGroup   = btn.closest('.submenu, .sd-group');
+                const scope          = currentGroup?.parentElement || root;
 
                 const closeSubtree = (container) => {
                     if (!container) return;
-                    container.querySelectorAll('.submenu-panel').forEach((panel) => panel.classList.remove('is-open'));
-                    container.querySelectorAll('.js-submenu-toggle').forEach((toggle) => toggle.classList.remove('is-active'));
+                    container.querySelectorAll('.submenu-panel, .sd-submenu-panel')
+                        .forEach(p => p.classList.remove('is-open'));
+                    container.querySelectorAll('.js-submenu-toggle')
+                        .forEach(t => t.classList.remove('is-active'));
                 };
 
+                // Fecha irmãos do mesmo modo antes de abrir o atual
                 Array.from(scope.children).forEach((child) => {
-                    if (!(child instanceof HTMLElement) || !child.classList.contains('submenu') || child === currentSubmenu) {
-                        return;
-                    }
+                    if (!(child instanceof HTMLElement)) return;
+                    const isSibling =
+                        (child.classList.contains('submenu') || child.classList.contains('sd-group')) &&
+                        child !== currentGroup;
+                    if (!isSibling) return;
 
                     const siblingToggle = child.querySelector(':scope > .js-submenu-toggle');
-                    const siblingMode = siblingToggle?.dataset.openMode || 'side';
-
-                    // Keep independent levels/modes isolated; only close siblings of the same behavior.
-                    if (mode === 'down' && siblingMode !== 'down') {
-                        return;
-                    }
-                    if (mode === 'side' && siblingMode !== 'side') {
-                        return;
-                    }
+                    if ((siblingToggle?.dataset.openMode || 'side') !== mode) return;
 
                     closeSubtree(child);
                 });
 
+                // Toggle: se já está aberto, fecha; caso contrário, abre
                 if (target.classList.contains('is-open')) {
-                    closeSubtree(currentSubmenu);
+                    closeSubtree(currentGroup);
                     return;
                 }
 
@@ -77,6 +79,7 @@
             });
         });
 
+        // Reseta ao fechar o dropdown Bootstrap
         if (dropdown) {
             dropdown.addEventListener('hidden.bs.dropdown', resetMenus);
         }

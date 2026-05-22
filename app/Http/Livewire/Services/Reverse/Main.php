@@ -45,7 +45,7 @@ class Main extends Component
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
@@ -172,7 +172,7 @@ class Main extends Component
         $this->gotoPage(1);
 
         if (!isset($_SESSION)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
         $_SESSION['filtro']['analise']['rubrica'] = $this->rubrica_s;
 
@@ -185,7 +185,7 @@ class Main extends Component
         $this->rubrica_s = [];
 
         if (!isset($_SESSION)) {
-            session_start();
+            if (!session()->isStarted()) { session()->start(); }
         }
 
         if (isset($_SESSION['filtro']['analise'])) {

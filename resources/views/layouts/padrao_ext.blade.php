@@ -154,13 +154,13 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                             <span class="d-none d-lg-block text-edp-verde">sicode</span>
                         </a>
                     </li> --}}
-                    <div class="d-flex align-items-end justify-content-between mx-2">
+                    <li class="nav-item mx-2"><div class="d-flex align-items-end justify-content-between">
                         <a href="{{ route('home') }}" class="d-flex align-items-end">
                             <img src="{{ asset('img/EDP-Logo-white.svg') }}" class="align-middle" alt=""
                                 height="30">
                             <span class="d-none d-lg-block text-edp-verde fw-bold fs-4">sicode</span>
                         </a>
-                    </div><!-- End Logo -->
+                    </div></li><!-- End Logo -->
                 @else
                     {{-- <li class="nav-item mx-2">
                         <a href="" class="logo d-flex mx-0">
@@ -169,13 +169,13 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                             <span class="d-none d-lg-block text-edp-verde">sicode</span>
                         </a>
                     </li> --}}
-                    <div class="d-flex align-items-end justify-content-between mx-2">
+                    <li class="nav-item mx-2"><div class="d-flex align-items-end justify-content-between">
                         <a href="{{ route('home') }}" class="d-flex align-items-end">
                             <span
                                 class="d-none d-lg-block text-white fw-bold fs-4">{{ isset(Auth()->user()->Employee->Contract->company->name) ? mb_strtolower(explode(' ', Auth()->user()->Employee->Contract->company->name)[0]) : '' }}</span>
                             <span class="d-none d-lg-block text-edp-verde fw-bold fs-4">sicode</span>
                         </a>
-                    </div><!-- End Logo -->
+                    </div></li><!-- End Logo -->
                 @endif
 
                 @livewire('components.notify.notifys', key('notify.menu.sicode'))
