@@ -213,14 +213,18 @@
                                 <div class="chat-stream mb-2">
                                     @forelse ($reviewMessages as $msg)
                                         @php
-                                            $mine = $msg->user_id === auth()->id();
+                                            $msgUserId = data_get($msg, 'user_id');
+                                            $mine = (string) $msgUserId === (string) auth()->id();
+                                            $msgAuthor = data_get($msg, 'User.name') ?? data_get($msg, 'user.name');
+                                            $msgCreatedAt = data_get($msg, 'created_at');
                                         @endphp
                                         <div class="d-flex mb-2 {{ $mine ? 'justify-content-end' : 'justify-content-start' }}">
                                             <div class="chat-bubble {{ $mine ? 'mine' : '' }}">
                                                 <div class="small text-muted">
-                                                    {{ optional($msg->User)->name }} - {{ date('d/m/Y H:i', strtotime($msg->created_at)) }}
+                                                    {{ $msgAuthor }} -
+                                                    {{ $msgCreatedAt ? date('d/m/Y H:i', strtotime((string) $msgCreatedAt)) : '---' }}
                                                 </div>
-                                                <div>{{ $msg->message }}</div>
+                                                <div>{{ data_get($msg, 'message') }}</div>
                                             </div>
                                         </div>
                                     @empty
@@ -782,14 +786,18 @@
                             <div class="chat-stream mb-2">
                                 @forelse ($reviewMessages as $msg)
                                     @php
-                                        $mine = $msg->user_id === auth()->id();
+                                        $msgUserId = data_get($msg, 'user_id');
+                                        $mine = (string) $msgUserId === (string) auth()->id();
+                                        $msgAuthor = data_get($msg, 'User.name') ?? data_get($msg, 'user.name');
+                                        $msgCreatedAt = data_get($msg, 'created_at');
                                     @endphp
                                     <div class="d-flex mb-2 {{ $mine ? 'justify-content-end' : 'justify-content-start' }}">
                                         <div class="chat-bubble {{ $mine ? 'mine' : '' }}">
                                             <div class="small text-muted">
-                                                {{ optional($msg->User)->name }} - {{ date('d/m/Y H:i', strtotime($msg->created_at)) }}
+                                                {{ $msgAuthor }} -
+                                                {{ $msgCreatedAt ? date('d/m/Y H:i', strtotime((string) $msgCreatedAt)) : '---' }}
                                             </div>
-                                            <div>{{ $msg->message }}</div>
+                                            <div>{{ data_get($msg, 'message') }}</div>
                                         </div>
                                     </div>
                                 @empty
