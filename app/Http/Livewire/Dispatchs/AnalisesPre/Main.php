@@ -502,13 +502,48 @@ class Main extends Component
             });
         });
 
-        if (isset($this->filter['rubrica'])) {
-            $query->whereIn('rubrica', $this->filter['rubrica']);
+        $activeFilters = is_array($this->filter) ? $this->filter : [];
+
+        if (isset($activeFilters['rubrica'])) {
+            $query->whereIn('rubrica', $activeFilters['rubrica']);
         }
 
-        if (isset($this->filter['city'])) {
-            $query->whereIn('lexp', $this->filter['city']);
+        $regionValues = collect((array) ($activeFilters['region'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
+        $cityValues = collect((array) ($activeFilters['city'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
 
+        if ($regionValues->isNotEmpty() || $cityValues->isNotEmpty()) {
+            $nexpCodes = collect();
+            $nexpCodes = $nexpCodes->merge(
+                $cityValues->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)->values()
+            );
+
+            $mappedQuery = City::query();
+            if ($regionValues->isNotEmpty()) {
+                $mappedQuery->where(function ($sq) use ($regionValues) {
+                    $sq->whereIn('regiao', $regionValues->all())
+                        ->orWhereIn('baseConstrucao', $regionValues->all());
+                });
+            }
+            if ($cityValues->isNotEmpty()) {
+                $mappedQuery->where(function ($sq) use ($cityValues) {
+                    $sq->whereIn('cidade', $cityValues->all())
+                        ->orWhereIn('municipio', $cityValues->all())
+                        ->orWhereIn('rdMunicipio', $cityValues->all());
+                });
+            }
+
+            $mappedCodes = $mappedQuery->pluck('rdMunicipio')
+                ->filter(fn ($v) => filled($v))
+                ->map(fn ($v) => trim((string) $v))
+                ->values();
+
+            $query->whereIn('nexp', $nexpCodes->merge($mappedCodes)->unique()->values()->all());
         }
 
 

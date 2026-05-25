@@ -648,7 +648,7 @@
                                 <div class="card card-soft">
                                     <div class="card-header">Chat da rodada</div>
                                     <div class="card-body">
-                                        @forelse ($selectedCycle->Messages->sortByDesc('created_at') as $msg)
+                                        @forelse ($this->reviewMessages as $msg)
                                             <div class="border rounded p-2 mb-1 {{ $msg->user_id === auth()->id() ? 'bg-light' : '' }}">
                                                 <div class="small text-muted">{{ $msg->User->name ?? 'Usuário' }} - {{ date('d/m/Y H:i', strtotime($msg->created_at)) }}</div>
                                                 <div>{{ $msg->message }}</div>
@@ -656,6 +656,21 @@
                                         @empty
                                             <div class="text-muted small">Sem mensagens nesta rodada.</div>
                                         @endforelse
+
+                                        @if($this->canReply)
+                                            <textarea
+                                                class="form-control mt-2"
+                                                rows="2"
+                                                wire:model.defer="newReply"
+                                                placeholder="Escreva uma mensagem"></textarea>
+                                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" wire:click="addReply">
+                                                Enviar mensagem
+                                            </button>
+                                        @else
+                                            <div class="alert alert-light border mt-2 mb-0 py-2 small text-muted">
+                                                Chat bloqueado para esta produção encerrada.
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>

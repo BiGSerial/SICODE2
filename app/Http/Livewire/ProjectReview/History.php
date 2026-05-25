@@ -8,6 +8,7 @@ use App\Models\File;
 use App\Models\Notetimeline;
 use App\Models\ProjectReviewCategory;
 use App\Models\ProjectReviewCycle;
+use App\Models\ProjectReviewMessage;
 use App\Models\ProjectReviewSubcategory;
 use App\Models\Production;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,7 @@ class History extends Component
     public string $selectedPointLabel = 'P1';
     public string $selectedOrigin = 'PROJETO';
     public string $selectedActionType = 'FALTA';
+    public string $newReply = '';
     public array $taxonomySubcategories = [];
     public array $taxonomyCategories = [];
 
@@ -131,13 +133,18 @@ class History extends Component
             'Service',
             'Files',
             'Analise',
+            'ProjectReviewMessages.User',
             'ProjectReviewCycles' => function ($q) {
                 $q->with([
                     'Orders',
                     'Findings.Subcategory.Category',
                     'Findings.Item',
                     'DecidedBy',
-                    'Messages.User',
+                    'Messages' => function ($mq) {
+                        $mq->with('User')
+                            ->orderBy('created_at')
+                            ->orderBy('id');
+                    },
                 ])->latest('round_number');
             },
         ])->findOrFail($productionId);
@@ -150,6 +157,8 @@ class History extends Component
         $this->selectedHistoryPointFilter = '';
         $this->editingFindings = false;
         $this->historyFindingRows = [];
+        $this->newReply = '';
+        $this->refreshSelectedProductionMessages();
 
         $this->dispatchBrowserEvent('showModal', ['id' => 'historyProjectReviewModal']);
     }
@@ -169,6 +178,7 @@ class History extends Component
         $this->selectedHistoryPointFilter = '';
         $this->editingFindings = false;
         $this->historyFindingRows = [];
+        $this->newReply = '';
     }
 
     public function getCanEditSelectedCycleProperty(): bool
@@ -179,6 +189,39 @@ class History extends Component
 
         return !in_array((string) $this->selectedCycle->decision, ['APPROVED', 'APPROVED_WITH_REMARKS'], true)
             && auth()->user()->can('analyst');
+    }
+
+    public function getCanReplyProperty(): bool
+    {
+        if (!$this->selectedCycle || !$this->selectedProduction || !auth()->check()) {
+            return false;
+        }
+
+        // Encerrado = status 5; demais status permitem continuidade do chat.
+        return auth()->user()->can('analyst')
+            && (int) $this->selectedProduction->status !== 5;
+    }
+
+    public function addReply(): void
+    {
+        if (!$this->canReply || !$this->selectedProduction || !$this->selectedCycle) {
+            return;
+        }
+
+        $message = trim($this->newReply);
+        if ($message === '') {
+            return;
+        }
+
+        ProjectReviewMessage::create([
+            'production_id' => $this->selectedProduction->id,
+            'cycle_id' => $this->selectedCycle->id,
+            'user_id' => auth()->id(),
+            'message' => $message,
+        ]);
+
+        $this->newReply = '';
+        $this->refreshSelectedProductionMessages();
     }
 
     public function startFindingsEdit(): void
@@ -440,13 +483,18 @@ class History extends Component
             'Service',
             'Files',
             'Analise',
+            'ProjectReviewMessages.User',
             'ProjectReviewCycles' => function ($q) {
                 $q->with([
                     'Orders',
                     'Findings.Subcategory.Category',
                     'Findings.Item',
                     'DecidedBy',
-                    'Messages.User',
+                    'Messages' => function ($mq) {
+                        $mq->with('User')
+                            ->orderBy('created_at')
+                            ->orderBy('id');
+                    },
                 ])->latest('round_number');
             },
         ]);
@@ -471,6 +519,39 @@ class History extends Component
             ->unique()
             ->sort()
             ->values();
+    }
+
+    public function getReviewMessagesProperty()
+    {
+        if (!$this->selectedProduction) {
+            return collect();
+        }
+
+        return collect($this->selectedProduction->ProjectReviewMessages ?? [])
+            ->sortBy(function ($message) {
+                return sprintf(
+                    '%s-%010d',
+                    optional($message->created_at)->format('Y-m-d H:i:s.u') ?? '',
+                    (int) ($message->id ?? 0)
+                );
+            })
+            ->values();
+    }
+
+    private function refreshSelectedProductionMessages(): void
+    {
+        if (!$this->selectedProduction) {
+            return;
+        }
+
+        $messages = ProjectReviewMessage::query()
+            ->with('User')
+            ->where('production_id', $this->selectedProduction->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        $this->selectedProduction->setRelation('ProjectReviewMessages', $messages);
     }
 
     public function getFilteredHistoryFindingsProperty()

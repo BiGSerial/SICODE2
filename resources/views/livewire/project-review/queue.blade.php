@@ -957,7 +957,7 @@
                                     <div class="card-header">Chat da Análise</div>
                                     <div class="card-body">
                                         <div class="chat-stream mb-2">
-                                            @forelse ($selectedCycle->Messages->sortByDesc('created_at') as $msg)
+                                            @forelse ($this->reviewMessages as $msg)
                                                 @php
                                                     $mine = $msg->user_id === auth()->id();
                                                 @endphp

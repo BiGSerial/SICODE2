@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Helpers\TextFormatter;
+use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Production;
@@ -17,7 +18,6 @@ class ApprovalList extends Component
 {
     use WithPagination;
     use TextFormatter;
-
 
     protected $paginationTheme = 'bootstrap';
 
@@ -295,8 +295,13 @@ class ApprovalList extends Component
             if (!session()->isStarted()) { session()->start(); }
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $sessionFilters = session('filter.' . $this->filter_group);
+        if (is_array($sessionFilters)) {
+            $this->filter = $sessionFilters;
+        } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
+        } else {
+            $this->filter = [];
         }
 
         $query = Note::query();
@@ -377,18 +382,66 @@ class ApprovalList extends Component
         }
 
 
-        if (isset($this->filter['city'])) {
-            $query->whereIn('lexp', $this->filter['city']);
+        $activeFilters = is_array($this->filter) ? $this->filter : [];
+
+        $regionValues = collect((array) ($activeFilters['region'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
+
+        $cityValues = collect((array) ($activeFilters['city'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
+
+        if ($regionValues->isNotEmpty() || $cityValues->isNotEmpty()) {
+            $nexpCodes = collect();
+
+            // Se cidade vier já como códigos, reaproveita direto.
+            $directCodes = $cityValues
+                ->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)
+                ->values();
+            $nexpCodes = $nexpCodes->merge($directCodes);
+
+            // Mapeia por tabela de cidades para sempre chegar em rdMunicipio.
+            $mappedQuery = City::query();
+
+            if ($regionValues->isNotEmpty()) {
+                $mappedQuery->whereIn('baseConstrucao', $regionValues->all());
+            }
+
+            if ($cityValues->isNotEmpty()) {
+                $mappedQuery->where(function ($sq) use ($cityValues) {
+                    $sq->whereIn('cidade', $cityValues->all())
+                        ->orWhereIn('municipio', $cityValues->all())
+                        ->orWhereIn('rdMunicipio', $cityValues->all());
+                });
+            }
+
+            $mappedCodes = $mappedQuery
+                ->pluck('rdMunicipio')
+                ->filter(fn ($v) => filled($v))
+                ->map(fn ($v) => trim((string) $v))
+                ->values();
+
+            $nexpCodes = $nexpCodes
+                ->merge($mappedCodes)
+                ->unique()
+                ->values();
+
+            // Filtro final somente por nexp.
+            $query->whereIn('nexp', $nexpCodes->all());
         }
 
-        if (isset($this->filter['rubrica'])) {
-            $query->whereIn('rubrica', $this->filter['rubrica']);
+        if (isset($activeFilters['rubrica'])) {
+            $query->whereIn('rubrica', $activeFilters['rubrica']);
         }
 
-        if (isset($this->filter['operacao'])) {
-            $query->whereHas('orders.operations', function ($q) {
+        if (isset($activeFilters['operacao'])) {
+            $operacaoFilters = (array) $activeFilters['operacao'];
+            $query->whereHas('orders.operations', function ($q) use ($operacaoFilters) {
                 $q->where('operacao', '0010')
-                  ->whereIn('cenTrab', $this->filter['operacao']);
+                  ->whereIn('cenTrab', $operacaoFilters);
             });
         }
 

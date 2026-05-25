@@ -74,14 +74,28 @@ class Filter extends Component
             if (!session()->isStarted()) { session()->start(); }
         }
 
-        if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
+        $persistedItems = session('filter.' . $this->group_filter . '.' . $this->myKey);
+        if (is_array($persistedItems)) {
+            $this->items = $persistedItems;
+            $_SESSION['filter'][$this->group_filter][$this->myKey] = $persistedItems;
+        } elseif (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
             $this->items = $_SESSION['filter'][$this->group_filter][$this->myKey];
         } else {
             $this->items = [];
         }
 
-        if ($this->sendFilter && (!isset($_SESSION['filter'][$this->group_filter]['receiver'][$this->sendFilter]) || !in_array($this->column, $_SESSION['filter'][$this->group_filter]['receiver'][$sendFilter]))) {
-            $_SESSION['filter'][$this->group_filter]['receiver'][$sendFilter][] = $this->column;
+        if (
+            $this->sendFilter
+            && (
+                !isset($_SESSION['filter'][$this->group_filter]['receiver'][$this->sendFilter])
+                || !in_array($this->column, $_SESSION['filter'][$this->group_filter]['receiver'][$this->sendFilter])
+            )
+        ) {
+            $_SESSION['filter'][$this->group_filter]['receiver'][$this->sendFilter][] = $this->column;
+            session([
+                'filter.' . $this->group_filter . '.receiver.' . $this->sendFilter
+                => $_SESSION['filter'][$this->group_filter]['receiver'][$this->sendFilter],
+            ]);
         }
 
     }
@@ -171,6 +185,7 @@ class Filter extends Component
         }
 
         $_SESSION['filter'][$this->group_filter][$this->myKey] = $this->items;
+        session(['filter.' . $this->group_filter . '.' . $this->myKey => $this->items]);
 
         $this->emitUp('refresh_list');
         $this->emit('refresh_filter', $this->sendFilter, ['column' => $this->column, 'values' => $this->items]);
@@ -187,6 +202,7 @@ class Filter extends Component
             // unset($_SESSION['filter'][$this->group_filter]['receiver']);
             $this->items = [];
         }
+        session()->forget('filter.' . $this->group_filter . '.' . $this->myKey);
 
         $this->emitUp('refresh_list');
         $this->emit('refresh_filter', $this->sendFilter);

@@ -548,10 +548,16 @@ class Queue extends Component
                 'Company',
                 'Service',
                 'Analise',
+                'ProjectReviewMessages.User',
                 'ProjectReviewCycles' => function ($q) {
                     $q->with([
                         'Orders',
                         'DecidedBy',
+                        'Messages' => function ($mq) {
+                            $mq->with('User')
+                                ->orderBy('created_at')
+                                ->orderBy('id');
+                        },
                     ])->latest('round_number');
                 },
             ])->findOrFail($productionId);
@@ -562,7 +568,11 @@ class Queue extends Component
                     'Findings.Subcategory.Category',
                     'Findings.Item',
                     'DecidedBy',
-                    'Messages.User',
+                    'Messages' => function ($mq) {
+                        $mq->with('User')
+                            ->orderBy('created_at')
+                            ->orderBy('id');
+                    },
                 ])
                 ->where('production_id', $this->selectedProduction->id)
                 ->orderByRaw("CASE WHEN decision = 'PENDING' THEN 0 ELSE 1 END")
@@ -639,6 +649,8 @@ class Queue extends Component
             if ($this->selectedPointLabel === '') {
                 $this->selectedPointLabel = $this->normalizePointLabel($this->availablePointLabels->first() ?? '');
             }
+
+            $this->refreshSelectedProductionMessages();
 
             Log::info('project_review.openReview.success', [
                 'production_id' => $this->selectedProduction->id ?? null,
@@ -1366,15 +1378,40 @@ class Queue extends Component
         }
 
         $this->newReply = '';
+        $this->refreshSelectedProductionMessages();
+    }
+
+    public function getReviewMessagesProperty()
+    {
+        if (!$this->selectedProduction) {
+            return collect();
+        }
+
+        return collect($this->selectedProduction->ProjectReviewMessages ?? [])
+            ->sortBy(function ($message) {
+                return sprintf(
+                    '%s-%010d',
+                    optional($message->created_at)->format('Y-m-d H:i:s.u') ?? '',
+                    (int) ($message->id ?? 0)
+                );
+            })
+            ->values();
+    }
+
+    private function refreshSelectedProductionMessages(): void
+    {
+        if (!$this->selectedProduction) {
+            return;
+        }
+
         $messages = ProjectReviewMessage::query()
             ->with('User')
-            ->where('cycle_id', $this->selectedCycle->id)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->where('production_id', $this->selectedProduction->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
 
-        // Mantém árvore e estado da tela em memória; atualiza apenas o chat.
-        $this->selectedCycle->setRelation('Messages', $messages);
+        $this->selectedProduction->setRelation('ProjectReviewMessages', $messages);
     }
 
     private function resolveCycle(string $decision): void

@@ -179,8 +179,13 @@ class Stack extends Component
             if (!session()->isStarted()) { session()->start(); }
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $sessionFilters = session('filter.' . $this->filter_group);
+        if (is_array($sessionFilters)) {
+            $this->filter = $sessionFilters;
+        } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
+        } else {
+            $this->filter = [];
         }
 
 
@@ -220,7 +225,11 @@ class Stack extends Component
                 });
             })
             ->when(isset($this->filter['city']), function ($q) {
-                $q->whereIn('nexp', $this->filter['city']);
+                $cityFilters = collect((array) $this->filter['city'])
+                    ->filter(fn ($v) => filled($v))
+                    ->map(fn ($v) => trim((string) $v))
+                    ->values();
+                $q->whereIn('nexp', $cityFilters->all());
             })
             ->when($this->statusFilter, function ($q) {
                 $q->where('productions.status', $this->statusFilter);

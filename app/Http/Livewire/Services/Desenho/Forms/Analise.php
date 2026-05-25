@@ -316,17 +316,7 @@ class Analise extends Component
                 $findings = $latestCycle->Findings->values();
 
                 $this->rejectedFindings = $this->mapRejectedFindingsForView($findings);
-
-                $this->reviewMessages = $latestCycle->Messages
-                    ->sortByDesc(function ($message) {
-                        return sprintf(
-                            '%s-%010d',
-                            optional($message->created_at)->format('Y-m-d H:i:s.u') ?? '',
-                            (int) ($message->id ?? 0)
-                        );
-                    })
-                    ->values()
-                    ->all();
+                $this->refreshReviewMessages();
             }
         }
 
@@ -907,11 +897,23 @@ class Analise extends Component
         }
 
         $this->newContestationMessage = '';
-        $this->reviewMessages = $latestCycle->Messages()
+        $this->refreshReviewMessages();
+    }
+
+    private function refreshReviewMessages(): void
+    {
+        if (!$this->production) {
+            $this->reviewMessages = [];
+            return;
+        }
+
+        $this->reviewMessages = ProjectReviewMessage::query()
             ->with('User')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get();
+            ->where('production_id', $this->production->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->all();
     }
 
     public function goToFinishFlow(): void
