@@ -18,6 +18,8 @@ class Main extends Component
     public $search;
     public $analise;
     protected $limit_pause = 50;
+    private string $filter_group = 'survey';
+    private array $filter = [];
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
@@ -33,6 +35,21 @@ class Main extends Component
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->firstOrFail();
+        $this->loadFilters();
+    }
+
+    private function loadFilters(): void
+    {
+        if (!session()->isStarted()) {
+            session()->start();
+        }
+
+        $filters = session("filter.{$this->filter_group}", []);
+        if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
+            $filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+        $this->filter = is_array($filters) ? $filters : [];
     }
 
     /** =====================
@@ -169,6 +186,12 @@ class Main extends Component
      * ===================== */
     public function getListsProperty()
     {
+        $this->loadFilters();
+        $cityFilter = collect((array) ($this->filter['city'] ?? []))
+            ->filter(fn ($city) => filled($city))
+            ->values()
+            ->all();
+
         $pzoExpr = "
         CASE
             WHEN n.type_note = 1
@@ -225,6 +248,7 @@ class Main extends Component
                         ->orWhere('n.material', 'like', "%{$s}%");
                 });
             })
+            ->when(!empty($cityFilter), fn ($q) => $q->whereIn('n.nexp', $cityFilter))
             ->addSelect('n.dt_created as dt_created')
             ->orderByDesc('productions.priority')
             ->orderBy('n.dt_created')

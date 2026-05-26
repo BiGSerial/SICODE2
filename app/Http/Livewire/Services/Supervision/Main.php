@@ -27,6 +27,8 @@ class Main extends Component
     public $user_search;       // busca do usuário
 
     public $analise;
+    private string $filter_group = 'supervision';
+    private array $filter = [];
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
@@ -44,6 +46,22 @@ class Main extends Component
                 $q->where('exclusion', false)->select('service_id', 'value');
             }])
             ->firstOrFail();
+
+        $this->loadFilters();
+    }
+
+    private function loadFilters(): void
+    {
+        if (!session()->isStarted()) {
+            session()->start();
+        }
+
+        $filters = session("filter.{$this->filter_group}", []);
+        if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
+            $filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+        $this->filter = is_array($filters) ? $filters : [];
     }
 
     public function exportToExcel()
@@ -179,6 +197,12 @@ class Main extends Component
      */
     protected function baseQuery(): Builder
     {
+        $this->loadFilters();
+        $cityFilter = collect((array) ($this->filter['city'] ?? []))
+            ->filter(fn ($city) => filled($city))
+            ->values()
+            ->all();
+
         // Cálculos (MariaDB)
         $daysAssignedExpr = "DATEDIFF(CURDATE(), productions.att_at)";
         $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), work_reports.informed_at), 0)";
@@ -211,6 +235,11 @@ class Main extends Component
                 $q->where(function (Builder $sub) use ($search) {
                     $sub->whereRelation('Note', 'note', 'like', "%{$search}%")
                         ->orWhereRelation('Note', 'material', 'like', "%{$search}%");
+                });
+            })
+            ->when(!empty($cityFilter), function (Builder $q) use ($cityFilter) {
+                $q->whereHas('Note', function (Builder $noteQuery) use ($cityFilter) {
+                    $noteQuery->whereIn('nexp', $cityFilter);
                 });
             })
 

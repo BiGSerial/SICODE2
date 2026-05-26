@@ -578,8 +578,27 @@
 
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                        @php
+                                            $companyName = $list->Company->name ?? null;
+                                            $companyLabel = '-';
 
-                                        {{ $list->Company ? explode(' ', $list->Company->name)[0] : '-' }}</td>
+                                            if ($companyName) {
+                                                $parts = array_values(array_filter(explode(' ', trim($companyName))));
+                                                $firstPart = $parts[0] ?? '';
+                                                $countParts = count($parts);
+
+                                                if ($countParts >= 3) {
+                                                    $lastInitial = substr($parts[$countParts - 1], 0, 1);
+                                                    $beforeLastInitial = substr($parts[$countParts - 2], 0, 1);
+                                                    $companyLabel = trim($firstPart . ' ' . $beforeLastInitial . $lastInitial);
+                                                } elseif ($countParts >= 2) {
+                                                    $companyLabel = trim($firstPart . ' ' . substr($parts[1], 0, 2));
+                                                } else {
+                                                    $companyLabel = substr($firstPart, 0, 1);
+                                                }
+                                            }
+                                        @endphp
+                                        {{ $companyLabel }}</td>
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
 
