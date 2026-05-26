@@ -3,9 +3,11 @@
 namespace App\Http\Livewire\Legal\Controller;
 
 use App\Models\Note;
-use App\Models\Legal\{LegalDemand};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalExternalContact};
 use App\Models\User;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
+use Carbon\Carbon;
+use Illuminate\Support\Facades\URL;
 use Livewire\{Component, WithFileUploads};
 
 class DemandDetail extends Component
@@ -24,6 +26,11 @@ class DemandDetail extends Component
     public string  $assignMessage = '';
 
     public ?string $assignDueAt = null;
+
+    public bool $assignAsExternal = false;
+    public ?int $externalContactId = null;
+    public string $externalContactName = '';
+    public string $externalContactEmail = '';
 
     public string  $returnReason = '';
 
@@ -159,25 +166,82 @@ class DemandDetail extends Component
 
     public function sendToField(): void
     {
-        $this->validate([
-            'assignToUserId' => 'required_without:assignToTeamId',
-        ]);
+        $rules = [
+            'assignDueAt' => 'nullable|date',
+        ];
+
+        if ($this->assignAsExternal) {
+            $rules['assignDueAt'] = 'required|date';
+            if ($this->externalContactId) {
+                $rules['externalContactId'] = 'exists:legal_external_contacts,id';
+            } else {
+                $rules['externalContactName'] = 'required|string|min:3|max:120';
+                $rules['externalContactEmail'] = 'required|email|max:190';
+            }
+        } else {
+            $rules['assignToUserId'] = 'required_without:assignToTeamId';
+        }
+
+        $this->validate($rules);
 
         try {
-            app(LegalDemandWorkflowService::class)->sendToField(
+            $externalMetadata = [];
+            $toUserId = $this->assignToUserId ?: null;
+            $toTeamId = $this->assignToTeamId ?: null;
+
+            if ($this->assignAsExternal) {
+                $contact = $this->resolveExternalContact();
+                $externalMetadata = [
+                    'external_dispatch' => true,
+                    'external_contact_id' => $contact->id,
+                    'external_contact_name' => $contact->name,
+                    'external_contact_email' => $contact->email,
+                ];
+                $toUserId = null;
+                $toTeamId = null;
+            }
+
+            $assignment = app(LegalDemandWorkflowService::class)->sendToField(
                 $this->demand,
                 auth()->user(),
-                $this->assignToUserId ?: null,
-                $this->assignToTeamId ?: null,
+                $toUserId,
+                $toTeamId,
                 $this->assignMessage ?: null,
                 $this->assignDueAt ? new \DateTime($this->assignDueAt) : null,
+                $this->assignAsExternal,
+                $externalMetadata,
             );
+
+            if ($this->assignAsExternal) {
+                $expiresAt = Carbon::parse((string) $this->assignDueAt);
+                $metadata = (array) ($assignment->metadata ?? []);
+                $metadata['external_link_expires_at'] = $expiresAt->toDateTimeString();
+                $metadata['external_link_generated_at'] = now()->toDateTimeString();
+                $metadata['external_link_generated_by'] = auth()->id();
+                $assignment->metadata = $metadata;
+                $assignment->save();
+            }
+
             $this->demand->refresh()->load(['legalCase', 'controller', 'currentAssignee', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
             $this->showAssignForm = false;
+            $this->assignAsExternal = false;
+            $this->externalContactId = null;
+            $this->externalContactName = '';
+            $this->externalContactEmail = '';
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Enviado para o campo', 'timer' => 2500]);
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Erro', 'html' => $e->getMessage()]);
         }
+    }
+
+    public function setExternalContactName(string $value): void
+    {
+        $this->externalContactName = trim($value);
+    }
+
+    public function setExternalContactEmail(string $value): void
+    {
+        $this->externalContactEmail = mb_strtolower(trim($value));
     }
 
     public function approveReturn(): void
@@ -302,11 +366,83 @@ class DemandDetail extends Component
 
         return view('livewire.legal.controller.demand-detail', [
             'fieldUsers'         => $fieldUsers,
+            'externalContacts'   => LegalExternalContact::query()
+                ->where('is_active', true)
+                ->orderByDesc('last_used_at')
+                ->orderBy('name')
+                ->limit(100)
+                ->get(),
             'currentAssignment'  => $currentAssignment,
+            'currentAssignmentExternalLink' => $this->currentAssignmentExternalLink($currentAssignment),
+            'currentAssignmentExternalExpiresAt' => $this->currentAssignmentExternalExpiresAt($currentAssignment),
             'statusValue'        => $statusValue,
             'isExternallyClosed' => $this->demand->isExternallyClosed(),
             'searchedNotes'      => $this->searchNotes(),
         ]);
+    }
+
+    private function currentAssignmentExternalLink(?LegalDemandAssignment $assignment): ?string
+    {
+        if (!$assignment) {
+            return null;
+        }
+
+        if (!data_get($assignment->metadata ?? [], 'external_dispatch')) {
+            return null;
+        }
+
+        $expiresAt = $this->currentAssignmentExternalExpiresAt($assignment);
+        if (!$expiresAt || $expiresAt->isPast()) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'legal.external.response',
+            $expiresAt,
+            ['assignment_id' => $assignment->id]
+        );
+    }
+
+    private function currentAssignmentExternalExpiresAt(?LegalDemandAssignment $assignment): ?Carbon
+    {
+        if (!$assignment) {
+            return null;
+        }
+
+        $raw = data_get($assignment->metadata ?? [], 'external_link_expires_at');
+        if (!$raw) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse((string) $raw);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function resolveExternalContact(): LegalExternalContact
+    {
+        if ($this->externalContactId) {
+            $contact = LegalExternalContact::query()->findOrFail($this->externalContactId);
+            $contact->last_used_at = now();
+            $contact->save();
+            return $contact;
+        }
+
+        $email = mb_strtolower(trim($this->externalContactEmail));
+        $name = trim($this->externalContactName);
+
+        $contact = LegalExternalContact::query()->firstOrNew(['email' => $email]);
+        $contact->name = $name;
+        $contact->is_active = true;
+        $contact->last_used_at = now();
+        if (!$contact->exists) {
+            $contact->created_by = auth()->id();
+        }
+        $contact->save();
+
+        return $contact;
     }
 
     private function searchNotes()

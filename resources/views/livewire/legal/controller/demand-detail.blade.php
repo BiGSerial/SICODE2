@@ -530,6 +530,36 @@
                         @if($isExternallyClosed)
                             <div class="alert alert-dark small mb-2">Encerrado no sistema externo: {{ $demand->external_flow_status ?? $demand->external_status ?? '—' }}</div>
                         @else
+                            @if($currentAssignment && data_get($currentAssignment->metadata ?? [], 'external_dispatch'))
+                                <div class="alert alert-warning small mb-2">
+                                    <div class="fw-bold mb-1">DEMANDA EXTERNA</div>
+                                    <div class="mb-1">
+                                        Esta demanda foi despachada para usuário externo.
+                                        @if($currentAssignmentExternalExpiresAt)
+                                            Link expira em <strong>{{ $currentAssignmentExternalExpiresAt->format('d/m/Y H:i') }}</strong>.
+                                        @endif
+                                    </div>
+                                    <div class="small mb-1">
+                                        Contato: <strong>{{ data_get($currentAssignment->metadata ?? [], 'external_contact_name', 'Não informado') }}</strong>
+                                        @if(data_get($currentAssignment->metadata ?? [], 'external_contact_email'))
+                                            · {{ data_get($currentAssignment->metadata ?? [], 'external_contact_email') }}
+                                        @endif
+                                    </div>
+                                    @if($currentAssignmentExternalLink)
+                                        <div class="input-group input-group-sm mt-2">
+                                            <input type="text" class="form-control" readonly value="{{ $currentAssignmentExternalLink }}" id="externalDemandLinkCurrent">
+                                            <button class="btn btn-dark"
+                                                    type="button"
+                                                    onclick="navigator.clipboard?.writeText(document.getElementById('externalDemandLinkCurrent').value); this.innerText='Copiado'; setTimeout(() => this.innerText='Copiar link', 1500);">
+                                                Copiar link
+                                            </button>
+                                        </div>
+                                    @else
+                                        <div class="small text-danger mt-1">Link externo expirado. Refaça o despacho externo para gerar novo link.</div>
+                                    @endif
+                                </div>
+                            @endif
+
                             @switch($statusValue)
                                 @case('new_imported')
                                     <p class="text-muted small">Esta demanda ainda não entrou em triagem.</p>
@@ -545,7 +575,14 @@
                                 @case('sent_to_field')
                                 @case('field_received')
                                 @case('waiting_field_response')
-                                    <div class="alert alert-info small mb-2">Aguardando retorno de <strong>{{ $currentAssignment?->toUser?->name ?? 'executante' }}</strong>.</div>
+                                    <div class="alert alert-info small mb-2">
+                                        Aguardando retorno de
+                                        <strong>
+                                            {{ data_get($currentAssignment?->metadata ?? [], 'external_dispatch')
+                                                ? (data_get($currentAssignment?->metadata ?? [], 'external_contact_name') ?? 'contato externo')
+                                                : ($currentAssignment?->toUser?->name ?? 'executante') }}
+                                        </strong>.
+                                    </div>
                                     @break
                                 @case('returned_by_field')
                                 @case('under_controller_review')
@@ -572,14 +609,58 @@
                             @if($showAssignForm)
                                 <hr>
                                 <div class="mb-2">
-                                    <label class="form-label small fw-semibold">Executante *</label>
-                                    <select class="form-select form-select-sm" wire:model="assignToUserId">
-                                        <option value="">Selecionar...</option>
-                                        @foreach($fieldUsers as $u)
-                                            <option value="{{ $u->id }}">{{ $u->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="assignAsExternal" wire:model="assignAsExternal">
+                                        <label class="form-check-label small fw-semibold" for="assignAsExternal">
+                                            Despachar para usuário externo (gera link de acesso)
+                                        </label>
+                                    </div>
                                 </div>
+                                @if($assignAsExternal)
+                                    <div class="mb-2">
+                                        <div class="alert alert-warning small mb-0">
+                                            A validade do link externo será exatamente o <strong>prazo interno (SLA)</strong> informado abaixo.
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold">Contato externo já cadastrado</label>
+                                        <select class="form-select form-select-sm" wire:model="externalContactId">
+                                            <option value="">Novo contato externo</option>
+                                            @foreach($externalContacts as $contact)
+                                                <option value="{{ $contact->id }}">{{ $contact->name }} — {{ $contact->email }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="small text-muted mt-1">Selecione um contato existente ou deixe em branco para cadastrar um novo.</div>
+                                    </div>
+                                    @if(!$externalContactId)
+                                        <div class="mb-2" wire:key="external-contact-name-input">
+                                            <label class="form-label small fw-semibold">Nome do contato externo *</label>
+                                            <input type="text"
+                                                   class="form-control form-control-sm"
+                                                   value="{{ $externalContactName }}"
+                                                   wire:change="setExternalContactName($event.target.value)"
+                                                   placeholder="Nome completo">
+                                        </div>
+                                        <div class="mb-2" wire:key="external-contact-email-input">
+                                            <label class="form-label small fw-semibold">Email do contato externo *</label>
+                                            <input type="email"
+                                                   class="form-control form-control-sm"
+                                                   value="{{ $externalContactEmail }}"
+                                                   wire:change="setExternalContactEmail($event.target.value)"
+                                                   placeholder="email@dominio.com">
+                                        </div>
+                                    @endif
+                                @else
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold">Executante interno *</label>
+                                        <select class="form-select form-select-sm" wire:model="assignToUserId">
+                                            <option value="">Selecionar...</option>
+                                            @foreach($fieldUsers as $u)
+                                                <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
                                 <div class="mb-2">
                                     <label class="form-label small fw-semibold">Mensagem</label>
                                     <textarea class="form-control form-control-sm" rows="3" wire:model="assignMessage"></textarea>

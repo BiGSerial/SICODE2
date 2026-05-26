@@ -31,16 +31,29 @@ class LegalDemandWorkflowService
         });
     }
 
-    public function sendToField(LegalDemand $demand, User $actor, ?string $toUserId, ?string $toTeamId, ?string $message, ?\DateTimeInterface $dueAt): LegalDemandAssignment
+    public function sendToField(
+        LegalDemand $demand,
+        User $actor,
+        ?string $toUserId,
+        ?string $toTeamId,
+        ?string $message,
+        ?\DateTimeInterface $dueAt,
+        bool $externalDispatch = false,
+        array $extraMetadata = []
+    ): LegalDemandAssignment
     {
         $this->assertNotClosed($demand);
         $this->ensureAllowed($actor, 'legal.demands.assign');
 
-        if (!$toUserId && !$toTeamId) {
+        if (!$externalDispatch && !$toUserId && !$toTeamId) {
             throw new InvalidArgumentException('Envio exige usuário destino ou equipe destino.');
         }
 
-        return DB::transaction(function () use ($demand, $actor, $toUserId, $toTeamId, $message, $dueAt) {
+        return DB::transaction(function () use ($demand, $actor, $toUserId, $toTeamId, $message, $dueAt, $externalDispatch, $extraMetadata) {
+            $metadata = array_merge([
+                'due_at' => $dueAt?->format('Y-m-d H:i:s'),
+            ], $extraMetadata);
+
             $assignment = LegalDemandAssignment::create([
                 'legal_demand_id' => $demand->id,
                 'from_user_id' => $actor->id,
@@ -49,9 +62,7 @@ class LegalDemandWorkflowService
                 'status' => LegalDemandAssignmentStatus::SENT,
                 'message' => $message,
                 'sent_at' => now(),
-                'metadata' => [
-                    'due_at' => $dueAt?->format('Y-m-d H:i:s'),
-                ],
+                'metadata' => $metadata,
             ]);
 
             $from = $demand->internal_status?->value;
