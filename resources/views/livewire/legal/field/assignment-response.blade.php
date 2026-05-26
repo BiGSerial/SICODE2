@@ -321,6 +321,10 @@
             $assignStatusClass = $assignStatusEnum?->badgeClass() ?? 'badge bg-secondary';
             $controllerDueAt = $assignment->due_at ? \Carbon\Carbon::parse($assignment->due_at) : null;
             $isControllerOverdue = $controllerDueAt ? $controllerDueAt->isPast() : false;
+            $externalAnsweredName = data_get($assignment->metadata ?? [], 'external_executor_name');
+            $executorName = $externalAnsweredName
+                ?? $assignment->toUser?->name
+                ?? ($externalAccess ? 'Executante externo (nome será informado no envio)' : 'Executante não identificado');
 
             $sourceTimeline = collect([
                 ['key' => 'start', 'label' => 'Início', 'value' => $demand->source_started_at],
@@ -354,11 +358,13 @@
         <div class="ldd-hero">
             <div class="d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3">
                 <div class="flex-grow-1">
-                    <div class="mb-2">
-                        <a href="{{ route('legal.field.queue') }}" class="btn btn-sm btn-outline-light btn-sm py-0 px-2" style="font-size:.78rem; opacity:.8">
-                            <i class="bi bi-arrow-left me-1"></i>Voltar para Minhas Atribuições
-                        </a>
-                    </div>
+                    @unless($externalAccess)
+                        <div class="mb-2">
+                            <a href="{{ route('legal.field.queue') }}" class="btn btn-sm btn-outline-light btn-sm py-0 px-2" style="font-size:.78rem; opacity:.8">
+                                <i class="bi bi-arrow-left me-1"></i>Voltar para Minhas Atribuições
+                            </a>
+                        </div>
+                    @endunless
                     <div class="hero-title">
                         Processo {{ $demand->source_process_number_masked ?? 'Não informado' }}
                         @if($demand->legalCase?->company_name)
@@ -415,25 +421,45 @@
                         <div class="small text-muted mt-1">
                             Encaminhado em {{ \Carbon\Carbon::parse($assignment->created_at)->format('d/m/Y H:i') }}
                         </div>
-                        @if($assignment->due_at)
-                            <div class="mt-2">
-                                <span class="badge bg-warning text-dark">
-                                    Prazo solicitado: {{ \Carbon\Carbon::parse($assignment->due_at)->format('d/m/Y H:i') }}
-                                </span>
+                    </div>
+
+                    <div class="proc-grid-3 mb-3">
+                        <div class="proc-item">
+                            <div class="proc-label">Quem executa esta demanda</div>
+                            <div class="proc-value">{{ $executorName }}</div>
+                        </div>
+                        <div class="proc-item">
+                            <div class="proc-label">Data limite para resposta</div>
+                            <div class="proc-value">
+                                @if($controllerDueAt)
+                                    {{ $controllerDueAt->format('d/m/Y H:i') }}
+                                    @if($isControllerOverdue)
+                                        <span class="badge bg-danger ms-1">Prazo vencido</span>
+                                    @else
+                                        <span class="badge bg-success ms-1">No prazo</span>
+                                    @endif
+                                @else
+                                    Não informada
+                                @endif
                             </div>
-                        @endif
+                        </div>
+                        <div class="proc-item">
+                            <div class="proc-label">Status da atribuição</div>
+                            <div class="proc-value"><span class="{{ $assignStatusClass }}">{{ $assignStatusLabel }}</span></div>
+                        </div>
                     </div>
 
                     @if($assignment->message)
                         <div class="controller-message mb-2">
-                            <div class="small text-muted mb-1">Orientação do controlador</div>
+                            <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
                             <p class="mb-0">{{ $assignment->message }}</p>
                         </div>
+                    @else
+                        <div class="controller-message mb-2">
+                            <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
+                            <p class="mb-0 text-muted">Sem orientação textual registrada.</p>
+                        </div>
                     @endif
-
-                    <div class="mt-2">
-                        <span class="{{ $assignStatusClass }}">Status da atribuição: {{ $assignStatusLabel }}</span>
-                    </div>
                     @if($assignStatus === 'returned_for_correction' && $assignment->response_summary)
                         <hr>
                         <div class="alert alert-danger small mb-0">
@@ -689,7 +715,7 @@
                                     <div class="assign-timeline-title">Recebimento confirmado</div>
                                     <div class="assign-timeline-meta">
                                         {{ \Carbon\Carbon::parse($assignment->received_at)->format('d/m/Y H:i') }}
-                                        · Executante
+                                        · {{ $executorName }}
                                     </div>
                                 </li>
                             @endif
@@ -711,7 +737,7 @@
                                     <div class="assign-timeline-title">Resposta enviada</div>
                                     <div class="assign-timeline-meta">
                                         {{ $assignment->answered_at ? \Carbon\Carbon::parse($assignment->answered_at)->format('d/m/Y H:i') : \Carbon\Carbon::parse($assignment->updated_at)->format('d/m/Y H:i') }}
-                                        · Executante
+                                        · {{ $executorName }}
                                     </div>
                                 </li>
                             @else
@@ -799,6 +825,20 @@
                         @endif
                     @else
                         {{-- Toggle tipo de resposta --}}
+                        @if($externalAccess)
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Seu nome (executante externo) *</label>
+                                <input type="text"
+                                       class="form-control"
+                                       wire:model.defer="externalExecutorName"
+                                       maxlength="120"
+                                       placeholder="Informe seu nome completo">
+                                @error('externalExecutorName')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        @endif
+
                         <div class="mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" wire:model="isImpossibility" value="0" id="rNormal" />
@@ -863,14 +903,20 @@
                                 </div>
                             </div>
                         @else
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-outline-secondary flex-fill btn-sm" wire:click="saveDraft">
-                                    Salvar Rascunho
-                                </button>
-                                <button class="btn btn-primary flex-fill btn-sm" wire:click="startConfirm">
+                            @if($externalAccess)
+                                <button class="btn btn-primary w-100 btn-sm" wire:click="startConfirm">
                                     <i class="bi bi-send me-1"></i>Enviar Resposta
                                 </button>
-                            </div>
+                            @else
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-secondary flex-fill btn-sm" wire:click="saveDraft">
+                                        Salvar Rascunho
+                                    </button>
+                                    <button class="btn btn-primary flex-fill btn-sm" wire:click="startConfirm">
+                                        <i class="bi bi-send me-1"></i>Enviar Resposta
+                                    </button>
+                                </div>
+                            @endif
                         @endif
                     @endif
                 </div>

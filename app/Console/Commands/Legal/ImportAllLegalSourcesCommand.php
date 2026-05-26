@@ -14,7 +14,7 @@ class ImportAllLegalSourcesCommand extends BaseLegalImportCommand
         {--force-snapshot : Força snapshot mesmo sem alteração}
         {--no-missing-check : Não marca ausentes na origem}';
 
-    protected $description = 'Importa todas as fontes juridicas externas.';
+    protected $description = 'Extrai e importa todas as fontes juridicas externas no padrao v2.';
 
     public function handle(LegalImportService $service): int
     {

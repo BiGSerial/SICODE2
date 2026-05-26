@@ -37,17 +37,6 @@ class DemandQueue extends Component
 
     public bool  $selectAll = false;
 
-    // Modal: Enviar para Campo em lote
-    public bool   $showBulkFieldModal = false;
-
-    public string $bulkAssignToUserId = '';
-
-    public string $bulkAssignToTeamId = '';
-
-    public string $bulkAssignMessage = '';
-
-    public string $bulkAssignDueAt = '';
-
     // Modal: Reassinar Controlador em lote
     public bool   $showBulkReassignModal = false;
 
@@ -57,6 +46,11 @@ class DemandQueue extends Component
     public bool   $showBulkIgnoreModal = false;
 
     public string $bulkIgnoreReason = '';
+
+    // Modal: Encerrar em lote
+    public bool   $showBulkCloseModal = false;
+
+    public string $bulkCloseReason = '';
 
     // Modal: Transferência X→Y
     public bool   $showTransferModal = false;
@@ -155,31 +149,6 @@ class DemandQueue extends Component
         ]);
     }
 
-    public function sendBatchToField(): void
-    {
-        $this->validate([
-            'bulkAssignToUserId' => 'required_without:bulkAssignToTeamId',
-        ]);
-
-        $result = app(LegalDemandBulkService::class)->sendBatchToField(
-            demandIds: $this->selectedIds,
-            actor:     auth()->user(),
-            toUserId:  $this->bulkAssignToUserId ? (int) $this->bulkAssignToUserId : null,
-            toTeamId:  $this->bulkAssignToTeamId ?: null,
-            message:   $this->bulkAssignMessage ?: null,
-            dueAt:     $this->bulkAssignDueAt ?: null,
-        );
-
-        $this->showBulkFieldModal = false;
-        $this->clearSelection();
-
-        $this->dispatchBrowserEvent('swal', [
-            'icon'  => 'success',
-            'title' => 'Envio concluído',
-            'html'  => "{$result->applied} enviadas. {$result->skipped} ignoradas por status incompatível.",
-        ]);
-    }
-
     public function reassignControllerBatch(): void
     {
         $this->validate(['bulkNewControllerId' => 'required']);
@@ -220,6 +189,27 @@ class DemandQueue extends Component
         ]);
     }
 
+    public function closeInternalBatch(): void
+    {
+        $this->validate(['bulkCloseReason' => 'required|min:5']);
+
+        $result = app(LegalDemandBulkService::class)->closeInternalBatch(
+            demandIds: $this->selectedIds,
+            actor: auth()->user(),
+            reason: $this->bulkCloseReason,
+        );
+
+        $this->showBulkCloseModal = false;
+        $this->bulkCloseReason = '';
+        $this->clearSelection();
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon'  => 'success',
+            'title' => 'Encerramento em massa concluído',
+            'html'  => "{$result->applied} demandas encerradas. {$result->skipped} ignoradas.",
+        ]);
+    }
+
     private function baseQuery()
     {
         $query = LegalDemand::query()
@@ -228,8 +218,7 @@ class DemandQueue extends Component
         // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
         match ($this->tab) {
             'triage'   => $query->externallyActive()->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action']),
-            'in_field' => $query->externallyActive()->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response']),
-            'returned' => $query->externallyActive()->whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction']),
+            'in_progress' => $query->externallyActive()->whereIn('internal_status', ['triage', 'waiting_controller_action', 'under_controller_review', 'ready_to_close_external', 'reopened']),
             'overdue'  => $query->externallyActive()->overdue(),
             'closed'   => $query->where(function ($q) {
                 $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
@@ -245,7 +234,7 @@ class DemandQueue extends Component
                 ->where('source_case_number', 'like', $s)
                 ->orWhere('source_process_number', 'like', $s)
                 ->orWhere('title', 'like', $s)
-                ->orWhere('opposing_party', 'like', $s)
+                ->orWhere('source_subject', 'like', $s)
             );
         }
 
@@ -289,12 +278,9 @@ class DemandQueue extends Component
                 ->unique()
         )->orderBy('name')->get();
 
-        $fieldUsers = User::orderBy('name')->get();
-
         return view('livewire.legal.controller.demand-queue', [
             'demands'     => $demands,
             'controllers' => $controllers,
-            'fieldUsers'  => $fieldUsers,
         ]);
     }
 }

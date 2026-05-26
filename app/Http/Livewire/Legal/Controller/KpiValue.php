@@ -22,10 +22,10 @@ class KpiValue extends Component
                 ->count(),
             'overdue' => LegalDemand::externallyActive()->overdue()->count(),
             'awaiting_field' => LegalDemand::externallyActive()
-                ->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])
+                ->whereIn('internal_status', ['triage', 'waiting_controller_action', 'under_controller_review', 'ready_to_close_external', 'reopened'])
                 ->count(),
             'returned_today' => LegalDemand::externallyActive()
-                ->whereIn('internal_status', ['returned_by_field'])
+                ->whereIn('internal_status', ['triage', 'waiting_controller_action'])
                 ->whereDate('updated_at', today())
                 ->count(),
             default => 0,

@@ -14,6 +14,8 @@ class LegalImportBatch extends Model
 
     protected $fillable = [
         'source_type',
+        'source_table',
+        'source_version',
         'started_at',
         'finished_at',
         'total_rows',

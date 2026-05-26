@@ -465,3 +465,10 @@ Route::prefix('juridico')->name('legal.')->middleware(['auth'])->controller(\App
     Route::get('/casos', 'cases')->name('cases');
     Route::get('/relatorios', 'reports')->name('reports');
 });
+
+Route::prefix('juridico/externo')->name('legal.external.')->controller(\App\Http\Controllers\LegalController::class)->group(function () {
+    Route::get('/tarefa/{assignment_id}', 'fieldResponseExternal')
+        ->middleware(['signed', 'throttle:30,1'])
+        ->name('response');
+    Route::get('/expirado', 'externalExpired')->name('expired');
+});

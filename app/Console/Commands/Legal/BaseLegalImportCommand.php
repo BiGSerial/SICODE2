@@ -23,7 +23,7 @@ abstract class BaseLegalImportCommand extends Command
 
         $this->line("Fonte: {$stats['source']}");
         $this->line("Batch: {$batchId}");
-        $this->line("Total lidas: {$stats['total_rows']}");
+        $this->line("Total extraidas: {$stats['total_rows']}");
         $this->line("Novas: {$stats['new_rows']}");
         $this->line("Atualizadas: {$stats['updated_rows']}");
         $this->line("Sem alteração: {$stats['unchanged_rows']}");

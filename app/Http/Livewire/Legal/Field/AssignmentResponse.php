@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Legal\Field;
 
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile};
 use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
 use Livewire\{Component, WithFileUploads};
 
@@ -15,6 +15,10 @@ class AssignmentResponse extends Component
     public LegalDemandAssignment  $assignment;
 
     public LegalDemand            $demand;
+
+    public bool $externalAccess = false;
+
+    public string $externalExecutorName = '';
 
     // Formulário de resposta
     public string $responseSummary = '';
@@ -37,19 +41,28 @@ class AssignmentResponse extends Component
     public bool $confirmingSend = false;
     public bool $confirmingFileSave = false;
 
-    public function mount(int $assignment_id): void
+    public function mount(int $assignment_id, bool $external = false): void
     {
-        abort_unless(auth()->user()->can('legal.demands.answer'), 403);
+        $this->externalAccess = $external;
+
+        if (!$this->externalAccess) {
+            abort_unless(auth()->user()->can('legal.demands.answer'), 403);
+        }
 
         $this->assignmentId = $assignment_id;
-        $assignment = LegalDemandAssignment::with(['legalDemand.legalCase', 'legalDemand.files', 'sentBy'])
-            ->whereKey($assignment_id)
-            ->where('to_user_id', auth()->id())
+        $assignment = LegalDemandAssignment::with(['legalDemand.legalCase', 'legalDemand.files', 'sentBy', 'toUser'])
+            ->whereKey($assignment_id);
+
+        if (!$this->externalAccess) {
+            $assignment->where('to_user_id', auth()->id());
+        }
+
+        $assignment = $assignment
             ->first();
 
         if (!$assignment) {
             session()->flash('warning', 'A tarefa informada não está mais disponível.');
-            redirect()->route('legal.field.queue');
+            redirect()->route($this->externalAccess ? 'legal.external.expired' : 'legal.field.queue');
             return;
         }
 
@@ -72,6 +85,12 @@ class AssignmentResponse extends Component
 
     public function startConfirm(): void
     {
+        if ($this->externalAccess) {
+            $this->validate([
+                'externalExecutorName' => 'required|string|min:3|max:120',
+            ]);
+        }
+
         if ($this->isImpossibility) {
             $this->validate(['impossibilityReason' => 'required|min:20']);
         } else {
@@ -126,17 +145,7 @@ class AssignmentResponse extends Component
             'uploadFiles.*' => 'file|max:10240',
         ]);
 
-        $fileService = app(LegalDemandFileService::class);
-
-        foreach ($this->uploadFiles as $file) {
-            $fileService->store(
-                demand:       $this->demand,
-                file:         $file,
-                uploadedBy:   auth()->user(),
-                visibility:   'shared',
-                assignmentId: $this->assignment->id,
-            );
-        }
+        $this->persistUploadedFiles();
 
         $this->uploadFiles = [];
         $this->hasEvidence = false;
@@ -152,37 +161,43 @@ class AssignmentResponse extends Component
 
     public function submitResponse(): void
     {
+        if ($this->externalAccess) {
+            $this->validate([
+                'externalExecutorName' => 'required|string|min:3|max:120',
+            ]);
+        }
+
         if ($this->isImpossibility) {
             $this->validate(['impossibilityReason' => 'required|min:20']);
         } else {
             $this->validate(['responseSummary' => 'required|min:20']);
         }
 
-        $fileService = app(LegalDemandFileService::class);
+        $uploadedCount = $this->persistUploadedFiles();
 
-        foreach ($this->uploadFiles as $file) {
-            $fileService->store(
-                demand:       $this->demand,
-                file:         $file,
-                uploadedBy:   auth()->user(),
-                visibility:   'shared',
-                assignmentId: $this->assignment->id,
+        if ($this->externalAccess) {
+            app(LegalDemandWorkflowService::class)->answerFromExternal(
+                assignment:          $this->assignment,
+                externalExecutorName: $this->externalExecutorName,
+                responseSummary:     $this->isImpossibility ? null : $this->responseSummary,
+                hasEvidence:         $uploadedCount > 0,
+                impossibilityReason: $this->isImpossibility ? $this->impossibilityReason : null,
+            );
+        } else {
+            app(LegalDemandWorkflowService::class)->answerFromField(
+                assignment:        $this->assignment,
+                actor:             auth()->user(),
+                responseSummary:   $this->isImpossibility ? null : $this->responseSummary,
+                hasEvidence:       $uploadedCount > 0,
+                impossibilityReason: $this->isImpossibility ? $this->impossibilityReason : null,
             );
         }
-
-        app(LegalDemandWorkflowService::class)->answerFromField(
-            assignment:        $this->assignment,
-            actor:             auth()->user(),
-            responseSummary:   $this->isImpossibility ? null : $this->responseSummary,
-            hasEvidence:       !empty($this->uploadFiles),
-            impossibilityReason: $this->isImpossibility ? $this->impossibilityReason : null,
-        );
 
         $this->confirmingSend = false;
 
         session()->flash('success', 'Resposta enviada com sucesso!');
 
-        redirect()->route('legal.field.queue');
+        redirect()->route($this->externalAccess ? 'legal.external.expired' : 'legal.field.queue');
     }
 
     public function saveDraft(): void
@@ -208,5 +223,43 @@ class AssignmentResponse extends Component
         return view('livewire.legal.field.assignment-response', [
             'sharedFiles' => $sharedFiles,
         ]);
+    }
+
+    private function persistUploadedFiles(): int
+    {
+        if (empty($this->uploadFiles)) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($this->uploadFiles as $file) {
+            if ($this->externalAccess) {
+                $path = $file->store("legal/demands/{$this->demand->id}/external", 'public');
+
+                LegalDemandFile::create([
+                    'legal_demand_id' => $this->demand->id,
+                    'assignment_id' => $this->assignment->id,
+                    'uploaded_by' => null,
+                    'file_name' => $file->hashName(),
+                    'original_name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'visibility' => 'shared',
+                ]);
+            } else {
+                app(LegalDemandFileService::class)->store(
+                    demand:       $this->demand,
+                    file:         $file,
+                    uploadedBy:   auth()->user(),
+                    visibility:   'shared',
+                    assignmentId: $this->assignment->id,
+                );
+            }
+
+            $count++;
+        }
+
+        return $count;
     }
 }

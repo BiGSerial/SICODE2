@@ -13,7 +13,7 @@ class ImportLegalInjunctionsCommand extends BaseLegalImportCommand
         {--force-snapshot : Força snapshot mesmo sem alteração}
         {--no-missing-check : Não marca ausentes na origem}';
 
-    protected $description = 'Importa liminares da base externa para o modulo juridico.';
+    protected $description = 'Extrai e importa liminares no padrao juridico v2.';
 
     public function handle(LegalImportService $service): int
     {

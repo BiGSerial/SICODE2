@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -19,8 +20,15 @@ return new class extends Migration
     public function down(): void
     {
         if (Schema::hasColumn('legal_demand_files', 'removed_at')) {
+            try {
+                Schema::table('legal_demand_files', function (Blueprint $table) {
+                    $table->dropIndex(['removed_at']);
+                });
+            } catch (QueryException) {
+                // Index may not exist in environments where the column was created without it.
+            }
+
             Schema::table('legal_demand_files', function (Blueprint $table) {
-                $table->dropIndex(['removed_at']);
                 $table->dropColumn('removed_at');
             });
         }

@@ -20,11 +20,8 @@ class TabCountBadge extends Component
             'triage' => LegalDemand::externallyActive()
                 ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
                 ->count(),
-            'in_field' => LegalDemand::externallyActive()
-                ->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])
-                ->count(),
-            'returned' => LegalDemand::externallyActive()
-                ->whereIn('internal_status', ['returned_by_field', 'under_controller_review', 'returned_for_correction'])
+            'in_progress' => LegalDemand::externallyActive()
+                ->whereIn('internal_status', ['triage', 'waiting_controller_action', 'under_controller_review', 'ready_to_close_external', 'reopened'])
                 ->count(),
             'overdue' => LegalDemand::externallyActive()->overdue()->count(),
             'closed' => LegalDemand::where(function ($q) {

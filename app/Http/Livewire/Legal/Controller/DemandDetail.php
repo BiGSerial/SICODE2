@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Legal\Controller;
 
+use App\Models\Note;
 use App\Models\Legal\{LegalDemand};
 use App\Models\User;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
@@ -51,6 +52,12 @@ class DemandDetail extends Component
 
     public bool $showReturnForm = false;
 
+    public string $noteIdsInput = '';
+
+    public string $noteLinkContext = '';
+
+    public string $noteSearch = '';
+
     public function mount(string $uuid): void
     {
         abort_unless(
@@ -62,8 +69,81 @@ class DemandDetail extends Component
 
         $this->uuid   = $uuid;
         $this->demand = LegalDemand::where('uuid', $uuid)
-            ->with(['legalCase', 'controller', 'currentAssignee', 'events.actor', 'files', 'comments.user', 'assignments.sentBy'])
+            ->with(['legalCase.notes', 'controller', 'currentAssignee', 'events.actor', 'files', 'comments.user', 'assignments.sentBy'])
             ->firstOrFail();
+    }
+
+    public function linkNotesToCase(): void
+    {
+        $this->validate([
+            'noteIdsInput' => 'required|string|min:1',
+        ]);
+
+        $ids = collect(preg_split('/[\\s,;]+/', $this->noteIdsInput))
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn ($v) => $v !== '' && ctype_digit($v))
+            ->map(fn ($v) => (int) $v)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Informe IDs válidos de notes.']);
+            return;
+        }
+
+        $validIds = Note::query()->whereIn('id', $ids->all())->pluck('id')->all();
+        if (empty($validIds)) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhuma note encontrada para os IDs informados.']);
+            return;
+        }
+
+        $payload = [];
+        foreach ($validIds as $id) {
+            $payload[$id] = [
+                'linked_by' => auth()->id(),
+                'linked_at' => now(),
+                'context' => $this->noteLinkContext ?: null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        $this->demand->legalCase->notes()->syncWithoutDetaching($payload);
+
+        $this->noteIdsInput = '';
+        $this->noteLinkContext = '';
+        $this->demand->refresh()->load(['legalCase.notes', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
+
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Notes vinculadas ao processo.']);
+    }
+
+    public function unlinkNoteFromCase(int $noteId): void
+    {
+        $this->demand->legalCase->notes()->detach($noteId);
+        $this->demand->refresh()->load(['legalCase.notes']);
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Note desvinculada do processo.']);
+    }
+
+    public function attachSingleNote(int $noteId): void
+    {
+        $note = Note::query()->find($noteId);
+        if (!$note) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Note não encontrada.']);
+            return;
+        }
+
+        $this->demand->legalCase->notes()->syncWithoutDetaching([
+            $note->id => [
+                'linked_by' => auth()->id(),
+                'linked_at' => now(),
+                'context' => $this->noteLinkContext ?: null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->demand->refresh()->load(['legalCase.notes']);
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Note associada ao processo.']);
     }
 
     public function startTriage(): void
@@ -225,6 +305,27 @@ class DemandDetail extends Component
             'currentAssignment'  => $currentAssignment,
             'statusValue'        => $statusValue,
             'isExternallyClosed' => $this->demand->isExternallyClosed(),
+            'searchedNotes'      => $this->searchNotes(),
         ]);
+    }
+
+    private function searchNotes()
+    {
+        $term = trim($this->noteSearch);
+        if ($term === '') {
+            return collect();
+        }
+
+        $q = Note::query()->select(['id', 'note', 'client', 'status', 'dt_created']);
+
+        if (ctype_digit($term)) {
+            $q->where('id', (int) $term)
+                ->orWhere('note', 'like', "%{$term}%");
+        } else {
+            $q->where('note', 'like', "%{$term}%")
+                ->orWhere('client', 'like', "%{$term}%");
+        }
+
+        return $q->orderByDesc('id')->limit(10)->get();
     }
 }

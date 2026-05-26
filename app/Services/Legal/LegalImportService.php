@@ -31,6 +31,8 @@ class LegalImportService
         $forceSnapshot = (bool) ($options['force_snapshot'] ?? false);
         $noMissingCheck = (bool) ($options['no_missing_check'] ?? false);
 
+        [$sourceTable, $sourceVersion] = $this->resolveSourceMeta($sourceType);
+
         $stats = [
             'source' => $sourceType,
             'batch_id' => null,
@@ -49,6 +51,8 @@ class LegalImportService
         if (!$dryRun) {
             $batch = LegalImportBatch::create([
                 'source_type' => $sourceType,
+                'source_table' => $sourceTable,
+                'source_version' => $sourceVersion,
                 'started_at' => $startedAt,
                 'status' => 'running',
             ]);
@@ -66,20 +70,19 @@ class LegalImportService
 
         foreach ($sourceRows as $index => $row) {
             try {
-                $normalized = $this->normalizeSourceRow($sourceType, $row);
+                $normalized = $this->normalizeSourceRow($sourceType, $row, $sourceTable, $sourceVersion);
                 if ($normalized === null) {
                     $stats['failed_rows']++;
+                    $lineNumber = (int) $index + 1;
                     $rowArray = is_array($row)
                         ? $row
                         : (method_exists($row, 'toArray') ? $row->toArray() : (method_exists($row, 'getAttributes') ? $row->getAttributes() : []));
-                    $lineNumber = (int) $index + 1;
-                    $case = $rowArray['case_number'] ?? $rowArray['case_number_normalized'] ?? $rowArray['source_external_id'] ?? $rowArray['external_case_number'] ?? 'N/A';
-                    $process = $rowArray['source_process_number'] ?? $rowArray['process_number'] ?? $rowArray['process_number_normalized'] ?? 'N/A';
+
                     $stats['errors'][] = "Linha {$lineNumber} ignorada por dados de identidade insuficientes.";
                     $stats['ignored_rows'][] = [
                         'line' => $lineNumber,
-                        'case_number' => (string) $case,
-                        'process_number' => (string) $process,
+                        'case_number' => (string) ($rowArray['case_number'] ?? 'N/A'),
+                        'process_number' => (string) ($rowArray['process_number'] ?? 'N/A'),
                     ];
                     continue;
                 }
@@ -131,72 +134,14 @@ class LegalImportService
         return $stats;
     }
 
-    public function makeCaseIdentityKey(array $row): string
+    private function resolveSourceMeta(string $sourceType): array
     {
-        return hash('sha256', implode('|', [
-            $row['case_number_normalized'] ?? '',
-            $row['process_number_core'] ?? '',
-        ]));
-    }
-
-    public function makeSourceEntityKey(array $row): string
-    {
-        return hash('sha256', implode('|', [
-            $row['source_type'] ?? '',
-            $row['case_number_normalized'] ?? '',
-            $row['process_number_core'] ?? '',
-        ]));
-    }
-
-    public function makeSourceOccurrenceKey(array $row): string
-    {
-        $startedAt = $this->normalizer->parseExternalDate($row['source_started_at'] ?? null)?->toDateTimeString();
-
-        return hash('sha256', implode('|', [
-            $row['source_type'] ?? '',
-            $row['case_number_normalized'] ?? '',
-            $row['process_number_core'] ?? '',
-            $row['service_type'] ?? '',
-            $startedAt ?? '',
-        ]));
-    }
-
-    public function makeSourceHash(array $row): string
-    {
-        $fields = [
-            'external_status',
-            'external_flow_status',
-            'subject',
-            'service_type',
-            'description',
-            'source_analysis_at',
-            'source_due_at',
-            'source_executed_at',
-            'source_changed_at',
-            'origin_area_name',
-            'target_area_name',
-            'target_person_name',
-            'requesting_responsible_name',
-            'responsible_area_name',
-            'opposing_party',
-            'process_manager',
-            'required_area',
-            'city',
-            'region',
-            'regional',
-            'observation',
-        ];
-
-        $parts = [];
-        foreach ($fields as $field) {
-            $value = $row[$field] ?? null;
-            if ($value instanceof Carbon) {
-                $value = $value->toDateTimeString();
-            }
-            $parts[] = $value === null ? '' : (string) $value;
-        }
-
-        return hash('sha256', implode('|', $parts));
+        return match ($sourceType) {
+            'injunction' => ['subjus_r3_liminares', 'r3-v2'],
+            'sentence' => ['subjus_r3_sentencas', 'r3-v2'],
+            'subsidy' => ['subjus_r3_subsidios', 'r3-v2'],
+            default => throw new \InvalidArgumentException("Fonte juridica invalida: {$sourceType}"),
+        };
     }
 
     private function buildSourceQuery(string $sourceType, ?string $since, ?int $limit)
@@ -228,22 +173,14 @@ class LegalImportService
         };
     }
 
-    private function normalizeSourceRow(string $sourceType, mixed $sourceRow): ?array
+    private function normalizeSourceRow(string $sourceType, mixed $sourceRow, string $sourceTable, string $sourceVersion): ?array
     {
         $row = is_array($sourceRow)
             ? $sourceRow
             : (method_exists($sourceRow, 'toNormalizedArray') ? $sourceRow->toNormalizedArray() : $sourceRow->getAttributes());
 
-        $caseNumberRaw = $row['case_number_normalized']
-            ?? $row['case_number']
-            ?? $row['source_external_id']
-            ?? $row['external_case_number']
-            ?? null;
-
-        $processNumberRaw = $row['process_number_normalized']
-            ?? $row['source_process_number']
-            ?? $row['process_number']
-            ?? null;
+        $caseNumberRaw = $row['case_number'] ?? null;
+        $processNumberRaw = $row['source_process_number'] ?? $row['process_number'] ?? null;
 
         $caseNumberNormalized = $this->normalizer->normalizeProcessNumber($caseNumberRaw);
         $processNumberNormalized = $this->normalizer->normalizeProcessNumber($processNumberRaw);
@@ -252,46 +189,232 @@ class LegalImportService
             return null;
         }
 
+        $sourceSubject = $this->normalizer->normalizeText($row['subject'] ?? null);
+        $sourceDescription = $this->normalizer->normalizeText($row['description'] ?? null);
+        $sourceStatus = $this->normalizer->normalizeText($row['external_flow_status'] ?? $row['external_status'] ?? null);
+        $processStatus = $this->normalizer->normalizeText($row['external_status'] ?? null);
+
+        $requestingArea = $this->normalizer->normalizeText(
+            $row['origin_area_name']
+                ?? $row['requesting_area']
+                ?? $row['rquesting_area']
+                ?? $row['required_area']
+                ?? null
+        );
+        $delegatedResponsible = $this->normalizer->normalizeText($row['delegated_responsible_name'] ?? null);
+        $responsibleArea = $this->normalizer->normalizeText($row['responsible_area_name'] ?? null);
+
+        $sourceDueAt = $this->normalizer->parseExternalDate($row['source_due_at'] ?? null);
+        $sourceDecisionAt = $this->normalizer->parseExternalDate($row['source_executed_at'] ?? null);
+        $sourceStatusAt = $this->normalizer->parseExternalDate($row['source_changed_at'] ?? $row['source_executed_at'] ?? null);
+        $delegatedAt = $this->normalizer->parseExternalDate($row['source_started_at'] ?? null);
+
+        $recordKeyData = [
+            'source_type' => $sourceType,
+            'case_number_normalized' => $caseNumberNormalized,
+            'process_number_normalized' => $processNumberNormalized,
+            'source_subject' => $sourceSubject,
+            'responsible_area_name' => $responsibleArea,
+            'delegated_responsible_name' => $delegatedResponsible,
+            'delegated_at' => $delegatedAt?->toDateTimeString(),
+            'source_due_at' => $sourceDueAt?->toDateTimeString(),
+            'source_decision_at' => $sourceDecisionAt?->toDateTimeString(),
+            'source_description' => $sourceDescription,
+        ];
+
+        [$sourceRecordKey, $sourceRecordKeyConfidence] = $this->buildSourceRecordKeyAndConfidence($recordKeyData);
+
         $normalized = [
             'source_type' => $sourceType,
-            'source_external_id' => $this->normalizer->normalizeText($row['source_external_id'] ?? $row['external_case_number'] ?? null),
-            'case_number' => $this->normalizer->normalizeText($row['case_number'] ?? $row['source_external_id'] ?? $row['external_case_number'] ?? null),
+            'source_table' => $sourceTable,
+            'source_version' => $sourceVersion,
+            'case_number' => $this->normalizer->normalizeText($row['case_number'] ?? null),
             'case_number_normalized' => $caseNumberNormalized,
             'source_process_number' => $this->normalizer->normalizeText($row['source_process_number'] ?? $row['process_number'] ?? null),
             'process_number_normalized' => $processNumberNormalized,
-            'process_number_core' => substr($processNumberNormalized, 0, 13),
+            'source_installation_number' => null,
+            'process_status_at_import' => $processStatus,
             'company_name' => $this->normalizer->normalizeText($row['company_name'] ?? null),
-            'external_status' => $this->normalizer->normalizeText($row['external_status'] ?? null),
-            'external_flow_status' => $this->normalizer->normalizeText($row['external_flow_status'] ?? null),
-            'subject' => $this->normalizer->normalizeText($row['subject'] ?? $row['injunction_subject'] ?? $row['sentence_subject'] ?? $row['subsidy_subject'] ?? null),
-            'service_type' => $this->normalizer->normalizeText($row['service_type'] ?? $row['status_situation'] ?? $row['subsidy_type'] ?? null),
-            'description' => $this->normalizer->normalizeText($row['description'] ?? $row['injunction_description'] ?? $row['observation'] ?? null),
-            'source_analysis_at' => $this->normalizer->parseExternalDate($row['source_analysis_at'] ?? null),
-            'source_started_at' => $this->normalizer->parseExternalDate($row['source_started_at'] ?? $row['start_at'] ?? $row['created_at'] ?? null),
-            'source_due_at' => $this->normalizer->parseExternalDate($row['source_due_at'] ?? $row['deadline_at'] ?? null),
-            'source_executed_at' => $this->normalizer->parseExternalDate($row['source_executed_at'] ?? $row['execution_at'] ?? null),
-            'source_changed_at' => $this->normalizer->parseExternalDate($row['source_changed_at'] ?? $row['execution_at'] ?? null),
-            'origin_area_name' => $this->normalizer->normalizeText($row['origin_area_name'] ?? null),
-            'target_area_name' => $this->normalizer->normalizeText($row['target_area_name'] ?? null),
-            'target_person_name' => $this->normalizer->normalizeText($row['target_person_name'] ?? null),
-            'requesting_responsible_name' => $this->normalizer->normalizeText($row['requesting_responsible_name'] ?? null),
-            'responsible_area_name' => $this->normalizer->normalizeText($row['responsible_area_name'] ?? null),
-            'opposing_party' => $this->normalizer->normalizeText($row['opposing_party'] ?? null),
             'process_manager' => $this->normalizer->normalizeText($row['process_manager'] ?? null),
-            'required_area' => $this->normalizer->normalizeText($row['required_area'] ?? null),
-            'city' => $this->normalizer->normalizeText($row['city'] ?? null),
-            'region' => $this->normalizer->normalizeText($row['region'] ?? null),
-            'regional' => $this->normalizer->normalizeText($row['regional'] ?? null),
-            'observation' => $this->normalizer->normalizeText($row['observation'] ?? null),
+            'law_firm' => $this->normalizer->normalizeText($row['law_firm'] ?? null),
+            'district' => $this->normalizer->normalizeText($row['district'] ?? null),
+            'process_nature' => $this->normalizer->normalizeText($row['process_nature'] ?? null),
+            'process_cause' => $this->normalizer->normalizeText($row['process_cause'] ?? null),
+            'source_subject' => $sourceSubject,
+            'source_description' => $sourceDescription,
+            'source_status' => $sourceStatus,
+            'source_status_at' => $sourceStatusAt,
+            'source_status_group' => $this->mapSourceStatusGroup($sourceStatus),
+            'requesting_area_name' => $requestingArea,
+            'requesting_responsible_name' => $this->normalizer->normalizeText($row['requesting_responsible_name'] ?? null),
+            'responsible_area_name' => $responsibleArea,
+            'delegated_responsible_name' => $delegatedResponsible,
+            'delegated_by_name' => null,
+            'delegated_at' => $delegatedAt,
+            'source_due_at' => $sourceDueAt,
+            'source_decision_at' => $sourceDecisionAt,
+            'source_end_at' => null,
+            'priority' => null,
+            'risk_level' => null,
+            'source_record_key' => $sourceRecordKey,
+            'source_record_key_strategy' => 'source_type_case_process_subject_responsible_dates',
+            'source_record_key_confidence' => $sourceRecordKeyConfidence,
+            'source_entity_key' => $this->makeSourceEntityKey($sourceType, $caseNumberNormalized, $processNumberNormalized),
             'raw_payload' => $row['raw_payload'] ?? $row,
+            'source_specific_payload' => [
+                'service_type' => $row['service_type'] ?? null,
+                'required_area' => $row['required_area'] ?? null,
+                'city' => $row['city'] ?? null,
+                'region' => $row['region'] ?? null,
+                'regional' => $row['regional'] ?? null,
+                'source_analysis_at' => $row['source_analysis_at'] ?? null,
+                'source_started_at' => $row['source_started_at'] ?? null,
+                'source_changed_at' => $row['source_changed_at'] ?? null,
+                'observation' => $row['observation'] ?? null,
+            ],
         ];
 
-        $normalized['identity_key'] = $this->makeCaseIdentityKey($normalized);
-        $normalized['source_entity_key'] = $this->makeSourceEntityKey($normalized);
-        $normalized['source_occurrence_key'] = $this->makeSourceOccurrenceKey($normalized);
+        $normalized['identity_key'] = $this->makeCaseIdentityKey(
+            $normalized['case_number_normalized'],
+            $normalized['process_number_normalized']
+        );
+
+        $normalized['needs_identity_review'] = $sourceRecordKeyConfidence === 'low';
+        $normalized['needs_status_review'] = $this->needsStatusReview($normalized['process_status_at_import'], $normalized['source_status_group']);
         $normalized['source_hash'] = $this->makeSourceHash($normalized);
+        $normalized['normalized_payload'] = $this->buildNormalizedPayload($normalized);
 
         return $normalized;
+    }
+
+    private function buildSourceRecordKeyAndConfidence(array $data): array
+    {
+        $hasSubject = !empty($data['source_subject']);
+        $hasDelegatedAt = !empty($data['delegated_at']);
+        $hasDueAt = !empty($data['source_due_at']);
+
+        $confidence = 'low';
+        if ($hasSubject && $hasDelegatedAt && $hasDueAt) {
+            $confidence = 'high';
+        } elseif ($hasSubject && $hasDueAt) {
+            $confidence = 'medium';
+        }
+
+        $parts = [
+            $data['source_type'] ?? '',
+            $data['case_number_normalized'] ?? '',
+            $data['process_number_normalized'] ?? '',
+            mb_strtolower((string) ($data['source_subject'] ?? '')),
+            mb_strtolower((string) ($data['responsible_area_name'] ?? '')),
+            mb_strtolower((string) ($data['delegated_responsible_name'] ?? '')),
+            (string) ($data['delegated_at'] ?? ''),
+            (string) ($data['source_due_at'] ?? ''),
+            (string) ($data['source_decision_at'] ?? ''),
+            mb_strtolower((string) ($data['source_description'] ?? '')),
+        ];
+
+        return [hash('sha256', implode('|', $parts)), $confidence];
+    }
+
+    private function makeCaseIdentityKey(string $caseNumberNormalized, string $processNumberNormalized): string
+    {
+        return hash('sha256', implode('|', [$caseNumberNormalized, $processNumberNormalized]));
+    }
+
+    private function makeSourceEntityKey(string $sourceType, string $caseNumberNormalized, string $processNumberNormalized): string
+    {
+        return hash('sha256', implode('|', [$sourceType, $caseNumberNormalized, $processNumberNormalized]));
+    }
+
+    private function makeSourceHash(array $row): string
+    {
+        $fields = [
+            'source_status',
+            'source_status_at',
+            'process_status_at_import',
+            'requesting_area_name',
+            'requesting_responsible_name',
+            'responsible_area_name',
+            'delegated_responsible_name',
+            'delegated_by_name',
+            'delegated_at',
+            'source_due_at',
+            'source_decision_at',
+            'source_end_at',
+            'source_subject',
+            'source_description',
+            'source_specific_payload',
+        ];
+
+        $parts = [];
+        foreach ($fields as $field) {
+            $value = $row[$field] ?? null;
+            if ($value instanceof Carbon) {
+                $value = $value->toDateTimeString();
+            }
+            if (is_array($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+            $parts[] = $value === null ? '' : (string) $value;
+        }
+
+        return hash('sha256', implode('|', $parts));
+    }
+
+    private function buildNormalizedPayload(array $row): array
+    {
+        $payload = $row;
+        foreach (['source_status_at', 'delegated_at', 'source_due_at', 'source_decision_at', 'source_end_at'] as $field) {
+            if (($payload[$field] ?? null) instanceof Carbon) {
+                $payload[$field] = $payload[$field]->toDateTimeString();
+            }
+        }
+
+        unset($payload['raw_payload']);
+
+        return $payload;
+    }
+
+    private function mapSourceStatusGroup(?string $status): string
+    {
+        $value = mb_strtolower(trim((string) ($status ?? '')));
+        if ($value === '') {
+            return 'unknown';
+        }
+
+        $contains = static fn(string $haystack, array $terms): bool => collect($terms)->contains(fn($term) => str_contains($haystack, $term));
+
+        if ($contains($value, ['completo', 'elaborado', 'encerrad', 'cumprid', 'procedimento realizado'])) {
+            return 'closed_done';
+        }
+
+        if ($contains($value, ['cancelad', 'revogad', 'procedimento cancelado'])) {
+            return 'closed_cancelled';
+        }
+
+        if ($contains($value, ['redirecion'])) {
+            return 'open_redirected';
+        }
+
+        if ($contains($value, ['delegad'])) {
+            return 'open_delegated';
+        }
+
+        if ($contains($value, ['andamento', 'andament', 'em andamento'])) {
+            return 'open_in_progress';
+        }
+
+        return 'unknown';
+    }
+
+    private function needsStatusReview(?string $processStatus, string $sourceStatusGroup): bool
+    {
+        $process = mb_strtolower((string) ($processStatus ?? ''));
+        if (str_contains($process, 'encerrad') && in_array($sourceStatusGroup, ['open_in_progress', 'open_delegated', 'open_redirected'], true)) {
+            return true;
+        }
+
+        return false;
     }
 
     private function resolveLegalCase(array $row, ?LegalImportBatch $batch, bool $dryRun): LegalCase
@@ -302,18 +425,9 @@ class LegalImportService
 
         $now = now();
 
-        $case = LegalCase::query()
-            ->where('identity_key', $row['identity_key'])
-            ->first();
-
+        $case = LegalCase::query()->where('identity_key', $row['identity_key'])->first();
         if (!$case) {
-            $case = LegalCase::query()->firstOrNew([
-                'case_number_normalized' => $row['case_number_normalized'],
-                'process_number_core' => $row['process_number_core'],
-            ]);
-        }
-
-        if (!$case->exists) {
+            $case = new LegalCase();
             $case->uuid = (string) str()->uuid();
             $case->first_seen_at = $now;
         }
@@ -324,17 +438,23 @@ class LegalImportService
         $case->case_number_normalized = $row['case_number_normalized'];
         $case->process_number = $row['source_process_number'];
         $case->process_number_normalized = $row['process_number_normalized'];
-        $case->process_number_core = $row['process_number_core'];
+        $case->installation_number = $row['source_installation_number'];
+        $case->installation_number_normalized = $this->normalizer->normalizeProcessNumber($row['source_installation_number']);
+        $case->process_status = $row['process_status_at_import'];
         $case->company_name = $row['company_name'];
-        $case->external_status = $row['external_status'];
-        $case->legal_responsible_name = $row['process_manager'];
-        $case->main_origin_area = $row['origin_area_name'];
+        $case->process_manager = $row['process_manager'];
+        $case->law_firm = $row['law_firm'];
+        $case->district = $row['district'];
+        $case->process_nature = $row['process_nature'];
+        $case->process_cause = $row['process_cause'];
         $case->identity_key = $row['identity_key'];
-        $case->identity_strategy = 'case_number_plus_process_core';
-        $case->identity_confidence = 100;
+        $case->identity_strategy = 'case_number_plus_process_number';
+        $case->identity_confidence = 'high';
         $case->sources_seen = $sourcesSeen;
         $case->last_seen_at = $now;
         $case->last_import_batch_id = $batch?->id;
+        $case->raw_latest_payload = $row['raw_payload'];
+        $case->normalized_latest_payload = $row['normalized_payload'];
         $case->save();
 
         return $case;
@@ -349,7 +469,8 @@ class LegalImportService
         bool $forceSnapshot
     ): array {
         $existing = LegalDemand::query()
-            ->where('source_occurrence_key', $row['source_occurrence_key'])
+            ->where('source_type', $row['source_type'])
+            ->where('source_record_key', $row['source_record_key'])
             ->first();
 
         if (!$existing) {
@@ -361,25 +482,28 @@ class LegalImportService
             $demand->uuid = (string) str()->uuid();
             $demand->legal_case_id = $case->id;
             $demand->source_type = $row['source_type'];
-            $demand->source_external_id = $row['source_external_id'];
-            $demand->source_case_number = $row['case_number'];
-            $demand->source_case_number_normalized = $row['case_number_normalized'];
-            $demand->source_process_number = $row['source_process_number'];
-            $demand->source_process_number_normalized = $row['process_number_normalized'];
-            $demand->source_process_number_core = $row['process_number_core'];
+            $demand->source_table = $row['source_table'];
+            $demand->source_version = $row['source_version'];
+            $demand->source_record_key = $row['source_record_key'];
+            $demand->source_record_key_strategy = $row['source_record_key_strategy'];
+            $demand->source_record_key_confidence = $row['source_record_key_confidence'];
             $demand->source_entity_key = $row['source_entity_key'];
-            $demand->source_occurrence_key = $row['source_occurrence_key'];
             $demand->source_hash = $row['source_hash'];
-            $demand->title = $row['subject'];
-            $this->fillDemandMutableFields($demand, $row, $batch, $now);
+            $demand->source_case_number = $row['case_number'];
+            $demand->source_process_number = $row['source_process_number'];
+            $demand->source_installation_number = $row['source_installation_number'];
+            $demand->title = $this->buildDemandTitle($row['source_subject']);
             $demand->first_seen_at = $now;
             $demand->last_seen_at = $now;
             $demand->source_presence_status = LegalSourcePresenceStatus::PRESENT;
             $demand->internal_status = LegalDemandInternalStatus::NEW_IMPORTED;
+
+            $this->fillDemandMutableFields($demand, $row, $batch, $now);
+            $demand->action_state = $this->computeActionState($demand);
             $demand->save();
 
-            $this->recordEvent($demand->id, null, $batch?->id, 'imported', null, LegalDemandInternalStatus::NEW_IMPORTED->value, 'Demanda criada via importacao R3.');
-            $this->recordSnapshotIfNeeded($demand, $batch, $row, $now, true);
+            $this->recordEvent($demand->id, $batch?->id, 'imported', null, LegalDemandInternalStatus::NEW_IMPORTED->value, 'Demanda criada via importacao juridica v2.');
+            $this->recordSnapshot($demand, $batch, $row, $now);
 
             return ['counter' => 'new_rows', 'demand_id' => $demand->id, 'returned' => false];
         }
@@ -389,10 +513,6 @@ class LegalImportService
             ? $presenceStatus->value
             : (is_string($presenceStatus) ? $presenceStatus : null);
         $wasMissing = $presenceValue === LegalSourcePresenceStatus::MISSING->value;
-        $wasClosed = in_array((string) $existing->internal_status?->value, [
-            LegalDemandInternalStatus::CLOSED_INTERNAL->value,
-            LegalDemandInternalStatus::CLOSED_EXTERNAL->value,
-        ], true);
 
         if ($existing->source_hash === $row['source_hash']) {
             if (!$dryRun) {
@@ -403,13 +523,7 @@ class LegalImportService
                 if ($wasMissing) {
                     $existing->missing_since = null;
                     $existing->last_returned_batch_id = $batch?->id;
-                    $existing->missing_count = max(0, (int) $existing->missing_count);
-                    $this->recordEvent($existing->id, null, $batch?->id, 'source_returned', null, null, 'Demanda reapareceu na origem.');
-                }
-
-                if ($wasClosed) {
-                    $existing->needs_identity_review = true;
-                    $this->recordEvent($existing->id, null, $batch?->id, 'source_returned_closed_case', null, null, 'Origem retornou para demanda encerrada; revisão necessária.');
+                    $this->recordEvent($existing->id, $batch?->id, 'source_returned', null, null, 'Demanda reapareceu na origem.');
                 }
 
                 $existing->save();
@@ -426,36 +540,33 @@ class LegalImportService
         $oldHash = $existing->source_hash;
 
         $existing->legal_case_id = $case->id;
-        $existing->source_external_id = $row['source_external_id'];
-        $existing->source_case_number = $row['case_number'];
-        $existing->source_case_number_normalized = $row['case_number_normalized'];
-        $existing->source_process_number = $row['source_process_number'];
-        $existing->source_process_number_normalized = $row['process_number_normalized'];
-        $existing->source_process_number_core = $row['process_number_core'];
+        $existing->source_table = $row['source_table'];
+        $existing->source_version = $row['source_version'];
+        $existing->source_record_key_strategy = $row['source_record_key_strategy'];
+        $existing->source_record_key_confidence = $row['source_record_key_confidence'];
         $existing->source_entity_key = $row['source_entity_key'];
-        $existing->source_occurrence_key = $row['source_occurrence_key'];
         $existing->source_hash = $row['source_hash'];
-        $existing->title = $row['subject'];
-        $this->fillDemandMutableFields($existing, $row, $batch, $now);
-        $existing->source_presence_status = LegalSourcePresenceStatus::PRESENT;
+        $existing->source_case_number = $row['case_number'];
+        $existing->source_process_number = $row['source_process_number'];
+        $existing->source_installation_number = $row['source_installation_number'];
+        $existing->title = $this->buildDemandTitle($row['source_subject']);
         $existing->missing_since = null;
+        $existing->source_presence_status = LegalSourcePresenceStatus::PRESENT;
+
+        $this->fillDemandMutableFields($existing, $row, $batch, $now);
 
         if ($wasMissing) {
             $existing->last_returned_batch_id = $batch?->id;
-            $this->recordEvent($existing->id, null, $batch?->id, 'source_returned', null, null, 'Demanda reapareceu na origem.');
+            $this->recordEvent($existing->id, $batch?->id, 'source_returned', null, null, 'Demanda reapareceu na origem.');
         }
 
-        if ($wasClosed) {
-            $existing->needs_identity_review = true;
-            $this->recordEvent($existing->id, null, $batch?->id, 'source_returned_closed_case', $fromStatus, $fromStatus, 'Retorno de origem em demanda encerrada sem reabertura automática.');
-        }
-
+        $existing->action_state = $this->computeActionState($existing);
         $existing->save();
 
-        $this->recordEvent($existing->id, null, $batch?->id, 'updated_from_source', null, null, 'Demanda atualizada pela origem externa.');
+        $this->recordEvent($existing->id, $batch?->id, 'updated_from_source', $fromStatus, $existing->internal_status?->value, 'Demanda atualizada pela origem externa.');
 
         if ($forceSnapshot || $oldHash !== $row['source_hash']) {
-            $this->recordSnapshotIfNeeded($existing, $batch, $row, $now, true);
+            $this->recordSnapshot($existing, $batch, $row, $now);
         }
 
         return ['counter' => 'updated_rows', 'demand_id' => $existing->id, 'returned' => $wasMissing];
@@ -463,59 +574,105 @@ class LegalImportService
 
     private function fillDemandMutableFields(LegalDemand $demand, array $row, ?LegalImportBatch $batch, Carbon $now): void
     {
-        $demand->description = $row['description'];
-        $demand->subject = $row['subject'];
-        $demand->service_type = $row['service_type'];
-        $demand->external_status = $row['external_status'];
-        $demand->external_flow_status = $row['external_flow_status'];
-        $demand->origin_area_name = $row['origin_area_name'];
-        $demand->target_area_name = $row['target_area_name'];
-        $demand->target_person_name = $row['target_person_name'];
+        $demand->source_subject = $row['source_subject'];
+        $demand->source_description = $row['source_description'];
+        $demand->source_status = $row['source_status'];
+        $demand->source_status_at = $row['source_status_at'];
+        $demand->source_status_group = $row['source_status_group'];
+        $demand->process_status_at_import = $row['process_status_at_import'];
+
+        $demand->requesting_area_name = $row['requesting_area_name'];
         $demand->requesting_responsible_name = $row['requesting_responsible_name'];
         $demand->responsible_area_name = $row['responsible_area_name'];
-        $demand->opposing_party = $row['opposing_party'];
-        $demand->process_manager = $row['process_manager'];
-        $demand->required_area = $row['required_area'];
-        $demand->city = $row['city'];
-        $demand->region = $row['region'];
-        $demand->regional = $row['regional'];
-        $demand->source_analysis_at = $row['source_analysis_at'];
-        $demand->source_started_at = $row['source_started_at'];
+        $demand->delegated_responsible_name = $row['delegated_responsible_name'];
+        $demand->delegated_by_name = $row['delegated_by_name'];
+        $demand->delegated_at = $row['delegated_at'];
+
         $demand->source_due_at = $row['source_due_at'];
-        $demand->source_executed_at = $row['source_executed_at'];
-        $demand->source_changed_at = $row['source_changed_at'];
+        $demand->source_decision_at = $row['source_decision_at'];
+        $demand->source_end_at = $row['source_end_at'];
+
+        $demand->summary = $row['source_description'];
+        $demand->priority = $row['priority'];
+        $demand->risk_level = $row['risk_level'];
+
         $demand->last_seen_at = $now;
         $demand->last_seen_import_batch_id = $batch?->id;
-        $demand->source_identity_strategy = 'source_type_case_core_service_started_at';
-        $demand->source_identity_confidence = 100;
+
+        $demand->needs_identity_review = (bool) $row['needs_identity_review'];
+        $demand->needs_status_review = (bool) $row['needs_status_review'];
+
         $demand->raw_payload = $row['raw_payload'];
+        $demand->normalized_payload = $row['normalized_payload'];
+        $demand->source_specific_payload = $row['source_specific_payload'];
     }
 
-    private function recordSnapshotIfNeeded(LegalDemand $demand, ?LegalImportBatch $batch, array $row, Carbon $seenAt, bool $shouldRecord): void
+    private function buildDemandTitle(?string $subject): ?string
     {
-        if (!$shouldRecord) {
-            return;
+        $value = $this->normalizer->normalizeText($subject);
+        if ($value === null) {
+            return null;
         }
 
-        $normalizedPayload = $row;
-        foreach (['source_analysis_at', 'source_started_at', 'source_due_at', 'source_executed_at', 'source_changed_at'] as $dateField) {
-            if (($normalizedPayload[$dateField] ?? null) instanceof Carbon) {
-                $normalizedPayload[$dateField] = $normalizedPayload[$dateField]->toDateTimeString();
+        return mb_substr($value, 0, 255);
+    }
+
+    private function computeActionState(LegalDemand $demand): string
+    {
+        $internal = (string) ($demand->internal_status?->value ?? $demand->internal_status ?? '');
+        $group = (string) ($demand->source_status_group ?? 'unknown');
+
+        if ($internal === LegalDemandInternalStatus::IGNORED->value) {
+            return 'ignored';
+        }
+
+        if (in_array($internal, [
+            LegalDemandInternalStatus::CLOSED_INTERNAL->value,
+            LegalDemandInternalStatus::CLOSED_EXTERNAL->value,
+            LegalDemandInternalStatus::CANCELLED->value,
+        ], true)) {
+            return 'no_action_sicode_closed';
+        }
+
+        if (in_array($group, ['closed_done', 'closed_cancelled'], true)) {
+            return 'no_action_source_closed';
+        }
+
+        if ($group === 'unknown' || (bool) $demand->needs_status_review) {
+            return 'needs_review';
+        }
+
+        if (in_array($internal, [
+            LegalDemandInternalStatus::RETURNED_BY_FIELD->value,
+            LegalDemandInternalStatus::UNDER_CONTROLLER_REVIEW->value,
+            LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value,
+            LegalDemandInternalStatus::READY_TO_CLOSE_EXTERNAL->value,
+        ], true)) {
+            return 'waiting_controller_review';
+        }
+
+        if (in_array($group, ['open_in_progress', 'open_delegated', 'open_redirected'], true)) {
+            if ($demand->current_assigned_user_id || $demand->current_assigned_team_id) {
+                return 'waiting_user_action';
             }
+
+            return 'waiting_controller_triage';
         }
 
+        return 'needs_review';
+    }
+
+    private function recordSnapshot(LegalDemand $demand, ?LegalImportBatch $batch, array $row, Carbon $seenAt): void
+    {
         LegalSourceSnapshot::create([
             'legal_demand_id' => $demand->id,
             'import_batch_id' => $batch?->id,
             'source_type' => $row['source_type'],
-            'source_external_id' => $row['source_external_id'],
-            'source_case_number_normalized' => $row['case_number_normalized'],
-            'source_process_number_core' => $row['process_number_core'],
-            'source_entity_key' => $row['source_entity_key'],
-            'source_occurrence_key' => $row['source_occurrence_key'],
+            'source_record_key' => $row['source_record_key'],
             'source_hash' => $row['source_hash'],
             'raw_payload' => $row['raw_payload'],
-            'normalized_payload' => $normalizedPayload,
+            'normalized_payload' => $row['normalized_payload'],
+            'source_specific_payload' => $row['source_specific_payload'],
             'changed_fields' => null,
             'seen_at' => $seenAt,
         ]);
@@ -523,7 +680,6 @@ class LegalImportService
 
     private function recordEvent(
         int $demandId,
-        ?int $assignmentId,
         ?int $importBatchId,
         string $eventType,
         ?string $fromStatus,
@@ -532,13 +688,12 @@ class LegalImportService
     ): void {
         LegalDemandEvent::create([
             'legal_demand_id' => $demandId,
-            'assignment_id' => $assignmentId,
             'import_batch_id' => $importBatchId,
             'event_type' => $eventType,
             'from_status' => $fromStatus,
             'to_status' => $toStatus,
             'description' => $description,
-            'metadata' => ['source' => 'legal_import_r3'],
+            'metadata' => ['source' => 'legal_import_v2'],
             'occurred_at' => now(),
         ]);
     }
@@ -550,6 +705,7 @@ class LegalImportService
             ->whereNotIn('id', $seenDemandIds)
             ->whereNotIn('internal_status', [
                 LegalDemandInternalStatus::CLOSED_EXTERNAL->value,
+                LegalDemandInternalStatus::CLOSED_INTERNAL->value,
                 LegalDemandInternalStatus::CANCELLED->value,
                 LegalDemandInternalStatus::IGNORED->value,
             ])
@@ -566,9 +722,10 @@ class LegalImportService
             $demand->missing_since = $demand->missing_since ?? now();
             $demand->missing_count = (int) $demand->missing_count + 1;
             $demand->last_missing_batch_id = $batch?->id;
+            $demand->action_state = $this->computeActionState($demand);
             $demand->save();
 
-            $this->recordEvent($demand->id, null, $batch?->id, 'source_missing', null, null, 'Demanda ausente na leitura atual da origem.');
+            $this->recordEvent($demand->id, $batch?->id, 'source_missing', null, null, 'Demanda ausente na leitura atual da origem.');
             $count++;
         }
 

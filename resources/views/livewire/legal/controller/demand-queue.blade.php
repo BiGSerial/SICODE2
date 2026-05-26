@@ -217,17 +217,17 @@
                             </div>
                             <div class="lq-kpi-lbl">Vencidas</div>
                         </div>
-                        <div class="lq-kpi warning" wire:click="setTab('in_field')">
+                        <div class="lq-kpi warning" wire:click="setTab('in_progress')">
                             <div class="lq-kpi-val">
                                 <livewire:legal.controller.kpi-value metric="awaiting_field" :wire:key="'kpi-awaiting-field'" />
                             </div>
-                            <div class="lq-kpi-lbl">Aguard. Campo</div>
+                            <div class="lq-kpi-lbl">Em andamento</div>
                         </div>
-                        <div class="lq-kpi success" wire:click="setTab('returned')">
+                        <div class="lq-kpi success" wire:click="setTab('triage')">
                             <div class="lq-kpi-val">
                                 <livewire:legal.controller.kpi-value metric="returned_today" :wire:key="'kpi-returned-today'" />
                             </div>
-                            <div class="lq-kpi-lbl">Retornaram hoje</div>
+                            <div class="lq-kpi-lbl">Na triagem</div>
                         </div>
                     </div>
                 </div>
@@ -301,8 +301,7 @@
                 @foreach([
                     ['all',      'Todas',      false],
                     ['triage',   'Triagem',    true],
-                    ['in_field', 'Em Campo',   true],
-                    ['returned', 'Retornadas', true],
+                    ['in_progress', 'Em andamento',   true],
                     ['overdue',  'Vencidas',   true],
                     ['closed',   'Encerradas', true],
                 ] as [$key, $label, $hasBadge])
@@ -328,11 +327,11 @@
                 <span class="fw-semibold text-primary">
                     <i class="bi bi-check2-square me-1"></i>{{ count($selectedIds) }} selecionadas
                 </span>
-                <button class="btn btn-sm btn-primary" wire:click="$set('showBulkFieldModal', true)">
-                    <i class="bi bi-send me-1"></i>Enviar para Campo
-                </button>
                 <button class="btn btn-sm btn-outline-secondary" wire:click="$set('showBulkReassignModal', true)">
                     <i class="bi bi-person-gear me-1"></i>Reatribuir Controlador
+                </button>
+                <button class="btn btn-sm btn-success" wire:click="$set('showBulkCloseModal', true)">
+                    <i class="bi bi-check2-circle me-1"></i>Encerrar em massa
                 </button>
                 <button class="btn btn-sm btn-outline-danger" wire:click="$set('showBulkIgnoreModal', true)">
                     <i class="bi bi-slash-circle me-1"></i>Ignorar
@@ -517,39 +516,29 @@
 
     {{-- ===== MODAIS ===== --}}
 
-    {{-- Modal: Enviar para Campo --}}
-    <div class="modal fade {{ $showBulkFieldModal ? 'show d-block' : '' }}" tabindex="-1"
-         style="{{ $showBulkFieldModal ? 'background:rgba(0,0,0,.5)' : '' }}">
+    {{-- Modal: Encerrar em Massa --}}
+    <div class="modal fade {{ $showBulkCloseModal ? 'show d-block' : '' }}" tabindex="-1"
+         style="{{ $showBulkCloseModal ? 'background:rgba(0,0,0,.5)' : '' }}">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-send me-2"></i>Enviar {{ count($selectedIds) }} demandas para o campo</h5>
-                    <button class="btn-close" wire:click="$set('showBulkFieldModal', false)"></button>
+                    <h5 class="modal-title"><i class="bi bi-check2-circle me-2"></i>Encerrar {{ count($selectedIds) }} demandas</h5>
+                    <button class="btn-close" wire:click="$set('showBulkCloseModal', false)"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Executante responsável *</label>
-                        <select class="form-select" wire:model="bulkAssignToUserId">
-                            <option value="">Selecionar usuário...</option>
-                            @foreach($fieldUsers as $u)
-                                <option value="{{ $u->id }}">{{ $u->name }}</option>
-                            @endforeach
-                        </select>
+                    <div class="alert alert-info small">
+                        As demandas serão encerradas internamente pelo controlador selecionado no histórico de eventos.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Instrução (válida para todas)</label>
-                        <textarea class="form-control" rows="3" wire:model="bulkAssignMessage"
-                                  placeholder="Instruções para o executante..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Prazo interno (data e hora)</label>
-                        <input type="datetime-local" class="form-control" wire:model="bulkAssignDueAt" />
+                        <label class="form-label fw-semibold">Parecer/motivo do encerramento *</label>
+                        <textarea class="form-control" rows="3" wire:model="bulkCloseReason"
+                                  placeholder="Ex: atividade concluída com evidências anexadas..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" wire:click="$set('showBulkFieldModal', false)">Cancelar</button>
-                    <button class="btn btn-primary" wire:click="sendBatchToField">
-                        <i class="bi bi-send me-1"></i>Confirmar Envio
+                    <button class="btn btn-secondary" wire:click="$set('showBulkCloseModal', false)">Cancelar</button>
+                    <button class="btn btn-success" wire:click="closeInternalBatch">
+                        <i class="bi bi-check2-circle me-1"></i>Confirmar Encerramento
                     </button>
                 </div>
             </div>

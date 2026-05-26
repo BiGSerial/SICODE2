@@ -36,14 +36,14 @@
                 </li>
             @endcan
 
-            {{-- ===== CAMPO ===== --}}
+            {{-- ===== EXECUTANTE (CAMPO) ===== --}}
             @can('legal.demands.answer')
                 <li class="nav-item">
                     <a class="nav-link {{ $activeSection === 'campo' ? '' : 'collapsed' }}"
                        data-bs-target="#legal-campo-nav"
                        data-bs-toggle="collapse" href="#">
-                        <i class="bi bi-person-lines-fill"></i>
-                        <span>CAMPO</span>
+                        <i class="bi bi-person-check-fill"></i>
+                        <span>EXECUTANTE</span>
                         <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul id="legal-campo-nav"
@@ -52,9 +52,9 @@
                         <div class="border-start border-3 mb-1 py-0">
                             <li>
                                 <a href="{{ route('legal.field.queue') }}"
-                                   class="nav-item fw-normal {{ request()->routeIs('legal.field.queue') ? 'text-warning' : 'text-white' }}">
-                                    <i class="bi bi-card-checklist fw-light fs-5"></i>
-                                    <span> MINHAS TAREFAS</span>
+                                   class="nav-item fw-normal {{ request()->routeIs('legal.field.*') ? 'text-warning' : 'text-white' }}">
+                                    <i class="bi bi-list-check fw-light fs-5"></i>
+                                    <span> MINHAS ATRIBUIÇÕES</span>
                                 </a>
                             </li>
                         </div>

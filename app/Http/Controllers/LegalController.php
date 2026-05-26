@@ -29,6 +29,16 @@ class LegalController extends Controller
         return view('legal.field.response', compact('assignment_id'));
     }
 
+    public function fieldResponseExternal(int $assignment_id)
+    {
+        return view('legal.field.response_external', compact('assignment_id'));
+    }
+
+    public function externalExpired()
+    {
+        return view('legal.field.response_external_expired');
+    }
+
     public function dashboard()
     {
         return view('legal.management.dashboard');

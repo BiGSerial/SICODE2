@@ -20,33 +20,10 @@ class LegalJudgment extends ExternalLegalSource
 
     public const SOURCE_TYPE = 'sentence';
 
-    public const NORMALIZED_COLUMNS = [
-        'case_number',
-        'process_number',
-        'company_name',
-        'process_status',
-        'status_situation',
-        'sentence_subject',
-        'injunction_description',
-        'analysis_at',
-        'start_at',
-        'deadline_at',
-        'execution_at',
-        'responsible_name',
-        'required_area',
-        'requesting_responsible_name',
-        'responsible_area',
-        'opposing_party',
-        'process_manager',
-        'city',
-        'region',
-        'regional',
-        'observation',
-    ];
-
     public function scopeNormalized(Builder $query): Builder
     {
-        return $query->select(self::NORMALIZED_COLUMNS);
+        // Keep source extraction tolerant to column drift across SQL Server views/tables.
+        return $query->select('*');
     }
 
     public function toNormalizedArray(): array
@@ -56,14 +33,18 @@ class LegalJudgment extends ExternalLegalSource
 
         return array_merge($base, [
             'company_name' => $this->normalizeText($raw['company_name'] ?? null),
+            'law_firm' => $this->normalizeText($raw['law_firm'] ?? $raw['law_firm_name'] ?? null),
+            'district' => $this->normalizeText($raw['district'] ?? null),
+            'process_nature' => $this->normalizeText($raw['process_nature'] ?? null),
+            'process_cause' => $this->normalizeText($raw['process_cause'] ?? null),
             'external_status' => $this->normalizeText($raw['process_status'] ?? null),
-            'external_flow_status' => $this->normalizeText($raw['status_situation'] ?? null),
+            'external_flow_status' => $this->normalizeText($raw['status_situation'] ?? $raw['sentence_status'] ?? null),
             'subject' => $this->normalizeText($raw['sentence_subject'] ?? null),
-            'service_type' => $this->normalizeServiceType($raw['status_situation'] ?? null),
+            'service_type' => $this->normalizeServiceType($raw['status_situation'] ?? $raw['sentence_status'] ?? null),
             'description' => $this->normalizeText($raw['injunction_description'] ?? null),
             'source_analysis_at' => $raw['analysis_at'] ?? null,
             'source_started_at' => $raw['start_at'] ?? null,
-            'source_due_at' => $raw['deadline_at'] ?? null,
+            'source_due_at' => $raw['compliance_deadline_at'] ?? $raw['deadline_at'] ?? null,
             'source_executed_at' => $raw['execution_at'] ?? null,
             'source_changed_at' => $raw['execution_at'] ?? null,
             'origin_area_name' => $this->normalizeText($raw['required_area'] ?? null),
@@ -73,6 +54,9 @@ class LegalJudgment extends ExternalLegalSource
             'responsible_area_name' => $this->normalizeText($raw['responsible_area'] ?? null),
             'opposing_party' => $this->normalizeText($raw['opposing_party'] ?? null),
             'process_manager' => $this->normalizeText($raw['process_manager'] ?? null),
+            'focal_point' => $this->normalizeText($raw['focal_point'] ?? null),
+            'delegated_by' => $this->normalizeText($raw['delegated_by'] ?? null),
+            'delegated_responsible_name' => $this->normalizeText($raw['delegated_responsible_name'] ?? null),
             'required_area' => $this->normalizeText($raw['required_area'] ?? null),
             'city' => $this->normalizeText($raw['city'] ?? null),
             'region' => $this->normalizeText($raw['region'] ?? null),

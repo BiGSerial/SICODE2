@@ -107,12 +107,11 @@ class TriageInbox extends Component
                     fn ($q2) => $q2
                     ->where('source_case_number', 'like', $s)
                     ->orWhere('source_process_number', 'like', $s)
-                    ->orWhere('subject', 'like', $s)
-                    ->orWhere('opposing_party', 'like', $s)
+                    ->orWhere('source_subject', 'like', $s)
                 );
             })
             ->when($this->sourceTypeFilter, fn ($q) => $q->where('source_type', $this->sourceTypeFilter))
-            ->when($this->originAreaFilter, fn ($q) => $q->where('origin_area_name', 'like', "%{$this->originAreaFilter}%"))
+            ->when($this->originAreaFilter, fn ($q) => $q->where('requesting_area_name', 'like', "%{$this->originAreaFilter}%"))
             ->orderByRaw('ISNULL(source_due_at) ASC')
             ->orderBy('source_due_at', 'asc');
     }

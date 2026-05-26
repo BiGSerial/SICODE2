@@ -57,7 +57,7 @@ class LegalDashboard extends Component
         }
 
         if ($this->areaFilter) {
-            $query->where('origin_area_name', 'like', "%{$this->areaFilter}%");
+            $query->where('requesting_area_name', 'like', "%{$this->areaFilter}%");
         }
 
         if ($this->controllerFilter) {
@@ -65,7 +65,7 @@ class LegalDashboard extends Component
         }
 
         if ($this->regionalFilter) {
-            $query->where('regional', 'like', "%{$this->regionalFilter}%");
+            $query->where('responsible_area_name', 'like', "%{$this->regionalFilter}%");
         }
 
         return $query;
@@ -80,10 +80,7 @@ class LegalDashboard extends Component
             $active = fn () => $this->applyGlobalFilters(LegalDemand::externallyActive());
             $closed = fn () => $this->applyGlobalFilters(LegalDemand::query())->where(function ($q) {
                 $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored']);
-
-                foreach (LegalDemand::externalClosedTerms() as $term) {
-                    $q->orWhereRaw('UPPER(external_flow_status) LIKE ?', ["%{$term}%"]);
-                }
+                $q->orWhereIn('source_status_group', ['closed_done', 'closed_cancelled']);
             });
 
             $kpis = [
@@ -120,8 +117,8 @@ class LegalDashboard extends Component
 
             // Top 5 áreas (apenas ativos)
             $topAreas = $active()->whereNotIn('internal_status', ['cancelled', 'ignored'])
-                ->selectRaw('origin_area_name, COUNT(*) as total')
-                ->groupBy('origin_area_name')
+                ->selectRaw('requesting_area_name as origin_area_name, COUNT(*) as total')
+                ->groupBy('requesting_area_name')
                 ->orderByDesc('total')
                 ->limit(5)
                 ->get();
@@ -142,13 +139,9 @@ class LegalDashboard extends Component
             $executors = LegalDemandAssignment::query()
                 ->join('users', 'users.id', '=', 'legal_demand_assignments.to_user_id')
                 ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
-                ->selectRaw('users.id, users.name, COUNT(*) as active_count, SUM(CASE WHEN legal_demands.source_due_at < NOW() AND legal_demands.source_executed_at IS NULL THEN 1 ELSE 0 END) as overdue_count')
+                ->selectRaw('users.id, users.name, COUNT(*) as active_count, SUM(CASE WHEN legal_demands.source_due_at < NOW() AND legal_demands.source_decision_at IS NULL THEN 1 ELSE 0 END) as overdue_count')
                 ->whereNotIn('legal_demand_assignments.status', ['cancelled', 'closed', 'answered'])
-                ->where(function ($q) {
-                    foreach (LegalDemand::externalClosedTerms() as $term) {
-                        $q->whereRaw('UPPER(COALESCE(legal_demands.external_flow_status, \'\')) NOT LIKE ?', ["%{$term}%"]);
-                    }
-                })
+                ->whereNotIn('legal_demands.source_status_group', ['closed_done', 'closed_cancelled'])
                 ->groupBy('users.id', 'users.name')
                 ->orderByDesc('active_count')
                 ->limit(10)

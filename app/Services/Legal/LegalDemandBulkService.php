@@ -144,4 +144,24 @@ class LegalDemandBulkService
 
         return $result;
     }
+
+    public function closeInternalBatch(array $demandIds, User $actor, string $reason): BulkResult
+    {
+        $result = new BulkResult();
+        $demands = LegalDemand::whereIn('id', array_slice($demandIds, 0, 200))->get();
+
+        DB::transaction(function () use ($demands, $actor, $reason, $result) {
+            foreach ($demands as $demand) {
+                try {
+                    $this->workflow->closeInternal($demand, $actor, $reason);
+                    $result->applied++;
+                } catch (\Throwable $e) {
+                    $result->skipped++;
+                    $result->errors[$demand->id] = $e->getMessage();
+                }
+            }
+        });
+
+        return $result;
+    }
 }

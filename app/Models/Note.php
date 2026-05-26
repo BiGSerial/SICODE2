@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Http\Livewire\Construction\Hiring\Actions\Hiring;
 use App\Models\Edp_cipqa\TempAdsInfo;
+use App\Models\Legal\LegalCase;
 use App\Enum\CancellationRequestStatus;
 use App\Enum\CancellationRequestScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -232,6 +233,13 @@ class Note extends Model
     public function TempAdsInfos()
     {
         return $this->hasMany(TempAdsInfo::class);
+    }
+
+    public function legalCases()
+    {
+        return $this->belongsToMany(LegalCase::class, 'legal_case_note')
+            ->withPivot(['id', 'linked_by', 'linked_at', 'context', 'created_at'])
+            ->withTimestamps();
     }
 
 

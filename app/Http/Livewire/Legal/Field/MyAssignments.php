@@ -80,7 +80,7 @@ class MyAssignments extends Component
                 'legalDemand',
                 fn ($q) => $q
                 ->where('source_case_number', 'like', $s)
-                ->orWhere('subject', 'like', $s)
+                ->orWhere('source_subject', 'like', $s)
             );
         }
 

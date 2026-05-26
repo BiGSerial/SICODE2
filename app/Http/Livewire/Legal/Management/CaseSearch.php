@@ -67,16 +67,14 @@ class CaseSearch extends Component
                 fn ($q) => $q
                 ->where('case_number', 'like', $s)
                 ->orWhere('process_number', 'like', $s)
-                ->orWhere('process_number_core', 'like', $s)
                 ->orWhere('company_name', 'like', $s)
-                ->orWhere('legal_responsible_name', 'like', $s)
-                ->orWhere('law_firm_name', 'like', $s)
+                ->orWhere('process_manager', 'like', $s)
+                ->orWhere('law_firm', 'like', $s)
                 ->orWhereHas(
                     'demands',
                     fn ($dq) => $dq
                     ->where('source_case_number', 'like', $s)
-                    ->orWhere('opposing_party', 'like', $s)
-                    ->orWhere('subject', 'like', $s)
+                    ->orWhere('source_subject', 'like', $s)
                 )
             );
         }
@@ -86,7 +84,7 @@ class CaseSearch extends Component
         }
 
         if ($this->areaFilter) {
-            $query->whereHas('demands', fn ($q) => $q->where('origin_area_name', 'like', "%{$this->areaFilter}%"));
+            $query->whereHas('demands', fn ($q) => $q->where('requesting_area_name', 'like', "%{$this->areaFilter}%"));
         }
 
         return $query->orderByDesc('last_seen_at');

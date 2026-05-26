@@ -114,6 +114,56 @@ class LegalDemandWorkflowService
         });
     }
 
+    public function answerFromExternal(
+        LegalDemandAssignment $assignment,
+        string $externalExecutorName,
+        ?string $responseSummary,
+        bool $hasEvidence,
+        ?string $impossibilityReason
+    ): LegalDemandAssignment {
+        $demand = $assignment->legalDemand;
+        $this->assertNotClosed($demand);
+
+        $externalExecutorName = trim($externalExecutorName);
+        if ($externalExecutorName === '') {
+            throw new InvalidArgumentException('Nome do executante externo é obrigatório.');
+        }
+
+        $summary = trim((string) $responseSummary);
+        if ($summary === '' && !$hasEvidence && trim((string) $impossibilityReason) === '') {
+            throw new InvalidArgumentException('Resposta exige texto, evidência ou justificativa de impossibilidade.');
+        }
+
+        return DB::transaction(function () use ($assignment, $demand, $externalExecutorName, $summary, $impossibilityReason) {
+            $assignment->status = LegalDemandAssignmentStatus::ANSWERED;
+            $assignment->answered_at = now();
+            $metadata = (array) ($assignment->metadata ?? []);
+            $metadata['response_summary'] = $summary !== '' ? $summary : trim((string) $impossibilityReason);
+            $metadata['external_executor_name'] = $externalExecutorName;
+            $metadata['answered_via'] = 'external_link';
+            $assignment->metadata = $metadata;
+            $assignment->save();
+
+            $from = $demand->internal_status?->value;
+            $demand->internal_status = LegalDemandInternalStatus::RETURNED_BY_FIELD;
+            $demand->save();
+
+            $this->event(
+                $demand->id,
+                'field_answered_external',
+                $from,
+                LegalDemandInternalStatus::RETURNED_BY_FIELD->value,
+                null,
+                $assignment->to_user_id,
+                $assignment->to_team_id,
+                'Resposta registrada por executante externo.',
+                $assignment->id
+            );
+
+            return $assignment->refresh();
+        });
+    }
+
     public function requestCorrection(LegalDemandAssignment $assignment, User $actor, string $note): LegalDemand
     {
         $demand = $assignment->legalDemand;

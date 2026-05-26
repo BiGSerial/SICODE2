@@ -9,33 +9,34 @@ class ValidateLegalImportCommand extends Command
 {
     protected $signature = 'legal:validate-import {--limit=20 : Limite de linhas por bloco de amostra}';
 
-    protected $description = 'Executa validações pós-importação do módulo jurídico R3.';
+    protected $description = 'Executa validações pós-importação do módulo jurídico v2.';
 
     public function handle(): int
     {
         $limit = max(1, (int) $this->option('limit'));
 
-        $this->info('Validação R3 - Duplicidade de casos');
+        $this->info('Validação v2 - Duplicidade de casos');
         $duplicateCases = DB::table('legal_cases')
-            ->select('case_number_normalized', 'process_number_core', DB::raw('COUNT(*) as total'))
-            ->groupBy('case_number_normalized', 'process_number_core')
+            ->select('case_number_normalized', 'process_number_normalized', DB::raw('COUNT(*) as total'))
+            ->groupBy('case_number_normalized', 'process_number_normalized')
             ->havingRaw('COUNT(*) > 1')
             ->limit($limit)
             ->get();
-        $this->printRows($duplicateCases->all(), ['case_number_normalized', 'process_number_core', 'total']);
+        $this->printRows($duplicateCases->all(), ['case_number_normalized', 'process_number_normalized', 'total']);
 
         $this->newLine();
-        $this->info('Validação R3 - Duplicidade de demandas');
+        $this->info('Validação v2 - Duplicidade de demandas');
         $duplicateDemands = DB::table('legal_demands')
-            ->select('source_occurrence_key', DB::raw('COUNT(*) as total'))
-            ->groupBy('source_occurrence_key')
+            ->select('source_type', 'source_record_key', DB::raw('COUNT(*) as total'))
+            ->whereNotNull('source_record_key')
+            ->groupBy('source_type', 'source_record_key')
             ->havingRaw('COUNT(*) > 1')
             ->limit($limit)
             ->get();
-        $this->printRows($duplicateDemands->all(), ['source_occurrence_key', 'total']);
+        $this->printRows($duplicateDemands->all(), ['source_type', 'source_record_key', 'total']);
 
         $this->newLine();
-        $this->info('Validação R3 - Casos com múltiplas demandas');
+        $this->info('Validação v2 - Casos com múltiplas demandas');
         $casesWithManyDemands = DB::table('legal_demands')
             ->select('legal_case_id', DB::raw('COUNT(*) as total_demands'))
             ->groupBy('legal_case_id')
@@ -46,7 +47,7 @@ class ValidateLegalImportCommand extends Command
         $this->printRows($casesWithManyDemands->all(), ['legal_case_id', 'total_demands']);
 
         $this->newLine();
-        $this->info('Validação R3 - Demandas por fonte');
+        $this->info('Validação v2 - Demandas por fonte');
         $demandsBySource = DB::table('legal_demands')
             ->select('source_type', DB::raw('COUNT(*) as total'))
             ->groupBy('source_type')
@@ -55,7 +56,7 @@ class ValidateLegalImportCommand extends Command
         $this->printRows($demandsBySource->all(), ['source_type', 'total']);
 
         $this->newLine();
-        $this->info('Validação R3 - Ausências por fonte');
+        $this->info('Validação v2 - Ausências por fonte');
         $missingBySource = DB::table('legal_demands')
             ->select('source_type', DB::raw('COUNT(*) as total_missing'))
             ->where('source_presence_status', 'missing')
@@ -84,4 +85,3 @@ class ValidateLegalImportCommand extends Command
         }, $rows));
     }
 }
-

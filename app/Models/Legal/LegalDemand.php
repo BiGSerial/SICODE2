@@ -4,6 +4,7 @@ namespace App\Models\Legal;
 
 use App\Enum\{LegalDemandInternalStatus, LegalDemandSourceType, LegalSourcePresenceStatus};
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\{Builder, Model};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -17,43 +18,42 @@ class LegalDemand extends Model
         'uuid',
         'legal_case_id',
         'source_type',
-        'source_external_id',
+        'source_table',
+        'source_version',
+        'source_record_key',
+        'source_record_key_strategy',
+        'source_record_key_confidence',
         'source_case_number',
-        'source_case_number_normalized',
         'source_process_number',
-        'source_process_number_normalized',
-        'source_process_number_core',
+        'source_installation_number',
         'source_entity_key',
-        'source_occurrence_key',
         'source_hash',
+        'needs_identity_review',
+        'needs_status_review',
+        'source_subject',
+        'source_description',
+        'source_status',
+        'source_status_at',
+        'source_status_group',
+        'process_status_at_import',
+        'requesting_area_name',
+        'delegated_responsible_name',
+        'delegated_by_name',
+        'delegated_at',
+        'source_decision_at',
+        'source_end_at',
+        'summary',
         'title',
-        'description',
-        'subject',
-        'service_type',
-        'external_status',
-        'external_flow_status',
-        'origin_area_name',
-        'target_area_name',
-        'target_person_name',
         'requesting_responsible_name',
         'responsible_area_name',
-        'opposing_party',
-        'process_manager',
-        'required_area',
-        'city',
-        'region',
-        'regional',
-        'source_analysis_at',
-        'source_started_at',
         'source_due_at',
-        'source_executed_at',
-        'source_changed_at',
         'first_seen_at',
         'last_seen_at',
         'missing_since',
         'missing_count',
         'source_presence_status',
         'internal_status',
+        'action_state',
         'priority',
         'risk_level',
         'controller_user_id',
@@ -68,19 +68,18 @@ class LegalDemand extends Model
         'external_closed_at',
         'external_protocol',
         'external_closure_note',
-        'needs_identity_review',
-        'source_identity_strategy',
-        'source_identity_confidence',
         'raw_payload',
+        'normalized_payload',
+        'source_specific_payload',
     ];
 
     protected $casts = [
         'source_type'                => LegalDemandSourceType::class,
-        'source_analysis_at'         => 'datetime',
-        'source_started_at'          => 'datetime',
         'source_due_at'              => 'datetime',
-        'source_executed_at'         => 'datetime',
-        'source_changed_at'          => 'datetime',
+        'source_status_at'           => 'datetime',
+        'source_decision_at'         => 'datetime',
+        'source_end_at'              => 'datetime',
+        'delegated_at'               => 'datetime',
         'first_seen_at'              => 'datetime',
         'last_seen_at'               => 'datetime',
         'missing_since'              => 'datetime',
@@ -90,8 +89,10 @@ class LegalDemand extends Model
         'closed_at'                  => 'datetime',
         'external_closed_at'         => 'datetime',
         'needs_identity_review'      => 'boolean',
-        'source_identity_confidence' => 'integer',
+        'needs_status_review'        => 'boolean',
         'raw_payload'                => 'array',
+        'normalized_payload'         => 'array',
+        'source_specific_payload'    => 'array',
     ];
 
     public function legalCase()
@@ -176,70 +177,44 @@ class LegalDemand extends Model
         return $query->where('internal_status', LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value);
     }
 
-    /**
-     * Termos que indicam encerramento no fluxo externo (status_situation).
-     * Comparação case-insensitive via UPPER() no SQL.
-     */
-    public static function externalClosedTerms(): array
-    {
-        return ['ENCERRAD', 'ARQUIVAD', 'CUMPRIDO', 'EXTINTO', 'CANCELAD'];
-    }
-
     public function scopeExternallyClosed(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {
-            $q->whereNotNull('external_closed_at');
-
-            foreach (static::externalClosedTerms() as $term) {
-                $q->orWhereRaw('UPPER(COALESCE(external_flow_status, \'\')) LIKE ?', ["%{$term}%"]);
-                $q->orWhereRaw('UPPER(COALESCE(external_status, \'\')) LIKE ?', ["%{$term}%"]);
-            }
+            $q->whereNotNull('external_closed_at')
+                ->orWhereIn('source_status_group', ['closed_done', 'closed_cancelled']);
         });
     }
 
     public function scopeExternallyActive(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {
-            $q->whereNull('external_closed_at');
-
-            foreach (static::externalClosedTerms() as $term) {
-                $q->whereRaw('UPPER(COALESCE(external_flow_status, \'\')) NOT LIKE ?', ["%{$term}%"]);
-                $q->whereRaw('UPPER(COALESCE(external_status, \'\')) NOT LIKE ?', ["%{$term}%"]);
-            }
+            $q->whereNull('external_closed_at')
+                ->whereNotIn('source_status_group', ['closed_done', 'closed_cancelled']);
         });
     }
 
     public function isExternallyClosed(): bool
     {
-        $flow = strtoupper(trim((string) ($this->external_flow_status ?? '')));
-
-        foreach (static::externalClosedTerms() as $term) {
-            if (str_contains($flow, $term)) {
-                return true;
-            }
+        if ($this->external_closed_at !== null) {
+            return true;
         }
 
-        return false;
+        return in_array((string) $this->source_status_group, ['closed_done', 'closed_cancelled'], true);
     }
 
     public function externalStatusBadge(): array
     {
-        $flow = strtoupper(trim((string) ($this->external_flow_status ?? '')));
-        $proc = strtoupper(trim((string) ($this->external_status ?? '')));
+        $group = (string) ($this->source_status_group ?? 'unknown');
 
         if ($this->isExternallyClosed()) {
             return ['class' => 'bg-secondary text-white', 'icon' => 'bi-lock-fill'];
         }
 
-        if (str_contains($flow, 'AGUARD') || str_contains($flow, 'PEND')) {
+        if ($group === 'unknown') {
             return ['class' => 'bg-warning text-dark', 'icon' => 'bi-hourglass-split'];
         }
 
-        if (str_contains($proc, 'SUSPENSO') || str_contains($flow, 'SUSPENS')) {
-            return ['class' => 'bg-orange text-white', 'icon' => 'bi-pause-circle'];
-        }
-
-        if (str_contains($proc, 'ATIVO') || str_contains($flow, 'ANDAMENT')) {
+        if (in_array($group, ['open_in_progress', 'open_delegated', 'open_redirected'], true)) {
             return ['class' => 'bg-success text-white', 'icon' => 'bi-check-circle'];
         }
 
@@ -269,5 +244,68 @@ class LegalDemand extends Model
     public function getSourceProcessNumberMaskedAttribute(): ?string
     {
         return static::formatProcessNumber($this->source_process_number);
+    }
+
+    // Compat getters for legacy blades/components.
+    public function getSubjectAttribute(): ?string
+    {
+        return $this->source_subject;
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        return $this->source_description;
+    }
+
+    public function getOriginAreaNameAttribute(): ?string
+    {
+        return $this->requesting_area_name;
+    }
+
+    public function getTargetAreaNameAttribute(): ?string
+    {
+        return $this->responsible_area_name;
+    }
+
+    public function getTargetPersonNameAttribute(): ?string
+    {
+        return $this->delegated_responsible_name;
+    }
+
+    public function getLegalResponsibleNameAttribute(): ?string
+    {
+        return $this->delegated_responsible_name
+            ?? $this->requesting_responsible_name
+            ?? $this->legalCase?->process_manager;
+    }
+
+    public function getExternalStatusAttribute(): ?string
+    {
+        return $this->process_status_at_import;
+    }
+
+    public function getExternalFlowStatusAttribute(): ?string
+    {
+        return $this->source_status;
+    }
+
+    public function getSourceExecutedAtAttribute(): ?Carbon
+    {
+        return $this->source_decision_at;
+    }
+
+    public function getSourceChangedAtAttribute(): ?Carbon
+    {
+        return $this->source_status_at;
+    }
+
+    public function getSourceStartedAtAttribute(): ?Carbon
+    {
+        return $this->delegated_at;
+    }
+
+    public function getSourceAnalysisAtAttribute(): ?Carbon
+    {
+        return null;
     }
 }
