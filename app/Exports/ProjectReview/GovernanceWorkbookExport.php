@@ -10,9 +10,11 @@ class GovernanceWorkbookExport implements WithMultipleSheets, WithProperties
 {
     /**
      * @param array<int, array{title:string, headings:array<int,string>, rows:array<int,array<int,mixed>>}> $sheetsData
+     * @param array<int, array<int, mixed>> $auditRows
      */
     public function __construct(
-        private readonly array $sheetsData
+        private readonly array $sheetsData,
+        private readonly array $auditRows
     ) {
     }
 
@@ -27,6 +29,12 @@ class GovernanceWorkbookExport implements WithMultipleSheets, WithProperties
                 $sheet['rows']
             );
         }
+
+        $sheets[] = new StyledArraySheetExport(
+            'Controle Exportacao',
+            ['Campo', 'Valor'],
+            $this->auditRows
+        );
 
         return $sheets;
     }

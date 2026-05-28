@@ -49,11 +49,17 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
             $summaryRows = $this->buildSummaryRows($productions);
             $detailedRows = $this->buildDetailedRows($productions);
             $commentsRows = $this->buildCommentsRows($productions);
+            $auditRows = [
+                ['Usuário solicitante', $user?->name ?? '---'],
+                ['Email', $user?->email ?? '---'],
+                ['Data/Hora da solicitação', now()->format('d/m/Y H:i:s')],
+                ['Tipo de exportação', 'Análise de Projeto - Histórico'],
+            ];
             $stamp = now()->format('YmdHis');
             $filePath = "exports/project_review_history_list_{$stamp}.xlsx";
 
             Storage::disk('local')->makeDirectory('exports');
-            Excel::store(new HistoryListExport($summaryRows, $detailedRows, $commentsRows), $filePath, 'local');
+            Excel::store(new HistoryListExport($summaryRows, $detailedRows, $commentsRows, $auditRows), $filePath, 'local');
 
             if (!$filePath || !Storage::disk('local')->exists($filePath)) {
                 throw new \RuntimeException('Arquivo não foi gerado.');
