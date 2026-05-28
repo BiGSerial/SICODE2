@@ -162,6 +162,7 @@ class Filter extends Component
             } else {
                 $this->receivedValue = [];
                 $this->items         = [];
+                $this->applyFilter();
             }
 
             $this->emitSelf('refresh_myself');
@@ -187,8 +188,13 @@ class Filter extends Component
         $_SESSION['filter'][$this->group_filter][$this->myKey] = $this->items;
         session(['filter.' . $this->group_filter . '.' . $this->myKey => $this->items]);
 
-        $this->emitUp('refresh_list');
         $this->emit('refresh_filter', $this->sendFilter, ['column' => $this->column, 'values' => $this->items]);
+
+        // Evita corrida de atualização em filtros encadeados:
+        // o refresh da lista deve ocorrer no último filtro da cadeia.
+        if (!$this->sendFilter) {
+            $this->emitUp('refresh_list');
+        }
     }
 
     public function removeFilter()
@@ -204,8 +210,12 @@ class Filter extends Component
         }
         session()->forget('filter.' . $this->group_filter . '.' . $this->myKey);
 
-        $this->emitUp('refresh_list');
         $this->emit('refresh_filter', $this->sendFilter);
+
+        // Mesma regra da aplicação: refresh apenas no último filtro.
+        if (!$this->sendFilter) {
+            $this->emitUp('refresh_list');
+        }
     }
 
     public function getListFilterProperty()

@@ -102,15 +102,15 @@
 
 @php
     $reports_links = [
-        ['route' => 'reports.productions', 'label' => 'RELATÓRIO DE PRODUÇÃO'],
-        ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE'],
-        ['route' => 'reports.return_intern_dashboard', 'label' => 'RELATORIO RETORNO INTERNO'],
-        ['route' => 'reports.cancellations_dashboard', 'label' => 'DASHBOARD CANCELAMENTOS'],
-        ['route' => 'reports.cancellations_list', 'label' => 'LISTA CANCELAMENTOS'],
-        ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)'],
-        ['route' => 'reports.complaints_mede', 'label' => 'RELATÓRIO DE RECLAMAÇÃO'],
-        ['route' => 'reports.five_notes', 'label' => 'RELATÓRIO NOTAS D5'],
-        ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA'],
+        ['route' => 'reports.productions', 'label' => 'RELATÓRIO DE PRODUÇÃO', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.return_intern_dashboard', 'label' => 'RELATORIO RETORNO INTERNO', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.cancellations_dashboard', 'label' => 'RELATÓRIO CANCELAMENTOS', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.complaints_mede', 'label' => 'RELATÓRIO DE RECLAMAÇÃO', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.five_notes', 'label' => 'RELATÓRIO NOTAS D5', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.project_review_dashboard', 'label' => 'RELATÓRIO ANÁLISE PROJETOS', 'visible' => Auth()->user()->can('projectReviewReports')],
+        ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA', 'visible' => Auth()->user()->can('management')],
     ];
 @endphp
 

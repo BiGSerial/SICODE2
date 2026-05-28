@@ -58,6 +58,11 @@ class ProjectReviewGovernanceExportService
             $query->where('company_id', $filters['company_id']);
         }
 
+        $companyIds = collect($filters['company_ids'] ?? [])->filter()->values();
+        if ($companyIds->isNotEmpty()) {
+            $query->whereIn('company_id', $companyIds->all());
+        }
+
         if (!empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
         }

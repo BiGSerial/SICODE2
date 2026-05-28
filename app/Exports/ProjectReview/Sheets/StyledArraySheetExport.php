@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 class StyledArraySheetExport implements FromArray, WithHeadings, WithTitle, ShouldAutoSize, WithEvents
 {
@@ -41,16 +42,40 @@ class StyledArraySheetExport implements FromArray, WithHeadings, WithTitle, Shou
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
+                $sheet->insertNewRowBefore(1, 1);
                 $columnsCount = max(1, count($this->headings));
                 $lastColumn = $sheet->getCellByColumnAndRow($columnsCount, 1)->getColumn();
-                $lastRow = max(1, count($this->rows) + 1);
+                $dataStartRow = 3;
+                $lastRow = max($dataStartRow, count($this->rows) + 2);
 
-                $headerRange = "A1:{$lastColumn}1";
-                $dataRange = "A2:{$lastColumn}{$lastRow}";
+                $titleRange = "A1:{$lastColumn}1";
+                $headerRange = "A2:{$lastColumn}2";
+                $dataRange = "A{$dataStartRow}:{$lastColumn}{$lastRow}";
                 $allRange = "A1:{$lastColumn}{$lastRow}";
 
-                $sheet->freezePane('A2');
-                $sheet->getRowDimension(1)->setRowHeight(24);
+                $sheet->setCellValue('A1', 'SICODE - ' . mb_strtoupper($this->sheetTitle));
+                $sheet->mergeCells($titleRange);
+
+                $sheet->freezePane('A3');
+                $sheet->setAutoFilter($headerRange);
+                $sheet->getRowDimension(1)->setRowHeight(28);
+                $sheet->getRowDimension(2)->setRowHeight(24);
+
+                $sheet->getStyle($titleRange)->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'size' => 13,
+                        'color' => ['rgb' => 'FFFFFF'],
+                    ],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0F766E'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_LEFT,
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                    ],
+                ]);
 
                 $sheet->getStyle($headerRange)->applyFromArray([
                     'font' => [
@@ -59,16 +84,17 @@ class StyledArraySheetExport implements FromArray, WithHeadings, WithTitle, Shou
                     ],
                     'fill' => [
                         'fillType' => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => '1F4E78'],
+                        'startColor' => ['rgb' => '1E293B'],
                     ],
                     'alignment' => [
                         'horizontal' => Alignment::HORIZONTAL_CENTER,
                         'vertical' => Alignment::VERTICAL_CENTER,
+                        'wrapText' => true,
                     ],
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => 'D1D5DB'],
+                            'color' => ['rgb' => 'CBD5E1'],
                         ],
                     ],
                 ]);
@@ -85,8 +111,8 @@ class StyledArraySheetExport implements FromArray, WithHeadings, WithTitle, Shou
                     ],
                 ]);
 
-                for ($row = 2; $row <= $lastRow; $row++) {
-                    if ($row % 2 === 0) {
+                for ($row = $dataStartRow; $row <= $lastRow; $row++) {
+                    if ($row % 2 !== 0) {
                         $sheet->getStyle("A{$row}:{$lastColumn}{$row}")->applyFromArray([
                             'fill' => [
                                 'fillType' => Fill::FILL_SOLID,
@@ -95,8 +121,65 @@ class StyledArraySheetExport implements FromArray, WithHeadings, WithTitle, Shou
                         ]);
                     }
                 }
+
+                // Ajustes de largura mínima para não "quebrar" colunas curtas demais.
+                for ($col = 1; $col <= $columnsCount; $col++) {
+                    $columnLetter = $sheet->getCellByColumnAndRow($col, 1)->getColumn();
+                    $currentWidth = (float) $sheet->getColumnDimension($columnLetter)->getWidth();
+                    if ($currentWidth < 14) {
+                        $sheet->getColumnDimension($columnLetter)->setWidth(14);
+                    }
+                }
+
+                // Alinhamento e formatos automáticos por nome do cabeçalho.
+                foreach ($this->headings as $index => $heading) {
+                    $column = $sheet->getCellByColumnAndRow($index + 1, 2)->getColumn();
+                    $normalized = mb_strtolower(trim((string) $heading));
+                    $columnRange = "{$column}{$dataStartRow}:{$column}{$lastRow}";
+
+                    if (
+                        str_contains($normalized, 'custo') ||
+                        str_contains($normalized, 'valor') ||
+                        str_contains($normalized, 'economia') ||
+                        str_contains($normalized, 'saldo') ||
+                        str_contains($normalized, 'acréscimo') ||
+                        str_contains($normalized, 'aumento') ||
+                        str_contains($normalized, 'ganho')
+                    ) {
+                        $sheet->getStyle($columnRange)->getNumberFormat()->setFormatCode('#,##0.00');
+                        $sheet->getStyle($columnRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                        continue;
+                    }
+
+                    if (str_contains($normalized, 'varia') || str_contains($normalized, '(%)') || str_contains($normalized, '%')) {
+                        $sheet->getStyle($columnRange)->getNumberFormat()->setFormatCode('0.00');
+                        $sheet->getStyle($columnRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                        continue;
+                    }
+
+                    if (str_contains($normalized, 'data') || str_contains($normalized, 'quando')) {
+                        $sheet->getStyle($columnRange)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_DATE_DATETIME);
+                        $sheet->getStyle($columnRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                        continue;
+                    }
+
+                    if (str_contains($normalized, 'coment')) {
+                        $sheet->getStyle($columnRange)->getAlignment()->setWrapText(true);
+                        $sheet->getColumnDimension($column)->setWidth(48);
+                        continue;
+                    }
+
+                    if (
+                        str_contains($normalized, 'nota') ||
+                        str_contains($normalized, 'ordem') ||
+                        str_contains($normalized, 'status') ||
+                        str_contains($normalized, 'decisão') ||
+                        str_contains($normalized, 'rodada')
+                    ) {
+                        $sheet->getStyle($columnRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    }
+                }
             },
         ];
     }
 }
-

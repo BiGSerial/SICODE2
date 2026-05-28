@@ -47,9 +47,15 @@ class ExportProjectReviewGovernanceJob implements ShouldQueue
             $sheets = $service->buildSheets($this->filters);
             $stamp = now()->format('YmdHis');
             $filePath = "exports/project_review_governance_{$stamp}.xlsx";
+            $auditRows = [
+                ['Usuário solicitante', $user?->name ?? '---'],
+                ['Email', $user?->email ?? '---'],
+                ['Data/Hora da solicitação', now()->format('d/m/Y H:i:s')],
+                ['Tipo de exportação', 'Análise de Projeto - Dashboard Governança'],
+            ];
 
             Storage::disk('local')->makeDirectory('exports');
-            Excel::store(new GovernanceWorkbookExport($sheets), $filePath, 'local');
+            Excel::store(new GovernanceWorkbookExport($sheets, $auditRows), $filePath, 'local');
 
             if (!$filePath || !Storage::disk('local')->exists($filePath)) {
                 throw new \RuntimeException('Arquivo não foi gerado.');
@@ -93,4 +99,3 @@ class ExportProjectReviewGovernanceJob implements ShouldQueue
         }
     }
 }
-

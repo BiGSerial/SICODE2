@@ -48,7 +48,7 @@ class History extends Component
 
     public function getRowsProperty()
     {
-        return Production::query()
+        $query = Production::query()
             ->select(['id', 'note_id', 'user_id', 'company_id', 'status'])
             ->with([
                 'Note:id,note,numPedido,material',
@@ -66,7 +66,11 @@ class History extends Component
             ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
             ->whereHas('ProjectReviewCycles', function ($q) {
                 $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
-            })
+            });
+
+        $this->applyContractScopeToProductions($query);
+
+        return $query
             ->when($this->search, function ($q) {
                 $s = '%' . $this->search . '%';
                 $q->whereHas('Note', function ($n) use ($s) {
@@ -92,7 +96,13 @@ class History extends Component
 
     public function getCompaniesProperty()
     {
-        return Company::query()->orderBy('name')->get(['id', 'name']);
+        $query = Company::query()->orderBy('name');
+
+        if (auth()->user()?->contract) {
+            $query->whereIn('id', $this->allowedCompanyIds()->all());
+        }
+
+        return $query->get(['id', 'name']);
     }
 
     public function exportList(): void
@@ -116,17 +126,20 @@ class History extends Component
 
     private function exportFilters(): array
     {
+        $companyIds = auth()->user()?->contract ? $this->allowedCompanyIds()->all() : [];
+
         return [
             'search' => $this->search,
             'company_id' => $this->company_id,
             'from' => $this->from,
             'to' => $this->to,
+            'company_ids' => $companyIds,
         ];
     }
 
     public function openProduction(int $productionId): void
     {
-        $this->selectedProduction = Production::with([
+        $query = Production::with([
             'Note.Files.Service',
             'User',
             'Company',
@@ -147,7 +160,11 @@ class History extends Component
                     },
                 ])->latest('round_number');
             },
-        ])->findOrFail($productionId);
+        ]);
+
+        $this->applyContractScopeToProductions($query);
+
+        $this->selectedProduction = $query->findOrFail($productionId);
 
         $this->selectedCycle = $this->selectedProduction->ProjectReviewCycles
             ->firstWhere('decision', 'PENDING')
@@ -161,6 +178,36 @@ class History extends Component
         $this->refreshSelectedProductionMessages();
 
         $this->dispatchBrowserEvent('showModal', ['id' => 'historyProjectReviewModal']);
+    }
+
+    private function applyContractScopeToProductions($query): void
+    {
+        $user = auth()->user();
+        if (!$user?->contract) {
+            return;
+        }
+
+        $companyIds = $this->allowedCompanyIds();
+        if ($companyIds->isEmpty()) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $query->whereIn('company_id', $companyIds->all());
+    }
+
+    private function allowedCompanyIds()
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return collect();
+        }
+
+        return collect([$user->company_id])
+            ->merge($user->Companies()->pluck('companies.id'))
+            ->filter()
+            ->unique()
+            ->values();
     }
 
     public function selectCycle(int $cycleId): void
