@@ -11,10 +11,12 @@ class HistoryListExport implements WithMultipleSheets, WithProperties
     /**
      * @param array<int, array<int, mixed>> $summaryRows
      * @param array<int, array<int, mixed>> $detailedRows
+     * @param array<int, array<int, mixed>> $commentsRows
      */
     public function __construct(
         private readonly array $summaryRows,
-        private readonly array $detailedRows
+        private readonly array $detailedRows,
+        private readonly array $commentsRows
     ) {
     }
 
@@ -49,6 +51,17 @@ class HistoryListExport implements WithMultipleSheets, WithProperties
                 'Data envio ciclo',
                 'Analista',
             ], $this->detailedRows),
+            new StyledArraySheetExport('Comentarios Ciclos', [
+                'Nota',
+                'Empresa',
+                'Desenhista',
+                'Rodada',
+                'Decisão rodada',
+                'Autor comentário',
+                'Perfil autor',
+                'Comentário',
+                'Data comentário',
+            ], $this->commentsRows),
         ];
     }
 

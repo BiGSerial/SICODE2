@@ -194,7 +194,8 @@
         </a>
 
         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notif-dropdown"
-             id="notification-menu">
+             id="notification-menu"
+             @click.stop>
 
             {{-- Cabeçalho --}}
             <div class="notif-header">
@@ -229,13 +230,13 @@
                         open = false  → linha compacta
                         open = true   → expande e mostra mensagem completa + botão de ação
                     --}}
-                    <div x-data="{ open: false, wasUnread: {{ $isUnread ? 'true' : 'false' }} }"
+                    <div x-data="{ open: false }"
                          wire:key="{{ $notify->id }}"
                          class="notif-wrapper {{ $isUnread ? 'notif-wrapper--unread' : 'notif-wrapper--read' }}">
 
                         {{-- Linha principal — clique expande/colapsa --}}
                         <div class="notif-main-row"
-                             @click="if (!open && wasUnread) { $wire.markAsRead('{{ $notify->id }}'); wasUnread = false; } open = !open;">
+                             @click.stop="open = !open">
                             <span class="notif-icon-wrap {{ $iconBg }}">
                                 <i class="{{ $status->icon ?? 'bi bi-info-circle' }} {{ $status->color ?? 'text-secondary' }}"></i>
                             </span>
@@ -264,6 +265,7 @@
 
                         {{-- Área expandida: mensagem completa + botão de ação --}}
                         <div class="notif-expanded-body"
+                             @click.stop
                              x-show="open"
                              x-transition:enter="transition ease-out duration-150"
                              x-transition:enter-start="opacity-0 -translate-y-1"

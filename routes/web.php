@@ -51,7 +51,7 @@ Route::get('/company', [App\Http\Controllers\HomeController::class, 'company'])-
 // Deve ficar fora de auth para não ser bloqueada pelo redirecionamento onlyparner.
 Route::get('stop-impersonating', [ImpersonationController::class, 'stopImpersonating'])->name('stopImpersonating');
 
-Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->middleware('auth')->group(function () {
+Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->middleware(['auth', 'can:admin'])->group(function () {
 
     Route::prefix('/user')->name('user.')->group(function () {
         Route::get('/list', 'user_list')->name('list');
@@ -233,6 +233,8 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/cancellations/list', 'cancellationList')->middleware('can:management')->name('cancellations_list');
     Route::get('/complaints/mede', 'complaintsMedeReport')->middleware('can:management')->name('complaints_mede');
     Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
+    Route::get('/project_review/dashboard', 'projectReviewDashboard')->middleware('can:projectReviewReports')->name('project_review_dashboard');
+    Route::get('/project_review/history', 'projectReviewHistory')->middleware('can:projectReviewReports')->name('project_review_history');
 });
 
 Route::prefix('/wall/v1')->controller(ReportsController::class)->name('wall.v1.')->middleware('auth')->middleware('can:superadm')->group(function () {
@@ -452,7 +454,7 @@ Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middlewar
 
 
 // Files Controller Manager
-Route::prefix('/files')->controller(FilesController::class)->name('files.')->group(function () {
+Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main');
     Route::get('/files/{file}/preview', 'preview')->name('preview');
     Route::get('/files/{file}/download', 'download')->name('download');

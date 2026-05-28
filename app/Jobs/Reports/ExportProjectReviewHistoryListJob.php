@@ -48,11 +48,12 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
             $productions = $this->buildProductions();
             $summaryRows = $this->buildSummaryRows($productions);
             $detailedRows = $this->buildDetailedRows($productions);
+            $commentsRows = $this->buildCommentsRows($productions);
             $stamp = now()->format('YmdHis');
             $filePath = "exports/project_review_history_list_{$stamp}.xlsx";
 
             Storage::disk('local')->makeDirectory('exports');
-            Excel::store(new HistoryListExport($summaryRows, $detailedRows), $filePath, 'local');
+            Excel::store(new HistoryListExport($summaryRows, $detailedRows, $commentsRows), $filePath, 'local');
 
             if (!$filePath || !Storage::disk('local')->exists($filePath)) {
                 throw new \RuntimeException('Arquivo não foi gerado.');
@@ -103,6 +104,7 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
     {
         $search = trim((string) ($this->filters['search'] ?? ''));
         $companyId = (string) ($this->filters['company_id'] ?? '');
+        $companyIds = collect($this->filters['company_ids'] ?? [])->filter()->values();
         $from = (string) ($this->filters['from'] ?? '');
         $to = (string) ($this->filters['to'] ?? '');
 
@@ -114,6 +116,7 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
                 'ProjectReviewCycles' => function ($q) {
                     $q->with(['Orders', 'DecidedBy'])->latest('round_number');
                 },
+                'ProjectReviewMessages.User',
             ])
             ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
             ->whereHas('ProjectReviewCycles', function ($q) {
@@ -128,6 +131,7 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
                 });
             })
             ->when($companyId !== '', fn($q) => $q->where('company_id', $companyId))
+            ->when($companyIds->isNotEmpty(), fn($q) => $q->whereIn('company_id', $companyIds->all()))
             ->when($from !== '', function ($q) use ($from) {
                 $q->whereHas('ProjectReviewCycles', fn($cq) => $cq->whereDate('submitted_at', '>=', $from));
             })
@@ -136,6 +140,96 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
             })
             ->orderByDesc('id')
             ->get();
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, \App\Models\Production> $productions
+     * @return array<int, array<int, mixed>>
+     */
+    private function buildCommentsRows($productions): array
+    {
+        $rows = [];
+
+        foreach ($productions as $production) {
+            $note = $production->Note->note ?? '---';
+            $company = $production->Company->name ?? '---';
+            $designer = $production->User->name ?? '---';
+
+            $messages = collect($production->ProjectReviewMessages ?? collect())
+                ->sortBy([
+                    ['cycle_id', 'asc'],
+                    ['created_at', 'asc'],
+                    ['id', 'asc'],
+                ])
+                ->values();
+
+            foreach ($messages as $message) {
+                $author = $message->User->name ?? '---';
+                $authorRole = $this->resolveAuthorRole($message->User);
+                $cycle = collect($production->ProjectReviewCycles ?? collect())
+                    ->firstWhere('id', $message->cycle_id);
+                $round = $cycle?->round_number ? 'R' . $cycle->round_number : '---';
+                $decision = $this->decisionLabel($cycle?->decision);
+
+                $rows[] = [
+                    $note,
+                    $company,
+                    $designer,
+                    $round,
+                    $decision,
+                    $author,
+                    $authorRole,
+                    trim((string) ($message->message ?? '')),
+                    $message->created_at ? date('d/m/Y H:i:s', strtotime((string) $message->created_at)) : '---',
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    private function decisionLabel(?string $decision): string
+    {
+        return match ((string) $decision) {
+            'PENDING' => 'Pendente',
+            'APPROVED' => 'Aprovado',
+            'APPROVED_WITH_REMARKS' => 'Aprovado com ressalvas',
+            'REJECTED' => 'Reprovado',
+            default => '---',
+        };
+    }
+
+    private function resolveAuthorRole($user): string
+    {
+        if (!$user) {
+            return '---';
+        }
+
+        if ($user->analyst) {
+            return 'Analista';
+        }
+
+        if ($user->engineer) {
+            return 'Engenheiro';
+        }
+
+        if ($user->responsible) {
+            return 'Responsável';
+        }
+
+        if ($user->management) {
+            return 'Gerência';
+        }
+
+        if ($user->admin || $user->superadm) {
+            return 'Administração';
+        }
+
+        if ($user->contract) {
+            return 'Terceirizado';
+        }
+
+        return 'Usuário';
     }
 
     /**

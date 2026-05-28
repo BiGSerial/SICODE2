@@ -54,5 +54,11 @@ class AuthServiceProvider extends ServiceProvider
                 ? Response::allow()
                 : Response::deny('Você precisa ser Administrador ou Super Administrador para acessar o Log Viewer');
         });
+
+        Gate::define('projectReviewReports', function (User $user) {
+            return ($user->superadm || $user->admin || $user->management || $user->contract)
+                ? Response::allow()
+                : Response::deny('Você não possui permissão para acessar os relatórios de Análise de Projeto.');
+        });
     }
 }

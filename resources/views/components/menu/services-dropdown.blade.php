@@ -9,9 +9,13 @@
             'label' => $report['label'],
             'route' => $report['route'],
             'icon' => 'ri-file-chart-line',
+            'visible' => $report['visible'] ?? true,
         ])
         ->values()
         ->all();
+
+    $canViewReports = auth()->check()
+        && (auth()->user()->can('management') || auth()->user()->can('projectReviewReports'));
 
     $sections = [
         [
@@ -31,7 +35,7 @@
             'children' => [
                 [
                     'label' => 'RELATÓRIOS',
-                    'can' => 'management',
+                    'visible' => $canViewReports,
                     'open' => 'side',
                     'items' => $reportItems,
                 ],

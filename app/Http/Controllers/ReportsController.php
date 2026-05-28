@@ -99,6 +99,16 @@ class ReportsController extends Controller
         return view('reports.protest-mede');
     }
 
+    public function projectReviewDashboard()
+    {
+        return view('reports.project-review-dashboard');
+    }
+
+    public function projectReviewHistory()
+    {
+        return view('reports.project-review-history');
+    }
+
     public function productionWall()
     {
         return view('reports.production-wall');

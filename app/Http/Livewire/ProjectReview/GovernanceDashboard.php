@@ -68,12 +68,26 @@ class GovernanceDashboard extends Component
 
     public function getCompaniesProperty()
     {
-        return Company::query()->orderBy('name')->get(['id', 'name']);
+        $query = Company::query()->orderBy('name');
+
+        if (auth()->user()?->contract) {
+            $companyIds = $this->allowedCompanyIds();
+            $query->whereIn('id', $companyIds->all());
+        }
+
+        return $query->get(['id', 'name']);
     }
 
     public function getUsersProperty()
     {
-        return User::query()->withTrashed()->orderBy('name')->get(['id', 'name']);
+        $query = User::query()->withTrashed()->orderBy('name');
+
+        if (auth()->user()?->contract) {
+            $companyIds = $this->allowedCompanyIds();
+            $query->whereIn('company_id', $companyIds->all());
+        }
+
+        return $query->get(['id', 'name']);
     }
 
     public function getStatusOptionsProperty(): array
@@ -89,6 +103,8 @@ class GovernanceDashboard extends Component
     {
         $query = Production::query()
             ->whereHas('ProjectReviewCycles');
+
+        $this->applyContractScopeToProductions($query);
 
         if ($this->company_id !== '') {
             $query->where('company_id', $this->company_id);
@@ -155,6 +171,36 @@ class GovernanceDashboard extends Component
         }
 
         return $query;
+    }
+
+    private function applyContractScopeToProductions($query): void
+    {
+        $user = auth()->user();
+        if (!$user?->contract) {
+            return;
+        }
+
+        $companyIds = $this->allowedCompanyIds();
+        if ($companyIds->isEmpty()) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $query->whereIn('company_id', $companyIds->all());
+    }
+
+    private function allowedCompanyIds()
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return collect();
+        }
+
+        return collect([$user->company_id])
+            ->merge($user->Companies()->pluck('companies.id'))
+            ->filter()
+            ->unique()
+            ->values();
     }
 
     private function findingsBaseQuery()
@@ -991,10 +1037,13 @@ class GovernanceDashboard extends Component
      */
     private function filters(): array
     {
+        $companyIds = auth()->user()?->contract ? $this->allowedCompanyIds()->all() : [];
+
         return [
             'period_from' => $this->period_from,
             'period_to' => $this->period_to,
             'company_id' => $this->company_id,
+            'company_ids' => $companyIds,
             'user_id' => $this->user_id,
             'final_status' => $this->final_status,
             'rejection_filter' => $this->rejection_filter,
