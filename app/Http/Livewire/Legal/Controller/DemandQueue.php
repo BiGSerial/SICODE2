@@ -31,6 +31,7 @@ class DemandQueue extends Component
     public string $sortDir = 'asc';
 
     public int    $perPage = 25;
+    public bool   $groupByCase = false;
 
     // Seleção em lote
     public array $selectedIds = [];
@@ -66,6 +67,7 @@ class DemandQueue extends Component
         'search'       => ['except' => ''],
         'statusFilter' => ['except' => ''],
         'sourceType'   => ['except' => ''],
+        'groupByCase'  => ['except' => false],
     ];
 
     public function mount(): void
@@ -217,9 +219,26 @@ class DemandQueue extends Component
 
         // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
         match ($this->tab) {
-            'triage'   => $query->externallyActive()->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action']),
-            'in_progress' => $query->externallyActive()->whereIn('internal_status', ['triage', 'waiting_controller_action', 'under_controller_review', 'ready_to_close_external', 'reopened']),
-            'overdue'  => $query->externallyActive()->overdue(),
+            'triage'   => $query->externallyActive()
+                ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
+                ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
+                ->whereNull('current_assigned_user_id')
+                ->whereNull('current_assigned_team_id')
+                ->whereDoesntHave('assignments', function ($aq) {
+                    $aq->whereIn('status', ['sent', 'received', 'returned_for_correction']);
+                }),
+            'in_progress' => $query->externallyActive()->whereIn('internal_status', [
+                'sent_to_field',
+                'field_received',
+                'waiting_field_response',
+                'returned_by_field',
+                'under_controller_review',
+                'ready_to_close_external',
+                'reopened',
+            ]),
+            'overdue'  => $query->externallyActive()
+                ->overdue()
+                ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%']),
             'closed'   => $query->where(function ($q) {
                 $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
                     ->orWhere(fn ($sub) => $sub->externallyClosed());
@@ -251,7 +270,8 @@ class DemandQueue extends Component
         }
 
         if ($this->dueDateFilter === 'overdue') {
-            $query->overdue();
+            $query->overdue()
+                ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%']);
         } elseif ($this->dueDateFilter === '3days') {
             $query->whereBetween('source_due_at', [now(), now()->addDays(3)]);
         } elseif ($this->dueDateFilter === '7days') {
@@ -260,8 +280,14 @@ class DemandQueue extends Component
             $query->whereNull('source_due_at');
         }
 
-        $query->orderByRaw('ISNULL(source_due_at) ASC')
-              ->orderBy('source_due_at', $this->sortDir);
+        $query->orderByRaw("
+                CASE
+                    WHEN LOWER(COALESCE(process_status_at_import, '')) LIKE '%encerrad%' THEN 1
+                    ELSE 0
+                END ASC
+            ")
+            ->orderByRaw('ISNULL(source_due_at) ASC')
+            ->orderBy('source_due_at', $this->sortDir);
 
         return $query;
     }
@@ -269,6 +295,55 @@ class DemandQueue extends Component
     public function render()
     {
         $demands     = $this->baseQuery()->paginate($this->perPage);
+        $groupedDemands = null;
+
+        if ($this->groupByCase) {
+            $groupedDemands = $demands->getCollection()
+                ->groupBy(fn (LegalDemand $demand) => (string) ($demand->source_case_number ?: $demand->source_process_number ?: 'sem_caso'))
+                ->map(function ($items, $caseNumber) {
+                    $items = $items
+                        ->sortBy(function (LegalDemand $demand) {
+                            $processStatus = mb_strtolower((string) ($demand->process_status_at_import ?? ''));
+                            $isClosedByProcessStatus = $processStatus !== '' && str_contains($processStatus, 'encerrad');
+
+                            return [
+                                $isClosedByProcessStatus ? 1 : 0,
+                                $demand->source_due_at === null ? 1 : 0,
+                                optional($demand->source_due_at)->timestamp ?? PHP_INT_MAX,
+                            ];
+                        })
+                        ->values();
+                    $first = $items->first();
+
+                    $nearestOpenDeadline = $items
+                        ->filter(function (LegalDemand $demand) {
+                            $processStatus = mb_strtolower((string) ($demand->process_status_at_import ?? ''));
+                            $isOpenByProcessStatus = $processStatus !== '' && !str_contains($processStatus, 'encerrad');
+
+                            return $demand->source_due_at !== null
+                                && $isOpenByProcessStatus;
+                        })
+                        ->sortBy('source_due_at')
+                        ->first()?->source_due_at;
+
+                    return [
+                        'group_key' => $caseNumber,
+                        'number_case' => $first?->source_case_number ?: 'Sem número de caso',
+                        'process_number' => $first?->source_process_number_masked ?: ($first?->source_process_number ?: 'Não informado'),
+                        'empresa' => $first?->legalCase?->company_name ?: 'Não informada',
+                        'firma' => $first?->legalCase?->law_firm ?: 'Não informada',
+                        'nearest_open_deadline' => $nearestOpenDeadline,
+                        'nearest_open_deadline_ts' => optional($nearestOpenDeadline)->timestamp,
+                        'demands' => $items,
+                    ];
+                })
+                ->sortBy([
+                    ['nearest_open_deadline_ts', 'asc'],
+                    ['number_case', 'asc'],
+                ])
+                ->values();
+        }
+
         $controllers = User::whereIn(
             'id',
             LegalDemand::externallyActive()
@@ -278,9 +353,22 @@ class DemandQueue extends Component
                 ->unique()
         )->orderBy('name')->get();
 
+        $monitorSicodeClosedButSourceOpen = LegalDemand::query()
+            ->whereIn('internal_status', ['closed_internal', 'closed_external'])
+            ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
+            ->count();
+
+        $monitorSourceClosedButSicodeOpen = LegalDemand::query()
+            ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) LIKE ?", ['%encerrad%'])
+            ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
+            ->count();
+
         return view('livewire.legal.controller.demand-queue', [
             'demands'     => $demands,
+            'groupedDemands' => $groupedDemands,
             'controllers' => $controllers,
+            'monitorSicodeClosedButSourceOpen' => $monitorSicodeClosedButSourceOpen,
+            'monitorSourceClosedButSicodeOpen' => $monitorSourceClosedButSicodeOpen,
         ]);
     }
 }

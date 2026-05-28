@@ -213,13 +213,7 @@ class LegalImportService
             'source_type' => $sourceType,
             'case_number_normalized' => $caseNumberNormalized,
             'process_number_normalized' => $processNumberNormalized,
-            'source_subject' => $sourceSubject,
-            'responsible_area_name' => $responsibleArea,
-            'delegated_responsible_name' => $delegatedResponsible,
-            'delegated_at' => $delegatedAt?->toDateTimeString(),
             'source_due_at' => $sourceDueAt?->toDateTimeString(),
-            'source_decision_at' => $sourceDecisionAt?->toDateTimeString(),
-            'source_description' => $sourceDescription,
         ];
 
         [$sourceRecordKey, $sourceRecordKeyConfidence] = $this->buildSourceRecordKeyAndConfidence($recordKeyData);
@@ -257,7 +251,7 @@ class LegalImportService
             'priority' => null,
             'risk_level' => null,
             'source_record_key' => $sourceRecordKey,
-            'source_record_key_strategy' => 'source_type_case_process_subject_responsible_dates',
+            'source_record_key_strategy' => 'source_type_case_process_source_due_at',
             'source_record_key_confidence' => $sourceRecordKeyConfidence,
             'source_entity_key' => $this->makeSourceEntityKey($sourceType, $caseNumberNormalized, $processNumberNormalized),
             'raw_payload' => $row['raw_payload'] ?? $row,
@@ -289,28 +283,18 @@ class LegalImportService
 
     private function buildSourceRecordKeyAndConfidence(array $data): array
     {
-        $hasSubject = !empty($data['source_subject']);
-        $hasDelegatedAt = !empty($data['delegated_at']);
         $hasDueAt = !empty($data['source_due_at']);
 
         $confidence = 'low';
-        if ($hasSubject && $hasDelegatedAt && $hasDueAt) {
+        if ($hasDueAt) {
             $confidence = 'high';
-        } elseif ($hasSubject && $hasDueAt) {
-            $confidence = 'medium';
         }
 
         $parts = [
             $data['source_type'] ?? '',
             $data['case_number_normalized'] ?? '',
             $data['process_number_normalized'] ?? '',
-            mb_strtolower((string) ($data['source_subject'] ?? '')),
-            mb_strtolower((string) ($data['responsible_area_name'] ?? '')),
-            mb_strtolower((string) ($data['delegated_responsible_name'] ?? '')),
-            (string) ($data['delegated_at'] ?? ''),
             (string) ($data['source_due_at'] ?? ''),
-            (string) ($data['source_decision_at'] ?? ''),
-            mb_strtolower((string) ($data['source_description'] ?? '')),
         ];
 
         return [hash('sha256', implode('|', $parts)), $confidence];
@@ -473,6 +457,12 @@ class LegalImportService
             ->where('source_record_key', $row['source_record_key'])
             ->first();
 
+        $matchedByStableSignature = false;
+        if (!$existing) {
+            $existing = $this->findExistingDemandByStableSignature($row, $case);
+            $matchedByStableSignature = $existing !== null;
+        }
+
         if (!$existing) {
             if ($dryRun) {
                 return ['counter' => 'new_rows', 'demand_id' => null, 'returned' => false];
@@ -538,10 +528,13 @@ class LegalImportService
 
         $fromStatus = $existing->internal_status?->value;
         $oldHash = $existing->source_hash;
+        $oldRecordKey = $existing->source_record_key;
+        $changes = $this->computeSourceChanges($existing, $row);
 
         $existing->legal_case_id = $case->id;
         $existing->source_table = $row['source_table'];
         $existing->source_version = $row['source_version'];
+        $existing->source_record_key = $row['source_record_key'];
         $existing->source_record_key_strategy = $row['source_record_key_strategy'];
         $existing->source_record_key_confidence = $row['source_record_key_confidence'];
         $existing->source_entity_key = $row['source_entity_key'];
@@ -553,6 +546,11 @@ class LegalImportService
         $existing->missing_since = null;
         $existing->source_presence_status = LegalSourcePresenceStatus::PRESENT;
 
+        $preservedDueAt = false;
+        if (($row['source_due_at'] ?? null) === null && $existing->source_due_at !== null) {
+            $preservedDueAt = true;
+        }
+
         $this->fillDemandMutableFields($existing, $row, $batch, $now);
 
         if ($wasMissing) {
@@ -563,38 +561,126 @@ class LegalImportService
         $existing->action_state = $this->computeActionState($existing);
         $existing->save();
 
-        $this->recordEvent($existing->id, $batch?->id, 'updated_from_source', $fromStatus, $existing->internal_status?->value, 'Demanda atualizada pela origem externa.');
+        if ($matchedByStableSignature && $oldRecordKey !== $row['source_record_key']) {
+            $this->recordEvent(
+                $existing->id,
+                $batch?->id,
+                'source_rekeyed',
+                null,
+                null,
+                'Registro da origem mudou a chave tecnica, mas foi reconciliado pela assinatura estavel.'
+            );
+        }
+
+        if ($preservedDueAt) {
+            $this->recordEvent(
+                $existing->id,
+                $batch?->id,
+                'source_due_at_preserved',
+                null,
+                null,
+                'Origem veio sem prazo e o sistema preservou o primeiro prazo preenchido.'
+            );
+        }
+
+        $this->recordEvent(
+            $existing->id,
+            $batch?->id,
+            'updated_from_source',
+            $fromStatus,
+            $existing->internal_status?->value,
+            'Demanda atualizada pela origem externa.',
+            [
+                'match_strategy' => $matchedByStableSignature ? 'stable_signature' : 'source_record_key',
+                'old_source_record_key' => $oldRecordKey,
+                'new_source_record_key' => $row['source_record_key'] ?? null,
+                'changed_fields_count' => count($changes),
+                'changed_fields' => $changes,
+            ]
+        );
 
         if ($forceSnapshot || $oldHash !== $row['source_hash']) {
-            $this->recordSnapshot($existing, $batch, $row, $now);
+            $this->recordSnapshot($existing, $batch, $row, $now, $changes);
         }
 
         return ['counter' => 'updated_rows', 'demand_id' => $existing->id, 'returned' => $wasMissing];
     }
 
+    private function findExistingDemandByStableSignature(array $row, LegalCase $case): ?LegalDemand
+    {
+        $signature = $this->makeDemandStableSignature($row);
+        if ($signature === null) {
+            return null;
+        }
+
+        $candidates = LegalDemand::query()
+            ->where('source_type', $row['source_type'])
+            ->where('legal_case_id', $case->id)
+            ->where('source_entity_key', $row['source_entity_key'])
+            ->whereNotIn('internal_status', [
+                LegalDemandInternalStatus::CLOSED_EXTERNAL->value,
+                LegalDemandInternalStatus::CLOSED_INTERNAL->value,
+                LegalDemandInternalStatus::CANCELLED->value,
+                LegalDemandInternalStatus::IGNORED->value,
+            ])
+            ->orderByDesc('last_seen_at')
+            ->get();
+
+        foreach ($candidates as $candidate) {
+            if ($this->makeDemandStableSignature($candidate->toArray()) === $signature) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function makeDemandStableSignature(array $data): ?string
+    {
+        $sourceType = (string) ($data['source_type'] ?? '');
+        $entityKey = (string) ($data['source_entity_key'] ?? '');
+        $subject = mb_strtolower(trim((string) ($data['source_subject'] ?? '')));
+        $responsibleArea = mb_strtolower(trim((string) ($data['responsible_area_name'] ?? '')));
+        $requestingArea = mb_strtolower(trim((string) ($data['requesting_area_name'] ?? '')));
+
+        if ($sourceType === '' || $entityKey === '' || $subject === '') {
+            return null;
+        }
+
+        $parts = [
+            $sourceType,
+            $entityKey,
+            $subject,
+            $responsibleArea,
+            $requestingArea,
+        ];
+
+        return hash('sha256', implode('|', $parts));
+    }
+
     private function fillDemandMutableFields(LegalDemand $demand, array $row, ?LegalImportBatch $batch, Carbon $now): void
     {
-        $demand->source_subject = $row['source_subject'];
-        $demand->source_description = $row['source_description'];
-        $demand->source_status = $row['source_status'];
-        $demand->source_status_at = $row['source_status_at'];
-        $demand->source_status_group = $row['source_status_group'];
-        $demand->process_status_at_import = $row['process_status_at_import'];
+        $this->assignFromSourcePreservingNonNull($demand, 'source_subject', $row['source_subject'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'source_description', $row['source_description'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'source_status', $row['source_status'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'source_status_at', $row['source_status_at'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'source_status_group', $row['source_status_group'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'process_status_at_import', $row['process_status_at_import'] ?? null);
 
-        $demand->requesting_area_name = $row['requesting_area_name'];
-        $demand->requesting_responsible_name = $row['requesting_responsible_name'];
-        $demand->responsible_area_name = $row['responsible_area_name'];
-        $demand->delegated_responsible_name = $row['delegated_responsible_name'];
-        $demand->delegated_by_name = $row['delegated_by_name'];
-        $demand->delegated_at = $row['delegated_at'];
+        $this->assignFromSourcePreservingNonNull($demand, 'requesting_area_name', $row['requesting_area_name'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'requesting_responsible_name', $row['requesting_responsible_name'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'responsible_area_name', $row['responsible_area_name'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'delegated_responsible_name', $row['delegated_responsible_name'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'delegated_by_name', $row['delegated_by_name'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'delegated_at', $row['delegated_at'] ?? null);
 
-        $demand->source_due_at = $row['source_due_at'];
-        $demand->source_decision_at = $row['source_decision_at'];
-        $demand->source_end_at = $row['source_end_at'];
+        $this->assignFromSourcePreservingNonNull($demand, 'source_due_at', $row['source_due_at'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'source_decision_at', $row['source_decision_at'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'source_end_at', $row['source_end_at'] ?? null);
 
-        $demand->summary = $row['source_description'];
-        $demand->priority = $row['priority'];
-        $demand->risk_level = $row['risk_level'];
+        $this->assignFromSourcePreservingNonNull($demand, 'summary', $row['source_description'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'priority', $row['priority'] ?? null);
+        $this->assignFromSourcePreservingNonNull($demand, 'risk_level', $row['risk_level'] ?? null);
 
         $demand->last_seen_at = $now;
         $demand->last_seen_import_batch_id = $batch?->id;
@@ -605,6 +691,18 @@ class LegalImportService
         $demand->raw_payload = $row['raw_payload'];
         $demand->normalized_payload = $row['normalized_payload'];
         $demand->source_specific_payload = $row['source_specific_payload'];
+    }
+
+    private function assignFromSourcePreservingNonNull(LegalDemand $demand, string $field, mixed $incoming): void
+    {
+        if ($incoming !== null) {
+            $demand->{$field} = $incoming;
+            return;
+        }
+
+        if ($demand->{$field} === null) {
+            $demand->{$field} = null;
+        }
     }
 
     private function buildDemandTitle(?string $subject): ?string
@@ -662,7 +760,7 @@ class LegalImportService
         return 'needs_review';
     }
 
-    private function recordSnapshot(LegalDemand $demand, ?LegalImportBatch $batch, array $row, Carbon $seenAt): void
+    private function recordSnapshot(LegalDemand $demand, ?LegalImportBatch $batch, array $row, Carbon $seenAt, ?array $changedFields = null): void
     {
         LegalSourceSnapshot::create([
             'legal_demand_id' => $demand->id,
@@ -673,7 +771,7 @@ class LegalImportService
             'raw_payload' => $row['raw_payload'],
             'normalized_payload' => $row['normalized_payload'],
             'source_specific_payload' => $row['source_specific_payload'],
-            'changed_fields' => null,
+            'changed_fields' => $changedFields,
             'seen_at' => $seenAt,
         ]);
     }
@@ -684,7 +782,8 @@ class LegalImportService
         string $eventType,
         ?string $fromStatus,
         ?string $toStatus,
-        ?string $description
+        ?string $description,
+        array $metadata = []
     ): void {
         LegalDemandEvent::create([
             'legal_demand_id' => $demandId,
@@ -693,9 +792,68 @@ class LegalImportService
             'from_status' => $fromStatus,
             'to_status' => $toStatus,
             'description' => $description,
-            'metadata' => ['source' => 'legal_import_v2'],
+            'metadata' => array_merge(['source' => 'legal_import_v2'], $metadata),
             'occurred_at' => now(),
         ]);
+    }
+
+    private function computeSourceChanges(LegalDemand $existing, array $row): array
+    {
+        $fields = [
+            'source_record_key',
+            'source_subject',
+            'source_description',
+            'source_status',
+            'source_status_group',
+            'process_status_at_import',
+            'requesting_area_name',
+            'requesting_responsible_name',
+            'responsible_area_name',
+            'delegated_responsible_name',
+            'delegated_by_name',
+            'delegated_at',
+            'source_due_at',
+            'source_decision_at',
+            'source_end_at',
+            'source_presence_status',
+            'source_process_number',
+            'source_case_number',
+        ];
+
+        $changes = [];
+        foreach ($fields as $field) {
+            $before = $existing->{$field} ?? null;
+            $after = $row[$field] ?? null;
+
+            $beforeNorm = $this->normalizeComparableValue($before);
+            $afterNorm = $this->normalizeComparableValue($after);
+
+            if ($beforeNorm !== $afterNorm) {
+                $changes[$field] = [
+                    'before' => $beforeNorm,
+                    'after' => $afterNorm,
+                ];
+            }
+        }
+
+        return $changes;
+    }
+
+    private function normalizeComparableValue(mixed $value): mixed
+    {
+        if ($value instanceof Carbon) {
+            return $value->toDateTimeString();
+        }
+
+        if ($value instanceof \BackedEnum) {
+            return $value->value;
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return $value;
     }
 
     private function markMissingDemands(string $sourceType, array $seenDemandIds, ?LegalImportBatch $batch): int

@@ -69,6 +69,14 @@ class AssignmentResponse extends Component
         $this->assignment = $assignment;
 
         $this->demand = $this->assignment->legalDemand;
+
+        if ($this->externalAccess) {
+            $this->externalExecutorName = (string) (
+                data_get($this->assignment->metadata ?? [], 'external_contact_name')
+                ?: data_get($this->assignment->metadata ?? [], 'external_executor_name')
+                ?: ''
+            );
+        }
     }
 
     public function markInProgress(): void

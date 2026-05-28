@@ -166,6 +166,7 @@ class LegalDemand extends Model
         return $query->whereNotNull('source_due_at')
             ->where('source_due_at', '<', now())
             ->whereNotIn('internal_status', [
+                LegalDemandInternalStatus::CLOSED_INTERNAL->value,
                 LegalDemandInternalStatus::CLOSED_EXTERNAL->value,
                 LegalDemandInternalStatus::CANCELLED->value,
                 LegalDemandInternalStatus::IGNORED->value,

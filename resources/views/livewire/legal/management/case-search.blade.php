@@ -34,10 +34,50 @@
             box-shadow: 0 16px 32px rgba(15,23,42,.08);
             overflow: hidden;
         }
+        .table-card .card-header {
+            padding: .9rem 1rem .85rem 1rem;
+            border-bottom: 1px solid #dbe3ee;
+            background: #1f3148;
+            color: #fff;
+            font-size: .96rem;
+            letter-spacing: .01em;
+        }
         .case-item { border-bottom: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
         .case-item:last-child { border-bottom: none; }
         .case-item:hover { background: #f8fafc; }
         .case-item.selected { background: #eff6ff; border-left: 4px solid #3b82f6; }
+        .meta-chip {
+            display: inline-block;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #334155;
+            border-radius: 999px;
+            padding: .14rem .48rem;
+            font-size: .72rem;
+            font-weight: 700;
+        }
+        .demand-card { border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; }
+        .demand-card + .demand-card { margin-top: .6rem; }
+        .deadline-rail {
+            height: 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .deadline-fill { height: 100%; border-radius: 999px; }
+        .deadline-fill.overdue { background: #ef4444; width: 100%; }
+        .deadline-fill.today { background: #f59e0b; width: 100%; }
+        .deadline-fill.soon { background: #3b82f6; width: 70%; }
+        .deadline-fill.future { background: #16a34a; width: 45%; }
+        .deadline-fill.none { background: #94a3b8; width: 25%; }
+        .deadline-caption { font-size: .78rem; color: #475569; }
+        .section-label {
+            font-size: .74rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: #64748b;
+            font-weight: 700;
+        }
     </style>
 
     <div class="container-fluid">
@@ -92,7 +132,7 @@
 
         {{-- RESULTADOS --}}
         <div class="table-card" wire:loading.class="opacity-50">
-            <div class="card-header text-bg-dark fw-bold d-flex justify-content-between align-items-center">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center">
                 <span>Jurídico › Busca de Casos</span>
                 @if($search || $sourceTypeFilter || $areaFilter || $regionalFilter)
                     <span class="badge bg-secondary">{{ $cases->total() }} resultado(s)</span>
@@ -101,10 +141,12 @@
 
             @forelse($cases as $case)
                 @php
-                    $active  = $case->demands->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])->count();
-                    $overdue = $case->demands->filter(fn($d) => $d->source_due_at && \Carbon\Carbon::parse($d->source_due_at)->isPast())->count();
+                    $isOpenDemand = fn($d) => !str_contains(mb_strtolower((string)($d->process_status_at_import ?? '')), 'encerrad')
+                        && !in_array((string)($d->internal_status instanceof \BackedEnum ? $d->internal_status->value : $d->internal_status), ['cancelled','ignored'], true);
+                    $active  = $case->demands->filter($isOpenDemand)->count();
+                    $overdue = $case->demands->filter(fn($d) => $isOpenDemand($d) && $d->source_due_at && \Carbon\Carbon::parse($d->source_due_at)->isPast())->count();
                     $inField = $case->demands->whereIn('internal_status', ['sent_to_field', 'field_received', 'waiting_field_response'])->count();
-                    $closed  = $case->demands->whereIn('internal_status', ['closed_internal', 'closed_external'])->count();
+                    $closed  = $case->demands->filter(fn($d) => str_contains(mb_strtolower((string)($d->process_status_at_import ?? '')), 'encerrad'))->count();
                     $isOpen  = $selectedCaseId === $case->id;
                 @endphp
 
@@ -159,9 +201,28 @@
 
                     {{-- Painel expandido --}}
                     @if($isOpen && $selectedCase)
+                        @php
+                            $allDemands = $selectedCase->demands;
+                            $openDemands = $allDemands->filter(fn($d) => !str_contains(mb_strtolower((string)($d->process_status_at_import ?? '')), 'encerrad'));
+                            $closedDemands = $allDemands->count() - $openDemands->count();
+                            $nearestOpenDue = $openDemands->filter(fn($d) => $d->source_due_at)->sortBy('source_due_at')->first()?->source_due_at;
+                            $linkedNotesCount = $selectedCase->notes?->count() ?? 0;
+                        @endphp
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 col-md-3"><div class="meta-chip w-100">Demandas totais: <strong>{{ $allDemands->count() }}</strong></div></div>
+                            <div class="col-6 col-md-3"><div class="meta-chip w-100">Abertas: <strong>{{ $openDemands->count() }}</strong></div></div>
+                            <div class="col-6 col-md-3"><div class="meta-chip w-100">Encerradas: <strong>{{ $closedDemands }}</strong></div></div>
+                            <div class="col-6 col-md-3"><div class="meta-chip w-100">Notes associadas: <strong>{{ $linkedNotesCount }}</strong></div></div>
+                            <div class="col-12">
+                                <div class="meta-chip w-100">
+                                    Próximo prazo aberto:
+                                    <strong>{{ $nearestOpenDue ? \Carbon\Carbon::parse($nearestOpenDue)->format('d/m/Y H:i') : 'Sem prazo aberto' }}</strong>
+                                </div>
+                            </div>
+                        </div>
                         <hr class="my-2">
                         <ul class="nav nav-tabs mb-3">
-                            @foreach([['demands', 'Demandas Ativas'], ['history', 'Histórico Completo'], ['timeline', 'Timeline'], ['data', 'Dados do Caso']] as [$key, $label])
+                            @foreach([['demands', 'Demandas Ativas'], ['notes', 'Notes Associadas'], ['history', 'Histórico Completo'], ['timeline', 'Timeline'], ['data', 'Dados do Caso']] as [$key, $label])
                                 <li class="nav-item">
                                     <button class="nav-link {{ $caseTab === $key ? 'active' : '' }}"
                                             wire:click="$set('caseTab', '{{ $key }}')">{{ $label }}</button>
@@ -175,9 +236,11 @@
                                     $dt  = $demand->source_type instanceof \BackedEnum ? $demand->source_type->value : $demand->source_type;
                                     $dl  = match($dt) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => $dt ?? '—' };
                                     $db  = match($dt) { 'injunction' => 'bg-danger text-white', 'sentence' => 'bg-warning text-dark', 'subsidy' => 'bg-info text-dark', default => 'bg-secondary text-white' };
+                                    $externalStatus = trim((string)($demand->source_status ?? $demand->process_status_at_import ?? ''));
+                                    $internalStatusValue = (string)($demand->internal_status instanceof \BackedEnum ? $demand->internal_status->value : $demand->internal_status);
+                                    $processClosed = str_contains(mb_strtolower((string)($demand->process_status_at_import ?? '')), 'encerrad');
                                 @endphp
-                                <div class="card border shadow-none mb-2">
-                                    <div class="card-body py-2 px-3">
+                                <div class="demand-card p-3">
                                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                                             <div>
                                                 <span class="badge {{ $db }} me-1" style="font-size:.76rem">{{ $dl }}</span>
@@ -190,15 +253,88 @@
                                                    class="btn btn-sm btn-outline-secondary">Ver Detalhes →</a>
                                             </div>
                                         </div>
+                                        @php
+                                            $due = $demand->source_due_at ? \Carbon\Carbon::parse($demand->source_due_at) : null;
+                                            $now = now();
+                                            $deadlineClass = 'none';
+                                            $deadlineText = 'Sem prazo informado';
+                                            if ($due) {
+                                                if ($due->isPast()) { $deadlineClass = 'overdue'; $deadlineText = 'Prazo vencido'; }
+                                                elseif ($due->isToday()) { $deadlineClass = 'today'; $deadlineText = 'Vence hoje'; }
+                                                elseif ($due->lte($now->copy()->addDays(3))) { $deadlineClass = 'soon'; $deadlineText = 'Vence em até 3 dias'; }
+                                                elseif ($due->lte($now->copy()->addDays(7))) { $deadlineClass = 'soon'; $deadlineText = 'Vence em até 7 dias'; }
+                                                else { $deadlineClass = 'future'; $deadlineText = 'Prazo futuro'; }
+                                            }
+                                        @endphp
+                                        <div class="mt-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="section-label">Régua de Prazo</span>
+                                                <span class="deadline-caption">{{ $deadlineText }}</span>
+                                            </div>
+                                            <div class="deadline-rail">
+                                                <div class="deadline-fill {{ $deadlineClass }}"></div>
+                                            </div>
+                                        </div>
                                         <div class="small text-muted mt-1">
                                             Controlador: {{ $demand->controller?->name ?? '—' }}
                                             &bull; Campo: {{ $demand->currentAssignee?->name ?? '—' }}
                                         </div>
-                                    </div>
+                                        <div class="d-flex flex-wrap gap-2 mt-2">
+                                            <span class="meta-chip">Status externo: {{ $externalStatus !== '' ? $externalStatus : 'Sem status externo' }}</span>
+                                            <span class="meta-chip">Status interno: {{ \Illuminate\Support\Str::headline(str_replace('_', ' ', $internalStatusValue)) }}</span>
+                                            <span class="meta-chip {{ $processClosed ? 'text-danger border-danger bg-danger-subtle' : 'text-success border-success bg-success-subtle' }}">
+                                                {{ $processClosed ? 'Processo encerrado' : 'Processo aberto' }}
+                                            </span>
+                                        </div>
+                                        <div class="row g-2 mt-2 small">
+                                            <div class="col-md-6"><span class="section-label d-block">Assunto</span>{{ $demand->source_subject ?: '—' }}</div>
+                                            <div class="col-md-6"><span class="section-label d-block">Área solicitante</span>{{ $demand->requesting_area_name ?: '—' }}</div>
+                                            <div class="col-md-6"><span class="section-label d-block">Área responsável</span>{{ $demand->responsible_area_name ?: '—' }}</div>
+                                            <div class="col-md-6"><span class="section-label d-block">Responsável delegado</span>{{ $demand->delegated_responsible_name ?: '—' }}</div>
+                                            <div class="col-md-6"><span class="section-label d-block">Status externo em</span>{{ $demand->source_status_at ? \Carbon\Carbon::parse($demand->source_status_at)->format('d/m/Y H:i') : '—' }}</div>
+                                            <div class="col-md-6"><span class="section-label d-block">Decisão origem em</span>{{ $demand->source_decision_at ? \Carbon\Carbon::parse($demand->source_decision_at)->format('d/m/Y H:i') : '—' }}</div>
+                                            @if($demand->source_description)
+                                                <div class="col-12"><span class="section-label d-block">Descrição</span>{{ \Illuminate\Support\Str::limit($demand->source_description, 320) }}</div>
+                                            @endif
+                                        </div>
                                 </div>
                             @empty
                                 <div class="text-muted small py-2">Nenhuma demanda ativa neste caso.</div>
                             @endforelse
+
+                        @elseif($caseTab === 'notes')
+                            @if(($selectedCase->notes?->count() ?? 0) > 0)
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Note</th>
+                                                <th>Cliente</th>
+                                                <th>Status</th>
+                                                <th>Data status</th>
+                                                <th>Vinculada em</th>
+                                                <th>Contexto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($selectedCase->notes->sortByDesc(fn($n) => $n->pivot?->linked_at) as $note)
+                                                <tr>
+                                                    <td>{{ $note->id }}</td>
+                                                    <td>{{ $note->note ?? '—' }}</td>
+                                                    <td>{{ $note->client ?? '—' }}</td>
+                                                    <td><span class="badge bg-light text-dark border">{{ $note->nstats ?? $note->status ?? '—' }}</span></td>
+                                                    <td>{{ $note->dt_status ? \Carbon\Carbon::parse($note->dt_status)->format('d/m/Y H:i') : '—' }}</td>
+                                                    <td>{{ $note->pivot?->linked_at ? \Carbon\Carbon::parse($note->pivot->linked_at)->format('d/m/Y H:i') : '—' }}</td>
+                                                    <td>{{ $note->pivot?->context ?: '—' }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-muted small py-2">Nenhuma note associada a este caso.</div>
+                            @endif
 
                         @elseif($caseTab === 'history')
                             @forelse($selectedCase->demands as $demand)

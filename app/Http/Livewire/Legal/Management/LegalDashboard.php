@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Legal\Management;
 
 use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalImportBatch};
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
@@ -77,7 +78,10 @@ class LegalDashboard extends Component
             [$from, $to] = $this->periodDates();
 
             // active = externallyActive + filtros globais; closed = externally OR internally closed
-            $active = fn () => $this->applyGlobalFilters(LegalDemand::externallyActive());
+            $active = fn () => $this->applyGlobalFilters(
+                LegalDemand::externallyActive()
+                    ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
+            );
             $closed = fn () => $this->applyGlobalFilters(LegalDemand::query())->where(function ($q) {
                 $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored']);
                 $q->orWhereIn('source_status_group', ['closed_done', 'closed_cancelled']);
@@ -98,6 +102,78 @@ class LegalDashboard extends Component
             $resolvedOnTime   = $closed()->whereIn('internal_status', ['closed_internal', 'closed_external'])->whereBetween('closed_at', [$from, $to])
                 ->whereRaw('closed_at <= source_due_at OR source_due_at IS NULL')->count();
             $kpis['sla'] = $resolvedInPeriod > 0 ? round(($resolvedOnTime / $resolvedInPeriod) * 100) : null;
+
+            // SLAs operacionais do fluxo (base em assignments no período)
+            $assignmentsBase = LegalDemandAssignment::query()
+                ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
+                ->whereBetween('legal_demand_assignments.sent_at', [$from, $to]);
+
+            $this->applyGlobalFilters($assignmentsBase);
+
+            /** @var Collection<int, object> $assignments */
+            $assignments = $assignmentsBase
+                ->select([
+                    'legal_demand_assignments.sent_at',
+                    'legal_demand_assignments.received_at',
+                    'legal_demand_assignments.answered_at',
+                    'legal_demand_assignments.metadata',
+                    'legal_demands.first_seen_at',
+                    'legal_demands.closed_at',
+                ])
+                ->get();
+
+            $totalAssignments = max(1, $assignments->count());
+            $receivedCount = $assignments->filter(fn ($a) => !empty($a->received_at))->count();
+            $answeredCount = $assignments->filter(fn ($a) => !empty($a->answered_at))->count();
+
+            $controllerDispatchAvgHours = $assignments
+                ->filter(fn ($a) => !empty($a->first_seen_at) && !empty($a->sent_at))
+                ->map(fn ($a) => \Carbon\Carbon::parse($a->first_seen_at)->diffInMinutes(\Carbon\Carbon::parse($a->sent_at), false))
+                ->filter(fn ($m) => is_numeric($m) && $m >= 0)
+                ->avg();
+
+            $executorReceiveAvgHours = $assignments
+                ->filter(fn ($a) => !empty($a->received_at) && !empty($a->sent_at))
+                ->map(fn ($a) => \Carbon\Carbon::parse($a->sent_at)->diffInMinutes(\Carbon\Carbon::parse($a->received_at), false))
+                ->filter(fn ($m) => is_numeric($m) && $m >= 0)
+                ->avg();
+
+            $executorAnswerAvgHours = $assignments
+                ->filter(fn ($a) => !empty($a->answered_at) && !empty($a->received_at))
+                ->map(fn ($a) => \Carbon\Carbon::parse($a->received_at)->diffInMinutes(\Carbon\Carbon::parse($a->answered_at), false))
+                ->filter(fn ($m) => is_numeric($m) && $m >= 0)
+                ->avg();
+
+            $onTimeByAssignmentDue = $assignments
+                ->filter(function ($a) {
+                    $meta = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
+                    $dueAt = data_get($meta, 'due_at');
+                    return !empty($a->answered_at) && !empty($dueAt);
+                })
+                ->filter(function ($a) {
+                    $meta = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
+                    $dueAt = data_get($meta, 'due_at');
+                    return \Carbon\Carbon::parse($a->answered_at)->lte(\Carbon\Carbon::parse($dueAt));
+                })
+                ->count();
+
+            $withDue = $assignments->filter(function ($a) {
+                $meta = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
+                return !empty(data_get($meta, 'due_at'));
+            })->count();
+
+            $controllerCloseRate = $active()->whereNotNull('closed_at')->count();
+            $controllerTotalManaged = max(1, $active()->count() + $closed()->count());
+
+            $slaOps = [
+                'controller_dispatch_avg_h' => $controllerDispatchAvgHours !== null ? round($controllerDispatchAvgHours / 60, 1) : null,
+                'executor_receive_avg_h' => $executorReceiveAvgHours !== null ? round($executorReceiveAvgHours / 60, 1) : null,
+                'executor_answer_avg_h' => $executorAnswerAvgHours !== null ? round($executorAnswerAvgHours / 60, 1) : null,
+                'executor_receive_rate' => round(($receivedCount / $totalAssignments) * 100),
+                'executor_answer_rate' => round(($answeredCount / $totalAssignments) * 100),
+                'answer_on_due_rate' => $withDue > 0 ? round(($onTimeByAssignmentDue / $withDue) * 100) : null,
+                'controller_close_rate' => round(($controllerCloseRate / $controllerTotalManaged) * 100),
+            ];
 
             // Funil por status (ativos excluem externamente encerrados)
             $statusFunnel = [
@@ -177,7 +253,43 @@ class LegalDashboard extends Component
                 $alerts[] = ['level' => 'accent', 'message' => "{$needsReview} demandas precisam revisão de identidade"];
             }
 
-            return compact('kpis', 'statusFunnel', 'byType', 'topAreas', 'heatmap', 'executors', 'criticalDemands', 'alerts');
+            $funnelLabels = ['Novas', 'Triagem', 'Em Campo', 'Retornadas', 'Prontas Fechar', 'Encerradas'];
+            $funnelData = [
+                (int) ($statusFunnel['new_imported'] ?? 0),
+                (int) ($statusFunnel['triage'] ?? 0),
+                (int) ($statusFunnel['in_field'] ?? 0),
+                (int) ($statusFunnel['returned'] ?? 0),
+                (int) ($statusFunnel['ready_close'] ?? 0),
+                (int) ($statusFunnel['closed'] ?? 0),
+            ];
+
+            $typeLabels = ['Liminar', 'Sentença', 'Subsídio'];
+            $typeData = [
+                (int) ($byType['injunction'] ?? 0),
+                (int) ($byType['sentence'] ?? 0),
+                (int) ($byType['subsidy'] ?? 0),
+            ];
+
+            $areaLabels = $topAreas->pluck('origin_area_name')->map(fn ($v) => (string) ($v ?: '—'))->values()->all();
+            $areaData = $topAreas->pluck('total')->map(fn ($v) => (int) $v)->values()->all();
+
+            return compact(
+                'kpis',
+                'slaOps',
+                'statusFunnel',
+                'byType',
+                'topAreas',
+                'heatmap',
+                'executors',
+                'criticalDemands',
+                'alerts',
+                'funnelLabels',
+                'funnelData',
+                'typeLabels',
+                'typeData',
+                'areaLabels',
+                'areaData'
+            );
         });
     }
 

@@ -43,14 +43,74 @@
             box-shadow: 0 16px 32px rgba(15,23,42,.08);
             overflow: hidden;
         }
+        .table-card .card-header {
+            padding: .85rem 1rem .8rem 1rem;
+            border-bottom: 1px solid #dbe3ee;
+            background: #1f3148;
+            color: #fff;
+            font-size: .97rem;
+            letter-spacing: .01em;
+        }
+        .table-card .card-body {
+            padding: 1rem;
+        }
         .table-card .table thead th {
             font-size: .75rem;
             text-transform: uppercase;
             letter-spacing: .06em;
             white-space: nowrap;
         }
+        .sla-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap: .75rem;
+        }
+        .sla-item {
+            background: #ffffff;
+            border: 1px solid #dbe3ee;
+            border-radius: .8rem;
+            padding: .7rem .85rem;
+        }
+        .sla-item .k { font-size: .72rem; text-transform: uppercase; color: #64748b; font-weight: 700; }
+        .sla-item .v { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+        @media (max-width: 1200px) {
+            .sla-strip { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
         .ld-pulse { animation: ld-pulse-anim 2s infinite; }
         @keyframes ld-pulse-anim { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.3); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+        .critical-table .proc-link,
+        .critical-table .proc-link:visited {
+            color: #1e3a8a !important;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .critical-table .proc-link:hover,
+        .critical-table .proc-link:focus {
+            color: #1e40af !important;
+            text-decoration: underline;
+        }
+        .critical-table .type-chip {
+            display: inline-block;
+            border-radius: 999px;
+            padding: .18rem .5rem;
+            font-size: .72rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .critical-table .type-injunction { background: #fee2e2; color: #991b1b; }
+        .critical-table .type-sentence { background: #fef3c7; color: #92400e; }
+        .critical-table .type-subsidy { background: #dbeafe; color: #1e40af; }
+        .critical-table .type-default { background: #e5e7eb; color: #374151; }
+        .critical-table .status-chip {
+            display: inline-block;
+            border-radius: 999px;
+            padding: .18rem .5rem;
+            font-size: .72rem;
+            font-weight: 700;
+            line-height: 1;
+            background: #e2e8f0;
+            color: #334155;
+        }
     </style>
 
     <div class="container-fluid">
@@ -167,53 +227,70 @@
         <div class="row g-4 mb-4">
             <div class="col-lg-4">
                 <div class="table-card h-100">
-                    <div class="card-header text-bg-dark fw-bold">Funil por Status</div>
+                    <div class="card-header fw-bold">Funil por Status</div>
                     <div class="card-body">
-                        @php
-                            $funnelLabels = ['new_imported' => 'Novas', 'triage' => 'Triagem', 'in_field' => 'Em Campo', 'returned' => 'Retornadas', 'ready_close' => 'Prontas Fechar', 'closed' => 'Encerradas'];
-                            $funnelMax    = max(1, max($statusFunnel));
-                        @endphp
-                        @foreach($funnelLabels as $key => $label)
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <div style="width:100px" class="small text-end text-muted">{{ $label }}</div>
-                                <div class="flex-grow-1 bg-light rounded" style="height:20px">
-                                    <div class="bg-primary rounded" style="height:100%;width:{{ round(($statusFunnel[$key] ?? 0) / $funnelMax * 100) }}%"></div>
-                                </div>
-                                <div class="small fw-semibold" style="width:30px">{{ $statusFunnel[$key] ?? 0 }}</div>
-                            </div>
-                        @endforeach
+                        <x-grafico.apex
+                            chartId="legal_funnel_chart"
+                            :chart="[
+                                'type' => 'bar',
+                                'data' => [
+                                    'labels' => $funnelLabels,
+                                    'datasets' => [[
+                                        'label' => 'Demandas',
+                                        'data' => $funnelData,
+                                        'borderRadius' => 6,
+                                        'maxBarThickness' => 30,
+                                    ]],
+                                ],
+                                'options' => [
+                                    'indexAxis' => 'y',
+                                    'plugins' => [
+                                        'legend' => ['display' => false],
+                                    ],
+                                    'scales' => [
+                                        'x' => ['beginAtZero' => true],
+                                    ],
+                                ],
+                            ]"
+                            class="w-100"
+                            :showDataLabels="true"
+                        />
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-4">
                 <div class="table-card h-100">
-                    <div class="card-header text-bg-dark fw-bold">Por Tipo de Fonte</div>
+                    <div class="card-header fw-bold">Por Tipo de Fonte</div>
                     <div class="card-body">
-                        @php
-                            $typeLabels = ['injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio'];
-                            $typeTotal  = max(1, $byType->sum());
-                            $typeColors = ['injunction' => 'danger', 'sentence' => 'warning', 'subsidy' => 'info'];
-                        @endphp
-                        @foreach($typeLabels as $key => $label)
-                            @php $count = $byType[$key] ?? 0; $pct = round($count / $typeTotal * 100); @endphp
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between small mb-1">
-                                    <span>{{ $label }}</span>
-                                    <span class="fw-semibold">{{ $count }} ({{ $pct }}%)</span>
-                                </div>
-                                <div class="progress" style="height:8px">
-                                    <div class="progress-bar bg-{{ $typeColors[$key] }}" style="width:{{ $pct }}%"></div>
-                                </div>
-                            </div>
-                        @endforeach
+                        <x-grafico.apex
+                            chartId="legal_type_donut"
+                            :chart="[
+                                'type' => 'doughnut',
+                                'data' => [
+                                    'labels' => $typeLabels,
+                                    'datasets' => [[
+                                        'label' => 'Tipos',
+                                        'data' => $typeData,
+                                        'borderWidth' => 1,
+                                    ]],
+                                ],
+                                'options' => [
+                                    'plugins' => [
+                                        'legend' => ['position' => 'bottom'],
+                                    ],
+                                ],
+                            ]"
+                            class="w-100"
+                            :showDataLabels="false"
+                        />
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-4">
                 <div class="table-card h-100">
-                    <div class="card-header text-bg-dark fw-bold">Criticidade × Tipo</div>
+                    <div class="card-header fw-bold">Criticidade × Tipo</div>
                     <div class="card-body p-2">
                         <table class="table table-sm table-bordered mb-0 small">
                             <thead class="table-light">
@@ -247,29 +324,42 @@
         <div class="row g-4 mb-4">
             <div class="col-lg-4">
                 <div class="table-card h-100">
-                    <div class="card-header text-bg-dark fw-bold">Top 5 Áreas</div>
+                    <div class="card-header fw-bold">Top 5 Áreas</div>
                     <div class="card-body">
-                        @php $areaMax = max(1, $topAreas->max('total')); @endphp
-                        @forelse($topAreas as $area)
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <div class="small text-muted text-truncate" style="width:120px">{{ $area->origin_area_name ?? '—' }}</div>
-                                <div class="flex-grow-1 bg-light rounded" style="height:16px">
-                                    <div class="bg-primary rounded" style="height:100%;width:{{ round($area->total / $areaMax * 100) }}%"></div>
-                                </div>
-                                <div class="small fw-semibold" style="width:24px">{{ $area->total }}</div>
-                            </div>
-                        @empty
+                        @if(count($areaLabels) > 0)
+                            <x-grafico.apex
+                                chartId="legal_areas_chart"
+                                :chart="[
+                                    'type' => 'bar',
+                                    'data' => [
+                                        'labels' => $areaLabels,
+                                        'datasets' => [[
+                                            'label' => 'Demandas',
+                                            'data' => $areaData,
+                                            'borderRadius' => 6,
+                                            'maxBarThickness' => 34,
+                                        ]],
+                                    ],
+                                    'options' => [
+                                        'plugins' => ['legend' => ['display' => false]],
+                                        'scales' => ['y' => ['beginAtZero' => true]],
+                                    ],
+                                ]"
+                                class="w-100"
+                                :showDataLabels="true"
+                            />
+                        @else
                             <p class="text-muted small">Sem dados.</p>
-                        @endforelse
+                        @endif
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-4">
                 <div class="table-card h-100">
-                    <div class="card-header text-bg-dark fw-bold">Ranking de Executantes</div>
+                    <div class="card-header fw-bold">Ranking de Executantes</div>
                     <div class="card-body p-0">
-                        <table class="table table-sm mb-0">
+                        <table class="table table-sm mb-0 critical-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>#</th>
@@ -303,7 +393,7 @@
 
             <div class="col-lg-4">
                 <div class="table-card h-100">
-                    <div class="card-header text-bg-dark fw-bold">Top 10 Processos Críticos</div>
+                    <div class="card-header fw-bold">Top 10 Processos Críticos</div>
                     <div class="card-body p-0">
                         <table class="table table-sm mb-0">
                             <thead class="table-light">
@@ -319,23 +409,74 @@
                                     @php
                                         $dType  = $d->source_type instanceof \BackedEnum ? $d->source_type->value : $d->source_type;
                                         $dLabel = match($dType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => $dType ?? '—' };
-                                        $dBg    = match($dType) { 'injunction' => 'bg-danger text-white', 'sentence' => 'bg-warning text-dark', 'subsidy' => 'bg-info text-dark', default => 'bg-secondary text-white' };
+                                        $dTypeClass = match($dType) {
+                                            'injunction' => 'type-injunction',
+                                            'sentence' => 'type-sentence',
+                                            'subsidy' => 'type-subsidy',
+                                            default => 'type-default'
+                                        };
+                                        $externalStatusRaw = trim((string) ($d->source_status ?? $d->process_status_at_import ?? ''));
+                                        $statusLabel = $externalStatusRaw !== ''
+                                            ? $externalStatusRaw
+                                            : 'Sem status externo';
                                     @endphp
                                     <tr>
                                         <td>
-                                            <a href="{{ route('legal.demand.detail', $d->uuid) }}" class="small">
+                                            <a href="{{ route('legal.demand.detail', $d->uuid) }}" class="small proc-link" style="color:#1e3a8a;text-decoration:none;">
                                                 {{ $d->source_case_number ?? $d->source_process_number_masked ?? 'S/N' }}
                                             </a>
                                         </td>
-                                        <td><span class="badge {{ $dBg }} small">{{ $dLabel }}</span></td>
+                                        <td><span class="type-chip {{ $dTypeClass }}">{{ $dLabel }}</span></td>
                                         <td><x-legal.due-date-chip :date="$d->source_due_at" :executedAt="$d->source_executed_at" :showIcon="false" /></td>
-                                        <td><x-legal.status-badge :status="$d->internal_status" /></td>
+                                        <td><span class="status-chip">{{ $statusLabel }}</span></td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="4" class="text-center text-muted py-3">Sem demandas críticas.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card mb-4">
+            <div class="card-header fw-bold">SLA Operacional</div>
+            <div class="card-body">
+                <div class="sla-strip">
+                    <div class="sla-item">
+                        <div class="k">Tempo méd. despacho controlador</div>
+                        <div class="v">{{ $slaOps['controller_dispatch_avg_h'] !== null ? $slaOps['controller_dispatch_avg_h'].'h' : '—' }}</div>
+                    </div>
+                    <div class="sla-item">
+                        <div class="k">Tempo méd. recebimento executante</div>
+                        <div class="v">{{ $slaOps['executor_receive_avg_h'] !== null ? $slaOps['executor_receive_avg_h'].'h' : '—' }}</div>
+                    </div>
+                    <div class="sla-item">
+                        <div class="k">Tempo méd. resposta executante</div>
+                        <div class="v">{{ $slaOps['executor_answer_avg_h'] !== null ? $slaOps['executor_answer_avg_h'].'h' : '—' }}</div>
+                    </div>
+                    <div class="sla-item">
+                        <div class="k">Respostas dentro do prazo (SLA)</div>
+                        <div class="v">{{ $slaOps['answer_on_due_rate'] !== null ? $slaOps['answer_on_due_rate'].'%' : '—' }}</div>
+                    </div>
+                </div>
+                <div class="sla-strip mt-3">
+                    <div class="sla-item">
+                        <div class="k">Taxa de recebimento executante</div>
+                        <div class="v">{{ $slaOps['executor_receive_rate'] }}%</div>
+                    </div>
+                    <div class="sla-item">
+                        <div class="k">Taxa de resposta executante</div>
+                        <div class="v">{{ $slaOps['executor_answer_rate'] }}%</div>
+                    </div>
+                    <div class="sla-item">
+                        <div class="k">Taxa de encerramento controlador</div>
+                        <div class="v">{{ $slaOps['controller_close_rate'] }}%</div>
+                    </div>
+                    <div class="sla-item">
+                        <div class="k">SLA fechamento no prazo</div>
+                        <div class="v">{{ $kpis['sla'] !== null ? $kpis['sla'].'%' : '—' }}</div>
                     </div>
                 </div>
             </div>

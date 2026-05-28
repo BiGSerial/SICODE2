@@ -58,7 +58,10 @@ class CaseSearch extends Component
     private function baseQuery()
     {
         $query = LegalCase::query()->with(['demands' => function ($q) {
-            $q->with(['controller', 'currentAssignee'])->orderBy('source_due_at');
+            $q->with(['controller', 'currentAssignee'])
+                ->orderByRaw("CASE WHEN LOWER(COALESCE(process_status_at_import, '')) LIKE '%encerrad%' THEN 1 ELSE 0 END ASC")
+                ->orderByRaw('ISNULL(source_due_at) ASC')
+                ->orderBy('source_due_at', 'asc');
         }]);
 
         if ($this->search) {
@@ -87,6 +90,10 @@ class CaseSearch extends Component
             $query->whereHas('demands', fn ($q) => $q->where('requesting_area_name', 'like', "%{$this->areaFilter}%"));
         }
 
+        if ($this->regionalFilter) {
+            $query->whereHas('demands', fn ($q) => $q->where('responsible_area_name', 'like', "%{$this->regionalFilter}%"));
+        }
+
         return $query->orderByDesc('last_seen_at');
     }
 
@@ -97,6 +104,7 @@ class CaseSearch extends Component
 
         if ($this->selectedCaseId) {
             $selectedCase = LegalCase::with([
+                'notes',
                 'demands.controller',
                 'demands.currentAssignee',
                 'demands.events.actor',

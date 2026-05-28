@@ -470,21 +470,28 @@
                     <div class="ld-section-header">Notes associadas ao processo</div>
                     <div class="ld-section-body">
                         <div class="mb-3">
-                            <label class="form-label small fw-semibold">Buscar note (ID, número ou cliente)</label>
+                            <label class="form-label small fw-semibold">Buscar / informar notes (ID, número ou cliente)</label>
                             <div class="input-group input-group-sm mb-2">
-                                <input type="text" class="form-control" wire:model.debounce.300ms="noteSearch" placeholder="Ex.: 12345 ou 500123..." />
+                                <input type="text" class="form-control" wire:model.debounce.300ms="noteInput" placeholder="Ex.: 12345 67890 ou 500123;500124" />
                             </div>
+                            <div class="small text-muted mb-2">Você pode digitar uma por vez (para usar o ADD) ou várias na mesma linha, separando por espaço, vírgula ou ;</div>
                             @if($searchedNotes->isNotEmpty())
                                 <div class="table-responsive mb-3">
                                     <table class="table table-sm align-middle mb-0">
-                                        <thead><tr><th>ID</th><th>Note</th><th>Cliente</th><th class="text-end">Ação</th></tr></thead>
+                                        <thead><tr><th>ID</th><th>Note</th><th>Cliente</th><th>Status</th><th class="text-end">Ação</th></tr></thead>
                                         <tbody>
                                             @foreach($searchedNotes as $sn)
                                                 <tr>
                                                     <td>{{ $sn->id }}</td>
                                                     <td>{{ $sn->note ?? '—' }}</td>
                                                     <td>{{ $sn->client ?? '—' }}</td>
-                                                    <td class="text-end"><button class="btn btn-sm btn-outline-primary" wire:click="attachSingleNote({{ $sn->id }})">Associar</button></td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $sn->nstats ?? $sn->status ?? '—' }}</span>
+                                                        @if($sn->dt_status)
+                                                            <div class="text-muted small">{{ \Carbon\Carbon::parse($sn->dt_status)->format('d/m/Y H:i') }}</div>
+                                                        @endif
+                                                    </td>
+                                                    <td class="text-end"><button class="btn btn-sm btn-outline-primary" wire:click="attachSingleNote({{ $sn->id }})">ADD</button></td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -492,24 +499,23 @@
                                 </div>
                             @endif
 
-                            <label class="form-label small fw-semibold">IDs das notes (separe por vírgula, espaço ou ;)</label>
-                            <input type="text" class="form-control form-control-sm mb-2" wire:model="noteIdsInput" placeholder="Ex.: 12345, 67890" />
                             <label class="form-label small fw-semibold">Contexto do vínculo (opcional)</label>
                             <input type="text" class="form-control form-control-sm mb-2" wire:model="noteLinkContext" placeholder="Ex.: processo relacionado ao mesmo atendimento" />
                             <button class="btn btn-sm btn-primary" wire:click="linkNotesToCase"><i class="bi bi-plus-circle me-1"></i>Associar Notes</button>
                         </div>
 
-                        @php $linkedNotes = $demand->legalCase?->notes ?? collect(); @endphp
                         @if($linkedNotes->isNotEmpty())
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle mb-0">
-                                    <thead><tr><th>Note ID</th><th>Número</th><th>Vinculada em</th><th class="text-end">Ação</th></tr></thead>
+                                    <thead><tr><th>Note ID</th><th>Número</th><th>Status atual</th><th>Data status</th><th>Vinculada em</th><th class="text-end">Ação</th></tr></thead>
                                     <tbody>
                                         @foreach($linkedNotes as $note)
                                             <tr>
                                                 <td>{{ $note->id }}</td>
                                                 <td>{{ $note->note ?? '—' }}</td>
-                                                <td>{{ optional($note->pivot->linked_at)->format('d/m/Y H:i') ?? '—' }}</td>
+                                                <td><span class="badge bg-light text-dark border">{{ $note->nstats ?? $note->status ?? '—' }}</span></td>
+                                                <td>{{ $note->dt_status ? \Carbon\Carbon::parse($note->dt_status)->format('d/m/Y H:i') : '—' }}</td>
+                                                <td>{{ $note->pivot_linked_at ? \Carbon\Carbon::parse($note->pivot_linked_at)->format('d/m/Y H:i') : '—' }}</td>
                                                 <td class="text-end"><button class="btn btn-sm btn-outline-danger" wire:click="unlinkNoteFromCase({{ $note->id }})">Desvincular</button></td>
                                             </tr>
                                         @endforeach
@@ -568,7 +574,7 @@
                                 @case('triage')
                                 @case('waiting_controller_action')
                                     <div class="d-grid gap-2">
-                                        <button class="btn btn-primary" wire:click="$toggle('showAssignForm')"><i class="bi bi-send me-1"></i>Enviar para Campo</button>
+                                        <button class="btn btn-primary" wire:click="$toggle('showAssignForm')"><i class="bi bi-send me-1"></i>Atribuir Responsável</button>
                                         <button class="btn btn-outline-secondary" wire:click="$toggle('showCloseForm')"><i class="bi bi-lock me-1"></i>Fechar Internamente</button>
                                     </div>
                                     @break

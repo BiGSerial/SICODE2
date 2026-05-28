@@ -191,6 +191,62 @@
             border-radius: .75rem;
             padding: .6rem 1rem;
         }
+
+        .case-group-card {
+            background: #fff;
+            border: 1px solid #dbe3ee;
+            border-radius: .85rem;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, .05);
+            margin-bottom: .75rem;
+            overflow: hidden;
+        }
+        .case-group-head {
+            background: #f1f5f9;
+            border-bottom: 1px solid #dbe3ee;
+            padding: .6rem .8rem;
+        }
+        .case-group-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1.4fr 1.2fr 1.2fr 1fr;
+            gap: .7rem;
+        }
+        .case-label {
+            font-size: .68rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #64748b;
+            font-weight: 700;
+        }
+        .case-value {
+            font-size: .85rem;
+            color: #0f172a;
+            font-weight: 600;
+            line-height: 1.25;
+            margin-top: .1rem;
+        }
+        .case-sublist {
+            padding: .55rem .7rem .35rem;
+            background: #f8fafc;
+        }
+        .case-subrow {
+            display: grid;
+            grid-template-columns: minmax(240px, 2fr) minmax(90px, .7fr) minmax(180px, 1fr) minmax(180px, 1fr) 52px;
+            gap: .5rem;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-left: 5px solid #cbd5e1;
+            border-radius: .65rem;
+            padding: .45rem .55rem;
+            margin-bottom: .4rem;
+        }
+        .case-subrow-open { border-left-color: #16a34a; }
+        .case-subrow-closed { border-left-color: #ef4444; }
+        .case-subrow-unknown { border-left-color: #f59e0b; }
+        @media (max-width: 1400px) {
+            .case-group-grid { min-width: 900px; }
+            .case-subrow { min-width: 900px; }
+        }
     </style>
 
     <div class="container-fluid">
@@ -316,8 +372,20 @@
                     </li>
                 @endforeach
             </ul>
-            <div class="small text-muted">
-                Exibindo <strong>{{ $demands->count() }}</strong> de <strong>{{ $demands->total() }}</strong> demandas
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="groupByCaseSwitch" wire:model="groupByCase">
+                    <label class="form-check-label small" for="groupByCaseSwitch">Agrupar por caso</label>
+                </div>
+                <div class="small text-muted">
+                    Exibindo <strong>{{ $demands->count() }}</strong> de <strong>{{ $demands->total() }}</strong> demandas
+                </div>
+                <span class="badge bg-warning text-dark">
+                    SICODE encerrado + origem aberta: {{ $monitorSicodeClosedButSourceOpen }}
+                </span>
+                <span class="badge bg-danger">
+                    Origem encerrada + SICODE aberto: {{ $monitorSourceClosedButSicodeOpen }}
+                </span>
             </div>
         </div>
 
@@ -380,6 +448,83 @@
             </div>
 
             <div class="queue-list">
+                @if($groupByCase)
+                    @forelse($groupedDemands ?? collect() as $group)
+                        <div class="case-group-card">
+                            <div class="case-group-head">
+                                <div class="case-group-grid">
+                                    <div>
+                                        <div class="case-label">Number_case</div>
+                                        <div class="case-value">{{ $group['number_case'] }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="case-label">Process_number</div>
+                                        <div class="case-value">{{ $group['process_number'] }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="case-label">Empresa</div>
+                                        <div class="case-value">{{ $group['empresa'] }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="case-label">Firma</div>
+                                        <div class="case-value">{{ $group['firma'] }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="case-label">Deadline aberto (mais próximo)</div>
+                                        <div class="case-value">
+                                            <x-legal.due-date-chip :date="$group['nearest_open_deadline']" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="case-sublist">
+                                @foreach($group['demands'] as $demand)
+                                    @php
+                                        $sourceTypeVal = $demand->source_type instanceof \BackedEnum ? $demand->source_type->value : $demand->source_type;
+                                        $tipoLabel = match($sourceTypeVal) {
+                                            'injunction' => 'Liminar',
+                                            'sentence'   => 'Sentença',
+                                            'subsidy'    => 'Subsídio',
+                                            default      => $sourceTypeVal ?? '—',
+                                        };
+                                        $processStatusImport = (string) ($demand->process_status_at_import ?? '');
+                                        $processStatusNormalized = mb_strtolower($processStatusImport);
+                                        $isOpenByProcessStatus = $processStatusImport !== '' && !str_contains($processStatusNormalized, 'encerrad');
+                                        $subRowClass = $processStatusImport === ''
+                                            ? 'case-subrow-unknown'
+                                            : ($isOpenByProcessStatus ? 'case-subrow-open' : 'case-subrow-closed');
+                                    @endphp
+                                    <div class="case-subrow {{ $subRowClass }}">
+                                        <div class="queue-meta">
+                                            <a href="{{ route('legal.demand.detail', $demand->uuid) }}" class="queue-process-link">
+                                                {{ $demand->source_subject ?: ($demand->title ?: 'Sem assunto') }}
+                                            </a>
+                                            <div class="queue-subtext">ID {{ $demand->id }} · {{ $demand->created_at?->format('d/m/Y H:i') }}</div>
+                                        </div>
+                                        <div><span class="badge bg-light text-dark border">{{ $tipoLabel }}</span></div>
+                                        <div class="d-flex flex-column gap-1 align-items-start">
+                                            <x-legal.status-badge :status="$demand->internal_status" />
+                                            <span class="badge {{ $isOpenByProcessStatus ? 'bg-success' : ($processStatusImport === '' ? 'bg-warning text-dark' : 'bg-danger') }}">
+                                                Processo: {{ $processStatusImport !== '' ? $processStatusImport : 'Não informado' }}
+                                            </span>
+                                        </div>
+                                        <div>{{ $demand->controller?->name ?? 'Sem controlador' }}</div>
+                                        <div class="text-center">
+                                            <a href="{{ route('legal.demand.detail', $demand->uuid) }}" class="btn btn-sm btn-outline-secondary" title="Ver detalhes">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center text-muted py-5 bg-white border rounded-3">
+                            <i class="bi bi-inbox fs-2 d-block mb-2 opacity-40"></i>
+                            Nenhuma demanda encontrada para os filtros aplicados.
+                        </div>
+                    @endforelse
+                @else
                 @forelse($demands as $demand)
                     @php
                         $isOverdue  = $demand->source_due_at && $demand->source_due_at->isPast();
@@ -497,6 +642,7 @@
                         Nenhuma demanda encontrada para os filtros aplicados.
                     </div>
                 @endforelse
+                @endif
             </div>
 
             <div class="card-body">

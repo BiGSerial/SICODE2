@@ -216,7 +216,7 @@ class LegalDemandWorkflowService
     public function closeInternal(LegalDemand $demand, User $actor, string $reason): LegalDemand
     {
         $this->assertNotClosed($demand);
-        $this->ensureAllowed($actor, 'legal.demands.close_internal');
+        $this->ensureAnyAllowed($actor, ['legal.demands.close_internal', 'legal.demands.review']);
 
         return DB::transaction(function () use ($demand, $actor, $reason) {
             $from = $demand->internal_status?->value;
@@ -233,7 +233,7 @@ class LegalDemandWorkflowService
 
     public function closeExternal(LegalDemand $demand, User $actor, string $protocol, ?string $note): LegalDemand
     {
-        $this->ensureAllowed($actor, 'legal.demands.close_external');
+        $this->ensureAnyAllowed($actor, ['legal.demands.close_external', 'legal.demands.review']);
         if (trim($protocol) === '') {
             throw new InvalidArgumentException('Protocolo externo é obrigatório.');
         }
@@ -312,6 +312,17 @@ class LegalDemandWorkflowService
         if (method_exists($actor, 'can') && !$actor->can($permission)) {
             throw new InvalidArgumentException("Sem permissão: {$permission}");
         }
+    }
+
+    private function ensureAnyAllowed(User $actor, array $permissions): void
+    {
+        foreach ($permissions as $permission) {
+            if (method_exists($actor, 'can') && $actor->can($permission)) {
+                return;
+            }
+        }
+
+        throw new InvalidArgumentException('Sem permissão: ' . implode(' ou ', $permissions));
     }
 
     private function event(

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithFileUploads};
 
 class DemandDetail extends Component
@@ -59,11 +60,9 @@ class DemandDetail extends Component
 
     public bool $showReturnForm = false;
 
-    public string $noteIdsInput = '';
+    public string $noteInput = '';
 
     public string $noteLinkContext = '';
-
-    public string $noteSearch = '';
 
     public function mount(string $uuid): void
     {
@@ -83,24 +82,37 @@ class DemandDetail extends Component
     public function linkNotesToCase(): void
     {
         $this->validate([
-            'noteIdsInput' => 'required|string|min:1',
+            'noteInput' => 'required|string|min:1',
         ]);
 
-        $ids = collect(preg_split('/[\\s,;]+/', $this->noteIdsInput))
+        $tokens = collect(preg_split('/[\\s,;]+/', $this->noteInput))
             ->map(fn ($v) => trim((string) $v))
-            ->filter(fn ($v) => $v !== '' && ctype_digit($v))
-            ->map(fn ($v) => (int) $v)
+            ->filter(fn ($v) => $v !== '')
             ->unique()
             ->values();
 
-        if ($ids->isEmpty()) {
-            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Informe IDs válidos de notes.']);
+        if ($tokens->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Informe ao menos um ID ou número de note válido.']);
             return;
         }
 
-        $validIds = Note::query()->whereIn('id', $ids->all())->pluck('id')->all();
+        $numericTokens = $tokens->filter(fn ($v) => ctype_digit($v))->map(fn ($v) => (int) $v)->values()->all();
+        $stringTokens = $tokens->map(fn ($v) => (string) $v)->values()->all();
+
+        $validIds = Note::query()
+            ->where(function ($q) use ($numericTokens, $stringTokens) {
+                if (!empty($numericTokens)) {
+                    $q->orWhereIn('id', $numericTokens);
+                }
+                if (!empty($stringTokens)) {
+                    $q->orWhereIn('note', $stringTokens);
+                }
+            })
+            ->pluck('id')
+            ->all();
+
         if (empty($validIds)) {
-            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhuma note encontrada para os IDs informados.']);
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhuma note encontrada para os valores informados.']);
             return;
         }
 
@@ -117,7 +129,7 @@ class DemandDetail extends Component
 
         $this->demand->legalCase->notes()->syncWithoutDetaching($payload);
 
-        $this->noteIdsInput = '';
+        $this->noteInput = '';
         $this->noteLinkContext = '';
         $this->demand->refresh()->load(['legalCase.notes', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
 
@@ -228,7 +240,7 @@ class DemandDetail extends Component
             $this->externalContactId = null;
             $this->externalContactName = '';
             $this->externalContactEmail = '';
-            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Enviado para o campo', 'timer' => 2500]);
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Responsável atribuído', 'timer' => 2500]);
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Erro', 'html' => $e->getMessage()]);
         }
@@ -378,6 +390,7 @@ class DemandDetail extends Component
             'statusValue'        => $statusValue,
             'isExternallyClosed' => $this->demand->isExternallyClosed(),
             'searchedNotes'      => $this->searchNotes(),
+            'linkedNotes'        => $this->linkedNotes(),
         ]);
     }
 
@@ -447,12 +460,12 @@ class DemandDetail extends Component
 
     private function searchNotes()
     {
-        $term = trim($this->noteSearch);
+        $term = $this->currentNoteSearchTerm();
         if ($term === '') {
             return collect();
         }
 
-        $q = Note::query()->select(['id', 'note', 'client', 'status', 'dt_created']);
+        $q = Note::query()->select(['id', 'note', 'client', 'status', 'nstats', 'dt_status', 'dt_created']);
 
         if (ctype_digit($term)) {
             $q->where('id', (int) $term)
@@ -463,5 +476,44 @@ class DemandDetail extends Component
         }
 
         return $q->orderByDesc('id')->limit(10)->get();
+    }
+
+    private function currentNoteSearchTerm(): string
+    {
+        $raw = trim($this->noteInput);
+        if ($raw === '') {
+            return '';
+        }
+
+        $parts = preg_split('/[\\s,;]+/', $raw);
+        if (empty($parts)) {
+            return '';
+        }
+
+        return trim((string) end($parts));
+    }
+
+    private function linkedNotes()
+    {
+        $caseId = $this->demand->legal_case_id;
+        if (!$caseId) {
+            return collect();
+        }
+
+        return Note::query()
+            ->join('legal_case_note as lcn', 'lcn.note_id', '=', 'notes.id')
+            ->where('lcn.legal_case_id', $caseId)
+            ->select([
+                'notes.id',
+                'notes.note',
+                'notes.client',
+                'notes.status',
+                'notes.nstats',
+                'notes.dt_status',
+                'lcn.linked_at as pivot_linked_at',
+                'lcn.context as pivot_context',
+            ])
+            ->orderByDesc(DB::raw('COALESCE(lcn.linked_at, lcn.created_at)'))
+            ->get();
     }
 }
