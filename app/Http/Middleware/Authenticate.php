@@ -26,7 +26,11 @@ class Authenticate extends Middleware
         $route = $request->route();
         $name = (string) optional($route)->getName();
 
-        if (str_starts_with($name, 'partner.') || str_starts_with($name, 'protests.partner.')) {
+        if (
+            str_starts_with($name, 'partner.')
+            || str_starts_with($name, 'protests.partner.')
+            || str_starts_with($name, 'files.')
+        ) {
             return true;
         }
 
