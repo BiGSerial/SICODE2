@@ -18,7 +18,7 @@ class ProductionLog extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:log_production {--days=0}';
+    protected $signature = 'sicode:log_production {--days=0} {--yesterday-only}';
 
     /**
      * The console command description.
@@ -40,13 +40,24 @@ class ProductionLog extends Command
 
         $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> Verificando Produções para Sincronização.... </>');
 
-        $days = $this->option('days');
+        $days = (int) $this->option('days');
+        $yesterdayOnly = (bool) $this->option('yesterday-only');
         $processedRecordsCount = 0; // Contador para o total de registros processados
 
         // Prepara a consulta inicial com carregamento antecipado das relações
-        $query = Production::where('d5', false)
-            ->whereDate('updated_at', '>=', Carbon::now()->subDays($days))
-            ->with([
+        $query = Production::where('d5', false);
+
+        if ($yesterdayOnly) {
+            $yesterday = Carbon::yesterday();
+            $query->whereBetween('updated_at', [
+                $yesterday->copy()->startOfDay(),
+                $yesterday->copy()->endOfDay(),
+            ]);
+        } else {
+            $query->whereDate('updated_at', '>=', Carbon::now()->subDays($days));
+        }
+
+        $query->with([
                 'Note',
                 'User',
                 'Company',

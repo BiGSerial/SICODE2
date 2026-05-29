@@ -1,0 +1,10 @@
+resources/views/livewire/legal/controller/demand-detail.blade.php:96:        .ld-section-header, .ld-panel-header {
+resources/views/livewire/legal/controller/demand-detail.blade.php:262:                    <div class="ld-section-header">Identificação do processo</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:282:                        <div class="ld-section-header">Subsídio</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:314:                        <div class="ld-section-header">Sentença</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:344:                        <div class="ld-section-header">Liminar</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:380:                    <div class="ld-section-header">Delegação</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:396:                    <div class="ld-section-header">Contexto do processo (fonte)</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:415:                    <div class="ld-section-header">Arquivos</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:481:                    <div class="ld-section-header">Comentários</div>
+resources/views/livewire/legal/controller/demand-detail.blade.php:516:                    <div class="ld-section-header">Notes associadas ao processo</div>

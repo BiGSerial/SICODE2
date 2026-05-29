@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Legal\Field;
 
 use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile};
-use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
+use App\Services\Legal\LegalDemandWorkflowService;
 use Livewire\{Component, WithFileUploads};
 
 class AssignmentResponse extends Component
@@ -30,7 +30,8 @@ class AssignmentResponse extends Component
     public bool   $isImpossibility = false;
 
     // Upload de evidências (múltiplos)
-    public array  $uploadFiles = [];
+    public $uploadFiles = [];
+    public array $uploadNames = [];
 
     public string $fileVisibility = 'shared';
 
@@ -39,7 +40,6 @@ class AssignmentResponse extends Component
 
     // UI
     public bool $confirmingSend = false;
-    public bool $confirmingFileSave = false;
 
     public function mount(int $assignment_id, bool $external = false): void
     {
@@ -117,6 +117,20 @@ class AssignmentResponse extends Component
 
     public function updatedUploadFiles(): void
     {
+        if (!is_array($this->uploadFiles)) {
+            $this->uploadFiles = [$this->uploadFiles];
+        }
+
+        $this->validate([
+            'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
+        ]);
+
+        foreach ($this->uploadFiles as $index => $file) {
+            if (!isset($this->uploadNames[$index]) || trim((string) $this->uploadNames[$index]) === '') {
+                $this->uploadNames[$index] = (string) $file->getClientOriginalName();
+            }
+        }
+
         $this->hasEvidence = !empty($this->uploadFiles);
     }
 
@@ -127,37 +141,26 @@ class AssignmentResponse extends Component
         }
 
         unset($this->uploadFiles[$index]);
+        unset($this->uploadNames[$index]);
         $this->uploadFiles = array_values($this->uploadFiles);
+        $this->uploadNames = array_values($this->uploadNames);
         $this->hasEvidence = !empty($this->uploadFiles);
-    }
-
-    public function startSaveFilesConfirm(): void
-    {
-        $this->validate([
-            'uploadFiles' => 'required|array|min:1',
-            'uploadFiles.*' => 'file|max:10240',
-        ]);
-
-        $this->confirmingFileSave = true;
-    }
-
-    public function cancelSaveFilesConfirm(): void
-    {
-        $this->confirmingFileSave = false;
     }
 
     public function saveFilesToTask(): void
     {
         $this->validate([
             'uploadFiles' => 'required|array|min:1',
-            'uploadFiles.*' => 'file|max:10240',
+            'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
+            'uploadNames' => 'array',
+            'uploadNames.*' => 'nullable|string|max:190',
         ]);
 
         $this->persistUploadedFiles();
 
         $this->uploadFiles = [];
+        $this->uploadNames = [];
         $this->hasEvidence = false;
-        $this->confirmingFileSave = false;
         $this->demand->refresh()->load('files');
 
         $this->dispatchBrowserEvent('swal', [
@@ -240,30 +243,35 @@ class AssignmentResponse extends Component
         }
 
         $count = 0;
-        foreach ($this->uploadFiles as $file) {
-            if ($this->externalAccess) {
-                $path = $file->store("legal/demands/{$this->demand->id}/external", 'public');
-
-                LegalDemandFile::create([
-                    'legal_demand_id' => $this->demand->id,
-                    'assignment_id' => $this->assignment->id,
-                    'uploaded_by' => null,
-                    'file_name' => $file->hashName(),
-                    'original_name' => $file->getClientOriginalName(),
-                    'path' => $path,
-                    'mime_type' => $file->getMimeType(),
-                    'size' => $file->getSize(),
-                    'visibility' => 'shared',
-                ]);
-            } else {
-                app(LegalDemandFileService::class)->store(
-                    demand:       $this->demand,
-                    file:         $file,
-                    uploadedBy:   auth()->user(),
-                    visibility:   'shared',
-                    assignmentId: $this->assignment->id,
-                );
+        foreach ($this->uploadFiles as $index => $file) {
+            $customName = trim((string) ($this->uploadNames[$index] ?? ''));
+            $originalName = (string) $file->getClientOriginalName();
+            if ($customName === '') {
+                $customName = $originalName;
             }
+
+            $customName = preg_replace('/[\\\\\\/]+/', '-', $customName) ?: $originalName;
+            $extension = strtolower((string) $file->getClientOriginalExtension());
+            if ($extension !== '' && !str_ends_with(strtolower($customName), '.' . $extension)) {
+                $customName .= '.' . $extension;
+            }
+
+            $folder = $this->externalAccess
+                ? "legal/demands/{$this->demand->id}/external"
+                : "legal/demands/{$this->demand->id}";
+            $path = $file->storeAs($folder, $customName, 'public');
+
+            LegalDemandFile::create([
+                'legal_demand_id' => $this->demand->id,
+                'assignment_id' => $this->assignment->id,
+                'uploaded_by' => $this->externalAccess ? null : auth()->id(),
+                'file_name' => basename($path),
+                'original_name' => $customName,
+                'path' => $path,
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'visibility' => 'shared',
+            ]);
 
             $count++;
         }

@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Legal\Controller;
 
 use App\Models\Note;
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalExternalContact};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile, LegalExternalContact};
 use App\Models\User;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
 use Carbon\Carbon;
@@ -49,7 +49,8 @@ class DemandDetail extends Component
     public string $commentVisibility = 'controller';
 
     // Upload
-    public $uploadFile = null;
+    public $uploadFiles = [];
+    public array $uploadNames = [];
 
     public string $fileVisibility = 'controller';
 
@@ -338,19 +339,76 @@ class DemandDetail extends Component
         $this->demand->refresh()->load(['comments.user']);
     }
 
-    public function uploadFile(): void
+    public function updatedUploadFiles(): void
     {
-        $this->validate(['uploadFile' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx']);
+        if (!is_array($this->uploadFiles)) {
+            $this->uploadFiles = [$this->uploadFiles];
+        }
 
-        app(LegalDemandFileService::class)->store(
-            demand:       $this->demand,
-            file:         $this->uploadFile,
-            uploadedBy:   auth()->user(),
-            visibility:   $this->fileVisibility,
-            assignmentId: $this->demand->assignments()->whereNotIn('status', ['cancelled', 'closed'])->first()?->id,
-        );
+        $this->validate([
+            'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
+        ]);
 
-        $this->uploadFile = null;
+        foreach ($this->uploadFiles as $index => $file) {
+            if (!isset($this->uploadNames[$index]) || trim((string) $this->uploadNames[$index]) === '') {
+                $this->uploadNames[$index] = (string) $file->getClientOriginalName();
+            }
+        }
+    }
+
+    public function removeQueuedFile(int $index): void
+    {
+        if (!array_key_exists($index, $this->uploadFiles)) {
+            return;
+        }
+
+        unset($this->uploadFiles[$index], $this->uploadNames[$index]);
+        $this->uploadFiles = array_values($this->uploadFiles);
+        $this->uploadNames = array_values($this->uploadNames);
+    }
+
+    public function saveQueuedFiles(): void
+    {
+        $this->validate([
+            'uploadFiles' => 'required|array|min:1',
+            'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
+            'uploadNames' => 'array',
+            'uploadNames.*' => 'nullable|string|max:190',
+        ]);
+
+        $assignmentId = $this->demand->assignments()->whereNotIn('status', ['cancelled', 'closed'])->first()?->id;
+
+        foreach ($this->uploadFiles as $index => $file) {
+            $customName = trim((string) ($this->uploadNames[$index] ?? ''));
+            $originalName = (string) $file->getClientOriginalName();
+
+            if ($customName === '') {
+                $customName = $originalName;
+            }
+
+            $customName = preg_replace('/[\\\\\\/]+/', '-', $customName) ?: $originalName;
+            $extension = strtolower((string) $file->getClientOriginalExtension());
+            if ($extension !== '' && !str_ends_with(strtolower($customName), '.' . $extension)) {
+                $customName .= '.' . $extension;
+            }
+
+            $path = $file->storeAs("legal/demands/{$this->demand->id}", $customName, 'public');
+
+            LegalDemandFile::create([
+                'legal_demand_id' => $this->demand->id,
+                'assignment_id' => $assignmentId,
+                'uploaded_by' => auth()->id(),
+                'file_name' => basename($path),
+                'original_name' => $customName,
+                'path' => $path,
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'visibility' => $this->fileVisibility,
+            ]);
+        }
+
+        $this->uploadFiles = [];
+        $this->uploadNames = [];
         $this->demand->refresh()->load(['files']);
     }
 

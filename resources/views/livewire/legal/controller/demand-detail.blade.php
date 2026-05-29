@@ -159,6 +159,168 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .files-block {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface-2);
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .files-block-title {
+            font-size: 11px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--text-3);
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .queue-item {
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .queue-meta {
+            font-size: 11px;
+            color: var(--text-3);
+            margin-top: 6px;
+        }
+        .upload-zone {
+            border: 1px dashed #93c5fd;
+            background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .upload-zone-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .upload-kpis {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .upload-chip {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1e3a8a;
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 999px;
+            padding: 3px 9px;
+        }
+        .upload-actions {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .queue-list {
+            display: grid;
+            gap: 8px;
+        }
+        .queue-item {
+            border-left: 4px solid #3b82f6;
+            box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+        }
+        .queue-name-input {
+            font-weight: 600;
+        }
+        .queue-remove-btn {
+            min-width: 38px;
+            height: 34px;
+            padding: 0;
+        }
+        .queue-empty {
+            border: 1px dashed var(--border-2);
+            background: #fff;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 12px;
+            color: var(--text-3);
+        }
+        .event-timeline {
+            position: relative;
+            display: grid;
+            gap: 10px;
+        }
+        .event-item {
+            display: grid;
+            grid-template-columns: 22px 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+        .event-marker-wrap {
+            position: relative;
+            min-height: 100%;
+        }
+        .event-marker-wrap::after {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 14px;
+            bottom: -14px;
+            width: 2px;
+            background: linear-gradient(180deg, #93c5fd 0%, #dbeafe 100%);
+        }
+        .event-item:last-child .event-marker-wrap::after {
+            display: none;
+        }
+        .event-marker {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: #1d4ed8;
+            border: 2px solid #dbeafe;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, .12);
+            margin-top: 2px;
+        }
+        .event-content {
+            background: #f8fbff;
+            border: 1px solid #dbeafe;
+            border-radius: 10px;
+            padding: 9px 10px;
+        }
+        .event-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        .event-badge {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #1e3a8a;
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 999px;
+            padding: 2px 8px;
+            white-space: nowrap;
+        }
+        .event-time {
+            font-size: 11px;
+            color: var(--text-3);
+            white-space: nowrap;
+        }
+        .event-title {
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 600;
+            line-height: 1.35;
+        }
+        .event-actor {
+            font-size: 12px;
+            color: var(--text-2);
+            margin-top: 4px;
+        }
 
         @media (max-width: 980px) {
             .ld-main { grid-template-columns: 1fr; }
@@ -412,21 +574,140 @@
                 </div>
 
                 <div class="ld-section">
-                    <div class="ld-section-header">Histórico de eventos</div>
+                    <div class="ld-section-header">Arquivos</div>
                     <div class="ld-section-body">
-                        <div class="timeline">
-                            @forelse($demand->events->sortByDesc('occurred_at') as $event)
-                                @php $when = $event->occurred_at ?? $event->created_at; @endphp
-                                <div class="tl-row">
-                                    <div class="tl-dot"></div>
-                                    <div>
-                                        <div class="tl-title">{{ $event->description ?: \Illuminate\Support\Str::headline(str_replace('_', ' ', (string) $event->event_type)) }}</div>
-                                        <div class="tl-date">{{ $when ? \Carbon\Carbon::parse($when)->format('d/m/Y H:i') : '—' }} @if($event->actor?->name) · {{ $event->actor->name }} @endif</div>
+                        <div class="files-block">
+                            <div class="files-block-title">Arquivos já anexados</div>
+                            @if($imageFiles->isNotEmpty())
+                                <div class="small fw-semibold text-muted mb-2">🖼️ Galeria de imagens</div>
+                                <div class="legal-evidence-grid mb-3">
+                                    @foreach($imageFiles as $index => $file)
+                                        @php
+                                            $filePath = $file->path ?? $file->file_path ?? null;
+                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                            $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Imagem');
+                                        @endphp
+                                        @if($fileUrl)
+                                            <div class="legal-evidence-card">
+                                                <img src="{{ $fileUrl }}" class="legal-evidence-thumb" alt="{{ $name }}" data-bs-toggle="modal" data-bs-target="#legalControllerFilesModal" data-carousel-slide="{{ $index }}">
+                                                <div class="small text-muted legal-evidence-name mt-2" title="{{ $name }}">{{ $name }}</div>
+                                                <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-download me-1"></i>Baixar</a>
+                                            </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @if($otherFiles->isNotEmpty())
+                                <div class="small fw-semibold text-muted mb-2">📄 Lista de arquivos diversos</div>
+                                <ul class="list-group mb-2">
+                                    @foreach($otherFiles as $file)
+                                        @php
+                                            $filePath = $file->path ?? $file->file_path ?? null;
+                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                            $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
+                                            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                                            $isControllerOnly = ($file->visibility ?? null) === 'controller';
+                                            $fileIcon = match($ext) {
+                                                'pdf' => 'bi-filetype-pdf text-danger',
+                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
+                                                'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
+                                                'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
+                                                'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
+                                                default => 'bi-file-earmark text-secondary',
+                                            };
+                                        @endphp
+                                        @if($fileUrl)
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <div class="legal-evidence-name d-flex align-items-center gap-2" title="{{ $name }}">
+                                                        <i class="bi {{ $fileIcon }}"></i>
+                                                        <span>{{ $name }}</span>
+                                                    </div>
+                                                    <small class="text-muted">{{ strtoupper($ext ?: '-') }} · {{ $isControllerOnly ? 'Interno' : 'Compartilhado' }}</small>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Baixar</a>
+                                                    @if(($file->uploaded_by ?? null) === auth()->id())
+                                                        <button class="btn btn-sm btn-outline-danger" wire:click="removeFile({{ $file->id }})"><i class="bi bi-trash"></i></button>
+                                                    @endif
+                                                </div>
+                                            </li>
+                                        @endif
+                                    @endforeach
+                                </ul>
+                            @endif
+
+                            @if($activeFiles->isEmpty())
+                                <p class="text-muted small mb-0">Nenhum arquivo anexado.</p>
+                            @endif
+                        </div>
+
+                        <div class="files-block mb-0">
+                            <div class="files-block-title">Pré-carga para envio</div>
+                            @php
+                                $queuedCount = is_array($uploadFiles ?? null) ? count($uploadFiles) : 0;
+                            @endphp
+                            <div class="upload-zone">
+                                <div class="upload-zone-head">
+                                    <div class="small fw-semibold text-muted">Selecione, revise nomes e salve em lote</div>
+                                    <div class="upload-kpis">
+                                        <span class="upload-chip">{{ $queuedCount }} na fila</span>
+                                        <span class="upload-chip">{{ $fileVisibility === 'controller' ? 'Interno' : 'Compartilhado' }}</span>
                                     </div>
                                 </div>
-                            @empty
-                                <div class="tl-row"><div class="tl-dot"></div><div><div class="tl-title">Sem eventos registrados</div></div></div>
-                            @endforelse
+                                <input type="file" class="form-control form-control-sm" wire:model="uploadFiles" multiple />
+                                <div class="upload-actions">
+                                    <select class="form-select form-select-sm" wire:model="fileVisibility">
+                                        <option value="controller">🔒 Interno</option>
+                                        <option value="shared">👁 Compartilhado</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-primary px-3" wire:click="saveQueuedFiles" wire:loading.attr="disabled" wire:target="uploadFiles,saveQueuedFiles">
+                                        <i class="bi bi-cloud-upload me-1"></i>Salvar arquivos
+                                    </button>
+                                </div>
+                                <div class="small text-muted mt-2">PDF, JPG, PNG, DOCX, XLSX — máx. 10MB por arquivo</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <div class="small fw-semibold text-muted mb-2">Lista de envio (editar nome/remover antes de salvar)</div>
+                            @if(!empty($uploadFiles))
+                                <div class="queue-list">
+                                    @foreach($uploadFiles as $index => $queuedFile)
+                                        @php
+                                            $qName = $uploadNames[$index] ?? $queuedFile->getClientOriginalName();
+                                            $qExt = strtolower(pathinfo((string) $qName, PATHINFO_EXTENSION));
+                                            $qSize = method_exists($queuedFile, 'getSize') ? (int) $queuedFile->getSize() : 0;
+                                            $queueIcon = match($qExt) {
+                                                'pdf' => 'bi-filetype-pdf text-danger',
+                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
+                                                'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
+                                                'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
+                                                'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
+                                                default => 'bi-file-earmark text-secondary',
+                                            };
+                                        @endphp
+                                        <div class="queue-item">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi {{ $queueIcon }}"></i>
+                                                <input type="text"
+                                                       class="form-control form-control-sm queue-name-input"
+                                                       wire:model.defer="uploadNames.{{ $index }}"
+                                                       placeholder="Nome do arquivo">
+                                                <button class="btn btn-sm btn-outline-danger queue-remove-btn" type="button" wire:click="removeQueuedFile({{ $index }})" title="Remover da fila">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                            <div class="queue-meta">
+                                                {{ strtoupper($qExt ?: '-') }} · {{ number_format($qSize / 1024, 1, ',', '.') }} KB
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="queue-empty">Nenhum arquivo na fila. Selecione um ou mais arquivos acima para começar.</div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -728,68 +1009,34 @@
                 </div>
 
                 <div class="ld-panel">
-                    <div class="ld-panel-header">Arquivos</div>
+                    <div class="ld-panel-header">Histórico de eventos</div>
                     <div class="ld-panel-body">
-                        @if($imageFiles->isNotEmpty())
-                            <div class="small fw-semibold text-muted mb-2">🖼️ Imagens</div>
-                            <div class="legal-evidence-grid mb-3">
-                                @foreach($imageFiles as $index => $file)
-                                    @php
-                                        $filePath = $file->path ?? $file->file_path ?? null;
-                                        $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
-                                        $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Imagem');
-                                    @endphp
-                                    @if($fileUrl)
-                                        <div class="legal-evidence-card">
-                                            <img src="{{ $fileUrl }}" class="legal-evidence-thumb" alt="{{ $name }}" data-bs-toggle="modal" data-bs-target="#legalControllerFilesModal" data-carousel-slide="{{ $index }}">
-                                            <div class="small text-muted legal-evidence-name mt-2" title="{{ $name }}">{{ $name }}</div>
-                                            <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-download me-1"></i>Baixar</a>
+                        <div class="event-timeline">
+                            @forelse($demand->events->sortByDesc('occurred_at') as $event)
+                                @php
+                                    $when = $event->occurred_at ?? $event->created_at;
+                                    $eventType = (string) ($event->event_type ?? 'evento');
+                                    $eventTypeLabel = \Illuminate\Support\Str::headline(str_replace('_', ' ', $eventType));
+                                @endphp
+                                <div class="event-item">
+                                    <div class="event-marker-wrap">
+                                        <div class="event-marker"></div>
+                                    </div>
+                                    <div class="event-content">
+                                        <div class="event-top">
+                                            <span class="event-badge">{{ $eventTypeLabel }}</span>
+                                            <span class="event-time">{{ $when ? \Carbon\Carbon::parse($when)->format('d/m/Y H:i') : '—' }}</span>
                                         </div>
-                                    @endif
-                                @endforeach
-                            </div>
-                        @endif
-
-                        @if($otherFiles->isNotEmpty())
-                            <div class="small fw-semibold text-muted mb-2">📄 Arquivos</div>
-                            <ul class="list-group mb-2">
-                                @foreach($otherFiles as $file)
-                                    @php
-                                        $filePath = $file->path ?? $file->file_path ?? null;
-                                        $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
-                                        $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
-                                        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                                        $isControllerOnly = ($file->visibility ?? null) === 'controller';
-                                    @endphp
-                                    @if($fileUrl)
-                                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <div class="legal-evidence-name" title="{{ $name }}">{{ $name }}</div>
-                                                <small class="text-muted">{{ strtoupper($ext ?: '-') }} · {{ $isControllerOnly ? 'Interno' : 'Compartilhado' }}</small>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Baixar</a>
-                                                @if(($file->uploaded_by ?? null) === auth()->id())
-                                                    <button class="btn btn-sm btn-outline-danger" wire:click="removeFile({{ $file->id }})"><i class="bi bi-trash"></i></button>
-                                                @endif
-                                            </div>
-                                        </li>
-                                    @endif
-                                @endforeach
-                            </ul>
-                        @endif
-
-                        @if($activeFiles->isEmpty())
-                            <p class="text-muted small">Nenhum arquivo anexado.</p>
-                        @endif
-
-                        <hr class="my-2">
-                        <div class="mb-2"><input type="file" class="form-control form-control-sm" wire:model="uploadFile" /></div>
-                        <div class="d-flex align-items-center gap-2">
-                            <select class="form-select form-select-sm" wire:model="fileVisibility"><option value="controller">🔒 Interno</option><option value="shared">👁 Compartilhado</option></select>
-                            <button class="btn btn-sm btn-outline-primary" wire:click="uploadFile" wire:loading.attr="disabled"><i class="bi bi-upload"></i></button>
+                                        <div class="event-title">{{ $event->description ?: $eventTypeLabel }}</div>
+                                        <div class="event-actor">
+                                            <i class="bi bi-person-circle me-1"></i>{{ $event->actor?->name ?: 'Sistema' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="queue-empty">Sem eventos registrados para esta demanda.</div>
+                            @endforelse
                         </div>
-                        <div class="small text-muted mt-1">PDF, JPG, PNG, DOCX, XLSX — máx. 10MB</div>
                     </div>
                 </div>
             </div>

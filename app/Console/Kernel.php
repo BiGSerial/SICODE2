@@ -149,6 +149,9 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:log_production', 'log-production')
             ->cron('*/10 8-21 * * *');
 
+        $this->scheduleCommand($schedule, 'sicode:log_production --yesterday-only', 'log-production-yesterday')
+            ->dailyAt('00:30');
+
 
         /*
         |--------------------------------------------------------------------------
@@ -282,6 +285,7 @@ class Kernel extends ConsoleKernel
             'log-informs-smc' => 'Log informes SMC',
             'sync-log-partials-informs' => 'Log Informe parciais',
             'log-production' => 'Log produção',
+            'log-production-yesterday' => 'Log produção (ontem)',
             'log-hiring-and-hired-status' => 'Log contratação',
             'log-hiring-and-hired-status-night' => 'Log contratação full',
             'check-tacit' => 'Checar tácita',
