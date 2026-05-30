@@ -348,6 +348,7 @@
                                     @endcan --}}
                                     <td class="fw-bold copy-text" data-value="{{ $list->note }}">
                                         {{ $list->note }}
+                                        <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-default-main-'.$list->id" />
                                     </td>
                                     <td class="fw-bold text-danger text-center">
                                         {{ $list->mmgd ? 'MMGD' : '' }}

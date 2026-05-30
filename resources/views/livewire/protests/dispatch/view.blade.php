@@ -959,6 +959,12 @@
                                     <td>
                                         <span
                                             class="badge bg-primary bg-opacity-10 text-primary fw-medium px-3 py-2">{{ $note->note }}</span>
+                                        <div class="mt-1">
+                                            <x-legal.note-demand-tags
+                                                :demands="$legalTagsByNoteId[$note->id] ?? []"
+                                                :row-key="'dispatch-view-note-'.$note->id"
+                                            />
+                                        </div>
                                     </td>
                                     <td class="fw-medium">{{ $note->client }}</td>
                                     <td><span class="text-muted small">{{ $note->rubrica }}</span></td>

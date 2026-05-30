@@ -351,9 +351,10 @@
                                             value="{{ $list->id }}" wire:model.defer="selected">
                                     </td>
                                     <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                        {{ $list->Note->note }}
-                                        <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                            style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
+                                    {{ $list->Note->note }}
+                                    <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                        style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
+                                    <x-legal.note-demand-tags :note-id="$list->note_id" :row-key="'dispatchs-default-'.$list->id" />
 
                                         @if ($list->priority)
                                             <i class="ri-alert-fill text-danger align-middle"

@@ -298,6 +298,7 @@
                                                 style="display: inline-block; animation: flame 1s steps(1) infinite;"></i>
                                         </span>
                                     @endif
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-publication-main-'.$list->id" />
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">

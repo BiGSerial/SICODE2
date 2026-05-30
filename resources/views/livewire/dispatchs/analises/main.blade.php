@@ -221,6 +221,7 @@
                                     @endcan --}}
                                 <td class="fw-bold copy-text" data-value="{{ $list->note }}">
                                     {{ $list->note }}
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-analises-main-'.$list->id" />
                                 </td>
 
                                 <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}

@@ -328,7 +328,9 @@
                             </td>
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                {{ $item->note?->note }}</td>
+                                {{ $item->note?->note }}
+                                <x-legal.note-demand-tags :note-id="$item->note_id" :row-key="'dispatchs-supervision-'.$item->id" />
+                            </td>
                             <td
                                 class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center ">
                                 <p class="my-0 py-0"> <i

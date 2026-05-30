@@ -214,6 +214,7 @@
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->note }}
+                                <x-legal.note-demand-tags :note-id="$item->note_id" :row-key="'dispatchs-comission-'.$item->id" />
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center">
                                 <p class="my-0 py-0">

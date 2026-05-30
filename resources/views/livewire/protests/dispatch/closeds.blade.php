@@ -493,7 +493,11 @@
                                 </td>
 
                                 <td class="fw-bold">
-                                    {{ $protest?->nota }}
+                                    <div>{{ $protest?->nota }}</div>
+                                    <x-legal.note-demand-tags
+                                        :demands="$legalTagsByJobId[$item->id] ?? []"
+                                        :row-key="'dispatch-closeds-'.$item->id"
+                                    />
                                 </td>
 
                                 <td class="fw-bold">

@@ -10,6 +10,8 @@ use App\Models\Noteable;
 use App\Models\Protest;
 use App\Models\ProtestJob;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -658,6 +660,50 @@ public function toCancelJob(ProtestJob $job): void
         return view('livewire.protests.dispatch.view', [
             'protestCategories' => SelectOptions::getProtestCategory(),
             'readOnly' => $this->readOnly,
+            'legalTagsByNoteId' => $this->buildLegalTagsByNoteId(),
         ]);
+    }
+
+    protected function buildLegalTagsByNoteId(): array
+    {
+        $noteIds = $this->protest?->all_notes?->pluck('id')?->filter()?->unique()?->values()?->all() ?? [];
+        if ($noteIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('legal_case_note as lcn')
+            ->join('legal_demands as ld', 'ld.legal_case_id', '=', 'lcn.legal_case_id')
+            ->whereIn('lcn.note_id', $noteIds)
+            ->whereIn('ld.source_type', ['injunction', 'sentence', 'subsidy'])
+            ->whereNull('ld.closed_at')
+            ->whereNotIn('ld.internal_status', ['cancelled', 'ignored'])
+            ->orderByRaw('CASE WHEN ld.source_due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('ld.source_due_at')
+            ->select(['lcn.note_id', 'ld.id', 'ld.source_type', 'ld.source_status', 'ld.source_due_at'])
+            ->get();
+
+        $tagsByNote = [];
+        foreach ($rows as $row) {
+            $tagsByNote[(int) $row->note_id][] = [
+                'id' => (int) $row->id,
+                'type_label' => match ((string) $row->source_type) {
+                    'injunction' => 'Liminar',
+                    'sentence' => 'Sentenca',
+                    'subsidy' => 'Subsidio',
+                    default => (string) $row->source_type,
+                },
+                'status' => (string) ($row->source_status ?: 'Sem status'),
+                'due_at' => $row->source_due_at ? Carbon::parse($row->source_due_at)->format('d/m/Y H:i') : 'Sem prazo',
+                'is_overdue' => $row->source_due_at ? Carbon::parse($row->source_due_at)->isPast() : false,
+                'badge_class' => match ((string) $row->source_type) {
+                    'injunction' => 'bg-danger text-white',
+                    'sentence' => 'bg-warning text-dark',
+                    'subsidy' => 'bg-info text-dark',
+                    default => 'bg-secondary text-white',
+                },
+            ];
+        }
+
+        return $tagsByNote;
     }
 }

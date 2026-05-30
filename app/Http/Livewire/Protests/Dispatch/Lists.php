@@ -12,6 +12,7 @@ use App\Models\ProtestJob;
 use App\Traits\{AppliesQueryFilters, WildcardFormmater};
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -876,8 +877,10 @@ class Lists extends Component
 
     public function render()
     {
+        $lists = $this->lists;
+
         return view('livewire.protests.dispatch.lists', [
-            'lists' => $this->lists,
+            'lists' => $lists,
             'protest_Types' =>  $this->ProtestTypes,
             'tipoNotas' => $this->TypeNotes,
             'dueTodayCount' => $this->dueTodayCount,
@@ -885,11 +888,97 @@ class Lists extends Component
             'histogramData' => $this->histogramData,
             'cityOptions' => $this->cityOptions,
             'codfOptions' => $this->codfOptions,
+            'legalTagsByMedId' => $this->buildLegalTagsByMedId($lists->items()),
         ]);
     }
 
     protected function isSearching(): bool
     {
         return filled($this->search) || !empty($this->multisearch);
+    }
+
+    protected function buildLegalTagsByMedId(array $measures): array
+    {
+        $tagsByMed = [];
+        $noteIdsByMed = [];
+        $allNoteIds = [];
+
+        foreach ($measures as $med) {
+            $notes = $med->all_notes ?? collect();
+            $ids = $notes
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $noteIdsByMed[$med->id] = $ids;
+            $allNoteIds = array_merge($allNoteIds, $ids);
+        }
+
+        $allNoteIds = array_values(array_unique($allNoteIds));
+        if ($allNoteIds === []) {
+            return $tagsByMed;
+        }
+
+        $rows = DB::table('legal_case_note as lcn')
+            ->join('legal_demands as ld', 'ld.legal_case_id', '=', 'lcn.legal_case_id')
+            ->whereIn('lcn.note_id', $allNoteIds)
+            ->whereIn('ld.source_type', ['injunction', 'sentence', 'subsidy'])
+            ->whereNull('ld.closed_at')
+            ->whereNotIn('ld.internal_status', ['cancelled', 'ignored'])
+            ->orderByRaw('CASE WHEN ld.source_due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('ld.source_due_at')
+            ->select([
+                'lcn.note_id',
+                'ld.id',
+                'ld.uuid',
+                'ld.source_type',
+                'ld.source_status',
+                'ld.source_due_at',
+                'ld.internal_status',
+                'ld.source_status_group',
+            ])
+            ->get();
+
+        $tagsByNote = [];
+        foreach ($rows as $row) {
+            $tagsByNote[(int) $row->note_id][] = [
+                'id' => (int) $row->id,
+                'uuid' => (string) $row->uuid,
+                'type' => (string) $row->source_type,
+                'type_label' => match ((string) $row->source_type) {
+                    'injunction' => 'Liminar',
+                    'sentence' => 'Sentenca',
+                    'subsidy' => 'Subsidio',
+                    default => (string) $row->source_type,
+                },
+                'status' => (string) ($row->source_status ?: 'Sem status'),
+                'due_at' => $row->source_due_at ? Carbon::parse($row->source_due_at)->format('d/m/Y H:i') : 'Sem prazo',
+                'is_overdue' => $row->source_due_at ? Carbon::parse($row->source_due_at)->isPast() : false,
+                'internal_status' => (string) $row->internal_status,
+                'badge_class' => match ((string) $row->source_type) {
+                    'injunction' => 'bg-danger text-white',
+                    'sentence' => 'bg-warning text-dark',
+                    'subsidy' => 'bg-info text-dark',
+                    default => 'bg-secondary text-white',
+                },
+            ];
+        }
+
+        foreach ($noteIdsByMed as $medId => $noteIds) {
+            $merged = [];
+            foreach ($noteIds as $noteId) {
+                foreach (($tagsByNote[(int) $noteId] ?? []) as $tag) {
+                    $merged[$tag['id']] = $tag;
+                }
+            }
+
+            if ($merged !== []) {
+                $tagsByMed[(int) $medId] = array_values($merged);
+            }
+        }
+
+        return $tagsByMed;
     }
 }

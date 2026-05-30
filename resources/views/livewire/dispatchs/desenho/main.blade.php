@@ -487,6 +487,7 @@
                                             </span>
                                         @endif
                                     </span>
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-desenho-main-'.$list->id" />
                                 </td>
                                 <td class="fw-bold text-success text-center {{ $rowClass }}">
                                     @if ($list->doe)

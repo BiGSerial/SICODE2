@@ -276,7 +276,13 @@
                             <tr class="align-middle text-center" wire:key="list-med-{{ $medProtest->id }}"
                                 ondblclick="window.location.href='{{ route('protests.dispatch.view', ['protest' => $medProtest->id]) }}'">
                                 <td>{{ $medProtest->med_id ?? '—' }}</td>
-                                <td class="fw-semibold">{{ $protest?->nota ?? '—' }}</td>
+                                <td class="fw-semibold">
+                                    <div>{{ $protest?->nota ?? '—' }}</div>
+                                    <x-legal.note-demand-tags
+                                        :demands="$legalTagsByMedId[$medProtest->id] ?? []"
+                                        :row-key="'dispatch-list-'.$medProtest->id"
+                                    />
+                                </td>
                                 <td>{{ $protest?->tipoNota ?? '—' }}</td>
                                 <td>{{ $medProtest->codMedida ?? '—' }}</td>
                                 <td>{{ $protest?->codecodf ?? '—' }}</td>

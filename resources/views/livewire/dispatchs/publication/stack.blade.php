@@ -334,6 +334,7 @@
                                         {{ $list->Note->note }}
                                         <span class="copy-text" data-value="{{ $list->Note->note }}"
                                             style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
+                                        <x-legal.note-demand-tags :note-id="$list->note_id" :row-key="'dispatchs-publication-'.$list->id" />
                                     @endif
 
                                     @if ($list->priority)

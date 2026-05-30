@@ -301,7 +301,9 @@
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ shortUser($item->dispatcher?->name) }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                {{ $item->note?->note }}</td>
+                                {{ $item->note?->note }}
+                                <x-legal.note-demand-tags :note-id="$item->note_id" :row-key="'dispatchs-survey-'.$item->id" />
+                            </td>
                             <td
                                 class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center ">
                                 <p class="my-0 py-0"> <i

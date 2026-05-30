@@ -370,6 +370,7 @@
                                     @endcan --}}
                                     <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
                                         {{ $list->note }}
+                                        <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-comission-main-'.$list->id" />
                                     </td>
                                     <td class="fw-bold text-danger text-center">
                                         {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}

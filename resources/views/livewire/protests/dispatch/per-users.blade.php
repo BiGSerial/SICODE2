@@ -131,7 +131,13 @@
                             @endphp
                             <tr class="text-center align-middle">
 
-                                <td>{{ $item->assignable?->protest?->nota }}</td>
+                                <td>
+                                    <div>{{ $item->assignable?->protest?->nota }}</div>
+                                    <x-legal.note-demand-tags
+                                        :demands="$legalTagsByAssignmentId[$item->id] ?? []"
+                                        :row-key="'dispatch-per-users-'.$item->id"
+                                    />
+                                </td>
                                 <td class='fw-bold'>{{ $item->assignable?->protest?->tipoNota }}</td>
                                 <td>{{ $item->User?->name }}</td>
                                 <td class="fw-bold">{{ $item->assignable?->protest?->dtAberturaNota->format('d/m/Y') }}

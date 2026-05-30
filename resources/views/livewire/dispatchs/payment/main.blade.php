@@ -248,6 +248,7 @@
                                     @else
                                         {{ $list->note }}
                                     @endif
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-payment-main-'.$list->id" />
                                 </td>
 
                                 <td

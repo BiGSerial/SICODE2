@@ -11,6 +11,7 @@ use App\Models\ProtestJob;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -1174,8 +1175,10 @@ class Monitoring extends Component
 
     public function render()
     {
+        $lists = $this->lists;
+
         return view('livewire.protests.dispatch.monitoring', [
-            'lists'          => $this->lists,
+            'lists'          => $lists,
             'coreTotal' => $this->coreTotal,
             'coreDonePending' => $this->coreDonePending,
             'fixedFilters' => $this->fixedFilters,
@@ -1193,6 +1196,7 @@ class Monitoring extends Component
                 ->map(fn($priority) => ['value' => $priority->value, 'label' => $priority->label()])
                 ->values()
                 ->all(),
+            'legalTagsByJobId' => $this->buildLegalTagsByJobId($lists->items()),
         ]);
     }
 
@@ -1203,5 +1207,71 @@ class Monitoring extends Component
         }
 
         return $job->medProtest?->dtFimMedidaDesej;
+    }
+
+    protected function buildLegalTagsByJobId(array $jobs): array
+    {
+        $tagsByJob = [];
+        $noteIdsByJob = [];
+        $allNoteIds = [];
+
+        foreach ($jobs as $job) {
+            $notes = $job->medProtest?->all_notes ?? collect();
+            $ids = $notes->pluck('id')->filter()->unique()->values()->all();
+            $noteIdsByJob[$job->id] = $ids;
+            $allNoteIds = array_merge($allNoteIds, $ids);
+        }
+
+        $allNoteIds = array_values(array_unique($allNoteIds));
+        if ($allNoteIds === []) {
+            return $tagsByJob;
+        }
+
+        $rows = DB::table('legal_case_note as lcn')
+            ->join('legal_demands as ld', 'ld.legal_case_id', '=', 'lcn.legal_case_id')
+            ->whereIn('lcn.note_id', $allNoteIds)
+            ->whereIn('ld.source_type', ['injunction', 'sentence', 'subsidy'])
+            ->whereNull('ld.closed_at')
+            ->whereNotIn('ld.internal_status', ['cancelled', 'ignored'])
+            ->orderByRaw('CASE WHEN ld.source_due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('ld.source_due_at')
+            ->select(['lcn.note_id', 'ld.id', 'ld.source_type', 'ld.source_status', 'ld.source_due_at'])
+            ->get();
+
+        $tagsByNote = [];
+        foreach ($rows as $row) {
+            $tagsByNote[(int) $row->note_id][] = [
+                'id' => (int) $row->id,
+                'type_label' => match ((string) $row->source_type) {
+                    'injunction' => 'Liminar',
+                    'sentence' => 'Sentenca',
+                    'subsidy' => 'Subsidio',
+                    default => (string) $row->source_type,
+                },
+                'status' => (string) ($row->source_status ?: 'Sem status'),
+                'due_at' => $row->source_due_at ? Carbon::parse($row->source_due_at)->format('d/m/Y H:i') : 'Sem prazo',
+                'is_overdue' => $row->source_due_at ? Carbon::parse($row->source_due_at)->isPast() : false,
+                'badge_class' => match ((string) $row->source_type) {
+                    'injunction' => 'bg-danger text-white',
+                    'sentence' => 'bg-warning text-dark',
+                    'subsidy' => 'bg-info text-dark',
+                    default => 'bg-secondary text-white',
+                },
+            ];
+        }
+
+        foreach ($noteIdsByJob as $jobId => $noteIds) {
+            $merged = [];
+            foreach ($noteIds as $noteId) {
+                foreach (($tagsByNote[(int) $noteId] ?? []) as $tag) {
+                    $merged[$tag['id']] = $tag;
+                }
+            }
+            if ($merged !== []) {
+                $tagsByJob[(int) $jobId] = array_values($merged);
+            }
+        }
+
+        return $tagsByJob;
     }
 }

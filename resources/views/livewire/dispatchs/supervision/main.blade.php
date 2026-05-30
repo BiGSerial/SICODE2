@@ -503,6 +503,7 @@
                                             <i class="ri-fire-line text-danger fw-bold"></i>
                                         </span>
                                     @endif
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$list->id" />
                                 </td>
                                 <td class="text-center {{ $rowClass }} text-nowrap">
                                     @if ($list->WorkForm)
