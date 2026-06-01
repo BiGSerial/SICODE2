@@ -13,6 +13,6 @@
 @endsection
 
 @section('content')
-    @livewire('legal.controller.subdemand-detail', ['id' => $id], key('legal-subdemand-detail-'.$id))
+    @livewire('legal.controller.subdemand-detail', ['uuid' => $uuid], key('legal-subdemand-detail-'.$uuid))
 @endsection
 

@@ -12,7 +12,7 @@
             border-radius: 1rem;
             padding: 1.5rem 2rem;
             box-shadow: 0 16px 40px rgba(15, 23, 42, .22);
-            margin-bottom: 1.5rem;
+            margin-bottom: 0;
         }
         .hero-title {
             font-size: 2rem;
@@ -32,11 +32,25 @@
             opacity: .9;
         }
         .hero-sla-card {
-            min-width: 260px;
-            background: rgba(255,255,255,.1);
-            border: 1px solid rgba(255,255,255,.22);
+            min-width: 240px;
             border-radius: .9rem;
             padding: .8rem .95rem;
+            border: 2px solid rgba(255,255,255,.22);
+        }
+        .hero-sla-card.sla-ok {
+            background: rgba(22,163,74,.25);
+            border-color: rgba(134,239,172,.35);
+        }
+        .hero-sla-card.sla-warn {
+            background: rgba(217,119,6,.28);
+            border-color: rgba(253,230,138,.4);
+        }
+        .hero-sla-card.sla-danger {
+            background: rgba(220,38,38,.28);
+            border-color: rgba(252,165,165,.4);
+        }
+        .hero-sla-card.sla-none {
+            background: rgba(255,255,255,.1);
         }
         .hero-sla-label {
             font-size: .72rem;
@@ -44,6 +58,7 @@
             letter-spacing: .05em;
             opacity: .85;
             margin-bottom: .25rem;
+            font-weight: 700;
         }
         .hero-sla-date {
             font-size: 1rem;
@@ -54,6 +69,30 @@
             font-size: .82rem;
             opacity: .88;
             margin-top: .25rem;
+        }
+        .hero-overdue-banner {
+            background: linear-gradient(90deg, #dc2626, #b91c1c);
+            color: #fff;
+            border-radius: 0 0 .75rem .75rem;
+            padding: .65rem 2rem;
+            font-size: .9rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: 1.5rem;
+        }
+        .hero-warn-banner {
+            background: linear-gradient(90deg, #d97706, #b45309);
+            color: #fff;
+            border-radius: 0 0 .75rem .75rem;
+            padding: .55rem 2rem;
+            font-size: .88rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: 1.5rem;
         }
         .table-card {
             background: #fff;
@@ -69,6 +108,24 @@
             letter-spacing: .01em;
         }
         .table-card .card-body { padding: 1.25rem; }
+        .controller-card-new {
+            border: 1px solid #bfdbfe;
+            border-left: 5px solid #2563eb;
+            box-shadow: 0 10px 26px rgba(37, 99, 235, .12);
+        }
+        .controller-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #1e3a5f, #2563eb);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
         .proc-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -79,11 +136,22 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: .9rem 1.2rem;
         }
+        .proc-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .55rem .75rem;
+        }
         .proc-item {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: .65rem;
             padding: .7rem .8rem;
+        }
+        .proc-item-compact {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: .5rem;
+            padding: .45rem .6rem;
         }
         .proc-label {
             font-size: .73rem;
@@ -93,15 +161,76 @@
             margin-bottom: .25rem;
             font-weight: 700;
         }
+        .proc-label-sm {
+            font-size: .68rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #64748b;
+            margin-bottom: .15rem;
+            font-weight: 700;
+        }
         .proc-value {
             font-size: .92rem;
             color: #0f172a;
             font-weight: 600;
             line-height: 1.35;
         }
-        .action-panel {
+        .proc-value-sm {
+            font-size: .82rem;
+            color: #0f172a;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .right-panel {
             position: sticky;
             top: 1rem;
+        }
+        .evidence-required-block {
+            border: 2px solid #f97316;
+            background: linear-gradient(180deg, #fff7ed, #fff);
+            border-radius: 1rem;
+            padding: 1.1rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .evidence-optional-block {
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+        .evidence-optional-title {
+            font-size: .88rem;
+            font-weight: 700;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: .4rem;
+        }
+        .evidence-ok-block {
+            border: 2px solid #16a34a;
+            background: linear-gradient(180deg, #f0fdf4, #fff);
+            border-radius: 1rem;
+            padding: .85rem 1rem;
+            margin-bottom: 1.25rem;
+        }
+        .evidence-required-title {
+            font-size: .95rem;
+            font-weight: 800;
+            color: #c2410c;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: .5rem;
+        }
+        .evidence-ok-title {
+            font-size: .9rem;
+            font-weight: 700;
+            color: #166534;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
         }
         .timeline-list {
             list-style: none;
@@ -155,23 +284,14 @@
         .timeline-badge.soon { background: #fef3c7; color: #92400e; }
         .timeline-badge.ontrack { background: #dcfce7; color: #166534; }
         .assign-timeline-wrap {
-            max-height: 300px;
+            max-height: 260px;
             overflow-y: auto;
             padding-right: .35rem;
         }
-        .assign-timeline-wrap::-webkit-scrollbar {
-            width: 6px;
-        }
-        .assign-timeline-wrap::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .assign-timeline-wrap::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 999px;
-        }
-        .assign-timeline-wrap::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        .assign-timeline-wrap::-webkit-scrollbar { width: 6px; }
+        .assign-timeline-wrap::-webkit-scrollbar-track { background: transparent; }
+        .assign-timeline-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .assign-timeline-wrap::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .assign-timeline {
             position: relative;
             margin: 0;
@@ -192,9 +312,7 @@
             position: relative;
             padding: 0 0 .9rem .5rem;
         }
-        .assign-timeline-item:last-child {
-            padding-bottom: 0;
-        }
+        .assign-timeline-item:last-child { padding-bottom: 0; }
         .assign-timeline-dot {
             position: absolute;
             left: -1.2rem;
@@ -247,10 +365,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .controller-card {
-            border: 1px solid #bfdbfe;
-            box-shadow: 0 10px 26px rgba(37, 99, 235, .12);
-        }
         .controller-highlight {
             background: linear-gradient(90deg, #eff6ff, #f8fbff);
             border: 1px solid #dbeafe;
@@ -263,52 +377,8 @@
             border-radius: .5rem;
             padding: .7rem .8rem;
         }
-        .upload-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 12px;
-        }
-        .upload-item {
-            border: 1px solid #e2e8f0;
-            border-radius: .75rem;
-            background: #fff;
-            overflow: hidden;
-        }
-        .upload-thumb {
-            width: 100%;
-            height: 120px;
-            object-fit: cover;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .upload-placeholder {
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #64748b;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: .82rem;
-            font-weight: 700;
-        }
-        .files-block {
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            background: #f8fafc;
-            padding: 12px;
-            margin-bottom: 12px;
-        }
-        .files-block-title {
-            font-size: 11px;
-            letter-spacing: .06em;
-            text-transform: uppercase;
-            color: #64748b;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
         .upload-zone {
-            border: 1px dashed #93c5fd;
+            border: 2px dashed #93c5fd;
             background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
             border-radius: 12px;
             padding: 12px;
@@ -373,6 +443,21 @@
             font-size: 12px;
             color: #64748b;
         }
+        .files-block {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .files-block-title {
+            font-size: 11px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
         .subd-card {
             border: 1px solid #dbeafe;
             border-radius: .75rem;
@@ -412,10 +497,33 @@
             margin-bottom: .4rem;
         }
         .subd-event:last-child { margin-bottom: 0; }
+        .collapsible-section summary {
+            cursor: pointer;
+            list-style: none;
+            padding: .6rem .85rem;
+            background: #f8fafc;
+            border-radius: .65rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: .83rem;
+            font-weight: 700;
+            color: #334155;
+            user-select: none;
+        }
+        .collapsible-section summary::-webkit-details-marker { display: none; }
+        .collapsible-section[open] summary {
+            border-radius: .65rem .65rem 0 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .collapsible-section .collapsible-body {
+            padding: .75rem .85rem 0;
+        }
         @media (max-width: 992px) {
             .proc-grid { grid-template-columns: 1fr; }
             .proc-grid-3 { grid-template-columns: 1fr; }
-            .action-panel { position: static; }
+            .proc-grid-compact { grid-template-columns: 1fr; }
+            .right-panel { position: static; }
         }
     </style>
 
@@ -473,8 +581,47 @@
             $sharedOthers = $sharedFiles->filter(function ($file) use ($sharedImages) {
                 return !$sharedImages->contains('id', $file->id);
             })->values();
+
+            // Evidence already saved for this assignment
+            $savedEvidenceCount = $demand->files
+                ->where('removed_at', null)
+                ->where('assignment_id', $assignment->id)
+                ->count();
+
+            $requiresEvidence = (bool) data_get($assignment->metadata ?? [], 'requires_evidence', false);
+
+            // SLA card variant
+            $slaCardClass = 'sla-none';
+            if ($controllerDueAt) {
+                if ($isControllerOverdue) {
+                    $slaCardClass = 'sla-danger';
+                } elseif ($controllerDueAt->lte(now()->addDay())) {
+                    $slaCardClass = 'sla-warn';
+                } else {
+                    $slaCardClass = 'sla-ok';
+                }
+            }
+
+            // Hero deadline banner
+            $heroBannerType = null; // null | 'overdue' | 'warn'
+            if ($controllerDueAt) {
+                if ($isControllerOverdue) {
+                    $heroBannerType = 'overdue';
+                    $heroBannerDays = (int) now()->diffInDays($controllerDueAt);
+                } elseif ($controllerDueAt->lte(now()->addDay())) {
+                    $heroBannerType = 'warn';
+                }
+            }
+
+            // Controller avatar initial
+            $controllerName = $assignment->sentBy?->name ?? 'C';
+            $controllerInitial = mb_strtoupper(mb_substr($controllerName, 0, 1));
+
+            // Queued files count
+            $queuedCount = is_array($uploadFiles ?? null) ? count($uploadFiles) : 0;
         @endphp
 
+        {{-- HERO --}}
         <div class="ldd-hero">
             <div class="d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3">
                 <div class="flex-grow-1">
@@ -504,7 +651,7 @@
                         <span class="{{ $assignStatusClass }}">Atribuição: {{ $assignStatusLabel }}</span>
                     </div>
                 </div>
-                <div class="hero-sla-card">
+                <div class="hero-sla-card {{ $slaCardClass }}">
                     <div class="hero-sla-label">Prazo SLA do Controlador</div>
                     @if($controllerDueAt)
                         <div class="hero-sla-date">{{ $controllerDueAt->format('d/m/Y H:i') }}</div>
@@ -512,6 +659,9 @@
                             @if($isControllerOverdue)
                                 <span class="badge bg-danger">Vencido</span>
                                 {{ $controllerDueAt->diffForHumans(now(), ['parts' => 2, 'short' => false]) }}
+                            @elseif($slaCardClass === 'sla-warn')
+                                <span class="badge bg-warning text-dark">Atenção</span>
+                                vence {{ $controllerDueAt->diffForHumans() }}
                             @else
                                 <span class="badge bg-success">No prazo</span>
                                 vence {{ $controllerDueAt->diffForHumans() }}
@@ -525,471 +675,108 @@
             </div>
         </div>
 
-    <div class="row g-4">
-        {{-- Coluna Esquerda (col-7) --}}
-        <div class="col-lg-7">
+        {{-- DEADLINE BANNER --}}
+        @if($heroBannerType === 'overdue')
+            <div class="hero-overdue-banner">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                PRAZO VENCIDO HÁ {{ $heroBannerDays }} {{ $heroBannerDays === 1 ? 'DIA' : 'DIAS' }} — Esta tarefa está fora do SLA
+            </div>
+        @elseif($heroBannerType === 'warn')
+            <div class="hero-warn-banner">
+                <i class="bi bi-clock-fill"></i>
+                PRAZO CRÍTICO — O SLA desta atribuição vence hoje ou amanhã. Envie sua resposta com urgência.
+            </div>
+        @else
+            <div style="margin-bottom:1.5rem;"></div>
+        @endif
 
-            {{-- Solicitação do Controlador --}}
-            <div class="table-card controller-card">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-megaphone me-2"></i>Solicitação do Controlador
-                </div>
-                <div class="card-body">
-                    <div class="controller-highlight mb-3">
-                        <div class="small text-muted mb-1">Controlador responsável</div>
-                        <div class="fw-semibold">{{ $assignment->sentBy?->name ?? '—' }}</div>
-                        <div class="small text-muted mt-1">
-                            Encaminhado em {{ \Carbon\Carbon::parse($assignment->created_at)->format('d/m/Y H:i') }}
-                        </div>
+        <div class="row g-4">
+
+            {{-- ================================================
+                 COLUNA ESQUERDA col-8 — Fluxo Principal
+                 ================================================ --}}
+            <div class="col-lg-8">
+
+                {{-- 1. Solicitação do Controlador --}}
+                <div class="table-card controller-card-new">
+                    <div class="card-header text-bg-dark fw-bold">
+                        <i class="bi bi-megaphone me-2"></i>Solicitação do Controlador
                     </div>
-
-                    <div class="proc-grid-3 mb-3">
-                        <div class="proc-item">
-                            <div class="proc-label">Quem executa esta demanda</div>
-                            <div class="proc-value">{{ $executorName }}</div>
-                        </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Data limite para resposta</div>
-                            <div class="proc-value">
-                                @if($controllerDueAt)
-                                    {{ $controllerDueAt->format('d/m/Y H:i') }}
-                                    @if($isControllerOverdue)
-                                        <span class="badge bg-danger ms-1">Prazo vencido</span>
-                                    @else
-                                        <span class="badge bg-success ms-1">No prazo</span>
-                                    @endif
-                                @else
-                                    Não informada
-                                @endif
+                    <div class="card-body">
+                        <div class="d-flex gap-3 align-items-center mb-3">
+                            <div class="controller-avatar">{{ $controllerInitial }}</div>
+                            <div>
+                                <div class="fw-bold" style="font-size:.97rem;">{{ $assignment->sentBy?->name ?? '—' }}</div>
+                                <div class="small text-muted">
+                                    Encaminhado em {{ \Carbon\Carbon::parse($assignment->created_at)->format('d/m/Y H:i') }}
+                                </div>
                             </div>
                         </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Status da atribuição</div>
-                            <div class="proc-value"><span class="{{ $assignStatusClass }}">{{ $assignStatusLabel }}</span></div>
-                        </div>
-                    </div>
 
-                    @if($assignment->message)
-                        <div class="controller-message mb-2">
-                            <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
-                            <p class="mb-0">{{ $assignment->message }}</p>
-                        </div>
-                    @else
-                        <div class="controller-message mb-2">
-                            <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
-                            <p class="mb-0 text-muted">Sem orientação textual registrada.</p>
-                        </div>
-                    @endif
-                    @if($assignStatus === 'returned_for_correction' && $assignment->response_summary)
-                        <hr>
-                        <div class="alert alert-danger small mb-0">
-                            <div class="fw-semibold mb-1">Sua resposta anterior:</div>
-                            <p class="mb-2">{{ $assignment->response_summary }}</p>
-                            @if($assignment->correction_note)
-                                <div class="fw-semibold text-danger">Motivo da devolução:</div>
-                                <p class="mb-0">"{{ $assignment->correction_note }}"</p>
-                            @endif
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Dados do Processo --}}
-            <div class="table-card">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-file-text me-2"></i>Resumo do Processo (Fonte)
-                </div>
-                <div class="card-body">
-                    <div class="proc-grid-3">
-                        <div class="proc-item">
-                            <div class="proc-label">Número do Processo</div>
-                            <div class="proc-value">{{ $demand->source_process_number_masked ?? 'Não informado' }}</div>
-                        </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Número do Caso</div>
-                            <div class="proc-value">{{ $demand->source_case_number ?? 'Não informado' }}</div>
-                        </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Tipo</div>
-                            <div class="proc-value">{{ $sourceTypeLabel }}</div>
-                        </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Status Processo (Externo)</div>
-                            <div class="proc-value">{{ $demand->external_status ?? 'Não informado' }}</div>
-                        </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Prazo Judicial (Fonte)</div>
-                            <div class="proc-value"><x-legal.due-date-chip :date="$demand->source_due_at" /></div>
-                        </div>
-                        <div class="proc-item">
-                            <div class="proc-label">Status Fluxo (Externo)</div>
-                            <div class="proc-value">{{ $demand->external_flow_status ?? 'Não informado' }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            @if($sourceTimeline->isNotEmpty())
-                <div class="table-card">
-                    <div class="card-header text-bg-dark fw-bold">
-                        <i class="bi bi-calendar3 me-2"></i>Linha do Tempo da Fonte
-                    </div>
-                    <div class="card-body">
-                        <ul class="timeline-list">
-                            @foreach($sourceTimeline as $item)
-                                @php
-                                    $isDeadline = $item['key'] === 'deadline';
-                                    $dateValue = \Carbon\Carbon::parse($item['value']);
-                                    $deadlineClass = '';
-                                    $deadlineBadge = null;
-
-                                    if ($isDeadline) {
-                                        if ($demand->source_executed_at) {
-                                            $deadlineClass = 'deadline-ontrack';
-                                            $deadlineBadge = 'Cumprido';
-                                        } elseif ($dateValue->isPast()) {
-                                            $deadlineClass = 'deadline-overdue';
-                                            $deadlineBadge = 'Vencido';
-                                        } elseif ($dateValue->lte(now()->addDays(2))) {
-                                            $deadlineClass = 'deadline-soon';
-                                            $deadlineBadge = 'Atenção';
-                                        } else {
-                                            $deadlineClass = 'deadline-ontrack';
-                                            $deadlineBadge = 'No prazo';
-                                        }
-                                    }
-                                @endphp
-                                <li class="timeline-item">
-                                    <span class="timeline-dot"></span>
-                                    <div>
-                                        <div class="timeline-title">{{ $item['label'] }}</div>
-                                        <div class="timeline-date {{ $deadlineClass }}">
-                                            {{ $dateValue->format('d/m/Y H:i') }}
-                                            @if($deadlineBadge)
-                                                <span class="timeline-badge {{ str_replace('deadline-', '', $deadlineClass) }}">{{ $deadlineBadge }}</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
-
-            @if($sourceContext->isNotEmpty())
-                <div class="table-card">
-                    <div class="card-header text-bg-dark fw-bold">
-                        <i class="bi bi-journal-text me-2"></i>Contexto do Processo (Fonte)
-                    </div>
-                    <div class="card-body">
-                        <div class="proc-grid">
-                            @foreach($sourceContext as $ctx)
-                                <div class="proc-item">
-                                    <div class="proc-label">{{ $ctx['label'] }}</div>
-                                    <div class="proc-value">{{ $ctx['value'] }}</div>
+                        <div class="proc-grid-3 mb-3">
+                            <div class="proc-item">
+                                <div class="proc-label">Quem executa</div>
+                                <div class="proc-value">{{ $executorName }}</div>
+                            </div>
+                            <div class="proc-item">
+                                <div class="proc-label">Data limite para resposta</div>
+                                <div class="proc-value">
+                                    @if($controllerDueAt)
+                                        {{ $controllerDueAt->format('d/m/Y H:i') }}
+                                        @if($isControllerOverdue)
+                                            <span class="badge bg-danger ms-1">Prazo vencido</span>
+                                        @else
+                                            <span class="badge bg-success ms-1">No prazo</span>
+                                        @endif
+                                    @else
+                                        Não informada
+                                    @endif
                                 </div>
-                            @endforeach
+                            </div>
+                            <div class="proc-item">
+                                <div class="proc-label">Status da atribuição</div>
+                                <div class="proc-value"><span class="{{ $assignStatusClass }}">{{ $assignStatusLabel }}</span></div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            @endif
 
-            {{-- Arquivos Compartilhados --}}
-            <div class="table-card">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-paperclip me-2"></i>Documentos Compartilhados
-                </div>
-                <div class="card-body">
-                    <div class="files-block mb-0">
-                        <div class="files-block-title">Arquivos já anexados</div>
-                        @if($sharedFiles->isEmpty())
-                            <p class="text-muted small mb-0">Nenhum documento foi compartilhado para esta tarefa.</p>
+                        @if($assignment->message)
+                            <div class="controller-message mb-2">
+                                <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
+                                <p class="mb-0">{{ $assignment->message }}</p>
+                            </div>
                         @else
-                            @if($sharedImages->isNotEmpty())
-                                <div class="small fw-semibold text-muted mb-2">🖼️ Galeria de imagens</div>
-                                <div class="legal-evidence-grid mb-3">
-                                    @foreach($sharedImages as $index => $file)
-                                        @php
-                                            $filePath = $file->path ?? $file->file_path ?? null;
-                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
-                                        @endphp
-                                        @if($fileUrl)
-                                            <div class="legal-evidence-card">
-                                                <img src="{{ $fileUrl }}"
-                                                     class="legal-evidence-thumb"
-                                                     alt="{{ $file->original_name ?? basename($filePath) }}"
-                                                     data-bs-toggle="modal"
-                                                     data-bs-target="#legalSharedFilesModal"
-                                                     data-carousel-slide="{{ $index }}">
-                                                <div class="small text-muted legal-evidence-name mt-2"
-                                                     title="{{ $file->original_name ?? basename($filePath) }}">
-                                                    {{ $file->original_name ?? basename($filePath) }}
-                                                </div>
-                                                <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
-                                                    <i class="bi bi-download me-1"></i>Baixar
-                                                </a>
-                                            </div>
-                                        @endif
-                                    @endforeach
-                                </div>
-                            @endif
-
-                            @if($sharedOthers->isNotEmpty())
-                                <div class="small fw-semibold text-muted mb-2">📄 Lista de arquivos diversos</div>
-                                <ul class="list-group">
-                                    @foreach($sharedOthers as $file)
-                                        @php
-                                            $filePath = $file->path ?? $file->file_path ?? null;
-                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
-                                            $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
-                                            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                                            $fileIcon = match($ext) {
-                                                'pdf' => 'bi-filetype-pdf text-danger',
-                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
-                                                'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
-                                                'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
-                                                'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
-                                                default => 'bi-file-earmark text-secondary',
-                                            };
-                                        @endphp
-                                        @if($fileUrl)
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <i class="bi {{ $fileIcon }}"></i>
-                                                    <div>
-                                                        <div class="legal-evidence-name" title="{{ $name }}">{{ $name }}</div>
-                                                        <small class="text-muted">{{ strtoupper($ext ?: '-') }}</small>
-                                                    </div>
-                                                </div>
-                                                <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-download me-1"></i>Baixar
-                                                </a>
-                                            </li>
-                                        @endif
-                                    @endforeach
-                                </ul>
-                            @endif
+                            <div class="controller-message mb-2">
+                                <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
+                                <p class="mb-0 text-muted">Sem orientação textual registrada.</p>
+                            </div>
+                        @endif
+                        @if($assignStatus === 'returned_for_correction' && $assignment->response_summary)
+                            <hr>
+                            <div class="alert alert-danger small mb-0">
+                                <div class="fw-semibold mb-1">Sua resposta anterior:</div>
+                                <p class="mb-2">{{ $assignment->response_summary }}</p>
+                                @if($assignment->correction_note)
+                                    <div class="fw-semibold text-danger">Motivo da devolução:</div>
+                                    <p class="mb-0">"{{ $assignment->correction_note }}"</p>
+                                @endif
+                            </div>
                         @endif
                     </div>
                 </div>
-            </div>
 
-            @if($sharedImages->isNotEmpty())
-                <div class="modal fade" id="legalSharedFilesModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
-                    <div class="modal-dialog modal-xl modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Visualização de Imagens</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div id="legalSharedFilesCarousel" class="carousel slide" data-bs-ride="false">
-                                    <div class="carousel-inner">
-                                        @foreach($sharedImages as $index => $file)
-                                            @php
-                                                $filePath = $file->path ?? $file->file_path ?? null;
-                                                $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
-                                            @endphp
-                                            @if($fileUrl)
-                                                <div class="carousel-item @if($index === 0) active @endif">
-                                                    <div class="text-center">
-                                                        <img src="{{ $fileUrl }}" class="img-fluid rounded border"
-                                                             alt="{{ $file->original_name ?? basename($filePath) }}"
-                                                             style="max-height:70vh; object-fit:contain;">
-                                                    </div>
-                                                    <div class="d-flex justify-content-between align-items-center mt-3">
-                                                        <div class="small text-muted">{{ $file->original_name ?? basename($filePath) }}</div>
-                                                        <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-primary">
-                                                            <i class="bi bi-download me-1"></i>Baixar
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                    @if($sharedImages->count() > 1)
-                                        <button class="carousel-control-prev" type="button" data-bs-target="#legalSharedFilesCarousel" data-bs-slide="prev">
-                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Anterior</span>
-                                        </button>
-                                        <button class="carousel-control-next" type="button" data-bs-target="#legalSharedFilesCarousel" data-bs-slide="next">
-                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Próximo</span>
-                                        </button>
-                                    @endif
-                                </div>
-                            </div>
+                {{-- 2. Evidence Block --}}
+                @if($savedEvidenceCount === 0 && empty($uploadFiles))
+                    <div class="{{ $requiresEvidence ? 'evidence-required-block' : 'evidence-optional-block' }}">
+                        <div class="{{ $requiresEvidence ? 'evidence-required-title' : 'evidence-optional-title' }}">
+                            <i class="bi bi-{{ $requiresEvidence ? 'exclamation-triangle-fill' : 'paperclip' }}"></i>
+                            {{ $requiresEvidence ? 'EVIDÊNCIA OBRIGATÓRIA' : 'ANEXAR ARQUIVOS (opcional)' }}
                         </div>
-                    </div>
-                </div>
-            @endif
-
-            {{-- Histórico desta Atribuição --}}
-            <div class="table-card mb-0">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-clock-history me-2"></i>Histórico da Atribuição
-                </div>
-                <div class="card-body">
-                    <div class="assign-timeline-wrap">
-                        <ol class="assign-timeline">
-                            <li class="assign-timeline-item">
-                                <span class="assign-timeline-dot success"></span>
-                                <div class="assign-timeline-title">Atribuição enviada</div>
-                                <div class="assign-timeline-meta">
-                                    {{ \Carbon\Carbon::parse($assignment->created_at)->format('d/m/Y H:i') }}
-                                    · {{ $assignment->sentBy?->name ?? 'Controlador' }}
-                                </div>
-                            </li>
-
-                            @if($assignment->received_at)
-                                <li class="assign-timeline-item">
-                                    <span class="assign-timeline-dot info"></span>
-                                    <div class="assign-timeline-title">Recebimento confirmado</div>
-                                    <div class="assign-timeline-meta">
-                                        {{ \Carbon\Carbon::parse($assignment->received_at)->format('d/m/Y H:i') }}
-                                        · {{ $executorName }}
-                                    </div>
-                                </li>
-                            @endif
-
-                            @if($assignStatus === 'returned_for_correction')
-                                <li class="assign-timeline-item">
-                                    <span class="assign-timeline-dot warn"></span>
-                                    <div class="assign-timeline-title">Devolvida para correção</div>
-                                    <div class="assign-timeline-meta">
-                                        {{ \Carbon\Carbon::parse($assignment->updated_at)->format('d/m/Y H:i') }}
-                                        · Controlador
-                                    </div>
-                                </li>
-                            @endif
-
-                            @if(in_array($assignStatus, ['answered', 'returned_to_controller']))
-                                <li class="assign-timeline-item">
-                                    <span class="assign-timeline-dot success"></span>
-                                    <div class="assign-timeline-title">Resposta enviada</div>
-                                    <div class="assign-timeline-meta">
-                                        {{ $assignment->answered_at ? \Carbon\Carbon::parse($assignment->answered_at)->format('d/m/Y H:i') : \Carbon\Carbon::parse($assignment->updated_at)->format('d/m/Y H:i') }}
-                                        · {{ $executorName }}
-                                    </div>
-                                </li>
-                            @else
-                                <li class="assign-timeline-item">
-                                    <span class="assign-timeline-dot warn"></span>
-                                    <div class="assign-timeline-title">Aguardando sua resposta</div>
-                                    <div class="assign-timeline-meta">A demanda permanece pendente de retorno.</div>
-                                </li>
-                            @endif
-                        </ol>
-                    </div>
-                </div>
-            </div>
-
-            <div class="table-card mt-3 mb-0">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-diagram-3 me-2"></i>Subdemandas Vinculadas
-                </div>
-                <div class="card-body">
-                    @forelse($demand->subdemands as $sub)
-                        @php
-                            $subStatus = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
-                            $subStatusLabel = $sub->status instanceof \App\Enum\LegalDemandSubdemandStatus
-                                ? $sub->status->label()
-                                : \Illuminate\Support\Str::headline(str_replace('_', ' ', $subStatus));
-                            $subBadge = match($subStatus) {
-                                'concluida' => 'badge bg-success',
-                                'encerrada_controlador' => 'badge bg-secondary',
-                                'em_andamento' => 'badge bg-warning text-dark',
-                                'aguardando_retorno' => 'badge bg-info text-dark',
-                                default => 'badge bg-primary',
-                            };
-                        @endphp
-                        <details class="subd-card">
-                            <summary class="subd-summary">
-                                <div>
-                                    <div class="fw-semibold">
-                                        Subdemanda #{{ $sub->id }}
-                                        <span class="{{ $subBadge }} ms-1">{{ $subStatusLabel }}</span>
-                                    </div>
-                                    <div class="subd-meta">
-                                        Destino: {{ $sub->assignedTo?->name ?? ($sub->assigned_area_name ?: 'Não definido') }}
-                                        · Prazo: {{ $sub->deadline_at ? \Carbon\Carbon::parse($sub->deadline_at)->format('d/m/Y H:i') : '—' }}
-                                    </div>
-                                </div>
-                                <small class="text-muted">expandir</small>
-                            </summary>
-                            <div class="subd-body">
-                                <div class="small mb-2">
-                                    Criada em {{ $sub->created_at?->format('d/m/Y H:i') ?? '—' }}
-                                    @if($sub->resolution)
-                                        <div class="mt-1"><strong>Resolução:</strong> {{ \Illuminate\Support\Str::limit((string) $sub->resolution, 180) }}</div>
-                                    @endif
-                                </div>
-                                <div class="mb-2">
-                                    <a href="{{ route('legal.subdemand.detail', $sub->id) }}" class="btn btn-sm btn-outline-primary">Abrir detalhe da subdemanda</a>
-                                </div>
-                                <div class="subd-events">
-                                    @forelse($sub->events->sortByDesc('occurred_at')->take(6) as $event)
-                                        <div class="subd-event">
-                                            <div class="d-flex justify-content-between gap-2">
-                                                <span class="badge bg-light text-dark border">{{ \Illuminate\Support\Str::headline(str_replace('_', ' ', (string) $event->event_type)) }}</span>
-                                                <small class="text-muted">{{ $event->occurred_at ? \Carbon\Carbon::parse($event->occurred_at)->format('d/m/Y H:i') : '—' }}</small>
-                                            </div>
-                                            <div class="small mt-1">{{ $event->description ?: 'Atualização registrada.' }}</div>
-                                            <div class="small text-muted">{{ $event->actor?->name ?: 'Sistema' }}</div>
-                                        </div>
-                                    @empty
-                                        <div class="small text-muted">Sem histórico nesta subdemanda.</div>
-                                    @endforelse
-                                </div>
-                                <hr>
-                                <div class="small fw-semibold mb-2">Comentários da subdemanda</div>
-                                @php
-                                    $subComments = $demand->comments
-                                        ->where('legal_demand_subdemand_id', $sub->id)
-                                        ->sortByDesc('created_at')
-                                        ->take(10);
-                                @endphp
-                                <div class="subd-events mb-2">
-                                    @forelse($subComments as $comment)
-                                        <div class="subd-event">
-                                            <div class="small">{{ $comment->comment }}</div>
-                                            <div class="small text-muted">
-                                                {{ $comment->user?->name ?: 'Executante externo' }}
-                                                · {{ $comment->created_at?->format('d/m/Y H:i') }}
-                                            </div>
-                                        </div>
-                                    @empty
-                                        <div class="small text-muted">Sem comentários nesta subdemanda.</div>
-                                    @endforelse
-                                </div>
-                                @if($externalAccess || (string) $sub->assigned_to_user_id === (string) auth()->id())
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" wire:model.defer="subdemandCommentInput.{{ $sub->id }}" placeholder="Escreva um comentário desta subdemanda">
-                                        <button class="btn btn-outline-primary" wire:click="addSubdemandComment({{ $sub->id }})">Enviar</button>
-                                    </div>
-                                @endif
-                            </div>
-                        </details>
-                    @empty
-                        <div class="text-muted small">Nenhuma subdemanda vinculada a esta demanda.</div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-
-        {{-- Coluna Direita (col-5) — Formulário de Resposta --}}
-        <div class="col-lg-5">
-            <div class="table-card">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-cloud-upload me-2"></i>Anexar Arquivos da Tarefa
-                </div>
-                <div class="card-body">
-                    @php
-                        $queuedCount = is_array($uploadFiles ?? null) ? count($uploadFiles) : 0;
-                    @endphp
-                    <div class="files-block mb-0">
-                        <div class="files-block-title">Pré-carga para envio</div>
+                        <p class="mb-3 small" style="font-size:.88rem;color:{{ $requiresEvidence ? '#991b1b' : '#475569' }}">
+                            {{ $requiresEvidence
+                                ? 'O controlador exige ao menos um arquivo de evidência antes do envio da resposta.'
+                                : 'Você pode anexar arquivos de suporte à sua resposta.' }}
+                        </p>
+                        {{-- Upload zone inline --}}
                         <div class="upload-zone">
                             <div class="upload-zone-head">
                                 <div class="small fw-semibold text-muted">Selecione, revise nomes e salve em lote</div>
@@ -1001,7 +788,7 @@
                             <input type="file" class="form-control form-control-sm" wire:model="uploadFiles" multiple>
                             <div class="upload-actions">
                                 <select class="form-select form-select-sm" wire:model="fileVisibility" disabled>
-                                    <option value="shared">👁 Compartilhado</option>
+                                    <option value="shared">Compartilhado</option>
                                 </select>
                                 <button class="btn btn-sm btn-primary px-3" wire:click="saveFilesToTask" wire:loading.attr="disabled" wire:target="uploadFiles,saveFilesToTask">
                                     <i class="bi bi-cloud-upload me-1"></i>Salvar arquivos
@@ -1009,176 +796,646 @@
                             </div>
                             <div class="small text-muted mt-2">PDF, JPG, PNG, DOCX, XLSX — máx. 10MB por arquivo.</div>
                         </div>
-                    </div>
 
-                    <div class="mt-3">
-                        <div class="small fw-semibold text-muted mb-2">Lista de envio (editar nome/remover antes de salvar)</div>
                         @if(!empty($uploadFiles))
-                            <div class="queue-list">
-                                @foreach($uploadFiles as $i => $file)
-                                    @php
-                                        $qName = $uploadNames[$i] ?? $file->getClientOriginalName();
-                                        $qExt = strtolower(pathinfo((string) $qName, PATHINFO_EXTENSION));
-                                        $qSize = method_exists($file, 'getSize') ? (int) $file->getSize() : 0;
-                                        $queueIcon = match($qExt) {
-                                            'pdf' => 'bi-filetype-pdf text-danger',
-                                            'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
-                                            'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
-                                            'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
-                                            'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
-                                            default => 'bi-file-earmark text-secondary',
-                                        };
-                                    @endphp
-                                    <div class="queue-item">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <i class="bi {{ $queueIcon }}"></i>
-                                            <input type="text"
-                                                   class="form-control form-control-sm queue-name-input"
-                                                   wire:model.defer="uploadNames.{{ $i }}"
-                                                   placeholder="Nome do arquivo">
-                                            <button type="button" class="btn btn-sm btn-outline-danger queue-remove-btn" wire:click="removeUploadFile({{ $i }})" title="Remover da fila">
-                                                <i class="bi bi-x-lg"></i>
-                                            </button>
+                            <div class="mt-3">
+                                <div class="small fw-semibold text-muted mb-2">Lista de envio (editar nome/remover antes de salvar)</div>
+                                <div class="queue-list">
+                                    @foreach($uploadFiles as $i => $file)
+                                        @php
+                                            $qName = $uploadNames[$i] ?? $file->getClientOriginalName();
+                                            $qExt = strtolower(pathinfo((string) $qName, PATHINFO_EXTENSION));
+                                            $qSize = method_exists($file, 'getSize') ? (int) $file->getSize() : 0;
+                                            $queueIcon = match($qExt) {
+                                                'pdf' => 'bi-filetype-pdf text-danger',
+                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
+                                                'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
+                                                'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
+                                                'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
+                                                default => 'bi-file-earmark text-secondary',
+                                            };
+                                        @endphp
+                                        <div class="queue-item">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi {{ $queueIcon }}"></i>
+                                                <input type="text"
+                                                       class="form-control form-control-sm queue-name-input"
+                                                       wire:model.defer="uploadNames.{{ $i }}"
+                                                       placeholder="Nome do arquivo">
+                                                <button type="button" class="btn btn-sm btn-outline-danger queue-remove-btn" wire:click="removeUploadFile({{ $i }})" title="Remover da fila">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                            <div class="queue-meta">{{ strtoupper($qExt ?: '-') }} · {{ number_format($qSize / 1024, 1, ',', '.') }} KB</div>
                                         </div>
-                                        <div class="queue-meta">{{ strtoupper($qExt ?: '-') }} · {{ number_format($qSize / 1024, 1, ',', '.') }} KB</div>
-                                    </div>
-                                @endforeach
+                                    @endforeach
+                                </div>
                             </div>
-                        @else
-                            <div class="queue-empty">Nenhum arquivo na fila. Selecione um ou mais arquivos acima para começar.</div>
                         @endif
                     </div>
-                </div>
-            </div>
-
-            <div class="table-card mb-0 action-panel">
-                <div class="card-header text-bg-dark fw-bold">
-                    <i class="bi bi-pencil-square me-2"></i>Resposta da Atribuição
-                </div>
-                <div class="card-body">
-
-                    @if(in_array($assignStatus, ['answered', 'returned_to_controller']))
-                        <div class="alert alert-success small">
-                            <i class="bi bi-check-circle me-1"></i>
-                            Resposta já enviada. Aguardando revisão do controlador.
+                @else
+                    <div class="evidence-ok-block">
+                        <div class="evidence-ok-title">
+                            <i class="bi bi-check-circle-fill"></i>
+                            {{ $savedEvidenceCount > 0 ? $savedEvidenceCount . ' arquivo(s) de evidência enviado(s)' : $queuedCount . ' arquivo(s) na fila — salve antes de enviar a resposta' }}
                         </div>
-                        @if($assignment->response_summary)
-                            <blockquote class="blockquote small">{{ $assignment->response_summary }}</blockquote>
-                        @endif
-                    @else
-                        {{-- Toggle tipo de resposta --}}
-                        @if($externalAccess)
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small">Seu nome (executante externo) *</label>
-                                <input type="text"
-                                       class="form-control"
-                                       wire:model.defer="externalExecutorName"
-                                       maxlength="120"
-                                       placeholder="Informe seu nome completo">
-                                @error('externalExecutorName')
-                                    <div class="text-danger small mt-1">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        @endif
-
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" wire:model="isImpossibility" value="0" id="rNormal" />
-                                <label class="form-check-label" for="rNormal">Enviar Parecer / Evidências</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" wire:model="isImpossibility" value="1" id="rImposs" />
-                                <label class="form-check-label" for="rImposs">Impossibilidade de Atendimento</label>
-                            </div>
-                        </div>
-
-                        @if(!$isImpossibility)
-                            {{-- Formulário A: Parecer Normal --}}
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small">Resumo da resposta *</label>
-                                <textarea class="form-control" rows="6" wire:model="responseSummary"
-                                          placeholder="Descreva sua resposta detalhadamente (mín. 20 caracteres)"></textarea>
-                                <div class="form-text small text-muted">
-                                    "Seu texto é salvo automaticamente enquanto você digita"
+                        @if($savedEvidenceCount === 0 && !empty($uploadFiles))
+                            <p class="mb-3 small mt-2" style="color:#92400e;">
+                                Você tem arquivos na fila. Clique em <strong>Salvar arquivos</strong> para persistir antes de enviar a resposta.
+                            </p>
+                            {{-- Upload zone for queue management --}}
+                            <div class="upload-zone mt-2">
+                                <div class="upload-zone-head">
+                                    <div class="small fw-semibold text-muted">Selecione, revise nomes e salve em lote</div>
+                                    <div class="upload-kpis">
+                                        <span class="upload-chip">{{ $queuedCount }} na fila</span>
+                                        <span class="upload-chip">Compartilhado</span>
+                                    </div>
                                 </div>
+                                <input type="file" class="form-control form-control-sm" wire:model="uploadFiles" multiple>
+                                <div class="upload-actions">
+                                    <select class="form-select form-select-sm" wire:model="fileVisibility" disabled>
+                                        <option value="shared">Compartilhado</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-primary px-3" wire:click="saveFilesToTask" wire:loading.attr="disabled" wire:target="uploadFiles,saveFilesToTask">
+                                        <i class="bi bi-cloud-upload me-1"></i>Salvar arquivos
+                                    </button>
+                                </div>
+                                <div class="small text-muted mt-2">PDF, JPG, PNG, DOCX, XLSX — máx. 10MB por arquivo.</div>
                             </div>
-
-                            <div class="alert alert-light border small">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Anexos devem ser enviados no card <strong>Anexar Arquivos da Tarefa</strong>.
+                            <div class="mt-3">
+                                <div class="small fw-semibold text-muted mb-2">Lista de envio (editar nome/remover antes de salvar)</div>
+                                <div class="queue-list">
+                                    @foreach($uploadFiles as $i => $file)
+                                        @php
+                                            $qName = $uploadNames[$i] ?? $file->getClientOriginalName();
+                                            $qExt = strtolower(pathinfo((string) $qName, PATHINFO_EXTENSION));
+                                            $qSize = method_exists($file, 'getSize') ? (int) $file->getSize() : 0;
+                                            $queueIcon = match($qExt) {
+                                                'pdf' => 'bi-filetype-pdf text-danger',
+                                                'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
+                                                'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
+                                                'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
+                                                'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
+                                                default => 'bi-file-earmark text-secondary',
+                                            };
+                                        @endphp
+                                        <div class="queue-item">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi {{ $queueIcon }}"></i>
+                                                <input type="text"
+                                                       class="form-control form-control-sm queue-name-input"
+                                                       wire:model.defer="uploadNames.{{ $i }}"
+                                                       placeholder="Nome do arquivo">
+                                                <button type="button" class="btn btn-sm btn-outline-danger queue-remove-btn" wire:click="removeUploadFile({{ $i }})" title="Remover da fila">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                            <div class="queue-meta">{{ strtoupper($qExt ?: '-') }} · {{ number_format($qSize / 1024, 1, ',', '.') }} KB</div>
+                                        </div>
+                                    @endforeach
+                                </div>
                             </div>
                         @else
-                            {{-- Formulário B: Impossibilidade --}}
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small">Motivo da impossibilidade *</label>
-                                <textarea class="form-control" rows="5" wire:model="impossibilityReason"
-                                          placeholder="Descreva por que não é possível atender (mín. 20 caracteres)"></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small">Documentação de suporte (opcional)</label>
-                                <div class="alert alert-light border small mb-0">
-                                    Envie os arquivos no card <strong>Anexar Arquivos da Tarefa</strong> antes de concluir.
+                            {{-- Files already saved — offer adding more --}}
+                            <div class="mt-2">
+                                <div class="upload-zone">
+                                    <div class="upload-zone-head">
+                                        <div class="small fw-semibold text-muted">Adicionar mais evidências</div>
+                                        <div class="upload-kpis">
+                                            <span class="upload-chip">{{ $queuedCount }} na fila</span>
+                                        </div>
+                                    </div>
+                                    <input type="file" class="form-control form-control-sm" wire:model="uploadFiles" multiple>
+                                    <div class="upload-actions">
+                                        <select class="form-select form-select-sm" wire:model="fileVisibility" disabled>
+                                            <option value="shared">Compartilhado</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-primary px-3" wire:click="saveFilesToTask" wire:loading.attr="disabled" wire:target="uploadFiles,saveFilesToTask">
+                                            <i class="bi bi-cloud-upload me-1"></i>Salvar arquivos
+                                        </button>
+                                    </div>
+                                    <div class="small text-muted mt-2">PDF, JPG, PNG, DOCX, XLSX — máx. 10MB por arquivo.</div>
                                 </div>
+                                @if(!empty($uploadFiles))
+                                    <div class="mt-3">
+                                        <div class="small fw-semibold text-muted mb-2">Lista de envio (editar nome/remover antes de salvar)</div>
+                                        <div class="queue-list">
+                                            @foreach($uploadFiles as $i => $file)
+                                                @php
+                                                    $qName = $uploadNames[$i] ?? $file->getClientOriginalName();
+                                                    $qExt = strtolower(pathinfo((string) $qName, PATHINFO_EXTENSION));
+                                                    $qSize = method_exists($file, 'getSize') ? (int) $file->getSize() : 0;
+                                                    $queueIcon = match($qExt) {
+                                                        'pdf' => 'bi-filetype-pdf text-danger',
+                                                        'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
+                                                        'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
+                                                        'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
+                                                        'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
+                                                        default => 'bi-file-earmark text-secondary',
+                                                    };
+                                                @endphp
+                                                <div class="queue-item">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <i class="bi {{ $queueIcon }}"></i>
+                                                        <input type="text"
+                                                               class="form-control form-control-sm queue-name-input"
+                                                               wire:model.defer="uploadNames.{{ $i }}"
+                                                               placeholder="Nome do arquivo">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger queue-remove-btn" wire:click="removeUploadFile({{ $i }})" title="Remover da fila">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="queue-meta">{{ strtoupper($qExt ?: '-') }} · {{ number_format($qSize / 1024, 1, ',', '.') }} KB</div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         @endif
+                    </div>
+                @endif
 
-                        {{-- Modal de Confirmação --}}
-                        @if($confirmingSend)
-                            <div class="alert alert-warning mb-3">
-                                <div class="fw-semibold mb-2">Confirmar Envio?</div>
-                                <div class="small mb-1">Processo: {{ $demand->source_process_number_masked ?? 'Não informado' }}</div>
-                                <div class="small mb-1">Caso: {{ $demand->source_case_number ?? 'Não informado' }}</div>
-                                @if(!$isImpossibility)
-                                    <div class="small mb-1">Resumo: "{{ Str::limit($responseSummary, 100) }}"</div>
-                                    @if(!empty($uploadFiles))
-                                        <div class="small mb-1">Arquivos: {{ count($uploadFiles) }} arquivo(s)</div>
-                                    @endif
-                                @else
-                                    <div class="small mb-1">Tipo: Impossibilidade de atendimento</div>
-                                @endif
-                                <div class="small text-muted mt-2">
-                                    Após o envio, você não poderá editar esta resposta.
-                                </div>
-                                <div class="d-flex gap-2 mt-3">
-                                    <button class="btn btn-sm btn-secondary flex-fill" wire:click="cancelConfirm">Cancelar</button>
-                                    <button class="btn btn-sm btn-success flex-fill" wire:click="submitResponse">Confirmar e Enviar</button>
-                                </div>
+                {{-- 3. Response Form --}}
+                <div class="table-card mb-0">
+                    <div class="card-header text-bg-dark fw-bold">
+                        <i class="bi bi-pencil-square me-2"></i>Resposta da Atribuição
+                    </div>
+                    <div class="card-body">
+
+                        @if(in_array($assignStatus, ['answered', 'returned_to_controller']))
+                            <div class="alert alert-success small">
+                                <i class="bi bi-check-circle me-1"></i>
+                                Resposta já enviada. Aguardando revisão do controlador.
                             </div>
+                            @if($assignment->response_summary)
+                                <blockquote class="blockquote small">{{ $assignment->response_summary }}</blockquote>
+                            @endif
                         @else
                             @if($externalAccess)
-                                <button class="btn btn-primary w-100 btn-sm" wire:click="startConfirm">
-                                    <i class="bi bi-send me-1"></i>Enviar Resposta
-                                </button>
-                            @else
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-outline-secondary flex-fill btn-sm" wire:click="saveDraft">
-                                        Salvar Rascunho
-                                    </button>
-                                    <button class="btn btn-primary flex-fill btn-sm" wire:click="startConfirm">
-                                        <i class="bi bi-send me-1"></i>Enviar Resposta
-                                    </button>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Seu nome (executante externo) *</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           wire:model.defer="externalExecutorName"
+                                           maxlength="120"
+                                           placeholder="Informe seu nome completo">
+                                    @error('externalExecutorName')
+                                        <div class="text-danger small mt-1">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             @endif
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" wire:model="isImpossibility" value="0" id="rNormal" />
+                                    <label class="form-check-label" for="rNormal">Enviar Parecer / Evidências</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" wire:model="isImpossibility" value="1" id="rImposs" />
+                                    <label class="form-check-label" for="rImposs">Impossibilidade de Atendimento</label>
+                                </div>
+                            </div>
+
+                            @if(!$isImpossibility)
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Resumo da resposta *</label>
+                                    <textarea class="form-control" rows="6" wire:model="responseSummary"
+                                              placeholder="Descreva sua resposta detalhadamente (mín. 20 caracteres)"></textarea>
+                                    <div class="form-text small text-muted">
+                                        "Seu texto é salvo automaticamente enquanto você digita"
+                                    </div>
+                                    @error('responseSummary')
+                                        <div class="text-danger small mt-1">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            @else
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Motivo da impossibilidade *</label>
+                                    <textarea class="form-control" rows="5" wire:model="impossibilityReason"
+                                              placeholder="Descreva por que não é possível atender (mín. 20 caracteres)"></textarea>
+                                    @error('impossibilityReason')
+                                        <div class="text-danger small mt-1">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small">Documentação de suporte (opcional)</label>
+                                    <div class="alert alert-light border small mb-0">
+                                        Os arquivos de evidência devem ser salvos no bloco acima antes de concluir.
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Evidence validation error --}}
+                            @error('evidence')
+                                <div class="alert alert-danger small d-flex align-items-start gap-2 mb-3">
+                                    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+                                    <span>{{ $message }}</span>
+                                </div>
+                            @enderror
+
+                            {{-- Confirmation inline --}}
+                            @if($confirmingSend)
+                                <div class="alert alert-warning mb-3">
+                                    <div class="fw-semibold mb-2">Confirmar Envio?</div>
+                                    <div class="small mb-1">Processo: {{ $demand->source_process_number_masked ?? 'Não informado' }}</div>
+                                    <div class="small mb-1">Caso: {{ $demand->source_case_number ?? 'Não informado' }}</div>
+                                    @if(!$isImpossibility)
+                                        <div class="small mb-1">Resumo: "{{ Str::limit($responseSummary, 100) }}"</div>
+                                        @if(!empty($uploadFiles))
+                                            <div class="small mb-1">Arquivos: {{ count($uploadFiles) }} arquivo(s)</div>
+                                        @endif
+                                    @else
+                                        <div class="small mb-1">Tipo: Impossibilidade de atendimento</div>
+                                    @endif
+                                    <div class="small text-muted mt-2">
+                                        Após o envio, você não poderá editar esta resposta.
+                                    </div>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <button class="btn btn-sm btn-secondary flex-fill" wire:click="cancelConfirm">Cancelar</button>
+                                        <button class="btn btn-sm btn-success flex-fill" wire:click="submitResponse">Confirmar e Enviar</button>
+                                    </div>
+                                </div>
+                            @else
+                                @if($externalAccess)
+                                    <button class="btn btn-primary w-100 btn-sm" wire:click="startConfirm">
+                                        <i class="bi bi-send me-1"></i>Enviar Resposta
+                                    </button>
+                                @else
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-outline-secondary flex-fill btn-sm" wire:click="saveDraft">
+                                            Salvar Rascunho
+                                        </button>
+                                        <button class="btn btn-primary flex-fill btn-sm" wire:click="startConfirm">
+                                            <i class="bi bi-send me-1"></i>Enviar Resposta
+                                        </button>
+                                    </div>
+                                @endif
+                            @endif
                         @endif
+                    </div>
+                </div>
+
+            </div>{{-- end col-8 --}}
+
+            {{-- ================================================
+                 COLUNA DIREITA col-4 — Contexto / Info (sticky)
+                 ================================================ --}}
+            <div class="col-lg-4">
+                <div class="right-panel">
+
+                    {{-- 1. Process summary compact --}}
+                    <div class="table-card">
+                        <div class="card-header text-bg-dark fw-bold" style="font-size:.82rem;">
+                            <i class="bi bi-file-text me-2"></i>Resumo do Processo
+                        </div>
+                        <div class="card-body" style="padding:.9rem;">
+                            <div class="proc-grid-compact">
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Número Processo</div>
+                                    <div class="proc-value-sm">{{ $demand->source_process_number_masked ?? 'Não informado' }}</div>
+                                </div>
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Número Caso</div>
+                                    <div class="proc-value-sm">{{ $demand->source_case_number ?? 'Não informado' }}</div>
+                                </div>
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Tipo</div>
+                                    <div class="proc-value-sm">{{ $sourceTypeLabel }}</div>
+                                </div>
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Status Externo</div>
+                                    <div class="proc-value-sm">{{ $demand->external_status ?? '—' }}</div>
+                                </div>
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Prazo Judicial</div>
+                                    <div class="proc-value-sm"><x-legal.due-date-chip :date="$demand->source_due_at" /></div>
+                                </div>
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Status Fluxo</div>
+                                    <div class="proc-value-sm">{{ $demand->external_flow_status ?? '—' }}</div>
+                                </div>
+                            </div>
+
+                            @if($sourceContext->isNotEmpty())
+                                <hr class="my-2">
+                                @foreach($sourceContext->take(3) as $ctx)
+                                    <div class="proc-item-compact mb-1">
+                                        <div class="proc-label-sm">{{ $ctx['label'] }}</div>
+                                        <div class="proc-value-sm">{{ Str::limit((string) $ctx['value'], 80) }}</div>
+                                    </div>
+                                @endforeach
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- 2. Shared Documents --}}
+                    <div class="table-card">
+                        <div class="card-header text-bg-dark fw-bold" style="font-size:.82rem;">
+                            <i class="bi bi-paperclip me-2"></i>Documentos Compartilhados
+                        </div>
+                        <div class="card-body" style="padding:.9rem;">
+                            @if($sharedFiles->isEmpty())
+                                <p class="text-muted small mb-0">Nenhum documento compartilhado.</p>
+                            @else
+                                @if($sharedImages->isNotEmpty())
+                                    <div class="small fw-semibold text-muted mb-2">Galeria de imagens</div>
+                                    <div class="legal-evidence-grid mb-3">
+                                        @foreach($sharedImages as $index => $file)
+                                            @php
+                                                $filePath = $file->path ?? $file->file_path ?? null;
+                                                $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                            @endphp
+                                            @if($fileUrl)
+                                                <div class="legal-evidence-card">
+                                                    <img src="{{ $fileUrl }}"
+                                                         class="legal-evidence-thumb"
+                                                         alt="{{ $file->original_name ?? basename($filePath) }}"
+                                                         data-bs-toggle="modal"
+                                                         data-bs-target="#legalSharedFilesModal"
+                                                         data-carousel-slide="{{ $index }}">
+                                                    <div class="small text-muted legal-evidence-name mt-2"
+                                                         title="{{ $file->original_name ?? basename($filePath) }}">
+                                                        {{ $file->original_name ?? basename($filePath) }}
+                                                    </div>
+                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                                        <i class="bi bi-download me-1"></i>Baixar
+                                                    </a>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                @endif
+
+                                @if($sharedOthers->isNotEmpty())
+                                    <div class="small fw-semibold text-muted mb-2">Outros arquivos</div>
+                                    <ul class="list-group list-group-flush">
+                                        @foreach($sharedOthers as $file)
+                                            @php
+                                                $filePath = $file->path ?? $file->file_path ?? null;
+                                                $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                                $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
+                                                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                                                $fileIcon = match($ext) {
+                                                    'pdf' => 'bi-filetype-pdf text-danger',
+                                                    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
+                                                    'xls', 'xlsx', 'csv' => 'bi-file-earmark-spreadsheet text-success',
+                                                    'doc', 'docx', 'odt' => 'bi-file-earmark-word text-primary',
+                                                    'zip', 'rar', '7z' => 'bi-file-earmark-zip text-warning',
+                                                    default => 'bi-file-earmark text-secondary',
+                                                };
+                                            @endphp
+                                            @if($fileUrl)
+                                                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <i class="bi {{ $fileIcon }}"></i>
+                                                        <div>
+                                                            <div class="legal-evidence-name small" title="{{ $name }}" style="max-width:140px;">{{ $name }}</div>
+                                                            <small class="text-muted">{{ strtoupper($ext ?: '-') }}</small>
+                                                        </div>
+                                                    </div>
+                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-download"></i>
+                                                    </a>
+                                                </li>
+                                            @endif
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- 3. Assignment History (collapsible) --}}
+                    <div class="table-card">
+                        <div class="card-header text-bg-dark fw-bold" style="font-size:.82rem;">
+                            <i class="bi bi-clock-history me-2"></i>Histórico da Atribuição
+                        </div>
+                        <div class="card-body" style="padding:.9rem;">
+                            <details class="collapsible-section" open>
+                                <summary>
+                                    <span>Ver histórico</span>
+                                    <i class="bi bi-chevron-down small"></i>
+                                </summary>
+                                <div class="collapsible-body">
+                                    <div class="assign-timeline-wrap">
+                                        <ol class="assign-timeline">
+                                            <li class="assign-timeline-item">
+                                                <span class="assign-timeline-dot success"></span>
+                                                <div class="assign-timeline-title">Atribuição enviada</div>
+                                                <div class="assign-timeline-meta">
+                                                    {{ \Carbon\Carbon::parse($assignment->created_at)->format('d/m/Y H:i') }}
+                                                    · {{ $assignment->sentBy?->name ?? 'Controlador' }}
+                                                </div>
+                                            </li>
+
+                                            @if($assignment->received_at)
+                                                <li class="assign-timeline-item">
+                                                    <span class="assign-timeline-dot info"></span>
+                                                    <div class="assign-timeline-title">Recebimento confirmado</div>
+                                                    <div class="assign-timeline-meta">
+                                                        {{ \Carbon\Carbon::parse($assignment->received_at)->format('d/m/Y H:i') }}
+                                                        · {{ $executorName }}
+                                                    </div>
+                                                </li>
+                                            @endif
+
+                                            @if($assignStatus === 'returned_for_correction')
+                                                <li class="assign-timeline-item">
+                                                    <span class="assign-timeline-dot warn"></span>
+                                                    <div class="assign-timeline-title">Devolvida para correção</div>
+                                                    <div class="assign-timeline-meta">
+                                                        {{ \Carbon\Carbon::parse($assignment->updated_at)->format('d/m/Y H:i') }}
+                                                        · Controlador
+                                                    </div>
+                                                </li>
+                                            @endif
+
+                                            @if(in_array($assignStatus, ['answered', 'returned_to_controller']))
+                                                <li class="assign-timeline-item">
+                                                    <span class="assign-timeline-dot success"></span>
+                                                    <div class="assign-timeline-title">Resposta enviada</div>
+                                                    <div class="assign-timeline-meta">
+                                                        {{ $assignment->answered_at ? \Carbon\Carbon::parse($assignment->answered_at)->format('d/m/Y H:i') : \Carbon\Carbon::parse($assignment->updated_at)->format('d/m/Y H:i') }}
+                                                        · {{ $executorName }}
+                                                    </div>
+                                                </li>
+                                            @else
+                                                <li class="assign-timeline-item">
+                                                    <span class="assign-timeline-dot warn"></span>
+                                                    <div class="assign-timeline-title">Aguardando sua resposta</div>
+                                                    <div class="assign-timeline-meta">A demanda permanece pendente de retorno.</div>
+                                                </li>
+                                            @endif
+                                        </ol>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+
+                    {{-- 4. Subdemands (collapsible) --}}
+                    @if($demand->subdemands->isNotEmpty())
+                        <div class="table-card mb-0">
+                            <div class="card-header text-bg-dark fw-bold" style="font-size:.82rem;">
+                                <i class="bi bi-diagram-3 me-2"></i>Subdemandas ({{ $demand->subdemands->count() }})
+                            </div>
+                            <div class="card-body" style="padding:.9rem;">
+                                @foreach($demand->subdemands as $sub)
+                                    @php
+                                        $subStatus = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+                                        $subStatusLabel = $sub->status instanceof \App\Enum\LegalDemandSubdemandStatus
+                                            ? $sub->status->label()
+                                            : \Illuminate\Support\Str::headline(str_replace('_', ' ', $subStatus));
+                                        $subBadge = match($subStatus) {
+                                            'concluida' => 'badge bg-success',
+                                            'encerrada_controlador' => 'badge bg-secondary',
+                                            'em_andamento' => 'badge bg-warning text-dark',
+                                            'aguardando_retorno' => 'badge bg-info text-dark',
+                                            default => 'badge bg-primary',
+                                        };
+                                    @endphp
+                                    <details class="subd-card">
+                                        <summary class="subd-summary">
+                                            <div>
+                                                <div class="fw-semibold" style="font-size:.85rem;">
+                                                    Subdemanda #{{ $sub->id }}
+                                                    <span class="{{ $subBadge }} ms-1">{{ $subStatusLabel }}</span>
+                                                </div>
+                                                <div class="subd-meta">
+                                                    {{ $sub->assignedTo?->name ?? ($sub->assigned_area_name ?: 'Não definido') }}
+                                                    · {{ $sub->deadline_at ? \Carbon\Carbon::parse($sub->deadline_at)->format('d/m/Y') : '—' }}
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">expandir</small>
+                                        </summary>
+                                        <div class="subd-body">
+                                            <div class="small mb-2">
+                                                Criada em {{ $sub->created_at?->format('d/m/Y H:i') ?? '—' }}
+                                                @if($sub->resolution)
+                                                    <div class="mt-1"><strong>Resolução:</strong> {{ \Illuminate\Support\Str::limit((string) $sub->resolution, 180) }}</div>
+                                                @endif
+                                            </div>
+                                            <div class="mb-2">
+                                                <a href="{{ route('legal.subdemand.detail', $sub->uuid) }}" class="btn btn-sm btn-outline-primary">Abrir detalhe</a>
+                                            </div>
+                                            <div class="subd-events">
+                                                @forelse($sub->events->sortByDesc('occurred_at')->take(6) as $event)
+                                                    <div class="subd-event">
+                                                        <div class="d-flex justify-content-between gap-2">
+                                                            <span class="badge bg-light text-dark border">{{ \Illuminate\Support\Str::headline(str_replace('_', ' ', (string) $event->event_type)) }}</span>
+                                                            <small class="text-muted">{{ $event->occurred_at ? \Carbon\Carbon::parse($event->occurred_at)->format('d/m/Y H:i') : '—' }}</small>
+                                                        </div>
+                                                        <div class="small mt-1">{{ $event->description ?: 'Atualização registrada.' }}</div>
+                                                        <div class="small text-muted">{{ $event->actor?->name ?: 'Sistema' }}</div>
+                                                    </div>
+                                                @empty
+                                                    <div class="small text-muted">Sem histórico nesta subdemanda.</div>
+                                                @endforelse
+                                            </div>
+                                            <hr>
+                                            <div class="small fw-semibold mb-2">Comentários</div>
+                                            @php
+                                                $subComments = $demand->comments
+                                                    ->where('legal_demand_subdemand_id', $sub->id)
+                                                    ->sortByDesc('created_at')
+                                                    ->take(10);
+                                            @endphp
+                                            <div class="subd-events mb-2">
+                                                @forelse($subComments as $comment)
+                                                    <div class="subd-event">
+                                                        <div class="small">{{ $comment->comment }}</div>
+                                                        <div class="small text-muted">
+                                                            {{ $comment->user?->name ?: 'Executante externo' }}
+                                                            · {{ $comment->created_at?->format('d/m/Y H:i') }}
+                                                        </div>
+                                                    </div>
+                                                @empty
+                                                    <div class="small text-muted">Sem comentários.</div>
+                                                @endforelse
+                                            </div>
+                                            @if($externalAccess || (string) $sub->assigned_to_user_id === (string) auth()->id())
+                                                <div class="input-group input-group-sm">
+                                                    <input type="text" class="form-control" wire:model.defer="subdemandCommentInput.{{ $sub->id }}" placeholder="Escreva um comentário desta subdemanda">
+                                                    <button class="btn btn-outline-primary" wire:click="addSubdemandComment({{ $sub->id }})">Enviar</button>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </details>
+                                @endforeach
+                            </div>
+                        </div>
                     @endif
+
+                </div>{{-- end right-panel --}}
+            </div>{{-- end col-4 --}}
+
+        </div>{{-- end row --}}
+
+        @if($sharedImages->isNotEmpty())
+            <div class="modal fade" id="legalSharedFilesModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
+                <div class="modal-dialog modal-xl modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Visualização de Imagens</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="legalSharedFilesCarousel" class="carousel slide" data-bs-ride="false">
+                                <div class="carousel-inner">
+                                    @foreach($sharedImages as $index => $file)
+                                        @php
+                                            $filePath = $file->path ?? $file->file_path ?? null;
+                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                        @endphp
+                                        @if($fileUrl)
+                                            <div class="carousel-item @if($index === 0) active @endif">
+                                                <div class="text-center">
+                                                    <img src="{{ $fileUrl }}" class="img-fluid rounded border"
+                                                         alt="{{ $file->original_name ?? basename($filePath) }}"
+                                                         style="max-height:70vh; object-fit:contain;">
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                                    <div class="small text-muted">{{ $file->original_name ?? basename($filePath) }}</div>
+                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-primary">
+                                                        <i class="bi bi-download me-1"></i>Baixar
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                @if($sharedImages->count() > 1)
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#legalSharedFilesCarousel" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Anterior</span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#legalSharedFilesCarousel" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Próximo</span>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        @endif
+
+        <x-show-loading />
+        <script>
+            document.addEventListener('click', function (event) {
+                const trigger = event.target.closest('[data-carousel-slide]');
+                if (!trigger) return;
+
+                const index = parseInt(trigger.getAttribute('data-carousel-slide') || '0', 10);
+                const carouselEl = document.querySelector('#legalSharedFilesCarousel');
+                if (!carouselEl || typeof bootstrap === 'undefined') return;
+
+                const carousel = bootstrap.Carousel.getOrCreateInstance(carouselEl, { interval: false });
+                carousel.to(index);
+            });
+        </script>
     </div>
-
-    <x-show-loading />
-    <script>
-        document.addEventListener('click', function (event) {
-            const trigger = event.target.closest('[data-carousel-slide]');
-            if (!trigger) return;
-
-            const index = parseInt(trigger.getAttribute('data-carousel-slide') || '0', 10);
-            const carouselEl = document.querySelector('#legalSharedFilesCarousel');
-            if (!carouselEl || typeof bootstrap === 'undefined') return;
-
-            const carousel = bootstrap.Carousel.getOrCreateInstance(carouselEl, { interval: false });
-            carousel.to(index);
-        });
-    </script>
-</div>
 </div>

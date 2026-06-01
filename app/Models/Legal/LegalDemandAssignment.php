@@ -7,6 +7,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class LegalDemandAssignment extends Model
 {
@@ -15,6 +16,7 @@ class LegalDemandAssignment extends Model
     protected $table = 'legal_demand_assignments';
 
     protected $fillable = [
+        'uuid',
         'legal_demand_id',
         'from_user_id',
         'to_user_id',
@@ -28,6 +30,20 @@ class LegalDemandAssignment extends Model
         'answer',
         'metadata',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model): void {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
 
     protected $casts = [
         'status'      => LegalDemandAssignmentStatus::class,

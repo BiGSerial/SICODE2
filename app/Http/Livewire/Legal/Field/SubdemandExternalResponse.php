@@ -31,7 +31,7 @@ class SubdemandExternalResponse extends Component
             return;
         }
 
-        $this->subdemand = $subdemand->load(['demand.legalCase', 'comments.user']);
+        $this->subdemand = $subdemand->load(['demand.legalCase', 'comments.user', 'files']);
         $this->executorName = (string) data_get($this->subdemand->metadata ?? [], 'external_contact_name', '');
     }
 
@@ -50,6 +50,17 @@ class SubdemandExternalResponse extends Component
                 $this->uploadNames[$index] = (string) $file->getClientOriginalName();
             }
         }
+    }
+
+    public function removeUploadFile(int $index): void
+    {
+        if (!array_key_exists($index, $this->uploadFiles)) {
+            return;
+        }
+
+        unset($this->uploadFiles[$index], $this->uploadNames[$index]);
+        $this->uploadFiles = array_values($this->uploadFiles);
+        $this->uploadNames = array_values($this->uploadNames);
     }
 
     public function submit(): void
@@ -121,7 +132,7 @@ class SubdemandExternalResponse extends Component
         $this->comment = '';
         $this->uploadFiles = [];
         $this->uploadNames = [];
-        $this->subdemand->refresh()->load(['demand.legalCase', 'comments.user']);
+        $this->subdemand->refresh()->load(['demand.legalCase', 'comments.user', 'files']);
 
         session()->flash('success', 'Retorno enviado com sucesso.');
     }

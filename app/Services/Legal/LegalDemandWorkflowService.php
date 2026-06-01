@@ -8,6 +8,7 @@ use App\Models\Legal\LegalDemand;
 use App\Models\Legal\LegalDemandAssignment;
 use App\Models\Legal\LegalDemandComment;
 use App\Models\Legal\LegalDemandEvent;
+use App\Models\Legal\LegalDemandSubdemand;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -88,11 +89,15 @@ class LegalDemandWorkflowService
             $assignment->received_at = $assignment->received_at ?? now();
             $assignment->save();
 
-            $from = $demand->internal_status?->value;
-            $demand->internal_status = LegalDemandInternalStatus::FIELD_RECEIVED;
-            $demand->save();
+            if (!$this->isSubdemandAssignment($assignment)) {
+                $from = $demand->internal_status?->value;
+                $demand->internal_status = LegalDemandInternalStatus::FIELD_RECEIVED;
+                $demand->save();
 
-            $this->event($demand->id, 'field_received', $from, LegalDemandInternalStatus::FIELD_RECEIVED->value, $actor->id, null, null, 'Ponta recebeu a demanda.', $assignment->id);
+                $this->event($demand->id, 'field_received', $from, LegalDemandInternalStatus::FIELD_RECEIVED->value, $actor->id, null, null, 'Ponta recebeu a demanda.', $assignment->id);
+            } else {
+                $this->event($demand->id, 'subdemand_field_received', $demand->internal_status?->value, $demand->internal_status?->value, $actor->id, null, null, 'Executante recebeu subdemanda.', $assignment->id);
+            }
             return $assignment->refresh();
         });
     }
@@ -116,11 +121,16 @@ class LegalDemandWorkflowService
             $assignment->metadata = $metadata;
             $assignment->save();
 
-            $from = $demand->internal_status?->value;
-            $demand->internal_status = LegalDemandInternalStatus::RETURNED_BY_FIELD;
-            $demand->save();
+            if (!$this->isSubdemandAssignment($assignment)) {
+                $from = $demand->internal_status?->value;
+                $demand->internal_status = LegalDemandInternalStatus::RETURNED_BY_FIELD;
+                $demand->save();
 
-            $this->event($demand->id, 'field_answered', $from, LegalDemandInternalStatus::RETURNED_BY_FIELD->value, $actor->id, null, null, 'Resposta registrada pela ponta.', $assignment->id);
+                $this->event($demand->id, 'field_answered', $from, LegalDemandInternalStatus::RETURNED_BY_FIELD->value, $actor->id, null, null, 'Resposta registrada pela ponta.', $assignment->id);
+            } else {
+                $this->event($demand->id, 'subdemand_answered', $demand->internal_status?->value, $demand->internal_status?->value, $actor->id, null, null, 'Resposta registrada na subdemanda.', $assignment->id);
+                $this->advanceSubdemandFromAssignment($assignment, $actor->id);
+            }
             return $assignment->refresh();
         });
     }
@@ -155,21 +165,36 @@ class LegalDemandWorkflowService
             $assignment->metadata = $metadata;
             $assignment->save();
 
-            $from = $demand->internal_status?->value;
-            $demand->internal_status = LegalDemandInternalStatus::RETURNED_BY_FIELD;
-            $demand->save();
+            if (!$this->isSubdemandAssignment($assignment)) {
+                $from = $demand->internal_status?->value;
+                $demand->internal_status = LegalDemandInternalStatus::RETURNED_BY_FIELD;
+                $demand->save();
 
-            $this->event(
-                $demand->id,
-                'field_answered_external',
-                $from,
-                LegalDemandInternalStatus::RETURNED_BY_FIELD->value,
-                null,
-                $assignment->to_user_id,
-                $assignment->to_team_id,
-                'Resposta registrada por executante externo.',
-                $assignment->id
-            );
+                $this->event(
+                    $demand->id,
+                    'field_answered_external',
+                    $from,
+                    LegalDemandInternalStatus::RETURNED_BY_FIELD->value,
+                    null,
+                    $assignment->to_user_id,
+                    $assignment->to_team_id,
+                    'Resposta registrada por executante externo.',
+                    $assignment->id
+                );
+            } else {
+                $this->event(
+                    $demand->id,
+                    'subdemand_answered_external',
+                    $demand->internal_status?->value,
+                    $demand->internal_status?->value,
+                    null,
+                    $assignment->to_user_id,
+                    $assignment->to_team_id,
+                    'Resposta externa registrada na subdemanda.',
+                    $assignment->id
+                );
+                $this->advanceSubdemandFromAssignment($assignment, null);
+            }
 
             return $assignment->refresh();
         });
@@ -217,6 +242,7 @@ class LegalDemandWorkflowService
     {
         $this->assertNotClosed($demand);
         $this->ensureAnyAllowed($actor, ['legal.demands.close_internal', 'legal.demands.review']);
+        $this->assertCanCloseMainDemand($demand);
 
         return DB::transaction(function () use ($demand, $actor, $reason) {
             $from = $demand->internal_status?->value;
@@ -349,5 +375,67 @@ class LegalDemandWorkflowService
             'occurred_at' => now(),
             'metadata' => ['source' => 'workflow'],
         ]);
+    }
+
+    private function isSubdemandAssignment(LegalDemandAssignment $assignment): bool
+    {
+        $metadata = (array) ($assignment->metadata ?? []);
+        return (string) ($metadata['source'] ?? '') === 'subdemand'
+            || !empty($metadata['subdemand_id']);
+    }
+
+    private function advanceSubdemandFromAssignment(LegalDemandAssignment $assignment, ?string $actorUserId): void
+    {
+        $subdemandId = (int) data_get($assignment->metadata ?? [], 'subdemand_id', 0);
+        if ($subdemandId <= 0) {
+            return;
+        }
+
+        $sub = LegalDemandSubdemand::query()->find($subdemandId);
+        if (!$sub) {
+            return;
+        }
+
+        $status = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+        if ($status === 'concluida' || $status === 'encerrada_controlador') {
+            return;
+        }
+
+        $sub->status = 'aguardando_retorno';
+        if ($sub->started_at === null) {
+            $sub->started_at = now();
+        }
+        $sub->save();
+
+        $sub->events()->create([
+            'event_type' => 'status_changed',
+            'from_status' => $status,
+            'to_status' => 'aguardando_retorno',
+            'actor_user_id' => $actorUserId,
+            'actor_role' => $actorUserId ? 'operator' : 'external',
+            'reason' => null,
+            'description' => 'Subdemanda atualizada após resposta do executante.',
+            'payload' => ['assignment_id' => $assignment->id],
+            'occurred_at' => now(),
+        ]);
+    }
+
+    private function assertCanCloseMainDemand(LegalDemand $demand): void
+    {
+        $openInternalSubdemands = $demand->subdemands()
+            ->get()
+            ->filter(function (LegalDemandSubdemand $sub) {
+                $metadata = (array) ($sub->metadata ?? []);
+                $isExternal = (bool) ($metadata['external_dispatch'] ?? false);
+                $removedByController = (bool) ($metadata['removed_by_controller'] ?? false);
+                $status = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+                $isOpen = !in_array($status, ['concluida', 'encerrada_controlador'], true);
+
+                return !$isExternal && !$removedByController && $isOpen;
+            });
+
+        if ($openInternalSubdemands->isNotEmpty()) {
+            throw new InvalidArgumentException('Não é possível fechar a demanda principal: existem subdemandas internas em aberto.');
+        }
     }
 }

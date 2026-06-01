@@ -6,6 +6,7 @@ use App\Enum\LegalDemandSubdemandStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class LegalDemandSubdemand extends Model
 {
@@ -41,6 +42,20 @@ class LegalDemandSubdemand extends Model
         'external_access_expires_at' => 'datetime',
         'external_access_revoked_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model): void {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
 
     public function demand()
     {

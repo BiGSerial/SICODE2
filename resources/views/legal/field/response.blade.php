@@ -13,5 +13,5 @@
 @endsection
 
 @section('content')
-    @livewire('legal.field.assignment-response', ['assignment_id' => $assignment_id], key('legal-assignment-response-'.$assignment_id))
+    @livewire('legal.field.assignment-response', ['uuid' => $uuid], key('legal-assignment-response-'.$uuid))
 @endsection

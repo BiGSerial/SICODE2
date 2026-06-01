@@ -224,7 +224,7 @@
                                     <i class="bi bi-check-lg me-1"></i>Confirmar Recebimento
                                 </button>
                             @else
-                                <a href="{{ route('legal.field.response', $assignment->id) }}"
+                                <a href="{{ route('legal.field.response', $assignment->uuid) }}"
                                    class="btn btn-sm {{ $isCorrection ? 'btn-danger' : 'btn-primary' }}">
                                     <i class="bi bi-pencil me-1"></i>{{ $isCorrection ? 'Corrigir e Reenviar' : 'Abrir e Responder' }}
                                 </a>

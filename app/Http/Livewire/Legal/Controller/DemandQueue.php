@@ -253,6 +253,7 @@ class DemandQueue extends Component
                 'field_received',
                 'waiting_field_response',
                 'returned_by_field',
+                'returned_for_correction',
                 'under_controller_review',
                 'ready_to_close_external',
                 'reopened',

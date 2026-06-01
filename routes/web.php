@@ -455,12 +455,12 @@ Route::prefix('juridico')->name('legal.')->middleware(['auth'])->controller(\App
     Route::get('/fila', 'queue')->name('queue');
     Route::get('/triagem', 'triage')->name('triage');
     Route::get('/demanda/{uuid}', 'demandDetail')->name('demand.detail');
-    Route::get('/subdemanda/{id}', 'subdemandDetail')->name('subdemand.detail');
+    Route::get('/subdemanda/{uuid}', 'subdemandDetail')->name('subdemand.detail');
     Route::get('/subdemandas/monitor', 'subdemandMonitor')->name('subdemand.monitor');
 
     // Campo
     Route::get('/minhas-tarefas', 'fieldQueue')->name('field.queue');
-    Route::get('/tarefa/{assignment_id}', 'fieldResponse')->name('field.response');
+    Route::get('/tarefa/{uuid}', 'fieldResponse')->name('field.response');
 
     // Gestão
     Route::get('/dashboard', 'dashboard')->name('dashboard');

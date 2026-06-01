@@ -7,7 +7,9 @@ use App\Models\Company;
 use App\Models\Note;
 use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
 use App\Models\User;
+use App\Notifications\SystemNotification;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandSubdemandWorkflowService, LegalDemandWorkflowService};
+use App\Support\Notifications\UserNotificationData;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +78,7 @@ class DemandDetail extends Component
     public string $subdemandUserSearch = '';
     public string $subdemandCompanyFilter = '';
     public bool $subdemandAssignAsExternal = false;
+    public bool $subdemandRequiresEvidence = false;
     public ?int $subdemandExternalContactId = null;
     public string $subdemandExternalContactName = '';
     public string $subdemandExternalContactEmail = '';
@@ -101,7 +104,9 @@ class DemandDetail extends Component
         );
 
         $this->uuid   = $uuid;
-        $this->demand = LegalDemand::where('uuid', $uuid)->with($this->demandRelations())->firstOrFail();
+        $demand = LegalDemand::where('uuid', $uuid)->with($this->demandRelations())->first();
+        abort_if(is_null($demand), 404, 'Demanda não encontrada ou foi removida.');
+        $this->demand = $demand;
     }
 
     public function linkNotesToCase(): void
@@ -285,7 +290,19 @@ class DemandDetail extends Component
     {
         try {
             app(LegalDemandWorkflowService::class)->approveFieldReturn($this->demand, auth()->user());
-            $this->demand->refresh()->load(['events.actor', 'files', 'comments.user']);
+            $this->demand->refresh()->load(['events.actor', 'files', 'comments.user', 'assignments.toUser']);
+
+            // Notifica executante
+            $latestAssignment = $this->demand->assignments()->whereNotIn('status',['cancelled'])->latest()->first();
+            if ($latestAssignment?->to_user_id) {
+                $this->notifyUser(
+                    User::find($latestAssignment->to_user_id),
+                    'Retorno aprovado pelo controlador',
+                    'Sua resposta na Demanda #' . ($this->demand->source_case_number ?? $this->demand->id) . ' foi aprovada por ' . auth()->user()->name . '.',
+                    'success'
+                );
+            }
+
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Retorno aprovado', 'timer' => 2500]);
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Erro', 'html' => $e->getMessage()]);
@@ -304,6 +321,18 @@ class DemandDetail extends Component
 
             app(LegalDemandWorkflowService::class)->requestCorrection($assignment, auth()->user(), $this->returnReason);
             $this->demand->refresh()->load(['events.actor', 'files', 'comments.user', 'assignments.sentBy']);
+
+            // Notifica executante (usuário interno)
+            if ($assignment->to_user_id) {
+                $executor = User::find($assignment->to_user_id);
+                $this->notifyUser(
+                    $executor,
+                    'Tarefa devolvida para correção',
+                    'O controlador ' . auth()->user()->name . ' devolveu a tarefa da Demanda #' . ($this->demand->source_case_number ?? $this->demand->id) . '. Motivo: ' . $this->returnReason,
+                    'warning'
+                );
+            }
+
             $this->showReturnForm = false;
             $this->returnReason   = '';
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Devolvido para correção', 'timer' => 2500]);
@@ -411,10 +440,11 @@ class DemandDetail extends Component
 
                 $assignedToUserId = null;
                 $metadata = [
-                    'external_dispatch' => true,
-                    'external_contact_id' => $contact->id,
-                    'external_contact_name' => $contact->name,
+                    'external_dispatch'  => true,
+                    'external_contact_id'    => $contact->id,
+                    'external_contact_name'  => $contact->name,
                     'external_contact_email' => $contact->email,
+                    'requires_evidence'      => $this->subdemandRequiresEvidence,
                 ];
             }
 
@@ -447,11 +477,23 @@ class DemandDetail extends Component
                     'sent_at' => now(),
                     'message' => $this->subdemandDescription ?: 'Subdemanda enviada para execução.',
                     'metadata' => [
-                        'subdemand_id' => $subdemand->id,
-                        'due_at' => $this->subdemandDeadlineAt ? (new \DateTime($this->subdemandDeadlineAt))->format('Y-m-d H:i:s') : null,
-                        'source' => 'subdemand',
+                        'subdemand_id'      => $subdemand->id,
+                        'due_at'            => $this->subdemandDeadlineAt ? (new \DateTime($this->subdemandDeadlineAt))->format('Y-m-d H:i:s') : null,
+                        'source'            => 'subdemand',
+                        'requires_evidence' => $this->subdemandRequiresEvidence,
                     ],
                 ]);
+            }
+
+            // Notifica executante interno (não externo)
+            if (!$this->subdemandAssignAsExternal && $assignedToUserId) {
+                $executor = User::find($assignedToUserId);
+                $this->notifyUser(
+                    $executor,
+                    'Nova tarefa jurídica atribuída',
+                    'O controlador ' . auth()->user()->name . ' despachnou uma nova subdemanda para você. Acesse Minhas Tarefas para responder.',
+                    'info'
+                );
             }
 
             $this->showSubdemandForm = false;
@@ -462,6 +504,7 @@ class DemandDetail extends Component
             $this->subdemandExternalContactId = null;
             $this->subdemandExternalContactName = '';
             $this->subdemandExternalContactEmail = '';
+            $this->subdemandRequiresEvidence = false;
             $this->reloadDemand();
             $this->dispatchBrowserEvent('swal', [
                 'icon' => 'success',
@@ -718,6 +761,17 @@ class DemandDetail extends Component
             'visibility' => 'shared',
         ]);
 
+        // Notifica executante interno da subdemanda
+        if ($subdemand->assigned_to_user_id && (string)$subdemand->assigned_to_user_id !== (string)auth()->id()) {
+            $executor = User::find($subdemand->assigned_to_user_id);
+            $this->notifyUser(
+                $executor,
+                'Nova mensagem do controlador',
+                auth()->user()->name . ' enviou uma mensagem na subdemanda #' . $subdemand->id . '.',
+                'info'
+            );
+        }
+
         $this->subdemandControllerCommentInput[$subdemandId] = '';
         $this->reloadDemand();
         $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Comentário enviado', 'timer' => 1600]);
@@ -843,7 +897,9 @@ class DemandDetail extends Component
             'statusValue'        => $statusValue,
             'isExternallyClosed' => $this->demand->isExternallyClosed(),
             'searchedNotes'      => $this->searchNotes(),
-            'linkedNotes'        => $this->linkedNotes(),
+            'linkedNotes'        => ($ln = $this->linkedNotes()),
+            'notesProductions'   => $ln->flatMap(fn ($n) => $n->Productions)->sortByDesc('created_at')->values(),
+            'notesOrders'        => $ln->flatMap(fn ($n) => $n->Orders)->sortByDesc('created_at')->values(),
             'subdemandStatuses'  => LegalDemandSubdemandStatus::cases(),
             'companies'          => Company::query()->orderBy('name')->get(['id', 'name']),
             'canManageSubdemands' => $this->canManageSubdemands(),
@@ -1002,20 +1058,48 @@ class DemandDetail extends Component
             return collect();
         }
 
-        return Note::query()
-            ->join('legal_case_note as lcn', 'lcn.note_id', '=', 'notes.id')
-            ->where('lcn.legal_case_id', $caseId)
+        $pivots = DB::table('legal_case_note')
+            ->where('legal_case_id', $caseId)
+            ->get(['note_id', 'linked_at', 'context'])
+            ->keyBy('note_id');
+
+        if ($pivots->isEmpty()) {
+            return collect();
+        }
+
+        return Note::with([
+            'Productions' => fn ($q) => $q->orderByDesc('created_at')->limit(20),
+            'Orders'      => fn ($q) => $q->orderByDesc('created_at')->limit(20),
+        ])
+            ->whereIn('id', $pivots->keys())
             ->select([
-                'notes.id',
-                'notes.note',
-                'notes.client',
-                'notes.status',
-                'notes.nstats',
-                'notes.dt_status',
-                'lcn.linked_at as pivot_linked_at',
-                'lcn.context as pivot_context',
+                'id', 'note', 'client', 'status', 'nstats', 'dt_status',
+                'rubrica', 'type_note', 'centerjob', 'material', 'lexp',
+                'days_left', 'pze_parecer', 'canceled', 'dt_created',
+                'group1', 'group2',
             ])
-            ->orderByDesc(DB::raw('COALESCE(lcn.linked_at, lcn.created_at)'))
-            ->get();
+            ->get()
+            ->map(function ($n) use ($pivots) {
+                $p = $pivots->get($n->id);
+                $n->pivot_linked_at = $p?->linked_at;
+                $n->pivot_context   = $p?->context;
+                return $n;
+            })
+            ->sortByDesc('dt_created')
+            ->values();
+    }
+
+    private function notifyUser(?User $user, string $title, string $message, string $status = 'info'): void
+    {
+        if (!$user) {
+            return;
+        }
+        try {
+            $user->notify(new SystemNotification(new UserNotificationData(
+                title:   $title,
+                message: $message,
+                status:  $status,
+            )));
+        } catch (\Throwable) {}
     }
 }

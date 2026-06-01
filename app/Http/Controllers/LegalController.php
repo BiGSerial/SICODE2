@@ -30,10 +30,10 @@ class LegalController extends Controller
         return view('legal.controller.subdemand-monitor');
     }
 
-    public function subdemandDetail(int $id)
+    public function subdemandDetail(string $uuid)
     {
         $this->ensureSubdemandsFeatureEnabled();
-        return view('legal.controller.subdemand-detail', compact('id'));
+        return view('legal.controller.subdemand-detail', compact('uuid'));
     }
 
     public function fieldQueue()
@@ -41,14 +41,16 @@ class LegalController extends Controller
         return view('legal.field.assignments');
     }
 
-    public function fieldResponse(int $assignment_id)
+    public function fieldResponse(string $uuid)
     {
-        return view('legal.field.response', compact('assignment_id'));
+        return view('legal.field.response', compact('uuid'));
     }
 
     public function fieldResponseExternal(int $assignment_id)
     {
-        return view('legal.field.response_external', compact('assignment_id'));
+        $assignment = \App\Models\Legal\LegalDemandAssignment::findOrFail($assignment_id);
+        $uuid = $assignment->uuid;
+        return view('legal.field.response_external', compact('uuid'));
     }
 
     public function externalExpired()

@@ -3,7 +3,9 @@
 namespace App\Http\Livewire\Legal\Field;
 
 use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile};
+use App\Notifications\SystemNotification;
 use App\Services\Legal\LegalDemandWorkflowService;
+use App\Support\Notifications\UserNotificationData;
 use Livewire\{Component, WithFileUploads};
 
 class AssignmentResponse extends Component
@@ -43,7 +45,7 @@ class AssignmentResponse extends Component
     public ?int $activeSubdemandId = null;
     public array $subdemandCommentInput = [];
 
-    public function mount(int $assignment_id, bool $external = false): void
+    public function mount(string $uuid, bool $external = false): void
     {
         $this->externalAccess = $external;
 
@@ -51,7 +53,6 @@ class AssignmentResponse extends Component
             abort_unless(auth()->user()->can('legal.demands.answer'), 403);
         }
 
-        $this->assignmentId = $assignment_id;
         $assignment = LegalDemandAssignment::with([
             'legalDemand.legalCase',
             'legalDemand.files',
@@ -60,14 +61,13 @@ class AssignmentResponse extends Component
             'sentBy',
             'toUser',
         ])
-            ->whereKey($assignment_id);
+            ->where('uuid', $uuid);
 
         if (!$this->externalAccess) {
             $assignment->where('to_user_id', auth()->id());
         }
 
-        $assignment = $assignment
-            ->first();
+        $assignment = $assignment->first();
 
         if (!$assignment) {
             session()->flash('warning', 'A tarefa informada não está mais disponível.');
@@ -75,7 +75,8 @@ class AssignmentResponse extends Component
             return;
         }
 
-        $this->assignment = $assignment;
+        $this->assignment   = $assignment;
+        $this->assignmentId = $assignment->id;
 
         $this->demand = $this->assignment->legalDemand;
         $assignmentSubdemandId = (int) data_get($this->assignment->metadata ?? [], 'subdemand_id', 0);
@@ -119,6 +120,13 @@ class AssignmentResponse extends Component
             $this->validate([
                 'responseSummary' => 'required|min:20',
             ]);
+        }
+
+        $requiresEvidence = (bool) data_get($this->assignment->metadata ?? [], 'requires_evidence', false);
+        if ($requiresEvidence && !$this->hasEvidenceAttached()) {
+            $this->addError('evidence', 'O controlador exige ao menos um arquivo de evidência para esta tarefa.');
+            $this->confirmingSend = false;
+            return;
         }
 
         $this->confirmingSend = true;
@@ -220,6 +228,20 @@ class AssignmentResponse extends Component
 
         $this->confirmingSend = false;
 
+        // Notifica o controlador responsável (apenas usuários internos)
+        $controller = $this->demand->controller;
+        if ($controller && !$this->externalAccess) {
+            $executorName = auth()->user()->name;
+            $caseNumber   = $this->demand->source_case_number ?? $this->demand->id;
+            try {
+                $controller->notify(new SystemNotification(new UserNotificationData(
+                    title:   "Demanda #{$caseNumber} — Executante respondeu",
+                    message: "{$executorName} enviou " . ($this->isImpossibility ? 'uma impossibilidade de atendimento' : 'o retorno da tarefa') . ". Verifique e decida se aprova ou devolve.",
+                    status:  'info',
+                )));
+            } catch (\Throwable) {}
+        }
+
         session()->flash('success', 'Resposta enviada com sucesso!');
 
         redirect()->route($this->externalAccess ? 'legal.external.expired' : 'legal.field.queue');
@@ -246,10 +268,7 @@ class AssignmentResponse extends Component
             ->where('removed_at', null)
             ->where('visibility', 'shared');
 
-        $demandEvents = $this->demand->events()
-            ->whereJsonContains('metadata->assignment_id', $this->assignment->id)
-            ->orWhere('event_type', 'sent_to_field')
-            ->get();
+
 
         return view('livewire.legal.field.assignment-response', [
             'sharedFiles' => $sharedFiles,
@@ -282,6 +301,18 @@ class AssignmentResponse extends Component
 
         $this->subdemandCommentInput[$subdemandId] = '';
         $this->demand->refresh()->load(['comments.user', 'subdemands.assignedTo', 'subdemands.events.actor']);
+    }
+
+    private function hasEvidenceAttached(): bool
+    {
+        if (!empty($this->uploadFiles)) {
+            return true;
+        }
+
+        return $this->demand->files
+            ->where('removed_at', null)
+            ->where('assignment_id', $this->assignment->id)
+            ->isNotEmpty();
     }
 
     private function persistUploadedFiles(): int

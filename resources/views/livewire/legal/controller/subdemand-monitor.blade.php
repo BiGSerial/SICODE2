@@ -276,7 +276,7 @@
                                     <td class="text-end">
                                         @if($sub->demand?->uuid)
                                             <a class="btn btn-sm btn-outline-primary" href="{{ route('legal.demand.detail', $sub->demand->uuid) }}">Abrir demanda</a>
-                                            <a class="btn btn-sm btn-outline-secondary" href="{{ route('legal.subdemand.detail', $sub->id) }}">Abrir subdemanda</a>
+                                            <a class="btn btn-sm btn-outline-secondary" href="{{ route('legal.subdemand.detail', $sub->uuid) }}">Abrir subdemanda</a>
                                         @endif
                                     </td>
                                 </tr>
