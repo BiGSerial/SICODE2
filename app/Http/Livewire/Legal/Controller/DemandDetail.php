@@ -546,6 +546,13 @@ class DemandDetail extends Component
             description: 'Subdemanda removida do fluxo ativo pelo controlador.'
         );
 
+        $metadata = (array) ($subdemand->metadata ?? []);
+        $metadata['removed_by_controller'] = true;
+        $metadata['removed_at'] = now()->toDateTimeString();
+        $metadata['removed_by'] = auth()->id();
+        $subdemand->metadata = $metadata;
+        $subdemand->save();
+
         // Encerrar também atribuições internas abertas vinculadas a esta subdemanda.
         $this->demand->assignments()
             ->whereJsonContains('metadata->subdemand_id', $subdemand->id)

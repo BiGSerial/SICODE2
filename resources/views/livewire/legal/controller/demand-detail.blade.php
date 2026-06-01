@@ -1055,7 +1055,12 @@
                         @endif
 
                         <div class="event-timeline">
-                            @forelse($demand->subdemands as $sub)
+                            @php
+                                $visibleSubdemands = $demand->subdemands->reject(function ($s) {
+                                    return (bool) data_get($s->metadata ?? [], 'removed_by_controller', false);
+                                });
+                            @endphp
+                            @forelse($visibleSubdemands as $sub)
                                 @php
                                     $statusValue = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
                                     $statusLabel = $sub->status instanceof \App\Enum\LegalDemandSubdemandStatus
