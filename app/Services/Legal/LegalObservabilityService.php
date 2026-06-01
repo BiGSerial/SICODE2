@@ -53,6 +53,7 @@ class LegalObservabilityService
     public function bySource(): Collection
     {
         return LegalDemand::query()
+            
             ->select('source_type')
             ->selectRaw('COUNT(*) as total')
             ->selectRaw('SUM(CASE WHEN source_due_at IS NOT NULL AND source_due_at < NOW() THEN 1 ELSE 0 END) as overdue')
@@ -67,6 +68,7 @@ class LegalObservabilityService
         return LegalDemandAssignment::query()
             ->leftJoin('users', 'users.id', '=', 'legal_demand_assignments.to_user_id')
             ->leftJoin('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
+            
             ->selectRaw('COALESCE(users.name, "N/A") as assignee_name')
             ->selectRaw('COUNT(*) as received_total')
             ->selectRaw('SUM(CASE WHEN legal_demand_assignments.answered_at IS NULL THEN 1 ELSE 0 END) as pending_answer')

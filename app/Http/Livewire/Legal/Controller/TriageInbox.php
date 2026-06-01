@@ -98,6 +98,7 @@ class TriageInbox extends Component
     private function query()
     {
         return LegalDemand::query()
+            
             ->with(['legalCase', 'lastSeenImportBatch'])
             ->externallyActive()
             ->whereIn('internal_status', ['new_imported', 'triage'])

@@ -120,6 +120,7 @@ class DemandQueue extends Component
     {
         if ($this->transferFromUserId) {
             $this->transferPreviewCount = LegalDemand::where('controller_user_id', $this->transferFromUserId)
+                
                 ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
                 ->count();
         } else {
@@ -215,6 +216,7 @@ class DemandQueue extends Component
     private function baseQuery()
     {
         $query = LegalDemand::query()
+            
             ->with(['legalCase', 'controller', 'currentAssignee']);
 
         // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
@@ -347,6 +349,7 @@ class DemandQueue extends Component
         $controllers = User::whereIn(
             'id',
             LegalDemand::externallyActive()
+                
                 ->whereNotIn('internal_status', ['cancelled', 'ignored'])
                 ->pluck('controller_user_id')
                 ->filter()
@@ -354,11 +357,13 @@ class DemandQueue extends Component
         )->orderBy('name')->get();
 
         $monitorSicodeClosedButSourceOpen = LegalDemand::query()
+            
             ->whereIn('internal_status', ['closed_internal', 'closed_external'])
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
             ->count();
 
         $monitorSourceClosedButSicodeOpen = LegalDemand::query()
+            
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) LIKE ?", ['%encerrad%'])
             ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
             ->count();

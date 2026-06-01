@@ -80,6 +80,7 @@ class LegalDashboard extends Component
             // active = externallyActive + filtros globais; closed = externally OR internally closed
             $active = fn () => $this->applyGlobalFilters(
                 LegalDemand::externallyActive()
+                    
                     ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
             );
             $closed = fn () => $this->applyGlobalFilters(LegalDemand::query())->where(function ($q) {
@@ -106,6 +107,7 @@ class LegalDashboard extends Component
             // SLAs operacionais do fluxo (base em assignments no período)
             $assignmentsBase = LegalDemandAssignment::query()
                 ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
+                
                 ->whereBetween('legal_demand_assignments.sent_at', [$from, $to]);
 
             $this->applyGlobalFilters($assignmentsBase);
@@ -215,6 +217,7 @@ class LegalDashboard extends Component
             $executors = LegalDemandAssignment::query()
                 ->join('users', 'users.id', '=', 'legal_demand_assignments.to_user_id')
                 ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
+                
                 ->selectRaw('users.id, users.name, COUNT(*) as active_count, SUM(CASE WHEN legal_demands.source_due_at < NOW() AND legal_demands.source_decision_at IS NULL THEN 1 ELSE 0 END) as overdue_count')
                 ->whereNotIn('legal_demand_assignments.status', ['cancelled', 'closed', 'answered'])
                 ->whereNotIn('legal_demands.source_status_group', ['closed_done', 'closed_cancelled'])

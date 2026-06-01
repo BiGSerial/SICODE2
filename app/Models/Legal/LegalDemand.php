@@ -47,6 +47,9 @@ class LegalDemand extends Model
         'requesting_responsible_name',
         'responsible_area_name',
         'source_due_at',
+        'operator_sla_due_at',
+        'operator_sla_note',
+        'resolution_scope',
         'first_seen_at',
         'last_seen_at',
         'missing_since',
@@ -76,6 +79,7 @@ class LegalDemand extends Model
     protected $casts = [
         'source_type'                => LegalDemandSourceType::class,
         'source_due_at'              => 'datetime',
+        'operator_sla_due_at'        => 'datetime',
         'source_status_at'           => 'datetime',
         'source_decision_at'         => 'datetime',
         'source_end_at'              => 'datetime',
@@ -148,6 +152,16 @@ class LegalDemand extends Model
     public function comments()
     {
         return $this->hasMany(LegalDemandComment::class)->orderByDesc('created_at');
+    }
+
+    public function noteInstructions()
+    {
+        return $this->hasMany(LegalDemandNoteInstruction::class, 'legal_demand_id')->orderByDesc('created_at');
+    }
+
+    public function noteActivityLinks()
+    {
+        return $this->hasMany(LegalDemandNoteActivityLink::class, 'legal_demand_id')->orderByDesc('created_at');
     }
 
     public function sourceSnapshots()

@@ -26,6 +26,7 @@ class LegalDemandBulkService
         $result = new BulkResult();
 
         $demands = LegalDemand::query()
+            
             ->where('controller_user_id', $fromUser->id)
             ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
             ->get();
