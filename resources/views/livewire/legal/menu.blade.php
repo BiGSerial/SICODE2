@@ -31,6 +31,13 @@
                                     <span> INBOX DE TRIAGEM</span>
                                 </a>
                             </li>
+                            <li>
+                                <a href="{{ route('legal.subdemand.monitor') }}"
+                                   class="nav-item fw-normal {{ request()->routeIs('legal.subdemand.monitor') ? 'text-warning' : 'text-white' }}">
+                                    <i class="bi bi-diagram-3 fw-light fs-5"></i>
+                                    <span> MONITOR SUBDEMANDAS</span>
+                                </a>
+                            </li>
                         </div>
                     </ul>
                 </li>

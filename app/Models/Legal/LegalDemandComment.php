@@ -15,6 +15,7 @@ class LegalDemandComment extends Model
     protected $fillable = [
         'legal_demand_id',
         'assignment_id',
+        'legal_demand_subdemand_id',
         'user_id',
         'comment',
         'visibility',
@@ -28,6 +29,11 @@ class LegalDemandComment extends Model
     public function assignment()
     {
         return $this->belongsTo(LegalDemandAssignment::class, 'assignment_id');
+    }
+
+    public function subdemand()
+    {
+        return $this->belongsTo(LegalDemandSubdemand::class, 'legal_demand_subdemand_id');
     }
 
     public function user()

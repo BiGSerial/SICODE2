@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Legal\Controller;
 
 use App\Models\Legal\{LegalDemand, LegalImportBatch};
+use App\Models\User;
 use App\Services\Legal\LegalDemandWorkflowService;
 use Livewire\Component;
 
@@ -13,6 +14,7 @@ class TriageInbox extends Component
     public string $sourceTypeFilter = '';
 
     public string $originAreaFilter = '';
+    public string $controllerFilter = '';
 
     public int    $loadedCount = 25;
 
@@ -23,6 +25,7 @@ class TriageInbox extends Component
     protected $queryString = [
         'search'           => ['except' => ''],
         'sourceTypeFilter' => ['except' => ''],
+        'controllerFilter' => ['except' => ''],
     ];
 
     public function mount(): void
@@ -99,9 +102,16 @@ class TriageInbox extends Component
     {
         return LegalDemand::query()
             
-            ->with(['legalCase', 'lastSeenImportBatch'])
+            ->with(['legalCase', 'lastSeenImportBatch', 'controller'])
             ->externallyActive()
-            ->whereIn('internal_status', ['new_imported', 'triage'])
+            ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
+            ->whereNotNull('controller_user_id')
+            ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
+            ->whereNull('current_assigned_user_id')
+            ->whereNull('current_assigned_team_id')
+            ->whereDoesntHave('assignments', function ($aq) {
+                $aq->whereIn('status', ['sent', 'received', 'returned_for_correction']);
+            })
             ->when($this->search, function ($q) {
                 $s = "%{$this->search}%";
                 $q->where(
@@ -113,6 +123,13 @@ class TriageInbox extends Component
             })
             ->when($this->sourceTypeFilter, fn ($q) => $q->where('source_type', $this->sourceTypeFilter))
             ->when($this->originAreaFilter, fn ($q) => $q->where('requesting_area_name', 'like', "%{$this->originAreaFilter}%"))
+            ->when($this->controllerFilter, fn ($q) => $q->where('controller_user_id', $this->controllerFilter))
+            ->orderByRaw("
+                CASE
+                    WHEN LOWER(COALESCE(process_status_at_import, '')) LIKE '%encerrad%' THEN 1
+                    ELSE 0
+                END ASC
+            ")
             ->orderByRaw('ISNULL(source_due_at) ASC')
             ->orderBy('source_due_at', 'asc');
     }
@@ -128,6 +145,14 @@ class TriageInbox extends Component
             'demands'     => $demands,
             'totalCount'  => $totalCount,
             'lastBatch'   => $lastBatch,
+            'controllers' => User::query()
+                ->where(function ($q) {
+                    $q->where('legal_controller', true)
+                        ->orWhere('admin', true)
+                        ->orWhere('superadm', true);
+                })
+                ->orderBy('name')
+                ->get(['id', 'name']),
         ]);
     }
 }

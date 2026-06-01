@@ -59,6 +59,12 @@ class LegalDemand extends Model
         'action_state',
         'priority',
         'risk_level',
+        'subdemand_open_count',
+        'subdemand_overdue_count',
+        'subdemand_completed_count',
+        'subdemand_avg_resolution_seconds',
+        'subdemand_sla_status',
+        'subdemand_criticality',
         'controller_user_id',
         'current_assigned_user_id',
         'current_assigned_team_id',
@@ -88,6 +94,10 @@ class LegalDemand extends Model
         'last_seen_at'               => 'datetime',
         'missing_since'              => 'datetime',
         'missing_count'              => 'integer',
+        'subdemand_open_count'       => 'integer',
+        'subdemand_overdue_count'    => 'integer',
+        'subdemand_completed_count'  => 'integer',
+        'subdemand_avg_resolution_seconds' => 'integer',
         'source_presence_status'     => LegalSourcePresenceStatus::class,
         'internal_status'            => LegalDemandInternalStatus::class,
         'closed_at'                  => 'datetime',
@@ -137,6 +147,11 @@ class LegalDemand extends Model
     public function assignments()
     {
         return $this->hasMany(LegalDemandAssignment::class);
+    }
+
+    public function subdemands()
+    {
+        return $this->hasMany(LegalDemandSubdemand::class)->orderByDesc('created_at');
     }
 
     public function events()

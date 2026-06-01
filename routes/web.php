@@ -455,6 +455,8 @@ Route::prefix('juridico')->name('legal.')->middleware(['auth'])->controller(\App
     Route::get('/fila', 'queue')->name('queue');
     Route::get('/triagem', 'triage')->name('triage');
     Route::get('/demanda/{uuid}', 'demandDetail')->name('demand.detail');
+    Route::get('/subdemanda/{id}', 'subdemandDetail')->name('subdemand.detail');
+    Route::get('/subdemandas/monitor', 'subdemandMonitor')->name('subdemand.monitor');
 
     // Campo
     Route::get('/minhas-tarefas', 'fieldQueue')->name('field.queue');
@@ -474,5 +476,8 @@ Route::prefix('juridico/externo')->name('legal.external.')->controller(\App\Http
     Route::get('/tarefa/{assignment_id}', 'fieldResponseExternal')
         ->middleware(['signed', 'throttle:30,1'])
         ->name('response');
+    Route::get('/subdemanda/{token}', 'subdemandResponseExternal')
+        ->middleware(['throttle:60,1'])
+        ->name('subdemand.response');
     Route::get('/expirado', 'externalExpired')->name('expired');
 });

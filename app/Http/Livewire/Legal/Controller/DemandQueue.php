@@ -32,6 +32,7 @@ class DemandQueue extends Component
 
     public int    $perPage = 25;
     public bool   $groupByCase = false;
+    public array $expandedSubdemands = [];
 
     // Seleção em lote
     public array $selectedIds = [];
@@ -114,6 +115,19 @@ class DemandQueue extends Component
     {
         $this->selectedIds = [];
         $this->selectAll   = false;
+    }
+
+    public function toggleSubdemands(int $demandId): void
+    {
+        if (in_array($demandId, $this->expandedSubdemands, true)) {
+            $this->expandedSubdemands = array_values(array_filter(
+                $this->expandedSubdemands,
+                fn (int $id) => $id !== $demandId
+            ));
+            return;
+        }
+
+        $this->expandedSubdemands[] = $demandId;
     }
 
     public function updatedTransferFromUserId(): void
@@ -216,8 +230,13 @@ class DemandQueue extends Component
     private function baseQuery()
     {
         $query = LegalDemand::query()
-            
-            ->with(['legalCase', 'controller', 'currentAssignee']);
+            ->with([
+                'legalCase',
+                'controller',
+                'currentAssignee',
+                'subdemands.assignedTo',
+            ])
+            ->withCount('subdemands');
 
         // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
         match ($this->tab) {

@@ -373,6 +373,45 @@
             font-size: 12px;
             color: #64748b;
         }
+        .subd-card {
+            border: 1px solid #dbeafe;
+            border-radius: .75rem;
+            background: #fff;
+            margin-bottom: .65rem;
+            overflow: hidden;
+        }
+        .subd-summary {
+            cursor: pointer;
+            list-style: none;
+            padding: .7rem .85rem;
+            background: #f8fbff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: .6rem;
+        }
+        .subd-summary::-webkit-details-marker { display: none; }
+        .subd-meta {
+            font-size: .77rem;
+            color: #64748b;
+            margin-top: .15rem;
+        }
+        .subd-body {
+            padding: .75rem .85rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .subd-events {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .subd-event {
+            border: 1px solid #e2e8f0;
+            border-radius: .55rem;
+            padding: .45rem .55rem;
+            background: #fff;
+            margin-bottom: .4rem;
+        }
+        .subd-event:last-child { margin-bottom: 0; }
         @media (max-width: 992px) {
             .proc-grid { grid-template-columns: 1fr; }
             .proc-grid-3 { grid-template-columns: 1fr; }
@@ -843,6 +882,98 @@
                             @endif
                         </ol>
                     </div>
+                </div>
+            </div>
+
+            <div class="table-card mt-3 mb-0">
+                <div class="card-header text-bg-dark fw-bold">
+                    <i class="bi bi-diagram-3 me-2"></i>Subdemandas Vinculadas
+                </div>
+                <div class="card-body">
+                    @forelse($demand->subdemands as $sub)
+                        @php
+                            $subStatus = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+                            $subStatusLabel = $sub->status instanceof \App\Enum\LegalDemandSubdemandStatus
+                                ? $sub->status->label()
+                                : \Illuminate\Support\Str::headline(str_replace('_', ' ', $subStatus));
+                            $subBadge = match($subStatus) {
+                                'concluida' => 'badge bg-success',
+                                'encerrada_controlador' => 'badge bg-secondary',
+                                'em_andamento' => 'badge bg-warning text-dark',
+                                'aguardando_retorno' => 'badge bg-info text-dark',
+                                default => 'badge bg-primary',
+                            };
+                        @endphp
+                        <details class="subd-card">
+                            <summary class="subd-summary">
+                                <div>
+                                    <div class="fw-semibold">
+                                        Subdemanda #{{ $sub->id }}
+                                        <span class="{{ $subBadge }} ms-1">{{ $subStatusLabel }}</span>
+                                    </div>
+                                    <div class="subd-meta">
+                                        Destino: {{ $sub->assignedTo?->name ?? ($sub->assigned_area_name ?: 'Não definido') }}
+                                        · Prazo: {{ $sub->deadline_at ? \Carbon\Carbon::parse($sub->deadline_at)->format('d/m/Y H:i') : '—' }}
+                                    </div>
+                                </div>
+                                <small class="text-muted">expandir</small>
+                            </summary>
+                            <div class="subd-body">
+                                <div class="small mb-2">
+                                    Criada em {{ $sub->created_at?->format('d/m/Y H:i') ?? '—' }}
+                                    @if($sub->resolution)
+                                        <div class="mt-1"><strong>Resolução:</strong> {{ \Illuminate\Support\Str::limit((string) $sub->resolution, 180) }}</div>
+                                    @endif
+                                </div>
+                                <div class="mb-2">
+                                    <a href="{{ route('legal.subdemand.detail', $sub->id) }}" class="btn btn-sm btn-outline-primary">Abrir detalhe da subdemanda</a>
+                                </div>
+                                <div class="subd-events">
+                                    @forelse($sub->events->sortByDesc('occurred_at')->take(6) as $event)
+                                        <div class="subd-event">
+                                            <div class="d-flex justify-content-between gap-2">
+                                                <span class="badge bg-light text-dark border">{{ \Illuminate\Support\Str::headline(str_replace('_', ' ', (string) $event->event_type)) }}</span>
+                                                <small class="text-muted">{{ $event->occurred_at ? \Carbon\Carbon::parse($event->occurred_at)->format('d/m/Y H:i') : '—' }}</small>
+                                            </div>
+                                            <div class="small mt-1">{{ $event->description ?: 'Atualização registrada.' }}</div>
+                                            <div class="small text-muted">{{ $event->actor?->name ?: 'Sistema' }}</div>
+                                        </div>
+                                    @empty
+                                        <div class="small text-muted">Sem histórico nesta subdemanda.</div>
+                                    @endforelse
+                                </div>
+                                <hr>
+                                <div class="small fw-semibold mb-2">Comentários da subdemanda</div>
+                                @php
+                                    $subComments = $demand->comments
+                                        ->where('legal_demand_subdemand_id', $sub->id)
+                                        ->sortByDesc('created_at')
+                                        ->take(10);
+                                @endphp
+                                <div class="subd-events mb-2">
+                                    @forelse($subComments as $comment)
+                                        <div class="subd-event">
+                                            <div class="small">{{ $comment->comment }}</div>
+                                            <div class="small text-muted">
+                                                {{ $comment->user?->name ?: 'Executante externo' }}
+                                                · {{ $comment->created_at?->format('d/m/Y H:i') }}
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <div class="small text-muted">Sem comentários nesta subdemanda.</div>
+                                    @endforelse
+                                </div>
+                                @if($externalAccess || (string) $sub->assigned_to_user_id === (string) auth()->id())
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" wire:model.defer="subdemandCommentInput.{{ $sub->id }}" placeholder="Escreva um comentário desta subdemanda">
+                                        <button class="btn btn-outline-primary" wire:click="addSubdemandComment({{ $sub->id }})">Enviar</button>
+                                    </div>
+                                @endif
+                            </div>
+                        </details>
+                    @empty
+                        <div class="text-muted small">Nenhuma subdemanda vinculada a esta demanda.</div>
+                    @endforelse
                 </div>
             </div>
         </div>

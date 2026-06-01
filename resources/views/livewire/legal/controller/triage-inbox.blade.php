@@ -132,7 +132,7 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-lg-7">
+                <div class="col-12 col-lg-8">
                     <div class="row g-2">
                         <div class="col-12 col-md-6">
                             <div class="filter-card">
@@ -142,7 +142,7 @@
                                        placeholder="Nº processo, assunto, parte adversa..." />
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md-2">
                             <div class="filter-card">
                                 <label class="form-label">Tipo</label>
                                 <select class="form-select" wire:model="sourceTypeFilter">
@@ -153,11 +153,22 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md-2">
                             <div class="filter-card">
                                 <label class="form-label">Área de origem</label>
                                 <input type="text" class="form-control" placeholder="Filtrar área..."
                                        wire:model.debounce.400ms="originAreaFilter" />
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <div class="filter-card">
+                                <label class="form-label">Controlador</label>
+                                <select class="form-select" wire:model="controllerFilter">
+                                    <option value="">Todos</option>
+                                    @foreach($controllers as $c)
+                                        <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -255,6 +266,7 @@
                                 </span>
                             @endif
                             <div class="triage-sub"><x-legal.status-badge :status="$demand->internal_status" /></div>
+                            <div class="triage-sub"><strong>Controlador:</strong> {{ $demand->controller?->name ?? 'Não definido' }}</div>
                             @if($demand->first_seen_at)
                                 <div class="triage-sub">
                                     Primeira importação: {{ \Carbon\Carbon::parse($demand->first_seen_at)->format('d/m/Y') }}

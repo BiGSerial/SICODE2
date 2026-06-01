@@ -32,21 +32,14 @@
         }
 
         .ld-page {
-            background: var(--bg);
-            padding: 20px 0 34px;
+            background: transparent;
+            padding: 0 0 24px;
             color: var(--text);
         }
         .ld-wrap {
-            width: min(1420px, calc(100% - 32px));
-            margin: 0 auto;
+            width: 100%;
+            margin: 0;
         }
-        .ld-breadcrumb {
-            font-size: 12px;
-            color: var(--text-3);
-            margin-bottom: 16px;
-        }
-        .ld-breadcrumb a { color: var(--text-2); text-decoration: none; }
-
         .ld-header {
             background: linear-gradient(120deg, #0f2d5f, #1f3f6f 70%);
             border-radius: 14px;
@@ -401,10 +394,6 @@
     @endphp
 
     <div class="ld-wrap">
-        <div class="ld-breadcrumb">
-            <a href="{{ route('legal.queue') }}">Fila de Demandas</a> / Demanda #{{ $demand->id }}
-        </div>
-
         <div class="ld-header" data-case="{{ $demand->source_case_number ?? $demand->id }}">
             <a href="{{ route('legal.queue') }}" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:12px; margin-bottom:10px;">← Voltar para Fila</a>
             <div class="ld-company">{{ $demand->legalCase->company_name ?? '—' }}</div>
@@ -811,6 +800,7 @@
             </div>
 
             <div>
+                @if($subdemandsFeatureEnabled)
                 <div class="ld-panel">
                     <div class="ld-panel-header">Painel de ação</div>
                     <div class="ld-panel-body">
@@ -855,7 +845,6 @@
                                 @case('triage')
                                 @case('waiting_controller_action')
                                     <div class="d-grid gap-2">
-                                        <button class="btn btn-primary" wire:click="$toggle('showAssignForm')"><i class="bi bi-send me-1"></i>Atribuir Responsável</button>
                                         <button class="btn btn-outline-secondary" wire:click="$toggle('showCloseForm')"><i class="bi bi-lock me-1"></i>Fechar Internamente</button>
                                     </div>
                                     @break
@@ -893,73 +882,18 @@
                                     <div class="alert alert-secondary small mb-0">Status não mapeado.</div>
                             @endswitch
 
-                            @if($showAssignForm)
+                            @if(!empty($availableInternalActions))
                                 <hr>
                                 <div class="mb-2">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="assignAsExternal" wire:model="assignAsExternal">
-                                        <label class="form-check-label small fw-semibold" for="assignAsExternal">
-                                            Despachar para usuário externo (gera link de acesso)
-                                        </label>
-                                    </div>
+                                    <label class="form-label small fw-semibold">Alterar status interno</label>
+                                    <select class="form-select form-select-sm" wire:model="internalAction">
+                                        <option value="">Selecionar ação...</option>
+                                        @foreach($availableInternalActions as $action)
+                                            <option value="{{ $action['value'] }}">{{ $action['label'] }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
-                                @if($assignAsExternal)
-                                    <div class="mb-2">
-                                        <div class="alert alert-warning small mb-0">
-                                            A validade do link externo será exatamente o <strong>prazo interno (SLA)</strong> informado abaixo.
-                                        </div>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label small fw-semibold">Contato externo já cadastrado</label>
-                                        <select class="form-select form-select-sm" wire:model="externalContactId">
-                                            <option value="">Novo contato externo</option>
-                                            @foreach($externalContacts as $contact)
-                                                <option value="{{ $contact->id }}">{{ $contact->name }} — {{ $contact->email }}</option>
-                                            @endforeach
-                                        </select>
-                                        <div class="small text-muted mt-1">Selecione um contato existente ou deixe em branco para cadastrar um novo.</div>
-                                    </div>
-                                    @if(!$externalContactId)
-                                        <div class="mb-2" wire:key="external-contact-name-input">
-                                            <label class="form-label small fw-semibold">Nome do contato externo *</label>
-                                            <input type="text"
-                                                   class="form-control form-control-sm"
-                                                   value="{{ $externalContactName }}"
-                                                   wire:change="setExternalContactName($event.target.value)"
-                                                   placeholder="Nome completo">
-                                        </div>
-                                        <div class="mb-2" wire:key="external-contact-email-input">
-                                            <label class="form-label small fw-semibold">Email do contato externo *</label>
-                                            <input type="email"
-                                                   class="form-control form-control-sm"
-                                                   value="{{ $externalContactEmail }}"
-                                                   wire:change="setExternalContactEmail($event.target.value)"
-                                                   placeholder="email@dominio.com">
-                                        </div>
-                                    @endif
-                                @else
-                                    <div class="mb-2">
-                                        <label class="form-label small fw-semibold">Executante interno *</label>
-                                        <select class="form-select form-select-sm" wire:model="assignToUserId">
-                                            <option value="">Selecionar...</option>
-                                            @foreach($fieldUsers as $u)
-                                                <option value="{{ $u->id }}">{{ $u->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                @endif
-                                <div class="mb-2">
-                                    <label class="form-label small fw-semibold">Mensagem</label>
-                                    <textarea class="form-control form-control-sm" rows="3" wire:model="assignMessage"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label small fw-semibold">Prazo interno (data e hora)</label>
-                                    <input type="datetime-local" class="form-control form-control-sm" wire:model="assignDueAt" />
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-sm btn-secondary flex-fill" wire:click="$set('showAssignForm', false)">Cancelar</button>
-                                    <button class="btn btn-sm btn-primary flex-fill" wire:click="sendToField">Enviar</button>
-                                </div>
+                                <button class="btn btn-sm btn-primary w-100" wire:click="applyInternalAction">Aplicar status</button>
                             @endif
 
                             @if($showCloseForm)
@@ -991,6 +925,299 @@
                                 </div>
                             @endif
                         @endif
+                    </div>
+                </div>
+                @endif
+
+                <div class="ld-panel">
+                    <div class="ld-panel-header">Subdemandas vinculadas</div>
+                    <div class="ld-panel-body">
+                        @unless($canManageSubdemands)
+                            <div class="alert alert-warning small">
+                                Você só pode criar subdemanda após assumir esta demanda como controlador responsável.
+                            </div>
+                        @endunless
+                        <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-sm btn-primary" wire:click="$toggle('showSubdemandForm')" @disabled(!$canManageSubdemands)>
+                                <i class="bi bi-diagram-3 me-1"></i>Nova subdemanda
+                            </button>
+                        </div>
+
+                        @if($showSubdemandForm)
+                            <div class="border rounded p-2 mb-3 bg-light">
+                                @if(!$subdemandAssignAsExternal)
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold">Empresa</label>
+                                        <select class="form-select form-select-sm" wire:model="subdemandCompanyFilter">
+                                            <option value="">Todas</option>
+                                            @foreach($companies as $company)
+                                                <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold">Buscar usuário</label>
+                                        <input type="text" class="form-control form-control-sm" wire:model.debounce.300ms="subdemandUserSearch" placeholder="Nome ou email">
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold">Executante</label>
+                                        <select class="form-select form-select-sm" wire:model="subdemandAssignedToUserId">
+                                            <option value="">Selecionar...</option>
+                                            @foreach($fieldUsers as $u)
+                                                <option value="{{ $u->id }}">{{ $u->name }}{{ $u->Company?->name ? ' · '.$u->Company->name : '' }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="subdemandAssignAsExternal" wire:model="subdemandAssignAsExternal">
+                                    <label class="form-check-label small fw-semibold" for="subdemandAssignAsExternal">
+                                        Despachar para usuário externo
+                                    </label>
+                                </div>
+                                @if($subdemandAssignAsExternal)
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold">Contato externo já cadastrado</label>
+                                        <select class="form-select form-select-sm" wire:model="subdemandExternalContactId">
+                                            <option value="">Novo contato externo</option>
+                                            @foreach($externalContacts as $contact)
+                                                <option value="{{ $contact->id }}">{{ $contact->name }} — {{ $contact->email }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    @if(!$subdemandExternalContactId)
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Nome externo *</label>
+                                            <input type="text" class="form-control form-control-sm" wire:model="subdemandExternalContactName">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small fw-semibold">Email externo *</label>
+                                            <input type="email" class="form-control form-control-sm" wire:model="subdemandExternalContactEmail">
+                                        </div>
+                                    @endif
+                                @endif
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Prazo</label>
+                                    <input type="datetime-local" class="form-control form-control-sm" wire:model="subdemandDeadlineAt">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Descrição</label>
+                                    <textarea class="form-control form-control-sm" rows="2" wire:model="subdemandDescription"></textarea>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-secondary flex-fill" wire:click="$set('showSubdemandForm', false)">Cancelar</button>
+                                    <button class="btn btn-sm btn-primary flex-fill" wire:click="createSubdemand">Criar</button>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($showSubdemandActionForm)
+                            <div class="border rounded p-2 mb-3">
+                                <div class="small fw-semibold mb-2">Atualizar subdemanda</div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Executante</label>
+                                    <select class="form-select form-select-sm" wire:model="subdemandActionAssignedToUserId">
+                                        <option value="">Selecionar...</option>
+                                        @foreach($fieldUsers as $u)
+                                            <option value="{{ $u->id }}">{{ $u->name }}{{ $u->Company?->name ? ' · '.$u->Company->name : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Prazo</label>
+                                    <input type="datetime-local" class="form-control form-control-sm" wire:model="subdemandActionDeadlineAt">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Status destino</label>
+                                    <select class="form-select form-select-sm" wire:model="subdemandActionToStatus">
+                                        @foreach($subdemandStatuses as $status)
+                                            <option value="{{ $status->value }}">{{ $status->label() }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Motivo</label>
+                                    <textarea class="form-control form-control-sm" rows="2" wire:model="subdemandActionReason"></textarea>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Descrição do evento</label>
+                                    <textarea class="form-control form-control-sm" rows="2" wire:model="subdemandActionDescription"></textarea>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-secondary flex-fill" wire:click="$set('showSubdemandActionForm', false)">Cancelar</button>
+                                    <button class="btn btn-sm btn-dark flex-fill" wire:click="applySubdemandAction">Salvar</button>
+                                </div>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button class="btn btn-sm btn-outline-primary flex-fill" wire:click="applySubdemandReassignment">Reatribuir</button>
+                                    <button class="btn btn-sm btn-outline-warning flex-fill" wire:click="applySubdemandDeadline">Atualizar prazo</button>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="event-timeline">
+                            @forelse($demand->subdemands as $sub)
+                                @php
+                                    $statusValue = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+                                    $statusLabel = $sub->status instanceof \App\Enum\LegalDemandSubdemandStatus
+                                        ? $sub->status->label()
+                                        : \Illuminate\Support\Str::headline(str_replace('_', ' ', $statusValue));
+                                    $statusClass = match($statusValue) {
+                                        'concluida' => 'bg-success',
+                                        'encerrada_controlador' => 'bg-secondary',
+                                        'em_andamento' => 'bg-warning text-dark',
+                                        'aguardando_retorno' => 'bg-info text-dark',
+                                        default => 'bg-primary',
+                                    };
+                                    $isOpenSub = !in_array($statusValue, ['concluida', 'encerrada_controlador'], true);
+                                    $isOverdueSub = $isOpenSub && $sub->deadline_at && $sub->deadline_at->isPast();
+                                    $lastEvent = $sub->events->sortByDesc('occurred_at')->first();
+                                    $manualCloseEvent = $sub->events
+                                        ->where('event_type', 'status_changed')
+                                        ->first(fn ($e) => (string) $e->to_status === 'encerrada_controlador');
+                                @endphp
+                                <div class="event-item" style="{{ $isOverdueSub ? 'border-left:4px solid #dc2626;padding-left:.45rem;' : '' }}">
+                                    <div class="event-marker-wrap"><div class="event-marker"></div></div>
+                                    <div class="event-content">
+                                        <div class="event-top">
+                                            <span class="event-badge">Subdemanda #{{ $sub->id }}</span>
+                                            <span class="event-time">{{ $sub->created_at?->format('d/m/Y H:i') }}</span>
+                                        </div>
+                                        <div class="event-title">
+                                            <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
+                                            <span class="ms-2">{{ $sub->assignedTo?->name ?? ($sub->assigned_area_name ?: 'Destino não definido') }}</span>
+                                            @if($isOverdueSub)
+                                                <span class="badge bg-danger ms-2">Vencida</span>
+                                            @elseif($isOpenSub && $sub->deadline_at && $sub->deadline_at->isToday())
+                                                <span class="badge bg-warning text-dark ms-2">Vence hoje</span>
+                                            @endif
+                                        </div>
+                                        <div class="event-actor mt-1">
+                                            Prazo: {{ $sub->deadline_at ? \Carbon\Carbon::parse($sub->deadline_at)->format('d/m/Y H:i') : '—' }}
+                                        </div>
+                                        @if(data_get($sub->metadata ?? [], 'external_dispatch'))
+                                            @php
+                                                $externalResponseLink = $subdemandExternalLinks[$sub->id] ?? null;
+                                            @endphp
+                                            <div class="event-actor mt-1">
+                                                Externo: {{ data_get($sub->metadata ?? [], 'external_contact_name', 'Contato externo') }}
+                                                @if($sub->external_access_revoked_at)
+                                                    <span class="badge bg-danger ms-1">Link revogado</span>
+                                                @elseif($sub->external_access_expires_at && $sub->external_access_expires_at->isPast())
+                                                    <span class="badge bg-warning text-dark ms-1">Link expirado</span>
+                                                @else
+                                                    <span class="badge bg-success ms-1">Link ativo</span>
+                                                @endif
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                                <button class="btn btn-sm btn-outline-primary" wire:click="regenerateSubdemandExternalAccess({{ $sub->id }})">Gerar link</button>
+                                                @if(!$sub->external_access_revoked_at)
+                                                    <button class="btn btn-sm btn-outline-danger" wire:click="revokeSubdemandExternalAccess({{ $sub->id }})">Revogar</button>
+                                                @endif
+                                            </div>
+                                            <div class="mt-2">
+                                                <label class="form-label small fw-semibold mb-1">Link externo (copiar)</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input
+                                                        id="sub-external-link-{{ $sub->id }}"
+                                                        type="text"
+                                                        class="form-control"
+                                                        readonly
+                                                        value="{{ $externalResponseLink ?: 'Clique em \"Gerar link\" para obter URL copiável.' }}"
+                                                    >
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-secondary"
+                                                        onclick="navigator.clipboard.writeText(document.getElementById('sub-external-link-{{ $sub->id }}').value)"
+                                                        @disabled(!$externalResponseLink)
+                                                    >Copiar</button>
+                                                </div>
+                                            </div>
+                                        @endif
+                                        @if($manualCloseEvent)
+                                            <div class="event-actor mt-1">
+                                                Encerrada por: <strong>{{ $manualCloseEvent->actor?->name ?: 'Sistema' }}</strong>
+                                                @if($manualCloseEvent->reason)
+                                                    · Motivo: {{ $manualCloseEvent->reason }}
+                                                @endif
+                                            </div>
+                                        @elseif($lastEvent && $lastEvent->reason)
+                                            <div class="event-actor mt-1">
+                                                Último motivo: {{ $lastEvent->reason }}
+                                            </div>
+                                        @endif
+                                        <div class="d-flex flex-wrap gap-1 mt-2">
+                                            <a class="btn btn-sm btn-outline-primary" href="{{ route('legal.subdemand.detail', $sub->id) }}">Abrir subdemanda</a>
+                                            <button class="btn btn-sm btn-outline-secondary" wire:click="openSubdemandAction({{ $sub->id }}, '{{ $statusValue }}')">Editar</button>
+                                            @if(!in_array($statusValue, ['concluida', 'encerrada_controlador'], true))
+                                                <button class="btn btn-sm btn-outline-danger" wire:click="removeSubdemand({{ $sub->id }})">Remover</button>
+                                            @endif
+                                            <select class="form-select form-select-sm" style="max-width:220px" wire:model="subdemandInlineStatus.{{ $sub->id }}">
+                                                <option value="">Alterar status...</option>
+                                                <option value="em_andamento">Em andamento</option>
+                                                <option value="aguardando_retorno">Aguardando retorno</option>
+                                                <option value="encerrada_controlador">Encerrar</option>
+                                            </select>
+                                            <button class="btn btn-sm btn-outline-dark" wire:click="applyInlineSubdemandStatus({{ $sub->id }})">Aplicar</button>
+                                        </div>
+
+                                        @php
+                                            $subComments = $demand->comments
+                                                ->where('legal_demand_subdemand_id', $sub->id)
+                                                ->sortByDesc('created_at')
+                                                ->take(8);
+                                            $subFiles = $demand->files
+                                                ->where('removed_at', null)
+                                                ->where('legal_demand_subdemand_id', $sub->id)
+                                                ->sortByDesc('created_at')
+                                                ->take(8);
+                                        @endphp
+
+                                        <hr class="my-2">
+                                        <div class="small fw-semibold mb-1">Comentários da subdemanda</div>
+                                        <div class="mb-2" style="max-height:170px; overflow:auto;">
+                                            @forelse($subComments as $comment)
+                                                <div class="small border rounded p-2 mb-1">
+                                                    <div>{{ $comment->comment }}</div>
+                                                    <div class="text-muted mt-1">
+                                                        {{ $comment->user?->name ?: 'Executante externo' }}
+                                                        · {{ $comment->created_at?->format('d/m/Y H:i') }}
+                                                    </div>
+                                                </div>
+                                            @empty
+                                                <div class="small text-muted">Sem comentários nesta subdemanda.</div>
+                                            @endforelse
+                                        </div>
+                                        <div class="input-group input-group-sm mb-2">
+                                            <input type="text" class="form-control" wire:model.defer="subdemandControllerCommentInput.{{ $sub->id }}" placeholder="Enviar comentário para esta subdemanda">
+                                            <button class="btn btn-outline-primary" wire:click="addControllerSubdemandComment({{ $sub->id }})">Enviar</button>
+                                        </div>
+
+                                        <div class="small fw-semibold mb-1">Arquivos da subdemanda</div>
+                                        <div class="small">
+                                            @forelse($subFiles as $f)
+                                                @php
+                                                    $filePath = $f->path ?? $f->file_path ?? null;
+                                                    $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                                @endphp
+                                                @if($fileUrl)
+                                                    <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1">
+                                                        <div class="text-truncate me-2">
+                                                            {{ $f->original_name ?? basename($filePath) }}
+                                                            <span class="text-muted">· {{ $f->uploadedBy?->name ?: 'Externo' }}</span>
+                                                        </div>
+                                                        <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2">Abrir</a>
+                                                    </div>
+                                                @endif
+                                            @empty
+                                                <div class="text-muted">Sem arquivos nesta subdemanda.</div>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="queue-empty">Nenhuma subdemanda vinculada.</div>
+                            @endforelse
+                        </div>
                     </div>
                 </div>
 

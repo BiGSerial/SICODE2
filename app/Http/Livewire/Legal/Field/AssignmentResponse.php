@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Legal\Field;
 
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile};
 use App\Services\Legal\LegalDemandWorkflowService;
 use Livewire\{Component, WithFileUploads};
 
@@ -40,6 +40,8 @@ class AssignmentResponse extends Component
 
     // UI
     public bool $confirmingSend = false;
+    public ?int $activeSubdemandId = null;
+    public array $subdemandCommentInput = [];
 
     public function mount(int $assignment_id, bool $external = false): void
     {
@@ -50,7 +52,14 @@ class AssignmentResponse extends Component
         }
 
         $this->assignmentId = $assignment_id;
-        $assignment = LegalDemandAssignment::with(['legalDemand.legalCase', 'legalDemand.files', 'sentBy', 'toUser'])
+        $assignment = LegalDemandAssignment::with([
+            'legalDemand.legalCase',
+            'legalDemand.files',
+            'legalDemand.subdemands.assignedTo',
+            'legalDemand.subdemands.events.actor',
+            'sentBy',
+            'toUser',
+        ])
             ->whereKey($assignment_id);
 
         if (!$this->externalAccess) {
@@ -69,6 +78,11 @@ class AssignmentResponse extends Component
         $this->assignment = $assignment;
 
         $this->demand = $this->assignment->legalDemand;
+        $assignmentSubdemandId = (int) data_get($this->assignment->metadata ?? [], 'subdemand_id', 0);
+        $active = $assignmentSubdemandId > 0
+            ? $this->demand->subdemands->firstWhere('id', $assignmentSubdemandId)
+            : $this->demand->subdemands->firstWhere('assigned_to_user_id', $this->externalAccess ? null : auth()->id());
+        $this->activeSubdemandId = $active?->id;
 
         if ($this->externalAccess) {
             $this->externalExecutorName = (string) (
@@ -222,6 +236,12 @@ class AssignmentResponse extends Component
 
     public function render()
     {
+        $this->demand->loadMissing([
+            'subdemands.assignedTo',
+            'subdemands.events.actor',
+            'comments.user',
+        ]);
+
         $sharedFiles = $this->demand->files
             ->where('removed_at', null)
             ->where('visibility', 'shared');
@@ -234,6 +254,34 @@ class AssignmentResponse extends Component
         return view('livewire.legal.field.assignment-response', [
             'sharedFiles' => $sharedFiles,
         ]);
+    }
+
+    public function addSubdemandComment(int $subdemandId): void
+    {
+        $comment = trim((string) ($this->subdemandCommentInput[$subdemandId] ?? ''));
+        if ($comment === '') {
+            return;
+        }
+
+        if (!$this->externalAccess) {
+            $allowed = $this->demand->subdemands
+                ->where('id', $subdemandId)
+                ->where('assigned_to_user_id', auth()->id())
+                ->isNotEmpty();
+            abort_unless($allowed, 403);
+        }
+
+        LegalDemandComment::create([
+            'legal_demand_id' => $this->demand->id,
+            'assignment_id' => $this->assignment->id,
+            'legal_demand_subdemand_id' => $subdemandId,
+            'user_id' => $this->externalAccess ? null : auth()->id(),
+            'comment' => $comment,
+            'visibility' => 'shared',
+        ]);
+
+        $this->subdemandCommentInput[$subdemandId] = '';
+        $this->demand->refresh()->load(['comments.user', 'subdemands.assignedTo', 'subdemands.events.actor']);
     }
 
     private function persistUploadedFiles(): int
@@ -264,6 +312,7 @@ class AssignmentResponse extends Component
             LegalDemandFile::create([
                 'legal_demand_id' => $this->demand->id,
                 'assignment_id' => $this->assignment->id,
+                'legal_demand_subdemand_id' => $this->activeSubdemandId,
                 'uploaded_by' => $this->externalAccess ? null : auth()->id(),
                 'file_name' => basename($path),
                 'original_name' => $customName,

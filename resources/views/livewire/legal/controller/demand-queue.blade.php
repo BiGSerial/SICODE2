@@ -158,6 +158,24 @@
             font-size: .78rem;
             margin-top: .2rem;
         }
+        .queue-subdemands-panel {
+            margin: -.35rem .15rem .5rem 2.9rem;
+            border: 1px solid #dbe3ee;
+            border-radius: .7rem;
+            background: #f8fafc;
+            padding: .5rem .55rem;
+        }
+        .queue-subdemands-list {
+            display: grid;
+            gap: .35rem;
+        }
+        .queue-subdemand-item {
+            border: 1px solid #e2e8f0;
+            border-radius: .55rem;
+            background: #fff;
+            padding: .4rem .5rem;
+            font-size: .78rem;
+        }
 
         .queue-chip-col {
             display: flex;
@@ -507,6 +525,11 @@
                                             <span class="badge {{ $isOpenByProcessStatus ? 'bg-success' : ($processStatusImport === '' ? 'bg-warning text-dark' : 'bg-danger') }}">
                                                 Processo: {{ $processStatusImport !== '' ? $processStatusImport : 'Não informado' }}
                                             </span>
+                                            @if(($demand->subdemands_count ?? 0) > 0)
+                                                <button class="btn btn-link btn-sm p-0 mt-1 text-decoration-none" wire:click="toggleSubdemands({{ $demand->id }})">
+                                                    {{ in_array($demand->id, $expandedSubdemands, true) ? 'Ocultar' : 'Ver' }} {{ $demand->subdemands_count }} subdemanda(s)
+                                                </button>
+                                            @endif
                                         </div>
                                         <div>{{ $demand->controller?->name ?? 'Sem controlador' }}</div>
                                         <div class="text-center">
@@ -515,6 +538,23 @@
                                             </a>
                                         </div>
                                     </div>
+                                    @if(in_array($demand->id, $expandedSubdemands, true) && $demand->subdemands->isNotEmpty())
+                                        <div class="queue-subdemands-panel">
+                                            <div class="queue-subdemands-list">
+                                                @foreach($demand->subdemands->sortByDesc('created_at') as $sub)
+                                                    @php
+                                                        $subStatus = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+                                                    @endphp
+                                                    <div class="queue-subdemand-item">
+                                                        <strong>#{{ $sub->id }}</strong> ·
+                                                        {{ $sub->assignedTo?->name ?? ($sub->assigned_area_name ?: 'Sem destino') }} ·
+                                                        Prazo: {{ $sub->deadline_at ? \Carbon\Carbon::parse($sub->deadline_at)->format('d/m/Y H:i') : '—' }} ·
+                                                        <span class="badge bg-light text-dark border">{{ str_replace('_', ' ', $subStatus) }}</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endif
                                 @endforeach
                             </div>
                         </div>
@@ -570,6 +610,13 @@
                             @if($demand->subject)
                                 <div class="queue-subtext" title="{{ $demand->subject }}" data-bs-toggle="tooltip">
                                     <i class="bi bi-card-text me-1"></i>{{ Str::limit($demand->subject, 74) }}
+                                </div>
+                            @endif
+                            @if(($demand->subdemands_count ?? 0) > 0)
+                                <div class="queue-subtext">
+                                    <button class="btn btn-link btn-sm p-0 text-decoration-none" wire:click="toggleSubdemands({{ $demand->id }})">
+                                        {{ in_array($demand->id, $expandedSubdemands, true) ? 'Ocultar' : 'Ver' }} {{ $demand->subdemands_count }} subdemanda(s)
+                                    </button>
                                 </div>
                             @endif
                             @if($demand->process_manager)
@@ -636,6 +683,23 @@
                             </a>
                         </div>
                     </div>
+                    @if(in_array($demand->id, $expandedSubdemands, true) && $demand->subdemands->isNotEmpty())
+                        <div class="queue-subdemands-panel" wire:key="subdemand-panel-{{ $demand->id }}">
+                            <div class="queue-subdemands-list">
+                                @foreach($demand->subdemands->sortByDesc('created_at') as $sub)
+                                    @php
+                                        $subStatus = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
+                                    @endphp
+                                    <div class="queue-subdemand-item">
+                                        <strong>#{{ $sub->id }}</strong> ·
+                                        {{ $sub->assignedTo?->name ?? ($sub->assigned_area_name ?: 'Sem destino') }} ·
+                                        Prazo: {{ $sub->deadline_at ? \Carbon\Carbon::parse($sub->deadline_at)->format('d/m/Y H:i') : '—' }} ·
+                                        <span class="badge bg-light text-dark border">{{ str_replace('_', ' ', $subStatus) }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 @empty
                     <div class="text-center text-muted py-5 bg-white border rounded-3">
                         <i class="bi bi-inbox fs-2 d-block mb-2 opacity-40"></i>

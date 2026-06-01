@@ -4,6 +4,11 @@ namespace App\Http\Controllers;
 
 class LegalController extends Controller
 {
+    private function ensureSubdemandsFeatureEnabled(): void
+    {
+        abort_unless(config('features.legal_subdemands', true), 404);
+    }
+
     public function queue()
     {
         return view('legal.controller.queue');
@@ -17,6 +22,18 @@ class LegalController extends Controller
     public function demandDetail(string $uuid)
     {
         return view('legal.controller.detail', compact('uuid'));
+    }
+
+    public function subdemandMonitor()
+    {
+        $this->ensureSubdemandsFeatureEnabled();
+        return view('legal.controller.subdemand-monitor');
+    }
+
+    public function subdemandDetail(int $id)
+    {
+        $this->ensureSubdemandsFeatureEnabled();
+        return view('legal.controller.subdemand-detail', compact('id'));
     }
 
     public function fieldQueue()
@@ -37,6 +54,12 @@ class LegalController extends Controller
     public function externalExpired()
     {
         return view('legal.field.response_external_expired');
+    }
+
+    public function subdemandResponseExternal(string $token)
+    {
+        $this->ensureSubdemandsFeatureEnabled();
+        return view('legal.field.subdemand_external_response', compact('token'));
     }
 
     public function dashboard()

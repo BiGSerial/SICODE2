@@ -15,6 +15,7 @@ class LegalDemandFile extends Model
     protected $fillable = [
         'legal_demand_id',
         'assignment_id',
+        'legal_demand_subdemand_id',
         'uploaded_by',
         'file_name',
         'original_name',
@@ -39,6 +40,11 @@ class LegalDemandFile extends Model
     public function assignment()
     {
         return $this->belongsTo(LegalDemandAssignment::class, 'assignment_id');
+    }
+
+    public function subdemand()
+    {
+        return $this->belongsTo(LegalDemandSubdemand::class, 'legal_demand_subdemand_id');
     }
 
     public function uploadedBy()

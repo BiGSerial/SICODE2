@@ -16,6 +16,15 @@ class KpiValue extends Component
 
     private function value(): int
     {
+        $triageQuery = LegalDemand::externallyActive()
+            ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
+            ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
+            ->whereNull('current_assigned_user_id')
+            ->whereNull('current_assigned_team_id')
+            ->whereDoesntHave('assignments', function ($aq) {
+                $aq->whereIn('status', ['sent', 'received', 'returned_for_correction']);
+            });
+
         return match ($this->metric) {
             'total_active' => LegalDemand::externallyActive()
                 ->whereNotIn('internal_status', ['cancelled', 'ignored'])
@@ -35,16 +44,9 @@ class KpiValue extends Component
                     'reopened',
                 ])
                 ->count(),
-            'returned_today' => LegalDemand::externallyActive()
-                ->whereIn('internal_status', ['triage', 'waiting_controller_action'])
-                ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
-                ->whereNull('current_assigned_user_id')
-                ->whereNull('current_assigned_team_id')
-                ->whereDoesntHave('assignments', function ($aq) {
-                    $aq->whereIn('status', ['sent', 'received', 'returned_for_correction']);
-                })
-                ->whereDate('updated_at', today())
-                ->count(),
+            // Legacy metric key used in queue header; semantic is "na triagem".
+            'returned_today' => (clone $triageQuery)->count(),
+            'triage' => (clone $triageQuery)->count(),
             default => 0,
         };
     }

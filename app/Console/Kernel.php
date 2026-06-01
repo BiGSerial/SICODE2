@@ -222,6 +222,17 @@ class Kernel extends ConsoleKernel
 
         // $this->scheduleCommand($schedule, 'sicode:fix-prazos --full', 'fix-prazos-full')
         //     ->dailyAt('12:05');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Jurídico - Subdemandas
+        |--------------------------------------------------------------------------
+        */
+        $this->scheduleCommand($schedule, 'legal:subdemands:refresh-sla --limit=500', 'legal-subdemands-refresh-sla')
+            ->everyFifteenMinutes();
+
+        $this->scheduleCommand($schedule, 'legal:import-all', 'legal-import-all')
+            ->cron('0 8,10,12,14,16,18 * * *');
     }
 
     /**

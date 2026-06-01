@@ -2,10 +2,12 @@
 
 namespace App\Http\Livewire\Legal\Controller;
 
+use App\Enum\LegalDemandSubdemandStatus;
+use App\Models\Company;
 use App\Models\Note;
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile, LegalExternalContact};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
 use App\Models\User;
-use App\Services\Legal\{LegalDemandFileService, LegalDemandWorkflowService};
+use App\Services\Legal\{LegalDemandFileService, LegalDemandSubdemandWorkflowService, LegalDemandWorkflowService};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +66,30 @@ class DemandDetail extends Component
     public string $noteInput = '';
 
     public string $noteLinkContext = '';
+    public string $internalAction = '';
+
+    // Subdemandas
+    public bool $showSubdemandForm = false;
+    public string $subdemandAssignedToUserId = '';
+    public ?string $subdemandDeadlineAt = null;
+    public string $subdemandDescription = '';
+    public string $subdemandUserSearch = '';
+    public string $subdemandCompanyFilter = '';
+    public bool $subdemandAssignAsExternal = false;
+    public ?int $subdemandExternalContactId = null;
+    public string $subdemandExternalContactName = '';
+    public string $subdemandExternalContactEmail = '';
+
+    public bool $showSubdemandActionForm = false;
+    public ?int $subdemandActionId = null;
+    public string $subdemandActionToStatus = '';
+    public string $subdemandActionReason = '';
+    public string $subdemandActionDescription = '';
+    public string $subdemandActionAssignedToUserId = '';
+    public ?string $subdemandActionDeadlineAt = null;
+    public array $subdemandInlineStatus = [];
+    public array $subdemandControllerCommentInput = [];
+    public array $subdemandExternalLinks = [];
 
     public function mount(string $uuid): void
     {
@@ -75,9 +101,7 @@ class DemandDetail extends Component
         );
 
         $this->uuid   = $uuid;
-        $this->demand = LegalDemand::where('uuid', $uuid)
-            ->with(['legalCase.notes', 'controller', 'currentAssignee', 'events.actor', 'files', 'comments.user', 'assignments.sentBy'])
-            ->firstOrFail();
+        $this->demand = LegalDemand::where('uuid', $uuid)->with($this->demandRelations())->firstOrFail();
     }
 
     public function linkNotesToCase(): void
@@ -339,6 +363,359 @@ class DemandDetail extends Component
         $this->demand->refresh()->load(['comments.user']);
     }
 
+    public function createSubdemand(): void
+    {
+        abort_unless(config('features.legal_subdemands', true), 404);
+        if (!$this->canManageSubdemands()) {
+            $this->dispatchBrowserEvent('swal', [
+                'icon' => 'warning',
+                'title' => 'Assuma a demanda primeiro',
+                'html' => 'A criação de subdemanda exige que o controlador responsável seja você.',
+            ]);
+            return;
+        }
+
+        $this->validate([
+            'subdemandDeadlineAt' => 'nullable|date',
+            'subdemandDescription' => 'nullable|string|max:1000',
+        ]);
+
+        if (!$this->subdemandAssignAsExternal && $this->subdemandAssignedToUserId === '') {
+            $this->addError('subdemandAssignedToUserId', 'Informe um executante interno ou marque despacho externo.');
+            return;
+        }
+
+        try {
+            $metadata = [];
+            $assignedToUserId = $this->subdemandAssignedToUserId !== '' ? $this->subdemandAssignedToUserId : null;
+
+            if ($this->subdemandAssignAsExternal) {
+                if ($this->subdemandExternalContactId) {
+                    $this->validate(['subdemandExternalContactId' => 'exists:legal_external_contacts,id']);
+                    $contact = LegalExternalContact::query()->findOrFail($this->subdemandExternalContactId);
+                } else {
+                    $this->validate([
+                        'subdemandExternalContactName' => 'required|string|min:3|max:120',
+                        'subdemandExternalContactEmail' => 'required|email|max:190',
+                    ]);
+
+                    $contact = LegalExternalContact::query()->firstOrNew(['email' => mb_strtolower(trim($this->subdemandExternalContactEmail))]);
+                    $contact->name = trim($this->subdemandExternalContactName);
+                    $contact->is_active = true;
+                    $contact->last_used_at = now();
+                    if (!$contact->exists) {
+                        $contact->created_by = auth()->id();
+                    }
+                    $contact->save();
+                }
+
+                $assignedToUserId = null;
+                $metadata = [
+                    'external_dispatch' => true,
+                    'external_contact_id' => $contact->id,
+                    'external_contact_name' => $contact->name,
+                    'external_contact_email' => $contact->email,
+                ];
+            }
+
+            $subdemand = app(LegalDemandSubdemandWorkflowService::class)->create(
+                demand: $this->demand,
+                actor: auth()->user(),
+                assignedToUserId: $assignedToUserId,
+                assignedAreaName: null,
+                deadlineAt: $this->subdemandDeadlineAt ? new \DateTime($this->subdemandDeadlineAt) : null,
+                description: $this->subdemandDescription ?: null,
+                metadata: $metadata,
+            );
+
+            $externalLink = null;
+            if ($this->subdemandAssignAsExternal) {
+                $token = app(LegalDemandSubdemandWorkflowService::class)->generateExternalAccess(
+                    $subdemand,
+                    auth()->user(),
+                    $this->subdemandDeadlineAt ? new \DateTime($this->subdemandDeadlineAt) : null
+                );
+                $externalLink = route('legal.external.subdemand.response', ['token' => $token]);
+                $this->subdemandExternalLinks[$subdemand->id] = $externalLink;
+            } else {
+                LegalDemandAssignment::create([
+                    'legal_demand_id' => $this->demand->id,
+                    'from_user_id' => auth()->id(),
+                    'to_user_id' => $assignedToUserId,
+                    'to_team_id' => null,
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'message' => $this->subdemandDescription ?: 'Subdemanda enviada para execução.',
+                    'metadata' => [
+                        'subdemand_id' => $subdemand->id,
+                        'due_at' => $this->subdemandDeadlineAt ? (new \DateTime($this->subdemandDeadlineAt))->format('Y-m-d H:i:s') : null,
+                        'source' => 'subdemand',
+                    ],
+                ]);
+            }
+
+            $this->showSubdemandForm = false;
+            $this->subdemandAssignedToUserId = '';
+            $this->subdemandDeadlineAt = null;
+            $this->subdemandDescription = '';
+            $this->subdemandAssignAsExternal = false;
+            $this->subdemandExternalContactId = null;
+            $this->subdemandExternalContactName = '';
+            $this->subdemandExternalContactEmail = '';
+            $this->reloadDemand();
+            $this->dispatchBrowserEvent('swal', [
+                'icon' => 'success',
+                'title' => 'Subdemanda criada',
+                'html' => $externalLink ? ('Link externo: <a target=\"_blank\" href=\"' . e($externalLink) . '\">abrir</a>') : null,
+                'timer' => 3200,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Erro', 'html' => $e->getMessage()]);
+        }
+    }
+
+    public function updatedSubdemandAssignAsExternal(bool $value): void
+    {
+        if ($value) {
+            // Externo e interno são mutuamente exclusivos.
+            $this->subdemandAssignedToUserId = '';
+        } else {
+            $this->subdemandExternalContactId = null;
+            $this->subdemandExternalContactName = '';
+            $this->subdemandExternalContactEmail = '';
+        }
+    }
+
+    public function revokeSubdemandExternalAccess(int $subdemandId): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $sub = $this->demand->subdemands()->findOrFail($subdemandId);
+        app(LegalDemandSubdemandWorkflowService::class)->revokeExternalAccess($sub, auth()->user(), 'Revogado pelo controlador.');
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Link externo revogado', 'timer' => 2000]);
+    }
+
+    public function regenerateSubdemandExternalAccess(int $subdemandId): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $sub = $this->demand->subdemands()->findOrFail($subdemandId);
+        $token = app(LegalDemandSubdemandWorkflowService::class)->generateExternalAccess(
+            $sub,
+            auth()->user(),
+            $sub->deadline_at
+        );
+        $link = route('legal.external.subdemand.response', ['token' => $token]);
+        $this->subdemandExternalLinks[$sub->id] = $link;
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Link externo atualizado',
+            'html' => 'Novo link: <a target=\"_blank\" href=\"' . e($link) . '\">abrir</a>',
+        ]);
+    }
+
+    public function openSubdemandAction(int $subdemandId, string $toStatus): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
+
+        $this->subdemandActionId = $subdemandId;
+        $this->subdemandActionToStatus = $toStatus;
+        $this->subdemandActionReason = '';
+        $this->subdemandActionDescription = '';
+        $this->subdemandActionAssignedToUserId = (string) ($subdemand->assigned_to_user_id ?? '');
+        $this->subdemandActionDeadlineAt = $subdemand->deadline_at?->format('Y-m-d\TH:i');
+        $this->showSubdemandActionForm = true;
+    }
+
+    public function removeSubdemand(int $subdemandId): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+
+        $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
+        $status = $subdemand->status instanceof \BackedEnum ? $subdemand->status->value : (string) $subdemand->status;
+        if (in_array($status, ['concluida', 'encerrada_controlador'], true)) {
+            return;
+        }
+
+        app(LegalDemandSubdemandWorkflowService::class)->transitionStatus(
+            subdemand: $subdemand,
+            actor: auth()->user(),
+            toStatus: LegalDemandSubdemandStatus::ENCERRADA_CONTROLADOR,
+            reason: 'Subdemanda removida pelo controlador.',
+            description: 'Subdemanda removida do fluxo ativo pelo controlador.'
+        );
+
+        // Encerrar também atribuições internas abertas vinculadas a esta subdemanda.
+        $this->demand->assignments()
+            ->whereJsonContains('metadata->subdemand_id', $subdemand->id)
+            ->whereNotIn('status', ['cancelled', 'closed'])
+            ->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Subdemanda removida', 'timer' => 1800]);
+    }
+
+    public function applySubdemandAction(): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $this->validate([
+            'subdemandActionId' => 'required|integer',
+            'subdemandActionToStatus' => 'required|string',
+            'subdemandActionReason' => 'nullable|string|max:1000',
+            'subdemandActionDescription' => 'nullable|string|max:1000',
+        ]);
+
+        $subdemand = $this->demand->subdemands()->findOrFail((int) $this->subdemandActionId);
+
+        try {
+            app(LegalDemandSubdemandWorkflowService::class)->transitionStatus(
+                subdemand: $subdemand,
+                actor: auth()->user(),
+                toStatus: LegalDemandSubdemandStatus::from($this->subdemandActionToStatus),
+                reason: $this->subdemandActionReason ?: null,
+                description: $this->subdemandActionDescription ?: null,
+            );
+
+            $this->showSubdemandActionForm = false;
+            $this->subdemandActionId = null;
+            $this->subdemandActionToStatus = '';
+            $this->subdemandActionReason = '';
+            $this->subdemandActionDescription = '';
+            $this->subdemandActionAssignedToUserId = '';
+            $this->subdemandActionDeadlineAt = null;
+            $this->reloadDemand();
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Subdemanda atualizada', 'timer' => 2200]);
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Erro', 'html' => $e->getMessage()]);
+        }
+    }
+
+    public function applySubdemandReassignment(): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $this->validate([
+            'subdemandActionId' => 'required|integer',
+            'subdemandActionAssignedToUserId' => 'nullable|string',
+            'subdemandActionReason' => 'nullable|string|max:1000',
+        ]);
+
+        $subdemand = $this->demand->subdemands()->findOrFail((int) $this->subdemandActionId);
+
+        app(LegalDemandSubdemandWorkflowService::class)->reassign(
+            subdemand: $subdemand,
+            actor: auth()->user(),
+            assignedToUserId: $this->subdemandActionAssignedToUserId !== '' ? $this->subdemandActionAssignedToUserId : null,
+            assignedAreaName: null,
+            reason: $this->subdemandActionReason ?: null
+        );
+
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Subdemanda reatribuída', 'timer' => 2200]);
+    }
+
+    public function applySubdemandDeadline(): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $this->validate([
+            'subdemandActionId' => 'required|integer',
+            'subdemandActionDeadlineAt' => 'nullable|date',
+            'subdemandActionReason' => 'nullable|string|max:1000',
+        ]);
+
+        $subdemand = $this->demand->subdemands()->findOrFail((int) $this->subdemandActionId);
+
+        app(LegalDemandSubdemandWorkflowService::class)->updateDeadline(
+            subdemand: $subdemand,
+            actor: auth()->user(),
+            deadlineAt: $this->subdemandActionDeadlineAt ? new \DateTime($this->subdemandActionDeadlineAt) : null,
+            reason: $this->subdemandActionReason ?: null
+        );
+
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Prazo da subdemanda atualizado', 'timer' => 2200]);
+    }
+
+    public function applyInternalAction(): void
+    {
+        $action = trim($this->internalAction);
+        if ($action === '') {
+            return;
+        }
+
+        try {
+            match ($action) {
+                'start_triage' => app(LegalDemandWorkflowService::class)->startTriage($this->demand, auth()->user()),
+                'approve_return' => app(LegalDemandWorkflowService::class)->approveFieldReturn($this->demand, auth()->user()),
+                default => throw new \InvalidArgumentException('Ação de status não permitida neste contexto.'),
+            };
+
+            $this->internalAction = '';
+            $this->reloadDemand();
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Status interno atualizado', 'timer' => 2200]);
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Erro', 'html' => $e->getMessage()]);
+        }
+    }
+
+    public function applyInlineSubdemandStatus(int $subdemandId): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        $to = (string) ($this->subdemandInlineStatus[$subdemandId] ?? '');
+        if ($to === '') {
+            return;
+        }
+
+        $allowed = ['em_andamento', 'aguardando_retorno', 'encerrada_controlador'];
+        if (!in_array($to, $allowed, true)) {
+            return;
+        }
+
+        $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
+        app(LegalDemandSubdemandWorkflowService::class)->transitionStatus(
+            subdemand: $subdemand,
+            actor: auth()->user(),
+            toStatus: LegalDemandSubdemandStatus::from($to),
+            reason: $to === 'encerrada_controlador' ? 'Encerrada via painel de subdemanda.' : null,
+            description: 'Status alterado via seletor rápido.',
+        );
+
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Status atualizado', 'timer' => 1800]);
+    }
+
+    public function addControllerSubdemandComment(int $subdemandId): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+
+        $comment = trim((string) ($this->subdemandControllerCommentInput[$subdemandId] ?? ''));
+        if ($comment === '') {
+            return;
+        }
+
+        $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
+        $assignmentId = $this->demand->assignments()
+            ->whereNotIn('status', ['cancelled', 'closed'])
+            ->latest()
+            ->first()?->id;
+
+        \App\Models\Legal\LegalDemandComment::create([
+            'legal_demand_id' => $this->demand->id,
+            'assignment_id' => $assignmentId,
+            'legal_demand_subdemand_id' => $subdemand->id,
+            'user_id' => auth()->id(),
+            'comment' => $comment,
+            'visibility' => 'shared',
+        ]);
+
+        $this->subdemandControllerCommentInput[$subdemandId] = '';
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Comentário enviado', 'timer' => 1600]);
+    }
+
     public function updatedUploadFiles(): void
     {
         if (!is_array($this->uploadFiles)) {
@@ -423,7 +800,18 @@ class DemandDetail extends Component
 
     public function render()
     {
-        $fieldUsers        = User::orderBy('name')->get();
+        $fieldUsersQuery = User::query()->with('Company')->orderBy('name');
+        if (trim($this->subdemandUserSearch) !== '') {
+            $s = '%' . trim($this->subdemandUserSearch) . '%';
+            $fieldUsersQuery->where(function ($q) use ($s) {
+                $q->where('name', 'like', $s)
+                    ->orWhere('email', 'like', $s);
+            });
+        }
+        if (trim($this->subdemandCompanyFilter) !== '') {
+            $fieldUsersQuery->where('company_id', $this->subdemandCompanyFilter);
+        }
+        $fieldUsers = $fieldUsersQuery->limit(120)->get();
         $currentAssignment = $this->demand->assignments()
             ->whereNotIn('status', ['cancelled', 'closed'])
             ->with(['sentBy', 'toUser'])
@@ -449,7 +837,56 @@ class DemandDetail extends Component
             'isExternallyClosed' => $this->demand->isExternallyClosed(),
             'searchedNotes'      => $this->searchNotes(),
             'linkedNotes'        => $this->linkedNotes(),
+            'subdemandStatuses'  => LegalDemandSubdemandStatus::cases(),
+            'companies'          => Company::query()->orderBy('name')->get(['id', 'name']),
+            'canManageSubdemands' => $this->canManageSubdemands(),
+            'subdemandsFeatureEnabled' => (bool) config('features.legal_subdemands', true),
+            'availableInternalActions' => $this->availableInternalActions(),
         ]);
+    }
+
+    private function reloadDemand(): void
+    {
+        $this->demand->refresh()->load($this->demandRelations());
+    }
+
+    private function demandRelations(): array
+    {
+        return [
+            'legalCase.notes',
+            'controller',
+            'currentAssignee',
+            'events.actor',
+            'files.uploadedBy',
+            'comments.user',
+            'assignments.sentBy',
+            'subdemands.assignedTo',
+            'subdemands.createdBy',
+            'subdemands.events.actor',
+        ];
+    }
+
+    private function canManageSubdemands(): bool
+    {
+        return (string) ($this->demand->controller_user_id ?? '') !== ''
+            && (string) $this->demand->controller_user_id === (string) auth()->id();
+    }
+
+    private function availableInternalActions(): array
+    {
+        $statusValue = $this->demand->internal_status instanceof \BackedEnum
+            ? $this->demand->internal_status->value
+            : (string) $this->demand->internal_status;
+
+        return match ($statusValue) {
+            'new_imported' => [
+                ['value' => 'start_triage', 'label' => 'Assumir demanda (Iniciar triagem)'],
+            ],
+            'returned_by_field', 'under_controller_review' => [
+                ['value' => 'approve_return', 'label' => 'Aprovar retorno (Pronta para fechamento externo)'],
+            ],
+            default => [],
+        };
     }
 
     private function currentAssignmentExternalLink(?LegalDemandAssignment $assignment): ?string
