@@ -5,6 +5,7 @@ services:
       dockerfile: docker/php-fpm/Dockerfile
     container_name: sicode2-app
     restart: unless-stopped
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html

@@ -313,6 +313,7 @@ services:
       context: .
       dockerfile: docker/dev/php/Dockerfile
     container_name: sicode2_app
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html

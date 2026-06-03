@@ -20,6 +20,15 @@ chmod +x scripts/bootstrap_new_dev.sh
 ./scripts/bootstrap_new_dev.sh
 ```
 
+Antes de subir containers manualmente, exporte seu UID/GID para evitar problema de permissao em arquivos gerados pelo container (ex.: `storage/*`):
+
+```bash
+export DOCKER_UID="$(id -u)"
+export DOCKER_GID="$(id -g)"
+```
+
+Opcionalmente, persistir no shell profile (`~/.bashrc` ou `~/.zshrc`).
+
 ## Fluxo recomendado
 
 1. Execute a opcao `1` (setup base), que nao depende de chave Git nem WinSCP.
