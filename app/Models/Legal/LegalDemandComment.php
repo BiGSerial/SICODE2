@@ -5,10 +5,12 @@ namespace App\Models\Legal;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LegalDemandComment extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $table = 'legal_demand_comments';
 

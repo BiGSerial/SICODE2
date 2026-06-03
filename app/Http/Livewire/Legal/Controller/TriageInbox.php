@@ -14,6 +14,7 @@ class TriageInbox extends Component
     public string $sourceTypeFilter = '';
 
     public string $originAreaFilter = '';
+
     public string $controllerFilter = '';
 
     public int    $loadedCount = 25;
@@ -51,8 +52,8 @@ class TriageInbox extends Component
             app(LegalDemandWorkflowService::class)->startTriage($demand, auth()->user());
             $this->dispatchBrowserEvent('swal', [
                 'icon'  => 'success',
-                'title' => 'Triagem iniciada',
-                'html'  => 'Demanda movida para triagem. <a href="' . route('legal.demand.detail', $demand->uuid) . '">Ver demanda</a>',
+                'title' => 'Demanda assumida',
+                'html'  => 'Demanda vinculada a você. <a href="' . route('legal.demand.detail', $demand->uuid) . '">Ver demanda</a>',
                 'timer' => 3000,
             ]);
         } catch (\InvalidArgumentException $e) {
@@ -104,9 +105,12 @@ class TriageInbox extends Component
             
             ->with(['legalCase.adverseParties', 'lastSeenImportBatch', 'controller'])
             ->externallyActive()
-            ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
-            ->whereNotNull('controller_user_id')
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
+            ->when(
+                $this->controllerFilter,
+                fn ($q) => $q->where('controller_user_id', $this->controllerFilter),
+                fn ($q) => $q->where('controller_user_id', auth()->id())
+            )
             ->when($this->search, function ($q) {
                 $s = "%{$this->search}%";
                 $q->where(
@@ -119,7 +123,6 @@ class TriageInbox extends Component
             })
             ->when($this->sourceTypeFilter, fn ($q) => $q->where('source_type', $this->sourceTypeFilter))
             ->when($this->originAreaFilter, fn ($q) => $q->where('requesting_area_name', 'like', "%{$this->originAreaFilter}%"))
-            ->when($this->controllerFilter, fn ($q) => $q->where('controller_user_id', $this->controllerFilter))
             ->orderByRaw("
                 CASE
                     WHEN LOWER(COALESCE(process_status_at_import, '')) LIKE '%encerrad%' THEN 1

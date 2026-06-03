@@ -28,7 +28,7 @@
                                 <a href="{{ route('legal.triage') }}"
                                    class="nav-item fw-normal {{ request()->routeIs('legal.triage') ? 'text-warning' : 'text-white' }}">
                                     <i class="bi bi-funnel fw-light fs-5"></i>
-                                    <span> INBOX DE TRIAGEM</span>
+                                    <span> MINHAS DEMANDAS</span>
                                 </a>
                             </li>
                             <li>

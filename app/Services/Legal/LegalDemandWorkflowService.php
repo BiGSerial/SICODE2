@@ -27,7 +27,7 @@ class LegalDemandWorkflowService
             $demand->controller_user_id = $actor->id;
             $demand->save();
 
-            $this->event($demand->id, 'triage_started', $from, LegalDemandInternalStatus::TRIAGE->value, $actor->id, null, null, 'Triagem iniciada.');
+            $this->event($demand->id, 'triage_started', $from, LegalDemandInternalStatus::TRIAGE->value, $actor->id, null, null, 'Demanda assumida.');
             return $demand->refresh();
         });
     }

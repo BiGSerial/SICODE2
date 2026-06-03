@@ -325,6 +325,11 @@
         .chat-text { font-size: 13px; line-height: 1.45; }
         .chat-visibility-control { margin-left: auto; min-width: 165px; }
         .chat-visibility-control .form-select { font-size: 11px; padding-top: 2px; padding-bottom: 2px; }
+        .chat-delete-btn {
+            border: 1px solid #fecaca; background: #fff; color: #dc2626;
+            border-radius: 6px; font-size: 11px; line-height: 1; padding: 5px 7px;
+        }
+        .chat-delete-btn:hover { background: #fef2f2; }
 
         /* ── Stats bar ── */
         .stats-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -625,7 +630,7 @@
                         @switch($statusValue)
                             @case('new_imported')
                             @case('reopened')
-                                <button class="btn btn-warning btn-sm" wire:click="startTriage"><i class="bi bi-clipboard-check me-1"></i>Iniciar Triagem</button>
+                                <button class="btn btn-warning btn-sm" wire:click="startTriage"><i class="bi bi-clipboard-check me-1"></i>Assumir Demanda</button>
                                 @break
                             @case('returned_by_field')
                             @case('under_controller_review')
@@ -1085,8 +1090,8 @@
 
                                     @switch($statusValue)
                                         @case('new_imported')
-                                            <p class="text-muted small">Esta demanda ainda não entrou em triagem.</p>
-                                            <button class="btn btn-warning w-100" wire:click="startTriage"><i class="bi bi-clipboard-check me-1"></i>Iniciar Triagem</button>
+                                            <p class="text-muted small">Esta demanda ainda não foi assumida por um controlador.</p>
+                                            <button class="btn btn-warning w-100" wire:click="startTriage"><i class="bi bi-clipboard-check me-1"></i>Assumir Demanda</button>
                                             @break
                                         @case('triage')
                                         @case('waiting_controller_action')
@@ -1128,8 +1133,8 @@
                                             @endcan
                                             @break
                                         @case('reopened')
-                                            <div class="alert alert-info small mb-2">Demanda reaberta. Inicie nova triagem ou reatribua.</div>
-                                            <button class="btn btn-warning w-100" wire:click="startTriage"><i class="bi bi-clipboard-check me-1"></i>Iniciar Triagem</button>
+                                            <div class="alert alert-info small mb-2">Demanda reaberta. Assuma novamente ou reatribua.</div>
+                                            <button class="btn btn-warning w-100" wire:click="startTriage"><i class="bi bi-clipboard-check me-1"></i>Assumir Demanda</button>
                                             @break
                                         @case('cancelled')
                                         @case('ignored')
@@ -1893,6 +1898,29 @@
                                                     <option value="shared" @selected($vis === 'shared')>👁 Compartilhado</option>
                                                 </select>
                                             </div>
+                                        @endif
+                                        @if((string) $comment->user_id === (string) auth()->id())
+                                            <button type="button"
+                                                    class="chat-delete-btn"
+                                                    title="Remover comentário"
+                                                    wire:click.prevent
+                                                    onclick="Swal.fire({
+                                                        title: 'Remover comentário?',
+                                                        text: 'A ação ficará registrada na auditoria.',
+                                                        icon: 'warning',
+                                                        showCancelButton: true,
+                                                        confirmButtonText: 'Sim, remover',
+                                                        cancelButtonText: 'Cancelar',
+                                                        reverseButtons: true,
+                                                        confirmButtonColor: '#dc2626',
+                                                        cancelButtonColor: '#64748b'
+                                                    }).then((result) => {
+                                                        if (result.isConfirmed) {
+                                                            @this.deleteComment({{ $comment->id }});
+                                                        }
+                                                    })">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
                                         @endif
                                     </div>
                                     <div class="chat-text">{{ $comment->comment }}</div>
