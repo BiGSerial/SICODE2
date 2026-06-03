@@ -31,7 +31,14 @@ class SubdemandExternalResponse extends Component
             return;
         }
 
-        $this->subdemand = $subdemand->load(['demand.legalCase', 'comments.user', 'files']);
+        $this->subdemand = $subdemand->load([
+            'createdBy',
+            'demand.legalCase',
+            'demand.comments.user',
+            'demand.files.legalDemand',
+            'comments.user',
+            'files.legalDemand',
+        ]);
         $this->executorName = (string) data_get($this->subdemand->metadata ?? [], 'external_contact_name', '');
     }
 
@@ -74,6 +81,15 @@ class SubdemandExternalResponse extends Component
         $hasFiles = !empty($this->uploadFiles);
         if ($comment === '' && !$hasFiles) {
             $this->addError('comment', 'Envie um comentário ou anexo.');
+            return;
+        }
+
+        $currentStatus = $this->subdemand->status instanceof LegalDemandSubdemandStatus
+            ? $this->subdemand->status
+            : LegalDemandSubdemandStatus::from((string) $this->subdemand->status);
+
+        if (in_array($currentStatus, [LegalDemandSubdemandStatus::CONCLUIDA, LegalDemandSubdemandStatus::ENCERRADA_CONTROLADOR], true)) {
+            $this->addError('comment', 'Esta subdemanda já foi encerrada e não aceita novos retornos.');
             return;
         }
 
@@ -121,18 +137,49 @@ class SubdemandExternalResponse extends Component
             ]);
         }
 
-        app(LegalDemandSubdemandWorkflowService::class)->transitionStatus(
+        $workflow = app(LegalDemandSubdemandWorkflowService::class);
+
+        if ($currentStatus === LegalDemandSubdemandStatus::ABERTA) {
+            $this->subdemand = $workflow->transitionStatus(
+                subdemand: $this->subdemand,
+                actor: null,
+                toStatus: LegalDemandSubdemandStatus::EM_ANDAMENTO,
+                description: 'Subdemanda iniciada por retorno via link externo.',
+                payload: ['external' => true],
+                syncParentDemand: false,
+                dispatchAsyncProcessing: false
+            );
+        }
+
+        if (!in_array($currentStatus, [LegalDemandSubdemandStatus::AGUARDANDO_RETORNO, LegalDemandSubdemandStatus::CONCLUIDA, LegalDemandSubdemandStatus::ENCERRADA_CONTROLADOR], true)) {
+            $workflow->transitionStatus(
+                subdemand: $this->subdemand,
+                actor: null,
+                toStatus: LegalDemandSubdemandStatus::AGUARDANDO_RETORNO,
+                description: 'Retorno registrado por link externo.',
+                payload: ['external' => true],
+                syncParentDemand: false,
+                dispatchAsyncProcessing: false
+            );
+        }
+
+        $workflow->revokeExternalAccess(
             subdemand: $this->subdemand,
             actor: null,
-            toStatus: LegalDemandSubdemandStatus::AGUARDANDO_RETORNO,
-            description: 'Retorno registrado por link externo.',
-            payload: ['external' => true]
+            reason: 'Acesso revogado automaticamente após retorno externo.'
         );
 
         $this->comment = '';
         $this->uploadFiles = [];
         $this->uploadNames = [];
-        $this->subdemand->refresh()->load(['demand.legalCase', 'comments.user', 'files']);
+        $this->subdemand->refresh()->load([
+            'createdBy',
+            'demand.legalCase',
+            'demand.comments.user',
+            'demand.files.legalDemand',
+            'comments.user',
+            'files.legalDemand',
+        ]);
 
         session()->flash('success', 'Retorno enviado com sucesso.');
     }

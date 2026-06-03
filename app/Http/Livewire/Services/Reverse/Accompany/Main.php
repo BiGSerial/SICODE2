@@ -2,12 +2,14 @@
 
 namespace App\Http\Livewire\Services\Reverse\Accompany;
 
+use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Models\{Note, Production, Service, User};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
+    use BuildsLegalNoteTags;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -181,9 +183,11 @@ class Main extends Component
     public function render()
     {
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $lists = $this->lists;
 
         return view('livewire.services.reverse.accompany.main', [
-            'lists' => $this->lists,
+            'lists' => $lists,
+            'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
         ]);
     }
 }

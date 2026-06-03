@@ -245,6 +245,12 @@
                                             @endif
                                             <i class="ri-file-copy-line ms-1 copy-text"
                                                 data-value="{{ $note->note }}" style="cursor:pointer;"></i>
+                                            <div class="mt-1">
+                                                <x-legal.note-demand-tags
+                                                    :demands="$legalTagsByNoteId[$list->note_id] ?? []"
+                                                    :row-key="'services-supervision-accompany-'.$list->id"
+                                                />
+                                            </div>
 
                                             @if ($list->priority)
                                                 <i class="ri-alert-fill align-middle ms-2"

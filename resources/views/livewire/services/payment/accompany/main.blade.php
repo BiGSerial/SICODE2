@@ -222,6 +222,12 @@
                                         @else
                                             {{ $list->Note->note }}
                                         @endif
+                                        <div class="mt-1">
+                                            <x-legal.note-demand-tags
+                                                :demands="$legalTagsByNoteId[$list->note_id] ?? []"
+                                                :row-key="'services-payment-accompany-'.$list->id"
+                                            />
+                                        </div>
                                         {{-- <span class="copy-text" data-value="{{ $list->Note->note }}"
                                             style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
                                             data-bs-trigger="hover focus" data-bs-placement="top"

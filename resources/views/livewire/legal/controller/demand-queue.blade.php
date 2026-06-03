@@ -281,25 +281,25 @@
                     <div class="d-flex flex-wrap gap-2">
                         <div class="lq-kpi" wire:click="setTab('all')">
                             <div class="lq-kpi-val">
-                                <livewire:legal.controller.kpi-value metric="total_active" :wire:key="'kpi-total-active'" />
+                                {{ $kpis['total_active'] ?? 0 }}
                             </div>
                             <div class="lq-kpi-lbl">Total ativas</div>
                         </div>
                         <div class="lq-kpi danger" wire:click="setTab('overdue')">
                             <div class="lq-kpi-val">
-                                <livewire:legal.controller.kpi-value metric="overdue" :wire:key="'kpi-overdue'" />
+                                {{ $kpis['overdue'] ?? 0 }}
                             </div>
                             <div class="lq-kpi-lbl">Vencidas</div>
                         </div>
                         <div class="lq-kpi warning" wire:click="setTab('in_progress')">
                             <div class="lq-kpi-val">
-                                <livewire:legal.controller.kpi-value metric="awaiting_field" :wire:key="'kpi-awaiting-field'" />
+                                {{ $kpis['awaiting_field'] ?? 0 }}
                             </div>
                             <div class="lq-kpi-lbl">Em andamento</div>
                         </div>
                         <div class="lq-kpi success" wire:click="setTab('triage')">
                             <div class="lq-kpi-val">
-                                <livewire:legal.controller.kpi-value metric="returned_today" :wire:key="'kpi-returned-today'" />
+                                {{ $kpis['triage'] ?? 0 }}
                             </div>
                             <div class="lq-kpi-lbl">Na triagem</div>
                         </div>
@@ -311,10 +311,23 @@
                     <div class="row g-2">
                         <div class="col-12 col-md-6">
                             <div class="filter-card">
-                                <label class="form-label">Buscar demanda</label>
+                                <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                                    <label class="form-label mb-0">Buscar demanda</label>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary py-0 px-2"
+                                            wire:click="$set('showBulkCaseSearchModal', true)">
+                                        <i class="bi bi-list-check me-1"></i>Casos em massa
+                                    </button>
+                                </div>
                                 <input type="text" class="form-control"
                                        wire:model.debounce.400ms="search"
                                        placeholder="Nº processo, empresa, assunto, parte adversa..." />
+                                @if(count($bulkCaseSearchTerms) > 0)
+                                    <div class="small text-primary mt-1 d-flex justify-content-between align-items-center gap-2">
+                                        <span><i class="bi bi-filter-circle me-1"></i>{{ count($bulkCaseSearchTerms) }} caso(s)/processo(s) em filtro em massa</span>
+                                        <button type="button" class="btn btn-link btn-sm p-0" wire:click="clearBulkCaseSearch">limpar</button>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
@@ -353,7 +366,7 @@
                         </div>
                         <div class="col-6 col-md-4 d-flex align-items-end">
                             <button class="btn btn-light btn-sm w-100"
-                                    wire:click="$set('sourceType',''); $set('dueDateFilter',''); $set('controllerFilter',''); $set('search','')">
+                                    wire:click="clearFilters">
                                 <i class="bi bi-x-circle me-1"></i>Limpar filtros
                             </button>
                         </div>
@@ -384,7 +397,16 @@
                                 wire:click="setTab('{{ $key }}')">
                             {{ $label }}
                             @if($hasBadge)
-                                <livewire:legal.controller.tab-count-badge :tab="$key" :wire:key="'tab-count-'.$key" />
+                                @php
+                                    $tabBadgeCount = match($key) {
+                                        'triage' => $kpis['triage'] ?? 0,
+                                        'in_progress' => $kpis['awaiting_field'] ?? 0,
+                                        'overdue' => $kpis['overdue'] ?? 0,
+                                        'closed' => $kpis['closed'] ?? 0,
+                                        default => 0,
+                                    };
+                                @endphp
+                                <span class="badge {{ $key === 'overdue' ? 'bg-danger' : 'bg-secondary' }}">{{ $tabBadgeCount }}</span>
                             @endif
                         </button>
                     </li>
@@ -725,6 +747,47 @@
 
 
     {{-- ===== MODAIS ===== --}}
+
+    {{-- Modal: Buscar casos em massa --}}
+    <div class="modal fade {{ $showBulkCaseSearchModal ? 'show d-block' : '' }}" tabindex="-1"
+         style="{{ $showBulkCaseSearchModal ? 'background:rgba(0,0,0,.5)' : '' }}">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-list-check me-2"></i>Buscar casos em massa</h5>
+                    <button class="btn-close" wire:click="$set('showBulkCaseSearchModal', false)"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        Cole números de caso ou processo separados por quebra de linha, vírgula, ponto-e-vírgula ou espaço.
+                        A fila exibirá demandas que correspondam a qualquer termo informado.
+                    </div>
+                    <label class="form-label fw-semibold">Casos/processos para buscar</label>
+                    <textarea class="form-control font-monospace"
+                              rows="9"
+                              wire:model.defer="bulkCaseSearchInput"
+                              placeholder="Ex:
+192826
+40057337520268260224
+40057337520268260225"></textarea>
+                    @if(count($bulkCaseSearchTerms) > 0)
+                        <div class="small text-muted mt-2">
+                            Filtro atual: <strong>{{ count($bulkCaseSearchTerms) }}</strong> termo(s) carregado(s).
+                        </div>
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" wire:click="clearBulkCaseSearch">
+                        <i class="bi bi-x-circle me-1"></i>Limpar busca em massa
+                    </button>
+                    <button class="btn btn-secondary" wire:click="$set('showBulkCaseSearchModal', false)">Cancelar</button>
+                    <button class="btn btn-primary" wire:click="applyBulkCaseSearch">
+                        <i class="bi bi-search me-1"></i>Aplicar busca
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {{-- Modal: Encerrar em Massa --}}
     <div class="modal fade {{ $showBulkCloseModal ? 'show d-block' : '' }}" tabindex="-1"

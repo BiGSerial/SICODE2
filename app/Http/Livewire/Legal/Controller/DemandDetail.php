@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Legal\Controller;
 use App\Enum\LegalDemandSubdemandStatus;
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandSubdemandWorkflowService, LegalDemandWorkflowService};
@@ -68,6 +68,11 @@ class DemandDetail extends Component
     public string $noteInput = '';
 
     public string $noteLinkContext = '';
+    public ?string $noteOperatorSlaDueAt = null;
+    public string $noteExecutionInstruction = '';
+    public array $noteEditSlaDueAt = [];
+    public array $noteEditContext = [];
+    public array $noteEditInstruction = [];
     public string $internalAction = '';
 
     // Subdemandas
@@ -113,6 +118,9 @@ class DemandDetail extends Component
     {
         $this->validate([
             'noteInput' => 'required|string|min:1',
+            'noteOperatorSlaDueAt' => 'required|date',
+            'noteExecutionInstruction' => 'required|string|min:5|max:5000',
+            'noteLinkContext' => 'nullable|string|max:2000',
         ]);
 
         $tokens = collect(preg_split('/[\\s,;]+/', $this->noteInput))
@@ -157,10 +165,15 @@ class DemandDetail extends Component
             ];
         }
 
-        $this->demand->legalCase->notes()->syncWithoutDetaching($payload);
+        DB::transaction(function () use ($payload, $validIds): void {
+            $this->demand->legalCase->notes()->syncWithoutDetaching($payload);
+            $this->saveNoteExecutionContext($validIds);
+        });
 
         $this->noteInput = '';
         $this->noteLinkContext = '';
+        $this->noteOperatorSlaDueAt = null;
+        $this->noteExecutionInstruction = '';
         $this->demand->refresh()->load(['legalCase.notes', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
 
         $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Notes vinculadas ao processo.']);
@@ -175,24 +188,69 @@ class DemandDetail extends Component
 
     public function attachSingleNote(int $noteId): void
     {
+        $this->validate([
+            'noteOperatorSlaDueAt' => 'required|date',
+            'noteExecutionInstruction' => 'required|string|min:5|max:5000',
+            'noteLinkContext' => 'nullable|string|max:2000',
+        ]);
+
         $note = Note::query()->find($noteId);
         if (!$note) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Note não encontrada.']);
             return;
         }
 
-        $this->demand->legalCase->notes()->syncWithoutDetaching([
-            $note->id => [
-                'linked_by' => auth()->id(),
-                'linked_at' => now(),
-                'context' => $this->noteLinkContext ?: null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+        DB::transaction(function () use ($note): void {
+            $this->demand->legalCase->notes()->syncWithoutDetaching([
+                $note->id => [
+                    'linked_by' => auth()->id(),
+                    'linked_at' => now(),
+                    'context' => $this->noteLinkContext ?: null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            ]);
+
+            $this->saveNoteExecutionContext([$note->id]);
+        });
 
         $this->demand->refresh()->load(['legalCase.notes']);
         $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Note associada ao processo.']);
+    }
+
+    public function updateLinkedNoteExecutionContext(int $noteId): void
+    {
+        $this->validate([
+            "noteEditSlaDueAt.$noteId" => 'required|date',
+            "noteEditInstruction.$noteId" => 'required|string|min:5|max:5000',
+            "noteEditContext.$noteId" => 'nullable|string|max:2000',
+        ]);
+
+        $isLinked = $this->demand->legalCase->notes()
+            ->where('notes.id', $noteId)
+            ->exists();
+
+        if (!$isLinked) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Note não está vinculada ao processo.']);
+            return;
+        }
+
+        DB::transaction(function () use ($noteId): void {
+            $this->demand->legalCase->notes()->updateExistingPivot($noteId, [
+                'context' => trim((string) ($this->noteEditContext[$noteId] ?? '')) ?: null,
+                'updated_at' => now(),
+            ]);
+
+            $this->saveNoteExecutionContext(
+                [$noteId],
+                $this->noteEditSlaDueAt[$noteId] ?? null,
+                $this->noteEditInstruction[$noteId] ?? '',
+                $this->noteEditContext[$noteId] ?? ''
+            );
+        });
+
+        $this->reloadDemand();
+        $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Dados da associação atualizados.', 'timer' => 1800]);
     }
 
     public function startTriage(): void
@@ -390,6 +448,28 @@ class DemandDetail extends Component
 
         $this->newComment = '';
         $this->demand->refresh()->load(['comments.user']);
+    }
+
+    public function updateCommentVisibility(int $commentId, string $visibility): void
+    {
+        abort_unless($this->canManageSubdemands(), 403);
+        if (!in_array($visibility, ['controller', 'shared'], true)) {
+            return;
+        }
+
+        $comment = LegalDemandComment::query()
+            ->where('legal_demand_id', $this->demand->id)
+            ->whereNull('legal_demand_subdemand_id')
+            ->findOrFail($commentId);
+
+        $comment->update(['visibility' => $visibility]);
+        $this->demand->refresh()->load(['comments.user']);
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Visibilidade atualizada',
+            'timer' => 1400,
+        ]);
     }
 
     public function createSubdemand(): void
@@ -847,16 +927,20 @@ class DemandDetail extends Component
 
         $this->uploadFiles = [];
         $this->uploadNames = [];
-        $this->demand->refresh()->load(['files']);
+        $this->reloadDemand();
     }
 
     public function removeFile(int $fileId): void
     {
-        $file = $this->demand->files()->findOrFail($fileId);
-        abort_unless($file->uploaded_by_id === auth()->id(), 403);
+        $file = LegalDemandFile::query()
+            ->where('id', $fileId)
+            ->whereHas('legalDemand', fn ($q) => $q->where('legal_case_id', $this->demand->legal_case_id))
+            ->firstOrFail();
+
+        abort_unless((string) ($file->uploaded_by ?? '') === (string) auth()->id(), 403);
 
         $file->update(['removed_at' => now()]);
-        $this->demand->refresh()->load(['files']);
+        $this->reloadDemand();
     }
 
     public function render()
@@ -917,6 +1001,8 @@ class DemandDetail extends Component
     {
         return [
             'legalCase.notes',
+            'legalCase.files.legalDemand',
+            'legalCase.files.uploadedBy',
             'controller',
             'currentAssignee',
             'events.actor',
@@ -1068,7 +1154,10 @@ class DemandDetail extends Component
         }
 
         return Note::with([
-            'Productions' => fn ($q) => $q->orderByDesc('created_at')->limit(20),
+            'Productions' => fn ($q) => $q
+                ->with(['User', 'Company', 'Dispatcher', 'Note', 'Service'])
+                ->orderByDesc('created_at')
+                ->limit(20),
             'Orders'      => fn ($q) => $q->orderByDesc('created_at')->limit(20),
         ])
             ->whereIn('id', $pivots->keys())
@@ -1083,10 +1172,73 @@ class DemandDetail extends Component
                 $p = $pivots->get($n->id);
                 $n->pivot_linked_at = $p?->linked_at;
                 $n->pivot_context   = $p?->context;
+                $instruction = DB::table('legal_demand_note_instructions')
+                    ->where('legal_demand_id', $this->demand->id)
+                    ->where('note_id', $n->id)
+                    ->where('active', true)
+                    ->latest('id')
+                    ->first();
+
+                $n->legal_instruction = $instruction?->instruction;
+
+                $this->noteEditSlaDueAt[$n->id] ??= $this->demand->operator_sla_due_at
+                    ? Carbon::parse($this->demand->operator_sla_due_at)->format('Y-m-d\TH:i')
+                    : null;
+                $this->noteEditContext[$n->id] ??= (string) ($p?->context ?? $this->demand->operator_sla_note ?? '');
+                $this->noteEditInstruction[$n->id] ??= (string) ($instruction?->instruction ?? '');
+
                 return $n;
             })
             ->sortByDesc('dt_created')
             ->values();
+    }
+
+    private function saveNoteExecutionContext(
+        array $noteIds,
+        ?string $slaDueAtValue = null,
+        ?string $instructionValue = null,
+        ?string $contextValue = null
+    ): void
+    {
+        $noteIds = collect($noteIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($noteIds->isEmpty()) {
+            return;
+        }
+
+        $slaDueAt = Carbon::parse((string) ($slaDueAtValue ?: $this->noteOperatorSlaDueAt));
+        $instruction = trim((string) ($instructionValue ?? $this->noteExecutionInstruction));
+        $context = trim((string) ($contextValue ?? $this->noteLinkContext));
+
+        $this->demand->forceFill([
+            'operator_sla_due_at' => $slaDueAt,
+            'operator_sla_note' => $context ?: null,
+        ])->save();
+
+        DB::table('legal_demand_note_instructions')
+            ->where('legal_demand_id', $this->demand->id)
+            ->whereIn('note_id', $noteIds->all())
+            ->where('active', true)
+            ->update([
+                'active' => false,
+                'updated_at' => now(),
+            ]);
+
+        $rows = $noteIds->map(fn (int $noteId) => [
+            'legal_demand_id' => $this->demand->id,
+            'note_id' => $noteId,
+            'created_by' => auth()->id(),
+            'instruction' => $instruction,
+            'active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ])->all();
+
+        DB::table('legal_demand_note_instructions')->insert($rows);
     }
 
     private function notifyUser(?User $user, string $title, string $message, string $status = 'info'): void

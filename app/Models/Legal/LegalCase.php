@@ -51,6 +51,18 @@ class LegalCase extends Model
         return $this->hasMany(LegalDemand::class);
     }
 
+    public function files()
+    {
+        return $this->hasManyThrough(
+            LegalDemandFile::class,
+            LegalDemand::class,
+            'legal_case_id',
+            'legal_demand_id',
+            'id',
+            'id'
+        );
+    }
+
     public function lastImportBatch()
     {
         return $this->belongsTo(LegalImportBatch::class, 'last_import_batch_id');

@@ -128,6 +128,12 @@
                                             <td class="fw-bold copy-text" data-value="{{ $list->Note->note }}"
                                                 style="cursor: pointer;">
                                                 {{ $list->Note->note }}
+                                                <div class="mt-1">
+                                                    <x-legal.note-demand-tags
+                                                        :demands="$legalTagsByNoteId[$list->note_id] ?? []"
+                                                        :row-key="'services-incorporation-accompany-'.$list->id"
+                                                    />
+                                                </div>
                                             </td>
                                             <td class="fw-light">
                                                 {{ date('d/m/Y', strToTime($list->Note->dt_created)) }}</td>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Supervision;
 
+use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
 use Illuminate\Database\Eloquent\Builder;
@@ -12,6 +13,7 @@ use Livewire\WithPagination;
 class Main extends Component
 {
     use WithPagination;
+    use BuildsLegalNoteTags;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -287,8 +289,11 @@ class Main extends Component
 
     public function render()
     {
+        $lists = $this->lists->paginate($this->perPage);
+
         return view('livewire.services.supervision.main', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists' => $lists,
+            'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
         ]);
     }
 }

@@ -377,6 +377,70 @@
             border-radius: .5rem;
             padding: .7rem .8rem;
         }
+        .controller-general-comments {
+            border-left: 4px solid #0f766e;
+            background: linear-gradient(90deg, #f0fdfa, #ffffff);
+            border-radius: .5rem;
+            padding: .7rem .8rem;
+        }
+        .shared-doc-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .shared-doc-filter {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            padding: 3px 9px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .shared-doc-filter.active {
+            background: #1e3a8a;
+            color: #fff;
+            border-color: #1e3a8a;
+        }
+        .shared-doc-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            border-radius: 999px;
+            padding: 2px 7px;
+            font-size: 10px;
+            font-weight: 800;
+            background: #e0f2fe;
+            color: #075985;
+            border: 1px solid #bae6fd;
+        }
+        .shared-doc-tag.shared {
+            background: #dcfce7;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
+        .shared-doc-list-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            padding: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 7px;
+        }
+        .shared-doc-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: #f1f5f9;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
         .upload-zone {
             border: 2px dashed #93c5fd;
             background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
@@ -497,6 +561,48 @@
             margin-bottom: .4rem;
         }
         .subd-event:last-child { margin-bottom: 0; }
+        .conversation-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .conversation-bubble {
+            max-width: 88%;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            padding: 7px 10px;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .conversation-bubble.mine {
+            align-self: flex-end;
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            border-right: 3px solid #3b82f6;
+            text-align: right;
+        }
+        .conversation-bubble.theirs {
+            align-self: flex-start;
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            border-left: 3px solid #10b981;
+            text-align: left;
+        }
+        .conversation-meta {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 3px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .conversation-bubble.mine .conversation-meta {
+            justify-content: flex-end;
+        }
         .collapsible-section summary {
             cursor: pointer;
             list-style: none;
@@ -619,6 +725,22 @@
 
             // Queued files count
             $queuedCount = is_array($uploadFiles ?? null) ? count($uploadFiles) : 0;
+
+            $activeSubdemand = $activeSubdemandId
+                ? $demand->subdemands->firstWhere('id', $activeSubdemandId)
+                : null;
+            $conversationComments = $activeSubdemand
+                ? $demand->comments
+                    ->where('legal_demand_subdemand_id', $activeSubdemand->id)
+                    ->where('visibility', 'shared')
+                    ->sortBy(fn ($comment) => $comment->created_at?->timestamp ?? 0)
+                    ->values()
+                : collect();
+            $controllerGeneralComments = $demand->comments
+                ->where('legal_demand_subdemand_id', null)
+                ->where('visibility', 'shared')
+                ->sortByDesc('created_at')
+                ->values();
         @endphp
 
         {{-- HERO --}}
@@ -739,6 +861,23 @@
                             </div>
                         </div>
 
+                        @if($controllerGeneralComments->isNotEmpty())
+                            <div class="controller-general-comments mb-3">
+                                <div class="small text-muted mb-2">Comentários compartilhados do controlador</div>
+                                <div class="subd-events">
+                                    @foreach($controllerGeneralComments as $comment)
+                                        <div class="subd-event">
+                                            <div class="d-flex justify-content-between gap-2">
+                                                <div class="small fw-semibold">{{ $comment->user?->name ?? 'Controlador' }}</div>
+                                                <div class="small text-muted">{{ $comment->created_at?->format('d/m/Y H:i') }}</div>
+                                            </div>
+                                            <div class="small mt-1">{{ $comment->comment }}</div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
                         @if($assignment->message)
                             <div class="controller-message mb-2">
                                 <div class="small text-muted mb-1">Informações solicitadas pelo controlador</div>
@@ -763,6 +902,49 @@
                         @endif
                     </div>
                 </div>
+
+                @if($activeSubdemand)
+                    <div class="table-card">
+                        <div class="card-header text-bg-dark fw-bold">
+                            <i class="bi bi-chat-dots me-2"></i>Conversa da Subdemanda
+                        </div>
+                        <div class="card-body">
+                            <div class="small text-muted mb-3">
+                                Canal operacional entre executante e controlador sobre esta subdemanda. Conversa ordenada do mais antigo para o mais novo.
+                            </div>
+
+                            <div class="conversation-thread auto-scroll-chat mb-3">
+                                @forelse($conversationComments as $comment)
+                                    @php
+                                        $isMine = !$externalAccess && (string) ($comment->user_id ?? '') === (string) auth()->id();
+                                        $author = $comment->user?->name ?: 'Executante externo';
+                                    @endphp
+                                    <div class="conversation-bubble {{ $isMine ? 'mine' : 'theirs' }}">
+                                        <div>{{ $comment->comment }}</div>
+                                        <div class="conversation-meta">
+                                            <span class="fw-semibold">{{ $author }}</span>
+                                            <span>{{ $comment->created_at?->format('d/m/Y H:i') }}</span>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="alert alert-light border small mb-0">
+                                        Nenhum comentário compartilhado nesta subdemanda ainda.
+                                    </div>
+                                @endforelse
+                            </div>
+
+                            <div class="input-group input-group-sm">
+                                <input type="text"
+                                       class="form-control"
+                                       wire:model.defer="subdemandCommentInput.{{ $activeSubdemand->id }}"
+                                       placeholder="Enviar comentário compartilhado ao controlador">
+                                <button class="btn btn-outline-primary" wire:click="addSubdemandComment({{ $activeSubdemand->id }})">
+                                    <i class="bi bi-send me-1"></i>Enviar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
                 {{-- 2. Evidence Block --}}
                 @if($savedEvidenceCount === 0 && empty($uploadFiles))
@@ -1131,7 +1313,7 @@
                     </div>
 
                     {{-- 2. Shared Documents --}}
-                    <div class="table-card">
+                    <div class="table-card" x-data="{ docFilter: 'all' }">
                         <div class="card-header text-bg-dark fw-bold" style="font-size:.82rem;">
                             <i class="bi bi-paperclip me-2"></i>Documentos Compartilhados
                         </div>
@@ -1139,13 +1321,32 @@
                             @if($sharedFiles->isEmpty())
                                 <p class="text-muted small mb-0">Nenhum documento compartilhado.</p>
                             @else
+                                <div class="shared-doc-filters">
+                                    <button type="button" class="shared-doc-filter" :class="{ active: docFilter === 'all' }" @click="docFilter = 'all'">
+                                        Todos ({{ $sharedFiles->count() }})
+                                    </button>
+                                    @if($sharedImages->isNotEmpty())
+                                        <button type="button" class="shared-doc-filter" :class="{ active: docFilter === 'images' }" @click="docFilter = 'images'">
+                                            Imagens ({{ $sharedImages->count() }})
+                                        </button>
+                                    @endif
+                                    @if($sharedOthers->isNotEmpty())
+                                        <button type="button" class="shared-doc-filter" :class="{ active: docFilter === 'files' }" @click="docFilter = 'files'">
+                                            Arquivos ({{ $sharedOthers->count() }})
+                                        </button>
+                                    @endif
+                                </div>
+
                                 @if($sharedImages->isNotEmpty())
-                                    <div class="small fw-semibold text-muted mb-2">Galeria de imagens</div>
-                                    <div class="legal-evidence-grid mb-3">
+                                    <div x-show="docFilter === 'all' || docFilter === 'images'">
+                                        <div class="small fw-semibold text-muted mb-2">Galeria de imagens</div>
+                                        <div class="legal-evidence-grid mb-3">
                                         @foreach($sharedImages as $index => $file)
                                             @php
                                                 $filePath = $file->path ?? $file->file_path ?? null;
                                                 $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                                $fileDemandType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
+                                                $fileDemandLabel = match($fileDemandType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => 'Demanda' };
                                             @endphp
                                             @if($fileUrl)
                                                 <div class="legal-evidence-card">
@@ -1159,24 +1360,31 @@
                                                          title="{{ $file->original_name ?? basename($filePath) }}">
                                                         {{ $file->original_name ?? basename($filePath) }}
                                                     </div>
+                                                    <div class="d-flex flex-wrap gap-1 justify-content-center mt-1">
+                                                        <span class="shared-doc-tag">{{ $fileDemandLabel }}</span>
+                                                        <span class="shared-doc-tag shared">Compartilhado</span>
+                                                    </div>
                                                     <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
                                                         <i class="bi bi-download me-1"></i>Baixar
                                                     </a>
                                                 </div>
                                             @endif
                                         @endforeach
+                                        </div>
                                     </div>
                                 @endif
 
                                 @if($sharedOthers->isNotEmpty())
-                                    <div class="small fw-semibold text-muted mb-2">Outros arquivos</div>
-                                    <ul class="list-group list-group-flush">
+                                    <div x-show="docFilter === 'all' || docFilter === 'files'">
+                                    <div class="small fw-semibold text-muted mb-2">Lista de arquivos</div>
                                         @foreach($sharedOthers as $file)
                                             @php
                                                 $filePath = $file->path ?? $file->file_path ?? null;
                                                 $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
                                                 $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
                                                 $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                                                $fileDemandType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
+                                                $fileDemandLabel = match($fileDemandType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => 'Demanda' };
                                                 $fileIcon = match($ext) {
                                                     'pdf' => 'bi-filetype-pdf text-danger',
                                                     'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp' => 'bi-file-image text-info',
@@ -1187,21 +1395,24 @@
                                                 };
                                             @endphp
                                             @if($fileUrl)
-                                                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                                <div class="shared-doc-list-item">
                                                     <div class="d-flex align-items-center gap-2">
-                                                        <i class="bi {{ $fileIcon }}"></i>
+                                                        <span class="shared-doc-icon"><i class="bi {{ $fileIcon }}"></i></span>
                                                         <div>
                                                             <div class="legal-evidence-name small" title="{{ $name }}" style="max-width:140px;">{{ $name }}</div>
-                                                            <small class="text-muted">{{ strtoupper($ext ?: '-') }}</small>
+                                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                                                <span class="shared-doc-tag">{{ $fileDemandLabel }}</span>
+                                                                <span class="shared-doc-tag shared">{{ strtoupper($ext ?: 'ARQ') }}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                                         <i class="bi bi-download"></i>
                                                     </a>
-                                                </li>
+                                                </div>
                                             @endif
                                         @endforeach
-                                    </ul>
+                                    </div>
                                 @endif
                             @endif
                         </div>
@@ -1339,16 +1550,21 @@
                                             @php
                                                 $subComments = $demand->comments
                                                     ->where('legal_demand_subdemand_id', $sub->id)
-                                                    ->sortByDesc('created_at')
-                                                    ->take(10);
+                                                    ->where('visibility', 'shared')
+                                                    ->sortBy(fn ($comment) => $comment->created_at?->timestamp ?? 0)
+                                                    ->values();
                                             @endphp
-                                            <div class="subd-events mb-2">
+                                            <div class="conversation-thread auto-scroll-chat mb-2">
                                                 @forelse($subComments as $comment)
-                                                    <div class="subd-event">
-                                                        <div class="small">{{ $comment->comment }}</div>
-                                                        <div class="small text-muted">
-                                                            {{ $comment->user?->name ?: 'Executante externo' }}
-                                                            · {{ $comment->created_at?->format('d/m/Y H:i') }}
+                                                    @php
+                                                        $isMine = !$externalAccess && (string) ($comment->user_id ?? '') === (string) auth()->id();
+                                                        $author = $comment->user?->name ?: 'Executante externo';
+                                                    @endphp
+                                                    <div class="conversation-bubble {{ $isMine ? 'mine' : 'theirs' }}">
+                                                        <div>{{ $comment->comment }}</div>
+                                                        <div class="conversation-meta">
+                                                            <span class="fw-semibold">{{ $author }}</span>
+                                                            <span>{{ $comment->created_at?->format('d/m/Y H:i') }}</span>
                                                         </div>
                                                     </div>
                                                 @empty
@@ -1425,6 +1641,20 @@
 
         <x-show-loading />
         <script>
+            function scrollLegalChatsToBottom() {
+                document.querySelectorAll('.auto-scroll-chat').forEach((el) => {
+                    el.scrollTop = el.scrollHeight;
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', scrollLegalChatsToBottom);
+            document.addEventListener('livewire:load', function () {
+                scrollLegalChatsToBottom();
+                if (window.Livewire) {
+                    Livewire.hook('message.processed', scrollLegalChatsToBottom);
+                }
+            });
+
             document.addEventListener('click', function (event) {
                 const trigger = event.target.closest('[data-carousel-slide]');
                 if (!trigger) return;

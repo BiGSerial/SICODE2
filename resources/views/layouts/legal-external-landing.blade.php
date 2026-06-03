@@ -12,6 +12,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <link rel="shortcut icon" href="{{ asset('img/favicon.ico') }}" type="image/x-icon">
     <link href="{{ asset('assets/vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/vendor/bootstrap-icons/bootstrap-icons.css') }}?v={{ $version->appver }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('assets/css/sweetalert2.min.css') }}">
     <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet">
 
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
@@ -92,5 +93,12 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <div class="le-foot">SICODE v{{ $version->appver }} · Acesso restrito à demanda recebida por link</div>
 
     @livewireScripts
+    <script src="{{ asset('assets/js/sweetalert2.min.js') }}"></script>
+    <script>
+        window.addEventListener('swal', function (e) {
+            Swal.fire(e.detail);
+        });
+    </script>
+    @stack('scripts')
 </body>
 </html>

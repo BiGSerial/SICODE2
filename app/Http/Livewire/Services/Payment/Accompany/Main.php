@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Payment\Accompany;
 
+use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Exports\Services\Payment\D5tolistExport;
 use App\Exports\Services\ServicePaymentStack;
@@ -16,6 +17,7 @@ use Maatwebsite\Excel\Concerns\Exportable;
 class Main extends Component
 {
     use WithPagination;
+    use BuildsLegalNoteTags;
     use Exportable;
     use TextFormatter;
 
@@ -308,9 +310,11 @@ class Main extends Component
     public function render()
     {
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $lists = $this->lists->paginate($this->perPage);
 
         return view('livewire.services.payment.accompany.main', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists' => $lists,
+            'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
         ]);
     }
 }

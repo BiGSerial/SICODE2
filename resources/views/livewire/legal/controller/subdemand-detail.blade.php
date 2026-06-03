@@ -246,8 +246,8 @@
                     <div class="sd-sh">Comunicação</div>
                     <div class="sd-sb">
                         @if($subdemand->comments->isNotEmpty())
-                            <div class="comment-thread">
-                                @foreach($subdemand->comments->sortByDesc('created_at') as $comment)
+                            <div class="comment-thread auto-scroll-chat">
+                                @foreach($subdemand->comments->sortBy(fn ($comment) => $comment->created_at?->timestamp ?? 0) as $comment)
                                     @php $isCtrl = $comment->user_id && $comment->user_id !== ($subdemand->assigned_to_user_id); @endphp
                                     <div class="cb {{ $isCtrl ? 'ctrl' : 'exec' }}">
                                         <div>{{ $comment->comment }}</div>
@@ -327,4 +327,19 @@
         </div>{{-- /sd-main --}}
     </div>{{-- /ld-wrap --}}
     <x-show-loading />
+    <script>
+        function scrollLegalChatsToBottom() {
+            document.querySelectorAll('.auto-scroll-chat').forEach((el) => {
+                el.scrollTop = el.scrollHeight;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', scrollLegalChatsToBottom);
+        document.addEventListener('livewire:load', function () {
+            scrollLegalChatsToBottom();
+            if (window.Livewire) {
+                Livewire.hook('message.processed', scrollLegalChatsToBottom);
+            }
+        });
+    </script>
 </div>

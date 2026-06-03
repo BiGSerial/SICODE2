@@ -2,7 +2,8 @@
 
 namespace App\Http\Livewire\Legal\Field;
 
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile};
+use App\Enum\LegalDemandSubdemandStatus;
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile, LegalDemandSubdemand};
 use App\Notifications\SystemNotification;
 use App\Services\Legal\LegalDemandWorkflowService;
 use App\Support\Notifications\UserNotificationData;
@@ -55,7 +56,8 @@ class AssignmentResponse extends Component
 
         $assignment = LegalDemandAssignment::with([
             'legalDemand.legalCase',
-            'legalDemand.files',
+            'legalDemand.files.legalDemand',
+            'legalDemand.comments.user',
             'legalDemand.subdemands.assignedTo',
             'legalDemand.subdemands.events.actor',
             'sentBy',
@@ -171,6 +173,10 @@ class AssignmentResponse extends Component
 
     public function saveFilesToTask(): void
     {
+        if (!$this->activeSubdemandAcceptsInput()) {
+            return;
+        }
+
         $this->validate([
             'uploadFiles' => 'required|array|min:1',
             'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
@@ -194,6 +200,10 @@ class AssignmentResponse extends Component
 
     public function submitResponse(): void
     {
+        if (!$this->activeSubdemandAcceptsInput()) {
+            return;
+        }
+
         if ($this->externalAccess) {
             $this->validate([
                 'externalExecutorName' => 'required|string|min:3|max:120',
@@ -262,6 +272,7 @@ class AssignmentResponse extends Component
             'subdemands.assignedTo',
             'subdemands.events.actor',
             'comments.user',
+            'files.legalDemand',
         ]);
 
         $sharedFiles = $this->demand->files
@@ -277,6 +288,10 @@ class AssignmentResponse extends Component
 
     public function addSubdemandComment(int $subdemandId): void
     {
+        if (!$this->activeSubdemandAcceptsInput($subdemandId)) {
+            return;
+        }
+
         $comment = trim((string) ($this->subdemandCommentInput[$subdemandId] ?? ''));
         if ($comment === '') {
             return;
@@ -357,5 +372,34 @@ class AssignmentResponse extends Component
         }
 
         return $count;
+    }
+
+    private function activeSubdemandAcceptsInput(?int $subdemandId = null): bool
+    {
+        $subdemandId ??= $this->activeSubdemandId;
+        if ($subdemandId === null) {
+            return true;
+        }
+
+        $subdemand = LegalDemandSubdemand::query()->find($subdemandId);
+        if (!$subdemand) {
+            return true;
+        }
+
+        $status = $subdemand->status instanceof LegalDemandSubdemandStatus
+            ? $subdemand->status
+            : LegalDemandSubdemandStatus::from((string) $subdemand->status);
+
+        if (!in_array($status, [LegalDemandSubdemandStatus::CONCLUIDA, LegalDemandSubdemandStatus::ENCERRADA_CONTROLADOR], true)) {
+            return true;
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'warning',
+            'title' => 'Subdemanda encerrada',
+            'html' => 'Esta subdemanda já foi encerrada e não aceita novos comentários, arquivos ou respostas.',
+        ]);
+
+        return false;
     }
 }

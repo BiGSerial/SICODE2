@@ -206,12 +206,13 @@
         .sub-status-control { display: flex; align-items: center; gap: 5px; margin-left: auto; }
         .sub-desc { font-size: 13px; color: var(--text-2); margin-bottom: 12px; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; border-left: 3px solid #cbd5e1; }
         .sub-section-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 7px; display: flex; align-items: center; gap: 5px; }
-        .comment-thread { display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; margin-bottom: 8px; padding-right: 2px; }
-        .comment-bubble { padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.45; background: #fff; border: 1px solid var(--border); }
-        .comment-bubble.mine    { background: #eff6ff; border-color: #bfdbfe; border-left: 3px solid #3b82f6; margin-left: 8%; }
-        .comment-bubble.theirs  { background: #f0fdf4; border-color: #bbf7d0; border-left: 3px solid #10b981; margin-right: 8%; }
-        .comment-bubble.internal { border-left: 3px solid #1e3a8a; }
-        .comment-meta { font-size: 10px; color: var(--text-3); margin-top: 3px; display: flex; gap: 8px; }
+        .comment-thread { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow-y: auto; margin-bottom: 8px; padding-right: 2px; }
+        .comment-bubble { padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.45; background: #fff; border: 1px solid var(--border); max-width: 88%; }
+        .comment-bubble.mine { align-self: flex-end; background: #eff6ff; border-color: #bfdbfe; border-right: 3px solid #3b82f6; text-align: right; }
+        .comment-bubble.theirs { align-self: flex-start; background: #f0fdf4; border-color: #bbf7d0; border-left: 3px solid #10b981; text-align: left; }
+        .comment-bubble.internal { border-left-color: #1e3a8a; border-right-color: #1e3a8a; }
+        .comment-meta { font-size: 10px; color: var(--text-3); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .comment-bubble.mine .comment-meta { justify-content: flex-end; }
         .comment-author { font-weight: 600; color: var(--text-2); }
         .sub-file-chip {
             display: inline-flex; align-items: center; gap: 5px;
@@ -322,6 +323,8 @@
         .chat-name { font-weight: 700; }
         .chat-time { color: var(--text-3); font-size: 11px; }
         .chat-text { font-size: 13px; line-height: 1.45; }
+        .chat-visibility-control { margin-left: auto; min-width: 165px; }
+        .chat-visibility-control .form-select { font-size: 11px; padding-top: 2px; padding-bottom: 2px; }
 
         /* ── Stats bar ── */
         .stats-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -439,7 +442,13 @@
             ['label' => 'Obs. origem', 'value' => data_get($specificPayload, 'observation') ?? data_get($rawPayload, 'observation')],
         ];
 
-        $activeFiles = $demand->files->where('removed_at', null)->values();
+        $caseFiles = $demand->legalCase?->files ?? collect();
+        $activeFiles = $caseFiles->where('removed_at', null)->sortByDesc('created_at')->values();
+        $filesByType = [
+            'injunction' => $activeFiles->filter(fn ($file) => ($file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '')) === 'injunction')->count(),
+            'subsidy' => $activeFiles->filter(fn ($file) => ($file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '')) === 'subsidy')->count(),
+            'sentence' => $activeFiles->filter(fn ($file) => ($file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '')) === 'sentence')->count(),
+        ];
         $imageExts   = ['jpg','jpeg','png','gif','bmp','svg','tiff','webp'];
         $imageFiles  = $activeFiles->filter(function ($file) use ($imageExts) {
             $name = (string) ($file->original_name ?? $file->file_name ?? $file->path ?? '');
@@ -1307,7 +1316,10 @@
                                 ->first();
                             $awaitingReview = $isOpen && $answeredAssignment !== null;
 
-                            $subComments = $demand->comments->where('legal_demand_subdemand_id', $sub->id)->sortByDesc('created_at')->take(12);
+                            $subComments = $demand->comments
+                                ->where('legal_demand_subdemand_id', $sub->id)
+                                ->sortBy(fn ($comment) => $comment->created_at?->timestamp ?? 0)
+                                ->values();
                             $subFiles    = $demand->files->where('removed_at',null)->where('legal_demand_subdemand_id',$sub->id)->sortByDesc('created_at')->take(10);
                         @endphp
                         <div class="sub-card s-{{ $sv }} {{ !$isOpen ? 's-closed' : '' }} {{ $isOverd ? 'overdue' : '' }}"
@@ -1479,11 +1491,11 @@
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden">
 
                                     {{-- Comunicação --}}
-                                    <div style="background:#f0f7ff;border-right:1px solid #bfdbfe;padding:12px 14px">
+                                    <div style="background:#fff;border-right:1px solid var(--border);padding:12px 14px">
                                         <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#1e40af;margin-bottom:8px;display:flex;align-items:center;gap:6px">
                                             <i class="bi bi-chat-dots-fill"></i> Comunicação com executante
                                         </div>
-                                        <div class="comment-thread" style="max-height:180px">
+                                        <div class="comment-thread auto-scroll-chat" style="max-height:180px">
                                             @forelse($subComments as $comment)
                                                 @php $isMine = $comment->user_id === auth()->id(); @endphp
                                                 <div class="comment-bubble {{ $isMine ? 'mine' : 'theirs' }}">
@@ -1566,11 +1578,29 @@
                     <button class="files-filter-btn" :class="{ active: filter==='shared' }" @click="filter='shared'">
                         <i class="bi bi-eye me-1"></i>Compartilhados ({{ $activeFiles->where('visibility','shared')->count() }})
                     </button>
+                    @if(($filesByType['injunction'] ?? 0) > 0)
+                        <button class="files-filter-btn" :class="{ active: filter==='type-injunction' }" @click="filter='type-injunction'">
+                            Liminar ({{ $filesByType['injunction'] }})
+                        </button>
+                    @endif
+                    @if(($filesByType['subsidy'] ?? 0) > 0)
+                        <button class="files-filter-btn" :class="{ active: filter==='type-subsidy' }" @click="filter='type-subsidy'">
+                            Subsídio ({{ $filesByType['subsidy'] }})
+                        </button>
+                    @endif
+                    @if(($filesByType['sentence'] ?? 0) > 0)
+                        <button class="files-filter-btn" :class="{ active: filter==='type-sentence' }" @click="filter='type-sentence'">
+                            Sentença ({{ $filesByType['sentence'] }})
+                        </button>
+                    @endif
                     @if($imageFiles->isNotEmpty())
                         <button class="files-filter-btn" :class="{ active: filter==='images' }" @click="filter='images'">
                             <i class="bi bi-images me-1"></i>Imagens ({{ $imageFiles->count() }})
                         </button>
                     @endif
+                </div>
+                <div class="small text-muted mb-3">
+                    Exibindo anexos do caso legal completo. O tipo indica a demanda onde o arquivo foi anexado originalmente.
                 </div>
 
                 {{-- Galeria de imagens --}}
@@ -1583,14 +1613,17 @@
                                     $fu  = $fp ? \Illuminate\Support\Facades\Storage::url($fp) : null;
                                     $fn  = $file->original_name ?? ($fp ? basename($fp) : 'Imagem');
                                     $vis = $file->visibility ?? 'controller';
+                                    $fileType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
+                                    $fileTypeLabel = match($fileType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => 'Demanda' };
                                 @endphp
                                 @if($fu)
                                     <div
-                                        x-show="filter === 'all' || filter === 'images' || (filter === 'internal' && '{{ $vis }}' === 'controller') || (filter === 'shared' && '{{ $vis }}' === 'shared')"
+                                        x-show="filter === 'all' || filter === 'images' || (filter === 'internal' && '{{ $vis }}' === 'controller') || (filter === 'shared' && '{{ $vis }}' === 'shared') || filter === 'type-{{ $fileType }}'"
                                         style="border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:6px;text-align:center">
                                         <img src="{{ $fu }}" style="width:100%;height:110px;object-fit:cover;border-radius:7px;cursor:pointer;border:1px solid #e2e8f0" alt="{{ $fn }}" data-bs-toggle="modal" data-bs-target="#filesModal" data-carousel-slide="{{ $index }}">
                                         <div style="font-size:11px;color:#64748b;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $fn }}">{{ $fn }}</div>
                                         <div class="d-flex gap-1 justify-content-center mt-1">
+                                            <span class="vis-badge vis-shared">{{ $fileTypeLabel }}</span>
                                             <span class="vis-badge {{ $vis === 'controller' ? 'vis-internal' : 'vis-shared' }}">
                                                 {{ $vis === 'controller' ? '🔒 Interno' : '👁 Compartilhado' }}
                                             </span>
@@ -1615,15 +1648,18 @@
                                 $fn  = $file->original_name ?? ($fp ? basename($fp) : 'Arquivo');
                                 $ext = strtolower(pathinfo($fn, PATHINFO_EXTENSION));
                                 $vis = $file->visibility ?? 'controller';
+                                $fileType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
+                                $fileTypeLabel = match($fileType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => 'Demanda' };
                             @endphp
                             @if($fu)
                                 <div class="file-list-item"
-                                     x-show="filter === 'all' || (filter === 'internal' && '{{ $vis }}' === 'controller') || (filter === 'shared' && '{{ $vis }}' === 'shared')">
+                                     x-show="filter === 'all' || (filter === 'internal' && '{{ $vis }}' === 'controller') || (filter === 'shared' && '{{ $vis }}' === 'shared') || filter === 'type-{{ $fileType }}'">
                                     <div class="file-icon"><i class="bi {{ $fileIcon($fn) }}"></i></div>
                                     <div class="file-info">
                                         <div class="file-name" title="{{ $fn }}">{{ $fn }}</div>
-                                        <div class="file-meta">{{ strtoupper($ext ?: '?') }} · {{ $file->uploadedBy?->name ?? 'Desconhecido' }} · {{ $file->created_at?->format('d/m/Y H:i') }}</div>
+                                        <div class="file-meta">{{ strtoupper($ext ?: '?') }} · {{ $fileTypeLabel }} · {{ $file->uploadedBy?->name ?? 'Desconhecido' }} · {{ $file->created_at?->format('d/m/Y H:i') }}</div>
                                     </div>
+                                    <span class="vis-badge vis-shared">{{ $fileTypeLabel }}</span>
                                     <span class="vis-badge {{ $vis === 'controller' ? 'vis-internal' : 'vis-shared' }}">
                                         {{ $vis === 'controller' ? '🔒 Interno' : '👁 Compartilhado' }}
                                     </span>
@@ -1728,6 +1764,15 @@
                                         @else
                                             <span class="badge bg-success" style="font-size:10px">👁 Compartilhado</span>
                                         @endif
+                                        @if($canManageSubdemands)
+                                            <div class="chat-visibility-control">
+                                                <select class="form-select form-select-sm"
+                                                        wire:change="updateCommentVisibility({{ $comment->id }}, $event.target.value)">
+                                                    <option value="controller" @selected($vis === 'controller')>🔒 Interno</option>
+                                                    <option value="shared" @selected($vis === 'shared')>👁 Compartilhado</option>
+                                                </select>
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="chat-text">{{ $comment->comment }}</div>
                                 </div>
@@ -1751,18 +1796,39 @@
                 <div class="ld-section">
                     <div class="ld-section-header">Associar Notes ao Processo</div>
                     <div class="ld-section-body">
-                        <div class="row g-2 mb-2">
+                        <div class="row g-2 mb-3">
                             <div class="col-md-5">
                                 <label class="form-label small fw-semibold">Buscar / informar notes (ID, número ou cliente)</label>
                                 <input type="text" class="form-control form-control-sm" wire:model.lazy="noteInput" placeholder="Ex.: 12345 67890 ou 500123;500124">
                                 <div class="small text-muted mt-1">Separe múltiplos por espaço, vírgula ou ;</div>
+                                @error('noteInput') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-5">
-                                <label class="form-label small fw-semibold">Contexto do vínculo (opcional)</label>
-                                <input type="text" class="form-control form-control-sm" wire:model.defer="noteLinkContext" placeholder="Ex.: processo relacionado ao mesmo atendimento">
+                                <label class="form-label small fw-semibold">Motivo / contexto do vínculo</label>
+                                <input type="text" class="form-control form-control-sm" wire:model.defer="noteLinkContext" placeholder="Ex.: subsidio solicitado pelo controlador para resposta do processo">
+                                <div class="small text-muted mt-1">Este texto será exibido como motivo/observação do SLA.</div>
+                                @error('noteLinkContext') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-2 d-flex align-items-end">
                                 <button class="btn btn-sm btn-primary w-100" wire:click="linkNotesToCase"><i class="bi bi-plus-circle me-1"></i>Associar</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#fff7ed;border:1px solid #fed7aa;">
+                                    <label class="form-label small fw-semibold mb-1" style="color:#9a3412;">Prazo máximo de SLA *</label>
+                                    <input type="datetime-local" class="form-control form-control-sm" wire:model.defer="noteOperatorSlaDueAt">
+                                    <div class="small mt-2" style="color:#9a3412;">Define o prazo que será destacado no modal das listas e usado como limite operacional.</div>
+                                    @error('noteOperatorSlaDueAt') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                                    <label class="form-label small fw-semibold mb-1" style="color:#1d4ed8;">Instruções para execução da note *</label>
+                                    <textarea class="form-control form-control-sm" rows="3" wire:model.defer="noteExecutionInstruction" placeholder="Explique objetivamente o que o executante precisa fazer, quais evidências observar e qual retorno é esperado."></textarea>
+                                    <div class="small mt-2" style="color:#1d4ed8;">A instrução será vinculada à note e exibida no modal como orientação do controlador.</div>
+                                    @error('noteExecutionInstruction') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                </div>
                             </div>
                         </div>
                         @if($searchedNotes->isNotEmpty())
@@ -1816,14 +1882,20 @@
                             @php
                                 $isLate = ($note->pze_parecer ?? '') === 'Vencido';
                                 $daysLeft = $note->days_left ?? null;
+                                $noteOperationalStatus = ((int) ($note->type_note ?? 0) === 1)
+                                    ? ($note->centerjob ?: 'CentroTrab nao informado')
+                                    : ($note->nstats ?: 'Status nao informado');
+                                $hasNoteEditError = $errors->has("noteEditSlaDueAt.$note->id")
+                                    || $errors->has("noteEditContext.$note->id")
+                                    || $errors->has("noteEditInstruction.$note->id");
                             @endphp
-                            <div class="note-card">
+                            <div class="note-card" x-data="{ editing: {{ $hasNoteEditError ? 'true' : 'false' }} }">
                                 <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:space-between">
                                     <div>
                                         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
                                             <span class="note-number">{{ $note->note ?? $note->id }}</span>
                                             <span class="note-status-pill {{ $isLate ? 'late' : '' }}">
-                                                {{ $note->nstats ?? '—' }} — {{ $note->status ?? '—' }}
+                                                {{ $noteOperationalStatus }} — {{ $note->status ?? '—' }}
                                             </span>
                                             @if($isLate)
                                                 <span class="note-status-pill late">
@@ -1841,9 +1913,16 @@
                                         </div>
                                         <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">{{ $note->client ?? '—' }}</div>
                                     </div>
-                                    <button class="btn btn-sm btn-outline-danger" wire:click="unlinkNoteFromCase({{ $note->id }})">
-                                        <i class="bi bi-x-circle me-1"></i>Desvincular
-                                    </button>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @click="editing = !editing">
+                                            <i class="bi bi-pencil-square me-1"></i>
+                                            <span x-show="!editing">Editar associação</span>
+                                            <span x-show="editing">Ocultar edição</span>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" wire:click="unlinkNoteFromCase({{ $note->id }})">
+                                            <i class="bi bi-x-circle me-1"></i>Desvincular
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div class="note-meta">
@@ -1874,6 +1953,34 @@
                                         <span class="note-meta-item"><strong>Contexto:</strong> {{ $note->pivot_context }}</span>
                                     @endif
                                 </div>
+                                <div class="mt-3 rounded-3 p-3" x-show="editing" x-transition style="display:none;background:#f8fafc;border:1px solid #dbeafe;">
+                                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+                                        <div>
+                                            <div class="fw-semibold" style="color:#1e3a8a;">Associação operacional da note</div>
+                                            <div class="small text-muted">Edite o prazo máximo, motivo e instrução exibidos nas listas e no modal da note.</div>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" wire:click="updateLinkedNoteExecutionContext({{ $note->id }})">
+                                            <i class="bi bi-save me-1"></i>Salvar associação
+                                        </button>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold mb-1">Prazo máximo de SLA</label>
+                                            <input type="datetime-local" class="form-control form-control-sm" wire:model.defer="noteEditSlaDueAt.{{ $note->id }}">
+                                            @error('noteEditSlaDueAt.'.$note->id) <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-semibold mb-1">Motivo / contexto</label>
+                                            <input type="text" class="form-control form-control-sm" wire:model.defer="noteEditContext.{{ $note->id }}" placeholder="Motivo do vínculo ou observação do SLA">
+                                            @error('noteEditContext.'.$note->id) <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label small fw-semibold mb-1">Instruções para execução</label>
+                                            <textarea class="form-control form-control-sm" rows="2" wire:model.defer="noteEditInstruction.{{ $note->id }}" placeholder="Instrução objetiva para execução desta note"></textarea>
+                                            @error('noteEditInstruction.'.$note->id) <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         @endforeach
                     </div>
@@ -1881,23 +1988,6 @@
                     {{-- Sub-tab: Productions --}}
                     @if($notesProductions->isNotEmpty())
                         <div x-show="noteTab === 'productions'">
-                            @php
-                                $prodStatusLabel = fn(int $s) => match($s) {
-                                    1  => 'Ag. despacho',
-                                    2  => 'Despachada',
-                                    3  => 'Em andamento',
-                                    4  => 'Parcial',
-                                    5  => 'Concluída',
-                                    19 => 'Parada',
-                                    20 => 'Transferida',
-                                    27 => 'Em proj. revisão',
-                                    28 => 'Proj. revisão OK',
-                                    29 => 'Liberada p/ finalizar',
-                                    30 => 'Em rev. projeto',
-                                    31 => 'Rej. rev. projeto',
-                                    default => "Status $s",
-                                };
-                            @endphp
                             <div class="ld-section">
                                 <div class="ld-section-header">Productions vinculadas às notes ({{ $notesProductions->count() }})</div>
                                 <div class="ld-section-body" style="padding:0">
@@ -1907,38 +1997,67 @@
                                                 <tr>
                                                     <th>ID</th>
                                                     <th>Note</th>
+                                                    <th>Responsável</th>
+                                                    <th>Empresa</th>
+                                                    <th>Serviço</th>
                                                     <th>Status</th>
-                                                    <th>Concluída</th>
-                                                    <th>Confirmada</th>
+                                                    <th>CentroTrab / Status note</th>
                                                     <th>Despachada em</th>
+                                                    <th>Atribuída em</th>
+                                                    <th>Concluída em</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 @foreach($notesProductions as $prod)
-                                                    @php $pStat = (int)($prod->status ?? 0); @endphp
+                                                    @php
+                                                        $pStat = (int)($prod->status ?? 0);
+                                                        $statusMeta = \App\Custom\Notestatus::status($pStat);
+                                                        $prodNote = $prod->Note;
+                                                        $noteOperationalValue = ((int) ($prodNote?->type_note ?? 0) === 1)
+                                                            ? ($prod->centroTrab ?: $prodNote?->centerjob)
+                                                            : ($prod->status_note ?: $prodNote?->nstats);
+                                                    @endphp
                                                     <tr>
                                                         <td>{{ $prod->id }}</td>
-                                                        <td>{{ $prod->note_id }}</td>
                                                         <td>
-                                                            <span class="ps-{{ $pStat }}">{{ $prodStatusLabel($pStat) }}</span>
+                                                            <div class="fw-semibold">{{ $prodNote?->note ?? $prod->note_id }}</div>
+                                                            <div class="text-muted" style="font-size:11px;">#{{ $prod->note_id }}</div>
                                                         </td>
                                                         <td>
-                                                            @if($prod->completed)
-                                                                <span class="badge bg-success">✓</span>
-                                                                <span class="text-muted" style="font-size:11px">{{ $prod->completed_at ? \Carbon\Carbon::parse($prod->completed_at)->format('d/m/Y') : '' }}</span>
-                                                            @else
-                                                                <span class="text-muted">—</span>
+                                                            <div class="fw-semibold">{{ $prod->User?->name ?? '—' }}</div>
+                                                            @if($prod->Dispatcher?->name)
+                                                                <div class="text-muted" style="font-size:11px;">Despacho: {{ $prod->Dispatcher->name }}</div>
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $prod->Company?->name ?? '—' }}</td>
+                                                        <td>
+                                                            <div class="fw-semibold">{{ $prod->Service?->service ?? '—' }}</div>
+                                                            @if($prod->service_id)
+                                                                <div class="text-muted" style="font-size:11px;">{{ $prod->service_id }}</div>
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            @if($prod->confirmed)
-                                                                <span class="badge bg-success">✓</span>
-                                                                <span class="text-muted" style="font-size:11px">{{ $prod->confirmed_at ? \Carbon\Carbon::parse($prod->confirmed_at)->format('d/m/Y') : '' }}</span>
-                                                            @else
-                                                                <span class="text-muted">—</span>
-                                                            @endif
+                                                            <span class="badge {{ $statusMeta->colorbg ?? 'text-bg-secondary' }}">
+                                                                {{ $statusMeta->status ?? "Status $pStat" }}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-light text-dark border">{{ $noteOperationalValue ?: '—' }}</span>
+                                                            <div class="text-muted" style="font-size:11px;">
+                                                                {{ ((int) ($prodNote?->type_note ?? 0) === 1) ? 'CentroTrab' : 'Status note' }}
+                                                            </div>
                                                         </td>
                                                         <td>{{ $prod->dispatch_at ? \Carbon\Carbon::parse($prod->dispatch_at)->format('d/m/Y H:i') : '—' }}</td>
+                                                        <td>{{ $prod->att_at ? \Carbon\Carbon::parse($prod->att_at)->format('d/m/Y H:i') : '—' }}</td>
+                                                        <td>
+                                                            @if($prod->completed_at)
+                                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                                    {{ \Carbon\Carbon::parse($prod->completed_at)->format('d/m/Y H:i') }}
+                                                                </span>
+                                                            @else
+                                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Pendente</span>
+                                                            @endif
+                                                        </td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -2033,6 +2152,20 @@
     @endif
 
     <script>
+        function scrollLegalChatsToBottom() {
+            document.querySelectorAll('.auto-scroll-chat').forEach((el) => {
+                el.scrollTop = el.scrollHeight;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', scrollLegalChatsToBottom);
+        document.addEventListener('livewire:load', function () {
+            scrollLegalChatsToBottom();
+            if (window.Livewire) {
+                Livewire.hook('message.processed', scrollLegalChatsToBottom);
+            }
+        });
+
         document.addEventListener('click', function (e) {
             const trigger = e.target.closest('[data-carousel-slide]');
             if (!trigger) return;

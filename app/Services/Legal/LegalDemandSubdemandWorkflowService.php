@@ -3,6 +3,7 @@
 namespace App\Services\Legal;
 
 use App\Enum\LegalDemandSubdemandStatus;
+use App\Enum\LegalDemandAssignmentStatus;
 use App\Jobs\Legal\ProcessSubdemandJob;
 use App\Models\Legal\LegalDemand;
 use App\Models\Legal\LegalDemandSubdemand;
@@ -60,11 +61,13 @@ class LegalDemandSubdemandWorkflowService
 
     public function transitionStatus(
         LegalDemandSubdemand $subdemand,
-        User $actor,
+        ?User $actor,
         LegalDemandSubdemandStatus $toStatus,
         ?string $reason = null,
         ?string $description = null,
-        array $payload = []
+        array $payload = [],
+        bool $syncParentDemand = true,
+        bool $dispatchAsyncProcessing = true
     ): LegalDemandSubdemand {
         $fromStatus = $subdemand->status instanceof LegalDemandSubdemandStatus
             ? $subdemand->status
@@ -72,7 +75,7 @@ class LegalDemandSubdemandWorkflowService
 
         $this->assertTransitionAllowed($fromStatus, $toStatus, $reason);
 
-        return DB::transaction(function () use ($subdemand, $actor, $fromStatus, $toStatus, $reason, $description, $payload) {
+        return DB::transaction(function () use ($subdemand, $actor, $fromStatus, $toStatus, $reason, $description, $payload, $syncParentDemand, $dispatchAsyncProcessing) {
             $subdemand->status = $toStatus;
 
             if ($toStatus === LegalDemandSubdemandStatus::EM_ANDAMENTO && $subdemand->started_at === null) {
@@ -85,6 +88,10 @@ class LegalDemandSubdemandWorkflowService
 
             $subdemand->save();
 
+            if ($toStatus === LegalDemandSubdemandStatus::ENCERRADA_CONTROLADOR) {
+                $this->cancelOpenAssignments($subdemand);
+            }
+
             $this->event(
                 $subdemand,
                 eventType: 'status_changed',
@@ -95,9 +102,13 @@ class LegalDemandSubdemandWorkflowService
                 description: $description ?: 'Status da subdemanda atualizado.',
                 payload: $payload,
             );
-            app(LegalDemandSubdemandMetricsService::class)->refreshForDemand($subdemand->demand);
+            if ($syncParentDemand) {
+                app(LegalDemandSubdemandMetricsService::class)->refreshForDemand($subdemand->demand);
+            }
 
-            $this->dispatchAsyncProcessing($subdemand, 'status_changed');
+            if ($dispatchAsyncProcessing) {
+                $this->dispatchAsyncProcessing($subdemand, 'status_changed');
+            }
 
             return $subdemand->refresh();
         });
@@ -225,6 +236,22 @@ class LegalDemandSubdemandWorkflowService
         ProcessSubdemandJob::dispatch($subdemand->id, $trigger)->afterCommit();
     }
 
+    private function cancelOpenAssignments(LegalDemandSubdemand $subdemand): void
+    {
+        $subdemand->demand
+            ->assignments()
+            ->whereJsonContains('metadata->subdemand_id', $subdemand->id)
+            ->whereNotIn('status', [
+                LegalDemandAssignmentStatus::CANCELLED->value,
+                LegalDemandAssignmentStatus::CLOSED->value,
+                LegalDemandAssignmentStatus::ANSWERED->value,
+            ])
+            ->update([
+                'status' => LegalDemandAssignmentStatus::CANCELLED->value,
+                'updated_at' => now(),
+            ]);
+    }
+
     public function resolveExternalByToken(string $token): ?LegalDemandSubdemand
     {
         $hash = hash('sha256', trim($token));
@@ -299,7 +326,7 @@ class LegalDemandSubdemandWorkflowService
     private function resolveActorRole(?User $actor): ?string
     {
         if ($actor === null) {
-            return null;
+            return 'external';
         }
 
         if ($actor->can('legal.demands.triage') || $actor->can('legal.demands.assign') || $actor->can('legal.demands.review')) {

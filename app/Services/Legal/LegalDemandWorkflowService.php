@@ -66,13 +66,17 @@ class LegalDemandWorkflowService
                 'metadata' => $metadata,
             ]);
 
-            $from = $demand->internal_status?->value;
-            $demand->current_assigned_user_id = $toUserId;
-            $demand->current_assigned_team_id = $toTeamId;
-            $demand->internal_status = LegalDemandInternalStatus::SENT_TO_FIELD;
-            $demand->save();
+            if (!$this->isSubdemandAssignment($assignment)) {
+                $from = $demand->internal_status?->value;
+                $demand->current_assigned_user_id = $toUserId;
+                $demand->current_assigned_team_id = $toTeamId;
+                $demand->internal_status = LegalDemandInternalStatus::SENT_TO_FIELD;
+                $demand->save();
 
-            $this->event($demand->id, 'sent_to_field', $from, LegalDemandInternalStatus::SENT_TO_FIELD->value, $actor->id, $toUserId, $toTeamId, 'Demanda enviada para ponta.', $assignment->id);
+                $this->event($demand->id, 'sent_to_field', $from, LegalDemandInternalStatus::SENT_TO_FIELD->value, $actor->id, $toUserId, $toTeamId, 'Demanda enviada para ponta.', $assignment->id);
+            } else {
+                $this->event($demand->id, 'subdemand_sent_to_field', $demand->internal_status?->value, $demand->internal_status?->value, $actor->id, $toUserId, $toTeamId, 'Subdemanda enviada para executante.', $assignment->id);
+            }
 
             return $assignment->refresh();
         });
@@ -214,11 +218,16 @@ class LegalDemandWorkflowService
             $assignment->metadata = $metadata;
             $assignment->save();
 
-            $from = $demand->internal_status?->value;
-            $demand->internal_status = LegalDemandInternalStatus::RETURNED_FOR_CORRECTION;
-            $demand->save();
+            if (!$this->isSubdemandAssignment($assignment)) {
+                $from = $demand->internal_status?->value;
+                $demand->internal_status = LegalDemandInternalStatus::RETURNED_FOR_CORRECTION;
+                $demand->save();
 
-            $this->event($demand->id, 'returned_for_correction', $from, LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value, $actor->id, $assignment->to_user_id, $assignment->to_team_id, 'Controlador solicitou correção.', $assignment->id);
+                $this->event($demand->id, 'returned_for_correction', $from, LegalDemandInternalStatus::RETURNED_FOR_CORRECTION->value, $actor->id, $assignment->to_user_id, $assignment->to_team_id, 'Controlador solicitou correção.', $assignment->id);
+            } else {
+                $this->event($demand->id, 'subdemand_returned_for_correction', $demand->internal_status?->value, $demand->internal_status?->value, $actor->id, $assignment->to_user_id, $assignment->to_team_id, 'Controlador solicitou correção na subdemanda.', $assignment->id);
+            }
+
             return $demand->refresh();
         });
     }
@@ -259,7 +268,10 @@ class LegalDemandWorkflowService
 
     public function closeExternal(LegalDemand $demand, User $actor, string $protocol, ?string $note): LegalDemand
     {
+        $this->assertNotClosed($demand);
         $this->ensureAnyAllowed($actor, ['legal.demands.close_external', 'legal.demands.review']);
+        $this->assertCanCloseMainDemand($demand);
+
         if (trim($protocol) === '') {
             throw new InvalidArgumentException('Protocolo externo é obrigatório.');
         }
@@ -422,20 +434,19 @@ class LegalDemandWorkflowService
 
     private function assertCanCloseMainDemand(LegalDemand $demand): void
     {
-        $openInternalSubdemands = $demand->subdemands()
+        $openSubdemands = $demand->subdemands()
             ->get()
             ->filter(function (LegalDemandSubdemand $sub) {
                 $metadata = (array) ($sub->metadata ?? []);
-                $isExternal = (bool) ($metadata['external_dispatch'] ?? false);
                 $removedByController = (bool) ($metadata['removed_by_controller'] ?? false);
                 $status = $sub->status instanceof \BackedEnum ? $sub->status->value : (string) $sub->status;
                 $isOpen = !in_array($status, ['concluida', 'encerrada_controlador'], true);
 
-                return !$isExternal && !$removedByController && $isOpen;
+                return !$removedByController && $isOpen;
             });
 
-        if ($openInternalSubdemands->isNotEmpty()) {
-            throw new InvalidArgumentException('Não é possível fechar a demanda principal: existem subdemandas internas em aberto.');
+        if ($openSubdemands->isNotEmpty()) {
+            throw new InvalidArgumentException('Não é possível fechar a demanda principal: existem subdemandas em aberto.');
         }
     }
 }

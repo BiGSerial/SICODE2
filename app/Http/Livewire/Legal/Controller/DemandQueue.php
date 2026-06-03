@@ -16,6 +16,10 @@ class DemandQueue extends Component
     // Filtros
     public string $search = '';
 
+    public string $bulkCaseSearchInput = '';
+
+    public array $bulkCaseSearchTerms = [];
+
     public string $tab = 'all';
 
     public string $sourceType = '';
@@ -56,6 +60,8 @@ class DemandQueue extends Component
 
     // Modal: Transferência X→Y
     public bool   $showTransferModal = false;
+
+    public bool   $showBulkCaseSearchModal = false;
 
     public string $transferFromUserId = '';
 
@@ -115,6 +121,45 @@ class DemandQueue extends Component
     {
         $this->selectedIds = [];
         $this->selectAll   = false;
+    }
+
+    public function clearFilters(): void
+    {
+        $this->sourceType = '';
+        $this->dueDateFilter = '';
+        $this->controllerFilter = '';
+        $this->statusFilter = '';
+        $this->search = '';
+        $this->clearBulkCaseSearch();
+    }
+
+    public function applyBulkCaseSearch(): void
+    {
+        $terms = collect(preg_split('/[\s,;]+/', $this->bulkCaseSearchInput) ?: [])
+            ->map(fn ($term) => trim((string) $term))
+            ->filter()
+            ->unique()
+            ->take(200)
+            ->values()
+            ->all();
+
+        $this->bulkCaseSearchTerms = $terms;
+        $this->showBulkCaseSearchModal = false;
+        $this->resetPage();
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => empty($terms) ? 'warning' : 'success',
+            'title' => empty($terms) ? 'Nenhum caso informado' : 'Busca em massa aplicada',
+            'html' => empty($terms) ? 'Informe ao menos um número de caso ou processo.' : count($terms) . ' termo(s) carregado(s).',
+            'timer' => empty($terms) ? null : 1800,
+        ]);
+    }
+
+    public function clearBulkCaseSearch(): void
+    {
+        $this->bulkCaseSearchInput = '';
+        $this->bulkCaseSearchTerms = [];
+        $this->resetPage();
     }
 
     public function toggleSubdemands(int $demandId): void
@@ -227,8 +272,10 @@ class DemandQueue extends Component
         ]);
     }
 
-    private function baseQuery()
+    private function baseQuery(?string $tab = null)
     {
+        $tab ??= $this->tab;
+
         $query = LegalDemand::query()
             ->with([
                 'legalCase',
@@ -239,33 +286,42 @@ class DemandQueue extends Component
             ->withCount('subdemands');
 
         // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
-        match ($this->tab) {
-            'triage'   => $query->externallyActive()
-                ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
+        $triageScope = function ($q) {
+            $q->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
                 ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
                 ->whereNull('current_assigned_user_id')
                 ->whereNull('current_assigned_team_id')
                 ->whereDoesntHave('assignments', function ($aq) {
                     $aq->whereIn('status', ['sent', 'received', 'returned_for_correction']);
-                }),
-            'in_progress' => $query->externallyActive()->whereIn('internal_status', [
-                'sent_to_field',
-                'field_received',
-                'waiting_field_response',
-                'returned_by_field',
-                'returned_for_correction',
-                'under_controller_review',
-                'ready_to_close_external',
-                'reopened',
-            ]),
-            'overdue'  => $query->externallyActive()
+                });
+        };
+
+        $inProgressStatuses = [
+            'sent_to_field',
+            'field_received',
+            'waiting_field_response',
+            'returned_by_field',
+            'returned_for_correction',
+            'under_controller_review',
+            'ready_to_close_external',
+            'reopened',
+        ];
+
+        match ($tab) {
+            'triage' => $query->externallyActive()->where($triageScope),
+            'in_progress' => $query->externallyActive()->whereIn('internal_status', $inProgressStatuses),
+            'overdue' => $query->externallyActive()
                 ->overdue()
                 ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%']),
-            'closed'   => $query->where(function ($q) {
+            'closed' => $query->where(function ($q) {
                 $q->whereIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
                     ->orWhere(fn ($sub) => $sub->externallyClosed());
             }),
-            default => $query->externallyActive()->whereNotIn('internal_status', ['cancelled', 'ignored']),
+            default => $query->externallyActive()
+                ->where(function ($q) use ($triageScope, $inProgressStatuses) {
+                    $q->where($triageScope)
+                        ->orWhereIn('internal_status', $inProgressStatuses);
+                }),
         };
 
         if ($this->search) {
@@ -277,6 +333,24 @@ class DemandQueue extends Component
                 ->orWhere('title', 'like', $s)
                 ->orWhere('source_subject', 'like', $s)
             );
+        }
+
+        if (!empty($this->bulkCaseSearchTerms)) {
+            $terms = array_slice($this->bulkCaseSearchTerms, 0, 200);
+            $query->where(function ($q) use ($terms) {
+                foreach ($terms as $term) {
+                    $like = '%' . $term . '%';
+                    $digits = preg_replace('/\D+/', '', (string) $term);
+
+                    $q->orWhere('source_case_number', 'like', $like)
+                        ->orWhere('source_process_number', 'like', $like);
+
+                    if ($digits !== '' && $digits !== $term) {
+                        $q->orWhere('source_case_number', 'like', '%' . $digits . '%')
+                            ->orWhere('source_process_number', 'like', '%' . $digits . '%');
+                    }
+                }
+            });
         }
 
         if ($this->statusFilter) {
@@ -312,6 +386,17 @@ class DemandQueue extends Component
             ->orderBy('source_due_at', $this->sortDir);
 
         return $query;
+    }
+
+    private function kpis(): array
+    {
+        return [
+            'total_active' => (clone $this->baseQuery('all'))->count(),
+            'overdue' => (clone $this->baseQuery('overdue'))->count(),
+            'awaiting_field' => (clone $this->baseQuery('in_progress'))->count(),
+            'triage' => (clone $this->baseQuery('triage'))->count(),
+            'closed' => (clone $this->baseQuery('closed'))->count(),
+        ];
     }
 
     public function render()
@@ -392,6 +477,7 @@ class DemandQueue extends Component
             'demands'     => $demands,
             'groupedDemands' => $groupedDemands,
             'controllers' => $controllers,
+            'kpis' => $this->kpis(),
             'monitorSicodeClosedButSourceOpen' => $monitorSicodeClosedButSourceOpen,
             'monitorSourceClosedButSicodeOpen' => $monitorSourceClosedButSicodeOpen,
         ]);

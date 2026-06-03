@@ -921,16 +921,26 @@ class Lists extends Component
             return $tagsByMed;
         }
 
-        $rows = DB::table('legal_case_note as lcn')
-            ->join('legal_demands as ld', 'ld.legal_case_id', '=', 'lcn.legal_case_id')
-            ->whereIn('lcn.note_id', $allNoteIds)
+        $instructionLinks = DB::table('legal_demand_note_instructions')
+            ->whereIn('note_id', $allNoteIds)
+            ->where('active', true)
+            ->select(['note_id', 'legal_demand_id']);
+
+        $activityLinks = DB::table('legal_demand_note_activity_links')
+            ->whereIn('note_id', $allNoteIds)
+            ->whereNull('unlinked_at')
+            ->select(['note_id', 'legal_demand_id']);
+
+        $rows = DB::query()
+            ->fromSub($instructionLinks->union($activityLinks), 'dln')
+            ->join('legal_demands as ld', 'ld.id', '=', 'dln.legal_demand_id')
             ->whereIn('ld.source_type', ['injunction', 'sentence', 'subsidy'])
             ->whereNull('ld.closed_at')
             ->whereNotIn('ld.internal_status', ['cancelled', 'ignored'])
             ->orderByRaw('CASE WHEN ld.source_due_at IS NULL THEN 1 ELSE 0 END')
             ->orderBy('ld.source_due_at')
             ->select([
-                'lcn.note_id',
+                'dln.note_id',
                 'ld.id',
                 'ld.uuid',
                 'ld.source_type',
@@ -939,6 +949,7 @@ class Lists extends Component
                 'ld.internal_status',
                 'ld.source_status_group',
             ])
+            ->distinct()
             ->get();
 
         $tagsByNote = [];
