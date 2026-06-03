@@ -55,7 +55,7 @@ class AssignmentResponse extends Component
         }
 
         $assignment = LegalDemandAssignment::with([
-            'legalDemand.legalCase',
+            'legalDemand.legalCase.adverseParties',
             'legalDemand.files.legalDemand',
             'legalDemand.comments.user',
             'legalDemand.subdemands.assignedTo',

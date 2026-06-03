@@ -25,6 +25,7 @@ Antes de subir containers manualmente, exporte seu UID/GID para evitar problema 
 ```bash
 export DOCKER_UID="$(id -u)"
 export DOCKER_GID="$(id -g)"
+export DOCKER_WWW_GROUP="33"
 ```
 
 Opcionalmente, persistir no shell profile (`~/.bashrc` ou `~/.zshrc`).

@@ -40,14 +40,16 @@ class SubdemandMonitor extends Component
         $closedStatuses = ['concluida', 'encerrada_controlador'];
 
         $baseQuery = LegalDemandSubdemand::query()
-            ->with(['assignedTo', 'demand'])
+            ->with(['assignedTo', 'demand.legalCase.adverseParties'])
             ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
             ->when($this->area !== '', fn ($q) => $q->where('assigned_area_name', 'like', '%' . trim($this->area) . '%'))
             ->when($this->responsible !== '', fn ($q) => $q->where('assigned_to_user_id', $this->responsible))
             ->when($this->type !== '', fn ($q) => $q->whereHas('demand', fn ($d) => $d->where('source_type', $this->type)))
             ->when($this->process !== '', fn ($q) => $q->whereHas('demand', function ($d) {
                 $term = trim($this->process);
-                $d->where('source_case_number', 'like', '%' . $term . '%');
+                $like = '%' . $term . '%';
+                $d->where('source_case_number', 'like', $like)
+                    ->orWhereHas('legalCase.adverseParties', fn ($partyQuery) => $partyQuery->where('name', 'like', $like));
             }));
 
         $kpis = [

@@ -452,7 +452,7 @@ class DemandDetail extends Component
 
     public function updateCommentVisibility(int $commentId, string $visibility): void
     {
-        abort_unless($this->canManageSubdemands(), 403);
+        abort_unless($this->canManageCommunicationVisibility(), 403);
         if (!in_array($visibility, ['controller', 'shared'], true)) {
             return;
         }
@@ -987,6 +987,7 @@ class DemandDetail extends Component
             'subdemandStatuses'  => LegalDemandSubdemandStatus::cases(),
             'companies'          => Company::query()->orderBy('name')->get(['id', 'name']),
             'canManageSubdemands' => $this->canManageSubdemands(),
+            'canManageCommunicationVisibility' => $this->canManageCommunicationVisibility(),
             'subdemandsFeatureEnabled' => (bool) config('features.legal_subdemands', true),
             'availableInternalActions' => $this->availableInternalActions(),
         ]);
@@ -1019,6 +1020,13 @@ class DemandDetail extends Component
     {
         return (string) ($this->demand->controller_user_id ?? '') !== ''
             && (string) $this->demand->controller_user_id === (string) auth()->id();
+    }
+
+    private function canManageCommunicationVisibility(): bool
+    {
+        return auth()->user()?->can('legal.demands.review') === true
+            || auth()->user()?->can('legal.demands.assign') === true
+            || auth()->user()?->can('legal.demands.triage') === true;
     }
 
     private function availableInternalActions(): array

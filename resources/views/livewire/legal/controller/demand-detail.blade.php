@@ -399,6 +399,58 @@
         .redirect-block .rb-area  { font-size: 14px; font-weight: 700; color: #1e3a8a; }
         .redirect-block .rb-meta  { font-size: 11px; color: #3b82f6; margin-top: 3px; }
 
+        /* ── Process notes and latest communication summary ── */
+        .process-notes-card,
+        .latest-communication-card {
+            background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6;
+            border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+        }
+        .process-notes-card .pnc-header,
+        .latest-communication-card .lcc-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            margin-bottom: 10px;
+        }
+        .process-notes-card .pnc-title,
+        .latest-communication-card .lcc-title {
+            font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #1d4ed8;
+        }
+        .process-notes-card .pnc-count {
+            display: inline-flex; align-items: center; border-radius: 999px;
+            background: #dbeafe; color: #1e3a8a; font-size: 11px; font-weight: 800; padding: 2px 8px;
+        }
+        .process-notes-card .table-responsive {
+            background: #fff; border: 1px solid #bfdbfe; border-radius: 8px; overflow: hidden;
+        }
+        .process-notes-card table { margin: 0; }
+        .process-notes-card th {
+            font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+            color: var(--text-3); background: #f8fafc; border-bottom-color: var(--border);
+        }
+        .process-notes-card td { font-size: 13px; vertical-align: middle; color: var(--text); }
+        .process-note-number {
+            display: inline-flex; align-items: center; border-radius: 999px;
+            background: #e0f2fe; color: #075985; font-weight: 800; padding: 3px 8px;
+        }
+        .process-note-status {
+            display: inline-flex; align-items: center; border-radius: 999px;
+            background: #eef2ff; color: #3730a3; font-weight: 700; padding: 3px 8px; font-size: 12px;
+        }
+        .latest-communication-card {
+            background: #f8fafc; border-color: #cbd5e1; border-left-color: #64748b;
+        }
+        .latest-communication-card .lcc-title { color: #334155; }
+        .latest-communication-card .lcc-date {
+            background: #1e3a8a; color: #fff; border-radius: 999px;
+            padding: 4px 10px; font-size: 12px; font-weight: 800; white-space: nowrap;
+        }
+        .latest-communication-card .lcc-author {
+            font-size: 12px; color: #475569; font-weight: 700; margin-bottom: 4px;
+        }
+        .latest-communication-card .lcc-text {
+            color: #0f172a; font-size: 13px; line-height: 1.45; white-space: pre-wrap;
+        }
+        .latest-communication-card .lcc-empty { color: #64748b; font-size: 13px; }
+
         /* ── Field highlights ── */
         .field.f-critical { background: #fff1f2; border-color: #fecaca; }
         .field.f-warn     { background: #fffbeb; border-color: #fde68a; }
@@ -510,7 +562,9 @@
         $subClosedCount = $visibleSubdemands->count() - $subActiveCount;
 
         // Comentários na demanda principal (sem subdemanda)
-        $demandCommentCount = $demand->comments->where('legal_demand_subdemand_id', null)->count();
+        $mainDemandComments = $demand->comments->where('legal_demand_subdemand_id', null);
+        $demandCommentCount = $mainDemandComments->count();
+        $latestDemandComment = $mainDemandComments->sortByDesc('created_at')->first();
 
         // Cor semântica do status da fonte
         $srcStatusClass = match(true) {
@@ -767,6 +821,72 @@
                     </div>
                 @endif
 
+                <div class="process-notes-card">
+                    <div class="pnc-header">
+                        <div class="pnc-title"><i class="bi bi-journal-text me-1"></i>Notes relacionadas ao processo</div>
+                        <span class="pnc-count">{{ $linkedNotes->count() }} vinculada{{ $linkedNotes->count() != 1 ? 's' : '' }}</span>
+                    </div>
+                    @if($linkedNotes->isNotEmpty())
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Nota</th>
+                                        <th>Material</th>
+                                        <th>Cliente</th>
+                                        <th>Rubrica</th>
+                                        <th>Local</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($linkedNotes as $note)
+                                        @php
+                                            $noteOperationalStatus = ((int) ($note->type_note ?? 0) === 1)
+                                                ? ($note->centerjob ?: 'CentroTrab não informado')
+                                                : ($note->nstats ?: 'Status não informado');
+                                        @endphp
+                                        <tr>
+                                            <td><span class="process-note-number">{{ $note->note ?? $note->id }}</span></td>
+                                            <td>{{ $note->material ?: '—' }}</td>
+                                            <td>{{ $note->client ?: '—' }}</td>
+                                            <td>{{ $note->rubrica ?: '—' }}</td>
+                                            <td>{{ $note->lexp ?: '—' }}</td>
+                                            <td><span class="process-note-status">{{ $noteOperationalStatus }}</span></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="lcc-empty">Nenhuma note vinculada a este processo.</div>
+                    @endif
+                </div>
+
+                <div class="latest-communication-card">
+                    <div class="lcc-header">
+                        <div class="lcc-title"><i class="bi bi-chat-dots me-1"></i>Última interação em comunicação</div>
+                        @if($latestDemandComment?->created_at)
+                            <span class="lcc-date">{{ \Carbon\Carbon::parse($latestDemandComment->created_at)->format('d/m/Y H:i') }}</span>
+                        @else
+                            <span class="lcc-date">Sem interação</span>
+                        @endif
+                    </div>
+                    @if($latestDemandComment)
+                        <div class="lcc-author">
+                            {{ $latestDemandComment->user?->name ?? '—' }}
+                            @if(($latestDemandComment->visibility ?? 'controller') === 'controller')
+                                · Interno
+                            @else
+                                · Compartilhado
+                            @endif
+                        </div>
+                        <div class="lcc-text">{{ $latestDemandComment->comment }}</div>
+                    @else
+                        <div class="lcc-empty">Nenhum comentário registrado na demanda principal.</div>
+                    @endif
+                </div>
+
                 <div class="ld-main">
                     {{-- Coluna principal: dados do processo --}}
                     <div>
@@ -804,6 +924,7 @@
                                         </div>
                                     </div>
                                 @endif
+                                @livewire('legal.controller.adverse-parties', ['legalCaseId' => $demand->legal_case_id], key('legal-adverse-parties-'.$demand->legal_case_id))
                             </div>
                         </div>
 
@@ -1764,7 +1885,7 @@
                                         @else
                                             <span class="badge bg-success" style="font-size:10px">👁 Compartilhado</span>
                                         @endif
-                                        @if($canManageSubdemands)
+                                        @if($canManageCommunicationVisibility)
                                             <div class="chat-visibility-control">
                                                 <select class="form-select form-select-sm"
                                                         wire:change="updateCommentVisibility({{ $comment->id }}, $event.target.value)">

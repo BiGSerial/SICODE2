@@ -165,6 +165,10 @@
                                 @endif
                             </div>
                             <div class="fw-semibold small">{{ $case->company_name }}</div>
+                            <div class="small text-muted">
+                                <i class="bi bi-people me-1"></i>
+                                <x-legal.adverse-party-names :legal-case="$case" />
+                            </div>
                             @if($case->legal_responsible_name || $case->law_firm_name)
                                 <div class="small text-muted">
                                     {{ $case->legal_responsible_name }}
@@ -365,6 +369,8 @@
                                 <dd class="col-sm-8">{{ $selectedCase->process_number ?? '—' }}</dd>
                                 <dt class="col-sm-4 text-muted">Empresa</dt>
                                 <dd class="col-sm-8">{{ $selectedCase->company_name ?? '—' }}</dd>
+                                <dt class="col-sm-4 text-muted">Partes adversas</dt>
+                                <dd class="col-sm-8"><x-legal.adverse-party-names :legal-case="$selectedCase" :limit="10" /></dd>
                                 <dt class="col-sm-4 text-muted">Responsável Jurídico</dt>
                                 <dd class="col-sm-8">{{ $selectedCase->legal_responsible_name ?? '—' }}</dd>
                                 <dt class="col-sm-4 text-muted">Escritório</dt>

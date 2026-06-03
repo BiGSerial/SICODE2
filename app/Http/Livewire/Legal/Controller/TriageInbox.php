@@ -102,7 +102,7 @@ class TriageInbox extends Component
     {
         return LegalDemand::query()
             
-            ->with(['legalCase', 'lastSeenImportBatch', 'controller'])
+            ->with(['legalCase.adverseParties', 'lastSeenImportBatch', 'controller'])
             ->externallyActive()
             ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
             ->whereNotNull('controller_user_id')
@@ -114,6 +114,7 @@ class TriageInbox extends Component
                     ->where('source_case_number', 'like', $s)
                     ->orWhere('source_process_number', 'like', $s)
                     ->orWhere('source_subject', 'like', $s)
+                    ->orWhereHas('legalCase.adverseParties', fn ($partyQuery) => $partyQuery->where('name', 'like', $s))
                 );
             })
             ->when($this->sourceTypeFilter, fn ($q) => $q->where('source_type', $this->sourceTypeFilter))

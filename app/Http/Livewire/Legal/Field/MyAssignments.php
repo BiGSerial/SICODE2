@@ -63,7 +63,7 @@ class MyAssignments extends Component
         $query = LegalDemandAssignment::query()
             ->select('legal_demand_assignments.*')
             ->where('to_user_id', auth()->id())
-            ->with(['legalDemand.legalCase', 'sentBy'])
+            ->with(['legalDemand.legalCase.adverseParties', 'sentBy'])
             ->whereNotIn('status', ['cancelled', 'closed']);
 
         match ($this->tab) {
@@ -81,6 +81,7 @@ class MyAssignments extends Component
                 fn ($q) => $q
                 ->where('source_case_number', 'like', $s)
                 ->orWhere('source_subject', 'like', $s)
+                ->orWhereHas('legalCase.adverseParties', fn ($partyQuery) => $partyQuery->where('name', 'like', $s))
             );
         }
 

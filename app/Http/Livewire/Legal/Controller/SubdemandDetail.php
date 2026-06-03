@@ -25,7 +25,7 @@ class SubdemandDetail extends Component
         $this->uuid = $uuid;
         $subdemand = LegalDemandSubdemand::query()
             ->with([
-                'demand.legalCase',
+                'demand.legalCase.adverseParties',
                 'assignedTo',
                 'createdBy',
                 'events.actor',
@@ -126,7 +126,7 @@ class SubdemandDetail extends Component
     private function reload(): void
     {
         $this->subdemand->refresh()->load([
-            'demand.legalCase', 'assignedTo', 'createdBy',
+            'demand.legalCase.adverseParties', 'assignedTo', 'createdBy',
             'events.actor', 'comments.user', 'files.uploadedBy',
         ]);
     }

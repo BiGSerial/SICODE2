@@ -124,6 +124,8 @@ return [
 
     'key' => env('APP_KEY'),
 
+    'pii_hash_key' => env('LEGAL_PII_HASH_KEY', env('APP_KEY')),
+
     'cipher' => 'AES-256-CBC',
 
     /*

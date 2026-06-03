@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Legal\Controller;
 use App\Models\Legal\LegalDemand;
 use App\Models\User;
 use App\Services\Legal\LegalDemandBulkService;
+use App\Support\Legal\LegalPartyDocument;
 use Livewire\{Component, WithPagination};
 
 class DemandQueue extends Component
@@ -278,14 +279,16 @@ class DemandQueue extends Component
 
         $query = LegalDemand::query()
             ->with([
-                'legalCase',
+                'legalCase.adverseParties',
+                'legalCase.notes.Orders',
                 'controller',
                 'currentAssignee',
+                'noteInstructions.note.Orders',
                 'subdemands.assignedTo',
             ])
             ->withCount('subdemands');
 
-        // Tab filters — active tabs exclude externally-closed demands; "closed" tab includes them
+        // Tab filters — "all" intentionally includes every demand; active tabs exclude externally-closed demands.
         $triageScope = function ($q) {
             $q->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
                 ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
@@ -308,6 +311,7 @@ class DemandQueue extends Component
         ];
 
         match ($tab) {
+            'all' => null,
             'triage' => $query->externallyActive()->where($triageScope),
             'in_progress' => $query->externallyActive()->whereIn('internal_status', $inProgressStatuses),
             'overdue' => $query->externallyActive()
@@ -326,12 +330,22 @@ class DemandQueue extends Component
 
         if ($this->search) {
             $s = "%{$this->search}%";
+            $documentHash = $this->searchDocumentHash($this->search);
             $query->where(
-                fn ($q) => $q
-                ->where('source_case_number', 'like', $s)
-                ->orWhere('source_process_number', 'like', $s)
-                ->orWhere('title', 'like', $s)
-                ->orWhere('source_subject', 'like', $s)
+                function ($q) use ($s, $documentHash) {
+                    $q->where('source_case_number', 'like', $s)
+                        ->orWhere('source_process_number', 'like', $s)
+                        ->orWhere('title', 'like', $s)
+                        ->orWhere('source_subject', 'like', $s)
+                        ->orWhereHas('legalCase.adverseParties', fn ($partyQuery) => $partyQuery->where('name', 'like', $s));
+
+                    if ($documentHash) {
+                        $q->orWhereHas(
+                            'legalCase.adverseParties',
+                            fn ($partyQuery) => $partyQuery->where('document_hash', $documentHash)
+                        );
+                    }
+                }
             );
         }
 
@@ -378,14 +392,26 @@ class DemandQueue extends Component
 
         $query->orderByRaw("
                 CASE
-                    WHEN LOWER(COALESCE(process_status_at_import, '')) LIKE '%encerrad%' THEN 1
+                    WHEN internal_status IN ('closed_internal', 'closed_external', 'cancelled', 'ignored')
+                        OR LOWER(COALESCE(process_status_at_import, '')) LIKE '%encerrad%' THEN 2
+                    WHEN source_due_at IS NULL THEN 1
                     ELSE 0
                 END ASC
             ")
-            ->orderByRaw('ISNULL(source_due_at) ASC')
-            ->orderBy('source_due_at', $this->sortDir);
+            ->orderBy('source_due_at', 'asc');
 
         return $query;
+    }
+
+    private function searchDocumentHash(string $search): ?string
+    {
+        $digits = LegalPartyDocument::digits($search);
+
+        if (!in_array(strlen($digits), [11, 14], true) || !LegalPartyDocument::validate($digits)) {
+            return null;
+        }
+
+        return LegalPartyDocument::hash($digits);
     }
 
     private function kpis(): array
@@ -410,11 +436,10 @@ class DemandQueue extends Component
                 ->map(function ($items, $caseNumber) {
                     $items = $items
                         ->sortBy(function (LegalDemand $demand) {
-                            $processStatus = mb_strtolower((string) ($demand->process_status_at_import ?? ''));
-                            $isClosedByProcessStatus = $processStatus !== '' && str_contains($processStatus, 'encerrad');
+                            $isOpenDemand = $this->isOpenDemandForDeadline($demand);
 
                             return [
-                                $isClosedByProcessStatus ? 1 : 0,
+                                $isOpenDemand ? 0 : 2,
                                 $demand->source_due_at === null ? 1 : 0,
                                 optional($demand->source_due_at)->timestamp ?? PHP_INT_MAX,
                             ];
@@ -423,13 +448,7 @@ class DemandQueue extends Component
                     $first = $items->first();
 
                     $nearestOpenDeadline = $items
-                        ->filter(function (LegalDemand $demand) {
-                            $processStatus = mb_strtolower((string) ($demand->process_status_at_import ?? ''));
-                            $isOpenByProcessStatus = $processStatus !== '' && !str_contains($processStatus, 'encerrad');
-
-                            return $demand->source_due_at !== null
-                                && $isOpenByProcessStatus;
-                        })
+                        ->filter(fn (LegalDemand $demand) => $demand->source_due_at !== null && $this->isOpenDemandForDeadline($demand))
                         ->sortBy('source_due_at')
                         ->first()?->source_due_at;
 
@@ -439,6 +458,8 @@ class DemandQueue extends Component
                         'process_number' => $first?->source_process_number_masked ?: ($first?->source_process_number ?: 'Não informado'),
                         'empresa' => $first?->legalCase?->company_name ?: 'Não informada',
                         'firma' => $first?->legalCase?->law_firm ?: 'Não informada',
+                        'legal_case' => $first?->legalCase,
+                        'adverse_parties' => $first?->legalCase,
                         'nearest_open_deadline' => $nearestOpenDeadline,
                         'nearest_open_deadline_ts' => optional($nearestOpenDeadline)->timestamp,
                         'demands' => $items,
@@ -481,5 +502,20 @@ class DemandQueue extends Component
             'monitorSicodeClosedButSourceOpen' => $monitorSicodeClosedButSourceOpen,
             'monitorSourceClosedButSicodeOpen' => $monitorSourceClosedButSicodeOpen,
         ]);
+    }
+
+    private function isOpenDemandForDeadline(LegalDemand $demand): bool
+    {
+        $internalStatus = $demand->internal_status instanceof \BackedEnum
+            ? $demand->internal_status->value
+            : (string) $demand->internal_status;
+
+        if (in_array($internalStatus, ['closed_internal', 'closed_external', 'cancelled', 'ignored'], true)) {
+            return false;
+        }
+
+        $processStatus = mb_strtolower((string) ($demand->process_status_at_import ?? ''));
+
+        return $processStatus === '' || !str_contains($processStatus, 'encerrad');
     }
 }

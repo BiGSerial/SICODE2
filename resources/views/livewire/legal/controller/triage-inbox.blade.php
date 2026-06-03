@@ -236,6 +236,10 @@
                             @if($demand->legalCase?->company_name)
                                 <div class="triage-sub"><i class="bi bi-building me-1"></i>{{ $demand->legalCase->company_name }}</div>
                             @endif
+                            <div class="triage-sub">
+                                <i class="bi bi-people me-1"></i>
+                                <x-legal.adverse-party-names :legal-case="$demand->legalCase" :fallback="$demand->opposing_party" />
+                            </div>
                             @if($demand->subject)
                                 <div class="triage-sub"><i class="bi bi-card-text me-1"></i>{{ Str::limit($demand->subject, 95) }}</div>
                             @endif

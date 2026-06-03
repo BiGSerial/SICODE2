@@ -314,6 +314,8 @@ services:
       dockerfile: docker/dev/php/Dockerfile
     container_name: sicode2_app
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    group_add:
+      - "${DOCKER_WWW_GROUP:-33}"
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
