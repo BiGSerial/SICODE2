@@ -215,7 +215,7 @@
             'label' => 'Controlador',
             'items' => [
                 ['label' => 'FILA DE DEMANDAS', 'route' => 'legal.queue',  'icon' => 'bi-briefcase'],
-                ['label' => 'INBOX DE TRIAGEM',  'route' => 'legal.triage', 'icon' => 'bi-inbox'],
+                ['label' => 'MINHAS DEMANDAS',  'route' => 'legal.triage', 'icon' => 'bi-inbox'],
             ],
         ];
     }

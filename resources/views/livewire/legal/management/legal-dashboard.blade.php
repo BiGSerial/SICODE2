@@ -425,6 +425,9 @@
                                             <a href="{{ route('legal.demand.detail', $d->uuid) }}" class="small proc-link" style="color:#1e3a8a;text-decoration:none;">
                                                 {{ $d->source_case_number ?? $d->source_process_number_masked ?? 'S/N' }}
                                             </a>
+                                            <div class="small text-muted">
+                                                <x-legal.adverse-party-names :legal-case="$d->legalCase" :fallback="$d->opposing_party" :limit="1" />
+                                            </div>
                                         </td>
                                         <td><span class="type-chip {{ $dTypeClass }}">{{ $dLabel }}</span></td>
                                         <td><x-legal.due-date-chip :date="$d->source_due_at" :executedAt="$d->source_executed_at" :showIcon="false" /></td>

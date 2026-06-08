@@ -131,6 +131,7 @@
             <div class="sd-sub">
                 Demanda #{{ $subdemand->demand->source_case_number ?? $subdemand->demand->id }}
                 · {{ $subdemand->demand->legalCase->company_name ?? '—' }}
+                · <x-legal.adverse-party-names :legal-case="$subdemand->demand->legalCase" :fallback="$subdemand->demand->opposing_party" />
             </div>
             <div class="sd-badges">
                 <span class="sd-badge {{ $statusBadge }}">{{ $sl }}</span>
@@ -214,6 +215,7 @@
                     <div class="sd-sh">Informações da Subdemanda</div>
                     <div class="sd-sb">
                         <div class="kv"><div class="kl">Processo</div><div class="kv-v">{{ $subdemand->demand->source_process_number ?? '—' }}</div></div>
+                        <div class="kv"><div class="kl">Parte adversa</div><div class="kv-v"><x-legal.adverse-party-names :legal-case="$subdemand->demand->legalCase" :fallback="$subdemand->demand->opposing_party" /></div></div>
                         <div class="kv"><div class="kl">Tipo</div><div class="kv-v">{{ $subdemand->demand->source_type instanceof \BackedEnum ? $subdemand->demand->source_type->value : ($subdemand->demand->source_type ?? '—') }}</div></div>
                         <div class="kv"><div class="kl">Executante</div><div class="kv-v">
                             @if($isExt)

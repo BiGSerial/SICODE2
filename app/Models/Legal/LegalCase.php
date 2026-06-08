@@ -75,6 +75,11 @@ class LegalCase extends Model
             ->withTimestamps();
     }
 
+    public function adverseParties()
+    {
+        return $this->hasMany(LegalCaseAdverseParty::class)->orderBy('name');
+    }
+
     // Compat getters for legacy blades/components.
     public function getLegalResponsibleNameAttribute(): ?string
     {

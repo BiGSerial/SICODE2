@@ -192,7 +192,9 @@
 
                         <div class="assign-col">
                             <div class="lbl">Parte / Empresa</div>
-                            <div class="val">{{ $demand?->opposing_party ?? '—' }}</div>
+                            <div class="val">
+                                <x-legal.adverse-party-names :legal-case="$demand?->legalCase" :fallback="$demand?->opposing_party" />
+                            </div>
                             <div class="val muted">{{ $demand?->legalCase?->company_name ?? '—' }}</div>
                         </div>
 

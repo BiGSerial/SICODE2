@@ -18,16 +18,12 @@ class TriageCounter extends Component
     {
         $base = LegalDemand::externallyActive()
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
-            ->whereNull('current_assigned_user_id')
-            ->whereNull('current_assigned_team_id')
-            ->whereDoesntHave('assignments', function ($aq) {
-                $aq->whereIn('status', ['sent', 'received', 'returned_for_correction']);
-            });
+            ->where('controller_user_id', auth()->id());
 
         return match ($this->metric) {
             'new' => (clone $base)->where('internal_status', 'new_imported')->count(),
             'triage' => (clone $base)->whereIn('internal_status', ['triage', 'waiting_controller_action'])->count(),
-            'pending' => (clone $base)->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])->count(),
+            'pending' => (clone $base)->count(),
             default => 0,
         };
     }

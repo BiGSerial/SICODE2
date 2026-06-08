@@ -109,7 +109,7 @@
             <div class="d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3">
                 <div>
                     <h4 class="fw-bold mb-1">MÓDULO JURÍDICO</h4>
-                    <div class="mb-3 opacity-75" style="font-size:.9rem">Inbox de Triagem</div>
+                    <div class="mb-3 opacity-75" style="font-size:.9rem">Minhas Demandas</div>
                     <div class="d-flex flex-wrap gap-2">
                         <div class="lti-kpi">
                             <div class="val text-warning">
@@ -121,13 +121,13 @@
                             <div class="val" style="color:#93c5fd">
                                 <livewire:legal.controller.triage-counter metric="triage" :wire:key="'triage-kpi-triage'" />
                             </div>
-                            <div class="lbl">Em Triagem</div>
+                            <div class="lbl">Assumidas</div>
                         </div>
                         <div class="lti-kpi">
                             <div class="val">
-                                <livewire:legal.controller.triage-counter metric="pending" :wire:key="'triage-kpi-pending'" />
+                                {{ $totalCount }}
                             </div>
-                            <div class="lbl">Total Pendente</div>
+                            <div class="lbl">Minhas Demandas</div>
                         </div>
                     </div>
                 </div>
@@ -199,9 +199,9 @@
         {{-- CONTEÚDO --}}
         <div class="table-card" wire:loading.class="opacity-50">
             <div class="card-header text-bg-dark fw-bold d-flex justify-content-between align-items-center">
-                <span>Jurídico › Inbox de Triagem</span>
+                <span>Jurídico › Minhas Demandas</span>
                 <span class="badge bg-secondary">
-                    <livewire:legal.controller.triage-counter metric="pending" :wire:key="'triage-header-pending'" /> pendente(s)
+                    {{ $totalCount }} demanda(s)
                 </span>
             </div>
 
@@ -236,6 +236,10 @@
                             @if($demand->legalCase?->company_name)
                                 <div class="triage-sub"><i class="bi bi-building me-1"></i>{{ $demand->legalCase->company_name }}</div>
                             @endif
+                            <div class="triage-sub">
+                                <i class="bi bi-people me-1"></i>
+                                <x-legal.adverse-party-names :legal-case="$demand->legalCase" :fallback="$demand->opposing_party" />
+                            </div>
                             @if($demand->subject)
                                 <div class="triage-sub"><i class="bi bi-card-text me-1"></i>{{ Str::limit($demand->subject, 95) }}</div>
                             @endif
@@ -293,9 +297,16 @@
                                 <a href="{{ route('legal.demand.detail', $demand->uuid) }}" class="btn btn-sm btn-outline-secondary">
                                     <i class="bi bi-eye me-1"></i>Detalhes
                                 </a>
-                                <button class="btn btn-sm btn-warning" wire:click="startTriage({{ $demand->id }})">
-                                    <i class="bi bi-clipboard-check me-1"></i>Iniciar Triagem
-                                </button>
+                                @php
+                                    $demandStatusValue = $demand->internal_status instanceof \BackedEnum
+                                        ? $demand->internal_status->value
+                                        : (string) $demand->internal_status;
+                                @endphp
+                                @if(in_array($demandStatusValue, ['new_imported', 'triage'], true))
+                                    <button class="btn btn-sm btn-warning" wire:click="startTriage({{ $demand->id }})">
+                                        <i class="bi bi-clipboard-check me-1"></i>Assumir Demanda
+                                    </button>
+                                @endif
                                 <button class="btn btn-sm btn-outline-danger" wire:click="showIgnoreConfirm({{ $demand->id }})">
                                     <i class="bi bi-x me-1"></i>Ignorar
                                 </button>
@@ -305,7 +316,7 @@
                 @empty
                     <div class="text-center py-5 text-muted bg-white border rounded-3">
                         <i class="bi bi-check-circle fs-2 d-block mb-2 opacity-40"></i>
-                        Nenhuma demanda aguardando triagem.
+                        Nenhuma demanda encontrada para você.
                     </div>
                 @endforelse
             </div>

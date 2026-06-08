@@ -180,6 +180,7 @@
                             <tr>
                                 <th>Subdemanda</th>
                                 <th>Caso</th>
+                                <th>Parte adversa</th>
                                 <th>Tipo</th>
                                 <th>Responsável</th>
                                 <th>Canal</th>
@@ -242,6 +243,9 @@
                                 <tr>
                                     <td>#{{ $sub->id }}</td>
                                     <td>{{ $sub->demand?->source_case_number ?? '—' }}</td>
+                                    <td>
+                                        <x-legal.adverse-party-names :legal-case="$sub->demand?->legalCase" :fallback="$sub->demand?->opposing_party" />
+                                    </td>
                                     <td><span class="badge badge-soft">{{ $tipoLabel }}</span></td>
                                     <td>
                                         @if($isExternal)
@@ -281,7 +285,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="12" class="text-muted">Nenhuma subdemanda encontrada.</td></tr>
+                                <tr><td colspan="13" class="text-muted">Nenhuma subdemanda encontrada.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

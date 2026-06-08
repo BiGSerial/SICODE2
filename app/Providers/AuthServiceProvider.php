@@ -79,6 +79,8 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('legal.demands.view', fn (User $u) => $isController($u) || $isField($u) || $isManager($u));
         Gate::define('legal.demands.manage_files', fn (User $u) => $isController($u) || $isField($u));
         Gate::define('legal.demands.view_controller_files', fn (User $u) => $isController($u) || $isManager($u));
+        Gate::define('legal.adverse_parties.manage', $isController);
+        Gate::define('legal.adverse_parties.view_sensitive', $isController);
 
         // Gestão / relatórios
         Gate::define('legal.manager', $isManager);

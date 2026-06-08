@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Legal\Controller;
 use App\Enum\LegalDemandSubdemandStatus;
 use App\Models\Company;
 use App\Models\Note;
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandEvent, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandSubdemandWorkflowService, LegalDemandWorkflowService};
@@ -258,7 +258,7 @@ class DemandDetail extends Component
         try {
             app(LegalDemandWorkflowService::class)->startTriage($this->demand, auth()->user());
             $this->demand->refresh()->load(['legalCase', 'controller', 'currentAssignee', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
-            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Triagem iniciada', 'timer' => 2500]);
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Demanda assumida', 'timer' => 2500]);
         } catch (\InvalidArgumentException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => 'Ação não permitida', 'html' => $e->getMessage()]);
         }
@@ -438,7 +438,7 @@ class DemandDetail extends Component
     {
         $this->validate(['newComment' => 'required|min:3']);
 
-        app(LegalDemandWorkflowService::class)->addComment(
+        $comment = app(LegalDemandWorkflowService::class)->addComment(
             $this->demand,
             auth()->user(),
             $this->newComment,
@@ -446,13 +446,17 @@ class DemandDetail extends Component
             $this->commentVisibility,
         );
 
+        $this->auditCommentAction('comment_created', $comment, [
+            'visibility' => $comment->visibility,
+        ]);
+
         $this->newComment = '';
         $this->demand->refresh()->load(['comments.user']);
     }
 
     public function updateCommentVisibility(int $commentId, string $visibility): void
     {
-        abort_unless($this->canManageSubdemands(), 403);
+        abort_unless($this->canManageCommunicationVisibility(), 403);
         if (!in_array($visibility, ['controller', 'shared'], true)) {
             return;
         }
@@ -462,12 +466,45 @@ class DemandDetail extends Component
             ->whereNull('legal_demand_subdemand_id')
             ->findOrFail($commentId);
 
+        $oldVisibility = $comment->visibility;
+        if ($oldVisibility === $visibility) {
+            return;
+        }
+
         $comment->update(['visibility' => $visibility]);
+        $this->auditCommentAction('comment_visibility_changed', $comment, [
+            'old_visibility' => $oldVisibility,
+            'new_visibility' => $visibility,
+        ]);
+
         $this->demand->refresh()->load(['comments.user']);
 
         $this->dispatchBrowserEvent('swal', [
             'icon' => 'success',
             'title' => 'Visibilidade atualizada',
+            'timer' => 1400,
+        ]);
+    }
+
+    public function deleteComment(int $commentId): void
+    {
+        $comment = LegalDemandComment::query()
+            ->where('legal_demand_id', $this->demand->id)
+            ->whereNull('legal_demand_subdemand_id')
+            ->findOrFail($commentId);
+
+        abort_unless((string) $comment->user_id === (string) auth()->id(), 403);
+
+        $this->auditCommentAction('comment_deleted', $comment, [
+            'visibility' => $comment->visibility,
+        ]);
+
+        $comment->delete();
+        $this->demand->refresh()->load(['comments.user']);
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon' => 'success',
+            'title' => 'Comentário removido',
             'timer' => 1400,
         ]);
     }
@@ -987,6 +1024,7 @@ class DemandDetail extends Component
             'subdemandStatuses'  => LegalDemandSubdemandStatus::cases(),
             'companies'          => Company::query()->orderBy('name')->get(['id', 'name']),
             'canManageSubdemands' => $this->canManageSubdemands(),
+            'canManageCommunicationVisibility' => $this->canManageCommunicationVisibility(),
             'subdemandsFeatureEnabled' => (bool) config('features.legal_subdemands', true),
             'availableInternalActions' => $this->availableInternalActions(),
         ]);
@@ -1021,6 +1059,39 @@ class DemandDetail extends Component
             && (string) $this->demand->controller_user_id === (string) auth()->id();
     }
 
+    private function canManageCommunicationVisibility(): bool
+    {
+        return auth()->user()?->can('legal.demands.review') === true
+            || auth()->user()?->can('legal.demands.assign') === true
+            || auth()->user()?->can('legal.demands.triage') === true;
+    }
+
+    private function auditCommentAction(string $eventType, LegalDemandComment $comment, array $metadata = []): void
+    {
+        $description = match ($eventType) {
+            'comment_created' => 'Comentário adicionado à demanda.',
+            'comment_visibility_changed' => 'Visibilidade do comentário alterada.',
+            'comment_deleted' => 'Comentário removido pelo autor.',
+            default => 'Comentário atualizado.',
+        };
+
+        LegalDemandEvent::create([
+            'legal_demand_id' => $this->demand->id,
+            'assignment_id' => $comment->assignment_id,
+            'event_type' => $eventType,
+            'actor_user_id' => auth()->id(),
+            'description' => $description,
+            'occurred_at' => now(),
+            'metadata' => array_merge([
+                'source' => 'demand_detail',
+                'comment_id' => $comment->id,
+                'comment_user_id' => $comment->user_id,
+                'comment' => $comment->comment,
+                'visibility' => $comment->visibility,
+            ], $metadata),
+        ]);
+    }
+
     private function availableInternalActions(): array
     {
         $statusValue = $this->demand->internal_status instanceof \BackedEnum
@@ -1029,7 +1100,7 @@ class DemandDetail extends Component
 
         return match ($statusValue) {
             'new_imported' => [
-                ['value' => 'start_triage', 'label' => 'Assumir demanda (Iniciar triagem)'],
+                ['value' => 'start_triage', 'label' => 'Assumir demanda'],
             ],
             'returned_by_field', 'under_controller_review' => [
                 ['value' => 'approve_return', 'label' => 'Aprovar retorno (Pronta para fechamento externo)'],

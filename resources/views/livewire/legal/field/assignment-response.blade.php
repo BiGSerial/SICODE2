@@ -762,6 +762,7 @@
                     </div>
                     <div class="hero-subtitle">
                         Caso {{ $demand->source_case_number ?? 'Não informado' }} · {{ $sourceTypeLabel }}
+                        · <x-legal.adverse-party-names :legal-case="$demand->legalCase" :fallback="$demand->opposing_party" />
                     </div>
                     <div class="hero-note">
                         Detalhamento da demanda, interação com o controlador e resposta do campo.
@@ -1281,6 +1282,10 @@
                                 <div class="proc-item-compact">
                                     <div class="proc-label-sm">Número Caso</div>
                                     <div class="proc-value-sm">{{ $demand->source_case_number ?? 'Não informado' }}</div>
+                                </div>
+                                <div class="proc-item-compact">
+                                    <div class="proc-label-sm">Parte adversa</div>
+                                    <div class="proc-value-sm"><x-legal.adverse-party-names :legal-case="$demand->legalCase" :fallback="$demand->opposing_party" /></div>
                                 </div>
                                 <div class="proc-item-compact">
                                     <div class="proc-label-sm">Tipo</div>

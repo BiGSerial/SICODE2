@@ -3,15 +3,13 @@
 
     <style>
         .legal-queue-page {
-            --lq-bg: #f6f7fb;
+            --lq-bg: transparent;
             --lq-surface: #ffffff;
             --lq-ink: #1f2933;
             --lq-muted: #6b7280;
             --lq-border: #e5e7eb;
-            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
-                        radial-gradient(circle at 90% 10%, #e0f2fe, transparent 35%),
-                        var(--lq-bg);
-            padding: 1.5rem 0;
+            background: transparent;
+            padding: 0;
         }
 
         .lq-header {
@@ -211,22 +209,23 @@
         }
 
         .case-group-card {
-            background: #fff;
-            border: 1px solid #dbe3ee;
-            border-radius: .85rem;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, .05);
-            margin-bottom: .75rem;
+            background: #eef5fc;
+            border: 1px solid #cbd5e1;
+            border-radius: .95rem;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, .08);
+            margin-bottom: .9rem;
             overflow: hidden;
         }
         .case-group-head {
-            background: #f1f5f9;
-            border-bottom: 1px solid #dbe3ee;
-            padding: .6rem .8rem;
+            background: #dbe8f6;
+            border-bottom: 1px solid #cbd5e1;
+            padding: .85rem .95rem;
         }
         .case-group-grid {
             display: grid;
-            grid-template-columns: 1.2fr 1.4fr 1.2fr 1.2fr 1fr;
-            gap: .7rem;
+            grid-template-columns: 1fr 1.25fr 1.45fr 1.25fr 1.35fr 1fr;
+            gap: .85rem;
+            align-items: start;
         }
         .case-label {
             font-size: .68rem;
@@ -236,34 +235,46 @@
             font-weight: 700;
         }
         .case-value {
-            font-size: .85rem;
+            font-size: .9rem;
             color: #0f172a;
-            font-weight: 600;
+            font-weight: 700;
             line-height: 1.25;
             margin-top: .1rem;
         }
         .case-sublist {
-            padding: .55rem .7rem .35rem;
-            background: #f8fafc;
+            padding: 0;
+            background: transparent;
         }
         .case-subrow {
             display: grid;
-            grid-template-columns: minmax(240px, 2fr) minmax(90px, .7fr) minmax(180px, 1fr) minmax(180px, 1fr) 52px;
+            grid-template-columns: minmax(260px, 2fr) minmax(100px, .75fr) minmax(120px, .75fr) minmax(150px, .85fr) minmax(190px, 1fr) minmax(170px, .95fr) 52px;
             gap: .5rem;
             align-items: center;
-            background: #fff;
-            border: 1px solid #e2e8f0;
+            background: transparent;
+            border: 0;
             border-left: 5px solid #cbd5e1;
-            border-radius: .65rem;
-            padding: .45rem .55rem;
-            margin-bottom: .4rem;
+            border-top: 1px solid #cbd5e1;
+            border-radius: 0;
+            padding: .75rem .9rem;
+            margin-bottom: 0;
         }
-        .case-subrow-open { border-left-color: #16a34a; }
-        .case-subrow-closed { border-left-color: #ef4444; }
-        .case-subrow-unknown { border-left-color: #f59e0b; }
+        .case-subrow-on-time { border-left-color: #16a34a; }
+        .case-subrow-due-soon { border-left-color: #f59e0b; }
+        .case-subrow-overdue { border-left-color: #ef4444; }
+        .case-subrow-closed { border-left-color: #94a3b8; }
+        .case-notes {
+            display: grid;
+            gap: .25rem;
+        }
+        .case-note-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .25rem;
+            align-items: center;
+        }
         @media (max-width: 1400px) {
-            .case-group-grid { min-width: 900px; }
-            .case-subrow { min-width: 900px; }
+            .case-group-grid { min-width: 1160px; }
+            .case-subrow { min-width: 1240px; }
         }
     </style>
 
@@ -283,7 +294,7 @@
                             <div class="lq-kpi-val">
                                 {{ $kpis['total_active'] ?? 0 }}
                             </div>
-                            <div class="lq-kpi-lbl">Total ativas</div>
+                            <div class="lq-kpi-lbl">Total demandas</div>
                         </div>
                         <div class="lq-kpi danger" wire:click="setTab('overdue')">
                             <div class="lq-kpi-val">
@@ -455,37 +466,39 @@
             <div class="card-header text-bg-dark fw-bold">
                 Jurídico › Fila de Demandas
             </div>
-            <div class="queue-toolbar">
-                <div>
-                    <input type="checkbox" class="form-check-input"
-                           wire:model="selectAll"
-                           wire:click="$set('selectedIds', $event.target.checked ? {{ $demands->pluck('id')->toJson() }} : [])" />
+            @unless($groupByCase)
+                <div class="queue-toolbar">
+                    <div>
+                        <input type="checkbox" class="form-check-input"
+                               wire:model="selectAll"
+                               wire:click="$set('selectedIds', $event.target.checked ? {{ $demands->pluck('id')->toJson() }} : [])" />
+                    </div>
+                    <div class="col-label">
+                        <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
+                                wire:click="sortBy('source_case_number')">
+                            Processo / Empresa
+                            @if($sortBy === 'source_case_number')
+                                <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
+                            @endif
+                        </button>
+                    </div>
+                    <div class="col-label">Tipo</div>
+                    <div class="col-label">Parte Adversa</div>
+                    <div class="col-label">Área Responsável</div>
+                    <div class="col-label">
+                        <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
+                                wire:click="sortBy('source_due_at')">
+                            Prazo
+                            @if($sortBy === 'source_due_at')
+                                <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
+                            @endif
+                        </button>
+                    </div>
+                    <div class="col-label">Situação</div>
+                    <div class="col-label">Responsáveis</div>
+                    <div class="col-label text-center">Ação</div>
                 </div>
-                <div class="col-label">
-                    <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
-                            wire:click="sortBy('source_case_number')">
-                        Processo / Empresa
-                        @if($sortBy === 'source_case_number')
-                            <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
-                        @endif
-                    </button>
-                </div>
-                <div class="col-label">Tipo</div>
-                <div class="col-label">Parte Adversa</div>
-                <div class="col-label">Área Responsável</div>
-                <div class="col-label">
-                    <button class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold"
-                            wire:click="sortBy('source_due_at')">
-                        Prazo
-                        @if($sortBy === 'source_due_at')
-                            <i class="bi bi-arrow-{{ $sortDir === 'asc' ? 'up' : 'down' }}"></i>
-                        @endif
-                    </button>
-                </div>
-                <div class="col-label">Situação</div>
-                <div class="col-label">Responsáveis</div>
-                <div class="col-label text-center">Ação</div>
-            </div>
+            @endunless
 
             <div class="queue-list">
                 @if($groupByCase)
@@ -494,11 +507,11 @@
                             <div class="case-group-head">
                                 <div class="case-group-grid">
                                     <div>
-                                        <div class="case-label">Number_case</div>
+                                        <div class="case-label">Número do caso</div>
                                         <div class="case-value">{{ $group['number_case'] }}</div>
                                     </div>
                                     <div>
-                                        <div class="case-label">Process_number</div>
+                                        <div class="case-label">Processo CNJ</div>
                                         <div class="case-value">{{ $group['process_number'] }}</div>
                                     </div>
                                     <div>
@@ -510,9 +523,28 @@
                                         <div class="case-value">{{ $group['firma'] }}</div>
                                     </div>
                                     <div>
-                                        <div class="case-label">Deadline aberto (mais próximo)</div>
+                                        <div class="case-label">Parte adversa</div>
                                         <div class="case-value">
-                                            <x-legal.due-date-chip :date="$group['nearest_open_deadline']" />
+                                            <x-legal.adverse-party-names :legal-case="$group['adverse_parties']" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="case-label">Próximo vencimento aberto</div>
+                                        <div class="case-value">
+                                            @if($group['nearest_open_deadline'])
+                                                @php
+                                                    $groupDueAt = \Carbon\Carbon::parse($group['nearest_open_deadline']);
+                                                    $groupDaysToDue = now()->startOfDay()->diffInDays($groupDueAt->copy()->startOfDay(), false);
+                                                @endphp
+                                                <span class="{{ $groupDaysToDue < 0 ? 'text-danger fw-bold' : 'text-muted' }}">
+                                                    {{ $groupDueAt->format('d/m/Y') }}
+                                                    <span class="text-muted">
+                                                        · {{ $groupDaysToDue < 0 ? 'há ' . abs((int) $groupDaysToDue) . 'd' : 'em ' . (int) $groupDaysToDue . 'd' }}
+                                                    </span>
+                                                </span>
+                                            @else
+                                                <span class="text-muted">Sem prazo aberto</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -527,12 +559,34 @@
                                             'subsidy'    => 'Subsídio',
                                             default      => $sourceTypeVal ?? '—',
                                         };
+                                        $tipoBg = match($sourceTypeVal) {
+                                            'injunction' => 'bg-danger text-white',
+                                            'sentence'   => 'bg-warning text-dark',
+                                            'subsidy'    => 'bg-info text-dark',
+                                            default      => 'bg-secondary text-white',
+                                        };
+                                        $internalStatusValue = $demand->internal_status instanceof \BackedEnum
+                                            ? $demand->internal_status->value
+                                            : (string) $demand->internal_status;
+                                        $isClosedInSicode = in_array($internalStatusValue, ['closed_internal', 'closed_external', 'cancelled', 'ignored'], true);
+                                        $dueAt = $demand->source_due_at;
+                                        $daysToDue = $dueAt ? now()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false) : null;
+                                        $isOverdueByDueAt = $dueAt && $daysToDue < 0;
+                                        $isDueSoon = $dueAt && $daysToDue >= 0 && $daysToDue <= 3;
+                                        $subRowClass = $isClosedInSicode
+                                            ? 'case-subrow-closed'
+                                            : ($isOverdueByDueAt ? 'case-subrow-overdue' : ($isDueSoon ? 'case-subrow-due-soon' : 'case-subrow-on-time'));
                                         $processStatusImport = (string) ($demand->process_status_at_import ?? '');
                                         $processStatusNormalized = mb_strtolower($processStatusImport);
                                         $isOpenByProcessStatus = $processStatusImport !== '' && !str_contains($processStatusNormalized, 'encerrad');
-                                        $subRowClass = $processStatusImport === ''
-                                            ? 'case-subrow-unknown'
-                                            : ($isOpenByProcessStatus ? 'case-subrow-open' : 'case-subrow-closed');
+                                        $linkedNotes = $demand->noteInstructions
+                                            ->map(fn ($instruction) => $instruction->note)
+                                            ->filter()
+                                            ->unique('id')
+                                            ->values();
+                                        if ($linkedNotes->isEmpty()) {
+                                            $linkedNotes = $demand->legalCase?->notes ?? collect();
+                                        }
                                     @endphp
                                     <div class="case-subrow {{ $subRowClass }}">
                                         <div class="queue-meta">
@@ -541,7 +595,45 @@
                                             </a>
                                             <div class="queue-subtext">ID {{ $demand->id }} · {{ $demand->created_at?->format('d/m/Y H:i') }}</div>
                                         </div>
-                                        <div><span class="badge bg-light text-dark border">{{ $tipoLabel }}</span></div>
+                                        <div><span class="badge {{ $tipoBg }}" style="font-size:.78rem">{{ $tipoLabel }}</span></div>
+                                        <div class="case-notes">
+                                            @forelse($linkedNotes->take(3) as $note)
+                                                @php
+                                                    $noteType = (int) ($note->type_note ?? 0);
+                                                    $referenceLabel = $noteType === 2 ? 'OV' : 'Nota';
+                                                    $referenceNumber = $note->note ?? $note->id;
+                                                    $noteSideInfo = $noteType === 1
+                                                        ? ($note->centerjob ?? '—')
+                                                        : ($note->nstats ?? '—');
+                                                @endphp
+                                                <div class="case-note-line">
+                                                    <span class="badge bg-secondary-subtle text-dark border" title="{{ $referenceLabel }} {{ $referenceNumber }}" data-bs-toggle="tooltip">
+                                                        {{ $referenceNumber }}
+                                                    </span>
+                                                    <span class="badge bg-light text-dark border">
+                                                        {{ $noteSideInfo }}
+                                                    </span>
+                                                </div>
+                                            @empty
+                                                <span class="text-muted small">Sem note</span>
+                                            @endforelse
+                                            @if($linkedNotes->count() > 3)
+                                                <span class="badge bg-light text-muted border">+{{ $linkedNotes->count() - 3 }}</span>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            <div class="case-label">Vencimento</div>
+                                            <span class="{{ $demand->source_due_at && $demand->source_due_at->isPast() ? 'text-danger fw-bold' : 'text-muted' }}">
+                                                @if($demand->source_due_at)
+                                                    {{ $demand->source_due_at->format('d/m/Y') }}
+                                                    <span class="text-muted">
+                                                        · {{ $daysToDue < 0 ? 'há ' . abs((int) $daysToDue) . 'd' : 'em ' . (int) $daysToDue . 'd' }}
+                                                    </span>
+                                                @else
+                                                    Sem prazo
+                                                @endif
+                                            </span>
+                                        </div>
                                         <div class="d-flex flex-column gap-1 align-items-start">
                                             <x-legal.status-badge :status="$demand->internal_status" />
                                             <span class="badge {{ $isOpenByProcessStatus ? 'bg-success' : ($processStatusImport === '' ? 'bg-warning text-dark' : 'bg-danger') }}">
@@ -655,13 +747,7 @@
                         </div>
 
                         <div class="queue-meta">
-                            @if($demand->opposing_party)
-                                <span title="{{ $demand->opposing_party }}" data-bs-toggle="tooltip">
-                                    {{ Str::limit($demand->opposing_party, 42) }}
-                                </span>
-                            @else
-                                <span class="text-muted">Não informado</span>
-                            @endif
+                            <x-legal.adverse-party-names :legal-case="$demand->legalCase" :fallback="$demand->opposing_party" />
                         </div>
 
                         <div class="queue-meta">

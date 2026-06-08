@@ -228,7 +228,7 @@ class LegalDashboard extends Component
 
             // Top 10 críticos (apenas ativos)
             $criticalDemands = $active()
-                ->with(['currentAssignee'])
+                ->with(['currentAssignee', 'legalCase.adverseParties'])
                 ->whereNotIn('internal_status', ['cancelled', 'ignored'])
                 ->orderByRaw('ISNULL(source_due_at) ASC')
                 ->orderBy('source_due_at', 'asc')
