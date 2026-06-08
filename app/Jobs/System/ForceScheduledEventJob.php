@@ -7,8 +7,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 class ForceScheduledEventJob implements ShouldQueue
@@ -34,14 +34,24 @@ class ForceScheduledEventJob implements ShouldQueue
 
     public function handle(): void
     {
-        $exitCode = Artisan::call('schedule:force-run', [
-            'eventHash' => $this->eventHash,
-            'displayName' => $this->displayName,
-            '--timeout' => $this->timeout,
-        ]);
+        $process = new Process([
+            PHP_BINARY,
+            base_path('artisan'),
+            'schedule:force-run',
+            $this->eventHash,
+            $this->displayName,
+            '--timeout=' . $this->timeout,
+        ], base_path());
+
+        $process->setTimeout($this->timeout + 30);
+        $process->run();
+
+        $exitCode = $process->getExitCode();
 
         if ((int) $exitCode !== 0) {
-            throw new \RuntimeException("Execucao manual do schedule falhou com exit code {$exitCode}.");
+            $output = trim($process->getOutput() . "\n" . $process->getErrorOutput());
+
+            throw new \RuntimeException("Execucao manual do schedule falhou com exit code {$exitCode}. " . ($output ?: 'Sem saida do processo.'));
         }
     }
 
