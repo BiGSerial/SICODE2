@@ -59,6 +59,8 @@ class Rejectedworkreports extends Component
         if ($this->advanceSearch) {
             $this->goToPage(1);
             $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
+            $this->search = '';
+            $this->advanceSearch = '';
             $this->dispatchBrowserEvent('hideModal');
         } else {
             $this->multiSearch = [];
@@ -74,6 +76,21 @@ class Rejectedworkreports extends Component
         $this->date_out = '';
     }
 
+    public function updated($propertyName)
+    {
+        $paginationSensitive = [
+            'search',
+            'advanceSearch',
+            'date_in',
+            'date_out',
+            'perPage',
+        ];
+
+        if (in_array($propertyName, $paginationSensitive, true)) {
+            $this->resetPage();
+        }
+    }
+
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
@@ -86,13 +103,7 @@ class Rejectedworkreports extends Component
 
     public function getListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filter = $this->loadFilters();
 
         // Iniciar a consulta de WorkReport
         $query = WorkReport::query()->active()
@@ -142,22 +153,28 @@ class Rejectedworkreports extends Component
         }
 
         // Filtros adicionais
-        if (isset($this->filter['company'])) {
+        if (!empty($this->filter['company'])) {
             $query->whereIn('company_id', $this->filter['company']);
         }
 
-        if (isset($this->filter['city'])) {
+        if (!empty($this->filter['city'])) {
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('lexp', $this->filter['city']);
             });
         }
 
-        if (isset($this->filter['rubrica'])) {
+        if (!empty($this->filter['region'])) {
+            $query->whereRelation('Note.City', function ($q) {
+                $q->whereIn('regiao', $this->filter['region']);
+            });
+        }
+
+        if (!empty($this->filter['rubrica'])) {
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('rubrica', $this->filter['rubrica']);
             });
         }
-        if (isset($this->filter['category'])) {
+        if (!empty($this->filter['category'])) {
             $query->whereRelation('Returnwork', function ($q) {
                 $q->whereIn('category', $this->filter['category']);
             });
@@ -175,6 +192,24 @@ class Rejectedworkreports extends Component
         ->orderBy('last_return_work.max_created_at', 'ASC');
 
         return $query; // Executa a consulta e retorna os resultados
+    }
+
+    private function loadFilters(): array
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $sessionFilters = session('filter.' . $this->filter_group);
+        if (is_array($sessionFilters)) {
+            return $sessionFilters;
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
+            return $_SESSION['filter'][$this->filter_group];
+        }
+
+        return [];
     }
 
 

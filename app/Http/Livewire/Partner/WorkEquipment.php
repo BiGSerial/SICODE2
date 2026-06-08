@@ -2,19 +2,22 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Exports\Partner\DeclaredEquipmentListExport;
-use App\Models\Equipment;
+use App\Jobs\Partner\ExportDeclaredEquipmentJob;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Services\Partner\DeclaredEquipmentQueryService;
 
 class WorkEquipment extends Component
 {
     use WithPagination;
 
+    private const EXCEL_EXPORT_LIMIT = 10000;
+
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
+    public int $excelExportLimit = self::EXCEL_EXPORT_LIMIT;
 
     public $search;
     public $advancedSearch;
@@ -28,7 +31,6 @@ class WorkEquipment extends Component
 
 
     private $filter_group = 'equipment';
-    private $filters;
 
 
 
@@ -46,6 +48,7 @@ class WorkEquipment extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
+        'refresh_filter' => 'refreshFilters',
 
     ];
 
@@ -67,89 +70,63 @@ class WorkEquipment extends Component
         }
     }
 
-    public function export_excel()
+    public function updated($propertyName)
     {
-        return (new DeclaredEquipmentListExport($this->lists))->download(now()->format('YmdHis').'-Equipamentos.xlsx');
+        $paginationSensitive = [
+            'search',
+            'perPage',
+            'equipType',
+            'moviment',
+            'companySelected',
+            'date_in',
+            'date_out',
+        ];
+
+        if (in_array($propertyName, $paginationSensitive, true)) {
+            $this->resetPage();
+        }
+    }
+
+    public function refreshFilters(...$payload): void
+    {
+        $this->resetPage();
+    }
+
+    public function exportFile(string $format): void
+    {
+        $format = $format === ExportDeclaredEquipmentJob::FORMAT_XLSX
+            ? ExportDeclaredEquipmentJob::FORMAT_XLSX
+            : ExportDeclaredEquipmentJob::FORMAT_CSV;
+
+        $total = $this->lists->count();
+
+        if ($format === ExportDeclaredEquipmentJob::FORMAT_XLSX && $total > self::EXCEL_EXPORT_LIMIT) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Volume alto para Excel',
+                'html' => "Esta consulta tem {$total} registros. Para mais de " . self::EXCEL_EXPORT_LIMIT . ' registros, use CSV.',
+                'timer' => 6000,
+            ]);
+
+            return;
+        }
+
+        ExportDeclaredEquipmentJob::dispatch($this->exportParams(), (string) auth()->id(), $format);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportacao em andamento',
+            'html' => 'Voce sera notificado quando o arquivo estiver pronto.',
+            'timer' => 4000,
+        ]);
     }
 
 
     public function getListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filters = $_SESSION['filter'][$this->filter_group];
-        }
-
-        $query = Equipment::query();
-
-
-        if (!auth()->user()->superadm) {
-
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->whereRelation('WorkReport', function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            } else {
-                $query->whereRelation('WorkReport', 'company_id', Auth()->user()->Company->id);
-            }
-        }
-
-        if ($this->date_in && $this->date_out) {
-            $query->whereBetween('created_at', [$this->date_in, $this->date_out]);
-        } elseif ($this->date_in) {
-            $query->where('created_at', '>=', $this->date_in);
-        } elseif ($this->date_out) {
-            $query->where('created_at', '<=', $this->date_out);
-        }
-
-        if ($this->search) {
-            $query->where(function ($query) {
-                $query->Where('patrimony', 'like', '%' . $this->search . '%')
-                    ->orWhereRelation('WorkReport.Note', function ($q) {
-                        return $q->where('note', 'like', '%' . $this->search . '%')
-                            ->orWhere('lexp', 'like', '%' . $this->search . '%');
-                    })->orWhereRelation('WorkReport.Orders', function ($q) {
-                        return $q->where('ordem', 'like', '%' . $this->search . '%');
-                    });
-            });
-        }
-
-        // Filtro de Rubrica
-        if (isset($this->filters['rubrica'])) {
-            $rubricas = $this->filters['rubrica'];
-            $query->whereRelation('WorkReport.Note', function ($q) use ($rubricas) {
-                $q->whereIn('rubrica', $rubricas)
-                    ->orWhereNull('rubrica');
-            });
-        }
-
-        // Filtro de Cidade (lexp)
-        if (isset($this->filters['city'])) {
-            $cities = $this->filters['city'];
-            $query->whereRelation('WorkReport.Note', function ($q) use ($cities) {
-                $q->whereIn('lexp', $cities)
-                    ->orWhereNull('lexp');
-            });
-        }
-
-        if ($this->equipType) {
-            $query->where('type', $this->equipType);
-        }
-
-        if ($this->moviment != '') {
-            $query->where('installed', $this->moviment);
-        }
-
-        if ($this->companySelected) {
-            $query->whereRelation('WorkReport', 'company_id', $this->companySelected);
-        }
-
-
-
-        return $query->orderBy('patrimony');
+        return app(DeclaredEquipmentQueryService::class)->build($this->exportParams(), auth()->user());
     }
 
     public function cleanAll()
@@ -165,6 +142,37 @@ class WorkEquipment extends Component
             'date_out',
             'month'
         ]);
+    }
+
+    private function exportParams(): array
+    {
+        return [
+            'search' => $this->search,
+            'equipType' => $this->equipType,
+            'moviment' => $this->moviment,
+            'companySelected' => $this->companySelected,
+            'date_in' => $this->date_in,
+            'date_out' => $this->date_out,
+            'filters' => $this->loadFilters(),
+        ];
+    }
+
+    private function loadFilters(): array
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $sessionFilters = session('filter.' . $this->filter_group);
+        if (is_array($sessionFilters)) {
+            return $sessionFilters;
+        }
+
+        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
+            return $_SESSION['filter'][$this->filter_group];
+        }
+
+        return [];
     }
 
 
