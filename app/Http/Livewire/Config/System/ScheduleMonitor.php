@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Config\System;
 
+use App\Jobs\System\ForceScheduledEventJob;
 use App\Models\ScheduleExecutionLog;
 use App\Models\UpdateExecutionLog;
 use Carbon\Carbon;
@@ -122,39 +123,17 @@ class ScheduleMonitor extends Component
             (string) $event->command
         );
 
-        $command = implode(' ', [
-            'nohup',
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(base_path('artisan')),
-            'schedule:force-run',
-            escapeshellarg($eventHash),
-            escapeshellarg($displayName),
-            '> /dev/null 2>&1 & echo $!',
-        ]);
-
-        $process = Process::fromShellCommandline($command, base_path());
-        $process->setTimeout(10);
-
         try {
-            $process->run();
+            ForceScheduledEventJob::dispatch($eventHash, $displayName);
         } catch (Throwable $e) {
             $this->forceStatus = 'danger';
-            $this->forceMessage = 'Falha ao iniciar execucao forçada: ' . $e->getMessage();
+            $this->forceMessage = 'Falha ao enfileirar execucao forçada: ' . $e->getMessage();
             $this->refreshData();
             return;
         }
 
-        if (!$process->isSuccessful()) {
-            $output = trim($process->getOutput() . "\n" . $process->getErrorOutput());
-            $this->forceStatus = 'danger';
-            $this->forceMessage = 'Falha ao iniciar execucao forçada. ' . ($output ?: 'Sem retorno do processo.');
-            $this->refreshData();
-            return;
-        }
-
-        $pid = trim($process->getOutput());
         $this->forceStatus = 'success';
-        $this->forceMessage = 'Execucao forçada iniciada para ' . $displayName . ($pid ? " (PID {$pid})." : '.');
+        $this->forceMessage = 'Execucao forçada enfileirada para ' . $displayName . '. Timeout maximo: 1h.';
 
         $this->refreshData();
     }

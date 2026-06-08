@@ -36,7 +36,14 @@ class TransferLog extends Command
             $this->info('<bg=blue;fg=white> INFO </> <fg=white;options=bold> NOT IS PRODUCTION SERVER, ABORTING PROPAGATION LOG</>');
         }
         
-        $transfers = Prodtransfer::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))->with('Production', 'From', 'To', 'Service')->get();
+        $transfers = Prodtransfer::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))
+            ->with([
+                'Production.Note',
+                'From.Employee.Contract.company',
+                'To.Employee.Contract.company',
+                'Service',
+            ])
+            ->get();
 
         $progressBar = $this->createProgressBar($transfers->count());
 
@@ -47,38 +54,15 @@ class TransferLog extends Command
 
             foreach ($transfers as $transfer) {
                 $check = TransferProdLog::where('prodtrans_id', $transfer->id)->first();
+                $payload = $this->payload($transfer);
                 $msg   = '';
 
                 if ($check) {
-                    $check->update([
-                        'prodtrans_id'  => $transfer->id,
-                        'production_id' => $transfer->production_id,
-                        'note'          => $transfer->Production->load('Note')->Note->note,
-                        'service'       => $transfer->Service->service,
-                        'from'          => $transfer->From->name,
-                        'company_from'  => $transfer->From->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'to'            => $transfer->To->name,
-                        'company_to'    => $transfer->To->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'info'          => trim($transfer->info),
-                        'status'        => Notestatus::status($transfer->status)->status,
-                        'note_status'   => $transfer->Production->status_note,
-                    ]);
+                    $check->update($payload);
 
                     $msg = "<bg=yellow;fg=white;options=bold> UPDATED </><bg=blue;fg=white;options=bold> { $check->note } </>";
                 } else {
-                    $check = TransferProdLog::create([
-                        'prodtrans_id'  => $transfer->id,
-                        'production_id' => $transfer->production_id,
-                        'note'          => $transfer->Production->load('Note')->Note->note,
-                        'service'       => $transfer->Service->service,
-                        'from'          => $transfer->From->name,
-                        'company_from'  => $transfer->From->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'to'            => $transfer->To->name,
-                        'company_to'    => $transfer->To->load('Employee.Contract.company')->Employee->Contract->company->name,
-                        'info'          => trim($transfer->info),
-                        'status'        => Notestatus::status($transfer->status)->status,
-                        'note_status'   => $transfer->Production->status_note,
-                    ]);
+                    $check = TransferProdLog::create($payload);
 
                     $msg = "<bg=green;fg=white;options=bold> CREATED </><bg=blue;fg=white;options=bold> { $check->note } </>";
                 }
@@ -94,5 +78,24 @@ class TransferLog extends Command
         }
 
         $this->info('<bg=green;fg=white> DONE </>');
+    }
+
+    private function payload(Prodtransfer $transfer): array
+    {
+        $production = $transfer->Production;
+
+        return [
+            'prodtrans_id'  => $transfer->id,
+            'production_id' => $transfer->production_id,
+            'note'          => $production?->Note?->note ?? '',
+            'service'       => $transfer->Service?->service ?? '',
+            'from'          => $transfer->From?->name ?? '',
+            'company_from'  => $transfer->From?->Employee?->Contract?->company?->name ?? '',
+            'to'            => $transfer->To?->name ?? '',
+            'company_to'    => $transfer->To?->Employee?->Contract?->company?->name ?? '',
+            'info'          => trim((string) $transfer->info),
+            'status'        => Notestatus::status($transfer->status)->status,
+            'note_status'   => $production?->status_note ?? '',
+        ];
     }
 }
