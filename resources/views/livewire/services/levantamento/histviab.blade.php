@@ -5,11 +5,18 @@
     use App\Models\Production;
     use App\Custom\Viabilitiesstatus;
 @endphp
-<div>
+<div class="user-activity-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Histórico de viabilidade',
+        'subtitle' => 'Consulta dos projetos enviados para viabilidade',
+        'total' => $lists->total(),
+        'accent' => '#198754',
+    ])
 
-    <div class="row justify-content-between">
+    <div class="row g-3 activity-filter-card mb-3">
         <div class="mb-3 col-3">
             <label for="search" class="form-label">Buscar</label>
             <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
@@ -73,19 +80,19 @@
 
 
     @if ($lists->count())
-        <div class="row">
+        <div class="row user-activity-summary my-3 align-items-center">
             <div class="col-6">
                 {{ $lists->links() }}
             </div>
             <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                     {{ $lists->lastItem() }}
                     de {{ $lists->total() }}
                     registros.</span>
             </div>
         </div>
     @endif
-    <dic class="card">
+    <div class="user-activity-table-card">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -93,7 +100,7 @@
                 </h4>
             </div>
         @else
-            <h4 class="card-header fw-bold text-bg-success">MEUS PROJETOS EM VIABILIDAE
+            <h4 class="user-activity-table-header user-activity-table-title text-bg-success">MEUS PROJETOS EM VIABILIDADE
             </h4>
             <div class="card-body">
                 <div class="table-responsive">
@@ -178,14 +185,14 @@
         @endif
 
 
-    </dic>
+    </div>
     @if ($lists->count())
-        <div class="row">
+        <div class="row user-activity-summary my-3 align-items-center">
             <div class="col-6">
                 {{ $lists->links() }}
             </div>
             <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                     {{ $lists->lastItem() }}
                     de {{ $lists->total() }}
                     registros.</span>
@@ -267,10 +274,5 @@
             document.body.removeChild(textArea);
         }
 
-        window.addEventListener("showModal2", function(e) {
-            alert('Funciona')
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
     </script>
 @endpush

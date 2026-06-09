@@ -250,10 +250,11 @@
                                 <strong>{{ mb_strtoupper($service->service) }}</strong></h4>
                         </div>
                     @else
-                        <div class="card-header fw-bold text-bg-danger d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-between">
-                            <h4 class="fw-bold my-0">ACOMPANHAMENTO -
-                                {{ mb_strtoupper($service->service) }}
-                            </h4>
+                        <div class="card-header text-bg-danger d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-between">
+                            <div>
+                                <h5 class="fw-semibold fs-5 my-0">Acompanhamento</h5>
+                                <div class="small text-white-50">{{ mb_strtoupper($service->service) }}</div>
+                            </div>
                             @if (count($selected))
                                 <button class="btn btn-sm btn-warning" data-bs-toggle="modal"
                                     data-bs-target="#bulk_finish_modal">
@@ -560,10 +561,5 @@
             document.body.removeChild(textArea);
         }
 
-        window.addEventListener("showModal2", function(e) {
-            alert('Funciona')
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
     </script>
 @endpush

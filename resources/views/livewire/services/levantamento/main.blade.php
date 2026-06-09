@@ -127,9 +127,12 @@
                 </div>
 
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between">
-                        <span>ACOMPANHAMENTO — {{ mb_strtoupper($service->service) }}</span>
-                        <span>
+                    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <h5 class="fw-semibold fs-5 my-0">Acompanhamento</h5>
+                            <div class="small text-white-50">{{ mb_strtoupper($service->service) }}</div>
+                        </div>
+                        <span class="small">
                             @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                                 ({{ $sts->value }})
                             @endforeach

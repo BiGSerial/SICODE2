@@ -10,209 +10,341 @@
             --hist-bg: #f4f7fb;
             --hist-surface: #ffffff;
             --hist-border: #dde5ef;
+            --hist-ink: #1f2933;
+            --hist-muted: #6b7280;
             background: radial-gradient(circle at 10% 0%, #dcfce7, transparent 35%),
                 radial-gradient(circle at 90% 10%, #dbeafe, transparent 30%),
                 var(--hist-bg);
-            padding: 1rem 0 1.5rem;
+            padding: 1.5rem 0;
         }
 
         .historic-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e);
+            background: linear-gradient(120deg, #0f172a, #198754 70%);
             color: #f8fafc;
-            border-radius: 0.6rem;
-            padding: 1rem 1.2rem;
-            margin-bottom: 1rem;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1.5rem;
         }
 
-        .historic-filters {
+        .historic-header h2 {
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        .historic-header .meta {
+            color: rgba(248, 250, 252, 0.78);
+            font-size: 0.95rem;
+        }
+
+        .historic-header .hero-count {
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .historic-filters .filter-card {
             background: var(--hist-surface);
             border: 1px solid var(--hist-border);
-            border-radius: 0.55rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+            border-radius: 0.9rem;
+            padding: 1rem 1.25rem;
+            height: 100%;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .historic-filters .filter-card h6 {
+            color: var(--hist-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .historic-summary {
+            background: var(--hist-surface);
+            border: 1px solid var(--hist-border);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1.25rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        }
+
+        .historic-summary .summary-item {
+            color: var(--hist-muted);
+            font-size: 0.92rem;
+        }
+
+        .historic-summary .summary-item strong {
+            color: var(--hist-ink);
         }
 
         .historic-table-card {
             background: var(--hist-surface);
             border: 1px solid var(--hist-border);
-            border-radius: 0.6rem;
+            border-radius: 0.9rem;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
             overflow: hidden;
+        }
+
+        .historic-table-header {
+            background: var(--bs-success);
+            border-bottom: 1px solid var(--bs-success);
+            color: #ffffff;
+            padding: 1rem 1.25rem;
+        }
+
+        .historic-table-title {
+            color: #ffffff;
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .historic-table-subtitle {
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.82rem;
+            margin-top: 0.2rem;
+        }
+
+        .historic-table-card .table {
+            margin-bottom: 0;
+        }
+
+        .historic-table-card .table thead th {
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .historic-table-card .table tbody td {
+            font-size: 0.92rem;
+        }
+
+        @media (max-width: 991px) {
+            .historic-header {
+                padding: 1.25rem;
+            }
         }
     </style>
 
-    <div class="historic-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="mb-0 fw-bold">HISTÓRICO DE ARQUIVOS - {{ mb_strtoupper($service->service) }}</h5>
-        <small>Filtros rápidos e revisão versionada por produção</small>
-    </div>
-
-    <div class="historic-filters">
-        <div class="row justify-content-between g-2">
-        <div class="mb-1 col-12 col-md-4 col-lg-3">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
-                    id="search" placeholder="Buscar (aceita múltiplos por espaço, vírgula ou quebra de linha)">
-                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#multi_search_modal"
-                    type="button" title="Busca múltipla">
-                    <i class="ri-file-copy-line"></i>
-                </button>
+    <div class="container-fluid">
+        <div class="historic-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <div class="meta text-uppercase">Histórico de atividades</div>
+                <h2>{{ mb_strtoupper($service->service) }}</h2>
+                <div class="meta mt-1">Consulta de arquivos e produções concluídas</div>
             </div>
-            <small class="text-muted">Use o ícone para colar/copiar múltiplos registros.</small>
-        </div>
-        <div class="mb-1 col-12 col-md-4 col-lg-3">
-            <label for="file_search" class="form-label">Arquivo</label>
-            <input wire:model.bounce.2s="file_search" type="text" class="form-control border border-secondary"
-                id="file_search" placeholder="Nome do arquivo">
-        </div>
-        <div class="mb-1 col-12 col-md-4 col-lg-3">
-            <label for="search" class="form-label">Período:</label>
-            <select class="form-control border border-secondary" aria-label="Seleção período"
-                wire:model="date_prod_s">
-                <option value="" selected>Selecione um Período</option>
-                @if ($date_prod_l)
-                    @foreach ($date_prod_l as $date_prod)
-                        <option value="{{ $date_prod->mes_ano }}">
-                            {{ $meses[date('n', strtotime($date_prod->mes_ano))] }}
-                            {{ date('Y', strtotime($date_prod->mes_ano)) }}</option>
-                    @endforeach
+            <div class="d-flex align-items-center gap-4 text-lg-end">
+                @if ($service->Status->count())
+                    <div>
+                        <div class="meta">Status do serviço</div>
+                        <strong>
+                            @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                                ({{ $sts->value }})
+                            @endforeach
+                        </strong>
+                    </div>
                 @endif
+                <div>
+                    <div class="meta">Registros</div>
+                    <div class="hero-count">{{ $lists->total() }}</div>
+                </div>
+            </div>
+        </div>
 
-            </select>
-        </div>
-        <div class="mb-1 col-12 col-md-4 col-lg-3">
-            <label for="date_field" class="form-label">Data de referência</label>
-            <select id="date_field" class="form-control border border-secondary" wire:model="date_field">
-                <option value="completed_at">Conclusão</option>
-                <option value="att_at">Início</option>
-                <option value="dispatch_at">Despacho</option>
-            </select>
-        </div>
-        <div class="mb-1 col-12 col-md-3 col-lg-2">
-            <label for="date_from" class="form-label">Data inicial</label>
-            <input id="date_from" type="date" class="form-control border border-secondary" wire:model="date_from">
-        </div>
-        <div class="mb-1 col-12 col-md-3 col-lg-2">
-            <label for="date_to" class="form-label">Data final</label>
-            <input id="date_to" type="date" class="form-control border border-secondary" wire:model="date_to">
-        </div>
-        <div class="mb-1 col-12 col-md-6 col-lg-4 d-flex align-items-end gap-2">
-            @if (count($multi_search_terms ?? []))
-                <span class="badge text-bg-primary">Busca múltipla: {{ count($multi_search_terms ?? []) }}</span>
-            @endif
-            <button class="btn btn-outline-secondary" type="button" wire:click="clearDateFilters">Limpar datas</button>
-            @if (count($multi_search_terms ?? []))
-                <button class="btn btn-outline-danger" type="button" wire:click="clearMultiSearch">Limpar múltipla</button>
-            @endif
-        </div>
-        </div>
-    </div>
-    {{-- <div class="btn-group mb-3">
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
+        <div class="row g-3 historic-filters mb-3">
+            <div class="col-12 col-xl-5">
+                <div class="filter-card">
+                    <h6>Pesquisa</h6>
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-3">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" wire:model="perPage"
+                                    id="historicPerPage">
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                    <option value="500">500</option>
+                                </select>
+                                <label for="historicPerPage">Por página</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-9">
+                            <div class="input-group">
+                                <div class="form-floating">
+                                    <input wire:model.bounce.2s="search" type="text"
+                                        class="form-control border border-secondary" id="historicSearch"
+                                        placeholder="Buscar nota ou descrição">
+                                    <label for="historicSearch">Buscar nota ou descrição</label>
+                                </div>
+                                <button class="btn btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#multi_search_modal" type="button" title="Busca múltipla">
+                                    <i class="ri-file-copy-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <input wire:model.bounce.2s="file_search" type="text"
+                                    class="form-control border border-secondary" id="file_search"
+                                    placeholder="Nome do arquivo">
+                                <label for="file_search">Nome do arquivo</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                </button>
+            <div class="col-12 col-xl-5">
+                <div class="filter-card">
+                    <h6>Período</h6>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6">
+                            <div class="form-floating">
+                                <select class="form-select border border-secondary" wire:model="date_prod_s"
+                                    id="historicPeriod">
+                                    <option value="">Selecione um período</option>
+                                    @foreach ($date_prod_l ?? [] as $date_prod)
+                                        <option value="{{ $date_prod->mes_ano }}">
+                                            {{ $meses[date('n', strtotime($date_prod->mes_ano))] }}
+                                            {{ date('Y', strtotime($date_prod->mes_ano)) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <label for="historicPeriod">Mês de conclusão</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-floating">
+                                <select id="date_field" class="form-select border border-secondary"
+                                    wire:model="date_field">
+                                    <option value="completed_at">Conclusão</option>
+                                    <option value="att_at">Início</option>
+                                    <option value="dispatch_at">Despacho</option>
+                                </select>
+                                <label for="date_field">Data de referência</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-floating">
+                                <input id="date_from" type="date" class="form-control border border-secondary"
+                                    wire:model="date_from">
+                                <label for="date_from">Data inicial</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-floating">
+                                <input id="date_to" type="date" class="form-control border border-secondary"
+                                    wire:model="date_to">
+                                <label for="date_to">Data final</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
+            <div class="col-12 col-xl-2">
+                <div class="filter-card d-flex flex-column">
+                    <h6>Ações</h6>
+                    <div class="d-grid gap-2 mt-auto">
+                        @if (count($multi_search_terms ?? []))
+                            <span class="badge text-bg-primary">
+                                Busca múltipla: {{ count($multi_search_terms ?? []) }}
+                            </span>
                         @endif
-
-
-                    </form>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                        Aplicar Filtro</button>
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_clean"><i
-                            class="ri-filter-off-fill"></i> Limpar Filtro</button>
-
-                </div>
-            </div>
-        </div> --}}
-
-    @can('superadm')
-        <div class="row justify-content-start">
-            <div class="col-2">
-                <input wire:model.bounce.2s="user_search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar usuario">
-            </div>
-
-            <div class="col-3 mb-3">
-                <div class="input-group">
-                    <select class="form-select border border-2 border-secondary" aria-label="Default select example"
-                        wire:model.defer="user_s">
-                        @if ($user_l->count())
-                            <option value="">Selecione Usuario</option>
-                            @foreach ($user_l as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
+                        <button class="btn btn-outline-secondary" type="button" wire:click="clearDateFilters">
+                            <i class="ri-calendar-close-line me-1"></i>Limpar datas
+                        </button>
+                        @if (count($multi_search_terms ?? []))
+                            <button class="btn btn-outline-danger" type="button" wire:click="clearMultiSearch">
+                                <i class="ri-close-circle-line me-1"></i>Limpar múltipla
+                            </button>
                         @endif
-                    </select>
-
-
-                    <button class="btn btn-primary " wire:click.prevent="visualizar" type="button">
-                        Visualizar</button>
+                    </div>
                 </div>
             </div>
         </div>
-    @endcan
+
+        @can('superadm')
+            <div class="row g-3 historic-filters mb-3">
+                <div class="col-12">
+                    <div class="filter-card">
+                        <h6>Visão administrativa</h6>
+                        <div class="row g-2">
+                            <div class="col-12 col-lg-5">
+                                <input wire:model.bounce.2s="user_search" type="text"
+                                    class="form-control border border-secondary" id="historicUserSearch"
+                                    placeholder="Buscar usuário">
+                            </div>
+                            <div class="col-12 col-lg-7">
+                                <div class="input-group">
+                                    <select class="form-select border border-secondary" wire:model.defer="user_s">
+                                        <option value="">Selecione o usuário</option>
+                                        @foreach ($user_l as $user)
+                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button class="btn btn-success" wire:click.prevent="visualizar" type="button">
+                                        Visualizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endcan
 
     @if ($lists->count())
-        <div class="row">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
+        <div class="historic-summary mb-3">
+            <div class="row align-items-center">
+                <div class="col-12 col-lg-6">
+                    {{ $lists->links() }}
+                </div>
+                <div class="col-12 col-lg-6 text-lg-end">
+                    <div class="summary-item">
+                        Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                        <strong>{{ $lists->lastItem() }}</strong> de
+                        <strong>{{ $lists->total() }}</strong> registros.
+                    </div>
+                </div>
             </div>
         </div>
     @endif
-    <div class="historic-table-card card border-0">
 
+    <div class="historic-table-card">
         @if (!$lists->count())
-            <div class="card-body">
-                <h4 class="text-center">VOCÊ NAO TEM REGISTRO DE TAREFAS PARA
-                    <strong>{{ mb_strtoupper($service->service) }}</strong>
-                    @if ($service->Status->count())
-                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                            ({{ $sts->value }})
-                        @endforeach
-                    @endif
-                </h4>
+            <div class="card-body py-5 text-center">
+                <i class="ri-history-line display-5 text-secondary"></i>
+                <h4 class="mt-3 mb-1">Nenhum registro no histórico</h4>
+                <p class="text-muted mb-0">
+                    Não existem tarefas concluídas de {{ mb_strtoupper($service->service) }} para os filtros informados.
+                </p>
             </div>
         @else
-            <h4 class="card-header fw-bold text-bg-success">MEU HISTÓRICO - {{ mb_strtoupper($service->service) }}
-                @if ($service->Status->count())
-                    @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                        ({{ $sts->value }})
-                    @endforeach
-                @endif
-            </h4>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark        ">
-                            <tr>
+            <div class="historic-table-header d-flex align-items-center justify-content-between gap-3">
+                <div>
+                    <h5 class="historic-table-title">
+                        <i class="ri-history-line me-2"></i>Meu histórico
+                    </h5>
+                    <div class="historic-table-subtitle">
+                        {{ mb_strtoupper($service->service) }}
+                        @if ($service->Status->count())
+                            @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                                · Status {{ $sts->value }}
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+                <span class="badge text-bg-light">{{ $lists->total() }} registros</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-condensed">
+                    <thead class="table-dark">
+                        <tr class="sticky-top bg-dark" style="z-index: 1; top: 0;">
                                 <th scope="col" class="fw-bold">Note</th>
                                 <th scope="col" class="fw-bold"></th>
                                 <th scope="col" class="fw-bold"></th>
@@ -226,96 +358,101 @@
                                 <th scope="col" class="fw-bold">Tempo</th>
                                 <th scope="col" class="fw-bold">Parado</th>
                                 <th scope="col" class="fw-bold">Resultado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                <tr
-                                    class="align-middle
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            <tr
+                                class="align-middle
                             @if (Carbon::parse($list->completed_at)->diffInDays(Carbon::now()) > 1 &&
                                     $list->completed &&
                                     $list->status_note == $list->Note->nstats) table-warning @endif
                         ">
-                                    <td class="fw-bold">
-                                        {{ $list->Note->note }}
+                                <td class="fw-bold">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span>{{ $list->Note->note }}</span>
                                         @if ($list->d5)
                                             <span class="badge text-bg-primary">RI</span>
                                         @endif
-                                        <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                            style="cursor: pointer;"> <i class="ri-file-copy-line"></i></span>
-                                    </td>
-                                    <td>
-                                        @if (!$list->confirmed)
-                                            <i class="ri-rest-time-line text-primary fs-4"></i>
-                                        @else
-                                            <i class="ri-checkbox-circle-line text-success fs-4"></i>
-                                        @endif
+                                        <button type="button" class="copy-text btn btn-link btn-sm p-0 text-secondary"
+                                            data-value="{{ $list->Note->note }}" title="Copiar número da nota">
+                                            <i class="ri-file-copy-line"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (!$list->confirmed)
+                                        <i class="ri-rest-time-line text-primary fs-4"></i>
+                                    @else
+                                        <i class="ri-checkbox-circle-line text-success fs-4"></i>
+                                    @endif
 
-                                        @if ($list->transferred)
-                                            <i class="ri-exchange-fill text-warning fs-4"></i>
-                                        @endif
+                                    @if ($list->transferred)
+                                        <i class="ri-exchange-fill text-warning fs-4"></i>
+                                    @endif
 
-                                    </td>
-                                    <td class="fw-light">
-                                        @if ((int) $list->higher_confirmed_count > 0)
-                                            <span data-bs-toggle="tooltip" data-bs-placement="top"
-                                                data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Existe Status Superior Confirmado">
-                                                <i class="ri-file-list-3-line text-danger fs-4"></i>
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td class="align-middle">
-                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <div class="d-flex align-items-center gap-2">
-                                            <x-files.select-download-list :files='$list->Note->Files' :latest-only="true" />
-                                            <button type="button" class="btn btn-sm btn-outline-success"
-                                                onclick="Livewire.emit('openFileRevisionModal', {{ $list->id }}, '{{ $service->uuid }}')">
-                                                <i class="ri-upload-cloud-2-line"></i> Revisar
-                                            </button>
-                                        </div>
-                                    <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                    <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                    <td class="fw-light">{{ $list->Note->group1 }}</td>
-                                    <td class="fw-light">{{ $list->Note->material }}</td>
-                                    <td class="fw-light">{{ date('d/m/Y H:i', strToTime($list->att_at)) }}</td>
-                                    <td class="fw-light">
-                                        {{ Carbon::parse($list->completed_at)->format('d/m/Y H:i') }}
-                                    </td>
-                                    <td class="fw-light">
-                                        {{ Carbon::parse($list->completed_at)->diffForHumans(Carbon::parse($list->att_at)->format('Y-m-d H:i')) }}
-                                    </td>
-                                    <td class="fw-light">
-                                        {{ CarbonInterval::seconds($list->stopped)->cascade()->forHumans(['short' => true]) }}
-                                    </td>
-                                    <td class="fs-6">
-                                        @if ($list->Analise?->conclusion)
-                                            <a href="#" class="link-secondary fw-bold"
-                                                onclick="event.preventDefault(); Livewire.emit('openHistoricAnalise', {{ $list->id }})">
-                                                {{ $list->Analise->conclusion }}
-                                            </a>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                </td>
+                                <td class="fw-light">
+                                    @if ((int) $list->higher_confirmed_count > 0)
+                                        <span data-bs-toggle="tooltip" data-bs-placement="top"
+                                            data-bs-custom-class="custom-tooltip"
+                                            data-bs-title="Existe Status Superior Confirmado">
+                                            <i class="ri-file-list-3-line text-danger fs-4"></i>
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="align-middle">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <x-files.select-download-list :files='$list->Note->Files' :latest-only="true" />
+                                        <button type="button" class="btn btn-sm btn-outline-success"
+                                            onclick="Livewire.emit('openFileRevisionModal', {{ $list->id }}, '{{ $service->uuid }}')">
+                                            <i class="ri-upload-cloud-2-line"></i> Revisar
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="fw-light">{{ $list->Note->rubrica }}</td>
+                                <td class="fw-light">{{ $list->Note->lexp }}</td>
+                                <td class="fw-light">{{ $list->Note->group1 }}</td>
+                                <td class="fw-light">{{ $list->Note->material }}</td>
+                                <td class="fw-light">{{ date('d/m/Y H:i', strtotime($list->att_at)) }}</td>
+                                <td class="fw-light">
+                                    {{ Carbon::parse($list->completed_at)->format('d/m/Y H:i') }}
+                                </td>
+                                <td class="fw-light">
+                                    {{ Carbon::parse($list->completed_at)->diffForHumans(Carbon::parse($list->att_at)->format('Y-m-d H:i')) }}
+                                </td>
+                                <td class="fw-light">
+                                    {{ CarbonInterval::seconds($list->stopped)->cascade()->forHumans(['short' => true]) }}
+                                </td>
+                                <td class="fs-6">
+                                    @if ($list->Analise?->conclusion)
+                                        <a href="#" class="link-success fw-semibold"
+                                            onclick="event.preventDefault(); Livewire.emit('openHistoricAnalise', {{ $list->id }})">
+                                            {{ $list->Analise->conclusion }}
+                                        </a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
-
-
     </div>
+
     @if ($lists->count())
-        <div class="row">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
+        <div class="historic-summary mt-3">
+            <div class="row align-items-center">
+                <div class="col-12 col-lg-6">
+                    {{ $lists->links() }}
+                </div>
+                <div class="col-12 col-lg-6 text-lg-end">
+                    <div class="summary-item">
+                        Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                        <strong>{{ $lists->lastItem() }}</strong> de
+                        <strong>{{ $lists->total() }}</strong> registros.
+                    </div>
+                </div>
             </div>
         </div>
     @endif
@@ -398,6 +535,7 @@
     @livewire('components.historic.analises', ['isSingleton' => true])
 
 </div>
+</div>
 
 
 @push('script')
@@ -422,12 +560,5 @@
             document.execCommand('copy');
             document.body.removeChild(textArea);
         }
-
-        window.addEventListener("showModal2", function(e) {
-            alert('Funciona')
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
-
     </script>
 @endpush

@@ -234,13 +234,17 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-dark">ACOMPANHAMENTO -
-                        {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
-                            @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                ({{ $sts->value }})
-                            @endforeach
-                        @endif
-                    </h4>
+                    <div class="card-header text-bg-dark py-3">
+                        <h5 class="fw-semibold fs-5 my-0">Acompanhamento</h5>
+                        <div class="small text-white-50">
+                            {{ mb_strtoupper($service->service) }}
+                            @if ($service->Status->count())
+                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                                    · Status {{ $sts->value }}
+                                @endforeach
+                            @endif
+                        </div>
+                    </div>
 
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
@@ -587,11 +591,6 @@
             document.body.removeChild(textArea);
         }
 
-        window.addEventListener("showModal2", function(e) {
-            alert('Funciona')
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
 
         window.addEventListener("hideModal2", function(e) {
             const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))

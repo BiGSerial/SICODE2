@@ -189,15 +189,14 @@
                         </h4>
                     </div>
                 @else
-                    <div class="card-header text-bg-danger">
-                        <div class="row">
-                            <div class="col">
-                                <h4 class="my-0">
-                                    ACOMPANHAMENTO - {{ $serviceTitle }}
-                                    @if ($statusBadges)
-                                        ({{ $statusBadges }})
-                                    @endif
-                                </h4>
+                    <div class="card-header text-bg-danger py-3">
+                        <div>
+                            <h5 class="fw-semibold fs-5 my-0">Acompanhamento</h5>
+                            <div class="small text-white-50">
+                                {{ $serviceTitle }}
+                                @if ($statusBadges)
+                                    · Status {{ $statusBadges }}
+                                @endif
                             </div>
                         </div>
                     </div>

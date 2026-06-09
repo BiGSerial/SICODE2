@@ -3,11 +3,18 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
-<div>
+<div class="user-activity-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Acompanhamento de produção',
+        'subtitle' => 'Gestão das atividades de pagamento',
+        'total' => $lists->total(),
+        'accent' => '#0f766e',
+    ])
 
-    <div class="row mb-3 justify-content-end">
+    <div class="row g-3 activity-filter-card mb-3 justify-content-end">
         <div class="col-md-4 col-lg-4 col-xl-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
@@ -73,19 +80,19 @@
         <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
             tabindex="0">
             @if ($lists->count())
-                <div class="row">
+                <div class="row user-activity-summary my-3 align-items-center">
                     <div class="col-6">
                         {{ $lists->links() }}
                     </div>
                     <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                             {{ $lists->lastItem() }}
                             de {{ $lists->total() }}
                             registros.</span>
                     </div>
                 </div>
             @endif
-            <dic class="card">
+            <div class="user-activity-table-card">
 
                 @if (!$lists->count())
                     <div class="card-body">
@@ -99,10 +106,10 @@
                         </h4>
                     </div>
                 @else
-                    <div class="card-header  text-bg-danger">
+                    <div class="user-activity-table-header text-bg-danger">
                         <div class="row">
                             <div class="col">
-                                <h4 class="fw-bold my-0">ACOMPANHAMENTO -
+                                <h4 class="user-activity-table-title">ACOMPANHAMENTO -
                                     {{ mb_strtoupper($service->service) }}
                                 </h4>
                             </div>
@@ -474,14 +481,14 @@
                 @endif
 
 
-            </dic>
+            </div>
             @if ($lists->count())
-                <div class="row">
+                <div class="row user-activity-summary my-3 align-items-center">
                     <div class="col-6">
                         {{ $lists->links() }}
                     </div>
                     <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                             {{ $lists->lastItem() }}
                             de {{ $lists->total() }}
                             registros.</span>
@@ -617,10 +624,5 @@
             livewire.emit('refresh_accomany');
         }
 
-        window.addEventListener("showModal2", function(e) {
-            alert('Funciona')
-            const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-            myModal.show();
-        })
     </script>
 @endpush

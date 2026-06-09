@@ -3,7 +3,7 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
-<div>
+<div class="user-activity-page">
     @push('css')
         <style>
             @keyframes flame {
@@ -27,8 +27,15 @@
     @endpush
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Acompanhamento de produção',
+        'subtitle' => 'Gestão das atividades de publicação',
+        'total' => $lists->total(),
+        'accent' => '#0f766e',
+    ])
 
-    <div class="row mb-3 justify-content-end">
+    <div class="row g-3 activity-filter-card mb-3 justify-content-end">
         <div class="col-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
@@ -99,19 +106,19 @@
         <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
             tabindex="0">
             @if ($lists->count())
-                <div class="row">
+                <div class="row user-activity-summary my-3 align-items-center">
                     <div class="col-6">
                         {{ $lists->links() }}
                     </div>
                     <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                             {{ $lists->lastItem() }}
                             de {{ $lists->total() }}
                             registros.</span>
                     </div>
                 </div>
             @endif
-            <div class="card">
+            <div class="user-activity-table-card">
 
                 @if (!$lists->count())
                     <div class="card-body">
@@ -125,7 +132,7 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-danger d-flex justify-content-between">
+                    <h4 class="user-activity-table-header user-activity-table-title text-bg-danger d-flex justify-content-between">
                         <div>ACOMPANHAMENTO - {{ mb_strtoupper($service->service) }}</div>
                         <div>
                             <i class="ri-file-copy-line" style="cursor: pointer;" wire:click.prevent="sendCopyToExcel"
@@ -351,12 +358,12 @@
 
             </div>
             @if ($lists->count())
-                <div class="row">
+                <div class="row user-activity-summary my-3 align-items-center">
                     <div class="col-6">
                         {{ $lists->links() }}
                     </div>
                     <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                             {{ $lists->lastItem() }}
                             de {{ $lists->total() }}
                             registros.</span>
@@ -708,11 +715,6 @@
                 document.body.removeChild(textArea);
             }
 
-            window.addEventListener("showModal2", function(e) {
-                alert('Funciona')
-                const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))
-                myModal.show();
-            })
             // document.addEventListener('livewire:load', function() {
             //     // Initialize popovers
             //     ('[data-bs-toggle="popover"]').popover({
