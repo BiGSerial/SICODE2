@@ -189,7 +189,7 @@
                         </div>
                         <div class="col-12 col-sm-8">
                             <div class="form-floating">
-                                <input wire:model.bounce.2s="search" type="text"
+                                <input wire:model.debounce.500ms="search" type="text"
                                     class="form-control border border-secondary" id="reverseSearch"
                                     placeholder="Buscar por nota ou material">
                                 <label for="reverseSearch">Buscar por nota ou material</label>
@@ -201,21 +201,28 @@
 
             <div class="col-12 col-md-6 col-xl-3">
                 <div class="filter-card">
-                    <h6>Rubrica</h6>
+                    <h6>Filtro por rubrica</h6>
                     <div class="dropdown mb-2">
-                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            Selecionar rubricas
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between"
+                            type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                            aria-expanded="false">
+                            <span>
+                                <i class="ri-price-tag-3-line me-1"></i>
+                                {{ count($rubrica_s) ? 'Rubricas selecionadas' : 'Todas as rubricas' }}
+                            </span>
                             @if (count($rubrica_s))
                                 <span class="badge text-bg-secondary ms-1">{{ count($rubrica_s) }}</span>
                             @endif
                         </button>
-                        <div class="dropdown-menu w-100 p-2" style="max-height: 350px; overflow-y: auto;">
-                            <form wire:submit.prevent="filter_save">
+                        <div class="dropdown-menu w-100 p-0 shadow">
+                            <div class="px-3 py-2 border-bottom">
+                                <strong class="small">Selecione uma ou mais rubricas</strong>
+                            </div>
+                            <div class="p-2" style="max-height: 280px; overflow-y: auto;">
                                 @if (isset($rubrica_l) && $rubrica_l->count() > 0)
                                     @foreach ($rubrica_l as $rubrica)
                                         @if ($rubrica->rubrica)
-                                            <label class="dropdown-item d-flex align-items-center gap-2">
+                                            <label class="dropdown-item d-flex align-items-center gap-2 rounded">
                                                 <input class="form-check-input mt-0" type="checkbox"
                                                     wire:model.defer="rubrica_s" wire:key="{{ $rubrica->rubrica }}"
                                                     value="{{ $rubrica->rubrica }}">
@@ -223,18 +230,38 @@
                                             </label>
                                         @endif
                                     @endforeach
+                                @else
+                                    <div class="text-muted small p-2">Nenhuma rubrica disponível.</div>
                                 @endif
-                            </form>
+                            </div>
+                            <div class="d-flex gap-2 border-top p-2">
+                                <button type="button" class="btn btn-sm btn-primary flex-fill"
+                                    wire:click.prevent="filter_save">
+                                    <i class="ri-filter-fill me-1"></i>Aplicar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    wire:click.prevent="filter_clean">
+                                    Limpar
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="btn-group w-100">
-                        <button class="btn btn-primary" wire:click.prevent="filter_save">
+                        <button type="button" class="btn btn-primary" wire:click.prevent="filter_save">
                             <i class="ri-filter-fill me-1"></i>Aplicar
                         </button>
-                        <button class="btn btn-outline-secondary" wire:click.prevent="filter_clean">
+                        <button type="button" class="btn btn-outline-secondary" wire:click.prevent="filter_clean"
+                            @disabled(!count($rubrica_s))>
                             <i class="ri-filter-off-fill me-1"></i>Limpar
                         </button>
                     </div>
+                    @if (count($rubrica_s))
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            @foreach ($rubrica_s as $selectedRubrica)
+                                <span class="badge text-bg-light border text-dark">{{ $selectedRubrica }}</span>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -244,7 +271,7 @@
                         <h6>Visão administrativa</h6>
                         <div class="row g-2">
                             <div class="col-12">
-                                <input wire:model.bounce.2s="user_search" type="text"
+                                <input wire:model.debounce.500ms="user_search" type="text"
                                     class="form-control border border-secondary" id="reverseUserSearch"
                                     placeholder="Buscar usuário">
                             </div>

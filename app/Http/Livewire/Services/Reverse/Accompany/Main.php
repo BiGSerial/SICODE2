@@ -138,32 +138,46 @@ class Main extends Component
 
     public function filter_save()
     {
-
-        // if (!(session_status() == PHP_SESSION_ACTIVE)) {
-        //     if (!session()->isStarted()) { session()->start(); }
-        // }
-        // session()->put('filtro', $this->rubrica_s);
-        // if (!session()->isStarted()) { session()->start(); }
-        // $_SESSION['filtro'] = $this->rubrica_s;
-        $this->emit('refresh_service');
-
+        $this->rubrica_s = array_values(array_filter($this->rubrica_s));
+        $this->resetPage();
+        $this->resetSelection();
     }
 
     public function visualizar()
     {
-
+        $this->resetPage();
+        $this->resetSelection();
     }
 
     public function filter_clean()
     {
         $this->rubrica_s = [];
+        $this->resetPage();
+        $this->resetSelection();
+    }
 
-        // if (!session()->isStarted()) { session()->start(); }
-        // if (isset($_SESSION['filtro'])) {
-        //     unset($_SESSION['filtro']);
-        // }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+        $this->resetSelection();
+    }
 
-        $this->emit('refresh_service');
+    public function updatedPerPage()
+    {
+        $this->resetPage();
+        $this->resetSelection();
+    }
+
+    public function updatedUserS()
+    {
+        $this->resetPage();
+        $this->resetSelection();
+    }
+
+    private function resetSelection(): void
+    {
+        $this->selected = [];
+        $this->selectAll = false;
     }
 
     public function setSelectAll()
@@ -378,6 +392,9 @@ class Main extends Component
                       ->orWhere('n.material', 'like', '%' . $s . '%');
                 });
             })
+            ->when(count($this->rubrica_s), function ($q) {
+                return $q->whereIn('n.rubrica', $this->rubrica_s);
+            })
             ->select('productions.*')
             ->orderBy('n.type_note', 'desc')
             ->orderBy('n.days_left', 'asc')
@@ -388,7 +405,14 @@ class Main extends Component
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $this->rubrica_l = Note::query()
+            ->select('rubrica')
+            ->where('nstats', $this->service->status)
+            ->whereNotNull('rubrica')
+            ->where('rubrica', '<>', '')
+            ->distinct()
+            ->orderBy('rubrica')
+            ->get();
         $lists = $this->lists;
 
         return view('livewire.services.reverse.accompany.main', [

@@ -2,92 +2,122 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
 @endphp
-<div class="desenho-page">
+<div class="user-activity-page desenho-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
+    @include('livewire.services.partials.user-activity-list-style')
+
     <style>
         .desenho-page {
-            --des-bg: #f6f7fb;
-            --des-surface: #ffffff;
-            --des-ink: #1f2933;
-            --des-muted: #6b7280;
-            --des-accent: #0f766e;
-            --des-border: #e5e7eb;
-            background: radial-gradient(circle at 8% 0%, #ecfeff, transparent 38%),
-                radial-gradient(circle at 92% 8%, #e0f2fe, transparent 30%),
-                var(--des-bg);
-            padding: 1rem 0 1.5rem;
+            --activity-accent: #0f766e;
         }
 
-        .desenho-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 72%);
-            color: #f8fafc;
-            border-radius: 0.55rem;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
-            margin-bottom: 1rem;
+        .desenho-page .desenho-tabs {
+            border-bottom: 0;
+            gap: .5rem;
         }
 
-        .desenho-header h5 {
-            margin: 0;
-            font-weight: 700;
-            letter-spacing: 0.02em;
+        .desenho-page .desenho-tabs .nav-link {
+            background: rgba(255, 255, 255, .72);
+            border: 1px solid var(--activity-border);
+            border-radius: .75rem .75rem 0 0;
+            color: var(--activity-muted);
+            font-weight: 600;
         }
 
-        .desenho-header .meta {
-            color: rgba(248, 250, 252, 0.8);
-            font-size: 0.9rem;
+        .desenho-page .desenho-tabs .nav-link.active {
+            background: var(--activity-surface);
+            color: var(--activity-accent);
         }
 
-        .filter-strip {
-            background: var(--des-surface);
-            border: 1px solid var(--des-border);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-            margin-bottom: 1rem;
+        .desenho-page .user-activity-table-header {
+            background: var(--bs-danger);
+            border-bottom: 1px solid var(--bs-danger);
         }
 
-        .table-card {
-            background: var(--des-surface);
-            border: 1px solid var(--des-border);
-            border-radius: 0.45rem;
-            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+        .desenho-page .user-activity-table-card .table thead th {
+            background: #1e293b;
+            border-color: #334155;
+            color: #ffffff;
+            padding: .65rem .5rem;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .desenho-page .user-activity-table-card .table tbody td {
+            line-height: 1.35;
+            padding: .65rem .5rem;
+        }
+
+        .desenho-page .activity-location {
+            min-width: 110px;
+        }
+
+        .desenho-page .activity-description {
+            max-width: 190px;
+            min-width: 150px;
+        }
+
+        .desenho-page .activity-description span {
+            display: -webkit-box;
             overflow: hidden;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
         }
 
-        .table-card .table thead th {
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
+        .desenho-page .activity-times {
+            min-width: 105px;
             white-space: nowrap;
         }
 
-        .desenho-tabs .nav-link {
-            border-radius: 0.4rem 0.4rem 0 0;
+        .desenho-page .activity-times small {
+            color: var(--activity-muted);
+            display: block;
+            font-size: .7rem;
+            font-weight: 600;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+
+        .desenho-page .activity-row-actions {
+            display: flex;
+            gap: .35rem;
+            justify-content: center;
+            white-space: nowrap;
+        }
+
+        .desenho-page .activity-row-actions .btn {
+            align-items: center;
+            display: inline-flex;
+            height: 32px;
+            justify-content: center;
+            padding: 0;
+            width: 32px;
         }
     </style>
 
     <div class="container-fluid">
-        <div class="desenho-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2">
-            <div>
-                <h5>{{ mb_strtoupper($service->service) }}</h5>
-                <div class="meta">Acompanhamento de producao</div>
-            </div>
-            <div class="meta">
-                Ordenacao: Prioridade, D5, Tipo, Prazo Real, ID
-            </div>
-        </div>
+        @include('livewire.services.partials.user-activity-hero', [
+            'context' => 'Acompanhamento de produção',
+            'subtitle' => 'Ordenação: prioridade, D5, tipo, prazo real e identificação',
+            'total' => $lists->total(),
+            'accent' => '#0f766e',
+        ])
 
-        <div class="filter-strip">
-            <div class="row justify-content-between align-items-end g-2">
-                <div class="col-12 col-md-4 col-lg-3">
-                    <label for="search" class="form-label mb-1">Buscar</label>
-                    <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
-                        id="search" placeholder="Buscar por nota, pedido, rubrica...">
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-7 col-xl-8">
+                <div class="activity-filter-card">
+                    <div class="activity-filter-title mb-2">Pesquisa</div>
+                    <input wire:model.bounce.2s="search" type="text"
+                        class="form-control border border-secondary" id="search"
+                        placeholder="Buscar por nota, pedido ou rubrica">
                 </div>
-                <div class="col-12 col-md-auto">
+            </div>
+            <div class="col-12 col-md-5 col-xl-4">
+                <div class="activity-filter-card">
+                    <div class="activity-filter-title mb-2">Tipo de nota</div>
                     <div class="btn-group" role="group" aria-label="Tipo da nota">
                         <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value="1"
                             id="note-type-1">
@@ -103,26 +133,30 @@
                     </div>
                 </div>
             </div>
-
-            @if (count($statusFilterOptions))
-                <div class="mt-3">
-                    <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
-                        @foreach ($statusFilterOptions as $statusOption)
-                            @php
-                                $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
-                            @endphp
-                            <button type="button"
-                                class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
-                                wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
-                                {{ $statusOption['label'] }}
-                                <span class="badge text-bg-light ms-1">
-                                    {{ $statusOption['count'] }}
-                                </span>
-                            </button>
-                        @endforeach
-                    </div>
+            <div class="col-12">
+                <div class="activity-filter-card">
+                    <div class="activity-filter-title mb-2">Status</div>
+                    @if (count($statusFilterOptions))
+                        <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
+                            @foreach ($statusFilterOptions as $statusOption)
+                                @php
+                                    $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
+                                @endphp
+                                <button type="button"
+                                    class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
+                                    wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
+                                    {{ $statusOption['label'] }}
+                                    <span class="badge text-bg-light ms-1">
+                                        {{ $statusOption['count'] }}
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @else
+                        <span class="text-muted small">Nenhum status disponível.</span>
+                    @endif
                 </div>
-            @endif
+            </div>
         </div>
         {{-- <div class="btn-group mb-3">
             <div class="dropdown mx-1">
@@ -163,8 +197,6 @@
                 </div>
             </div>
         </div> --}}
-    </div>
-
     {{-- @can('superadm')
         <div class="row justify-content-start">
             <div class="col-2">
@@ -192,7 +224,7 @@
         </div>
     @endcan --}}
 
-    <nav class="desenho-tabs mb-2">
+    <nav class="desenho-tabs nav mb-3">
         <div class="nav nav-tabs border-0" id="nav-tab" role="tablist">
             <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
                 type="button" role="tab" aria-controls="nav-home" aria-selected="true"
@@ -208,35 +240,36 @@
         <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
             tabindex="0">
             @if ($lists->count())
-                <div class="row">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
+                <div class="user-activity-summary mb-3">
+                    <div class="row align-items-center g-2">
+                        <div class="col-12 col-md-6">
+                            {{ $lists->links() }}
+                        </div>
+                        <div class="col-12 col-md-6 text-md-end">
+                            <span class="activity-summary-text">Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                                {{ $lists->lastItem() }}
+                                de <strong>{{ $lists->total() }}</strong>
+                                registros.</span>
+                        </div>
                     </div>
                 </div>
             @endif
-            <div class="table-card card border-0">
+            <div class="user-activity-table-card">
 
                 @if (!$lists->count())
-                    <div class="card-body">
-                        <h4 class="text-center">VOCÊ NAO TEM TAREFA ATRIBUÍDA
-                            <strong>{{ mb_strtoupper($service->service) }}</strong>
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
-                        </h4>
+                    <div class="p-5 text-center">
+                        <i class="ri-inbox-2-line display-5 text-muted"></i>
+                        <h5 class="mt-3 mb-1">Nenhuma atividade atribuída</h5>
+                        <p class="text-muted mb-0">
+                            Não existem tarefas de {{ mb_strtolower($service->service) }} para os filtros selecionados.
+                        </p>
                     </div>
                 @else
-                    <div class="card-header text-bg-dark py-3">
-                        <h5 class="fw-semibold fs-5 my-0">Acompanhamento</h5>
-                        <div class="small text-white-50">
+                    <div class="user-activity-table-header">
+                        <h5 class="user-activity-table-title">
+                            <i class="ri-list-check-2 me-1"></i>Acompanhamento
+                        </h5>
+                        <div class="user-activity-table-subtitle">
                             {{ mb_strtoupper($service->service) }}
                             @if ($service->Status->count())
                                 @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
@@ -247,22 +280,19 @@
                     </div>
 
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
                                 <tr>
                                     <th scope="col" class="fw-bold">Note</th>
                                     <th scope="col" class="fw-bold">Files</th>
                                     <th scope="col" class="fw-bold">DOE</th>
-                                    <th scope="col" class="fw-bold">GRP2</th>
                                     <th scope="col" class="fw-bold">numPedido</th>
                                     <th scope="col" class="fw-bold">Rubrica</th>
-                                    <th scope="col" class="fw-bold">Municipio</th>
-                                    <th scope="col" class="fw-bold">Zona</th>
+                                    <th scope="col" class="fw-bold">Localização</th>
                                     <th scope="col" class="fw-bold">Descrição</th>
                                     <th scope="col" class="fw-bold">Postes_L</th>
                                     <th scope="col" class="fw-bold">DStatus</th>
-                                    <th scope="col" class="fw-bold">Dias Despachado</th>
-                                    <th scope="col" class="fw-bold">Dias Atribuido</th>
+                                    <th scope="col" class="fw-bold">Tempos</th>
                                     <th scope="col" class="fw-bold">Prazo Real</th>
                                     <th scope="col" class="fw-bold">Status</th>
                                     <th scope="col" class="fw-bold"></th>
@@ -376,12 +406,16 @@
                                                 <i class="ri-checkbox-circle-line"></i>
                                             @endif
                                         </td>
-                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->group2 }}</td>
                                         <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->numPedido }}</td>
                                         <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->rubrica }}</td>
-                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->lexp }}</td>
-                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->group1 }}</td>
-                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->material }}</td>
+                                        <td class="fw-light activity-location {{ $tableRowClass }}">
+                                            <strong class="d-block fw-semibold">{{ $list->Note->lexp ?: '---' }}</strong>
+                                            <small class="text-muted">{{ $list->Note->group1 ?: 'Sem zona' }}</small>
+                                        </td>
+                                        <td class="fw-light activity-description {{ $tableRowClass }}"
+                                            title="{{ $list->Note->material }}">
+                                            <span>{{ $list->Note->material }}</span>
+                                        </td>
                                         <td class="fw-light {{ $tableRowClass }} text-center">
                                             {{ $list->note->postes ?? '---' }}
                                         </td>
@@ -397,11 +431,15 @@
                                     ">
                                             {{ $dstatus['days'] }}
                                         </td>
-                                        <td class="fw-light text-center">
-                                            {{ $list->dispatch_at ? Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) : '---' }}
-                                        </td>
-                                        <td class="fw-light text-center">
-                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                        <td class="fw-light text-center activity-times">
+                                            <div>
+                                                <small>Despachado</small>
+                                                {{ $list->dispatch_at ? Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) : '---' }}
+                                            </div>
+                                            <div class="mt-1">
+                                                <small>Atribuído</small>
+                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                            </div>
                                         </td>
 
                                         <td scope="col"
@@ -427,31 +465,33 @@
                                                 wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
                                                 style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                         </td>
-                                        <td class="fw-bold fs-5 {{ $tableRowClass }}">
-                                            @if (!$list->block)
-                                                @if (!$list->completed || $isProjectReviewTracked)
-                                                    @if ($isProjectReviewTracked && (int) $list->status === 30)
-                                                        {{-- Em Análise de Projeto: sem ícones de ação para evitar reencerramento por engano. --}}
-                                                    @else
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Iniciar.">
-                                                            <i class="ri-play-circle-line text-success m-0 align-middle"
-                                                                style="cursor: pointer;"
-                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                        </span>
-                                                    @endif
-                                                    @if (!$isProjectReviewTracked)
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Transferir.">
-                                                            <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                        </span>
+                                        <td class="{{ $tableRowClass }}">
+                                            <div class="activity-row-actions">
+                                                @if (!$list->block)
+                                                    @if (!$list->completed || $isProjectReviewTracked)
+                                                        @if ($isProjectReviewTracked && (int) $list->status === 30)
+                                                            {{-- Em Análise de Projeto: sem ícones de ação para evitar reencerramento por engano. --}}
+                                                        @else
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-outline-success"
+                                                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                                                data-bs-title="Iniciar"
+                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})">
+                                                                <i class="ri-play-circle-line"></i>
+                                                            </button>
+                                                        @endif
+                                                        @if (!$isProjectReviewTracked)
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-outline-primary"
+                                                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                                                data-bs-title="Transferir"
+                                                                wire:click.prevent="goTransferProd({{ $list->id }})">
+                                                                <i class="ri-exchange-fill"></i>
+                                                            </button>
+                                                        @endif
                                                     @endif
                                                 @endif
-                                            @endif
+                                            </div>
                                         </td>
 
 
@@ -466,15 +506,17 @@
 
             </div>
             @if ($lists->count())
-                <div class="row">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
+                <div class="user-activity-summary mt-3">
+                    <div class="row align-items-center g-2">
+                        <div class="col-12 col-md-6">
+                            {{ $lists->links() }}
+                        </div>
+                        <div class="col-12 col-md-6 text-md-end">
+                            <span class="activity-summary-text">Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                                {{ $lists->lastItem() }}
+                                de <strong>{{ $lists->total() }}</strong>
+                                registros.</span>
+                        </div>
                     </div>
                 </div>
             @endif
