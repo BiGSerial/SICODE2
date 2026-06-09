@@ -212,6 +212,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
         ->name('wall.production_v2_vue.screen');
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
+    Route::get('/return-intern', 'returnIntern')->middleware('can:management')->name('return_intern');
     Route::get('/return_intern/dashboard', 'return_intern_dashboard')->middleware('can:management')->name('return_intern_dashboard');
     Route::get('/return_intern/list', 'return_intern_list')->middleware('can:management')->name('return_intern_list');
     Route::get('/workreports', 'workreports')->name('workreport');

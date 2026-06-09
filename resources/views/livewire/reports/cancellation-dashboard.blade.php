@@ -13,12 +13,11 @@
                     radial-gradient(circle at 90% 15%, #ecfeff, transparent 35%),
                     var(--ri-bg);
                 padding: 1.5rem 0;
-                font-family: var(--bs-body-font-family, var(--bs-font-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif));
+                font-family: var(--bs-body-font-family);
             }
 
-            .ri-page,
-            .ri-page * {
-                font-family: var(--bs-body-font-family, var(--bs-font-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif)) !important;
+            .ri-page {
+                font-family: var(--bs-body-font-family) !important;
             }
 
             .ri-header {

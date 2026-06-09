@@ -27,8 +27,6 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
     <title>{{ config('app.name', 'Laravel') }}</title>
 
-    <!--     Fonts and icons     -->
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet" />
     <!-- Nucleo Icons -->
     <link href="{{ asset('css/nucleo-icons.css') }}" rel="stylesheet" />
     <link href="{{ asset('css/nucleo-svg.css') }}" rel="stylesheet" />

@@ -4,66 +4,98 @@
     @push('css')
         <style>
             .ri-page {
-                --ri-bg: #f7f8fb;
+                --ri-navy: #14283d;
+                --ri-blue: #315f87;
+                --ri-bg: #f3f6f8;
                 --ri-surface: #ffffff;
-                --ri-muted: #6b7280;
-                --ri-ink: #1f2933;
-                --ri-accent: #0f766e;
-                --ri-border: #e5e7eb;
-                background: radial-gradient(circle at 12% 0%, #eef2ff, transparent 40%),
-                    radial-gradient(circle at 90% 15%, #ecfeff, transparent 35%),
-                    var(--ri-bg);
-                padding: 1.5rem 0;
+                --ri-muted: #667684;
+                --ri-ink: #22303d;
+                --ri-border: #dce5ea;
+                background: var(--ri-bg);
+                font-family: var(--bs-body-font-family);
+                min-height: calc(100vh - 70px);
+                padding: 1.35rem 0 2rem;
+            }
+
+            .ri-page {
+                font-family: var(--bs-body-font-family) !important;
+            }
+
+            .ri-page * {
+                font-family: inherit;
+            }
+
+            .ri-page i[class^="ri-"],
+            .ri-page i[class*=" ri-"] {
+                font-family: "remixicon" !important;
             }
 
             .ri-header {
-                background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-                color: #f8fafc;
+                background: linear-gradient(125deg, var(--ri-navy), #28536f 72%, #347985);
+                color: #fff;
                 border-radius: 1rem;
-                padding: 1.6rem 2rem;
-                box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-                margin-bottom: 1.5rem;
+                padding: 1.4rem 1.6rem;
+                box-shadow: 0 14px 30px rgba(20, 40, 61, .18);
+                margin-bottom: 1rem;
             }
 
             .ri-header h1 {
-                font-size: 1.9rem;
+                color: #fff;
+                font-size: 1.75rem;
                 font-weight: 700;
                 margin: 0;
-                letter-spacing: 0.02em;
             }
 
             .ri-header .meta {
-                color: rgba(248, 250, 252, 0.75);
-                font-size: 0.95rem;
+                color: rgba(255, 255, 255, .65);
+                font-size: .875rem;
+            }
+
+            .ri-eyebrow {
+                color: #9edce0;
+                font-size: .72rem;
+                font-weight: 700;
+                letter-spacing: .12em;
+                text-transform: uppercase;
+            }
+
+            .ri-header .form-control {
+                border: 1px solid rgba(255, 255, 255, .35);
             }
 
             .filters-grid .filter-card {
                 background-color: var(--ri-surface);
                 border: 1px solid var(--ri-border);
-                border-radius: 0.9rem;
-                padding: 1rem 1.25rem;
+                border-radius: .9rem;
+                padding: 1rem;
                 height: 100%;
-                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+                box-shadow: 0 8px 20px rgba(33, 52, 68, .05);
             }
 
             .filters-grid .filter-card h6 {
-                font-size: 0.75rem;
+                font-size: .72rem;
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
-                font-weight: 600;
+                letter-spacing: .07em;
+                font-weight: 700;
                 color: var(--ri-muted);
+            }
+
+            .ri-page .form-control,
+            .ri-page .form-select,
+            .ri-page .btn {
+                font-size: .875rem;
             }
 
             .summary-bar {
                 background: var(--ri-surface);
                 border: 1px solid var(--ri-border);
-                border-radius: 0.9rem;
-                padding: 0.75rem 1.25rem;
-                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+                border-radius: .9rem;
+                padding: .75rem 1rem;
+                box-shadow: 0 8px 20px rgba(33, 52, 68, .05);
             }
 
             .summary-bar .summary-item {
-                font-size: 0.92rem;
+                font-size: .84rem;
                 color: var(--ri-muted);
             }
 
@@ -74,20 +106,81 @@
             .table-card {
                 background: var(--ri-surface);
                 border: 1px solid var(--ri-border);
-                border-radius: 1rem;
-                box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+                border-radius: .9rem;
+                box-shadow: 0 8px 20px rgba(33, 52, 68, .05);
                 overflow: hidden;
             }
 
             .table-card .table thead th {
-                font-size: 0.75rem;
+                background: var(--ri-navy);
+                color: #fff;
+                font-size: .7rem;
+                font-weight: 700;
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
+                letter-spacing: .055em;
+                padding: .85rem .7rem;
                 white-space: nowrap;
             }
 
             .table-card .table tbody td {
-                font-size: 0.92rem;
+                border-color: #e8eef1;
+                color: var(--ri-ink);
+                font-size: .84rem;
+                padding: .85rem .7rem;
+            }
+
+            .table-card .table tbody tr:hover td {
+                background: #f5fafb;
+            }
+
+            .table-title {
+                background: #fff;
+                border-bottom: 1px solid var(--ri-border);
+                color: var(--ri-ink);
+                padding: 1rem;
+            }
+
+            .ri-reason-trigger {
+                max-width: 220px;
+            }
+
+            .ri-reason-modal .modal-content {
+                border: 0;
+                border-radius: 1rem;
+                font-family: var(--bs-body-font-family) !important;
+                box-shadow: 0 24px 60px rgba(20, 40, 61, .22);
+                overflow: hidden;
+            }
+
+            .ri-reason-modal .modal-header {
+                background: linear-gradient(125deg, var(--ri-navy), #28536f 72%, #347985);
+                border: 0;
+                color: #fff;
+                padding: 1.25rem 1.4rem;
+            }
+
+            .ri-reason-modal .modal-title {
+                color: #fff;
+                font-weight: 700;
+            }
+
+            .ri-reason-meta {
+                background: #f3f6f8;
+                border: 1px solid var(--ri-border);
+                border-radius: .75rem;
+                padding: .9rem 1rem;
+            }
+
+            .ri-reason-text {
+                background: #fff;
+                border: 1px solid var(--ri-border);
+                border-left: 4px solid var(--ri-blue);
+                border-radius: .75rem;
+                color: var(--ri-ink);
+                line-height: 1.6;
+                min-height: 110px;
+                padding: 1rem;
+                white-space: pre-wrap;
             }
 
             @media (max-width: 991px) {
@@ -105,12 +198,13 @@
     <div class="container-fluid">
         <div class="ri-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             <div>
-                <h1>Relatorio Retorno Interno</h1>
-                <div class="meta">Lista consolidada com filtros e exportacao.</div>
+                <div class="ri-eyebrow">Reports · consulta histórica</div>
+                <h1>Relatório Histórico de Retorno Interno</h1>
+                <div class="meta">Consulta consolidada com filtros detalhados e exportação.</div>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <div>
-                    <div class="meta">Inicio</div>
+                    <div class="meta">Início</div>
                     <input type="date" class="form-control form-control-sm" wire:model="dt_in"
                         max="{{ date('Y-m-d') }}">
                 </div>
@@ -155,7 +249,7 @@
 
                     <div class="col-12 col-lg-4 col-xl-3">
                         <div class="filter-card">
-                            <h6>Classificacao</h6>
+                            <h6>Classificação</h6>
                             <div class="mb-3">
                                 <label class="form-label text-muted small mb-1">Origem</label>
                                 <select class="form-select border border-secondary" wire:model="originFilters"
@@ -188,7 +282,7 @@
                                                 <option value="{{ $service->uuid }}">{{ $service->service }}</option>
                                             @endforeach
                                         </select>
-                                        <label for="serviceSelect">Servicos</label>
+                                        <label for="serviceSelect">Serviços</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -215,12 +309,12 @@
                                     <div class="form-floating">
                                         <select class="form-select border border-secondary" wire:model="productionUserId"
                                             id="productionUserSelect">
-                                            <option value="">Usuario producao</option>
+                                            <option value="">Usuário da produção</option>
                                             @foreach ($productionUserOptions as $user)
                                                 <option value="{{ $user->id }}">{{ $user->name }}</option>
                                             @endforeach
                                         </select>
-                                        <label for="productionUserSelect">Usuario producao</label>
+                                        <label for="productionUserSelect">Usuário da produção</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -239,12 +333,12 @@
                                     <div class="form-floating">
                                         <select class="form-select border border-secondary" wire:model="productionStatus"
                                             id="statusSelect">
-                                            <option value="">Status producao</option>
+                                            <option value="">Status da produção</option>
                                             @foreach ($statusOptions as $status)
                                                 <option value="{{ $status['value'] }}">{{ $status['label'] }}</option>
                                             @endforeach
                                         </select>
-                                        <label for="statusSelect">Status producao</label>
+                                        <label for="statusSelect">Status da produção</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -267,7 +361,7 @@
                                     <button class="btn btn-success w-100" wire:click="exportReport"
                                         wire:loading.attr="disabled" wire:target="exportReport">
                                         <span wire:loading.remove wire:target="exportReport">
-                                            <i class="ri-file-excel-2-line me-1"></i>Exportar relatorio
+                                            <i class="ri-file-excel-2-line me-1"></i>Exportar relatório
                                         </span>
                                         <span wire:loading wire:target="exportReport">
                                             <i class="ri-loader-4-line me-1"></i>Preparando arquivo...
@@ -290,7 +384,7 @@
                 </div>
                 <div class="col-12 col-lg-6 text-lg-end">
                     <div class="summary-item">
-                        Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
+                        Exibindo <strong>{{ $lists->firstItem() }}</strong> até
                         <strong>{{ $lists->lastItem() }}</strong> de
                         <strong>{{ $lists->total() }}</strong> registros.
                     </div>
@@ -304,26 +398,29 @@
                     <h4 class="text-center text-muted">Sem dados para os filtros atuais</h4>
                 </div>
             @else
-                <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">RETORNOS INTERNOS</h4>
-                    <span class="text-white-50 small">Atualizado em {{ now()->format('d/m/Y H:i') }}</span>
+                <div class="table-title d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="h6 fw-bold mb-0">Retornos internos</h4>
+                        <span class="text-muted small">Dados históricos do período selecionado</span>
+                    </div>
+                    <span class="text-muted small">Atualizado em {{ now()->format('d/m/Y H:i') }}</span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover table-striped mb-0">
-                        <thead class="table-dark">
-                            <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr class="sticky-top" style="z-index:1; top:0;">
                                 <th class="text-center">Nota</th>
                                 <th class="text-center">Origem</th>
-                                <th class="text-center">Servico</th>
+                                <th class="text-center">Serviço</th>
                                 <th class="text-center">Despachante</th>
                                 <th class="text-center">Categoria</th>
-                                <th class="text-center">Descricao</th>
+                                <th class="text-center">Descrição</th>
                                 <th class="text-center">Criado em</th>
-                                <th class="text-center">Att producao</th>
-                                <th class="text-center">Concluido</th>
-                                <th class="text-center">Usuario producao</th>
-                                <th class="text-center">Empresa producao</th>
-                                <th class="text-center">Status producao</th>
+                                <th class="text-center">Atuação na produção</th>
+                                <th class="text-center">Concluído</th>
+                                <th class="text-center">Usuário da produção</th>
+                                <th class="text-center">Empresa da produção</th>
+                                <th class="text-center">Status da produção</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -333,11 +430,11 @@
                                     if ($list->Viabilities->isNotEmpty()) {
                                         $origin = 'Viabilidade';
                                     } elseif ($list->Waiting) {
-                                        $origin = 'Contratacao';
+                                        $origin = 'Contratação';
                                     } elseif ($list->Approvals->isNotEmpty()) {
-                                        $origin = 'Aprovacao';
+                                        $origin = 'Aprovação';
                                     } elseif ($list->Externals->isNotEmpty()) {
-                                        $origin = 'Orgao Externo';
+                                        $origin = 'Órgão Externo';
                                     }
                                     $firstComment = $list->Comments->sortBy('created_at')->first();
                                     $productionStatus = $list->Production
@@ -352,7 +449,21 @@
                                         {{ $firstComment?->User?->name ?? '-' }}
                                     </td>
                                     <td class="text-center">{{ $list->category ?? '-' }}</td>
-                                    <td class="text-center">{{ $firstComment?->message ?? '-' }}</td>
+                                    <td class="text-center">
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-primary ri-reason-trigger"
+                                            wire:click="showReason({{ $list->id }})"
+                                            wire:loading.attr="disabled"
+                                            wire:target="showReason">
+                                            <i class="ri-message-3-line me-1"></i>
+                                            <span wire:loading.remove wire:target="showReason">
+                                                Ver detalhes
+                                            </span>
+                                            <span wire:loading wire:target="showReason">
+                                                Carregando...
+                                            </span>
+                                        </button>
+                                    </td>
                                     <td class="text-center">{{ $list->created_at?->format('d/m/Y H:i') }}</td>
                                     <td class="text-center">{{ $list->Production?->att_at?->format('d/m/Y H:i') ?? '-' }}
                                     </td>
@@ -371,7 +482,7 @@
                                                 {{ $productionStatus->status }}
                                             </span>
                                         @else
-                                            <span class="badge text-bg-secondary">Aguardando atribuicao</span>
+                                            <span class="badge text-bg-secondary">Aguardando atribuição</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -389,12 +500,14 @@
                 </div>
                 <div class="col-12 col-lg-6 text-lg-end">
                     <div class="summary-item">
-                        Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
+                        Exibindo <strong>{{ $lists->firstItem() }}</strong> até
                         <strong>{{ $lists->lastItem() }}</strong> de
                         <strong>{{ $lists->total() }}</strong> registros.
                     </div>
                 </div>
             </div>
         </div>
+
+        @include('livewire.reports.partials.return-intern-details-modal')
     </div>
 </div>

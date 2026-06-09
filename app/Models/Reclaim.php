@@ -27,7 +27,7 @@ class Reclaim extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('completed', false);
+        return $query->where('reclaims.completed', false);
     }
 
     public static function hasActiveForService(int $noteId, string $serviceId): bool

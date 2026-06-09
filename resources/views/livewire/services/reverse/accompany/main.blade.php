@@ -129,18 +129,32 @@
                         </h4>
                     </div>
                 @else
-                    <h4 class="card-header fw-bold text-bg-danger">ACOMPANHAMENTO -
-                        {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
-                            @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                ({{ $sts->value }})
-                            @endforeach
+                    <div
+                        class="card-header fw-bold text-bg-danger d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-between">
+                        <h4 class="fw-bold my-0">ACOMPANHAMENTO -
+                            {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
+                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                                    ({{ $sts->value }})
+                                @endforeach
+                            @endif
+                        </h4>
+                        @if (count($selected))
+                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal"
+                                data-bs-target="#bulk_finish_modal">
+                                <i class="ri-checkbox-multiple-line"></i>
+                                Encerrar selecionados ({{ count($selected) }})
+                            </button>
                         @endif
-                    </h4>
+                    </div>
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-sm table-striped table-condensed">
                                 <thead class="table-dark">
                                     <tr>
+                                        <th scope="col" class="fw-bold text-center">
+                                            <input class="form-check-input" type="checkbox" wire:model="selectAll"
+                                                wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
+                                        </th>
                                         <th scope="col" class="fw-bold">Note</th>
                                         <th scope="col" class="fw-bold">Criado Em</th>
                                         <th scope="col" class="fw-bold">numPedido</th>
@@ -159,6 +173,11 @@
                                     @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
                                         <tr class="align-middle @if ($list->block) table-primary @endif"
                                             wire:key="{{ $list->id }}">
+                                            <td class="text-center">
+                                                <input class="form-check-input border border-1 border-primary"
+                                                    type="checkbox" value="{{ $list->id }}"
+                                                    wire:model.defer="selected">
+                                            </td>
                                             <td
                                                 class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                                 {{ $list->Note->note }}
@@ -326,6 +345,74 @@
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('components.status.show-status', key('show_status_note'))
+
+    <div wire:ignore.self class="modal fade" id="bulk_finish_modal" tabindex="-1"
+        aria-labelledby="bulkFinishModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header text-bg-danger">
+                    <h5 class="modal-title" id="bulkFinishModalLabel">Encerramento em massa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="alert alert-warning mb-0">
+                                Você selecionou <strong>{{ count($selected) }}</strong> registro(s) para encerrar.
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="form-floating">
+                                <select class="form-select" id="bulkMmgd" wire:model.defer="bulkMmgd">
+                                    <option value="" selected>Selecione</option>
+                                    <option value="SIM">SIM</option>
+                                    <option value="NAO">NÃO</option>
+                                </select>
+                                <label for="bulkMmgd">MMGD?</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="form-floating">
+                                <select class="form-select" id="bulkIs45" wire:model.defer="bulkIs45">
+                                    <option value="" selected>Selecione</option>
+                                    <option value="1">SIM</option>
+                                    <option value="0">NÃO</option>
+                                </select>
+                                <label for="bulkIs45">Art.90 (45 dias)?</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="form-floating">
+                                <select class="form-select" id="bulkConclusion" wire:model.defer="bulkConclusion">
+                                    <option value="" selected>Selecione</option>
+                                    <option value="ISR - LIBERADO">ISR - LIBERADO</option>
+                                    <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
+                                    <option value="ENVIADO AO DESENHO">ENVIADO AO DESENHO</option>
+                                    <option value="ENVIADO CARTA AO CLIENTE">ENVIADO CARTA AO CLIENTE</option>
+                                    <option value="ENVIADO RESPOSTA EMPRESA">ENVIADO RESPOSTA EMPRESA</option>
+                                    <option value="ENVIADO PARA O STATUS 21">ENVIADO PARA O STATUS 21</option>
+                                </select>
+                                <label for="bulkConclusion">Conclusão</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <textarea class="form-control" id="bulkInfo" style="height: 140px"
+                                    wire:model.defer="bulkInfo"></textarea>
+                                <label for="bulkInfo">Informações</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" wire:click.prevent="confirmBulkClose">
+                        Encerrar em massa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div wire:init="checkOpen"></div>
 

@@ -1,5 +1,6 @@
 @php
     use App\Custom\Notestatus;
+    use Illuminate\Support\Carbon;
 @endphp
 
 <div class="service-page">
@@ -51,6 +52,33 @@
             letter-spacing: 0.08em;
             font-weight: 600;
             color: var(--sp-muted);
+        }
+
+        .ads-info {
+            line-height: 1.2;
+            min-width: 105px;
+        }
+
+        .ads-info-date {
+            color: inherit;
+            font-size: .78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .ads-info-days {
+            color: inherit;
+            font-size: .7rem;
+            font-weight: 700;
+            margin-top: .2rem;
+            opacity: .9;
+            text-transform: uppercase;
+        }
+
+        .ads-tacit-badge {
+            cursor: help;
+            font-size: .65rem;
+            margin-top: .35rem;
         }
     </style>
 
@@ -184,13 +212,13 @@
                                     <th>DD</th>
                                     <th>Files</th>
                                     <th>MMGD</th>
-                                    <th>ADS</th>
                                     <th>Postes</th>
                                     <th>Rubrica</th>
                                     <th>Municipio</th>
                                     <th>Descrição</th>
                                     <th>Dias Atribuido</th>
                                     <th>Dias Informe</th>
+                                    <th>ADS</th>
                                     <th>Status</th>
                                     <th></th>
                                 </tr>
@@ -214,10 +242,23 @@
 
                                         $lastWpa = $list->Wpas->last(); // 1 item (latest()->limit(1))
                                         $hasOld = $note->OldAds && $note->OldAds->isNotEmpty();
-                                        $hasNew = (bool) $note->Adsform;
                                         $adsForm = $note->Adsform ?? $workForm?->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
+                                        $adsDate = $adsForm
+                                            ? ($isTacitAds ? $adsForm->tacit_delivered_at : $adsForm->created_at)
+                                            : $note->OldAds?->sortByDesc('date')->first()?->date;
+                                        $adsDays = $adsDate
+                                            ? Carbon::parse($adsDate)
+                                                ->startOfDay()
+                                                ->diffInDays(Carbon::now()->startOfDay())
+                                            : null;
+                                        $adsDeadlineClass = match (true) {
+                                            $adsDays === null => '',
+                                            $adsDays <= 6 => 'text-bg-success',
+                                            $adsDays <= 9 => 'text-bg-warning',
+                                            default => 'text-bg-danger',
+                                        };
                                     @endphp
 
                                     <tr wire:key='prod-{{ $list->id }}'
@@ -289,24 +330,6 @@
                                         </td>
 
                                         <td class="fw-light">
-                                            @if ($hasOld)
-                                                <span class="text-warning fw-bold">OLD</span>
-                                            @elseif ($hasNew)
-                                                <span class="text-success fw-bold">ATUAL</span>
-                                            @else
-                                                <span class="text-danger fw-bold">NÃO</span>
-                                            @endif
-                                            @if ($isTacitAds)
-                                                <div class="mt-1">
-                                                    <span class="badge text-bg-dark">TÁCITA</span>
-                                                    <span class="badge {{ $tacitDelivered ? 'text-bg-success' : 'text-bg-danger' }}">
-                                                        {{ $tacitDelivered ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
-                                                    </span>
-                                                </div>
-                                            @endif
-                                        </td>
-
-                                        <td class="fw-light">
                                             <span class="text-primary fw-bold">{{ $note->postes ?? '---' }}</span>
                                         </td>
 
@@ -322,6 +345,44 @@
                                             @elseif ($daysLeft >= 28) text-bg-danger
                                             @else text-bg-warning @endif">
                                             {{ $daysLeft }}
+                                        </td>
+
+                                        <td class="fw-light {{ $adsDeadlineClass }}">
+                                            <div class="ads-info">
+                                                @if ($adsDate)
+                                                    <div class="ads-info-date">
+                                                        {{ Carbon::parse($adsDate)->format('d/m/Y') }}
+                                                    </div>
+                                                    @if ($adsDays !== null)
+                                                        <div class="ads-info-days">
+                                                            {{ max(0, $adsDays) }}
+                                                            {{ max(0, $adsDays) === 1 ? 'dia' : 'dias' }}
+                                                        </div>
+                                                    @endif
+                                                @elseif ($isTacitAds)
+                                                    <span class="text-danger fw-bold small">Aguardando entrega</span>
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+
+                                                @if ($isTacitAds)
+                                                    <div>
+                                                        <span
+                                                            class="badge {{ $tacitDelivered ? 'text-bg-dark' : 'text-bg-warning' }} ads-tacit-badge"
+                                                            @if ($tacitDelivered)
+                                                                data-bs-toggle="popover"
+                                                                data-bs-trigger="hover focus"
+                                                                data-bs-placement="top"
+                                                                data-bs-title="ADS entregue de forma tácita"
+                                                                data-bs-content="A ADS foi entregue de forma tácita e está disponível em Solicitação de ADS, na lista de Histórico."
+                                                            @endif>
+                                                            TÁCITA
+                                                        </span>
+                                                    </div>
+                                                @elseif ($hasOld)
+                                                    <div><span class="badge text-bg-secondary mt-1">LEGADA</span></div>
+                                                @endif
+                                            </div>
                                         </td>
 
                                         <td class="fw-light">
@@ -402,6 +463,19 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             Livewire.emitTo('services.supervision.main', 'checkOpen');
+
+            const initializeAdsPopovers = () => {
+                document.querySelectorAll('.ads-tacit-badge[data-bs-toggle="popover"]').forEach((element) => {
+                    bootstrap.Popover.getInstance(element)?.dispose();
+                    new bootstrap.Popover(element, {
+                        container: 'body',
+                        html: false,
+                    });
+                });
+            };
+
+            initializeAdsPopovers();
+            Livewire.hook('message.processed', initializeAdsPopovers);
 
             // Delegation: copiar texto
             const tableBody = document.getElementById('table-body');
