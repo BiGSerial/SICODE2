@@ -20,6 +20,10 @@ class Main extends Component
 
     public $search;
 
+    public $advanceSearch;
+
+    public $multiSearch = [];
+
     public $rubrica_s = [];
 
     public $rubrica_l;
@@ -158,6 +162,29 @@ class Main extends Component
 
     public function updatedSearch()
     {
+        $this->resetPage();
+        $this->resetSelection();
+    }
+
+    public function buscarMulti()
+    {
+        $this->multiSearch = collect(preg_split('/[\s,;\r\n\t]+/', (string) $this->advanceSearch))
+            ->map(fn ($term) => trim((string) $term))
+            ->filter()
+            ->unique()
+            ->take(300)
+            ->values()
+            ->all();
+
+        $this->resetPage();
+        $this->resetSelection();
+        $this->dispatchBrowserEvent('hideModal');
+    }
+
+    public function clearMultiSearch()
+    {
+        $this->advanceSearch = null;
+        $this->multiSearch = [];
         $this->resetPage();
         $this->resetSelection();
     }
@@ -386,6 +413,12 @@ class Main extends Component
                 return $q->where('productions.user_id', Auth()->user()->id);
             })
             ->where('productions.completed', false)
+            ->when(count($this->multiSearch), function ($q) {
+                return $q->where(function ($query) {
+                    $query->whereIn('n.note', $this->multiSearch)
+                        ->orWhereIn('n.numPedido', $this->multiSearch);
+                });
+            })
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {
                     $query->where('n.note', 'like', '%' . $s . '%')

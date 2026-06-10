@@ -188,12 +188,23 @@
                             </div>
                         </div>
                         <div class="col-12 col-sm-8">
-                            <div class="form-floating">
+                            <div class="form-floating position-relative">
                                 <input wire:model.debounce.500ms="search" type="text"
-                                    class="form-control border border-secondary" id="reverseSearch"
+                                    class="form-control border border-secondary pe-5" id="reverseSearch"
                                     placeholder="Buscar por nota ou material">
                                 <label for="reverseSearch">Buscar por nota ou material</label>
+                                <button type="button"
+                                    class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                                    data-bs-toggle="modal" data-bs-target="#reverse_multi_search_modal"
+                                    title="Buscar em massa" aria-label="Buscar em massa">
+                                    <i class="ri-checkbox-multiple-blank-line"></i>
+                                </button>
                             </div>
+                            @if (count($multiSearch))
+                                <small class="text-primary">
+                                    Busca em massa ativa: {{ count($multiSearch) }} termo(s)
+                                </small>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -557,6 +568,34 @@
     {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('components.status.show-status', key('show_status_note'))
+
+    <div wire:ignore.self class="modal fade" id="reverse_multi_search_modal" tabindex="-1"
+        aria-labelledby="reverseMultiSearchModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header text-bg-primary">
+                    <h5 class="modal-title" id="reverseMultiSearchModalLabel">Buscar em massa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="reverseAdvanceSearch" class="form-label">
+                        Informe notas ou números de pedido separados por espaço, vírgula, ponto e vírgula ou quebra de linha
+                    </label>
+                    <textarea class="form-control" id="reverseAdvanceSearch" rows="8"
+                        wire:model.defer="advanceSearch"
+                        placeholder="Ex: 30001234&#10;30001235&#10;450009999"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" wire:click="clearMultiSearch">
+                        Limpar
+                    </button>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">
+                        Aplicar busca
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div wire:ignore.self class="modal fade" id="bulk_finish_modal" tabindex="-1"
         aria-labelledby="bulkFinishModalLabel" aria-hidden="true">
