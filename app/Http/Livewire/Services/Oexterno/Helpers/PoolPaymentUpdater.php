@@ -115,7 +115,7 @@ class PoolPaymentUpdater extends Component
      * Use as chaves de DESTINO (valores do COLMAP).
      */
     private const TYPES = [
-        'pool_id'     => 'int',
+        'pool_id' => 'pool_id',
 
         // datetimes
         'criacao_pedido'               => 'datetime',
@@ -259,9 +259,9 @@ class PoolPaymentUpdater extends Component
         foreach ($rows as $row) {
             $v = $row[$poolHeaderKey] ?? null;
             if ($v !== null && $v !== '') {
-                $i = $this->toInt($v);
-                if ($i !== null) {
-                    $poolIds[] = $i;
+                $poolId = $this->toPoolId($v);
+                if ($poolId !== null) {
+                    $poolIds[] = $poolId;
                 }
             }
         }
@@ -288,7 +288,7 @@ class PoolPaymentUpdater extends Component
 
         foreach ($rows as $row) {
             $poolIdSrcHeader = array_search('pool_id', $presentMap, true);
-            $poolId = $this->toInt(Arr::get($row, $poolIdSrcHeader));
+            $poolId = $this->toPoolId(Arr::get($row, $poolIdSrcHeader));
 
             if (!$poolId || !$existing->has($poolId)) {
                 $skipped++;
@@ -471,6 +471,11 @@ class PoolPaymentUpdater extends Component
             return is_numeric($value);
         }
         switch ($expected) {
+            case 'pool_id':
+                $poolId = ExternalPoolpayment::normalizePoolId($value);
+
+                return $poolId !== null
+                    && preg_match(ExternalPoolpayment::POOL_ID_PATTERN, $poolId) === 1;
             case 'int':   return is_numeric($value);
             case 'bool':
                 if (is_bool($value)) {
@@ -564,11 +569,26 @@ class PoolPaymentUpdater extends Component
         return (int)$v;
     }
 
+    private function toPoolId($value): ?string
+    {
+        $poolId = ExternalPoolpayment::normalizePoolId($this->cleanCell($value));
+
+        if ($poolId === null || !preg_match(ExternalPoolpayment::POOL_ID_PATTERN, $poolId)) {
+            return null;
+        }
+
+        return $poolId;
+    }
+
     private function normalizeForAttr(string $attr, $raw)
     {
         $raw = $this->cleanCell($raw);   // <<< ADICIONE
         if ($raw === null) {
             return null;
+        }
+
+        if ($attr === 'pool_id') {
+            return $this->toPoolId($raw);
         }
 
         if (isset(self::TYPES[$attr])) {

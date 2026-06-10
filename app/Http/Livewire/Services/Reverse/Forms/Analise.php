@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Services\Reverse\Forms;
 
 use App\Custom\GeradorCartas;
+use App\Helpers\SelectOptions;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
@@ -191,6 +192,11 @@ class Analise extends Component
         ]);
     }
 
+    public function updatedPreResult()
+    {
+        $this->conclusion = '';
+    }
+
     public function to_pause()
     {
         $this->save_info();
@@ -227,13 +233,34 @@ class Analise extends Component
         $this->production = $production;
         $this->note       = Note::find($this->production->note_id);
 
+        if (!$this->preResult) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TIPO DE ESTUDO NÃO DEFINIDO',
+                'html'     => 'Informe o tipo de estudo para concluir a análise.',
+            ]);
+
+            return;
+        }
+
         if (!$this->conclusion) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'CONCLUSÃO NÃO DEFINIDA',
-                'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
-                ',
+                'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.',
+            ]);
+
+            return;
+        }
+
+        if (!SelectOptions::isValidReverseFluxConclusion($this->preResult, $this->conclusion)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO INVÁLIDA',
+                'html'     => 'A conclusão selecionada não corresponde ao tipo de estudo informado.',
             ]);
 
             return;

@@ -612,7 +612,7 @@
                                 Você selecionou <strong>{{ count($selected) }}</strong> registro(s) para encerrar.
                             </div>
                         </div>
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-3">
                             <div class="form-floating">
                                 <select class="form-select" id="bulkMmgd" wire:model.defer="bulkMmgd">
                                     <option value="" selected>Selecione</option>
@@ -622,7 +622,7 @@
                                 <label for="bulkMmgd">MMGD?</label>
                             </div>
                         </div>
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-3">
                             <div class="form-floating">
                                 <select class="form-select" id="bulkIs45" wire:model.defer="bulkIs45">
                                     <option value="" selected>Selecione</option>
@@ -632,16 +632,25 @@
                                 <label for="bulkIs45">Art.90 (45 dias)?</label>
                             </div>
                         </div>
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-3">
                             <div class="form-floating">
-                                <select class="form-select" id="bulkConclusion" wire:model.defer="bulkConclusion">
+                                <select class="form-select" id="bulkPreResult" wire:model="bulkPreResult">
                                     <option value="" selected>Selecione</option>
-                                    <option value="ISR - LIBERADO">ISR - LIBERADO</option>
-                                    <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
-                                    <option value="ENVIADO AO DESENHO">ENVIADO AO DESENHO</option>
-                                    <option value="ENVIADO CARTA AO CLIENTE">ENVIADO CARTA AO CLIENTE</option>
-                                    <option value="ENVIADO RESPOSTA EMPRESA">ENVIADO RESPOSTA EMPRESA</option>
-                                    <option value="ENVIADO PARA O STATUS 21">ENVIADO PARA O STATUS 21</option>
+                                    @foreach (SelectOptions::getReverseFluxConclusion() as $option)
+                                        <option value="{{ $option->value }}">{{ $option->reason }}</option>
+                                    @endforeach
+                                </select>
+                                <label for="bulkPreResult">Tipo de Estudo</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="bulkConclusion" wire:model.defer="bulkConclusion"
+                                    @disabled(!$bulkPreResult)>
+                                    <option value="" selected>Selecione</option>
+                                    @foreach (SelectOptions::getReverseFluxEnd($bulkPreResult) as $option)
+                                        <option value="{{ $option->value }}">{{ $option->reason }}</option>
+                                    @endforeach
                                 </select>
                                 <label for="bulkConclusion">Conclusão</label>
                             </div>

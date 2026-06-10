@@ -145,16 +145,24 @@ class Main extends Component
             return;
         }
 
-        if (!trim($this->paymentPoolId)) {
+        $this->paymentPoolId = ExternalPoolpayment::normalizePoolId($this->paymentPoolId);
+
+        if (!$this->paymentPoolId) {
             return;
         }
 
 
         $this->validate([
-            'paymentPoolId' => 'required|integer|unique:external_poolpayments,pool_id',
+            'paymentPoolId' => [
+                'required',
+                'string',
+                'max:30',
+                'regex:' . ExternalPoolpayment::POOL_ID_PATTERN,
+                'unique:external_poolpayments,pool_id',
+            ],
         ], [
             'paymentPoolId.required' => 'O campo PoolId é obrigatório.',
-            'paymentPoolId.integer'  => 'O campo PoolId deve ser um número inteiro.',
+            'paymentPoolId.regex'    => 'Informe um PoolId numérico ou um código com prefixo e números, como HRC0008140.',
             'paymentPoolId.unique'   => 'Já existe um pedido de pagamento com este PoolId.',
         ]);
 

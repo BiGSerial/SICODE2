@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Reverse\Accompany;
 
+use App\Helpers\SelectOptions;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Models\{Note, Notetimeline, Production, Service, User};
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,8 @@ class Main extends Component
     public $selectAll = false;
 
     public $selected = [];
+
+    public $bulkPreResult;
 
     public $bulkConclusion;
 
@@ -201,6 +204,11 @@ class Main extends Component
         $this->resetSelection();
     }
 
+    public function updatedBulkPreResult()
+    {
+        $this->bulkConclusion = null;
+    }
+
     private function resetSelection(): void
     {
         $this->selected = [];
@@ -251,12 +259,34 @@ class Main extends Component
             return;
         }
 
+        if (!$this->bulkPreResult) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TIPO DE ESTUDO NÃO DEFINIDO',
+                'html'     => 'Informe o tipo de estudo que será aplicado aos registros selecionados.',
+            ]);
+
+            return;
+        }
+
         if (!$this->bulkConclusion) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'CONCLUSÃO NÃO DEFINIDA',
                 'html'     => 'Informe a conclusão que será aplicada aos registros selecionados.',
+            ]);
+
+            return;
+        }
+
+        if (!SelectOptions::isValidReverseFluxConclusion($this->bulkPreResult, $this->bulkConclusion)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO INVÁLIDA',
+                'html'     => 'A conclusão selecionada não corresponde ao tipo de estudo informado.',
             ]);
 
             return;
@@ -336,6 +366,7 @@ class Main extends Component
                     : $bulkSignature;
 
                 $analise->update([
+                    'preresult'  => $this->bulkPreResult,
                     'conclusion' => $this->bulkConclusion,
                     'info'       => $infoMessage,
                 ]);
@@ -369,6 +400,7 @@ class Main extends Component
 
             $this->selected = [];
             $this->selectAll = false;
+            $this->bulkPreResult = null;
             $this->bulkConclusion = null;
             $this->bulkMmgd = null;
             $this->bulkIs45 = null;

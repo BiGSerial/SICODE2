@@ -9,6 +9,8 @@ class ExternalPoolpayment extends Model
 {
     use HasFactory;
 
+    public const POOL_ID_PATTERN = '/^(?:\d+|[A-Z]+\d+)$/';
+
     protected $fillable = [
         'external_id',
         'user_id',
@@ -77,7 +79,6 @@ class ExternalPoolpayment extends Model
 
     protected $casts = [
         'external_id' => 'integer',
-        'pool_id'     => 'integer',
 
         // Datas/hora (timestamp no schema)
         'criacao_pedido'               => 'datetime',
@@ -109,9 +110,30 @@ class ExternalPoolpayment extends Model
 
         static::creating(function ($model) {
             if (!empty($model->pool_id) && empty($model->link_solicitacao)) {
-                $model->link_solicitacao = 'https://portaldeservicos.edpbr.com.br/PoolLancamento/PoolDetail?PoolId=' . $model->pool_id;
+                $model->link_solicitacao = 'https://portaldeservicos.edpbr.com.br/PoolLancamento/PoolDetail?PoolId='
+                    . rawurlencode($model->pool_id);
             }
         });
+    }
+
+    public static function normalizePoolId($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_float($value) && floor($value) === $value) {
+            $value = number_format($value, 0, '', '');
+        }
+
+        $poolId = strtoupper(trim((string) $value));
+
+        return $poolId === '' ? null : $poolId;
+    }
+
+    public function setPoolIdAttribute($value): void
+    {
+        $this->attributes['pool_id'] = static::normalizePoolId($value);
     }
 
     public function external()

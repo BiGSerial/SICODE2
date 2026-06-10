@@ -212,13 +212,42 @@ class SelectOptions
         ];
     }
 
-    public static function getReverseFluxEnd()
+    public static function getReverseFluxEnd($studyType = null)
     {
-        return [
-            (object)['reason' => 'ISR - Independe de Serviço de rede', 'value' => 'ISR - INDEPENDE DE SERVICO DE REDE', 'block' => false],
-            (object)['reason' => 'NE - Não Elaborado', 'value' => 'NE - NAO ELABORADO', 'block' => false],
-            (object)['reason' => 'DSR - Dependente de Serviço de rede', 'value' => 'DSR - DEPENDENTE DE SERVICO DE REDE', 'block' => false]
+        $options = [
+            'ESTUDO DETALHADO' => [
+                (object)['reason' => 'NE - Alimentador', 'value' => 'NE - ALIMENTADOR', 'block' => false],
+                (object)['reason' => 'NE - Transformador', 'value' => 'NE - TRANSFORMADOR', 'block' => false],
+            ],
+            'ESTUDO SIMPLES' => [
+                (object)['reason' => 'ISR', 'value' => 'ISR', 'block' => false],
+                (object)['reason' => 'DSR', 'value' => 'DSR', 'block' => false],
+                (object)['reason' => 'LigaGD', 'value' => 'LIGAGD', 'block' => false],
+            ],
+            'SEM ESTUDO' => [
+                (object)['reason' => 'NE - Outros Motivos', 'value' => 'NE - OUTROS MOTIVOS', 'block' => false],
+                (object)['reason' => 'Fast Track', 'value' => 'FAST TRACK', 'block' => false],
+                (object)['reason' => 'Grid Zero', 'value' => 'GRID ZERO', 'block' => false],
+                (object)['reason' => 'PG', 'value' => 'PG', 'block' => false],
+            ],
         ];
+
+        if ($studyType) {
+            return $options[$studyType] ?? [];
+        }
+
+        return array_merge(...array_values($options));
+    }
+
+    public static function isValidReverseFluxConclusion($studyType, $conclusion)
+    {
+        foreach (static::getReverseFluxEnd($studyType) as $option) {
+            if ($option->value === $conclusion) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 

@@ -411,9 +411,9 @@
                                                 </span>
                                                 <input type="text"
                                                     class="form-control {{ $errors->has('paymentPoolId') ? 'is-invalid' : '' }}"
-                                                    placeholder="ID do pool de pagamento"
+                                                    placeholder="Ex.: HRC0008140"
                                                     wire:model.defer="paymentPoolId"
-                                                    aria-label="ID do pool de pagamento">
+                                                    aria-label="Código da solicitação de pagamento">
                                                 <button class="btn btn-success" type="button"
                                                     wire:click="requestPayment({{ $currentExternal->id }})"
                                                     title="Adicionar pedido de pagamento"
@@ -429,7 +429,8 @@
                                             @enderror
                                             <div class="form-text mt-2">
                                                 <i class="ri-information-line me-1"></i>
-                                                Informe o ID do pool para vincular o pagamento à entidade.
+                                                Informe o ID numérico legado ou um código com prefixo seguido de
+                                                números, como <strong>HRC0008140</strong>.
                                             </div>
                                         </div>
                                     </div>

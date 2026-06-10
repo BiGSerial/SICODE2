@@ -370,7 +370,7 @@
                         {{-- Conclusão --}}
                         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select" id="conclusion" wire:model.defer="preResult">
+                                <select class="form-select" id="preResult" wire:model="preResult">
                                     <option value="0" selected>Selecione</option>
                                     @foreach (SelectOptions::getReverseFluxConclusion() as $option)
                                         <option value="{{ $option->value }}">{{ $option->reason }}</option>
@@ -382,9 +382,10 @@
 
                         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select" id="conclusion" wire:model.defer="conclusion">
+                                <select class="form-select" id="conclusion" wire:model.defer="conclusion"
+                                    @disabled(!$preResult || $preResult === '0')>
                                     <option value="0" selected>Selecione</option>
-                                    @foreach (SelectOptions::getReverseFluxEnd() as $option)
+                                    @foreach (SelectOptions::getReverseFluxEnd($preResult) as $option)
                                         <option value="{{ $option->value }}">{{ $option->reason }}</option>
                                     @endforeach
                                 </select>
