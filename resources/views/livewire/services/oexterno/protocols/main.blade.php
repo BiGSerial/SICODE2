@@ -353,29 +353,36 @@
     {{-- MODAL: DETALHES DA ENTIDADE (agora com abas internas) --}}
     <div wire:ignore.self class="modal fade" id="entityModal" tabindex="-1" aria-labelledby="entityModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable ">
-            <div class="modal-content bg-gray">
-                <div class="modal-header edp-bg-sprucegreen-70">
-                    <div>
-                        <h5 class="modal-title  text-edp-verde d-flex align-items-center gap-2" id="entityModalLabel">
-                            <i class="ri-building-3-line"></i>
-                            <span>
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content entity-detail-modal">
+                <div class="modal-header entity-detail-modal__header">
+                    <div class="entity-detail-modal__identity">
+                        <span class="entity-detail-modal__avatar">
+                            <i class="ri-government-line"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <div class="entity-detail-modal__eyebrow">Detalhes da entidade externa</div>
+                            <h5 class="modal-title text-truncate mb-0" id="entityModalLabel">
                                 <span wire:loading.inline wire:target="openEntityModal">Carregando entidade...</span>
                                 <span wire:loading.remove wire:target="openEntityModal">
                                     @if ($currentExternal)
                                         {{ $currentExternal->entity?->name ?? $currentExternal->entidade }}
-                                        @if ($currentExternal->completed)
-                                            <span class="badge text-bg-success ms-2">Encerrado</span>
-                                        @endif
                                     @else
                                         Detalhes da Entidade
                                     @endif
                                 </span>
-                            </span>
-                        </h5>
-                        <div class="small text-white">
-                            Gerencie status, protocolos, pagamentos, arquivos e retornos internos desta entidade.
+                            </h5>
+                            <div class="entity-detail-modal__subtitle">
+                                Gerencie protocolos, pagamentos, interações, arquivos e retornos internos.
+                            </div>
                         </div>
+                        @if ($currentExternal)
+                            <span
+                                class="entity-status {{ $currentExternal->completed ? 'entity-status--completed' : 'entity-status--active' }}">
+                                <span class="entity-status__dot"></span>
+                                {{ $currentExternal->completed ? 'Encerrado' : $protocolReasons->firstWhere('value', $currentExternal->status)?->reason ?? 'Indefinido' }}
+                            </span>
+                        @endif
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Fechar"></button>
@@ -396,20 +403,67 @@
                                 <div>Selecione uma entidade na lista para visualizar os detalhes.</div>
                             </div>
                         @else
+                            <div class="entity-modal-summary mb-3">
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-calendar-event-line"></i>
+                                    <div>
+                                        <span>Vinculada em</span>
+                                        <strong>{{ $currentExternal->created_at->format('d/m/Y') }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-file-list-3-line"></i>
+                                    <div>
+                                        <span>Protocolos</span>
+                                        <strong>{{ $currentExternal->protocols->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-hand-coin-line"></i>
+                                    <div>
+                                        <span>Pagamentos</span>
+                                        <strong>{{ $currentExternal->PoolPayments->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-chat-3-line"></i>
+                                    <div>
+                                        <span>Interações</span>
+                                        <strong>{{ $currentExternal->comments->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-attachment-2"></i>
+                                    <div>
+                                        <span>Arquivos</span>
+                                        <strong>{{ $currentExternal->files->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-arrow-go-back-line"></i>
+                                    <div>
+                                        <span>Retornos</span>
+                                        <strong>{{ $currentExternal->Reclaims->count() }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
                             {{-- Ações imediatas --}}
-                            <div class="row g-3 align-items-start mb-4">
+                            <div class="row g-3 align-items-stretch mb-4">
                                 {{-- Status da Entidade --}}
                                 <div class="col-12 col-lg-6">
-                                    <div class="card border-0 shadow-sm h-100">
+                                    <div class="card entity-quick-action h-100">
                                         <div class="card-body">
-                                            <label class="form-label fw-semibold mb-2 d-flex align-items-center">
-                                                <i class="ri-price-tag-3-line me-2 text-primary fs-5"></i>
-                                                Status da Entidade
-                                            </label>
-                                            <div class="input-group">
-                                                <span class="input-group-text bg-light">
+                                            <div class="entity-quick-action__heading">
+                                                <span class="entity-quick-action__icon">
                                                     <i class="ri-flag-line"></i>
                                                 </span>
+                                                <div>
+                                                    <h6>Status da entidade</h6>
+                                                    <p>Atualize a etapa atual da tratativa.</p>
+                                                </div>
+                                            </div>
+                                            <div class="input-group">
                                                 <select class="form-select" wire:model.defer="currentExternal.status"
                                                     aria-label="Status da Entidade">
                                                     <option value="">Selecione uma razão...</option>
@@ -434,9 +488,7 @@
                                                 </button>
                                             </div>
                                             <div class="form-text mt-2">
-                                                <i class="ri-information-line me-1"></i>
-                                                O tipo de evidência será gerado com o <strong>prefix</strong> da razão
-                                                selecionada.
+                                                O tipo de evidência usa o prefixo da razão selecionada.
                                             </div>
                                         </div>
                                     </div>
@@ -444,16 +496,18 @@
 
                                 {{-- Solicitar Pagamento --}}
                                 <div class="col-12 col-lg-6">
-                                    <div class="card border-0 shadow-sm h-100">
+                                    <div class="card entity-quick-action entity-quick-action--success h-100">
                                         <div class="card-body">
-                                            <label class="form-label fw-semibold mb-2 d-flex align-items-center">
-                                                <i class="ri-money-dollar-circle-line me-2 text-success fs-5"></i>
-                                                Solicitar Pagamento
-                                            </label>
-                                            <div class="input-group">
-                                                <span class="input-group-text bg-light">
-                                                    <i class="ri-bank-card-line"></i>
+                                            <div class="entity-quick-action__heading">
+                                                <span class="entity-quick-action__icon">
+                                                    <i class="ri-money-dollar-circle-line"></i>
                                                 </span>
+                                                <div>
+                                                    <h6>Vincular pagamento</h6>
+                                                    <p>Registre o identificador devolvido pelo portal.</p>
+                                                </div>
+                                            </div>
+                                            <div class="input-group">
                                                 <input type="text"
                                                     class="form-control {{ $errors->has('paymentPoolId') ? 'is-invalid' : '' }}"
                                                     placeholder="Ex.: HRC0008140"
@@ -473,19 +527,18 @@
                                                 </div>
                                             @enderror
                                             <div class="form-text mt-2">
-                                                <i class="ri-information-line me-1"></i>
-                                                Informe o ID numérico legado ou um código com prefixo seguido de
-                                                números, como <strong>HRC0008140</strong>.
+                                                Aceita ID numérico ou código com prefixo, como
+                                                <strong>HRC0008140</strong>.
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <hr class="my-3">
-
                             {{-- ABAS DE DETALHES DA ENTIDADE --}}
-                            <ul class="nav nav-pills nav-pills-primary mb-3" id="entityDetailTabs" role="tablist">
+                            <div class="entity-modal-workspace">
+                            <ul class="nav nav-pills nav-pills-primary entity-modal-tabs" id="entityDetailTabs"
+                                role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button
                                         class="nav-link {{ $activeModalTab == 'modal-protocols' ? 'active' : '' }}"
@@ -495,6 +548,7 @@
                                         aria-selected="{{ $activeModalTab == 'modal-protocols' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-protocols')">
                                         <i class="ri-file-list-3-line me-2"></i>Protocolos
+                                        <span class="badge">{{ $currentExternal->protocols->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -505,6 +559,7 @@
                                         aria-selected="{{ $activeModalTab == 'modal-payments' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-payments')">
                                         <i class="ri-hand-coin-line me-2"></i>Pagamentos
+                                        <span class="badge">{{ $currentExternal->PoolPayments->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -515,6 +570,7 @@
                                         aria-selected="{{ $activeModalTab == 'modal-comments' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-comments')">
                                         <i class="ri-chat-1-line me-2"></i>Comentários
+                                        <span class="badge">{{ $currentExternal->comments->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -525,7 +581,8 @@
                                         aria-controls="modal-entity-files"
                                         aria-selected="{{ $activeModalTab == 'modal-entity-files' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-entity-files')">
-                                        <i class="ri-folder-2-line me-2"></i>Arquivos da Entidade
+                                        <i class="ri-folder-2-line me-2"></i>Arquivos
+                                        <span class="badge">{{ $currentExternal->files->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -547,12 +604,13 @@
                                         aria-controls="modal-internal-returns"
                                         aria-selected="{{ $activeModalTab == 'modal-internal-returns' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-internal-returns')">
-                                        <i class="ri-arrow-go-back-line me-2"></i>Retornos Internos
+                                        <i class="ri-arrow-go-back-line me-2"></i>Retornos
+                                        <span class="badge">{{ $currentExternal->Reclaims->count() }}</span>
                                     </button>
                                 </li>
                             </ul>
 
-                            <div class="tab-content" id="entityDetailTabsContent">
+                            <div class="tab-content entity-modal-tab-content" id="entityDetailTabsContent">
                                 {{-- TAB PANE: Protocolos --}}
                                 <div class="tab-pane fade {{ $activeModalTab == 'modal-protocols' ? 'show active' : '' }}"
                                     id="modal-protocols" role="tabpanel" aria-labelledby="modal-protocols-tab"
@@ -1202,18 +1260,14 @@
                                 </div>
                                 {{-- /Retornos Internos --}}
                             </div>
+                            </div>
                         @endif
                     </div>
                 </div>
 
-                <div class="modal-footer d-flex justify-content-between">
+                <div class="modal-footer entity-detail-modal__footer">
                     @if ($currentExternal && !$currentExternal->completed)
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-success"
-                                wire:click="toFinishEntity({{ $currentExternal->id }})" data-bs-toggle="tooltip"
-                                data-bs-title="Marca a entidade como concluída">
-                                <i class="ri-check-double-line me-1"></i> Encerrar Entidade
-                            </button>
+                        <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn btn-outline-danger"
                                 wire:click="deleteProtocol({{ $currentExternal->id }})" data-bs-toggle="tooltip"
                                 data-bs-title="Remove o vínculo desta entidade">
@@ -1224,13 +1278,22 @@
                         <div></div>
                     @endif
 
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-primary"
+                    <div class="d-flex flex-wrap gap-2 ms-auto">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Fechar
+                        </button>
+                        @if ($currentExternal && !$currentExternal->completed)
+                            <button type="button" class="btn btn-outline-success"
+                                wire:click="toFinishEntity({{ $currentExternal->id }})" data-bs-toggle="tooltip"
+                                data-bs-title="Marca a entidade como concluída">
+                                <i class="ri-check-double-line me-1"></i> Encerrar entidade
+                            </button>
+                        @endif
+                        <button type="button" class="btn btn-primary px-4"
                             wire:click="saveModalChanges({{ $currentExternal->id ?? 'null' }})"
                             @disabled($currentExternal?->completed)>
                             <i class="ri-save-3-line me-1"></i> Salvar Alterações
                         </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                     </div>
                 </div>
             </div>
@@ -1680,6 +1743,248 @@
             background: linear-gradient(135deg, var(--bg-gradient-spruce-start), var(--bg-gradient-spruce-end));
         }
 
+        #entityModal .entity-detail-modal {
+            background: #f4f7f9;
+            border: 0;
+            border-radius: 1rem;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .26);
+            overflow: hidden;
+        }
+
+        #entityModal .entity-detail-modal__header {
+            align-items: center;
+            background: linear-gradient(120deg, #0f172a, #0f766e);
+            border: 0;
+            color: #fff;
+            min-height: 5.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        #entityModal .entity-detail-modal__identity {
+            align-items: center;
+            display: flex;
+            gap: .85rem;
+            min-width: 0;
+        }
+
+        #entityModal .entity-detail-modal__avatar {
+            align-items: center;
+            background: rgba(255, 255, 255, .14);
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: .85rem;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 1.35rem;
+            height: 3rem;
+            justify-content: center;
+            width: 3rem;
+        }
+
+        #entityModal .entity-detail-modal__eyebrow {
+            color: rgba(255, 255, 255, .65);
+            font-size: .68rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        #entityModal .modal-title {
+            color: #fff !important;
+            font-size: 1.08rem;
+            font-weight: 700;
+            margin-top: .12rem;
+            max-width: 34rem;
+        }
+
+        #entityModal .entity-detail-modal__subtitle {
+            color: rgba(255, 255, 255, .7);
+            font-size: .76rem;
+            margin-top: .15rem;
+        }
+
+        #entityModal .entity-detail-modal__header .entity-status {
+            background: rgba(255, 255, 255, .12);
+            border-color: rgba(255, 255, 255, .2);
+            color: #fff;
+            margin-left: .5rem;
+            max-width: 18rem;
+        }
+
+        #entityModal .modal-body {
+            background: #f4f7f9;
+            padding: 1rem 1.15rem 1.25rem;
+        }
+
+        #entityModal .entity-modal-summary {
+            background: #fff;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .85rem;
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            overflow: hidden;
+        }
+
+        #entityModal .entity-modal-summary__item {
+            align-items: center;
+            border-right: 1px solid var(--bs-border-color);
+            display: flex;
+            gap: .55rem;
+            min-width: 0;
+            padding: .7rem .8rem;
+        }
+
+        #entityModal .entity-modal-summary__item:last-child {
+            border-right: 0;
+        }
+
+        #entityModal .entity-modal-summary__item>i {
+            color: var(--bs-primary);
+            flex: 0 0 auto;
+            font-size: 1rem;
+        }
+
+        #entityModal .entity-modal-summary__item span,
+        #entityModal .entity-modal-summary__item strong {
+            display: block;
+        }
+
+        #entityModal .entity-modal-summary__item span {
+            color: var(--bs-secondary-color);
+            font-size: .64rem;
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+
+        #entityModal .entity-modal-summary__item strong {
+            color: var(--bs-body-color);
+            font-size: .87rem;
+            margin-top: .08rem;
+        }
+
+        #entityModal .entity-quick-action {
+            border: 1px solid var(--bs-border-color);
+            border-radius: .85rem;
+            box-shadow: 0 7px 20px rgba(15, 23, 42, .05);
+        }
+
+        #entityModal .entity-quick-action__heading {
+            align-items: center;
+            display: flex;
+            gap: .65rem;
+            margin-bottom: .8rem;
+        }
+
+        #entityModal .entity-quick-action__icon {
+            align-items: center;
+            background: var(--bs-primary-bg-subtle);
+            border-radius: .65rem;
+            color: var(--bs-primary);
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 1.1rem;
+            height: 2.45rem;
+            justify-content: center;
+            width: 2.45rem;
+        }
+
+        #entityModal .entity-quick-action--success .entity-quick-action__icon {
+            background: var(--bs-success-bg-subtle);
+            color: var(--bs-success);
+        }
+
+        #entityModal .entity-quick-action__heading h6 {
+            color: var(--bs-body-color);
+            font-size: .88rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        #entityModal .entity-quick-action__heading p {
+            color: var(--bs-secondary-color);
+            font-size: .7rem;
+            margin: .08rem 0 0;
+        }
+
+        #entityModal .entity-modal-workspace {
+            background: #fff;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .9rem;
+            box-shadow: 0 9px 24px rgba(15, 23, 42, .05);
+            overflow: hidden;
+        }
+
+        #entityModal .entity-modal-tabs {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--bs-border-color);
+            flex-wrap: nowrap;
+            gap: .25rem;
+            overflow-x: auto;
+            padding: .65rem;
+        }
+
+        #entityModal .entity-modal-tabs .nav-link {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: .65rem;
+            color: var(--bs-secondary-color);
+            display: inline-flex;
+            font-size: .78rem;
+            gap: .15rem;
+            padding: .52rem .68rem;
+            white-space: nowrap;
+        }
+
+        #entityModal .entity-modal-tabs .nav-link:hover {
+            background: #fff;
+            border-color: var(--bs-border-color);
+            color: var(--bs-primary);
+        }
+
+        #entityModal .entity-modal-tabs .nav-link.active {
+            background: var(--bs-primary);
+            border-color: var(--bs-primary);
+            box-shadow: 0 5px 12px rgba(var(--bs-primary-rgb), .2);
+            color: #fff;
+        }
+
+        #entityModal .entity-modal-tabs .badge {
+            background: var(--bs-secondary-bg);
+            color: var(--bs-secondary-color);
+            font-size: .62rem;
+            margin-left: .25rem;
+            min-width: 1.25rem;
+        }
+
+        #entityModal .entity-modal-tabs .nav-link.active .badge {
+            background: rgba(255, 255, 255, .18);
+            color: #fff;
+        }
+
+        #entityModal .entity-modal-tab-content {
+            padding: .85rem;
+        }
+
+        #entityModal .entity-modal-tab-content>.tab-pane>.card {
+            border: 1px solid var(--bs-border-color) !important;
+            border-radius: .75rem;
+            box-shadow: none !important;
+            overflow: hidden;
+        }
+
+        #entityModal .entity-modal-tab-content .card-header {
+            background: #fff !important;
+            border-bottom: 1px solid var(--bs-border-color);
+            min-height: 3.4rem;
+            padding: .75rem .9rem;
+        }
+
+        #entityModal .entity-detail-modal__footer {
+            background: #fff;
+            border-top: 1px solid var(--bs-border-color);
+            gap: .75rem;
+            padding: .85rem 1.15rem;
+        }
+
         .modal-header .modal-title {
             color: var(--bs-white) !important;
             /* Cor do título do modal */
@@ -1755,6 +2060,66 @@
         .nav-pills-primary .nav-link.active:hover {
             background-color: var(--bs-primary-hover);
             color: var(--bs-white);
+        }
+
+        @media (max-width: 991.98px) {
+            #entityModal .entity-modal-summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            #entityModal .entity-modal-summary__item:nth-child(3) {
+                border-right: 0;
+            }
+
+            #entityModal .entity-modal-summary__item:nth-child(-n+3) {
+                border-bottom: 1px solid var(--bs-border-color);
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            #entityModal .modal-dialog {
+                margin: .5rem;
+            }
+
+            #entityModal .entity-detail-modal__header {
+                align-items: flex-start;
+            }
+
+            #entityModal .entity-detail-modal__identity {
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+
+            #entityModal .entity-detail-modal__header .entity-status {
+                margin-left: 3.85rem;
+                max-width: calc(100% - 3.85rem);
+            }
+
+            #entityModal .entity-modal-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            #entityModal .entity-modal-summary__item {
+                border-bottom: 1px solid var(--bs-border-color);
+            }
+
+            #entityModal .entity-modal-summary__item:nth-child(2n) {
+                border-right: 0;
+            }
+
+            #entityModal .entity-modal-summary__item:nth-last-child(-n+2) {
+                border-bottom: 0;
+            }
+
+            #entityModal .entity-detail-modal__footer {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            #entityModal .entity-detail-modal__footer>div,
+            #entityModal .entity-detail-modal__footer .btn {
+                width: 100%;
+            }
         }
 
         .tooltip {
