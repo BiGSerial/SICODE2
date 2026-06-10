@@ -4,6 +4,7 @@ namespace App\Console\Commands\SqlLog;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\SicodeSql\LogNoteInformFlows;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
     protected $signature = 'sicode:sync-log-note-inform-flows
         {--hours=2 : Janela de horas olhando updated_at}
         {--all : Sincroniza todos os registros}
+        {--yesterday-only : Sincroniza somente updated_at do dia anterior completo}
         {--chunk=500 : Tamanho do lote lido do MySQL}
         {--if-empty : Faz sync completo se a tabela destino estiver vazia}
         {--dry-run : Só simula, sem gravar no SQL Server}
@@ -40,6 +42,9 @@ class SyncNoteInformFlowsToSqlServer extends Command
         $hours = max(1, (int) $this->option('hours'));
         $chunk = max(50, (int) $this->option('chunk'));
         $since = now()->subHours($hours);
+        $yesterdayOnly = (bool) $this->option('yesterday-only');
+        $yesterdayStart = Carbon::yesterday()->startOfDay();
+        $yesterdayEnd = Carbon::yesterday()->endOfDay();
         $dryRun = (bool) $this->option('dry-run');
 
         $destConn = (new LogNoteInformFlows())->getConnectionName();
@@ -57,7 +62,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
 
         $this->info('Sync Note Inform Flows -> SQL Server');
         $this->line("Destino: {$destConn}.dbo.log_note_inform_flows_sync");
-        $this->line('Modo: ' . ($full ? 'FULL' : "INCREMENTAL (updated_at >= {$since->toDateTimeString()})"));
+        $this->line('Modo: ' . $this->describeMode($full, $yesterdayOnly, $yesterdayStart, $yesterdayEnd, $since));
         $this->newLine();
 
         $this->loadColumnLimits();
@@ -69,7 +74,8 @@ class SyncNoteInformFlowsToSqlServer extends Command
             ->leftJoin('productions as mp', 'mp.id', '=', 'nif.measurement_production_id')
             ->leftJoin('users as pu', 'pu.id', '=', 'mp.user_id')
             ->leftJoin('companies as puc', 'puc.id', '=', 'pu.company_id')
-            ->when(!$full, fn ($q) => $q->where('nif.updated_at', '>=', $since))
+            ->when(!$full && $yesterdayOnly, fn ($q) => $q->whereBetween('nif.updated_at', [$yesterdayStart, $yesterdayEnd]))
+            ->when(!$full && !$yesterdayOnly, fn ($q) => $q->where('nif.updated_at', '>=', $since))
             ->orderBy('nif.id')
             ->select([
                 'nif.*',
@@ -197,6 +203,19 @@ class SyncNoteInformFlowsToSqlServer extends Command
         ]);
     }
 
+    private function describeMode(bool $full, bool $yesterdayOnly, Carbon $yesterdayStart, Carbon $yesterdayEnd, Carbon $since): string
+    {
+        if ($full) {
+            return 'FULL';
+        }
+
+        if ($yesterdayOnly) {
+            return "ONTEM (updated_at entre {$yesterdayStart->toDateTimeString()} e {$yesterdayEnd->toDateTimeString()})";
+        }
+
+        return "INCREMENTAL (updated_at >= {$since->toDateTimeString()})";
+    }
+
     private function upsertColumns(): array
     {
         return [
@@ -304,4 +323,3 @@ class SyncNoteInformFlowsToSqlServer extends Command
         return $row;
     }
 }
-

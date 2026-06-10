@@ -11,7 +11,7 @@
 <div class="modal fade" id="modalApproveReclaim" tabindex="-1" aria-labelledby="modalEntityProtocolLabel" aria-hidden="true"
     wire:ignore.self>
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content  rounded-4 shadow-lg" style="font-family: 'Nunito', sans-serif;">
+        <div class="modal-content rounded-4 shadow-lg">
 
             <!-- HEADER -->
             <div class="modal-header bg-primary bg-opacity-25 text-primary">

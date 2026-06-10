@@ -104,7 +104,7 @@
     $reports_links = [
         ['route' => 'reports.productions', 'label' => 'RELATÓRIO DE PRODUÇÃO', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE', 'visible' => Auth()->user()->can('management')],
-        ['route' => 'reports.return_intern_dashboard', 'label' => 'RELATORIO RETORNO INTERNO', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.return_intern', 'label' => 'RETORNO INTERNO', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.cancellations_dashboard', 'label' => 'RELATÓRIO CANCELAMENTOS', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.complaints_mede', 'label' => 'RELATÓRIO DE RECLAMAÇÃO', 'visible' => Auth()->user()->can('management')],

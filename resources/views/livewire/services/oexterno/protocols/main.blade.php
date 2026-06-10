@@ -1203,10 +1203,8 @@
 
 @push('styles')
     <style>
-        /* Estilos globais para aprimorar a tipografia e espaçamento */
         body {
-            font-family: 'Inter', sans-serif;
-            /* Considere usar uma fonte moderna como Inter ou Poppins */
+            font-family: var(--bs-body-font-family);
             background-color: var(--bs-light);
             /* Cor de fundo mais suave */
         }

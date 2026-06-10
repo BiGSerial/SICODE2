@@ -16,7 +16,7 @@ use Throwable;
 
 class ForceScheduleRun extends Command
 {
-    protected $signature = 'schedule:force-run {eventHash} {displayName?}';
+    protected $signature = 'schedule:force-run {eventHash} {displayName?} {--timeout= : Timeout maximo em segundos para o processo filho}';
 
     protected $description = 'Executa manualmente um evento do Laravel Scheduler pelo hash usado no monitor.';
 
@@ -42,7 +42,7 @@ class ForceScheduleRun extends Command
         $start = microtime(true);
 
         try {
-            $exitCode = $this->runEventCommand($event, $eventHash, $displayName);
+            $exitCode = $this->runEventCommand($event, $eventHash, $displayName, $this->timeoutOption());
             $event->exitCode = $exitCode;
 
             Event::dispatch(new ScheduledTaskFinished(
@@ -60,12 +60,12 @@ class ForceScheduleRun extends Command
         }
     }
 
-    private function runEventCommand($event, string $eventHash, string $displayName): int
+    private function runEventCommand($event, string $eventHash, string $displayName, ?int $timeout): int
     {
         $event->callBeforeCallbacks($this->laravel);
 
         $process = Process::fromShellCommandline((string) $event->command, base_path());
-        $process->setTimeout(null);
+        $process->setTimeout($timeout);
         $process->start(function (string $type, string $line) use ($event) {
             $this->writeScheduledOutput($event, $line);
         });
@@ -80,6 +80,17 @@ class ForceScheduleRun extends Command
         $event->callAfterCallbacks($this->laravel);
 
         return (int) $exitCode;
+    }
+
+    private function timeoutOption(): ?int
+    {
+        $timeout = $this->option('timeout');
+
+        if ($timeout === null || $timeout === '') {
+            return null;
+        }
+
+        return max(1, (int) $timeout);
     }
 
     private function runningChildProcessId(?int $parentPid, string $expectedCommand): ?int

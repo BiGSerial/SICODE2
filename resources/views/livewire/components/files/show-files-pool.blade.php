@@ -79,7 +79,7 @@
     <style>
         /* Contêiner principal */
         .file-manager-wrapper {
-            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: var(--bs-body-font-family);
             background-color: #f8f9fa;
             padding: 1rem;
             border-radius: 8px;

@@ -64,6 +64,11 @@ class ReportsController extends Controller
         return view('reports.return-intern-dashboard');
     }
 
+    public function returnIntern()
+    {
+        return view('reports.return-intern');
+    }
+
     public function return_intern_list()
     {
         return view('reports.return-intern-list');

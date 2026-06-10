@@ -7,6 +7,26 @@
 // Bootstrap
 @import 'bootstrap/scss/bootstrap';
 
+html,
+body,
+button,
+input,
+optgroup,
+select,
+textarea,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.card-title,
+.alert-heading,
+.breadcrumb,
+.logo span {
+    font-family: var(--bs-body-font-family) !important;
+}
+
 // Módulo Jurídico
 @import 'legal/legal';
 

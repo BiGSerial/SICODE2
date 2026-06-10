@@ -8,15 +8,21 @@
             <ul id="ri-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
                     <li>
+                        <a href="{{ route('reports.return_intern') }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-inbox-archive-line text-white fw-light fs-5"></i> <span>RETORNOS ABERTOS</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('reports.return_intern_dashboard') }}"
                             class="nav-item text-white fw-normal">
-                            <i class="ri-dashboard-line text-white fw-light fs-5"></i> <span>DASHBOARD</span>
+                            <i class="ri-dashboard-line text-white fw-light fs-5"></i> <span>INDICADORES HISTÓRICOS</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('reports.return_intern_list') }}"
                             class="nav-item text-white fw-normal">
-                            <i class="ri-file-list-3-line text-white fw-light fs-5"></i> <span>RELATORIO</span>
+                            <i class="ri-file-list-3-line text-white fw-light fs-5"></i> <span>RELATÓRIO HISTÓRICO</span>
                         </a>
                     </li>
                 </div>

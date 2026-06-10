@@ -464,6 +464,10 @@
                 applyEdpDefaults(safeData, payload?.type);
                 applyDefaultDataLabelsOption(safeOptions);
 
+                if (window.Chart) {
+                    window.Chart.defaults.font.family = window.getComputedStyle(document.body).fontFamily;
+                }
+
                 if (window.ChartDataLabels && window.Chart && !window.__chartDataLabelsRegistered) {
                     window.Chart.register(window.ChartDataLabels);
                     window.__chartDataLabelsRegistered = true;

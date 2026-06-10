@@ -162,6 +162,7 @@ class Historic extends Component
             'date_field',
             'user_s',
             'user_search',
+            'perPage',
         ], true)) {
             $this->resetPage();
         }

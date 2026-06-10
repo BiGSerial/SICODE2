@@ -1,4 +1,4 @@
-<div>
+<div class="user-activity-page">
     @php
         use Carbon\Carbon;
         use App\Helpers\DaysLeft;
@@ -7,9 +7,16 @@
 
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Acompanhamento de produção',
+        'subtitle' => 'Gestão das atividades de órgão externo',
+        'total' => $lists->total(),
+        'accent' => '#475569',
+    ])
 
     {{-- START SearchBar and Filters --}}
-    <div class="card mb-3">
+    <div class="activity-filter-card mb-3">
         <div class="card-body">
             <div class="row g-3">
                 <!-- Per Page Select -->
@@ -154,7 +161,7 @@
 
 
 
-    <div class="row">
+    <div class="row user-activity-summary my-3 align-items-center">
 
         @if (!$lists->count())
         @elseif ($lists->count())
@@ -163,7 +170,7 @@
             </div>
         @endif
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                 {{ $lists->lastItem() }}
                 de {{ $lists->total() }}
                 registros.
@@ -175,15 +182,15 @@
 
 
     </div>
-    <div class="card">
+    <div class="user-activity-table-card">
 
         @if (!$lists->count())
             <div class="card-body">
                 <h4 class="text-center">SEM DADOS EM {{ $service->service }}</h4>
             </div>
         @else
-            <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">{{ mb_strtoupper($service->service) }} ACOMPANHAMENTO
+            <div class="user-activity-table-header text-bg-secondary d-flex justify-content-between align-items-center">
+                <h4 class="user-activity-table-title">{{ mb_strtoupper($service->service) }} ACOMPANHAMENTO
                     PROTOCOLO</h4>
                 <button wire:click="exportToExcel" class="btn btn-success">
                     <i class="ri-file-excel-2-line me-2"></i>Exportar
@@ -347,12 +354,12 @@
 
 
 
-    <div class="row">
+    <div class="row user-activity-summary my-3 align-items-center">
         <div class="col-6">
             {{ $lists->links() }}
         </div>
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                 {{ $lists->lastItem() }}
                 de {{ $lists->total() }}
                 registros.</span>

@@ -3,35 +3,37 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Http\Livewire\Reports\Concerns\ReturnInternFilters;
+use App\Http\Livewire\Reports\Concerns\LoadsReturnInternDetails;
 use App\Jobs\Reports\ExportInternalReclaimsJob;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\Reclaim;
+use Livewire\{Component, WithPagination};
 
 class ReturnInternList extends Component
 {
     use WithPagination;
     use ReturnInternFilters;
+    use LoadsReturnInternDetails;
 
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 25;
 
     protected $queryString = [
-        'dt_in' => ['except' => '', 'as' => 'de'],
-        'dt_out' => ['except' => '', 'as' => 'ate'],
-        'perPage' => ['except' => 25, 'as' => 'pp'],
-        'search' => ['except' => '', 'as' => 'busca'],
-        'originFilters' => ['except' => [], 'as' => 'origem'],
-        'serviceIds' => ['except' => [], 'as' => 'srv'],
-        'category' => ['except' => '', 'as' => 'cat'],
+        'dt_in'            => ['except' => '', 'as' => 'de'],
+        'dt_out'           => ['except' => '', 'as' => 'ate'],
+        'perPage'          => ['except' => 25, 'as' => 'pp'],
+        'search'           => ['except' => '', 'as' => 'busca'],
+        'originFilters'    => ['except' => [], 'as' => 'origem'],
+        'serviceIds'       => ['except' => [], 'as' => 'srv'],
+        'category'         => ['except' => '', 'as' => 'cat'],
         'dispatcherUserId' => ['except' => '', 'as' => 'disp'],
         'productionUserId' => ['except' => '', 'as' => 'prod'],
-        'companyId' => ['except' => '', 'as' => 'emp'],
+        'companyId'        => ['except' => '', 'as' => 'emp'],
         'productionStatus' => ['except' => '', 'as' => 'sts'],
-        'completedFilter' => ['except' => '', 'as' => 'cmp'],
-        'resolutionMin' => ['except' => '', 'as' => 'rmin'],
-        'resolutionMax' => ['except' => '', 'as' => 'rmax'],
-        'page' => ['except' => 1],
+        'completedFilter'  => ['except' => '', 'as' => 'cmp'],
+        'resolutionMin'    => ['except' => '', 'as' => 'rmin'],
+        'resolutionMax'    => ['except' => '', 'as' => 'rmax'],
+        'page'             => ['except' => 1],
     ];
 
     public function updated($propertyName)
@@ -53,7 +55,7 @@ class ReturnInternList extends Component
             'resolutionMax',
         ];
 
-        $isOriginNested = str_starts_with($propertyName, 'originFilters.');
+        $isOriginNested  = str_starts_with($propertyName, 'originFilters.');
         $isServiceNested = str_starts_with($propertyName, 'serviceIds.');
 
         if ($isOriginNested || $isServiceNested || in_array($propertyName, $paginationSensitive, true)) {
@@ -64,30 +66,35 @@ class ReturnInternList extends Component
     public function exportReport(): void
     {
         $params = [
-            'dt_in' => $this->dt_in,
-            'dt_out' => $this->dt_out,
-            'search' => $this->search,
-            'originFilters' => $this->originFilters,
-            'serviceIds' => $this->serviceIds,
-            'category' => $this->category,
+            'dt_in'            => $this->dt_in,
+            'dt_out'           => $this->dt_out,
+            'search'           => $this->search,
+            'originFilters'    => $this->originFilters,
+            'serviceIds'       => $this->serviceIds,
+            'category'         => $this->category,
             'dispatcherUserId' => $this->dispatcherUserId,
             'productionUserId' => $this->productionUserId,
-            'companyId' => $this->companyId,
+            'companyId'        => $this->companyId,
             'productionStatus' => $this->productionStatus,
-            'completedFilter' => $this->completedFilter,
-            'resolutionMin' => $this->resolutionMin,
-            'resolutionMax' => $this->resolutionMax,
+            'completedFilter'  => $this->completedFilter,
+            'resolutionMin'    => $this->resolutionMin,
+            'resolutionMax'    => $this->resolutionMax,
         ];
 
         ExportInternalReclaimsJob::dispatch($params, (string) auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'EXPORTACAO EM ANDAMENTO',
-            'html' => "<div class='card'><div class='card-body'><p>Seu arquivo esta sendo gerado.</p><p class='fw-bold'>Voce sera notificado quando estiver pronto.</p></div></div>",
-            'timer' => 5000,
+            'icon'     => 'success',
+            'title'    => 'EXPORTACAO EM ANDAMENTO',
+            'html'     => "<div class='card'><div class='card-body'><p>Seu arquivo esta sendo gerado.</p><p class='fw-bold'>Voce sera notificado quando estiver pronto.</p></div></div>",
+            'timer'    => 5000,
         ]);
+    }
+
+    public function showReason(int $reclaimId): void
+    {
+        $this->loadReturnInternDetails($reclaimId);
     }
 
     protected function listQuery()

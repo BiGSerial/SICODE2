@@ -4,7 +4,7 @@
     use App\Helpers\DaysLeft;
 @endphp
 
-<div>
+<div class="user-activity-page">
     <style>
         @keyframes fadeIn {
             from {
@@ -37,8 +37,15 @@
 
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Fila de distribuição',
+        'subtitle' => 'Gestão das atividades disponíveis para pagamento',
+        'total' => $lists->total(),
+        'accent' => '#475569',
+    ])
 
-    <div class="row mb-3 justify-content-end">
+    <div class="row g-3 activity-filter-card mb-3 justify-content-end">
         <div class="col-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
@@ -159,7 +166,7 @@
 
     </ul> --}}
 
-    <div class="row">
+    <div class="row user-activity-summary my-3 align-items-center">
 
         @if (!$lists->count())
             <div class="col-6">
@@ -171,7 +178,7 @@
             </div>
         @endif
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                 {{ $lists->lastItem() }}
                 de {{ $lists->total() }}
                 registros.
@@ -181,14 +188,14 @@
             </span>
         </div>
     </div>
-    <div class="card">
+    <div class="user-activity-table-card">
 
         @if (!$lists->count())
             <div class="card-body">
                 <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }}</h4>
             </div>
         @else
-            <h4 class="card-header fw-bold text-bg-secondary">LISTA PARA {{ mb_strtoupper($service->service) }}
+            <h4 class="user-activity-table-header user-activity-table-title text-bg-secondary">LISTA PARA {{ mb_strtoupper($service->service) }}
                 @if ($service->Status->count())
                     @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                         ({{ $sts->value }})
@@ -519,12 +526,12 @@
 
         @endif
     </div>
-    <div class="row">
+        <div class="row user-activity-summary my-3 align-items-center">
         <div class="col-6">
             {{ $lists->links() }}
         </div>
         <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
                 {{ $lists->lastItem() }}
                 de {{ $lists->total() }}
                 registros.</span>
