@@ -44,6 +44,9 @@
         padding: 1rem 1.25rem;
         height: 100%;
         box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        overflow: visible;
+        position: relative;
+        z-index: 20;
     }
 
     .user-activity-page .activity-filter-title {

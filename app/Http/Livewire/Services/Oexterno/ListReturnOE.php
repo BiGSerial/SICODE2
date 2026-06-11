@@ -69,7 +69,7 @@ class ListReturnOE extends Component
         $this->resetPage();
     }
 
-    public function redirectTo($note)
+    public function redirectTo($note, $externalId = null)
     {
         if (!$this->service || !$note) {
             $this->dispatchBrowserEvent('toast', [
@@ -84,6 +84,8 @@ class ListReturnOE extends Component
             route('services.protocolNote', [
                 'service' => $this->service->uuid,
                 'note'    => $note,
+                'external' => $externalId,
+                'tab' => 'modal-protocols',
             ])
         );
     }

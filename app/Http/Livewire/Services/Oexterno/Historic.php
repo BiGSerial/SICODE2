@@ -27,6 +27,9 @@ class Historic extends Component
     private $filter_group = 'oexterno';
     private $filter;
 
+    protected $listeners = [
+        'refresh_list' => '$refresh',
+    ];
 
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
@@ -42,14 +45,23 @@ class Historic extends Component
 
     }
 
-    public function navigateTo($note)
+    public function navigateTo($note, $externalId = null)
     {
         return redirect()->to(
             route('services.protocolNote', [
                 'service' => $this->service->uuid,
                 'note'    => $note,
+                'external' => $externalId,
+                'tab' => 'modal-protocols',
             ])
         );
+    }
+
+    public function updated($property): void
+    {
+        if (in_array($property, ['perPage', 'search', 'typeNote', 'dtIn', 'dtOut'], true)) {
+            $this->resetPage();
+        }
     }
 
 

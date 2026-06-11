@@ -12,7 +12,7 @@
     $fileCount = $note->Files->count();
 @endphp
 
-<div class="user-activity-page">
+<div class="user-activity-page" wire:init="openRequestedEntity">
     {{-- LOADER GLOBAL --}}
     <x-show-loading />
     @include('livewire.services.partials.user-activity-list-style')

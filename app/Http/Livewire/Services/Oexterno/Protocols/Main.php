@@ -64,6 +64,41 @@ class Main extends Component
         if (!$this->note) {
             abort(404, 'Página não encontrada');
         }
+
+        $requestedExternalId = (int) request()->query('external', 0);
+
+        if ($requestedExternalId > 0) {
+            $this->currentExternal = $this->note->externals->firstWhere('id', $requestedExternalId);
+
+            if ($this->currentExternal) {
+                $allowedModalTabs = [
+                    'modal-protocols',
+                    'modal-payments',
+                    'modal-comments',
+                    'modal-entity-files',
+                    'modal-info-contacts',
+                    'modal-internal-returns',
+                ];
+                $requestedModalTab = request()->query('tab', 'modal-protocols');
+
+                $this->openExternalId = $requestedExternalId;
+                $this->activeMainTab = 'entities-pane';
+                $this->activeModalTab = in_array($requestedModalTab, $allowedModalTabs, true)
+                    ? $requestedModalTab
+                    : 'modal-protocols';
+            }
+        }
+    }
+
+    public function openRequestedEntity(): void
+    {
+        if (!$this->currentExternal || !$this->openExternalId) {
+            return;
+        }
+
+        $this->dispatchBrowserEvent('open-entity-modal', [
+            'tab' => $this->activeModalTab,
+        ]);
     }
 
     public function setActiveMainTab($tab)
@@ -229,7 +264,7 @@ class Main extends Component
         $this->reset(['modalStatusValue', 'paymentPoolId']);
 
         // Define a entidade a ser carregada
-        // $this->openExternalId = $externalId;
+        $this->openExternalId = $externalId;
 
         $this->currentExternal = $this->note->externals->firstWhere('id', $externalId);
 

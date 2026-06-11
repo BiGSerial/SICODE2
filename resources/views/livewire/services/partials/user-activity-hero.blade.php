@@ -3,6 +3,8 @@
     $activityContext = $context ?? 'Atividades do usuário';
     $activitySubtitle = $subtitle ?? 'Gestão e acompanhamento de atividades';
     $activityTotal = $total ?? 0;
+    $activityExtraLabel = $extraLabel ?? null;
+    $activityExtraValue = $extraValue ?? null;
 @endphp
 
 <div class="user-activity-hero d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3"
@@ -13,6 +15,12 @@
         <div class="activity-meta mt-1">{{ $activitySubtitle }}</div>
     </div>
     <div class="d-flex align-items-center gap-4 text-lg-end">
+        @if ($activityExtraLabel && $activityExtraValue)
+            <div>
+                <div class="activity-meta">{{ $activityExtraLabel }}</div>
+                <strong>{{ $activityExtraValue }}</strong>
+            </div>
+        @endif
         @if ($service->Status->count())
             <div>
                 <div class="activity-meta">Status do serviço</div>
