@@ -139,8 +139,11 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:sync-log-partials-informs --hours=2 --if-empty', 'sync-log-partials-informs')
             ->hourlyAt(17);
 
-        $this->scheduleCommand($schedule, 'sicode:sync-log-note-inform-flows --yesterday-only', 'sync-log-note-inform-flows-yesterday')
-            ->dailyAt('00:00');
+        $this->scheduleSequentialCommands($schedule, [
+            'sicode:sync-note-inform-flows --hours=2 --if-empty',
+            'sicode:sync-log-note-inform-flows --hours=2 --if-empty',
+        ], 'sync-note-inform-flows-to-sqlserver')
+            ->hourlyAt(18);
 
 
         /*
@@ -298,7 +301,7 @@ class Kernel extends ConsoleKernel
             'log-external-entities' => 'Log entidades externas',
             'log-informs-smc' => 'Log informes SMC',
             'sync-log-partials-informs' => 'Log Informe parciais',
-            'sync-log-note-inform-flows-yesterday' => 'Log fluxo informes (ontem)',
+            'sync-note-inform-flows-to-sqlserver' => 'Atualizar fluxo informes SQL',
             'log-production' => 'Log produção',
             'log-production-yesterday' => 'Log produção (ontem)',
             'log-hiring-and-hired-status' => 'Log contratação',

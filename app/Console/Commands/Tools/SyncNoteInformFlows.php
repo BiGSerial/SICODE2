@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tools;
 
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,10 @@ class SyncNoteInformFlows extends Command
     protected $signature = 'sicode:sync-note-inform-flows
         {--note_id= : Processa apenas uma nota}
         {--flow_type= : Filtra por tipo (partial|final)}
+        {--hours=2 : Janela incremental, com sobreposicao, olhando updated_at}
+        {--since= : Data/hora inicial da janela incremental}
+        {--all : Recalcula todos os registros}
+        {--if-empty : Faz carga completa se a tabela destino estiver vazia}
         {--chunk=500 : Tamanho do lote}
         {--dry : Simula sem gravar}';
 
@@ -24,21 +29,46 @@ class SyncNoteInformFlows extends Command
             $chunkSize = max(100, (int) $this->option('chunk'));
             $noteId = $this->option('note_id') ? (int) $this->option('note_id') : null;
             $flowType = $this->normalizeFlowType($this->option('flow_type'));
+            $full = (bool) $this->option('all')
+                || ((bool) $this->option('if-empty') && DB::table('note_inform_flows')->doesntExist());
 
             if ($flowType === null && $this->option('flow_type')) {
                 $this->error("Opcao --flow_type invalida. Use 'partial' ou 'final'.");
                 return self::FAILURE;
             }
 
+            $noteIds = $noteId
+                ? [$noteId]
+                : ($full ? null : $this->affectedNoteIds($this->incrementalSince()));
+
+            $this->line('Modo: ' . ($full ? 'FULL' : 'INCREMENTAL'));
+
+            if (is_array($noteIds)) {
+                $this->line('Notas afetadas: ' . count($noteIds));
+
+                if (empty($noteIds)) {
+                    if (!$dryRun) {
+                        $this->deactivateMissingFlows($flowType);
+                    }
+
+                    $this->info('Nada para sincronizar.');
+                    return self::SUCCESS;
+                }
+            }
+
             $partialCount = 0;
             $finalCount = 0;
 
             if ($flowType === null || $flowType === 'partial') {
-                $partialCount = $this->syncPartials($chunkSize, $noteId, $dryRun);
+                $partialCount = $this->syncPartials($chunkSize, $noteIds, $dryRun);
             }
 
             if ($flowType === null || $flowType === 'final') {
-                $finalCount = $this->syncFinals($chunkSize, $noteId, $dryRun);
+                $finalCount = $this->syncFinals($chunkSize, $noteIds, $dryRun);
+            }
+
+            if (!$dryRun) {
+                $this->deactivateMissingFlows($flowType);
             }
 
             $this->newLine();
@@ -56,7 +86,7 @@ class SyncNoteInformFlows extends Command
         }
     }
 
-    private function syncPartials(int $chunkSize, ?int $noteId, bool $dryRun): int
+    private function syncPartials(int $chunkSize, ?array $noteIds, bool $dryRun): int
     {
         $query = DB::table('partials as p')
             ->join('notes as n', 'n.id', '=', 'p.note_id')
@@ -90,8 +120,8 @@ class SyncNoteInformFlows extends Command
             ])
             ->orderBy('p.id');
 
-        if ($noteId) {
-            $query->where('p.note_id', $noteId);
+        if (is_array($noteIds)) {
+            $query->whereIn('p.note_id', $noteIds);
         }
 
         $total = (clone $query)->count();
@@ -188,7 +218,7 @@ class SyncNoteInformFlows extends Command
         return $processed;
     }
 
-    private function syncFinals(int $chunkSize, ?int $noteId, bool $dryRun): int
+    private function syncFinals(int $chunkSize, ?array $noteIds, bool $dryRun): int
     {
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
@@ -226,8 +256,8 @@ class SyncNoteInformFlows extends Command
             ])
             ->orderBy('wr.id');
 
-        if ($noteId) {
-            $query->where('wr.note_id', $noteId);
+        if (is_array($noteIds)) {
+            $query->whereIn('wr.note_id', $noteIds);
         }
 
         $total = (clone $query)->count();
@@ -338,6 +368,91 @@ class SyncNoteInformFlows extends Command
         }, 'wr.id', 'id');
 
         return $processed;
+    }
+
+    private function incrementalSince(): Carbon
+    {
+        $since = trim((string) $this->option('since'));
+
+        if ($since !== '') {
+            return Carbon::parse($since);
+        }
+
+        return now()->subHours(max(1, (int) $this->option('hours')));
+    }
+
+    private function affectedNoteIds(Carbon $since): array
+    {
+        $this->line("Alteracoes desde: {$since->toDateTimeString()}");
+
+        $queries = [
+            DB::table('partials')->where('updated_at', '>=', $since)->pluck('note_id'),
+            DB::table('work_reports')->where('updated_at', '>=', $since)->pluck('note_id'),
+            DB::table('adsforms')->where('updated_at', '>=', $since)->pluck('note_id'),
+            DB::table('five_notes')->where('updated_at', '>=', $since)->pluck('note_id'),
+            DB::table('productions')->where('updated_at', '>=', $since)->pluck('note_id'),
+            DB::table('notes')->where('updated_at', '>=', $since)->pluck('id'),
+            DB::table('orders')->where('updated_at', '>=', $since)->pluck('note_id'),
+            DB::table('operations as op')
+                ->join('orders as o', 'o.id', '=', 'op.order_id')
+                ->where('op.updated_at', '>=', $since)
+                ->pluck('o.note_id'),
+            DB::table('order_partial as op')
+                ->join('partials as p', 'p.id', '=', 'op.partial_id')
+                ->where('op.updated_at', '>=', $since)
+                ->pluck('p.note_id'),
+            DB::table('order_work_report as owr')
+                ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
+                ->where('owr.updated_at', '>=', $since)
+                ->pluck('wr.note_id'),
+        ];
+
+        return collect($queries)
+            ->flatten()
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    private function deactivateMissingFlows(?string $flowType): void
+    {
+        $now = now();
+
+        if ($flowType === null || $flowType === 'partial') {
+            DB::table('note_inform_flows as nif')
+                ->where('nif.flow_type', 'partial')
+                ->where('nif.active', true)
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('partials as p')
+                        ->whereColumn('p.id', 'nif.partial_id');
+                })
+                ->update([
+                    'active' => false,
+                    'calculated_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        }
+
+        if ($flowType === null || $flowType === 'final') {
+            DB::table('note_inform_flows as nif')
+                ->where('nif.flow_type', 'final')
+                ->where('nif.active', true)
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('work_reports as wr')
+                        ->whereColumn('wr.id', 'nif.work_report_id')
+                        ->where('wr.canceled', false);
+                })
+                ->update([
+                    'active' => false,
+                    'calculated_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        }
     }
 
     private function loadNoteContexts(array $noteIds): array
