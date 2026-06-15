@@ -81,7 +81,7 @@ class BlockEvaluator
             $wfMark = $wf->informed_at ?? $wf->created_at;
             if ($wfMark && ($prod->created_at ?? null) && $prod->created_at > $wfMark) {
                 if ($prod->completed && $prod->confirmed) {
-                    return $this->res($prod->completed ? self::HOLD_RED : self::HOLD_BLUE, false, 'workform_after_prod_confirmed', $prod);
+                    return $this->res(self::HOLD_RED, true, 'workform_after_prod_confirmed', $prod);
                 } elseif ($prod->completed && !$prod->confirmed) {
                     return $this->res(self::HOLD_GREEN, false, 'workform_after_prod_not_confirmed', $prod);
                 }
