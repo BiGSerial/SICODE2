@@ -393,10 +393,7 @@ class SyncNoteInformFlows extends Command
             DB::table('productions')->where('updated_at', '>=', $since)->pluck('note_id'),
             DB::table('notes')->where('updated_at', '>=', $since)->pluck('id'),
             DB::table('orders')->where('updated_at', '>=', $since)->pluck('note_id'),
-            DB::table('operations as op')
-                ->join('orders as o', 'o.id', '=', 'op.order_id')
-                ->where('op.updated_at', '>=', $since)
-                ->pluck('o.note_id'),
+            $this->affectedOperationNoteIds($since),
             DB::table('order_partial as op')
                 ->join('partials as p', 'p.id', '=', 'op.partial_id')
                 ->where('op.updated_at', '>=', $since)
@@ -415,6 +412,99 @@ class SyncNoteInformFlows extends Command
             ->sort()
             ->values()
             ->all();
+    }
+
+    private function affectedOperationNoteIds(Carbon $since): Collection
+    {
+        $candidateNoteIds = DB::table('operations as op')
+            ->join('orders as o', 'o.id', '=', 'op.order_id')
+            ->where('op.updated_at', '>=', $since)
+            ->whereIn('op.operacao', ['0030', '0050'])
+            ->distinct()
+            ->pluck('o.note_id');
+
+        if ($candidateNoteIds->isEmpty()) {
+            return collect();
+        }
+
+        return $candidateNoteIds
+            ->chunk(1000)
+            ->flatMap(function (Collection $noteIds) {
+                $orderStatuses = DB::table('orders as o')
+                    ->leftJoin('operations as op', 'op.order_id', '=', 'o.id')
+                    ->whereIn('o.note_id', $noteIds->all())
+                    ->select([
+                        'o.note_id',
+                        'o.id as order_id',
+                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_30_conf"),
+                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_50_conf"),
+                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_30_cnpa"),
+                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_50_cnpa"),
+                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN op.fimReal END) as op30_done_at"),
+                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN op.fimReal END) as op50_done_at"),
+                    ])
+                    ->groupBy('o.note_id', 'o.id')
+                    ->get()
+                    ->groupBy('note_id');
+
+                $stored = DB::table('note_inform_flows')
+                    ->whereIn('note_id', $noteIds->all())
+                    ->where('flow_type', 'final')
+                    ->select([
+                        'note_id',
+                        'fiscalization_closed_in_sap',
+                        'fiscalization_closed_in_sap_at',
+                        'baixa_fiscal_status',
+                        'measurement_completed_at',
+                        'baixa_measurement_status',
+                    ])
+                    ->get()
+                    ->groupBy('note_id');
+
+                return $noteIds->filter(function ($noteId) use ($orderStatuses, $stored) {
+                    $current = $this->summarizeSapStatuses($orderStatuses->get($noteId, collect()));
+                    $flows = $stored->get($noteId, collect());
+
+                    if ($flows->isEmpty()) {
+                        return true;
+                    }
+
+                    return $flows->contains(function ($flow) use ($current) {
+                        return (bool) $flow->fiscalization_closed_in_sap !== $current['op30_all_conf']
+                            || $this->dateValue($flow->fiscalization_closed_in_sap_at) !== $this->dateValue($current['op30_done_at'])
+                            || (string) $flow->baixa_fiscal_status !== $current['op30_text']
+                            || ($current['op50_done_at']
+                                && $this->dateValue($flow->measurement_completed_at) !== $this->dateValue($current['op50_done_at']))
+                            || (string) $flow->baixa_measurement_status !== $current['op50_text'];
+                    });
+                });
+            })
+            ->unique()
+            ->values();
+    }
+
+    private function summarizeSapStatuses(Collection $items): array
+    {
+        $ordersCount = $items->count();
+        $orders30Conf = $items->where('has_30_conf', 1)->count();
+        $orders50Conf = $items->where('has_50_conf', 1)->count();
+        $orders30Cnpa = $items->where('has_30_cnpa', 1)->count();
+        $orders50Cnpa = $items->where('has_50_cnpa', 1)->count();
+        $op30AllConf = $ordersCount > 0 && $orders30Conf === $ordersCount;
+        $op50AllConf = $ordersCount > 0 && $orders50Conf === $ordersCount;
+
+        return [
+            'op30_all_conf' => $op30AllConf,
+            'op30_done_at' => $op30AllConf ? $items->pluck('op30_done_at')->filter()->max() : null,
+            'op30_text' => $this->resolveBaixaTextStatus($op30AllConf, $orders30Conf > 0, $orders30Cnpa > 0),
+            'op50_done_at' => $op50AllConf ? $items->pluck('op50_done_at')->filter()->max() : null,
+            'op50_text' => $this->resolveBaixaTextStatus($op50AllConf, $orders50Conf > 0, $orders50Cnpa > 0),
+        ];
+    }
+
+    private function dateValue($value): ?string
+    {
+        return $value ? Carbon::parse($value)->format('Y-m-d H:i:s') : null;
     }
 
     private function deactivateMissingFlows(?string $flowType): void

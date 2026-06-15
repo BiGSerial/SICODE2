@@ -1,6 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Helpers\SelectOptions;
 @endphp
 <div class="reverse-page">
     {{-- Carrega o Loading da página --}}

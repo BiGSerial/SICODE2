@@ -145,6 +145,9 @@ class Kernel extends ConsoleKernel
         ], 'sync-note-inform-flows-to-sqlserver')
             ->hourlyAt(18);
 
+        $this->scheduleCommand($schedule, 'sicode:sync-log-five-notes-report --hours=2 --if-empty', 'sync-five-notes-report')
+            ->hourlyAt(19);
+
 
         /*
         |--------------------------------------------------------------------------
@@ -302,6 +305,7 @@ class Kernel extends ConsoleKernel
             'log-informs-smc' => 'Log informes SMC',
             'sync-log-partials-informs' => 'Log Informe parciais',
             'sync-note-inform-flows-to-sqlserver' => 'Atualizar fluxo informes SQL',
+            'sync-five-notes-report' => 'Atualizar relatório D5 SQL',
             'log-production' => 'Log produção',
             'log-production-yesterday' => 'Log produção (ontem)',
             'log-hiring-and-hired-status' => 'Log contratação',
