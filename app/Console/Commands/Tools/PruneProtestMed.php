@@ -25,7 +25,7 @@ class PruneProtestMed extends Command
      *
      * @var string
      */
-    protected $description = 'Prune MedProtest records that are no longer in the source system and have no ProtestJob associated';
+    protected $description = 'Remove medidas ausentes na origem sem ProtestJob e encerra as que possuem histórico';
 
     /**
      * Execute the console command.
@@ -41,10 +41,11 @@ class PruneProtestMed extends Command
 
         $cutoff = Carbon::now()->subHours(1);
 
-        // Base query: medidas sem atualização há mais de 48h e sem ProtestJob associado
+        // Medidas não atualizadas pela sincronização são consideradas ausentes na origem.
         $baseQuery = MedProtest::query()
             ->where('updated_at', '<', $cutoff)
-            ->doesntHave('ProtestJobs')
+            ->where('statusSist', 'MEDA')
+            ->withExists('ProtestJobs')
             ->with('Protest:id,nota');
 
         $totalCandidates = (clone $baseQuery)->count();
@@ -56,7 +57,7 @@ class PruneProtestMed extends Command
 
         $this->line("Registros candidatos: {$totalCandidates}");
         $this->line('Data de corte (updated_at <): ' . $cutoff->toDateTimeString());
-        $this->line('Modo: ' . ($dryRun ? 'DRY RUN (simulação, nada será deletado)' : 'EXECUÇÃO REAL'));
+        $this->line('Modo: ' . ($dryRun ? 'DRY RUN (simulação, nada será alterado)' : 'EXECUÇÃO REAL'));
         $this->newLine();
 
         // Exibe uma pequena amostra para conferência
@@ -70,10 +71,11 @@ class PruneProtestMed extends Command
         $this->line('Exemplo de registros que serão afetados:');
         foreach ($sample as $med) {
             $this->line(sprintf(
-                ' - MedProtest ID: %d | protest: %s | statusSist: %s | updated_at: %s',
+                ' - MedProtest ID: %d | protest: %s | statusSist: %s | ação: %s | updated_at: %s',
                 $med->id,
                 optional($med->protest)->nota ?? 'N/A',
                 $med->statusSist ?? 'N/A',
+                $med->protest_jobs_exists ? 'encerrar como MEDE' : 'excluir',
                 $med->updated_at ? $med->updated_at->toDateTimeString() : 'N/A'
             ));
         }
@@ -81,7 +83,7 @@ class PruneProtestMed extends Command
         $this->newLine();
 
         if (!$dryRun && !$force) {
-            if (! $this->confirm('Confirmar exclusão desses registros?', true)) {
+            if (! $this->confirm('Confirmar saneamento desses registros?', true)) {
                 $this->warn('Operação cancelada pelo usuário.');
                 return self::SUCCESS;
             }
@@ -92,19 +94,28 @@ class PruneProtestMed extends Command
         $bar->start();
 
         $deletedCount = 0;
+        $closedCount  = 0;
         $processed    = 0;
 
         // Processamento em blocos para não estourar memória
         (clone $baseQuery)
             ->orderBy('id')
-            ->chunkById(1000, function ($meds) use (&$deletedCount, &$processed, $dryRun, $bar) {
+            ->chunkById(1000, function ($meds) use (&$closedCount, &$deletedCount, &$processed, $dryRun, $bar) {
                 /** @var \App\Models\MedProtest $med */
                 foreach ($meds as $med) {
                     $processed++;
 
-                    if (! $dryRun && $med->statusSist === 'MEDA') {
-                        $med->delete();
-                        $deletedCount++;
+                    if (! $dryRun) {
+                        if ($med->protest_jobs_exists) {
+                            $med->update([
+                                'statusSist' => 'MEDE',
+                                'dtFimMedida' => today(),
+                            ]);
+                            $closedCount++;
+                        } else {
+                            $med->delete();
+                            $deletedCount++;
+                        }
                     }
 
                     $bar->advance();
@@ -118,8 +129,9 @@ class PruneProtestMed extends Command
         $this->line("Registros candidatos totais: {$totalCandidates}");
         $this->line("Registros processados: {$processed}");
         if ($dryRun) {
-            $this->line('DRY RUN: nenhum registro foi removido. ✅');
+            $this->line('DRY RUN: nenhum registro foi alterado. ✅');
         } else {
+            $this->line("Registros encerrados como MEDE: {$closedCount} ✅");
             $this->line("Registros efetivamente deletados: {$deletedCount} 🗑️");
         }
 
