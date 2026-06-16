@@ -77,250 +77,353 @@
     ];
 @endphp
 
-<div>
+<div class="user-activity-page payment-activity-page">
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Fluxo financeiro de órgão externo',
+        'subtitle' => 'Acompanhamento e atualização das solicitações de pagamento',
+        'total' => $lists->total(),
+        'accent' => '#0f766e',
+    ])
 
-    {{-- TOP: Filtros à ESQ + Uploader à DIR --}}
-    <div class="card mb-3 shadow-sm border-0">
-        <div class="card-body">
-            <div class="row g-3 align-items-start">
-                {{-- Coluna ESQUERDA (filtros) --}}
-                <div class="col-12 col-lg-7">
-                    <div class="row g-3">
+    <div class="container-fluid">
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-7">
+                <div class="activity-filter-card">
+                    <div class="activity-filter-title mb-3">
+                        <i class="ri-filter-3-line me-1"></i> Pesquisa e filtros
+                    </div>
+                    <div class="row g-3 align-items-end">
                         <div class="col-12">
-                            <label class="form-label mb-1 d-flex align-items-center gap-2">
-                                Buscar
-                                <a class="small text-decoration-none" data-bs-toggle="collapse" href="#wildHelp"
-                                    role="button" aria-expanded="false" aria-controls="wildHelp">(ajuda)</a>
+                            <label class="form-label mb-1 d-flex align-items-center justify-content-between">
+                                <span>Buscar solicitação</span>
+                                <a class="small text-decoration-none" data-bs-toggle="collapse"
+                                    href="#paymentWildHelp" role="button" aria-expanded="false"
+                                    aria-controls="paymentWildHelp">
+                                    Como pesquisar?
+                                </a>
                             </label>
-                            <input type="text" class="form-control" placeholder="Ex.: 12345*  |  *ABC  |  A?C"
-                                wire:model.debounce.400ms="search" autocomplete="off">
-                            <div class="collapse mt-1 small text-muted" id="wildHelp">
-                                <div class="card card-body p-2">
-                                    <div><strong>*</strong> = vários caracteres (vira <code>%</code>)</div>
-                                    <div><strong>?</strong> = 1 caractere (no seu formatter simples também vira
-                                        <code>%</code>)
-                                    </div>
-                                    <div class="mt-1">Ex.: <code>123*</code> → LIKE <code>123%</code> |
-                                        <code>*ABC</code> → LIKE <code>%ABC</code>
-                                    </div>
-                                    <div>Sem wildcard → igualdade exata (<code>=</code>).</div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="ri-search-line"></i></span>
+                                <input type="text" class="form-control"
+                                    placeholder="Nota, entidade, município ou responsável"
+                                    wire:model.debounce.400ms="search" autocomplete="off">
+                            </div>
+                            <div class="collapse mt-2" id="paymentWildHelp">
+                                <div class="alert alert-light border small mb-0 py-2">
+                                    Use <code>*</code> ou <code>?</code> como curinga. Exemplos:
+                                    <code>123*</code>, <code>*ABC</code> ou <code>A?C</code>.
                                 </div>
                             </div>
                         </div>
-
-                        {{-- Filtros dinâmicos em 2 colunas --}}
                         <div class="col-12">
                             <x-filters.dynamic :filters="$filtersConfig" applyAction="applyFilters" />
                         </div>
                     </div>
                 </div>
-
-                {{-- Coluna DIREITA (uploader compacto com drag&drop + progresso) --}}
-                <div class="col-12 col-lg-5">
-                    @livewire('services.oexterno.helpers.pool-payment-updater', key('pool-payment-updater'))
-                </div>
-            </div> {{-- /row --}}
-        </div>
-    </div>
-
-    {{-- LISTAGEM --}}
-    @if ($lists->isNotEmpty())
-        <div class="my-1 d-flex justify-content-between align-items-center">
-            <div>{{ $lists->links() }}</div>
-            <div class="text-muted small">Exibindo {{ $lists->firstItem() }} a {{ $lists->lastItem() }} de
-                {{ $lists->total() }} registros</div>
-        </div>
-    @endif
-
-    <div class="card shadow-sm border-0">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <div>
-                <h5 class="mb-0">Pendências Aguardando Pagamento</h5>
-                <small class="text-muted">Serviço: {{ $service->service ?? '—' }}</small>
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="d-flex align-items-center">
-                    <label for="perPage" class="me-2 text-muted small">Por página</label>
-                    <select id="perPage" class="form-select form-select-sm" wire:model="perPage"
-                        style="min-width: 88px">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
+
+            <div class="col-12 col-xl-5">
+                <div class="payment-import-card h-100">
+                    <div class="payment-import-card__header">
+                        <span class="payment-import-card__icon"><i class="ri-file-upload-line"></i></span>
+                        <div>
+                            <h5>Atualizar retorno financeiro</h5>
+                            <p>Importe o relatório para atualizar os pools já cadastrados.</p>
+                        </div>
+                    </div>
+                    <div class="payment-import-card__body">
+                        @livewire('services.oexterno.helpers.pool-payment-updater', key('pool-payment-updater'))
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card-body p-0 position-relative">
-            <div wire:loading.delay.class.remove="d-none" class="position-absolute top-0 start-0 w-100 h-100 d-none"
-                style="background: rgba(0,0,0,.03); z-index: 2;">
-                <div class="d-flex h-100 align-items-center justify-content-center">
-                    <div class="spinner-border" role="status" aria-hidden="true"></div>
-                    <span class="ms-2">Carregando…</span>
+        @if ($lists->isNotEmpty())
+            <div class="user-activity-summary mb-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg-7">{{ $lists->onEachSide(1)->links() }}</div>
+                    <div class="col-12 col-lg-5 text-lg-end">
+                        <span class="activity-summary-text">
+                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                            <strong>{{ $lists->lastItem() }}</strong> de
+                            <strong>{{ $lists->total() }}</strong> registros.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="user-activity-table-card position-relative">
+            <div class="user-activity-table-header bg-danger d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                <div>
+                    <h5 class="user-activity-table-title">
+                        <i class="ri-bank-card-line me-2"></i>Aguardando pagamento
+                    </h5>
+                    <div class="user-activity-table-subtitle">
+                        Solicitações vinculadas ao portal financeiro e aguardando processamento ou confirmação.
+                    </div>
+                </div>
+                <span class="badge text-bg-warning">
+                    {{ $lists->total() }} {{ $lists->total() === 1 ? 'solicitação' : 'solicitações' }}
+                </span>
+            </div>
+
+            <div wire:loading.delay.class.remove="d-none"
+                class="position-absolute top-0 start-0 w-100 h-100 d-none payment-loading">
+                <div class="d-flex h-100 align-items-center justify-content-center gap-2">
+                    <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                    <span>Atualizando pagamentos...</span>
                 </div>
             </div>
 
             @if ($lists->isEmpty())
-                <div class="p-4 text-center text-muted">
-                    <div class="mb-2">Nenhum registro encontrado para os critérios atuais.</div>
-                    <small>Dica: confirme se o status não é <em>AGUARDANDO_PAGAMENTO/ORGAO OU INDEFINIDO</em> e se
-                        <code>completed</code> é <strong>false</strong>.</small>
+                <div class="payment-empty-state">
+                    <i class="ri-bank-card-line"></i>
+                    <h5>Nenhuma solicitação aguardando pagamento</h5>
+                    <p>Revise os filtros ou aguarde novos registros nesta etapa.</p>
                 </div>
             @else
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light position-sticky top-0" style="z-index:1;">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-dark sticky-top">
                             <tr>
-                                <th class="text-nowrap">Pool ID</th>
-                                <th class="text-nowrap">Entidade</th>
-                                <th class="text-nowrap">Nota</th>
-                                <th class="text-nowrap">Status Pgt</th>
-                                <th class="text-nowrap">Confirmação</th>
-                                <th class="text-nowrap">Usuario</th>
-                                <th class="text-nowrap">Última Interação</th>
+                                <th>Pool ID</th>
+                                <th>Entidade</th>
+                                <th>Nota</th>
+                                <th>Status do pagamento</th>
+                                <th>Confirmação FI</th>
+                                <th>Solicitante</th>
+                                <th>Última interação</th>
                                 <th class="text-end">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($lists as $ext)
                                 @php
-                                    $s =
-                                        $selectOptions->firstWhere('value', $ext->status) ??
-                                        $selectOptions->firstWhere('value', 'INDEFINIDO');
-                                    $payments = $ext->PoolPayments->last() ?? null;
-                                    $statusClass = match ($payments->status_pedido ?? 'Novo Pedido') {
-                                        'Em Elaboração' => 'text-bg-secondary',
+                                    $payment = $ext->PoolPayments->last();
+                                    $paymentStatus = $payment->status_pedido ?? 'Novo Pedido';
+                                    $statusClass = match ($paymentStatus) {
                                         'Concluído', 'Pago' => 'text-bg-success',
                                         'Rejeitado' => 'text-bg-danger',
-                                        'Solicitado' => 'text-bg-secondary',
+                                        'Em Elaboração' => 'text-bg-warning',
                                         default => 'text-bg-secondary',
                                     };
-                                    $createdAt = $ext->last_comment_at
+                                    $lastMovement = $ext->last_comment_at
                                         ? \Carbon\Carbon::parse($ext->last_comment_at)
                                         : null;
-                                    $daysAgo = $createdAt ? $createdAt->startOfDay()->diffInDays(now()->startOfDay()) : null;
-                                    $bgClass = 'bg-light';
-                                    if ($daysAgo !== null) {
-                                        $bgClass =
-                                            $daysAgo > 30
-                                                ? 'bg-danger bg-opacity-25'
-                                                : ($daysAgo <= 20
-                                                    ? 'bg-success bg-opacity-25'
-                                                    : 'bg-warning bg-opacity-25');
-                                    }
+                                    $daysAgo = $lastMovement?->startOfDay()->diffInDays(now()->startOfDay());
+                                    $movementClass = match (true) {
+                                        $daysAgo === null => 'payment-movement--neutral',
+                                        $daysAgo > 30 => 'payment-movement--danger',
+                                        $daysAgo <= 20 => 'payment-movement--success',
+                                        default => 'payment-movement--warning',
+                                    };
                                 @endphp
-                                <tr>
-                                    <td class="text-nowrap">
-                                        <span
-                                            class="badge text-bg-light fs-6 fw-bold">{{ $payments->pool_id ?? '—' }}</span>
-                                    </td>
-                                    <td class="text-nowrap">{{ $ext->entity->name ?? '—' }}</td>
-                                    <td class="text-nowrap fw-bold fs-6">{{ $ext->Note->note ?? '—' }}</td>
-                                    <td class="text-nowrap"><span
-                                            class="badge {{ $statusClass }}">{{ $payments->status_pedido ?? 'Novo Pedido' }}</span>
-                                    </td>
-                                    <td class="text-nowrap">{{ $payments->fi_fbv0 ?? '—' }}</td>
-                                    <td class="text-nowrap">{{ $payments->user->name ?? '—' }}</td>
+                                <tr wire:key="payment-external-{{ $ext->id }}">
                                     <td>
-                                        <div class="{{ $bgClass }} p-2 rounded">
-                                            @if ($daysAgo !== null)
-                                                <div class="fw-bold">{{ $daysAgo }}
-                                                    {{ $daysAgo == 1 ? 'dia' : 'dias' }}</div>
-                                                <small class="text-muted">{{ $createdAt->format('d/m/Y H:i') }}</small>
+                                        <span class="payment-pool-id">{{ $payment->pool_id ?? 'Não informado' }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <span class="fw-semibold">{{ $ext->Entity->nick ?? $ext->Entity->name ?? '—' }}</span>
+                                            @if ($ext->Entity?->nick && $ext->Entity?->name && $ext->Entity->nick !== $ext->Entity->name)
+                                                <small class="text-muted">{{ $ext->Entity->name }}</small>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="fw-semibold text-nowrap">{{ $ext->Note->note ?? '—' }}</td>
+                                    <td><span class="badge {{ $statusClass }}">{{ $paymentStatus }}</span></td>
+                                    <td>
+                                        @if ($payment?->fi_fbv0)
+                                            <span class="badge text-bg-success">{{ $payment->fi_fbv0 }}</span>
+                                        @else
+                                            <span class="text-muted">Pendente</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $payment?->user?->name ?? $ext->User?->name ?? '—' }}</td>
+                                    <td>
+                                        <div class="payment-movement {{ $movementClass }}">
+                                            @if ($lastMovement)
+                                                <strong>{{ $daysAgo }} {{ $daysAgo === 1 ? 'dia' : 'dias' }}</strong>
+                                                <small>{{ $lastMovement->format('d/m/Y H:i') }}</small>
                                             @else
-                                                <span class="text-muted">—</span>
+                                                <span>Sem interação</span>
                                             @endif
                                         </div>
                                     </td>
                                     <td class="text-end">
-                                        <div class="btn-group btn-group-sm" role="group" aria-label="Ações">
-                                            <button type="button" class="btn btn-outline-primary"
-                                                wire:click.prevent="redirectTo('{{ $ext->Note->note ?? '' }}')"
-                                                title="Abrir">
-                                                <i class="bi bi-box-arrow-up-right"></i>
-                                            </button>
-                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            wire:click.prevent="redirectTo('{{ $ext->Note->note ?? '' }}', {{ $ext->id }})"
+                                            data-bs-toggle="tooltip"
+                                            data-bs-title="Abrir pagamento na entidade relacionada">
+                                            <i class="ri-external-link-line"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
-
-                        @if ($lists->hasPages())
-                            <tfoot>
-                                <tr>
-                                    <td colspan="11" class="p-3">{{ $lists->onEachSide(1)->links() }}</td>
-                                </tr>
-                            </tfoot>
-                        @endif
                     </table>
                 </div>
             @endif
         </div>
+
+        @if ($lists->isNotEmpty())
+            <div class="user-activity-summary mt-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg-7">{{ $lists->onEachSide(1)->links() }}</div>
+                    <div class="col-12 col-lg-5 text-lg-end">
+                        <span class="activity-summary-text">
+                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                            <strong>{{ $lists->lastItem() }}</strong> de
+                            <strong>{{ $lists->total() }}</strong> registros.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 </div>
 
-{{-- ESTILOS DO DROPZONE COMPACTO (responsivo) --}}
-<style>
-    .dz-compact .dz-area {
-        border: 1px dashed rgba(0, 0, 0, .2);
-        border-radius: .75rem;
-        min-height: 160px;
-        /* compacto */
-        background: #0b0f14;
-        /* combina com seu tema escuro */
-        color: #ced4da;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all .15s ease-in-out;
-    }
-
-    .dz-compact .dz-area.is-dragging {
-        border-color: #6ea8fe;
-        background: rgba(13, 110, 253, .08);
-        box-shadow: inset 0 0 0 2px rgba(13, 110, 253, .35);
-    }
-
-    .dz-compact .dz-inner .bi {
-        opacity: .85
-    }
-
-    @media (max-width: 991.98px) {
-        .dz-compact .dz-area {
-            min-height: 140px;
+@push('css')
+    <style>
+        .payment-activity-page .activity-filter-card {
+            height: 100%;
         }
-    }
-</style>
 
-{{-- ALPINE CONTROLLER DO DROPZONE --}}
-<script>
-    function compactDropzone() {
-        return {
-            drag: false,
-            uploading: false,
-            progress: 0,
-            fileName: '',
-            handleDrop(e) {
-                this.drag = false;
-                const file = e.dataTransfer.files?.[0];
-                if (!file) return;
-                this.pushFileToLivewire(file);
-            },
-            handleInput(e) {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                this.pushFileToLivewire(file);
-            },
-            pushFileToLivewire(file) {
-                this.fileName = file.name;
-                // Cria um DataTransfer temporário só para preencher o input oculto
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                this.$refs.file.files = dt.files;
-                // O wire:model="upload" do input já dispara o upload
-            }
+        .payment-import-card {
+            background: var(--activity-surface);
+            border: 1px solid var(--activity-border);
+            border-radius: .9rem;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, .06);
+            overflow: hidden;
         }
-    }
-</script>
+
+        .payment-import-card__header {
+            align-items: center;
+            background: linear-gradient(135deg, #f8fafc, #eef7f5);
+            border-bottom: 1px solid var(--activity-border);
+            display: flex;
+            gap: .75rem;
+            padding: 1rem 1.1rem;
+        }
+
+        .payment-import-card__icon {
+            align-items: center;
+            background: var(--bs-success-bg-subtle);
+            border-radius: .7rem;
+            color: var(--bs-success);
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 1.2rem;
+            height: 2.7rem;
+            justify-content: center;
+            width: 2.7rem;
+        }
+
+        .payment-import-card__header h5 {
+            color: var(--activity-ink);
+            font-size: .95rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .payment-import-card__header p {
+            color: var(--activity-muted);
+            font-size: .72rem;
+            margin: .12rem 0 0;
+        }
+
+        .payment-import-card__body {
+            padding: .75rem;
+        }
+
+        .payment-import-card__body>.card {
+            border: 0 !important;
+            box-shadow: none !important;
+            margin: 0;
+        }
+
+        .payment-loading {
+            background: rgba(255, 255, 255, .78);
+            backdrop-filter: blur(2px);
+            z-index: 4;
+        }
+
+        .payment-empty-state {
+            color: var(--activity-muted);
+            padding: 3rem 1rem;
+            text-align: center;
+        }
+
+        .payment-empty-state i {
+            color: var(--bs-danger);
+            display: block;
+            font-size: 2.5rem;
+            margin-bottom: .75rem;
+        }
+
+        .payment-empty-state h5 {
+            color: var(--activity-ink);
+            font-weight: 600;
+        }
+
+        .payment-empty-state p {
+            margin: 0;
+        }
+
+        .payment-pool-id {
+            background: var(--bs-light);
+            border: 1px solid var(--bs-border-color);
+            border-radius: .5rem;
+            display: inline-block;
+            font-family: var(--bs-font-monospace);
+            font-size: .82rem;
+            font-weight: 700;
+            padding: .38rem .55rem;
+            white-space: nowrap;
+        }
+
+        .payment-movement {
+            border-radius: .65rem;
+            min-width: 8.5rem;
+            padding: .55rem .7rem;
+        }
+
+        .payment-movement strong,
+        .payment-movement small {
+            display: block;
+        }
+
+        .payment-movement strong {
+            font-size: .82rem;
+        }
+
+        .payment-movement small {
+            color: var(--bs-secondary-color);
+            font-size: .7rem;
+            margin-top: .12rem;
+        }
+
+        .payment-movement--danger {
+            background: var(--bs-danger-bg-subtle);
+            color: var(--bs-danger-text-emphasis);
+        }
+
+        .payment-movement--warning {
+            background: var(--bs-warning-bg-subtle);
+            color: var(--bs-warning-text-emphasis);
+        }
+
+        .payment-movement--success {
+            background: var(--bs-success-bg-subtle);
+            color: var(--bs-success-text-emphasis);
+        }
+
+        .payment-movement--neutral {
+            background: var(--bs-secondary-bg-subtle);
+            color: var(--bs-secondary-text-emphasis);
+        }
+    </style>
+@endpush

@@ -26,6 +26,24 @@ class User extends Authenticatable
     use Notifiable;
     use SoftDeletes;
 
+    private const BOOLEAN_PERMISSIONS = [
+        'superadm',
+        'admin',
+        'management',
+        'engineer',
+        'responsible',
+        'operator',
+        'user',
+        'btzero',
+        'onlyparner',
+        'can_dispatch',
+        'analyst',
+        'contract',
+        'legal_controller',
+        'legal_field',
+        'legal_manager',
+    ];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -104,6 +122,17 @@ class User extends Authenticatable
         'avatar_url',
         'is_delegated',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $user): void {
+            foreach (self::BOOLEAN_PERMISSIONS as $permission) {
+                if ($user->{$permission} === null) {
+                    $user->{$permission} = false;
+                }
+            }
+        });
+    }
 
     public function Employee()
     {

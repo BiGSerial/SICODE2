@@ -130,6 +130,7 @@
         min-width: 180px;
         max-width: 280px;
         flex: 1 1 200px;
+        position: relative;
     }
 
     .filter-label {
@@ -178,6 +179,7 @@
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
         border-radius: 0.5rem;
         padding: 0.5rem;
+        z-index: 1080;
     }
 
     .filter-search {
@@ -405,5 +407,5 @@
                 </button>
             </div>
         </div>
-    </div>''
+    </div>
 </div>

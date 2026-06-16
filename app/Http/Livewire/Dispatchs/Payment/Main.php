@@ -424,7 +424,7 @@ class Main extends Component
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
-            if ($eval['block']) {
+            if ($eval['block'] && !($eval['command'] ?? false)) {
                 $errors->push([
                     'note' => $note->note,
                     'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),
@@ -548,7 +548,7 @@ class Main extends Component
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
 
-            if ($eval['block']) {
+            if ($eval['block'] && !($eval['command'] ?? false)) {
                 $errors->push([
                     'note' => $note->note,
                     'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),

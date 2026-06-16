@@ -129,7 +129,20 @@ class BaseOperation extends Command
                     $existing = Operation::query()
                         ->whereIn('order_id', $orderIds)
                         ->whereIn('operacao', $operacoes)
-                        ->get(['order_id','operacao']);
+                        ->get([
+                            'order_id',
+                            'operacao',
+                            'descOperacao',
+                            'inicioPlanejado',
+                            'fimPlanejado',
+                            'inicioReal',
+                            'fimReal',
+                            'status',
+                            'notaOv',
+                            'cenPlan',
+                            'cenTrab',
+                            'txtCenTrab',
+                        ]);
 
                     $existingMap = $existing->keyBy(fn ($r) => $r->order_id.'|'.$r->operacao);
                 }
@@ -181,7 +194,13 @@ class BaseOperation extends Command
 
                         // contabilização correta
                         $pairKey = $row['order_id'].'|'.$row['operacao'];
-                        if (isset($existingMap[$pairKey])) {
+                        $existingRow = $existingMap->get($pairKey);
+
+                        if ($existingRow && !$this->operationChanged($existingRow, $row)) {
+                            continue;
+                        }
+
+                        if ($existingRow) {
                             $count['upd']++;
                         } else {
                             $count['ctd']++;
@@ -229,6 +248,34 @@ class BaseOperation extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function operationChanged(Operation $existing, array $incoming): bool
+    {
+        foreach ($this->updateColumns as $column) {
+            if ($column === 'updated_at') {
+                continue;
+            }
+
+            if ($this->comparableValue($existing->getRawOriginal($column)) !== $this->comparableValue($incoming[$column] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function comparableValue(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        return trim((string) $value);
     }
 
     private function parseDateTime($v): ?string

@@ -294,6 +294,10 @@ class Usuario extends Component
             }
         }
 
+        foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+            $this->user->{$permission} = (bool) ($this->user->{$permission} ?? false);
+        }
+
         $this->user->permission_locks = $effectiveLocks;
 
         if ($this->temporaryFirstPass) {

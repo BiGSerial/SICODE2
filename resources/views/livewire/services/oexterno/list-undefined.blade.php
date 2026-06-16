@@ -81,159 +81,152 @@
 
 @endphp
 
-<div>
+<div class="user-activity-page undefined-activity-page">
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
+    @include('livewire.services.partials.user-activity-hero', [
+        'context' => 'Triagem de órgão externo',
+        'subtitle' => 'Pendências que ainda precisam de classificação',
+        'total' => $lists->total(),
+        'accent' => '#0f766e',
+    ])
 
+    <div class="container-fluid">
+        <div class="activity-filter-card mb-3">
+            <div class="activity-filter-title mb-3">
+                <i class="ri-filter-3-line me-1"></i> Pesquisa e filtros
+            </div>
 
-    <div class="card mb-3 shadow-sm border-0">
-        <div class="card-body">
-            <div class="row g-2 align-items-end">
-
-                {{-- Busca com wildcards (usa seu WildcardFormatter: * e ? => %) --}}
-                <div class="col-12 col-md-4">
-                    <label class="form-label mb-1 d-flex align-items-center gap-2">
-                        Buscar
-                        <a class="small text-decoration-none" data-bs-toggle="collapse" href="#wildHelp" role="button"
-                            aria-expanded="false" aria-controls="wildHelp">
-                            (ajuda)
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-xl-4">
+                    <label class="form-label mb-1 d-flex align-items-center justify-content-between">
+                        <span>Buscar pendência</span>
+                        <a class="small text-decoration-none" data-bs-toggle="collapse" href="#wildHelp"
+                            role="button" aria-expanded="false" aria-controls="wildHelp">
+                            Como pesquisar?
                         </a>
                     </label>
-                    <input type="text" class="form-control" placeholder="Ex.: 12345*  |  *ABC  |  A?C"
-                        wire:model.debounce.400ms="search" autocomplete="off">
-                    <div class="collapse mt-1 small text-muted" id="wildHelp">
-                        <div class="card card-body p-2">
-                            <div><strong>*</strong> = vários caracteres (vira <code>%</code>)</div>
-                            <div><strong>?</strong> = 1 caractere (no seu formatter simples também vira <code>%</code>)
-                            </div>
-                            <div class="mt-1">Ex.: <code>123*</code> → LIKE <code>123%</code> | <code>*ABC</code> →
-                                LIKE <code>%ABC</code></div>
-                            <div>Sem wildcard → igualdade exata (<code>=</code>).</div>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white">
+                            <i class="ri-search-line"></i>
+                        </span>
+                        <input type="text" class="form-control" placeholder="Nota, município, entidade ou usuário"
+                            wire:model.debounce.400ms="search" autocomplete="off">
+                    </div>
+                    <div class="collapse mt-2" id="wildHelp">
+                        <div class="alert alert-light border small mb-0 py-2">
+                            Use <code>*</code> ou <code>?</code> como curinga. Exemplos:
+                            <code>123*</code>, <code>*ABC</code> ou <code>A?C</code>.
                         </div>
                     </div>
                 </div>
 
-                <x-filters.dynamic :filters="$filtersConfig" applyAction="applyFilters" class="mb-2" />
-            </div>
-
-
-        </div>
-    </div>
-
-    @if ($lists->isNotEmpty())
-        <div class="my-1 d-flex justify-content-between align-items-center">
-            <div>
-                {{ $lists->links() }}
-            </div>
-            <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() }} a {{ $lists->lastItem() }} de {{ $lists->total() }} registros
-            </div>
-
-        </div>
-    @endif
-    <div class="card shadow-sm border-0">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <div>
-                <h5 class="mb-0">Pendências não classificadas</h5>
-                <small class="text-muted">
-                    Serviço: {{ $service->service ?? '—' }}
-                </small>
-            </div>
-
-            <div class="d-flex align-items-center gap-3">
-                <div class="d-flex align-items-center">
-                    <label for="perPage" class="me-2 text-muted small">Por página</label>
-                    <select id="perPage" class="form-select form-select-sm" wire:model="perPage"
-                        style="min-width: 88px">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
+                <div class="col-12 col-xl-8">
+                    <x-filters.dynamic :filters="$filtersConfig" applyAction="applyFilters" />
                 </div>
             </div>
         </div>
 
-        <div class="card-body p-0 position-relative">
-
-            {{-- Loading overlay --}}
-            <div wire:loading.delay.class.remove="d-none" class="position-absolute top-0 start-0 w-100 h-100 d-none"
-                style="background: rgba(0,0,0,.03); z-index: 2;">
-                <div class="d-flex h-100 align-items-center justify-content-center">
-                    <div class="spinner-border" role="status" aria-hidden="true"></div>
-                    <span class="ms-2">Carregando…</span>
+        @if ($lists->isNotEmpty())
+            <div class="user-activity-summary mb-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg-7">
+                        {{ $lists->onEachSide(1)->links() }}
+                    </div>
+                    <div class="col-12 col-lg-5 text-lg-end">
+                        <span class="activity-summary-text">
+                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                            <strong>{{ $lists->lastItem() }}</strong> de
+                            <strong>{{ $lists->total() }}</strong> registros.
+                        </span>
+                    </div>
                 </div>
             </div>
+        @endif
 
+        <div class="user-activity-table-card position-relative">
+            <div class="user-activity-table-header bg-danger d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                <div>
+                    <h5 class="user-activity-table-title">
+                        <i class="ri-question-line me-2"></i>Pendências não classificadas
+                    </h5>
+                    <div class="user-activity-table-subtitle">
+                        Registros abertos que não estão nas filas de pagamento, órgão externo ou taxa.
+                    </div>
+                </div>
+                <span class="badge text-bg-warning">
+                    {{ $lists->total() }} {{ $lists->total() === 1 ? 'pendência' : 'pendências' }}
+                </span>
+            </div>
 
+            <div wire:loading.delay.class.remove="d-none"
+                class="position-absolute top-0 start-0 w-100 h-100 d-none undefined-loading">
+                <div class="d-flex h-100 align-items-center justify-content-center gap-2">
+                    <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                    <span>Atualizando registros...</span>
+                </div>
+            </div>
 
             @if ($lists->isEmpty())
-                <div class="p-4 text-center text-muted">
-                    <div class="mb-2">Nenhum registro encontrado para os critérios atuais.</div>
-                    <small>Dica: confirme se o status não é <em>AGUARDANDO_PAGAMENTO/ORGAO/TAXA</em> e se
-                        <code>completed</code> é <strong>false</strong>.</small>
+                <div class="undefined-empty-state">
+                    <i class="ri-inbox-line"></i>
+                    <h5>Nenhuma pendência encontrada</h5>
+                    <p>Revise os filtros ou a busca para consultar outros registros.</p>
                 </div>
             @else
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                <div class="table-responsive undefined-table-scroll">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-dark sticky-top">
                             <tr>
-                                <th class="text-nowrap">#</th>
-                                <th class="text-nowrap">Nota</th>
-                                <th class="text-nowrap">Rubrica</th>
-                                <th class="text-nowrap">Files</th>
-                                <th class="text-nowrap">Município</th>
-                                <th class="text-nowrap">Centro/Status</th>
-                                <th class="text-nowrap">Entidade</th>
-                                <th class="text-nowrap">Tipo Entidade</th>
-                                <th class="text-nowrap">Usuário</th>
-                                <th class="text-nowrap">Status</th>
-                                <th class="text-nowrap">Ultima Movimentação</th>
-                                <th class="text-nowrap text-end">Ações</th>
+                                <th>#</th>
+                                <th>Nota</th>
+                                <th>Rubrica</th>
+                                <th>Arquivos</th>
+                                <th>Município</th>
+                                <th>Centro/Status</th>
+                                <th>Entidade</th>
+                                <th>Tipo de entidade</th>
+                                <th>Usuário</th>
+                                <th>Status</th>
+                                <th>Última movimentação</th>
+                                <th class="text-end">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($lists as $i => $ext)
                                 @php
-                                    $s =
+                                    $status =
                                         $selectOptions->firstWhere('value', $ext->status) ??
                                         $selectOptions->firstWhere('value', 'INDEFINIDO');
+                                    $nick = $ext->Entity->nick ?? null;
+                                    $name = $ext->Entity->name ?? null;
+                                    $lastMovement = $ext->last_comment_at
+                                        ? \Carbon\Carbon::parse($ext->last_comment_at)
+                                        : null;
+                                    $daysAgo = $lastMovement?->diffInDays(now());
+                                    $movementClass = match (true) {
+                                        $daysAgo === null => 'undefined-movement--neutral',
+                                        $daysAgo > 30 => 'undefined-movement--danger',
+                                        $daysAgo <= 20 => 'undefined-movement--success',
+                                        default => 'undefined-movement--warning',
+                                    };
                                 @endphp
-                                <tr>
+                                <tr wire:key="undefined-external-{{ $ext->id }}">
                                     <td class="text-muted">
                                         {{ ($lists->currentPage() - 1) * $lists->perPage() + $i + 1 }}
                                     </td>
-
-                                    {{-- Nota (número / link, se houver rota) --}}
-                                    <td class="fw-semibold">
-                                        {{ $ext->Note->note ?? '—' }}
-                                    </td>
-
-                                    <td class="fw-semibold">
-                                        {{ $ext->Note->rubrica ?? '—' }}
-                                    </td>
-
-                                    <td class="fw-semibold">
-                                        <x-files.select-download-list :files='$ext->Note->Files' />
-
-                                    </td>
-
-                                    {{-- LEXP --}}
+                                    <td class="fw-semibold text-nowrap">{{ $ext->Note->note ?? '—' }}</td>
+                                    <td>{{ $ext->Note->rubrica ?? '—' }}</td>
                                     <td>
-                                        {{ $ext->Note->lexp ?? '—' }}
+                                        <x-files.select-download-list :files="$ext->Note->Files" />
                                     </td>
-
-                                    {{-- Centro de trabalho --}}
+                                    <td>{{ $ext->Note->lexp ?? '—' }}</td>
                                     <td>
-                                        <span
-                                            class="text-muted">{{ $ext->Note->centerjob ?? $ext->Note->nstats }}</span>
+                                        <span class="text-muted">
+                                            {{ $ext->Note->centerjob ?? $ext->Note->nstats ?? '—' }}
+                                        </span>
                                     </td>
-
-                                    {{-- Entidade (apelido e nome) --}}
                                     <td>
-                                        @php
-                                            $nick = $ext->Entity->nick ?? null;
-                                            $name = $ext->Entity->name ?? null;
-                                        @endphp
                                         @if ($nick || $name)
                                             <div class="d-flex flex-column">
                                                 <span class="fw-semibold">{{ $nick ?? $name }}</span>
@@ -242,19 +235,14 @@
                                                 @endif
                                             </div>
                                         @else
-                                            —
+                                            <span class="text-muted">Não vinculada</span>
                                         @endif
                                     </td>
-
-                                    {{-- Tipo da Entidade --}}
                                     <td>
-                                        <span
-                                            class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">
+                                        <span class="badge text-bg-light border text-dark">
                                             {{ $ext->Entity->Type->name ?? '—' }}
                                         </span>
                                     </td>
-
-                                    {{-- Usuário responsável --}}
                                     <td>
                                         <div class="d-flex flex-column">
                                             <span>{{ $ext->User->name ?? '—' }}</span>
@@ -263,90 +251,139 @@
                                             @endif
                                         </div>
                                     </td>
-
-                                    {{-- Status --}}
                                     <td>
-                                        <span class="badge {{ $s->colorbg }} }}">{{ $s->value }}</span>
-                                        @if (!$ext->status)
-                                            <p class="my-0 py-0"><span class="badge text-bg-danger">Old:
-                                                    {{ $ext->comments?->last()?->title ?? 'DESCONEHCIDO' }}</span></p>
-                                        @endif
-
-                                    </td>
-
-                                    {{-- Completed (sempre false no filtro, mas exibimos para consistência visual) --}}
-                                    {{-- <td>
-                                    @if ($ext->completed)
-                                        <span class="badge bg-success">Sim</span>
-                                    @else
-                                        <span class="badge bg-outline-secondary border">Não</span>
-                                    @endif
-                                </td> --}}
-
-                                    {{-- Criado em --}}
-                                    <td>
-                                        @php
-                                            $createdAt = $ext->last_comment_at
-                                                ? \Carbon\Carbon::parse($ext->last_comment_at)
-                                                : null;
-                                            $daysAgo = $createdAt ? $createdAt->diffInDays(now()) : null;
-
-                                            // Determina a cor da célula baseado nos dias
-                                            $bgClass = 'bg-light';
-                                            if ($daysAgo !== null) {
-                                                if ($daysAgo > 30) {
-                                                    $bgClass = 'bg-danger bg-opacity-25';
-                                                } elseif ($daysAgo <= 20) {
-                                                    $bgClass = 'bg-success bg-opacity-25';
-                                                } else {
-                                                    $bgClass = 'bg-warning bg-opacity-25';
-                                                }
-                                            }
-                                        @endphp
-                                        <div class="{{ $bgClass }} p-2 rounded">
-                                            @if ($daysAgo !== null)
-                                                <div class="fw-bold">
-                                                    {{ $daysAgo }} {{ $daysAgo == 1 ? 'dia' : 'dias' }}
-                                                </div>
-                                                <small class="text-muted">
-                                                    {{ $createdAt->format('d/m/Y H:i') }}
-                                                </small>
-                                            @else
-                                                <span class="text-muted">—</span>
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="badge {{ $status->colorbg }}">{{ $status->value }}</span>
+                                            @if (!$ext->status)
+                                                <span class="badge text-bg-danger">
+                                                    Anterior: {{ $ext->comments?->last()?->title ?? 'Desconhecido' }}
+                                                </span>
                                             @endif
                                         </div>
                                     </td>
-
-                                    {{-- Ações (ajuste as rotas conforme seu projeto) --}}
-                                    <td class="text-end">
-
-                                        <div class="btn-group btn-group-sm" role="group" aria-label="Ações">
-                                            <button type="button" class="btn btn-outline-primary"
-                                                wire:click.prevent="redirectTo('{{ $ext->Note->note ?? '' }}')"
-                                                title="Abrir (implemente a ação)">
-                                                <i class="bi bi-box-arrow-up-right"></i>
-                                            </button>
-                                            {{-- <button type="button" class="btn btn-outline-secondary" disabled
-                                            title="Marcar como revisto (implemente a ação)">
-                                            <i class="bi bi-check2-square"></i>
-                                        </button> --}}
+                                    <td>
+                                        <div class="undefined-movement {{ $movementClass }}">
+                                            @if ($lastMovement)
+                                                <strong>
+                                                    {{ $daysAgo }} {{ $daysAgo === 1 ? 'dia' : 'dias' }}
+                                                </strong>
+                                                <small>{{ $lastMovement->format('d/m/Y H:i') }}</small>
+                                            @else
+                                                <span>Sem movimentação</span>
+                                            @endif
                                         </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            wire:click.prevent="redirectTo('{{ $ext->Note->note ?? '' }}')"
+                                            data-bs-toggle="tooltip" data-bs-title="Abrir detalhes da nota">
+                                            <i class="ri-external-link-line"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
-                        @if ($lists->hasPages())
-                            <tfoot>
-                                <tr>
-                                    <td colspan="11" class="p-3">
-                                        {{ $lists->onEachSide(1)->links() }}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        @endif
                     </table>
                 </div>
             @endif
         </div>
+
+        @if ($lists->isNotEmpty())
+            <div class="user-activity-summary mt-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg-7">
+                        {{ $lists->onEachSide(1)->links() }}
+                    </div>
+                    <div class="col-12 col-lg-5 text-lg-end">
+                        <span class="activity-summary-text">
+                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                            <strong>{{ $lists->lastItem() }}</strong> de
+                            <strong>{{ $lists->total() }}</strong> registros.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 </div>
+
+@push('css')
+    <style>
+        .undefined-activity-page .activity-filter-card {
+            height: auto;
+        }
+
+        .undefined-table-scroll {
+            max-height: 66vh;
+        }
+
+        .undefined-loading {
+            background: rgba(255, 255, 255, .78);
+            backdrop-filter: blur(2px);
+            z-index: 4;
+        }
+
+        .undefined-empty-state {
+            color: var(--activity-muted);
+            padding: 3rem 1rem;
+            text-align: center;
+        }
+
+        .undefined-empty-state i {
+            color: var(--bs-danger);
+            display: block;
+            font-size: 2.5rem;
+            margin-bottom: .75rem;
+        }
+
+        .undefined-empty-state h5 {
+            color: var(--activity-ink);
+            font-weight: 600;
+        }
+
+        .undefined-empty-state p {
+            margin: 0;
+        }
+
+        .undefined-movement {
+            border-radius: .65rem;
+            min-width: 8.5rem;
+            padding: .55rem .7rem;
+        }
+
+        .undefined-movement strong,
+        .undefined-movement small {
+            display: block;
+        }
+
+        .undefined-movement strong {
+            font-size: .82rem;
+        }
+
+        .undefined-movement small {
+            color: var(--bs-secondary-color);
+            font-size: .7rem;
+            margin-top: .12rem;
+        }
+
+        .undefined-movement--danger {
+            background: var(--bs-danger-bg-subtle);
+            color: var(--bs-danger-text-emphasis);
+        }
+
+        .undefined-movement--warning {
+            background: var(--bs-warning-bg-subtle);
+            color: var(--bs-warning-text-emphasis);
+        }
+
+        .undefined-movement--success {
+            background: var(--bs-success-bg-subtle);
+            color: var(--bs-success-text-emphasis);
+        }
+
+        .undefined-movement--neutral {
+            background: var(--bs-secondary-bg-subtle);
+            color: var(--bs-secondary-text-emphasis);
+        }
+    </style>
+@endpush

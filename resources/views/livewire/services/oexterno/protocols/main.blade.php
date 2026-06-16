@@ -6,46 +6,70 @@
 
     // Opções de status (razões) – reason(label), value, prefix
     $protocolReasons = collect(SelectOptions::getProtocolReasons());
+    $externalCount = $note->externals->count();
+    $openExternalCount = $note->externals->where('completed', false)->count();
+    $protocolCount = $note->externals->sum(fn ($external) => $external->protocols->count());
+    $fileCount = $note->Files->count();
 @endphp
 
-<div class="container-fluid py-4">
+<div class="user-activity-page" wire:init="openRequestedEntity">
     {{-- LOADER GLOBAL --}}
     <x-show-loading />
+    @include('livewire.services.partials.user-activity-list-style')
 
-    {{-- CABEÇALHO DA PÁGINA --}}
-    <header class="page-header d-flex align-items-center justify-content-between mb-4 pb-3 border-bottom">
-        <div>
-            <h3 class="mb-1 d-flex align-items-center gap-2 text-primary">
-                <i class="ri-task-line"></i>
-                Detalhes da Nota / OV
-            </h3>
-            <div class="text-muted small">Gerencie dados, entidades, protocolos, arquivos e retornos internos desta nota.
+    <div class="container-fluid">
+        <section class="user-activity-hero d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3"
+            style="--activity-accent: #0f766e;">
+            <div>
+                <div class="activity-meta text-uppercase">Órgão externo • Gestão de protocolo</div>
+                <h2>NOTA / OV {{ $note->note }}</h2>
+                <div class="activity-meta mt-1">
+                    {{ $note->client ?: 'Cliente não informado' }} •
+                    {{ $note->material ?: 'Descrição não informada' }}
+                </div>
             </div>
-        </div>
+            <div class="d-flex flex-column align-items-xl-end gap-3">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-light"
+                        wire:click="$emitTo('components.entity.add-entity', 'openEntity')" data-bs-toggle="tooltip"
+                        data-bs-title="Cadastre uma nova entidade no catálogo">
+                        <i class="ri-building-2-line me-1"></i> Cadastrar entidade
+                    </button>
+                    <button type="button" class="btn btn-outline-light"
+                        wire:click="$emitTo('components.entity.add-entity-type', 'openEntityType')"
+                        data-bs-toggle="tooltip" data-bs-title="Gerencie os tipos de entidade">
+                        <i class="ri-price-tag-3-line me-1"></i> Tipos
+                    </button>
+                    <button type="button" class="btn btn-outline-light" onclick="history.back()"
+                        data-bs-toggle="tooltip" data-bs-title="Voltar para a tela anterior">
+                        <i class="ri-arrow-left-line me-1"></i> Voltar
+                    </button>
+                </div>
+                <div class="d-flex flex-wrap gap-4 text-xl-end">
+                    <div>
+                        <div class="activity-meta">Entidades</div>
+                        <div class="activity-count">{{ $externalCount }}</div>
+                    </div>
+                    <div>
+                        <div class="activity-meta">Em aberto</div>
+                        <div class="activity-count">{{ $openExternalCount }}</div>
+                    </div>
+                    <div>
+                        <div class="activity-meta">Protocolos</div>
+                        <div class="activity-count">{{ $protocolCount }}</div>
+                    </div>
+                    <div>
+                        <div class="activity-meta">Arquivos</div>
+                        <div class="activity-count">{{ $fileCount }}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-        {{-- Botões no topo (mantidos) --}}
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-primary"
-                wire:click="$emitTo('components.entity.add-entity', 'openEntity')" data-bs-toggle="tooltip"
-                data-bs-title="Cadastre uma nova entidade no catálogo">
-                <i class="ri-building-2-line me-1"></i> Cadastrar Entidade
-            </button>
-            <button type="button" class="btn btn-outline-secondary"
-                wire:click="$emitTo('components.entity.add-entity-type', 'openEntityType')" data-bs-toggle="tooltip"
-                data-bs-title="Gerencie os tipos de entidade">
-                <i class="ri-price-tag-3-line me-1"></i> Tipos
-            </button>
-            <button type="button" class="btn btn-primary" onclick="history.back()" data-bs-toggle="tooltip"
-                data-bs-title="Voltar para a tela anterior">
-                <i class="ri-arrow-left-line align-middle"></i> Voltar
-            </button>
-        </div>
-    </header>
-
-    {{-- CONTEÚDO PRINCIPAL COM ABAS --}}
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-white pt-3 pb-0">
-            <ul class="nav nav-tabs card-header-tabs" role="tablist">
+        {{-- CONTEÚDO PRINCIPAL COM ABAS --}}
+        <div class="card user-activity-table-card">
+            <div class="card-header bg-white pt-3 pb-0">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link {{ $activeMainTab == 'note-data-pane' ? 'active' : '' }}" id="note-data-tab"
                         data-bs-toggle="tab" data-bs-target="#note-data-pane" type="button" role="tab"
@@ -62,6 +86,7 @@
                         aria-selected="{{ $activeMainTab == 'files-pane' ? 'true' : 'false' }}"
                         wire:click="setActiveMainTab('files-pane')">
                         <i class="ri-attachment-2 me-2"></i>Arquivos Anexados
+                        <span class="badge text-bg-light ms-1">{{ $fileCount }}</span>
                     </button>
                 </li>
                 <li class="nav-item">
@@ -71,11 +96,12 @@
                         aria-selected="{{ $activeMainTab == 'entities-pane' ? 'true' : 'false' }}"
                         wire:click="setActiveMainTab('entities-pane')">
                         <i class="ri-team-line me-2"></i>Entidades Relacionadas
+                        <span class="badge text-bg-light ms-1">{{ $externalCount }}</span>
                     </button>
                 </li>
             </ul>
         </div>
-        <div class="card-body">
+            <div class="card-body">
             <div class="tab-content">
                 {{-- TAB PANE: DADOS DA NOTA --}}
                 <div class="tab-pane fade {{ $activeMainTab == 'note-data-pane' ? 'show active' : '' }}"
@@ -92,7 +118,7 @@
                             </div>
                             <div class="spec-row">
                                 <dt>Cliente</dt>
-                                <dd>{{ $note->client }}</dd>
+                                <dd>{{ $note->client ?: 'Não informado' }}</dd>
                             </div>
                         </dl>
 
@@ -105,15 +131,15 @@
                         <dl class="spec-grid">
                             <div class="spec-row">
                                 <dt>Rubrica</dt>
-                                <dd>{{ $note->rubrica }}</dd>
+                                <dd>{{ $note->rubrica ?: 'Não informada' }}</dd>
                             </div>
                             <div class="spec-row">
                                 <dt>Município</dt>
-                                <dd>{{ $note->lexp }}</dd>
+                                <dd>{{ $note->lexp ?: 'Não informado' }}</dd>
                             </div>
                             <div class="spec-row">
                                 <dt>Centro de Trabalho</dt>
-                                <dd>{{ $note->centerjob }}</dd>
+                                <dd>{{ $note->centerjob ?: 'Não informado' }}</dd>
                             </div>
                         </dl>
 
@@ -126,12 +152,12 @@
                         <dl class="spec-grid">
                             <div class="spec-row spec-row--full">
                                 <dt>Descrição</dt>
-                                <dd class="text-break">{{ $note->material }}</dd>
+                                <dd class="text-break">{{ $note->material ?: 'Não informada' }}</dd>
                             </div>
                             <div class="spec-row spec-row--full">
                                 <dt>Status da Nota</dt>
                                 <dd>
-                                    <span class="chip chip-primary">{{ $note->nstats }}</span>
+                                    <span class="chip chip-primary">{{ $note->nstats ?: 'N/D' }}</span>
                                     <span class="hint">Estado atual informado pelo sistema.</span>
                                 </dd>
                             </div>
@@ -180,103 +206,122 @@
                                 <div class="row g-3">
                                     @foreach ($note->externals->sortByDesc('created_at') as $external)
                                         @php
-                                            $lastProto = $external->protocols?->last()?->protocol;
+                                            $lastProtocol = $external->protocols?->first();
                                             $lastStatusLabel =
                                                 $protocolReasons->firstWhere('value', $external->status)?->reason ??
                                                 null;
-                                            $lastUser = $external->comments?->last()?->user?->name;
-                                            $lastInteraction = $external->comments
-                                                ?->last()
-                                                ?->created_at?->format('d/m/Y H:i');
+                                            $lastComment = $external->comments?->first();
+                                            $lastUser = $lastComment?->user?->name;
+                                            $lastInteraction = $lastComment?->created_at?->format('d/m/Y H:i');
                                         @endphp
 
                                         <div class="col-12 col-lg-6">
-                                            <div class="card h-100 border-0 shadow-xs hover-shadow-sm entity-card"
+                                            <div class="card h-100 entity-card"
                                                 wire:key="entity-card-{{ $external->id }}">
-                                                <div class="card-body">
-                                                    <div class="d-flex align-items-start justify-content-between">
-                                                        <div class="pe-2">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <h6
-                                                                    class="mb-0 {{ $external->completed ? 'text-success' : 'text-primary' }}">
+                                                <div class="card-body p-0">
+                                                    <div class="entity-card__header">
+                                                        <div class="entity-card__identity">
+                                                            <span
+                                                                class="entity-card__avatar {{ $external->completed ? 'entity-card__avatar--completed' : '' }}">
+                                                                <i class="ri-government-line"></i>
+                                                            </span>
+                                                            <div class="min-w-0">
+                                                                <div class="entity-card__eyebrow">Entidade externa</div>
+                                                                <h6 class="entity-card__name text-truncate mb-0">
                                                                     {{ $external->entity?->name ?? $external->entidade }}
                                                                 </h6>
-                                                                @if ($external->completed)
-                                                                    <span
-                                                                        class="badge text-bg-success">Encerrado</span>
+                                                                @if ($external->entity && $external->entidade && $external->entidade !== $external->entity->name)
+                                                                    <div class="entity-card__alias text-truncate">
+                                                                        {{ $external->entidade }}
+                                                                    </div>
                                                                 @endif
-                                                            </div>
-                                                            @if ($external->entity && $external->entidade && $external->entidade !== $external->entity->name)
-                                                                <div class="small text-muted">Apelido:
-                                                                    {{ $external->entidade }}</div>
-                                                            @endif
-
-                                                            <div class="meta zebra mt-2">
-                                                                <div class="meta-row">
-                                                                    <span class="meta-label"><i
-                                                                            class="ri-calendar-line me-1"></i>Abertura</span>
-                                                                    <span
-                                                                        class="meta-value">{{ $external->created_at->format('d/m/Y') }}</span>
-                                                                </div>
-                                                                <div class="meta-row">
-                                                                    <span class="meta-label"><i
-                                                                            class="ri-hashtag me-1"></i>Último
-                                                                        Protocolo</span>
-                                                                    <span
-                                                                        class="meta-value">{{ $lastProto ?? '—' }}</span>
-                                                                </div>
-                                                                <div class="meta-row">
-                                                                    <span class="meta-label"><i
-                                                                            class="ri-user-voice-line me-1"></i>Última
-                                                                        interação</span>
-                                                                    <span class="meta-value">
-                                                                        @if ($lastUser && $lastInteraction)
-                                                                            {{ $lastUser }} —
-                                                                            {{ $lastInteraction }}
-                                                                        @else
-                                                                            —
-                                                                        @endif
-                                                                    </span>
-                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        <div class="text-end">
-                                                            <div class="small text-muted">Status</div>
-                                                            <div>
-                                                                <span
-                                                                    class="badge {{ $external->completed ? 'text-bg-success' : 'text-bg-secondary' }}">
-                                                                    {{ $external->completed ? 'Encerrado' : $lastStatusLabel ?? 'Indefinido' }}
+                                                        <span
+                                                            class="entity-status {{ $external->completed ? 'entity-status--completed' : 'entity-status--active' }}">
+                                                            <span class="entity-status__dot"></span>
+                                                            {{ $external->completed ? 'Encerrado' : $lastStatusLabel ?? 'Indefinido' }}
+                                                        </span>
+                                                    </div>
+
+                                                    <div class="entity-card__content">
+                                                        <div class="entity-info-grid">
+                                                            <div class="entity-info-item">
+                                                                <span class="entity-info-item__icon">
+                                                                    <i class="ri-calendar-event-line"></i>
                                                                 </span>
+                                                                <div>
+                                                                    <span class="entity-info-item__label">Abertura</span>
+                                                                    <strong>{{ $external->created_at->format('d/m/Y') }}</strong>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="entity-info-item">
+                                                                <span class="entity-info-item__icon">
+                                                                    <i class="ri-hashtag"></i>
+                                                                </span>
+                                                                <div class="min-w-0">
+                                                                    <span class="entity-info-item__label">Último protocolo</span>
+                                                                    <strong class="text-truncate d-block"
+                                                                        title="{{ $lastProtocol?->protocol ?? 'Sem protocolo' }}">
+                                                                        {{ $lastProtocol?->protocol ?? 'Sem protocolo' }}
+                                                                    </strong>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="entity-info-item entity-info-item--wide">
+                                                                <span class="entity-info-item__icon">
+                                                                    <i class="ri-user-voice-line"></i>
+                                                                </span>
+                                                                <div class="min-w-0">
+                                                                    <span class="entity-info-item__label">Última interação</span>
+                                                                    @if ($lastUser && $lastInteraction)
+                                                                        <strong class="text-truncate d-block"
+                                                                            title="{{ $lastUser }} — {{ $lastInteraction }}">
+                                                                            {{ $lastUser }}
+                                                                        </strong>
+                                                                        <small>{{ $lastInteraction }}</small>
+                                                                    @else
+                                                                        <strong>Sem interação registrada</strong>
+                                                                    @endif
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <div
-                                                    class="card-footer bg-white d-flex flex-wrap justify-content-end gap-2">
-                                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                                        wire:click="openEntityModal({{ $external->id }})"
-                                                        data-bs-toggle="modal" data-bs-target="#entityModal"
-                                                        title="Ver detalhes da entidade" data-bs-toggle="tooltip"
-                                                        data-bs-title="Abrir detalhes completos e ações">
-                                                        <i class="ri-information-line me-1"></i> Detalhes
-                                                    </button>
+                                                <div class="card-footer entity-card__footer">
+                                                    <div class="entity-card__footer-meta">
+                                                        <i class="ri-chat-3-line"></i>
+                                                        {{ $external->comments->count() }}
+                                                        {{ $external->comments->count() === 1 ? 'interação' : 'interações' }}
+                                                    </div>
+                                                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                            wire:click="openEntityModal({{ $external->id }})"
+                                                            data-bs-toggle="modal" data-bs-target="#entityModal"
+                                                            title="Abrir detalhes completos e ações">
+                                                            <i class="ri-information-line me-1"></i> Detalhes
+                                                        </button>
 
-                                                    @if (!$external->completed)
-                                                        <button type="button" class="btn btn-sm btn-outline-success"
-                                                            wire:click="toFinishEntity({{ $external->id }})"
-                                                            data-bs-toggle="tooltip"
-                                                            data-bs-title="Encerrar tratativa dessa entidade">
-                                                            <i class="ri-check-double-line me-1"></i> Encerrar
-                                                        </button>
-                                                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                                            wire:click="deleteProtocol({{ $external->id }})"
-                                                            data-bs-toggle="tooltip"
-                                                            data-bs-title="Remover vínculo da entidade com esta nota">
-                                                            <i class="ri-delete-bin-line me-1"></i> Remover
-                                                        </button>
-                                                    @endif
+                                                        @if (!$external->completed)
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-outline-success"
+                                                                wire:click="toFinishEntity({{ $external->id }})"
+                                                                data-bs-toggle="tooltip"
+                                                                data-bs-title="Encerrar tratativa dessa entidade">
+                                                                <i class="ri-check-double-line me-1"></i> Encerrar
+                                                            </button>
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-outline-danger"
+                                                                wire:click="deleteProtocol({{ $external->id }})"
+                                                                data-bs-toggle="tooltip"
+                                                                data-bs-title="Remover vínculo da entidade com esta nota">
+                                                                <i class="ri-delete-bin-line me-1"></i> Remover
+                                                            </button>
+                                                        @endif
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -308,29 +353,36 @@
     {{-- MODAL: DETALHES DA ENTIDADE (agora com abas internas) --}}
     <div wire:ignore.self class="modal fade" id="entityModal" tabindex="-1" aria-labelledby="entityModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable ">
-            <div class="modal-content bg-gray">
-                <div class="modal-header edp-bg-sprucegreen-70">
-                    <div>
-                        <h5 class="modal-title  text-edp-verde d-flex align-items-center gap-2" id="entityModalLabel">
-                            <i class="ri-building-3-line"></i>
-                            <span>
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content entity-detail-modal">
+                <div class="modal-header entity-detail-modal__header">
+                    <div class="entity-detail-modal__identity">
+                        <span class="entity-detail-modal__avatar">
+                            <i class="ri-government-line"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <div class="entity-detail-modal__eyebrow">Detalhes da entidade externa</div>
+                            <h5 class="modal-title text-truncate mb-0" id="entityModalLabel">
                                 <span wire:loading.inline wire:target="openEntityModal">Carregando entidade...</span>
                                 <span wire:loading.remove wire:target="openEntityModal">
                                     @if ($currentExternal)
                                         {{ $currentExternal->entity?->name ?? $currentExternal->entidade }}
-                                        @if ($currentExternal->completed)
-                                            <span class="badge text-bg-success ms-2">Encerrado</span>
-                                        @endif
                                     @else
                                         Detalhes da Entidade
                                     @endif
                                 </span>
-                            </span>
-                        </h5>
-                        <div class="small text-white">
-                            Gerencie status, protocolos, pagamentos, arquivos e retornos internos desta entidade.
+                            </h5>
+                            <div class="entity-detail-modal__subtitle">
+                                Gerencie protocolos, pagamentos, interações, arquivos e retornos internos.
+                            </div>
                         </div>
+                        @if ($currentExternal)
+                            <span
+                                class="entity-status {{ $currentExternal->completed ? 'entity-status--completed' : 'entity-status--active' }}">
+                                <span class="entity-status__dot"></span>
+                                {{ $currentExternal->completed ? 'Encerrado' : $protocolReasons->firstWhere('value', $currentExternal->status)?->reason ?? 'Indefinido' }}
+                            </span>
+                        @endif
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Fechar"></button>
@@ -351,20 +403,67 @@
                                 <div>Selecione uma entidade na lista para visualizar os detalhes.</div>
                             </div>
                         @else
+                            <div class="entity-modal-summary mb-3">
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-calendar-event-line"></i>
+                                    <div>
+                                        <span>Vinculada em</span>
+                                        <strong>{{ $currentExternal->created_at->format('d/m/Y') }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-file-list-3-line"></i>
+                                    <div>
+                                        <span>Protocolos</span>
+                                        <strong>{{ $currentExternal->protocols->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-hand-coin-line"></i>
+                                    <div>
+                                        <span>Pagamentos</span>
+                                        <strong>{{ $currentExternal->PoolPayments->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-chat-3-line"></i>
+                                    <div>
+                                        <span>Interações</span>
+                                        <strong>{{ $currentExternal->comments->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-attachment-2"></i>
+                                    <div>
+                                        <span>Arquivos</span>
+                                        <strong>{{ $currentExternal->files->count() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="entity-modal-summary__item">
+                                    <i class="ri-arrow-go-back-line"></i>
+                                    <div>
+                                        <span>Retornos</span>
+                                        <strong>{{ $currentExternal->Reclaims->count() }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
                             {{-- Ações imediatas --}}
-                            <div class="row g-3 align-items-start mb-4">
+                            <div class="row g-3 align-items-stretch mb-4">
                                 {{-- Status da Entidade --}}
                                 <div class="col-12 col-lg-6">
-                                    <div class="card border-0 shadow-sm h-100">
+                                    <div class="card entity-quick-action h-100">
                                         <div class="card-body">
-                                            <label class="form-label fw-semibold mb-2 d-flex align-items-center">
-                                                <i class="ri-price-tag-3-line me-2 text-primary fs-5"></i>
-                                                Status da Entidade
-                                            </label>
-                                            <div class="input-group">
-                                                <span class="input-group-text bg-light">
+                                            <div class="entity-quick-action__heading">
+                                                <span class="entity-quick-action__icon">
                                                     <i class="ri-flag-line"></i>
                                                 </span>
+                                                <div>
+                                                    <h6>Status da entidade</h6>
+                                                    <p>Atualize a etapa atual da tratativa.</p>
+                                                </div>
+                                            </div>
+                                            <div class="input-group">
                                                 <select class="form-select" wire:model.defer="currentExternal.status"
                                                     aria-label="Status da Entidade">
                                                     <option value="">Selecione uma razão...</option>
@@ -389,9 +488,7 @@
                                                 </button>
                                             </div>
                                             <div class="form-text mt-2">
-                                                <i class="ri-information-line me-1"></i>
-                                                O tipo de evidência será gerado com o <strong>prefix</strong> da razão
-                                                selecionada.
+                                                O tipo de evidência usa o prefixo da razão selecionada.
                                             </div>
                                         </div>
                                     </div>
@@ -399,16 +496,18 @@
 
                                 {{-- Solicitar Pagamento --}}
                                 <div class="col-12 col-lg-6">
-                                    <div class="card border-0 shadow-sm h-100">
+                                    <div class="card entity-quick-action entity-quick-action--success h-100">
                                         <div class="card-body">
-                                            <label class="form-label fw-semibold mb-2 d-flex align-items-center">
-                                                <i class="ri-money-dollar-circle-line me-2 text-success fs-5"></i>
-                                                Solicitar Pagamento
-                                            </label>
-                                            <div class="input-group">
-                                                <span class="input-group-text bg-light">
-                                                    <i class="ri-bank-card-line"></i>
+                                            <div class="entity-quick-action__heading">
+                                                <span class="entity-quick-action__icon">
+                                                    <i class="ri-money-dollar-circle-line"></i>
                                                 </span>
+                                                <div>
+                                                    <h6>Vincular pagamento</h6>
+                                                    <p>Registre o identificador devolvido pelo portal.</p>
+                                                </div>
+                                            </div>
+                                            <div class="input-group">
                                                 <input type="text"
                                                     class="form-control {{ $errors->has('paymentPoolId') ? 'is-invalid' : '' }}"
                                                     placeholder="Ex.: HRC0008140"
@@ -428,19 +527,18 @@
                                                 </div>
                                             @enderror
                                             <div class="form-text mt-2">
-                                                <i class="ri-information-line me-1"></i>
-                                                Informe o ID numérico legado ou um código com prefixo seguido de
-                                                números, como <strong>HRC0008140</strong>.
+                                                Aceita ID numérico ou código com prefixo, como
+                                                <strong>HRC0008140</strong>.
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <hr class="my-3">
-
                             {{-- ABAS DE DETALHES DA ENTIDADE --}}
-                            <ul class="nav nav-pills nav-pills-primary mb-3" id="entityDetailTabs" role="tablist">
+                            <div class="entity-modal-workspace">
+                            <ul class="nav nav-pills nav-pills-primary entity-modal-tabs" id="entityDetailTabs"
+                                role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button
                                         class="nav-link {{ $activeModalTab == 'modal-protocols' ? 'active' : '' }}"
@@ -450,6 +548,7 @@
                                         aria-selected="{{ $activeModalTab == 'modal-protocols' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-protocols')">
                                         <i class="ri-file-list-3-line me-2"></i>Protocolos
+                                        <span class="badge">{{ $currentExternal->protocols->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -460,6 +559,7 @@
                                         aria-selected="{{ $activeModalTab == 'modal-payments' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-payments')">
                                         <i class="ri-hand-coin-line me-2"></i>Pagamentos
+                                        <span class="badge">{{ $currentExternal->PoolPayments->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -470,6 +570,7 @@
                                         aria-selected="{{ $activeModalTab == 'modal-comments' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-comments')">
                                         <i class="ri-chat-1-line me-2"></i>Comentários
+                                        <span class="badge">{{ $currentExternal->comments->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -480,7 +581,8 @@
                                         aria-controls="modal-entity-files"
                                         aria-selected="{{ $activeModalTab == 'modal-entity-files' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-entity-files')">
-                                        <i class="ri-folder-2-line me-2"></i>Arquivos da Entidade
+                                        <i class="ri-folder-2-line me-2"></i>Arquivos
+                                        <span class="badge">{{ $currentExternal->files->count() }}</span>
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -502,12 +604,13 @@
                                         aria-controls="modal-internal-returns"
                                         aria-selected="{{ $activeModalTab == 'modal-internal-returns' ? 'true' : 'false' }}"
                                         wire:click="setActiveModalTab('modal-internal-returns')">
-                                        <i class="ri-arrow-go-back-line me-2"></i>Retornos Internos
+                                        <i class="ri-arrow-go-back-line me-2"></i>Retornos
+                                        <span class="badge">{{ $currentExternal->Reclaims->count() }}</span>
                                     </button>
                                 </li>
                             </ul>
 
-                            <div class="tab-content" id="entityDetailTabsContent">
+                            <div class="tab-content entity-modal-tab-content" id="entityDetailTabsContent">
                                 {{-- TAB PANE: Protocolos --}}
                                 <div class="tab-pane fade {{ $activeModalTab == 'modal-protocols' ? 'show active' : '' }}"
                                     id="modal-protocols" role="tabpanel" aria-labelledby="modal-protocols-tab"
@@ -1157,18 +1260,14 @@
                                 </div>
                                 {{-- /Retornos Internos --}}
                             </div>
+                            </div>
                         @endif
                     </div>
                 </div>
 
-                <div class="modal-footer d-flex justify-content-between">
+                <div class="modal-footer entity-detail-modal__footer">
                     @if ($currentExternal && !$currentExternal->completed)
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-success"
-                                wire:click="toFinishEntity({{ $currentExternal->id }})" data-bs-toggle="tooltip"
-                                data-bs-title="Marca a entidade como concluída">
-                                <i class="ri-check-double-line me-1"></i> Encerrar Entidade
-                            </button>
+                        <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn btn-outline-danger"
                                 wire:click="deleteProtocol({{ $currentExternal->id }})" data-bs-toggle="tooltip"
                                 data-bs-title="Remove o vínculo desta entidade">
@@ -1179,13 +1278,22 @@
                         <div></div>
                     @endif
 
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-primary"
+                    <div class="d-flex flex-wrap gap-2 ms-auto">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Fechar
+                        </button>
+                        @if ($currentExternal && !$currentExternal->completed)
+                            <button type="button" class="btn btn-outline-success"
+                                wire:click="toFinishEntity({{ $currentExternal->id }})" data-bs-toggle="tooltip"
+                                data-bs-title="Marca a entidade como concluída">
+                                <i class="ri-check-double-line me-1"></i> Encerrar entidade
+                            </button>
+                        @endif
+                        <button type="button" class="btn btn-primary px-4"
                             wire:click="saveModalChanges({{ $currentExternal->id ?? 'null' }})"
                             @disabled($currentExternal?->completed)>
                             <i class="ri-save-3-line me-1"></i> Salvar Alterações
                         </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                     </div>
                 </div>
             </div>
@@ -1201,15 +1309,10 @@
     @livewire('services.oexterno.actions.add-comments', key('add-comment'))
     @livewire('services.oexterno.actions.inter-return', key('internal_return'))
 </div>
+</div>
 
-@push('styles')
+@push('css')
     <style>
-        body {
-            font-family: var(--bs-body-font-family);
-            background-color: var(--bs-light);
-            /* Cor de fundo mais suave */
-        }
-
         /* Cores personalizadas para o gradiente do cabeçalho do modal */
         :root {
             --edp-verde: #00786e;
@@ -1262,7 +1365,7 @@
         /* ---------- Ficha técnica: rótulo x valor bem distintos ---------- */
         .spec-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
             /* Adaptável e flexível */
             gap: .75rem 1.25rem;
             /* Espaçamento melhorado */
@@ -1277,11 +1380,16 @@
             background: var(--bs-white);
             border: 1px solid var(--bs-border-color);
             /* Borda mais leve */
-            border-radius: .6rem;
+            border-radius: .75rem;
             /* Bordas arredondadas */
             padding: .8rem 1rem;
             /* Preenchimento confortável */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, .03);
+            box-shadow: none;
+        }
+
+        .spec-row--highlight {
+            background: linear-gradient(135deg, #edf4ff, #f6f9ff);
+            border-color: #ccdcf6;
             /* Sombra sutil */
         }
 
@@ -1308,6 +1416,7 @@
             /* Mais destaque */
             color: var(--bs-body-color);
             line-height: 1.4;
+            font-size: .96rem;
         }
 
         /* ---------- Chips/Badges mais legíveis ---------- */
@@ -1343,59 +1452,222 @@
         .entity-card {
             background: var(--bs-white);
             border: 1px solid var(--bs-border-color);
-            border-radius: .75rem;
+            border-radius: .9rem;
             transition: all .2s ease-in-out;
+            overflow: hidden;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, .07);
         }
 
         .entity-card:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--bs-box-shadow-lg);
-            /* Sombra mais pronunciada no hover */
+            border-color: rgba(15, 118, 110, .35);
+            transform: translateY(-2px);
+            box-shadow: 0 16px 34px rgba(15, 23, 42, .12);
         }
 
-        .entity-card .meta {
-            border: 1px solid var(--bs-border-color);
-            border-radius: .45rem;
-            overflow: hidden;
-            background: var(--bs-light);
-            /* Cor de fundo mais clara */
-            margin-top: 1rem;
+        .min-w-0 {
+            min-width: 0;
         }
 
-        .entity-card .meta-row {
-            display: grid;
-            grid-template-columns: 140px 1fr;
-            /* Largura ajustada para label */
-            padding: .5rem .8rem;
+        .entity-card__header {
             align-items: center;
-            /* Alinha verticalmente */
-        }
-
-        .entity-card .meta-label {
-            font-size: .78rem;
-            color: var(--bs-secondary-text-emphasis);
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border-bottom: 1px solid var(--bs-border-color);
             display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            padding: 1rem 1.1rem;
+        }
+
+        .entity-card__identity {
             align-items: center;
+            display: flex;
+            gap: .75rem;
+            min-width: 0;
+        }
+
+        .entity-card__avatar {
+            align-items: center;
+            background: var(--bs-primary-bg-subtle);
+            border: 1px solid var(--bs-primary-border-subtle);
+            border-radius: .8rem;
+            color: var(--bs-primary);
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 1.25rem;
+            height: 2.9rem;
+            justify-content: center;
+            width: 2.9rem;
+        }
+
+        .entity-card__avatar--completed {
+            background: var(--bs-success-bg-subtle);
+            border-color: var(--bs-success-border-subtle);
+            color: var(--bs-success);
+        }
+
+        .entity-card__eyebrow {
+            color: var(--bs-secondary-color);
+            font-size: .67rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+
+        .entity-card__name {
+            color: var(--bs-primary);
+            font-size: .98rem;
+            font-weight: 700;
+            margin-top: .18rem;
+        }
+
+        .entity-card__alias {
+            color: var(--bs-secondary-color);
+            font-size: .76rem;
+            margin-top: .15rem;
+        }
+
+        .entity-status {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: .7rem;
+            font-weight: 700;
             gap: .4rem;
+            max-width: 45%;
+            padding: .38rem .62rem;
+            text-align: left;
         }
 
-        .entity-card .meta-value {
+        .entity-status__dot {
+            background: currentColor;
+            border-radius: 999px;
+            flex: 0 0 auto;
+            height: .42rem;
+            width: .42rem;
+        }
+
+        .entity-status--active {
+            background: var(--bs-info-bg-subtle);
+            border-color: var(--bs-info-border-subtle);
+            color: var(--bs-info-text-emphasis);
+        }
+
+        .entity-status--completed {
+            background: var(--bs-success-bg-subtle);
+            border-color: var(--bs-success-border-subtle);
+            color: var(--bs-success-text-emphasis);
+        }
+
+        .entity-card__content {
+            padding: 1rem 1.1rem;
+        }
+
+        .entity-info-grid {
+            display: grid;
+            gap: .65rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .entity-info-item {
+            align-items: center;
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: .7rem;
+            display: flex;
+            gap: .65rem;
+            min-width: 0;
+            padding: .7rem .75rem;
+        }
+
+        .entity-info-item--wide {
+            grid-column: 1 / -1;
+        }
+
+        .entity-info-item__icon {
+            align-items: center;
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: .55rem;
+            color: var(--bs-primary);
+            display: inline-flex;
+            flex: 0 0 auto;
+            height: 2rem;
+            justify-content: center;
+            width: 2rem;
+        }
+
+        .entity-info-item__label {
+            color: var(--bs-secondary-color);
+            display: block;
+            font-size: .67rem;
             font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: .15rem;
+            text-transform: uppercase;
+        }
+
+        .entity-info-item strong {
             color: var(--bs-body-color);
+            font-size: .82rem;
+            font-weight: 650;
         }
 
-        .entity-card .zebra .meta-row:nth-child(odd) {
-            background: var(--bs-body-tertiary);
-            /* Zebra mais suave */
+        .entity-info-item small {
+            color: var(--bs-secondary-color);
+            display: block;
+            font-size: .72rem;
+            margin-top: .08rem;
         }
 
-        .entity-card .card-footer {
-            background-color: var(--bs-body-tertiary) !important;
-            /* Destacar o rodapé */
+        .entity-card__footer {
+            align-items: center;
+            background: #fff;
             border-top: 1px solid var(--bs-border-color);
-            border-radius: 0 0 .75rem .75rem;
-            padding-top: .75rem;
-            padding-bottom: .75rem;
+            display: flex;
+            gap: .75rem;
+            justify-content: space-between;
+            padding: .75rem 1.1rem;
+        }
+
+        .entity-card__footer-meta {
+            align-items: center;
+            color: var(--bs-secondary-color);
+            display: inline-flex;
+            font-size: .75rem;
+            gap: .35rem;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 575.98px) {
+            .entity-card__header,
+            .entity-card__footer {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .entity-status {
+                max-width: 100%;
+            }
+
+            .entity-info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .entity-info-item--wide {
+                grid-column: auto;
+            }
+
+            .entity-card__footer>div:last-child,
+            .entity-card__footer .btn {
+                width: 100%;
+            }
+
+            .entity-card__footer .btn {
+                justify-content: center;
+            }
         }
 
         /* ---------- Estados vazios ---------- */
@@ -1469,6 +1741,248 @@
         /* ---------- Modal e tabelas ---------- */
         .bg-gradient-spruce {
             background: linear-gradient(135deg, var(--bg-gradient-spruce-start), var(--bg-gradient-spruce-end));
+        }
+
+        #entityModal .entity-detail-modal {
+            background: #f4f7f9;
+            border: 0;
+            border-radius: 1rem;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .26);
+            overflow: hidden;
+        }
+
+        #entityModal .entity-detail-modal__header {
+            align-items: center;
+            background: linear-gradient(120deg, #0f172a, #0f766e);
+            border: 0;
+            color: #fff;
+            min-height: 5.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        #entityModal .entity-detail-modal__identity {
+            align-items: center;
+            display: flex;
+            gap: .85rem;
+            min-width: 0;
+        }
+
+        #entityModal .entity-detail-modal__avatar {
+            align-items: center;
+            background: rgba(255, 255, 255, .14);
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: .85rem;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 1.35rem;
+            height: 3rem;
+            justify-content: center;
+            width: 3rem;
+        }
+
+        #entityModal .entity-detail-modal__eyebrow {
+            color: rgba(255, 255, 255, .65);
+            font-size: .68rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        #entityModal .modal-title {
+            color: #fff !important;
+            font-size: 1.08rem;
+            font-weight: 700;
+            margin-top: .12rem;
+            max-width: 34rem;
+        }
+
+        #entityModal .entity-detail-modal__subtitle {
+            color: rgba(255, 255, 255, .7);
+            font-size: .76rem;
+            margin-top: .15rem;
+        }
+
+        #entityModal .entity-detail-modal__header .entity-status {
+            background: rgba(255, 255, 255, .12);
+            border-color: rgba(255, 255, 255, .2);
+            color: #fff;
+            margin-left: .5rem;
+            max-width: 18rem;
+        }
+
+        #entityModal .modal-body {
+            background: #f4f7f9;
+            padding: 1rem 1.15rem 1.25rem;
+        }
+
+        #entityModal .entity-modal-summary {
+            background: #fff;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .85rem;
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            overflow: hidden;
+        }
+
+        #entityModal .entity-modal-summary__item {
+            align-items: center;
+            border-right: 1px solid var(--bs-border-color);
+            display: flex;
+            gap: .55rem;
+            min-width: 0;
+            padding: .7rem .8rem;
+        }
+
+        #entityModal .entity-modal-summary__item:last-child {
+            border-right: 0;
+        }
+
+        #entityModal .entity-modal-summary__item>i {
+            color: var(--bs-primary);
+            flex: 0 0 auto;
+            font-size: 1rem;
+        }
+
+        #entityModal .entity-modal-summary__item span,
+        #entityModal .entity-modal-summary__item strong {
+            display: block;
+        }
+
+        #entityModal .entity-modal-summary__item span {
+            color: var(--bs-secondary-color);
+            font-size: .64rem;
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+
+        #entityModal .entity-modal-summary__item strong {
+            color: var(--bs-body-color);
+            font-size: .87rem;
+            margin-top: .08rem;
+        }
+
+        #entityModal .entity-quick-action {
+            border: 1px solid var(--bs-border-color);
+            border-radius: .85rem;
+            box-shadow: 0 7px 20px rgba(15, 23, 42, .05);
+        }
+
+        #entityModal .entity-quick-action__heading {
+            align-items: center;
+            display: flex;
+            gap: .65rem;
+            margin-bottom: .8rem;
+        }
+
+        #entityModal .entity-quick-action__icon {
+            align-items: center;
+            background: var(--bs-primary-bg-subtle);
+            border-radius: .65rem;
+            color: var(--bs-primary);
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 1.1rem;
+            height: 2.45rem;
+            justify-content: center;
+            width: 2.45rem;
+        }
+
+        #entityModal .entity-quick-action--success .entity-quick-action__icon {
+            background: var(--bs-success-bg-subtle);
+            color: var(--bs-success);
+        }
+
+        #entityModal .entity-quick-action__heading h6 {
+            color: var(--bs-body-color);
+            font-size: .88rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        #entityModal .entity-quick-action__heading p {
+            color: var(--bs-secondary-color);
+            font-size: .7rem;
+            margin: .08rem 0 0;
+        }
+
+        #entityModal .entity-modal-workspace {
+            background: #fff;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .9rem;
+            box-shadow: 0 9px 24px rgba(15, 23, 42, .05);
+            overflow: hidden;
+        }
+
+        #entityModal .entity-modal-tabs {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--bs-border-color);
+            flex-wrap: nowrap;
+            gap: .25rem;
+            overflow-x: auto;
+            padding: .65rem;
+        }
+
+        #entityModal .entity-modal-tabs .nav-link {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: .65rem;
+            color: var(--bs-secondary-color);
+            display: inline-flex;
+            font-size: .78rem;
+            gap: .15rem;
+            padding: .52rem .68rem;
+            white-space: nowrap;
+        }
+
+        #entityModal .entity-modal-tabs .nav-link:hover {
+            background: #fff;
+            border-color: var(--bs-border-color);
+            color: var(--bs-primary);
+        }
+
+        #entityModal .entity-modal-tabs .nav-link.active {
+            background: var(--bs-primary);
+            border-color: var(--bs-primary);
+            box-shadow: 0 5px 12px rgba(var(--bs-primary-rgb), .2);
+            color: #fff;
+        }
+
+        #entityModal .entity-modal-tabs .badge {
+            background: var(--bs-secondary-bg);
+            color: var(--bs-secondary-color);
+            font-size: .62rem;
+            margin-left: .25rem;
+            min-width: 1.25rem;
+        }
+
+        #entityModal .entity-modal-tabs .nav-link.active .badge {
+            background: rgba(255, 255, 255, .18);
+            color: #fff;
+        }
+
+        #entityModal .entity-modal-tab-content {
+            padding: .85rem;
+        }
+
+        #entityModal .entity-modal-tab-content>.tab-pane>.card {
+            border: 1px solid var(--bs-border-color) !important;
+            border-radius: .75rem;
+            box-shadow: none !important;
+            overflow: hidden;
+        }
+
+        #entityModal .entity-modal-tab-content .card-header {
+            background: #fff !important;
+            border-bottom: 1px solid var(--bs-border-color);
+            min-height: 3.4rem;
+            padding: .75rem .9rem;
+        }
+
+        #entityModal .entity-detail-modal__footer {
+            background: #fff;
+            border-top: 1px solid var(--bs-border-color);
+            gap: .75rem;
+            padding: .85rem 1.15rem;
         }
 
         .modal-header .modal-title {
@@ -1548,9 +2062,70 @@
             color: var(--bs-white);
         }
 
+        @media (max-width: 991.98px) {
+            #entityModal .entity-modal-summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            #entityModal .entity-modal-summary__item:nth-child(3) {
+                border-right: 0;
+            }
+
+            #entityModal .entity-modal-summary__item:nth-child(-n+3) {
+                border-bottom: 1px solid var(--bs-border-color);
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            #entityModal .modal-dialog {
+                margin: .5rem;
+            }
+
+            #entityModal .entity-detail-modal__header {
+                align-items: flex-start;
+            }
+
+            #entityModal .entity-detail-modal__identity {
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+
+            #entityModal .entity-detail-modal__header .entity-status {
+                margin-left: 3.85rem;
+                max-width: calc(100% - 3.85rem);
+            }
+
+            #entityModal .entity-modal-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            #entityModal .entity-modal-summary__item {
+                border-bottom: 1px solid var(--bs-border-color);
+            }
+
+            #entityModal .entity-modal-summary__item:nth-child(2n) {
+                border-right: 0;
+            }
+
+            #entityModal .entity-modal-summary__item:nth-last-child(-n+2) {
+                border-bottom: 0;
+            }
+
+            #entityModal .entity-detail-modal__footer {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            #entityModal .entity-detail-modal__footer>div,
+            #entityModal .entity-detail-modal__footer .btn {
+                width: 100%;
+            }
+        }
+
         .tooltip {
             font-size: .825rem;
         }
+
     </style>
 @endpush
 

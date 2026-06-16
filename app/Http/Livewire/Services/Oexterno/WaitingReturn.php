@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Oexterno;
 
 use App\Helpers\TextFormatter;
 use App\Models\Reclaim;
+use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -28,8 +29,7 @@ class WaitingReturn extends Component
 
     public function mount($service)
     {
-        $this->service = $service;
-
+        $this->service = Service::where('uuid', $service)->firstOrFail();
     }
 
     protected $listeners = [
@@ -37,7 +37,7 @@ class WaitingReturn extends Component
         'navigateTo',
     ];
 
-    public function navigateTo($note)
+    public function navigateTo($note, $externalId = null)
     {
         if (!$this->service || !$note) {
             $this->dispatchBrowserEvent('toast', [
@@ -51,8 +51,10 @@ class WaitingReturn extends Component
 
         return redirect()->to(
             route('services.protocolNote', [
-                'service' => is_array($this->service) ? $this->service['uuid'] : $this->service,
+                'service' => $this->service->uuid,
                 'note'    => $note,
+                'external' => $externalId,
+                'tab' => 'modal-internal-returns',
             ])
         );
     }

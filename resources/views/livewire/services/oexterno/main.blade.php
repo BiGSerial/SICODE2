@@ -1,4 +1,4 @@
-<div class="oexterno-page">
+<div class="user-activity-page protocol-activity-page">
     @php
         use Carbon\Carbon;
         use App\Helpers\DaysLeft;
@@ -7,148 +7,26 @@
 
     {{-- Carrega o Loading da pagina --}}
     <x-show-loading />
-
-    <style>
-        .oexterno-page {
-            --oe-bg: #f6f7fb;
-            --oe-surface: #ffffff;
-            --oe-ink: #1f2933;
-            --oe-muted: #6b7280;
-            --oe-accent: #0f766e;
-            --oe-border: #e5e7eb;
-            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
-                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
-                var(--oe-bg);
-            padding: 1.5rem 0;
-        }
-
-        .oexterno-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-            color: #f8fafc;
-            border-radius: 1rem;
-            padding: 1.5rem 2rem;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-            margin-bottom: 1.5rem;
-        }
-
-        .oexterno-header h2 {
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
-
-        .oexterno-header .meta {
-            color: rgba(248, 250, 252, 0.75);
-            font-size: 0.95rem;
-        }
-
-        .filters-grid .filter-card {
-            background-color: var(--oe-surface);
-            border: 1px solid var(--oe-border);
-            border-radius: 0.9rem;
-            padding: 1rem 1.25rem;
-            height: 100%;
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-        }
-
-        .filters-grid .filter-card h6 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 600;
-            color: var(--oe-muted);
-        }
-
-        .filters-grid .btn-group .btn {
-            min-width: 72px;
-        }
-
-        .filters-grid .chip-filters {
-            gap: 0.5rem;
-        }
-
-        .summary-bar {
-            background: var(--oe-surface);
-            border: 1px solid var(--oe-border);
-            border-radius: 0.9rem;
-            padding: 0.75rem 1.25rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-        }
-
-        .summary-bar .summary-item {
-            font-size: 0.92rem;
-            color: var(--oe-muted);
-        }
-
-        .summary-bar .summary-item strong {
-            color: var(--oe-ink);
-        }
-
-        .table-card {
-            background: var(--oe-surface);
-            border: 1px solid var(--oe-border);
-            border-radius: 1rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-            overflow: hidden;
-        }
-
-        .table-card .table thead th {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            white-space: nowrap;
-        }
-
-        .table-card .table tbody td {
-            font-size: 0.92rem;
-        }
-
-        .status-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-            line-height: 1.1;
-        }
-
-        .status-stack .status-main {
-            font-weight: 600;
-        }
-
-        .status-stack .status-sub {
-            color: var(--oe-muted);
-            font-size: 0.85rem;
-        }
-
-        @media (max-width: 991px) {
-            .oexterno-header {
-                padding: 1.25rem;
-            }
-        }
-    </style>
+    @include('livewire.services.partials.user-activity-list-style')
 
     <div class="container-fluid">
-        <div class="oexterno-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-            <div>
-                <h2>{{ mb_strtoupper($service->service) }}</h2>
-                <div class="meta">Gestao de protocolos externos</div>
-            </div>
-            <div class="text-lg-end">
-                @if ($update)
-                    <div class="meta">Ultima Atualizacao</div>
-                    <div><strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong></div>
-                @endif
-            </div>
-        </div>
+        @include('livewire.services.partials.user-activity-hero', [
+            'context' => 'Entrada de órgão externo',
+            'subtitle' => 'Notas e OVs disponíveis para iniciar uma nova tratativa',
+            'total' => $lists->total(),
+            'accent' => '#0f766e',
+            'extraLabel' => $update ? 'Última atualização' : null,
+            'extraValue' => $update ? Carbon::parse($last_update)->diffForHumans() : null,
+        ])
 
         {{-- START SearchBar and Filters --}}
-        <div class="card mb-3 border-0 bg-transparent">
-            <div class="card-body px-0">
-                <div class="row g-3 filters-grid">
+        <div class="mb-3">
+            <div class="row g-3 protocol-filters-grid">
                     <div class="col-12 col-lg-6 col-xl-5">
-                        <div class="filter-card">
-                            <h6>Pesquisa de Nota/OV</h6>
+                        <div class="activity-filter-card">
+                            <div class="activity-filter-title mb-2">Pesquisa de Nota/OV</div>
                             <div class="small text-muted mb-2">
-                                Busca em qualquer nota com status 11/20 ou que ja passou por entidade externa.
+                                Busca em qualquer nota com status 11/20 ou que já passou por entidade externa.
                             </div>
                             <div class="row g-2">
                                 <div class="col-12 col-sm-4">
@@ -161,12 +39,12 @@
                                             <option value="200">200</option>
                                             <option value="500">500</option>
                                         </select>
-                                        <label for="perPageSelect">Registros por pagina</label>
+                                        <label for="perPageSelect">Registros por página</label>
                                     </div>
                                 </div>
                                 <div class="col-12 col-sm-8">
                                     <div class="form-floating w-100 position-relative">
-                                        <input wire:model.bounce.2s="search" type="text"
+                                        <input wire:model.debounce.500ms="search" type="text"
                                             class="form-control border border-secondary" id="search"
                                             placeholder="Buscar nota, pedido, material, protocolo...">
                                         <label for="search">Buscar nota / pedido / protocolo</label>
@@ -182,8 +60,8 @@
                     </div>
 
                     <div class="col-12 col-lg-3 col-xl-3">
-                        <div class="filter-card">
-                            <h6>Classificacao rapida</h6>
+                        <div class="activity-filter-card">
+                            <div class="activity-filter-title mb-2">Classificação rápida</div>
                             <div class="mb-3">
                                 <small class="text-muted d-block mb-2">Tipo de nota</small>
                                 <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
@@ -220,9 +98,9 @@
                     </div>
 
                     <div class="col-12 col-lg-3 col-xl-4">
-                        <div class="filter-card h-100">
+                        <div class="activity-filter-card h-100">
                             <div class="d-flex align-items-center justify-content-between mb-3">
-                                <h6 class="mb-0">Filtros adicionais</h6>
+                                <div class="activity-filter-title">Filtros adicionais</div>
                                 @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
                             </div>
                             <div class="d-flex flex-wrap chip-filters">
@@ -284,7 +162,7 @@
                                         'sendFilter' => 'city',
                                         'modelClass' => \App\Models\Edp_depc\City::class,
                                         'column' => 'regiao',
-                                        'filterLabel' => 'Regiao',
+                                        'filterLabel' => 'Região',
                                         'groupFilter' => 'oexterno',
                                         'displayColumn' => 'regiao',
                                         'direction' => 'ASC',
@@ -301,7 +179,7 @@
                                         'sendFilter' => '',
                                         'modelClass' => \App\Models\Edp_depc\City::class,
                                         'column' => 'cidade',
-                                        'filterLabel' => 'Municipio',
+                                        'filterLabel' => 'Município',
                                         'groupFilter' => 'oexterno',
                                         'displayColumn' => 'municipio',
                                         'direction' => 'ASC',
@@ -314,56 +192,63 @@
                         </div>
                     </div>
                 </div>
-            </div>
         </div>
         {{-- END SearchBar and Filters --}}
 
-        <div class="summary-bar mb-3">
-            <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    @if (!$lists->count())
-                    @elseif ($lists->count())
-                        {{ $lists->links() }}
-                    @endif
-                </div>
-                <div class="col-12 col-lg-6 text-lg-end">
-                    <div class="summary-item">
-                        Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
-                        <strong>{{ $lists->lastItem() }}</strong> de
-                        <strong>{{ $lists->total() }}</strong> registros.
+        @if ($lists->isNotEmpty())
+            <div class="user-activity-summary mb-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg-6">
+                        {{ $lists->onEachSide(1)->links() }}
+                    </div>
+                    <div class="col-12 col-lg-6 text-lg-end">
+                        <div class="activity-summary-text">
+                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                            <strong>{{ $lists->lastItem() }}</strong> de
+                            <strong>{{ $lists->total() }}</strong> registros.
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        @endif
 
-        <div class="table-card">
+        <div class="user-activity-table-card position-relative">
             @if (!$lists->count())
-                <div class="card-body">
-                    <h4 class="text-center text-muted">SEM DADOS EM {{ $service->service }}</h4>
+                <div class="protocol-empty-state">
+                    <i class="ri-inbox-line"></i>
+                    <h5>Nenhuma nota disponível para protocolar</h5>
+                    <p>Revise os filtros ou aguarde novas notas nesta etapa.</p>
                 </div>
             @else
-                <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">{{ mb_strtoupper($service->service) }} A PROTOCOLAR</h4>
-                    <button wire:click="exportToExcel" class="btn btn-success">
+                <div
+                    class="user-activity-table-header protocol-table-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                    <div>
+                        <h5 class="user-activity-table-title">
+                            <i class="ri-file-add-line me-2"></i>Entidade externa a protocolar
+                        </h5>
+                        <div class="user-activity-table-subtitle">
+                            Selecione uma nota para iniciar ou consultar a tratativa externa.
+                        </div>
+                    </div>
+                    <button wire:click="exportToExcel" class="btn btn-light">
                         <i class="ri-file-excel-2-line me-2"></i>Exportar
                     </button>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover table-striped mb-0">
+                    <table class="table table-hover align-middle">
                         <thead class="table-dark">
-                            <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                                <th scope="col" class="fw-bold text-center">Note</th>
-                                <th scope="col" class="fw-bold text-center">Files</th>
+                            <tr>
+                                <th scope="col" class="fw-bold text-center">Nota</th>
+                                <th scope="col" class="fw-bold text-center">Arquivos</th>
                                 <th scope="col" class="fw-bold text-center">Protocolo</th>
-                                <th scope="col" class="fw-bold text-center">Ultimo Protocolo</th>
+                                <th scope="col" class="fw-bold text-center">Último protocolo</th>
                                 <th scope="col" class="fw-bold text-center">Entidade</th>
                                 <th scope="col" class="fw-bold text-center">Rubrica</th>
                                 <th scope="col" class="fw-bold text-center">Grp 2</th>
-                                <th scope="col" class="fw-bold text-center">Municipio</th>
+                                <th scope="col" class="fw-bold text-center">Município</th>
                                 <th scope="col" class="fw-bold text-center">Pedido</th>
                                 <th scope="col" class="fw-bold text-center">Status</th>
                                 <th scope="col" class="fw-bold text-center">Pasta atual</th>
-                                <th scope="col" class="fw-bold text-center">Ult Movimentacao</th>
                                 <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')"
                                     style="cursor: pointer;">Dias no Status
                                     @if ($column == 'dt_status')
@@ -378,6 +263,7 @@
                                             class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
                                     @endif
                                 </th>
+                                <th scope="col" class="fw-bold text-end">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -388,12 +274,6 @@
                                     $color = 'text-bg-secondary';
                                     $color2 = 'text-bg-secondary';
                                     $statusDays = $list->dt_status?->startOfDay()->diffInDays() ?? 0;
-                                    $getLastMovement = $list->externals
-                                        ?->sortbydesc('updated_at')
-                                        ->first()
-                                        ?->Comments?->sortbydesc('updated_at')
-                                        ->first()?->created_at;
-
                                     $countDays = $list->dt_created->startOfDay()->diffInDays(now()->startOfDay());
 
                                     if ($countDays > 30) {
@@ -462,14 +342,6 @@
                                         <span class="badge {{ $folder['badge'] }}">{{ $folder['label'] }}</span>
                                     </td>
 
-                                    <td class="fw-light text-center ">
-
-                                        <p class="my-0 py-0 fw-bold">
-                                            {{ $getLastMovement?->diffForHumans(['parts' => 2, 'join' => ' e ', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
-                                        </p>
-
-
-                                    </td>
                                     <td class="fw-light text-center {{ $color }}">
 
                                         <p class="my-0 py-0 fw-bold">
@@ -484,6 +356,13 @@
                                         <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>
 
                                     </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            wire:click.prevent="navigateTo('{{ $list->note }}')"
+                                            data-bs-toggle="tooltip" data-bs-title="Abrir nota para protocolar">
+                                            <i class="ri-external-link-line"></i>
+                                        </button>
+                                    </td>
 
                                 </tr>
                             @endforeach
@@ -493,20 +372,22 @@
             @endif
         </div>
 
-        <div class="summary-bar mt-3">
-            <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    {{ $lists->links() }}
-                </div>
-                <div class="col-12 col-lg-6 text-lg-end">
-                    <div class="summary-item">
-                        Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
-                        <strong>{{ $lists->lastItem() }}</strong> de
-                        <strong>{{ $lists->total() }}</strong> registros.
+        @if ($lists->isNotEmpty())
+            <div class="user-activity-summary mt-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg-6">
+                        {{ $lists->onEachSide(1)->links() }}
+                    </div>
+                    <div class="col-12 col-lg-6 text-lg-end">
+                        <div class="activity-summary-text">
+                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                            <strong>{{ $lists->lastItem() }}</strong> de
+                            <strong>{{ $lists->total() }}</strong> registros.
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        @endif
 
         {{-- MODALS --}}
         <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1"
@@ -529,6 +410,56 @@
 
         {{-- Livewire Components --}}
         @livewire('services.oexterno.actions.protocols', key('external_protocols'))
+
+        @push('css')
+            <style>
+                .protocol-filters-grid .activity-filter-card {
+                    height: 100%;
+                }
+
+                .protocol-filters-grid .btn-group .btn {
+                    min-width: 4.5rem;
+                }
+
+                .protocol-filters-grid .chip-filters {
+                    gap: .5rem;
+                }
+
+                .protocol-filters-grid .chip-filters > div {
+                    margin: 0 !important;
+                }
+
+                .protocol-filters-grid .chip-filters .position-absolute {
+                    z-index: 1080 !important;
+                }
+
+                .protocol-table-header {
+                    background: linear-gradient(120deg, #0f5f66, #0f766e);
+                }
+
+                .protocol-empty-state {
+                    color: var(--activity-muted);
+                    padding: 3rem 1rem;
+                    text-align: center;
+                }
+
+                .protocol-empty-state i {
+                    color: #0f766e;
+                    display: block;
+                    font-size: 2.5rem;
+                    margin-bottom: .75rem;
+                }
+
+                .protocol-empty-state h5 {
+                    color: var(--activity-ink);
+                    font-weight: 600;
+                }
+
+                .protocol-empty-state p {
+                    margin: 0;
+                }
+            </style>
+        @endpush
 
         @push('script')
             <script>
