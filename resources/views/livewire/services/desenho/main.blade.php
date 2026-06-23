@@ -135,7 +135,7 @@
             </div>
             <div class="col-12">
                 <div class="activity-filter-card">
-                    <div class="activity-filter-title mb-2">Status</div>
+                    <div class="activity-filter-title mb-2">Status da produção</div>
                     @if (count($statusFilterOptions))
                         <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
                             @foreach ($statusFilterOptions as $statusOption)
@@ -155,6 +155,40 @@
                     @else
                         <span class="text-muted small">Nenhum status disponível.</span>
                     @endif
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="activity-filter-card">
+                    <div class="activity-filter-title mb-2">Filtros da nota</div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <x-filters.multi-dropdown
+                            label="Status da nota"
+                            model="noteStatusFilters"
+                            :options="$noteStatusFilterOptions"
+                            :selected="$noteStatusFilters"
+                            key-prefix="note-status-filter" />
+
+                        <x-filters.multi-dropdown
+                            label="Localização"
+                            model="locationFilters"
+                            :options="$locationFilterOptions"
+                            :selected="$locationFilters"
+                            key-prefix="location-filter" />
+
+                        <x-filters.multi-dropdown
+                            label="Rubrica"
+                            model="rubricaFilters"
+                            :options="$rubricaFilterOptions"
+                            :selected="$rubricaFilters"
+                            key-prefix="rubrica-filter" />
+
+                        <button type="button" class="btn btn-primary" wire:click.prevent="applyFilters">
+                            <i class="ri-filter-fill me-1"></i>Aplicar filtros
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" wire:click.prevent="clearAdvancedFilters">
+                            <i class="ri-filter-off-line me-1"></i>Limpar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -286,11 +320,12 @@
                                     <th scope="col" class="fw-bold">Note</th>
                                     <th scope="col" class="fw-bold">Files</th>
                                     <th scope="col" class="fw-bold">DOE</th>
-                                    <th scope="col" class="fw-bold">numPedido</th>
+                                    {{-- <th scope="col" class="fw-bold">numPedido</th> --}}
                                     <th scope="col" class="fw-bold">Rubrica</th>
                                     <th scope="col" class="fw-bold">Localização</th>
                                     <th scope="col" class="fw-bold">Descrição</th>
                                     <th scope="col" class="fw-bold">Postes_L</th>
+                                    <th scope="col" class="fw-bold">NStatus</th>
                                     <th scope="col" class="fw-bold">DStatus</th>
                                     <th scope="col" class="fw-bold">Tempos</th>
                                     <th scope="col" class="fw-bold">Prazo Real</th>
@@ -406,7 +441,7 @@
                                                 <i class="ri-checkbox-circle-line"></i>
                                             @endif
                                         </td>
-                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->numPedido }}</td>
+                                        {{-- <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->numPedido }}</td> --}}
                                         <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->rubrica }}</td>
                                         <td class="fw-light activity-location {{ $tableRowClass }}">
                                             <strong class="d-block fw-semibold">{{ $list->Note->lexp ?: '---' }}</strong>
@@ -418,6 +453,15 @@
                                         </td>
                                         <td class="fw-light {{ $tableRowClass }} text-center">
                                             {{ $list->note->postes ?? '---' }}
+                                        </td>
+                                        <td class="fw-light {{ $tableRowClass }} text-center" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
+                                            data-bs-placement="top" data-bs-title="Status da Atividade"
+                                            data-bs-html="true"
+                                            data-bs-content="<p class='fs-6 my-0 py-0 fw-semibold'>Status Atual</p><p class='my-0 py-0' style='font-size: 0.8rem; color: rgba(255, 255, 255, 0.65);'>Status Recebido</p>"
+                                            style="cursor: help;">
+                                            <p class="fs-6 my-0 py-0 fw-semibold">{{ $list->note->type_note == 1 ? $list->note->centerjob : $list->note->nstats }}</p>
+                                            <p class="my-0 py-0 text-muted" style="font-size: 0.8rem;">{{ $list->note->type_note == 1 ? $list->centroTrab : $list->status_note }}</p>
                                         </td>
                                         <td class="fw-light text-center {{ $dstatus['bgColor'] }}" tabindex="0"
                                             data-bs-toggle="popover" data-bs-trigger="hover focus"

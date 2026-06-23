@@ -6,6 +6,7 @@ use App\Custom\Notestatus;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Models\{File, Note, Production, Service, User};
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
@@ -42,6 +43,9 @@ class Main extends Component
 
     public $note;
     public $statusFilter = '';
+    public array $noteStatusFilters = [];
+    public array $locationFilters = [];
+    public array $rubricaFilters = [];
     public bool $reviewCanFinish = false;
     public bool $notificationReviewHandled = false;
 
@@ -324,6 +328,19 @@ class Main extends Component
         $this->resetPage();
     }
 
+    public function applyFilters(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearAdvancedFilters(): void
+    {
+        $this->noteStatusFilters = [];
+        $this->locationFilters = [];
+        $this->rubricaFilters = [];
+        $this->resetPage();
+    }
+
     public function getStatusFilterOptionsProperty(): array
     {
         $counts = (clone $this->baseListQuery(false))
@@ -363,7 +380,45 @@ class Main extends Component
         return $options;
     }
 
-    private function baseListQuery(bool $applyStatusFilter = true)
+    public function getNoteStatusFilterOptionsProperty(): array
+    {
+        $statusExpression = $this->noteStatusExpression();
+
+        return $this->filterOptions(
+            (clone $this->baseListQuery(true, ['noteStatusFilters']))
+                ->selectRaw($statusExpression . ' as value, COUNT(*) as total')
+                ->whereRaw($statusExpression . " IS NOT NULL")
+                ->whereRaw($statusExpression . " <> ''")
+                ->groupBy(DB::raw($statusExpression)),
+            'noteStatusFilters'
+        );
+    }
+
+    public function getLocationFilterOptionsProperty(): array
+    {
+        return $this->filterOptions(
+            (clone $this->baseListQuery(true, ['locationFilters']))
+                ->selectRaw('notes.lexp as value, COUNT(*) as total')
+                ->whereNotNull('notes.lexp')
+                ->where('notes.lexp', '<>', '')
+                ->groupBy('notes.lexp'),
+            'locationFilters'
+        );
+    }
+
+    public function getRubricaFilterOptionsProperty(): array
+    {
+        return $this->filterOptions(
+            (clone $this->baseListQuery(true, ['rubricaFilters']))
+                ->selectRaw('notes.rubrica as value, COUNT(*) as total')
+                ->whereNotNull('notes.rubrica')
+                ->where('notes.rubrica', '<>', '')
+                ->groupBy('notes.rubrica'),
+            'rubricaFilters'
+        );
+    }
+
+    private function baseListQuery(bool $applyStatusFilter = true, array $exceptFilters = [])
     {
         return Production::where('service_id', $this->service->uuid)
             ->when($this->user_s, function ($q) {
@@ -407,7 +462,49 @@ class Main extends Component
             })
             ->when($applyStatusFilter && $this->statusFilter !== '', function ($q) {
                 return $q->where('productions.status', (int) $this->statusFilter);
+            })
+            ->when(!in_array('noteStatusFilters', $exceptFilters, true) && count($this->selectedFilterValues($this->noteStatusFilters)), function ($q) {
+                return $q->whereIn(DB::raw($this->noteStatusExpression()), $this->selectedFilterValues($this->noteStatusFilters));
+            })
+            ->when(!in_array('locationFilters', $exceptFilters, true) && count($this->selectedFilterValues($this->locationFilters)), function ($q) {
+                return $q->whereIn('notes.lexp', $this->selectedFilterValues($this->locationFilters));
+            })
+            ->when(!in_array('rubricaFilters', $exceptFilters, true) && count($this->selectedFilterValues($this->rubricaFilters)), function ($q) {
+                return $q->whereIn('notes.rubrica', $this->selectedFilterValues($this->rubricaFilters));
             });
+    }
+
+    private function noteStatusExpression(): string
+    {
+        return 'CASE WHEN notes.type_note = 1 THEN notes.centerjob ELSE notes.nstats END';
+    }
+
+    private function selectedFilterValues(array $values): array
+    {
+        return collect($values)
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function filterOptions($query, string $selectedProperty): array
+    {
+        $selected = $this->selectedFilterValues($this->{$selectedProperty});
+
+        return $query
+            ->orderBy('value')
+            ->pluck('total', 'value')
+            ->map(function ($total, $value) use ($selected) {
+                return [
+                    'value' => (string) $value,
+                    'count' => (int) $total,
+                    'selected' => in_array((string) $value, $selected, true),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function getListsProperty()
@@ -471,6 +568,9 @@ class Main extends Component
             'lists' => $lists,
             'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
             'statusFilterOptions' => $this->statusFilterOptions,
+            'noteStatusFilterOptions' => $this->noteStatusFilterOptions,
+            'locationFilterOptions' => $this->locationFilterOptions,
+            'rubricaFilterOptions' => $this->rubricaFilterOptions,
         ]);
     }
 
