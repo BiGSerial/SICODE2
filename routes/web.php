@@ -88,6 +88,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
         Route::get('/status', 'systemStatus')->name('status');
         Route::get('/history', 'systemHistory')->name('history');
         Route::get('/schedule', 'systemSchedule')->middleware('can:superadm')->name('schedule');
+        Route::get('/sqlsrv-health', 'sqlsrvHealth')->middleware('can:superadm')->name('sqlsrv_health');
     });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');

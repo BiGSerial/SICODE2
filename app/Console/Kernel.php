@@ -34,6 +34,9 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:wpas_log', 'wpas-log')
             ->cron('30 8-21 * * *');
 
+        $this->scheduleCommand($schedule, 'sicode:collect-sqlsrv1-health', 'collect-sqlsrv1-health')
+            ->cron('5 */2 * * *');
+
 
         /*
         |--------------------------------------------------------------------------
@@ -284,6 +287,7 @@ class Kernel extends ConsoleKernel
             'exports-clear-old' => 'Limpar Exports',
             'chk-integridade' => 'Base OV',
             'wpas-log' => 'Log de WPAs',
+            'collect-sqlsrv1-health' => 'Data Lake SQL Server',
             'sync-base-orders-operations' => 'Base Ordens e Operações',
             'upd-baseov-prazos-full' => 'Prazo Base OV',
             'upd-base-ep' => 'Base EP',

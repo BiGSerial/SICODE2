@@ -58,6 +58,7 @@
                             ['label' => 'STATUS SERVER', 'route' => 'config.system.status', 'icon' => 'ri-server-line'],
                             ['label' => 'LOG LOG', 'route' => 'config.system.history', 'icon' => 'ri-file-list-3-line'],
                             ['label' => 'SCHEDULE', 'route' => 'config.system.schedule', 'icon' => 'ri-calendar-schedule-line', 'can' => 'superadm'],
+                            ['label' => 'SQLSRV HEALTH', 'route' => 'config.system.sqlsrv_health', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
                         ],
                     ],
                 ],
