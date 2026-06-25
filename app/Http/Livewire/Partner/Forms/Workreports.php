@@ -15,6 +15,7 @@ class Workreports extends Component
 {
     public bool $requireFilesForSubmit = true;
     public bool $canSelectCompany = false;
+    public bool $selectCompanyFromUserRelations = false;
     public $companies = [];
 
     public ?Note $note = null;
@@ -101,7 +102,7 @@ class Workreports extends Component
 
     public function mount()
     {
-        $this->loadCompanies();
+        $this->configureCompanySelection();
     }
 
     public function messages()
@@ -207,6 +208,8 @@ class Workreports extends Component
 
     public function submit()
     {
+        $this->configureCompanySelection();
+
         if (!$this->canInformNote($this->note)) {
             return;
         }
@@ -217,6 +220,16 @@ class Workreports extends Component
                 'icon'     => 'warning',
                 'title'    => 'Empreiteira obrigatória',
                 'html'     => 'Selecione a empreiteira responsável por este informe.',
+            ]);
+            return;
+        }
+
+        if ($this->selectCompanyFromUserRelations && !$this->selectedCompanyBelongsToUser()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Empreiteira inválida',
+                'html'     => 'Selecione uma empreiteira vinculada ao seu usuário.',
             ]);
             return;
         }
@@ -291,6 +304,8 @@ class Workreports extends Component
 
     public function send_informe()
     {
+        $this->configureCompanySelection();
+
         if (!$this->canInformNote($this->note)) {
             return;
         }
@@ -301,6 +316,17 @@ class Workreports extends Component
         } else {
             $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
         }
+
+        if ($this->selectCompanyFromUserRelations && !$this->selectedCompanyBelongsToUser()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Empreiteira inválida',
+                'html'     => 'Selecione uma empreiteira vinculada ao seu usuário.',
+            ]);
+            return;
+        }
+
         $this->form['user_id'] = Auth()->User()->id;
         $this->form['informed_at'] = date('Y-m-d H:i:s');
         $this->form['acceptance_at'] = date('Y-m-d H:i:s');
@@ -716,7 +742,9 @@ class Workreports extends Component
         $this->temp_equipment = [];
         $this->form = [
             'note_id' => null,
-            'company_id' => null,
+            'company_id' => $this->companies && $this->companies->count() === 1
+                ? $this->companies->first()->id
+                : null,
             'user_id' => null,
             'date' => null,
             'equipment' => null,
@@ -784,7 +812,24 @@ class Workreports extends Component
         return view('livewire.partner.forms.workreports');
     }
 
-    protected function loadCompanies(): void
+    protected function configureCompanySelection(): void
+    {
+        $companyIds = $this->relatedCompanyIdsForUser();
+        $shouldSelectFromUserRelations = $this->shouldSelectCompanyFromUserRelations($companyIds);
+
+        if ($shouldSelectFromUserRelations) {
+            $this->canSelectCompany = true;
+            $this->selectCompanyFromUserRelations = true;
+        }
+
+        $this->loadCompanies($this->selectCompanyFromUserRelations ? $companyIds->all() : null);
+
+        if (!$this->canSelectCompany && $companyIds->count() === 1) {
+            $this->form['company_id'] = $companyIds->first();
+        }
+    }
+
+    protected function loadCompanies(?array $companyIds = null): void
     {
         if (!$this->canSelectCompany) {
             $this->companies = [];
@@ -792,8 +837,38 @@ class Workreports extends Component
         }
 
         $this->companies = Company::query()
+            ->when($companyIds !== null, fn ($query) => $query->whereIn('id', $companyIds))
             ->orderByRaw('LOWER(name)')
             ->get(['id', 'name']);
+    }
+
+    protected function relatedCompanyIdsForUser()
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return collect();
+        }
+
+        return collect()
+            ->merge($user->Companies?->pluck('id') ?? [])
+            ->push($user->company_id)
+            ->push($user->Employee?->Contract?->company_id)
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    protected function selectedCompanyBelongsToUser(): bool
+    {
+        $companyId = $this->form['company_id'] ?? null;
+
+        return $companyId && $this->relatedCompanyIdsForUser()->contains($companyId);
+    }
+
+    protected function shouldSelectCompanyFromUserRelations($companyIds): bool
+    {
+        return get_class($this) === self::class && $companyIds->count() > 1;
     }
 
     protected function canInformNote(?Note $note): bool
