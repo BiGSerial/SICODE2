@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\WorkInformsExport;
 use App\Models\Edp_depc\City;
+use App\Models\Company;
 use App\Models\File;
 use App\Models\WorkReport;
 use Carbon\Carbon;
@@ -27,6 +28,10 @@ class Workedlist extends Component
 
     public $multiSearch;
 
+    public $companyId = '';
+
+    public $companyOptions = [];
+
     // search by date
     public $month;
     public $date_in;
@@ -43,6 +48,7 @@ class Workedlist extends Component
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
         'month'   => ['except' => '', 'as' => 'mes_referencia'],
+        'companyId' => ['except' => '', 'as' => 'empreiteira'],
     ];
 
     protected $listeners = [
@@ -53,6 +59,7 @@ class Workedlist extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+        $this->companyOptions = $this->loadCompanyOptions();
         // $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
         // $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
         // $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
@@ -83,6 +90,7 @@ class Workedlist extends Component
         $this->date_in = '';
         $this->date_out = '';
         $this->month = '';
+        $this->companyId = '';
     }
 
     public function applyMultiSearch()
@@ -99,6 +107,11 @@ class Workedlist extends Component
     }
 
     public function updatedPerPage()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedCompanyId()
     {
         $this->resetPage();
     }
@@ -137,15 +150,21 @@ class Workedlist extends Component
         // $query->where('rejected', false);
 
 
-        if (!auth()->user()->superadm) {
+        $visibleCompanyIds = $this->visibleCompanyIds();
 
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->where(function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                });
+        if (!auth()->user()->superadm) {
+            if ($visibleCompanyIds->isNotEmpty()) {
+                $query->whereIn('company_id', $visibleCompanyIds->all());
             } else {
-                $query->where('company_id', Auth()->user()->Company->id);
+                $query->whereRaw('0 = 1');
+            }
+        }
+
+        if ($this->companyId) {
+            if (auth()->user()->superadm || $visibleCompanyIds->contains($this->companyId)) {
+                $query->where('company_id', $this->companyId);
+            } else {
+                $query->whereRaw('0 = 1');
             }
         }
 
@@ -241,7 +260,44 @@ class Workedlist extends Component
     public function render()
     {
         return view('livewire.partner.workedlist', [
-            'lists' => $this->lists->paginate($this->perPage)
+            'lists' => $this->lists->paginate($this->perPage),
+            'companyOptions' => $this->companyOptions,
         ]);
+    }
+
+    private function loadCompanyOptions()
+    {
+        $query = Company::query();
+
+        if (!auth()->user()->superadm) {
+            $companyIds = $this->visibleCompanyIds();
+
+            if ($companyIds->isEmpty()) {
+                return collect();
+            }
+
+            $query->whereIn('id', $companyIds->all());
+        }
+
+        return $query
+            ->orderByRaw('LOWER(name)')
+            ->get(['id', 'name']);
+    }
+
+    private function visibleCompanyIds()
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return collect();
+        }
+
+        return collect()
+            ->merge($user->Companies?->pluck('id') ?? [])
+            ->push($user->company_id)
+            ->push($user->Employee?->Contract?->company_id)
+            ->filter()
+            ->unique()
+            ->values();
     }
 }

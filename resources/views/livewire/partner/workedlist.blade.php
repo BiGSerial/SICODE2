@@ -105,7 +105,7 @@
                     </select>
                 </div>
 
-                <div class="col-12 col-sm-8 col-lg-4">
+                <div class="col-12 col-sm-8 col-lg-3">
                     <label for="search" class="form-label mb-1">Buscar</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="search"
@@ -116,6 +116,16 @@
                             <i class="ri-file-copy-line align-middle"></i>
                         </button>
                     </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-1">
+                    <label for="companyId" class="form-label mb-1">Empreiteira</label>
+                    <select id="companyId" class="form-select" wire:model="companyId">
+                        <option value="">Todas</option>
+                        @foreach ($companyOptions as $company)
+                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <div class="col-12 col-sm-6 col-lg-2">
@@ -177,12 +187,9 @@
                             <th class="text-center">Equip.</th>
                             <th class="text-center">Alteração</th>
                             <th class="text-center">Equipe WPA</th>
-                            <th class="text-center">Responsável</th>
+                            <th class="text-center">Responsável / Empreiteira</th>
                             <th class="text-center">Conclusão Informada</th>
                             <th class="text-center">ADS Entregue</th>
-                            @can('engineer')
-                                <th class="text-center">Empreiteira</th>
-                            @endcan
                         </tr>
                     </thead>
                     <tbody>
@@ -228,7 +235,12 @@
                                 </td>
                                 <td class="text-center">{{ $list->changes ? 'SIM' : 'NÃO' }}</td>
                                 <td class="text-center">{{ $list->team ?: 'Desconhecido' }}</td>
-                                <td class="text-center">{{ $list->responsible ?: 'Desconhecido' }}</td>
+                                <td class="text-center">
+                                    <div>{{ $list->responsible ?: 'Desconhecido' }}</div>
+                                    <div class="small text-muted">
+                                        {{ $list->Company?->name ?: 'Empreiteira não informada' }}
+                                    </div>
+                                </td>
                                 <td class="text-center">
                                     {{ $list->informed_at ? $list->informed_at->format('d/m/Y H:i') : 'Desconhecido' }}
                                 </td>
@@ -241,9 +253,6 @@
                                         <span class="text-muted">-</span>
                                     @endif
                                 </td>
-                                @can('engineer')
-                                    <td class="text-center">{{ $list->Company?->name }}</td>
-                                @endcan
                             </tr>
                         @endforeach
                     </tbody>
