@@ -29,6 +29,11 @@
                                 <i class="bi bi-circle"></i> <span>MONITOR DO SCHEDULE</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('config.system.sqlsrv_health') }}" class="nav-item text-white fw-normal">
+                                <i class="bi bi-circle"></i> <span>SQL SERVER HEALTH</span>
+                            </a>
+                        </li>
                     @endcan
                     <li>
                         <a href="{{ route('config.wall.index') }}" class="nav-item text-white fw-normal">

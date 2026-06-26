@@ -1,5 +1,8 @@
 <div class="ld-page" x-data="{
-    tab: localStorage.getItem('ldt_{{ $demand->id }}') || 'process',
+    hasLegalSummary: @js(!empty($legalCaseSummary)),
+    tab: (localStorage.getItem('ldt_{{ $demand->id }}') === 'legal_summary' && !@js(!empty($legalCaseSummary)))
+        ? 'process'
+        : (localStorage.getItem('ldt_{{ $demand->id }}') || 'process'),
     setTab(t) { this.tab = t; localStorage.setItem('ldt_{{ $demand->id }}', t); }
 }" x-cloak>
     <x-show-loading />
@@ -721,6 +724,16 @@
                     {{ $linkedNotes->count() }} vinculada{{ $linkedNotes->count() != 1 ? 's' : '' }} ao processo
                 </div>
             </button>
+
+            {{-- Resumo jurídico externo --}}
+            @if(!empty($legalCaseSummary))
+                <button class="ld-tab" :class="{ active: tab === 'legal_summary' }" @click="setTab('legal_summary')">
+                    <div class="ld-tab-main">
+                        <i class="bi bi-card-text"></i> Resumo Jurídico
+                    </div>
+                    <div class="ld-tab-sub">tbl_Resumo_Juridico</div>
+                </button>
+            @endif
         </div>
 
         {{-- ═══════════════════════════════════════════════════════════ TAB CONTENT --}}
@@ -1253,6 +1266,46 @@
                     </div>
                 </div>
             </div>
+
+            @if(!empty($legalCaseSummary))
+                <div x-show="tab === 'legal_summary'">
+                    <div class="ld-section">
+                        <div class="ld-section-header">Resumo jurídico do processo</div>
+                        <div class="ld-section-body">
+                            <div class="field-grid fg-3">
+                                @foreach($legalCaseSummary as $column => $value)
+                                    @php
+                                        $label = \Illuminate\Support\Str::of((string) $column)
+                                            ->replace('_', ' ')
+                                            ->lower()
+                                            ->headline();
+
+                                        $displayValue = $value;
+                                        if ($displayValue instanceof \Carbon\CarbonInterface) {
+                                            $displayValue = $displayValue->format('d/m/Y H:i');
+                                        } elseif ($displayValue instanceof \DateTimeInterface) {
+                                            $displayValue = \Carbon\Carbon::instance($displayValue)->format('d/m/Y H:i');
+                                        } elseif (is_string($displayValue) && preg_match('/^\d{4}-\d{2}-\d{2}/', $displayValue)) {
+                                            try {
+                                                $displayValue = \Carbon\Carbon::parse($displayValue)->format('d/m/Y H:i');
+                                            } catch (\Throwable) {
+                                                $displayValue = $value;
+                                            }
+                                        }
+                                        $isLongValue = mb_strlen((string) $displayValue) > 240 || str_contains((string) $displayValue, "\n");
+                                    @endphp
+                                    <div class="field" @if($isLongValue) style="grid-column: 1 / -1;" @endif>
+                                        <div class="fl">{{ $label }}</div>
+                                        <div class="fv {{ strtoupper((string) $column) === 'PROCESSO' ? 'mono' : '' }}">
+                                            {!! nl2br(e((string) $displayValue)) !!}
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             {{-- ─────────────────────────────────────── ABA: SUBDEMANDAS --}}
             <div x-show="tab === 'subdemands'">

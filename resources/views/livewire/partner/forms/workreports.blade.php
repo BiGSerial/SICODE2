@@ -319,19 +319,32 @@
                             <!-- Main Form Fields -->
                             <div class="row g-4">
                                 @if ($canSelectCompany)
-                                    <div class="col-md-4">
-                                        <div class="form-floating mb-3">
-                                            <select class="form-select @error('form.company_id') is-invalid @enderror"
-                                                wire:model.defer="form.company_id">
-                                                <option value="">Selecione</option>
-                                                @foreach ($companies as $company)
-                                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            <label>Empreiteira do Informe <span class="text-danger">*</span></label>
-                                            @error('form.company_id')
-                                                <div class="invalid-feedback">{{ $message }}</div>
-                                            @enderror
+                                    <div class="col-12">
+                                        <div class="alert alert-warning border border-warning border-2 shadow-sm mb-0" role="alert">
+                                            <div class="d-flex align-items-start gap-3">
+                                                <i class="ri-building-4-line fs-4 mt-1"></i>
+                                                <div class="w-100">
+                                                    <div class="fw-bold mb-2">
+                                                        Selecione a empreiteira responsável por este informe
+                                                    </div>
+                                                    <div class="text-muted small mb-3">
+                                                        Seu usuário possui mais de uma empreiteira vinculada. A escolha abaixo será gravada no informe de obra.
+                                                    </div>
+                                                    <div class="form-floating">
+                                                        <select class="form-select @error('form.company_id') is-invalid @enderror"
+                                                            wire:model.defer="form.company_id">
+                                                            <option value="">Selecione a empreiteira</option>
+                                                            @foreach ($companies as $company)
+                                                                <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <label>Empreiteira do Informe <span class="text-danger">*</span></label>
+                                                        @error('form.company_id')
+                                                            <div class="invalid-feedback">{{ $message }}</div>
+                                                        @enderror
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 @endif

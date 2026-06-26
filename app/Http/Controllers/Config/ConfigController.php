@@ -21,6 +21,11 @@ class ConfigController extends Controller
         return view('config.system_schedule');
     }
 
+    public function sqlsrvHealth()
+    {
+        return view('config.sqlsrv_health');
+    }
+
     public function main()
     {
         return redirect()->route('config.system.status');

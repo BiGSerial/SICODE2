@@ -6,6 +6,7 @@ use App\Enum\LegalDemandSubdemandStatus;
 use App\Models\Company;
 use App\Models\Note;
 use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandEvent, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
+use App\Models\SicodeSql\Legal\LegalCaseSummary;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\Legal\{LegalDemandFileService, LegalDemandSubdemandWorkflowService, LegalDemandWorkflowService};
@@ -14,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithFileUploads};
+use Throwable;
 
 class DemandDetail extends Component
 {
@@ -75,6 +77,8 @@ class DemandDetail extends Component
     public array $noteEditInstruction = [];
     public string $internalAction = '';
 
+    public ?array $legalCaseSummary = null;
+
     // Subdemandas
     public bool $showSubdemandForm = false;
     public string $subdemandAssignedToUserId = '';
@@ -112,6 +116,7 @@ class DemandDetail extends Component
         $demand = LegalDemand::where('uuid', $uuid)->with($this->demandRelations())->first();
         abort_if(is_null($demand), 404, 'Demanda não encontrada ou foi removida.');
         $this->demand = $demand;
+        $this->legalCaseSummary = $this->loadLegalCaseSummary();
     }
 
     public function linkNotesToCase(): void
@@ -1027,7 +1032,45 @@ class DemandDetail extends Component
             'canManageCommunicationVisibility' => $this->canManageCommunicationVisibility(),
             'subdemandsFeatureEnabled' => (bool) config('features.legal_subdemands', true),
             'availableInternalActions' => $this->availableInternalActions(),
+            'legalCaseSummary' => $this->legalCaseSummary,
         ]);
+    }
+
+    private function loadLegalCaseSummary(): ?array
+    {
+        $caseNumber = trim((string) ($this->demand->source_case_number ?: $this->demand->legalCase?->case_number));
+
+        if ($caseNumber === '') {
+            return null;
+        }
+
+        try {
+            $summary = LegalCaseSummary::query()
+                ->forProcess($caseNumber)
+                ->first();
+
+            if (!$summary) {
+                $digits = preg_replace('/\D+/', '', $caseNumber) ?: '';
+                if ($digits !== '' && $digits !== $caseNumber) {
+                    $summary = LegalCaseSummary::query()
+                        ->forProcess($digits)
+                        ->first();
+                }
+            }
+
+            if (!$summary) {
+                return null;
+            }
+
+            return collect($summary->getAttributes())
+                ->reject(fn ($value, $column) => strtoupper((string) $column) === 'ID')
+                ->reject(fn ($value) => $value === null || trim((string) $value) === '')
+                ->all();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
     }
 
     private function reloadDemand(): void
