@@ -43,6 +43,7 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
             ->leftJoin('protest_jobs as first_job', 'first_job.id', '=', 'first_jobs.job_id')
             ->leftJoin('users as dispatcher', 'dispatcher.id', '=', 'first_job.created_by')
             ->leftJoin('protests', 'protests.id', '=', 'med_protests.protest_id')
+            ->whereIn('med_protests.statusSist', ['MEDA', 'MEDE'])
             ->where(function ($q) use ($start, $end) {
                 $q->where(function ($sub) use ($start, $end) {
                     $sub->where('protests.tipoNota', 'NA')
@@ -55,12 +56,6 @@ class DispatcherMeasuresExport implements FromQuery, WithMapping, WithHeadings, 
                     })
                     ->whereBetween('med_protests.dtFimMedidaDesej', [$start, $end]);
                 });
-            })
-            ->whereNotExists(function ($q) {
-                $q->selectRaw('1')
-                    ->from('med_protests as mp2')
-                    ->whereColumn('mp2.protest_id', 'med_protests.protest_id')
-                    ->where('mp2.statusSist', 'MEDA');
             })
             ->when(!empty($types), fn ($q) => $q->whereIn('med_protests.protest_type', $types))
             ->when($userId, fn ($q) => $q->where('first_job.created_by', $userId))

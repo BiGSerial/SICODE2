@@ -78,7 +78,7 @@
         <div class="pmr-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             <div>
                 <h2 class="mb-1">RELATÓRIO DE RECLAMAÇÃO</h2>
-                <div class="text-light opacity-75">Exporta a base de medidas encerradas (MEDE) do Painel 5 com colunas de conclusão</div>
+                <div class="text-light opacity-75">Exporta a base de medidas abertas e encerradas (MEDA + MEDE) do Painel 5 com colunas de conclusão</div>
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-light btn-sm" wire:click="clearFilters">
@@ -145,7 +145,7 @@
         <div class="pmr-info-card">
             <div class="fw-semibold mb-1">Escopo do relatório</div>
             <div class="text-muted">
-                Base igual ao <strong>Painel 5 - Produtividade dos Despachantes (MEDE)</strong>, incluindo as colunas
+                Base igual ao <strong>Painel 5 - Produtividade dos Despachantes (MEDA + MEDE)</strong>, incluindo as colunas
                 <strong>Conclusao Nota</strong> e <strong>Conclusao Medida</strong>.
             </div>
         </div>

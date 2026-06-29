@@ -39,7 +39,7 @@ class ExportDispatcherMeasuresJob implements ShouldQueue
             return;
         }
 
-        $filePath = 'exports/protests/' . now()->format('YmdHis') . '_medidas_mede.xlsx';
+        $filePath = 'exports/protests/' . now()->format('YmdHis') . '_medidas_meda_mede.xlsx';
         $disk = Storage::disk('local');
 
         try {
@@ -52,7 +52,7 @@ class ExportDispatcherMeasuresJob implements ShouldQueue
 
             $user->notify(new SystemNotification(
                 titulo: 'Exportacao concluida!',
-                mensagem: 'O relatorio de reclamacao (base MEDE) foi gerado e esta disponivel para download.',
+                mensagem: 'O relatorio de reclamacao (base MEDA + MEDE) foi gerado e esta disponivel para download.',
                 link: Storage::url($filePath),
                 status: 4,
                 extras: []
