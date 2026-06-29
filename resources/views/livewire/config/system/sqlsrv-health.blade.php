@@ -696,6 +696,16 @@
                                 <option value="ok">Somente sucesso</option>
                             </select>
                         </div>
+                        <div class="col-md-auto d-grid">
+                            <button type="button" class="btn btn-outline-secondary" wire:click="exportMetricsCsv" wire:loading.attr="disabled">
+                                <i class="ri-download-2-line"></i> Exportar métricas
+                            </button>
+                        </div>
+                        <div class="col-md-auto d-grid">
+                            <button type="button" class="btn btn-outline-secondary" wire:click="exportLogsCsv" wire:loading.attr="disabled">
+                                <i class="ri-download-2-line"></i> Exportar logs
+                            </button>
+                        </div>
                     @endif
                     @can('superadm')
                         <div class="col-md-auto d-grid">

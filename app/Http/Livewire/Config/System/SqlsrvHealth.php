@@ -50,6 +50,128 @@ class SqlsrvHealth extends Component
         ]);
     }
 
+    public function exportMetricsCsv()
+    {
+        $from = now()->subDays($this->periodDays);
+        $fileName = 'sqlsrv-health-metricas-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($from) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+
+            fputcsv($output, [
+                'snapshot_id',
+                'snapshot_uuid',
+                'connection_name',
+                'database_name',
+                'snapshot_status',
+                'collected_at',
+                'source_name',
+                'label',
+                'table',
+                'reference_column',
+                'row_count',
+                'last_update_at',
+                'first_update_at',
+                'max_reference_value',
+                'metric_created_at',
+            ], ';');
+
+            SqlsrvSourceMetricSnapshot::query()
+                ->with('snapshot:id,uuid,connection_name,database_name,status,collected_at')
+                ->whereHas('snapshot', fn ($query) => $query->where('collected_at', '>=', $from))
+                ->orderBy('snapshot_id')
+                ->orderBy('source_name')
+                ->chunk(500, function ($metrics) use ($output) {
+                    foreach ($metrics as $metric) {
+                        $payload = $metric->metric_payload ?? [];
+
+                        fputcsv($output, [
+                            $metric->snapshot_id,
+                            $metric->snapshot?->uuid,
+                            $metric->snapshot?->connection_name,
+                            $metric->snapshot?->database_name,
+                            $metric->snapshot?->status,
+                            $this->formatCsvDate($metric->snapshot?->collected_at),
+                            $metric->source_name,
+                            $payload['label'] ?? null,
+                            $payload['table'] ?? null,
+                            $payload['reference_column'] ?? null,
+                            $metric->row_count,
+                            $this->formatCsvDate($metric->last_update_at),
+                            $this->formatCsvDate($metric->first_update_at),
+                            $metric->max_reference_value,
+                            $this->formatCsvDate($metric->created_at),
+                        ], ';');
+                    }
+                });
+
+            fclose($output);
+        }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function exportLogsCsv()
+    {
+        $from = now()->subDays($this->periodDays);
+        $fileName = 'sqlsrv-health-logs-' . now()->format('Ymd-His') . '.csv';
+        $statusFilter = $this->statusFilter;
+
+        return response()->streamDownload(function () use ($from, $statusFilter) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+
+            fputcsv($output, [
+                'snapshot_id',
+                'snapshot_uuid',
+                'connection_name',
+                'database_name',
+                'snapshot_status',
+                'collected_at',
+                'file_name',
+                'file_folder',
+                'dt_run',
+                'dt_last_date',
+                'host',
+                'status',
+                'has_error',
+                'error_hash',
+                'error',
+                'log_created_at',
+            ], ';');
+
+            SqlsrvJobLogSnapshot::query()
+                ->with('snapshot:id,uuid,connection_name,database_name,status,collected_at')
+                ->whereHas('snapshot', fn ($query) => $query->where('collected_at', '>=', $from))
+                ->when($statusFilter !== '', fn ($query) => $query->where('has_error', $statusFilter === 'error'))
+                ->orderBy('snapshot_id')
+                ->orderByDesc('dt_run')
+                ->chunk(500, function ($logs) use ($output) {
+                    foreach ($logs as $log) {
+                        fputcsv($output, [
+                            $log->snapshot_id,
+                            $log->snapshot?->uuid,
+                            $log->snapshot?->connection_name,
+                            $log->snapshot?->database_name,
+                            $log->snapshot?->status,
+                            $this->formatCsvDate($log->snapshot?->collected_at),
+                            $log->file_name,
+                            $log->file_folder,
+                            $this->formatCsvDate($log->dt_run),
+                            $this->formatCsvDate($log->dt_last_date),
+                            $log->host,
+                            $log->status,
+                            $log->has_error ? 1 : 0,
+                            $log->error_hash,
+                            $log->error,
+                            $this->formatCsvDate($log->created_at),
+                        ], ';');
+                    }
+                });
+
+            fclose($output);
+        }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function render()
     {
         $from = now()->subDays($this->periodDays);
@@ -470,5 +592,10 @@ class SqlsrvHealth extends Component
             'labels' => $rows->map(fn ($metric) => $metric->created_at?->format('d/m H:i'))->values(),
             'rows' => $rows->pluck('row_count')->values(),
         ];
+    }
+
+    protected function formatCsvDate($date): ?string
+    {
+        return $date ? $date->format('Y-m-d H:i:s') : null;
     }
 }
