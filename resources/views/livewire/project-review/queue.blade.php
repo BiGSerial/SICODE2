@@ -369,7 +369,7 @@
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle mb-0">
                     <thead class="table-light">
-                        <tr>
+                        <tr class="text-center align-middle">
                             <th style="width: 38px;"></th>
                             <th>Nota</th>
                             <th>Desenhista / Empresa</th>
@@ -377,11 +377,11 @@
                             <th>Custo total</th>
                             <th>Custo empresa</th>
                             <th>Custo cliente</th>
-                            <th>Status</th>
+                            <th>A.STATUS</th>
                             <th>Tipo</th>
-                            <th>Status</th>
+                            <th>N.STATUS</th>
                             <th>Prazo Real</th>
-                            <th>Quando foi enviado</th>
+                            <th>ENVIADO EM</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -396,7 +396,7 @@
                                 $hasDraft = in_array((int) $prod->id, $draftProductionIds, true);
                             @endphp
                             <tr wire:key="pr-queue-row-{{ $prod->id }}">
-                                <td>
+                                <td class="text-center align-middle">
                                     <input type="checkbox" class="form-check-input"
                                         wire:model="selectedProductionIds" value="{{ $prod->id }}">
                                 </td>
@@ -410,7 +410,7 @@
                                     <p class="m-0 py-0 fw-semibold">{{ $prod->User->name ?? '---' }}</p>
                                     <p class="m-0 py-0 small text-muted">{{ $prod->Company->name ?? '---' }}</p>
                                 </td>
-                                <td class="align-top">
+                                <td class="align-middle">
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
@@ -421,7 +421,7 @@
                                         ---
                                     @endif
                                 </td>
-                                <td class="align-top">
+                                <td class="align-middle">
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
@@ -432,7 +432,7 @@
                                         ---
                                     @endif
                                 </td>
-                                <td class="align-top">
+                                <td class="align-middle">
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
@@ -443,7 +443,7 @@
                                         ---
                                     @endif
                                 </td>
-                                <td class="align-top">
+                                <td class="align-middle">
                                     @if ($orders->count())
                                         <div class="d-flex flex-column gap-1">
                                             @foreach ($orders as $ord)
@@ -485,12 +485,10 @@
                                 @endphp
                                 <td>
                                     <p class="m-0 py-0">
-                                        <span class="badge text-bg-info">Recebido</span>
-                                        <span class="fw-semibold">{{ $receivedStatus ?: '---' }}</span>
+                                        <span class="badge text-bg-info">{{ $receivedStatus ?: '---' }}</span>
                                     </p>
                                     <p class="m-0 py-0">
-                                        <span class="badge text-bg-light">SAP</span>
-                                        <span class="text-muted">{{ $sapStatus ?: '---' }}</span>
+                                        <span class="badge text-bg-light">{{ $sapStatus ?: '---' }}</span>
                                     </p>
                                 </td>
                                 @php
