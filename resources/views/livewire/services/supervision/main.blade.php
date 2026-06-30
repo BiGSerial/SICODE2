@@ -245,7 +245,7 @@
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                         $adsDate = $adsForm
-                                            ? ($isTacitAds ? $adsForm->tacit_delivered_at : $adsForm->created_at)
+                                            ? $adsForm->created_at
                                             : $note->OldAds?->sortByDesc('date')->first()?->date;
                                         $adsDays = $adsDate
                                             ? Carbon::parse($adsDate)

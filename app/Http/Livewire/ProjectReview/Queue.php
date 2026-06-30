@@ -1158,9 +1158,10 @@ class Queue extends Component
         // Evita bloquear a reprovação por erros antigos (ex.: requiresSapRelease).
         $this->resetValidation();
 
+        $this->findingRows = $this->normalizeFindingRows($this->findingRows, true);
+
         $pendingRows = collect($this->findingRows)
-            ->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))
-            ->values();
+            ->reject(fn ($row) => (bool) ($row['is_conform'] ?? false));
 
         if ($pendingRows->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
@@ -1295,7 +1296,9 @@ class Queue extends Component
         DB::transaction(function () {
             $this->selectedCycle->Findings()->delete();
 
-            $rowsToPersist = collect($this->findingRows)->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))->values();
+            $rowsToPersist = collect($this->normalizeFindingRows($this->findingRows, true))
+                ->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))
+                ->values();
             foreach ($rowsToPersist as $row) {
                 $payload = [
                     'subcategory_id' => (int) $row['subcategory_id'],
@@ -1661,14 +1664,10 @@ class Queue extends Component
 
         $payload = (array) ($draft->payload ?? []);
 
-        $this->findingRows = is_array($payload['findingRows'] ?? null) ? $payload['findingRows'] : $this->findingRows;
-        $this->findingRows = collect($this->findingRows)->map(function ($row) {
-            if (!is_array($row)) {
-                return $row;
-            }
-            $row['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
-            return $row;
-        })->all();
+        $this->findingRows = $this->normalizeFindingRows(
+            is_array($payload['findingRows'] ?? null) ? $payload['findingRows'] : $this->findingRows,
+            true
+        );
         $this->analystNote = (string) ($payload['analystNote'] ?? $this->analystNote);
         $this->collapsedGroups = is_array($payload['collapsedGroups'] ?? null) ? $payload['collapsedGroups'] : $this->collapsedGroups;
         $this->collapsedCategories = is_array($payload['collapsedCategories'] ?? null) ? $payload['collapsedCategories'] : $this->collapsedCategories;
@@ -1699,13 +1698,7 @@ class Queue extends Component
         }
 
         $payload = [
-            'findingRows' => array_values(collect($this->findingRows)->map(function ($row) {
-                if (!is_array($row)) {
-                    return $row;
-                }
-                $row['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
-                return $row;
-            })->all()),
+            'findingRows' => $this->normalizeFindingRows($this->findingRows, true),
             'analystNote' => $this->analystNote,
             'collapsedGroups' => $this->collapsedGroups,
             'collapsedCategories' => $this->collapsedCategories,
@@ -1745,6 +1738,32 @@ class Queue extends Component
             ->where('cycle_id', $this->selectedCycle->id)
             ->where('user_id', auth()->id())
             ->delete();
+    }
+
+    private function normalizeFindingRows(array $rows, bool $dropRowsWithoutSubcategory = false): array
+    {
+        return collect($rows)
+            ->filter(fn ($row) => is_array($row))
+            ->map(function (array $row) {
+                $row['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
+                $row['subcategory_id'] = empty($row['subcategory_id']) ? null : (int) $row['subcategory_id'];
+                $row['item_id'] = empty($row['item_id']) ? null : (int) $row['item_id'];
+                $row['item_name'] = $row['item_name'] ?? null;
+                $row['origin'] = in_array((string) ($row['origin'] ?? ''), ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)
+                    ? (string) $row['origin']
+                    : 'PROJETO';
+                $row['action_type'] = empty($row['action_type']) ? null : (string) $row['action_type'];
+                $row['quantity'] = empty($row['quantity']) ? null : (int) $row['quantity'];
+                $row['note'] = (string) ($row['note'] ?? '');
+                $row['is_conform'] = (bool) ($row['is_conform'] ?? false);
+
+                return $row;
+            })
+            ->when($dropRowsWithoutSubcategory, function ($rows) {
+                return $rows->filter(fn ($row) => !empty($row['subcategory_id']));
+            })
+            ->values()
+            ->all();
     }
 
     private function buildProjectReviewLinkForRecipient(User $recipient, Production $production): string
