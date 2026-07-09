@@ -101,8 +101,16 @@ class ExportHistHiringJob implements ShouldQueue
                 });
             }
 
+            if (!empty($filters['region'])) {
+                $query->whereHas('Note.City', function ($q) use ($filters) {
+                    $q->whereIn('regiao', $filters['region']);
+                });
+            }
+
             if (!empty($filters['city'])) {
-                $query->whereIn('lexp', $filters['city']);
+                $query->whereRelation('Note', function ($q) use ($filters) {
+                    $q->whereIn('lexp', $filters['city']);
+                });
             }
 
             $data = $query

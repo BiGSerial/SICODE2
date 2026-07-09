@@ -57,7 +57,7 @@ class Main extends Component
 
     protected $listeners = [
          'refresh' => '$refresh',
-         'refresh_list' => '$refresh',
+         'refresh_list' => 'refreshList',
          'closeAll' => 'closeAll',
      ];
 
@@ -67,6 +67,12 @@ class Main extends Component
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
         $this->services  = Service::orderBy('service')->get();
+    }
+
+    public function refreshList(): void
+    {
+        $this->resetPage();
+        $this->closeAll();
     }
 
 
@@ -232,15 +238,7 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        // Ensure session is active
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        // Initialize filter from session if available
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filter = $this->getActiveFilters();
 
         $query = Note::query();
 
@@ -341,27 +339,27 @@ class Main extends Component
         }
 
         // Session filters
-        if (isset($_SESSION['filter'][$this->filter_group]['empreiteira'])) {
+        if (!empty($this->filter['empreiteira'])) {
             $query->whereHas('Orders.Operations', function ($query) {
                 $query->where('operacao', '0010')
                     ->where('status', 'like', 'ABER%')
-                    ->whereIn('cenTrab', $_SESSION['filter'][$this->filter_group]['empreiteira'])
-                    ->orWhere('cenTrab', ''); // Allow empty cenTrab
+                    ->whereIn('cenTrab', $this->filter['empreiteira']);
             });
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group]['city'])) {
-            $query->where(function ($query) {
-                $query->whereIn('lexp', $_SESSION['filter'][$this->filter_group]['city'])
-                    ->orWhere('lexp', ''); // Allow empty lexp
+        if (!empty($this->filter['region'])) {
+            $query->whereHas('City', function ($query) {
+                $query->whereIn('baseConstrucao', $this->filter['region'])
+                    ->orWhereIn('regiao', $this->filter['region']);
             });
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group]['rubrica'])) {
-            $query->where(function ($query) {
-                $query->whereIn('rubrica', $_SESSION['filter'][$this->filter_group]['rubrica'])
-                    ->orWhere('rubrica', ''); // Allow empty rubrica
-            });
+        if (!empty($this->filter['city'])) {
+            $query->whereIn('lexp', $this->filter['city']);
+        }
+
+        if (!empty($this->filter['rubrica'])) {
+            $query->whereIn('rubrica', $this->filter['rubrica']);
         }
 
         // Type note filter
@@ -377,6 +375,21 @@ class Main extends Component
             ->orderBy('note');
 
         return $query;
+    }
+
+    protected function getActiveFilters(): array
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $filters = session('filter.' . $this->filter_group, []);
+
+        if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group])) {
+            $filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+        return is_array($filters) ? $filters : [];
     }
 
     public function downloadFile($id)

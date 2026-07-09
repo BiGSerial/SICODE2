@@ -18,6 +18,9 @@ class AdsRequests extends Component
 {
     use WithPagination;
 
+    private const ADS_LINK_REUSE_START_DATE = '2026-08-01 00:00:00';
+    private const ADS_LINK_REUSE_DAYS = 7;
+
     protected $paginationTheme = 'bootstrap';
     protected $listeners = ['confirm_ads_requests_process' => 'confirmProcessRequests'];
 
@@ -544,12 +547,22 @@ class AdsRequests extends Component
 
     protected function getLatestRequestWithUrlFor(int $noteId): ?AdsRequest
     {
+        if (!$this->canReuseAdsLink()) {
+            return null;
+        }
+
         return AdsRequest::query()
             ->where('note_id', $noteId)
             ->whereNotNull('url')
             ->whereRaw("NULLIF(LTRIM(RTRIM(url)), '') IS NOT NULL")
+            ->where('created_at', '>', now()->subDays(self::ADS_LINK_REUSE_DAYS))
             ->latest('created_at')
             ->first();
+    }
+
+    protected function canReuseAdsLink(): bool
+    {
+        return now()->greaterThanOrEqualTo(Carbon::parse(self::ADS_LINK_REUSE_START_DATE));
     }
 
     protected function formatElapsed($value): ?string

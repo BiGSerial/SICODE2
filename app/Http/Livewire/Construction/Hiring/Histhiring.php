@@ -54,7 +54,7 @@ class Histhiring extends Component
 
     protected $listeners = [
         'update_list'     => '$refresh',
-        'refresh_list'    => '$refresh',
+        'refresh_list'    => 'refreshList',
         'clear_selection' => 'clearSelection',
         'confirmDeleteViability' => 'deleteViability',
     ];
@@ -62,6 +62,12 @@ class Histhiring extends Component
     public function mount()
     {
         $this->cities = City::orderBy('cidade')->get();
+    }
+
+    public function refreshList(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
     }
 
     /** Limpar seleção (chamado pelo filho após salvar) */
@@ -147,12 +153,6 @@ class Histhiring extends Component
 
     public function exportToExcel(): void
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        $filters = $_SESSION['filter'][$this->filter_group] ?? [];
-
         $params = [
             'search'         => $this->search,
             'multipleSearch' => $this->multipleSearch,
@@ -160,7 +160,7 @@ class Histhiring extends Component
             'date_out'       => $this->date_out,
             'dateBy'         => $this->dateBy,
             'hasNoHired'     => $this->hasNoHired,
-            'filter'         => $filters,
+            'filter'         => $this->getActiveFilters(),
         ];
 
         ExportHistHiringJob::dispatch($params, (string) auth()->id());
@@ -228,13 +228,7 @@ class Histhiring extends Component
 
     public function getListsProperty()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+        $this->filter = $this->getActiveFilters();
 
         $query = Viability::query();
 
@@ -291,14 +285,22 @@ class Histhiring extends Component
             });
         }
 
-        if (isset($this->filter['rubrica'])) {
+        if (!empty($this->filter['rubrica'])) {
             $query->whereRelation('Note', function ($q) {
                 $q->whereIn('rubrica', $this->filter['rubrica']);
             });
         }
 
-        if (isset($this->filter['city'])) {
-            $query->whereIn('lexp', $this->filter['city']);
+        if (!empty($this->filter['region'])) {
+            $query->whereHas('Note.City', function ($q) {
+                $q->whereIn('regiao', $this->filter['region']);
+            });
+        }
+
+        if (!empty($this->filter['city'])) {
+            $query->whereRelation('Note', function ($q) {
+                $q->whereIn('lexp', $this->filter['city']);
+            });
         }
 
         $query->with([
@@ -318,6 +320,21 @@ class Histhiring extends Component
         ]);
 
         return $query->paginate($this->perPage);
+    }
+
+    protected function getActiveFilters(): array
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $filters = session('filter.' . $this->filter_group, []);
+
+        if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group])) {
+            $filters = $_SESSION['filter'][$this->filter_group];
+        }
+
+        return is_array($filters) ? $filters : [];
     }
 
     public function render()
