@@ -270,6 +270,13 @@ class Dashboard extends Component
 
     protected function criticalStackItems()
     {
+        return $this->criticalStackQuery()
+            ->limit(15)
+            ->get();
+    }
+
+    protected function criticalStackQuery(): Builder
+    {
         return (clone $this->stackQuery())
             ->select('notes.id')
             ->selectRaw("
@@ -295,9 +302,46 @@ class Dashboard extends Component
             )
             ->orderByRaw('CASE WHEN notes.days_left IS NULL THEN 1 ELSE 0 END ASC')
             ->orderBy('notes.days_left')
-            ->orderBy('notes.dt_status')
-            ->limit(15)
-            ->get();
+            ->orderBy('notes.dt_status');
+    }
+
+    public function exportCriticalStack()
+    {
+        $fileName = 'pilha-critica-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Nota/OV',
+                'Tipo',
+                'Rubrica',
+                'Municipio',
+                'Status',
+                'Prazo',
+                'Usuario',
+            ], ';', '"', '');
+
+            $this->criticalStackQuery()
+                ->chunk(500, function ($items) use ($handle) {
+                    foreach ($items as $item) {
+                        fputcsv($handle, [
+                            $item->document_number,
+                            $item->document_type,
+                            $item->category_name ?: '-',
+                            $item->city_name ?: '-',
+                            (int) $item->assigned === 1 ? 'Em atribuicao' : 'Na pilha',
+                            $item->deadline_value ?? '-',
+                            $item->assigned_user ?: '-',
+                        ], ';', '"', '');
+                    }
+                });
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     protected function stackedChart(array $bucketData, string $xTitle): array

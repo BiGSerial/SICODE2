@@ -92,6 +92,28 @@
             padding: 14px 18px;
         }
 
+        .dispatch-dashboard .chart-actions {
+            align-items: center;
+            display: flex;
+            gap: 6px;
+        }
+
+        .dispatch-dashboard .icon-action {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--dash-teal);
+            display: inline-flex;
+            height: 32px;
+            justify-content: center;
+            width: 32px;
+        }
+
+        .dispatch-dashboard .icon-action:hover {
+            background: rgba(21, 95, 103, .08);
+            border-color: rgba(21, 95, 103, .2);
+        }
+
         .dispatch-dashboard .chart-title {
             color: var(--dash-ink);
             font-size: 1rem;
@@ -244,7 +266,14 @@
                         <h3 class="chart-title">Tempo no Status</h3>
                         <div class="chart-subtitle">Distribuição por tempo de permanência</div>
                     </div>
-                    <i class="ri-bar-chart-grouped-line text-secondary fs-4"></i>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Baixar imagem"
+                            aria-label="Baixar imagem do gráfico"
+                            onclick="window.dispatchDashboardDownloadChart(@js($statusChartId), 'tempo-no-status')">
+                            <i class="ri-download-2-line"></i>
+                        </button>
+                        <i class="ri-bar-chart-grouped-line text-secondary fs-4"></i>
+                    </div>
                 </div>
                 <div class="chart-body" wire:ignore>
                     <x-grafico.apex :chart="$statusAgeChart" :chartId="$statusChartId" :showDataLabels="true" class="w-100 h-100" />
@@ -259,7 +288,14 @@
                         <h3 class="chart-title">Prazo Real</h3>
                         <div class="chart-subtitle">Distribuição por prazo operacional e empresa atribuída</div>
                     </div>
-                    <i class="ri-timer-line text-secondary fs-4"></i>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Baixar imagem"
+                            aria-label="Baixar imagem do gráfico"
+                            onclick="window.dispatchDashboardDownloadChart(@js($deadlineChartId), 'prazo-real')">
+                            <i class="ri-download-2-line"></i>
+                        </button>
+                        <i class="ri-timer-line text-secondary fs-4"></i>
+                    </div>
                 </div>
                 <div class="chart-body" wire:ignore>
                     <x-grafico.apex :chart="$deadlineChart" :chartId="$deadlineChartId" :showDataLabels="true" class="w-100 h-100" />
@@ -274,7 +310,14 @@
                         <h3 class="chart-title">Qtd por Colaborador</h3>
                         <div class="chart-subtitle">Atribuições abertas por tempo com o colaborador</div>
                     </div>
-                    <i class="ri-user-3-line text-secondary fs-4"></i>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Baixar imagem"
+                            aria-label="Baixar imagem do gráfico"
+                            onclick="window.dispatchDashboardDownloadChart(@js($userChartId), 'colaboradores')">
+                            <i class="ri-download-2-line"></i>
+                        </button>
+                        <i class="ri-user-3-line text-secondary fs-4"></i>
+                    </div>
                 </div>
                 <div class="chart-body chart-body-sm" wire:ignore>
                     <x-grafico.apex :chart="$userChart" :chartId="$userChartId" :showDataLabels="true" class="w-100 h-100" />
@@ -289,7 +332,13 @@
                         <h3 class="chart-title">Pilha Crítica</h3>
                         <div class="chart-subtitle">Ordenada por menor prazo real</div>
                     </div>
-                    <i class="ri-table-line text-secondary fs-4"></i>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Exportar lista"
+                            aria-label="Exportar lista" wire:click="exportCriticalStack">
+                            <i class="ri-file-download-line"></i>
+                        </button>
+                        <i class="ri-table-line text-secondary fs-4"></i>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped align-middle">
@@ -334,4 +383,29 @@
             </div>
         </div>
     </div>
+
+    <script>
+        window.dispatchDashboardDownloadChart = function(chartId, filename) {
+            const chart = window['chartInstance_' + chartId];
+            const canvas = document.getElementById(chartId);
+
+            if (!chart || !canvas) {
+                return;
+            }
+
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = canvas.width;
+            exportCanvas.height = canvas.height;
+
+            const context = exportCanvas.getContext('2d');
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            context.drawImage(canvas, 0, 0);
+
+            const link = document.createElement('a');
+            link.href = exportCanvas.toDataURL('image/png');
+            link.download = `${filename || 'grafico'}-${new Date().toISOString().slice(0, 10)}.png`;
+            link.click();
+        };
+    </script>
 </div>
