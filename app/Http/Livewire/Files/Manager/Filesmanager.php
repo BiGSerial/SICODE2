@@ -3,17 +3,20 @@
 namespace App\Http\Livewire\Files\Manager;
 
 use App\Exports\Files\FilesList;
+use App\Helpers\TextFormatter;
 use App\Models\Company;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Service;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class Filesmanager extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     public $search;
 
@@ -26,6 +29,23 @@ class Filesmanager extends Component
     public $rubrics;
     public $rubricSelected;
     public $selectedFiles = [];
+    public $fileType = '';
+    public $partnerFinalAdsOnly = false;
+    public $massSearch = '';
+    public $massSearchTerms = [];
+    public $outputNamePattern = '';
+
+    private const MAX_DOWNLOAD_SELECTION = 100;
+
+    public $fileTypeOptions = [
+        '' => 'Todos os tipos',
+        'ads' => 'ADS',
+        'projeto' => 'Projeto',
+        'croqui' => 'Croqui',
+        'inventario' => 'Inventario',
+        'fotos' => 'Fotos',
+        'outros' => 'Outros',
+    ];
 
     protected $paginationTheme = 'bootstrap';
 
@@ -57,7 +77,10 @@ class Filesmanager extends Component
             });
         }
 
-        $this->selectedFiles = $query->pluck('id')->toArray();
+        $this->selectedFiles = $query
+            ->limit(self::MAX_DOWNLOAD_SELECTION)
+            ->pluck('id')
+            ->toArray();
     }
 
     public function deselectAll()
@@ -65,17 +88,80 @@ class Filesmanager extends Component
         $this->selectedFiles = [];
     }
 
+    public function applyMassSearch(): void
+    {
+        $this->massSearchTerms = $this->massSearch
+            ? $this->formatTextToArray($this->massSearch)
+            : [];
+
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
+    public function clearExtractionFilters(): void
+    {
+        $this->search = '';
+        $this->service = '';
+        $this->companySelected = '';
+        $this->rubricSelected = '';
+        $this->fileType = '';
+        $this->partnerFinalAdsOnly = false;
+        $this->massSearch = '';
+        $this->massSearchTerms = [];
+        $this->noFile = false;
+        $this->outputNamePattern = '';
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
+    public function appendOutputToken(string $token): void
+    {
+        $allowedTokens = ['<nota>', '<ordem>', '<sequencia>'];
+
+        if (! in_array($token, $allowedTokens, true)) {
+            return;
+        }
+
+        $this->outputNamePattern .= $token;
+    }
+
     public function updatingSearch()
     {
         $this->resetPage();
     }
 
+    public function updatingFileType(): void
+    {
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
+    public function updatingService(): void
+    {
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
+    public function updatingCompanySelected(): void
+    {
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
+    public function updatingRubricSelected(): void
+    {
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
+    public function updatingPartnerFinalAdsOnly(): void
+    {
+        $this->selectedFiles = [];
+        $this->resetPage();
+    }
+
     public function updatedSelectedFiles($value)
     {
-        if ($this->isSuperAdm()) {
-            return;
-        }
-
         $selected = collect((array) $value)
             ->filter()
             ->map(fn ($id) => (int) $id)
@@ -87,18 +173,32 @@ class Filesmanager extends Component
             return;
         }
 
-        $restrictedIds = File::whereIn('id', $selected->all())
-            ->whereHas('Adsforms', function ($q) {
-                $q->where('tacit', true)
-                    ->whereNotNull('work_report_id');
-            })
-            ->pluck('id')
-            ->all();
+        $restrictedIds = [];
+
+        if (! $this->isSuperAdm()) {
+            $restrictedIds = File::whereIn('id', $selected->all())
+                ->whereHas('Adsforms', function ($q) {
+                    $q->where('tacit', true)
+                        ->whereNotNull('work_report_id');
+                })
+                ->pluck('id')
+                ->all();
+        }
 
         $this->selectedFiles = $selected
             ->reject(fn ($id) => in_array($id, $restrictedIds, true))
+            ->take(self::MAX_DOWNLOAD_SELECTION)
             ->values()
             ->all();
+
+        if ($selected->count() > self::MAX_DOWNLOAD_SELECTION) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Limite de 100 arquivos por download.',
+                'timer'    => 3000,
+            ]);
+        }
     }
 
     public function export_excel()
@@ -203,7 +303,20 @@ class Filesmanager extends Component
             return;
         }
 
-        $files = File::whereIn('id', $this->selectedFiles)->get();
+        if (count($this->selectedFiles) > self::MAX_DOWNLOAD_SELECTION) {
+            $this->selectedFiles = array_slice($this->selectedFiles, 0, self::MAX_DOWNLOAD_SELECTION);
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Foram considerados apenas os 100 primeiros arquivos.',
+                'timer'    => 3500,
+            ]);
+        }
+
+        $files = File::with(['Note.Orders', 'Service', 'Adsforms'])
+            ->whereIn('id', $this->selectedFiles)
+            ->get();
 
         if ($files->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
@@ -238,18 +351,16 @@ class Filesmanager extends Component
         if ($zip->open($zipPath, \ZipArchive::CREATE) === true) {
             $addedFiles = 0;
 
-            foreach ($files as $file) {
+            $usedNames = [];
+
+            foreach ($files as $index => $file) {
                 // Verificar se o arquivo existe no storage e localmente
                 if (Storage::exists($file->path)) {
                     $fullPath = storage_path('app/' . $file->path);
 
                     // Verificar se o arquivo físico existe no sistema de arquivos
                     if (file_exists($fullPath) && is_readable($fullPath)) {
-                        $fileName = $file->file_name;
-                        // Adicionar extensão se não estiver presente
-                        if ($file->ext && !str_ends_with($fileName, '.' . $file->ext)) {
-                            $fileName .= '.' . $file->ext;
-                        }
+                        $fileName = $this->buildOutputFileName($file, $index + 1, $usedNames);
                         $zip->addFile($fullPath, $fileName);
                         $addedFiles++;
                     }
@@ -299,20 +410,36 @@ class Filesmanager extends Component
         return File::when($this->noFile, function ($q) {
             $q->where('noexists', true);
         })
+        ->with(['Note.Orders', 'Service', 'User.Company'])
         ->withExists([
             'Adsforms as has_tacit_ads_restriction' => function ($q) {
                 $q->where('tacit', true)
                     ->whereNotNull('work_report_id');
             },
         ])
-        ->when(trim($this->search), function ($q) {
-            $q->where(function ($sq) {
-                $sq->where('file_name', 'like', '%'.trim($this->search).'%')
-                    ->orWhereRelation('Note', 'note', trim($this->search));
+        ->when($searchTerm = trim((string) $this->search), function ($q) use ($searchTerm) {
+            $q->where(function ($sq) use ($searchTerm) {
+                $sq->where('file_name', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('original_name', 'like', '%'.$searchTerm.'%')
+                    ->orWhereRelation('Note', 'note', $searchTerm)
+                    ->orWhereHas('Note.Orders', fn ($orderQuery) => $orderQuery->where('ordem', $searchTerm));
+            });
+        })
+        ->when($this->currentMassSearchTerms(), function ($q, $terms) {
+            $q->whereHas('Note', function ($sq) use ($terms) {
+                $sq->whereIn('note', $terms)
+                    ->orWhereHas('Orders', fn ($orderQuery) => $orderQuery->whereIn('ordem', $terms));
             });
         })
         ->when($this->service, function ($q) {
             $q->where('service_id', $this->service);
+        })
+        ->when($this->fileType, function ($q) {
+            $this->applyFileTypeFilter($q);
+        })
+        ->when($this->partnerFinalAdsOnly, function ($q) {
+            $q->where('path', 'like', 'arquivos/ADS_FINAL/%')
+                ->whereHas('Adsforms');
         })
         ->when($this->companySelected, function ($q) {
             $q->whereHas('User', function ($sq) {
@@ -325,6 +452,188 @@ class Filesmanager extends Component
              });
          })
         ->orderBy('file_name');
+    }
+
+    public function fileTypeLabel(File $file): string
+    {
+        return $this->fileTypeOptions[$this->classifyFile($file)] ?? 'Outros';
+    }
+
+    public function preferredOrder(File $file): string
+    {
+        return $this->resolvePreferredOrder($file->Note);
+    }
+
+    private function currentMassSearchTerms(): array
+    {
+        if ($this->massSearchTerms) {
+            return $this->massSearchTerms;
+        }
+
+        return $this->massSearch
+            ? $this->formatTextToArray($this->massSearch)
+            : [];
+    }
+
+    private function applyFileTypeFilter($query): void
+    {
+        if ($this->fileType === 'outros') {
+            $patterns = collect($this->fileTypePatterns())->flatten()->unique()->values();
+
+            $query->where(function ($fileQuery) use ($patterns) {
+                foreach ($patterns as $pattern) {
+                    $fileQuery->where(function ($unknownTypeQuery) use ($pattern) {
+                        $unknownTypeQuery->whereNull('file_name')
+                            ->orWhere('file_name', 'not like', "%{$pattern}%");
+                    })->where(function ($unknownTypeQuery) use ($pattern) {
+                        $unknownTypeQuery->whereNull('original_name')
+                            ->orWhere('original_name', 'not like', "%{$pattern}%");
+                    })->where(function ($unknownTypeQuery) use ($pattern) {
+                        $unknownTypeQuery->whereDoesntHave('Service')
+                            ->orWhereRelation('Service', 'service', 'not like', "%{$pattern}%");
+                    });
+                }
+
+                $fileQuery->where(function ($extensionQuery) {
+                    $extensionQuery->whereNull('ext')
+                        ->orWhereNotIn('ext', ['jpg', 'jpeg', 'png', 'webp', 'bmp']);
+                });
+            });
+
+            return;
+        }
+
+        $patterns = $this->fileTypePatterns()[$this->fileType] ?? [];
+
+        $query->where(function ($fileQuery) use ($patterns) {
+            foreach ($patterns as $pattern) {
+                $fileQuery->orWhere('file_name', 'like', "%{$pattern}%")
+                    ->orWhere('original_name', 'like', "%{$pattern}%")
+                    ->orWhereRelation('Service', 'service', 'like', "%{$pattern}%");
+            }
+
+            if ($this->fileType === 'fotos') {
+                $fileQuery->orWhereIn('ext', ['jpg', 'jpeg', 'png', 'webp', 'bmp']);
+            }
+        });
+    }
+
+    private function fileTypePatterns(): array
+    {
+        return [
+            'ads' => ['ads', 'adicional'],
+            'projeto' => ['projeto', 'proj'],
+            'croqui' => ['croqui'],
+            'inventario' => ['inventario', 'inventário', 'invent'],
+            'fotos' => ['foto', 'imagem', 'img'],
+        ];
+    }
+
+    private function classifyFile(File $file): string
+    {
+        $name = Str::lower(Str::ascii(($file->original_name ?: '') . ' ' . ($file->file_name ?: '') . ' ' . ($file->Service?->service ?: '')));
+        $extension = Str::lower($file->ext ?: pathinfo($file->file_name ?: '', PATHINFO_EXTENSION));
+
+        foreach ($this->fileTypePatterns() as $type => $patterns) {
+            foreach ($patterns as $pattern) {
+                if (str_contains($name, Str::lower(Str::ascii($pattern)))) {
+                    return $type;
+                }
+            }
+        }
+
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'bmp'], true)) {
+            return 'fotos';
+        }
+
+        return 'outros';
+    }
+
+    private function buildOutputFileName(File $file, int $sequence, array &$usedNames): string
+    {
+        $savedName = $file->file_name ?: 'arquivo';
+        $extension = Str::lower($file->ext ?: pathinfo($file->file_name ?: '', PATHINFO_EXTENSION));
+        $extension = $extension ? '.' . ltrim($extension, '.') : '';
+
+        if (! trim((string) $this->outputNamePattern)) {
+            $candidate = $this->ensureExtension($savedName, $extension);
+            $suffix = 2;
+
+            while (in_array($candidate, $usedNames, true)) {
+                $name = pathinfo($candidate, PATHINFO_FILENAME);
+                $candidate = $name . '-' . $suffix . $extension;
+                $suffix++;
+            }
+
+            $usedNames[] = $candidate;
+
+            return $candidate;
+        }
+
+        $replacements = [
+            '<nota>' => $file->Note?->note ?: 'sem-nota',
+            '<ordem>' => $this->resolvePreferredOrder($file->Note) ?: 'sem-ordem',
+            '<sequencia>' => str_pad((string) $sequence, 3, '0', STR_PAD_LEFT),
+        ];
+
+        $name = str_replace(array_keys($replacements), array_values($replacements), $this->outputNamePattern);
+        $name = $this->sanitizeOutputName($name) ?: 'arquivo-' . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
+        $candidate = $name . $extension;
+        $suffix = 2;
+
+        while (in_array($candidate, $usedNames, true)) {
+            $candidate = $name . '-' . $suffix . $extension;
+            $suffix++;
+        }
+
+        $usedNames[] = $candidate;
+
+        return $candidate;
+    }
+
+    private function ensureExtension(string $name, string $extension): string
+    {
+        if (! $extension) {
+            return $this->sanitizeOutputName($name) ?: 'arquivo';
+        }
+
+        if (str_ends_with(Str::lower($name), $extension)) {
+            return $this->sanitizeOutputName($name);
+        }
+
+        return ($this->sanitizeOutputName($name) ?: 'arquivo') . $extension;
+    }
+
+    private function sanitizeOutputName(string $name): string
+    {
+        $name = Str::ascii($name);
+        $name = preg_replace('/[\\\\\/:*?"<>|]+/', '-', $name);
+        $name = preg_replace('/\s+/', ' ', $name);
+
+        return trim($name, '-_. ');
+    }
+
+    private function resolvePreferredOrder($note): string
+    {
+        if (! $note) {
+            return '';
+        }
+
+        if (! $note->relationLoaded('Orders')) {
+            $note->load('Orders');
+        }
+
+        $orders = $note->Orders->pluck('ordem')->filter()->map(fn ($order) => (string) $order);
+
+        foreach (['170', '190', '150'] as $prefix) {
+            $match = $orders->first(fn ($order) => str_starts_with($order, $prefix));
+
+            if ($match) {
+                return $match;
+            }
+        }
+
+        return $orders->first() ?: '';
     }
 
     private function isSuperAdm(): bool
