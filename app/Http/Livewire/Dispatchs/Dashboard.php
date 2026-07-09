@@ -95,9 +95,8 @@ class Dashboard extends Component
     {
         return "CASE
             WHEN notes.days_left IS NULL THEN 'Sem prazo'
-            WHEN notes.days_left < 0 THEN 'Vencido'
-            WHEN notes.days_left >= 30 THEN '30+'
-            ELSE CAST(notes.days_left AS CHAR)
+            WHEN (30 - notes.days_left) < 0 THEN '0'
+            ELSE CAST((30 - notes.days_left) AS CHAR)
         END";
     }
 
@@ -108,7 +107,7 @@ class Dashboard extends Component
 
     protected function labelsForDeadline(): array
     {
-        return array_merge(['Sem prazo', '30+'], array_map('strval', range(29, 0)), ['Vencido']);
+        return array_merge(array_map('strval', range(30, 0)), ['Sem prazo']);
     }
 
     protected function aggregateStackedBuckets(string $bucketSql, array $labels): array
@@ -122,6 +121,19 @@ class Dashboard extends Component
             )
             ->groupBy('bucket', 'assignment')
             ->get();
+
+        $filledBuckets = $rows
+            ->filter(fn ($row) => (int) $row->total > 0)
+            ->pluck('bucket')
+            ->map(fn ($bucket) => (string) $bucket)
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $labels = array_values(array_filter(
+            $labels,
+            fn ($label) => in_array((string) $label, $filledBuckets, true)
+        ));
 
         $assigned = array_fill_keys($labels, 0);
         $unassigned = array_fill_keys($labels, 0);
@@ -150,7 +162,6 @@ class Dashboard extends Component
 
     protected function aggregateDeadlineBucketsByCompany(): array
     {
-        $labels = $this->labelsForDeadline();
         $bucketSql = $this->deadlineBucketSql();
 
         $rows = (clone $this->chartStackQuery())
@@ -172,13 +183,38 @@ class Dashboard extends Component
             ->groupBy('bucket', 'series')
             ->get();
 
-        $series = ['Na pilha' => array_fill_keys($labels, 0)];
+        $numericBuckets = $rows
+            ->pluck('bucket')
+            ->filter(fn ($bucket) => is_numeric($bucket))
+            ->map(fn ($bucket) => (int) $bucket);
+
+        $maxBucket = max(30, (int) ($numericBuckets->max() ?? 30));
+        $labels = array_map('strval', range($maxBucket, 0));
+
+        if ($rows->contains(fn ($row) => (string) $row->bucket === 'Sem prazo')) {
+            $labels[] = 'Sem prazo';
+        }
+
+        $filledBuckets = $rows
+            ->filter(fn ($row) => (int) $row->total > 0)
+            ->pluck('bucket')
+            ->map(fn ($bucket) => (string) $bucket)
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $labels = array_values(array_filter(
+            $labels,
+            fn ($label) => in_array((string) $label, $filledBuckets, true)
+        ));
+
+        $series = [];
 
         foreach ($rows as $row) {
             $bucket = (string) $row->bucket;
             $name = (string) $row->series;
 
-            if (!array_key_exists($bucket, $series['Na pilha'])) {
+            if (!in_array($bucket, $labels, true)) {
                 continue;
             }
 
@@ -189,9 +225,31 @@ class Dashboard extends Component
             $series[$name][$bucket] = (int) $row->total;
         }
 
+        $orderedSeries = [];
+        foreach ($series as $name => $values) {
+            if (str_contains(mb_strtolower($name), 'satel')) {
+                $orderedSeries[$name] = $values;
+            }
+        }
+        foreach ($series as $name => $values) {
+            $normalized = mb_strtolower($name);
+            if ($name !== 'Na pilha' && !str_contains($normalized, 'satel') && str_contains($normalized, 'edp')) {
+                $orderedSeries[$name] = $values;
+            }
+        }
+        foreach ($series as $name => $values) {
+            $normalized = mb_strtolower($name);
+            if ($name !== 'Na pilha' && !str_contains($normalized, 'satel') && !str_contains($normalized, 'edp')) {
+                $orderedSeries[$name] = $values;
+            }
+        }
+        if (array_key_exists('Na pilha', $series)) {
+            $orderedSeries['Na pilha'] = $series['Na pilha'];
+        }
+
         return [
             'labels' => $labels,
-            'series' => $series,
+            'series' => $orderedSeries,
         ];
     }
 
@@ -284,7 +342,11 @@ class Dashboard extends Component
                 CASE WHEN notes.type_note = 2 THEN 'OV' ELSE 'Nota' END as document_type,
                 notes.rubrica as category_name,
                 notes.lexp as city_name,
-                notes.days_left as deadline_value
+                CASE
+                    WHEN notes.days_left IS NULL THEN NULL
+                    WHEN (30 - notes.days_left) < 0 THEN 0
+                    ELSE (30 - notes.days_left)
+                END as deadline_value
             ")
             ->selectRaw(
                 "CASE WHEN {$this->assignedExistsSql()} THEN 1 ELSE 0 END as assigned,
@@ -301,7 +363,7 @@ class Dashboard extends Component
                 [$this->service->uuid, $this->service->uuid]
             )
             ->orderByRaw('CASE WHEN notes.days_left IS NULL THEN 1 ELSE 0 END ASC')
-            ->orderBy('notes.days_left')
+            ->orderByRaw('GREATEST(30 - notes.days_left, 0) DESC')
             ->orderBy('notes.dt_status');
     }
 
@@ -431,9 +493,17 @@ class Dashboard extends Component
         $index = 0;
 
         foreach ($bucketData['series'] as $label => $values) {
-            $color = $label === 'Na pilha'
-                ? '#28F66A'
-                : $palette[$index++ % count($palette)];
+            $normalized = mb_strtolower($label);
+
+            if ($label === 'Na pilha') {
+                $color = '#BECACC';
+            } elseif (str_contains($normalized, 'satel')) {
+                $color = '#9EEDFC';
+            } elseif (str_contains($normalized, 'edp')) {
+                $color = '#C5ADFF';
+            } else {
+                $color = $palette[$index++ % count($palette)];
+            }
 
             $datasets[] = [
                 'label' => $label,

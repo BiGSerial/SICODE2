@@ -286,7 +286,7 @@
                 <div class="chart-head">
                     <div>
                         <h3 class="chart-title">Prazo Real</h3>
-                        <div class="chart-subtitle">Distribuição por prazo operacional e empresa atribuída</div>
+                        <div class="chart-subtitle">Distribuição por dias consumidos; quanto maior, mais crítico</div>
                     </div>
                     <div class="chart-actions">
                         <button type="button" class="icon-action" title="Baixar imagem"
