@@ -186,10 +186,20 @@
                     <option value="">Notas e OVs</option>
                 </select>
             </div>
-            <div class="col-12 col-md-9 col-xl-10">
+            <div class="col-12 col-md-4 col-xl-3">
+                <label class="form-label d-block">Rubrica</label>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="includeTrackingRubric"
+                        wire:model="includeTrackingRubric">
+                    <label class="form-check-label" for="includeTrackingRubric">
+                        Incluir Acompanhamento
+                    </label>
+                </div>
+            </div>
+            <div class="col-12 col-md-5 col-xl-7">
                 <div class="text-muted small">
-                    Tempo no status usa <strong>dt_status</strong>. Prazo real usa <strong>days_left</strong>
-                    e separa os atribuídos por empresa.
+                    A análise cruza o tempo de permanência, o prazo operacional e as atribuições abertas por empresa.
+                    A rubrica Acompanhamento vem desativada por padrão.
                 </div>
             </div>
         </div>
@@ -207,7 +217,7 @@
             <div class="metric-card">
                 <div class="metric-label">Em atribuição</div>
                 <div class="metric-value">{{ number_format($summary['assigned'], 0, ',', '.') }}</div>
-                <div class="metric-note">Productions abertas no serviço</div>
+                <div class="metric-note">Atividades abertas no serviço</div>
             </div>
         </div>
         <div class="col-6 col-xl-3">
@@ -232,7 +242,7 @@
                 <div class="chart-head">
                     <div>
                         <h3 class="chart-title">Tempo no Status</h3>
-                        <div class="chart-subtitle">Distribuição por dias desde dt_status</div>
+                        <div class="chart-subtitle">Distribuição por tempo de permanência</div>
                     </div>
                     <i class="ri-bar-chart-grouped-line text-secondary fs-4"></i>
                 </div>
@@ -247,7 +257,7 @@
                 <div class="chart-head">
                     <div>
                         <h3 class="chart-title">Prazo Real</h3>
-                        <div class="chart-subtitle">Distribuição por days_left e empresa atribuída</div>
+                        <div class="chart-subtitle">Distribuição por prazo operacional e empresa atribuída</div>
                     </div>
                     <i class="ri-timer-line text-secondary fs-4"></i>
                 </div>
@@ -297,10 +307,10 @@
                         <tbody>
                             @forelse ($criticalItems as $item)
                                 <tr>
-                                    <td class="fw-bold">{{ $item->note }}</td>
-                                    <td>{{ (int) $item->type_note === 2 ? 'OV' : 'Nota' }}</td>
-                                    <td>{{ $item->rubrica ?: '-' }}</td>
-                                    <td>{{ $item->lexp ?: '-' }}</td>
+                                    <td class="fw-bold">{{ $item->document_number }}</td>
+                                    <td>{{ $item->document_type }}</td>
+                                    <td>{{ $item->category_name ?: '-' }}</td>
+                                    <td>{{ $item->city_name ?: '-' }}</td>
                                     <td class="text-center">
                                         @if ((int) $item->assigned === 1)
                                             <span class="badge-stack badge-assigned">Em atribuição</span>
@@ -308,8 +318,8 @@
                                             <span class="badge-stack badge-open">Na pilha</span>
                                         @endif
                                     </td>
-                                    <td class="text-center fw-bold @if (($item->days_left ?? 0) < 0) text-danger @endif">
-                                        {{ $item->days_left ?? '-' }}
+                                    <td class="text-center fw-bold @if (($item->deadline_value ?? 0) < 0) text-danger @endif">
+                                        {{ $item->deadline_value ?? '-' }}
                                     </td>
                                     <td>{{ $item->assigned_user ?: '-' }}</td>
                                 </tr>

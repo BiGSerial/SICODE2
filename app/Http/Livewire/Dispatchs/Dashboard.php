@@ -15,6 +15,7 @@ class Dashboard extends Component
     public $service;
 
     public string $noteType = '2';
+    public bool $includeTrackingRubric = false;
 
     public string $statusChartId;
     public string $deadlineChartId;
@@ -42,6 +43,11 @@ class Dashboard extends Component
         $this->refreshCharts();
     }
 
+    public function updatedIncludeTrackingRubric(): void
+    {
+        $this->refreshCharts();
+    }
+
     protected function stackQuery(): Builder
     {
         $query = Note::query()->excludeCanceledFullDone();
@@ -52,7 +58,16 @@ class Dashboard extends Component
             $query->where('type_note', (int) $this->noteType);
         }
 
+        if (!$this->includeTrackingRubric) {
+            $query->whereRaw("LOWER(TRIM(COALESCE(notes.rubrica, ''))) <> ?", ['acompanhamento']);
+        }
+
         return $query;
+    }
+
+    protected function chartStackQuery(): Builder
+    {
+        return $this->stackQuery();
     }
 
     protected function assignedExistsSql(): string
@@ -93,12 +108,12 @@ class Dashboard extends Component
 
     protected function labelsForDeadline(): array
     {
-        return array_merge(['Vencido'], array_map('strval', range(0, 29)), ['30+', 'Sem prazo']);
+        return array_merge(['Sem prazo', '30+'], array_map('strval', range(29, 0)), ['Vencido']);
     }
 
     protected function aggregateStackedBuckets(string $bucketSql, array $labels): array
     {
-        $rows = (clone $this->stackQuery())
+        $rows = (clone $this->chartStackQuery())
             ->selectRaw(
                 "{$bucketSql} as bucket,
                 CASE WHEN {$this->assignedExistsSql()} THEN 'assigned' ELSE 'unassigned' END as assignment,
@@ -138,7 +153,7 @@ class Dashboard extends Component
         $labels = $this->labelsForDeadline();
         $bucketSql = $this->deadlineBucketSql();
 
-        $rows = (clone $this->stackQuery())
+        $rows = (clone $this->chartStackQuery())
             ->selectRaw(
                 "{$bucketSql} as bucket,
                 COALESCE((
@@ -212,7 +227,7 @@ class Dashboard extends Component
     {
         $ageSql = "GREATEST(DATEDIFF(CURDATE(), COALESCE(productions.att_at, productions.dispatch_at, productions.created_at)), 0)";
 
-        $rows = (clone $this->stackQuery())
+        $rows = (clone $this->chartStackQuery())
             ->join('productions', 'productions.note_id', '=', 'notes.id')
             ->join('users', 'users.id', '=', 'productions.user_id')
             ->where('productions.service_id', $this->service->uuid)
@@ -221,16 +236,16 @@ class Dashboard extends Component
             ->selectRaw(
                 "users.name as user_name,
                 CASE
-                    WHEN {$ageSql} < 5 THEN 'd < 5'
-                    WHEN {$ageSql} <= 8 THEN '5 <= d <= 8'
-                    ELSE 'd > 8'
+                    WHEN {$ageSql} < 5 THEN 'Até 4 dias'
+                    WHEN {$ageSql} <= 8 THEN '5 a 8 dias'
+                    ELSE 'Mais de 8 dias'
                 END as age_bucket,
                 COUNT(DISTINCT notes.id) as total"
             )
             ->groupBy('user_name', 'age_bucket')
             ->get();
 
-        $bucketLabels = ['d < 5', '5 <= d <= 8', 'd > 8'];
+        $bucketLabels = ['Até 4 dias', '5 a 8 dias', 'Mais de 8 dias'];
         $users = $rows
             ->groupBy('user_name')
             ->map(fn ($items) => [
@@ -256,7 +271,14 @@ class Dashboard extends Component
     protected function criticalStackItems()
     {
         return (clone $this->stackQuery())
-            ->select('notes.id', 'notes.note', 'notes.numPedido', 'notes.type_note', 'notes.dt_status', 'notes.days_left', 'notes.rubrica', 'notes.lexp')
+            ->select('notes.id')
+            ->selectRaw("
+                notes.note as document_number,
+                CASE WHEN notes.type_note = 2 THEN 'OV' ELSE 'Nota' END as document_type,
+                notes.rubrica as category_name,
+                notes.lexp as city_name,
+                notes.days_left as deadline_value
+            ")
             ->selectRaw(
                 "CASE WHEN {$this->assignedExistsSql()} THEN 1 ELSE 0 END as assigned,
                 (
@@ -415,7 +437,7 @@ class Dashboard extends Component
                     'x' => [
                         'stacked' => true,
                         'grid' => ['display' => false],
-                        'title' => ['display' => true, 'text' => 'Prazo real (days_left)'],
+                        'title' => ['display' => true, 'text' => 'Prazo real'],
                     ],
                     'y' => [
                         'stacked' => true,
@@ -436,24 +458,24 @@ class Dashboard extends Component
                 'labels' => $userData['labels'],
                 'datasets' => [
                     [
-                        'label' => 'd < 5',
-                        'data' => $userData['buckets']['d < 5'] ?? [],
+                        'label' => 'Até 4 dias',
+                        'data' => $userData['buckets']['Até 4 dias'] ?? [],
                         'backgroundColor' => '#A9FFBA',
                         'borderColor' => '#A9FFBA',
                         'borderRadius' => 5,
                         'stack' => 'stack',
                     ],
                     [
-                        'label' => '5 <= d <= 8',
-                        'data' => $userData['buckets']['5 <= d <= 8'] ?? [],
+                        'label' => '5 a 8 dias',
+                        'data' => $userData['buckets']['5 a 8 dias'] ?? [],
                         'backgroundColor' => '#28FF52',
                         'borderColor' => '#28FF52',
                         'borderRadius' => 5,
                         'stack' => 'stack',
                     ],
                     [
-                        'label' => 'd > 8',
-                        'data' => $userData['buckets']['d > 8'] ?? [],
+                        'label' => 'Mais de 8 dias',
+                        'data' => $userData['buckets']['Mais de 8 dias'] ?? [],
                         'backgroundColor' => '#A8B1E9',
                         'borderColor' => '#A8B1E9',
                         'borderRadius' => 5,
@@ -466,7 +488,14 @@ class Dashboard extends Component
                 'responsive' => true,
                 'maintainAspectRatio' => false,
                 'plugins' => [
-                    'legend' => ['display' => false],
+                    'legend' => [
+                        'display' => true,
+                        'position' => 'top',
+                        'labels' => [
+                            'usePointStyle' => true,
+                            'boxWidth' => 8,
+                        ],
+                    ],
                     'datalabels' => [
                         'display' => '__VALUE_LABEL_NONZERO__',
                         'anchor' => 'end',
@@ -497,7 +526,7 @@ class Dashboard extends Component
         $userData = $this->userDistribution();
 
         return [
-            'statusAgeChart' => $this->stackedChart($statusBuckets, 'Dias no status'),
+            'statusAgeChart' => $this->stackedChart($statusBuckets, 'Tempo no status'),
             'deadlineChart' => $this->deadlineCompanyChart($deadlineBuckets),
             'userChart' => $this->userChart($userData),
         ];
