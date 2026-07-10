@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs;
 
 use App\Exports\Reports\ReturnInternExport;
 use App\Models\Company;
+use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Operation;
@@ -229,9 +230,71 @@ class ReturnD5 extends Component
             if (!session()->isStarted()) { session()->start(); }
         }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
+        $sessionFilters = session('filter.' . $this->filter_group);
+        if (is_array($sessionFilters)) {
+            $this->filters = $sessionFilters;
+        } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $this->filters = $_SESSION['filter'][$this->filter_group];
+        } else {
+            $this->filters = [];
+        }
 
+        $activeFilters = is_array($this->filters) ? $this->filters : [];
+
+        $rubricaFilters = collect((array) ($activeFilters['rubrica'] ?? []))
+            ->filter(fn ($value) => filled($value))
+            ->values()
+            ->all();
+
+        $regionFilters = collect((array) ($activeFilters['region'] ?? []))
+            ->filter(fn ($value) => filled($value))
+            ->values()
+            ->all();
+
+        $regionalFilters = collect((array) ($activeFilters['regional'] ?? []))
+            ->filter(fn ($value) => filled($value))
+            ->values()
+            ->all();
+
+        $cityFilters = collect((array) ($activeFilters['city'] ?? []))
+            ->filter(fn ($value) => filled($value))
+            ->values()
+            ->all();
+
+        $cityCodes = collect();
+        $directCityCodes = collect($cityFilters)
+            ->filter(fn ($value) => preg_match('/^\d+$/', (string) $value) === 1)
+            ->values();
+
+        $cityCodes = $cityCodes->merge($directCityCodes);
+
+        $hasLocationFilters = !empty($regionFilters) || !empty($regionalFilters) || !empty($cityFilters);
+
+        if ($hasLocationFilters) {
+            $cityQuery = City::query();
+
+            if (!empty($regionFilters)) {
+                $cityQuery->whereIn('regiao', $regionFilters);
+            }
+
+            if (!empty($regionalFilters)) {
+                $cityQuery->whereIn('regional', $regionalFilters);
+            }
+
+            if (!empty($cityFilters)) {
+                $cityQuery->where(function ($query) use ($cityFilters) {
+                    $query->whereIn('cidade', $cityFilters)
+                        ->orWhereIn('municipio', $cityFilters)
+                        ->orWhereIn('rdMunicipio', $cityFilters);
+                });
+            }
+
+            $cityCodes = $cityCodes
+                ->merge($cityQuery->pluck('rdMunicipio'))
+                ->filter(fn ($value) => filled($value))
+                ->map(fn ($value) => trim((string) $value))
+                ->unique()
+                ->values();
         }
 
         $query = Reclaim::query()
@@ -250,17 +313,15 @@ class ReturnD5 extends Component
                     });
                 });
 
-        if (isset($this->filters['rubrica'])) {
-            $query->whereRelation('Note', function ($query) {
-                $query->whereIn('rubrica', $this->filters['rubrica'])
-                    ->orWhereNull('rubrica');
+        if (!empty($rubricaFilters)) {
+            $query->whereRelation('Note', function ($query) use ($rubricaFilters) {
+                $query->whereIn('rubrica', $rubricaFilters);
             });
         }
 
-        if (isset($this->filters['city'])) {
-            $query->whereRelation('Note', function ($query) {
-                $query->whereIn('lexp', $this->filters['city'])
-                    ->orWhereNull('lexp');
+        if ($hasLocationFilters) {
+            $query->whereRelation('Note', function ($query) use ($cityCodes) {
+                $query->whereIn('nexp', $cityCodes->all());
             });
         }
 
