@@ -1,399 +1,411 @@
 @php
-    use Carbon\Carbon;
+    use Illuminate\Support\Carbon;
 @endphp
-<div>
+
+<div class="dispatch-dashboard">
     <x-show-loading />
-    <div class="card mt-2">
-        <div class="card-header edp-bg-seoweedgreen-100 text-white">
-            <h4 class="my-1">DASHBOARD {{ mb_strtoupper($service->service) }}</h4>
-        </div>
-        <div class="card-body">
-            <form class="form-inline">
-                <div class="row">
-                    {{-- <div class="col-md-4 col-xl-2 col-12 mb-2">
-                        <label for="contractor" class="mr-2">Empreiteira</label>
-                        <select id="contractor" class="form-select w-100" wire:model="company_id">
-                            <option value="">Selecione uma empreiteira</option>
-                            @if ($companies)
-                                @foreach ($companies as $company)
-                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                @endforeach
-                            @endif
-                        </select>
-                    </div> --}}
-                    <div class="col-md-4 col-xl-2 col-12 mb-2">
-                        <label for="month" class="mr-2">Mês Referência</label>
-                        <input type="month" id="month" class="form-control w-100" wire:model="month"
-                            max="{{ now()->format('Y-m') }}" value="{{ now()->format('Y-m') }}">
-                    </div>
-                    <div class="col-md-4 col-xl-2 col-12 mb-2">
-                        <label for="start_date" class="mr-2">Data de Início</label>
-                        <input type="date" id="start_date" class="form-control w-100" wire:model="dt_ini">
-                    </div>
-                    <div class="col-md-4 col-xl-2 col-12 mb-2">
-                        <label for="end_date" class="mr-2">Data de Fim</label>
-                        <input type="date" id="end_date" class="form-control w-100" wire:model="dt_fim">
-                    </div>
+
+    <style>
+        .dispatch-dashboard {
+            --dash-ink: #102033;
+            --dash-muted: #64748b;
+            --dash-line: #dbe4ea;
+            --dash-teal: #155f67;
+            --dash-green: #28f66a;
+            --dash-blue: #263cc8;
+            --dash-soft: #f7fafc;
+        }
+
+        .dispatch-dashboard .dash-hero {
+            background: linear-gradient(120deg, #102033 0%, #155f67 58%, #0f8a77 100%);
+            border-radius: 8px;
+            color: #fff;
+            padding: 22px 24px;
+            box-shadow: 0 18px 40px rgba(16, 32, 51, .16);
+        }
+
+        .dispatch-dashboard .dash-title {
+            font-size: 1.65rem;
+            font-weight: 800;
+            letter-spacing: 0;
+            margin: 0;
+        }
+
+        .dispatch-dashboard .dash-subtitle {
+            color: rgba(255, 255, 255, .78);
+            font-size: .92rem;
+            margin-top: 4px;
+        }
+
+        .dispatch-dashboard .filter-panel,
+        .dispatch-dashboard .metric-card,
+        .dispatch-dashboard .chart-card,
+        .dispatch-dashboard .table-card {
+            background: #fff;
+            border: 1px solid var(--dash-line);
+            border-radius: 8px;
+            box-shadow: 0 12px 30px rgba(16, 32, 51, .08);
+        }
+
+        .dispatch-dashboard .filter-panel {
+            padding: 16px;
+        }
+
+        .dispatch-dashboard .metric-card {
+            padding: 16px 18px;
+            min-height: 112px;
+        }
+
+        .dispatch-dashboard .metric-label {
+            color: var(--dash-muted);
+            font-size: .78rem;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .dispatch-dashboard .metric-value {
+            color: var(--dash-ink);
+            font-size: 2rem;
+            font-weight: 850;
+            line-height: 1.1;
+            margin-top: 8px;
+        }
+
+        .dispatch-dashboard .metric-note {
+            color: var(--dash-muted);
+            font-size: .82rem;
+            margin-top: 6px;
+        }
+
+        .dispatch-dashboard .chart-card {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .dispatch-dashboard .chart-head {
+            align-items: center;
+            border-bottom: 1px solid var(--dash-line);
+            display: flex;
+            justify-content: space-between;
+            min-height: 58px;
+            padding: 14px 18px;
+        }
+
+        .dispatch-dashboard .chart-actions {
+            align-items: center;
+            display: flex;
+            gap: 6px;
+        }
+
+        .dispatch-dashboard .icon-action {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--dash-teal);
+            display: inline-flex;
+            height: 32px;
+            justify-content: center;
+            width: 32px;
+        }
+
+        .dispatch-dashboard .icon-action:hover {
+            background: rgba(21, 95, 103, .08);
+            border-color: rgba(21, 95, 103, .2);
+        }
+
+        .dispatch-dashboard .chart-title {
+            color: var(--dash-ink);
+            font-size: 1rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .dispatch-dashboard .chart-subtitle {
+            color: var(--dash-muted);
+            font-size: .8rem;
+        }
+
+        .dispatch-dashboard .chart-body {
+            height: 360px;
+            padding: 18px;
+        }
+
+        .dispatch-dashboard .chart-body-sm {
+            height: 360px;
+        }
+
+        .dispatch-dashboard .table-card {
+            overflow: hidden;
+        }
+
+        .dispatch-dashboard .table-card .table {
+            margin-bottom: 0;
+        }
+
+        .dispatch-dashboard .table-card thead th {
+            background: #102033;
+            color: #fff;
+            font-size: .78rem;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .dispatch-dashboard .badge-stack {
+            border-radius: 999px;
+            font-size: .72rem;
+            font-weight: 800;
+            padding: 5px 9px;
+        }
+
+        .dispatch-dashboard .badge-assigned {
+            background: rgba(38, 60, 200, .1);
+            color: var(--dash-blue);
+        }
+
+        .dispatch-dashboard .badge-open {
+            background: rgba(40, 246, 106, .14);
+            color: #087233;
+        }
+
+        .dispatch-dashboard .form-label {
+            color: var(--dash-muted);
+            font-size: .78rem;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .dispatch-dashboard .form-select,
+        .dispatch-dashboard .form-control {
+            border-color: #b8c8d0;
+            border-radius: 6px;
+        }
+    </style>
+
+    <div class="dash-hero mb-3">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
+            <div>
+                <h2 class="dash-title">Dashboard {{ mb_strtoupper($service->service) }}</h2>
+                <div class="dash-subtitle">
+                    Pilha operacional por tempo no status, prazo real e atribuição atual.
                 </div>
-            </form>
+            </div>
+            <div class="text-end small opacity-75">
+                Atualizado em {{ $lastUpdatedAt->format('d/m/Y H:i') }}
+            </div>
         </div>
     </div>
 
-    <div class="row">
-
-        <div class="col-md-12">
-            <!-- Alterado para col-md-4 col-xl-2 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Tempo em pilha em {{ $service->service }}</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarStackOv"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarStackOv" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
-                    </button>
+    <div class="filter-panel mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-3 col-xl-2">
+                <label class="form-label">Tipo</label>
+                <select class="form-select" wire:model="noteType">
+                    <option value="2">OV</option>
+                    <option value="1">Nota</option>
+                    <option value="">Notas e OVs</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-xl-3">
+                <label class="form-label d-block">Rubrica</label>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="includeTrackingRubric"
+                        wire:model="includeTrackingRubric">
+                    <label class="form-check-label" for="includeTrackingRubric">
+                        Incluir Acompanhamento
+                    </label>
                 </div>
-                <div class="card-body">
-                    <x-grafico.stack-bar :chart-id="$chartId2" :labels="$dadosGrafico2['labels']" :dataset1-data="$dadosGrafico2['data1']"
-                        dataset1-label="Atribuidos" :dataset2-data="$dadosGrafico2['data2']" dataset2-label="Sem Atribuição"
-                        title="Dias em Pilha" y-axis-title="Qtd" />
-                    <p class="fs-6 my-0 py-0 fw-thin" style="line-height: 1;"><em><strong> Observação:</strong> Os dias
-                            em pilha englobam
-                            tanto Notas quanto OVs, o que pode ocasionar variações inesperadas no quantitativo diário de
-                            notas. Isso se deve à adoção de uma nova regra que atualizou toda a base de NOTAS em um
-                            mesmo dia. Com o tempo, à medida que os status forem alterados naturalmente, essa
-                            discrepância se ajustará. </em></p>
+            </div>
+            <div class="col-12 col-md-5 col-xl-7">
+                <div class="text-muted small">
+                    A análise cruza o tempo de permanência, o prazo operacional e as atribuições abertas por empresa.
+                    A rubrica Acompanhamento vem desativada por padrão.
                 </div>
             </div>
         </div>
+    </div>
 
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-xl-3">
+            <div class="metric-card">
+                <div class="metric-label">Total na pilha</div>
+                <div class="metric-value">{{ number_format($summary['total'], 0, ',', '.') }}</div>
+                <div class="metric-note">{{ $noteType === '2' ? 'Somente OVs' : ($noteType === '1' ? 'Somente notas' : 'Notas e OVs') }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="metric-card">
+                <div class="metric-label">Em atribuição</div>
+                <div class="metric-value">{{ number_format($summary['assigned'], 0, ',', '.') }}</div>
+                <div class="metric-note">Atividades abertas no serviço</div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="metric-card">
+                <div class="metric-label">Sem atribuição</div>
+                <div class="metric-value">{{ number_format($summary['unassigned'], 0, ',', '.') }}</div>
+                <div class="metric-note">Pilha disponível para despacho</div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="metric-card">
+                <div class="metric-label">Prazo vencido</div>
+                <div class="metric-value">{{ number_format($summary['overdue'], 0, ',', '.') }}</div>
+                <div class="metric-note">Média no status: {{ number_format($summary['avg_status_days'], 1, ',', '.') }} dias</div>
+            </div>
+        </div>
+    </div>
 
-        {{-- <div class="col-md-8"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Produção Diária Ativos x Notas</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarProducaoDiaria"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarProducaoDiaria"
-                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.mixed-chart chart-id="{{ $chartId1 }}" :labels="$mixedChartData['labels']" :data="$mixedChartData['data']"
-                        title="{{ $mixedChartData['title'] }}" height="{{ $mixedChartData['height'] }}" />
-                </div>
-                @if (!array_sum($mixedChartData['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+    <div class="row g-3">
+        <div class="col-12 col-xl-6">
+            <div class="chart-card">
+                <div class="chart-head">
+                    <div>
+                        <h3 class="chart-title">Tempo no Status</h3>
+                        <div class="chart-subtitle">Distribuição por tempo de permanência</div>
                     </div>
-                @endif
-
-            </div>
-        </div> --}}
-
-        <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Produção Diária</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarProducaoDiaria"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarProducaoDiaria"
-                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.line-chart :chart-id="$chartId1" :labels="$dadosGrafico1['labels']" :dataset="$dadosGrafico1['data']" height="300px"
-                        title="Produção Diária" />
-                </div>
-                @if (!array_sum($dadosGrafico1['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Baixar imagem"
+                            aria-label="Baixar imagem do gráfico"
+                            onclick="window.dispatchDashboardDownloadChart(@js($statusChartId), 'tempo-no-status')">
+                            <i class="ri-download-2-line"></i>
+                        </button>
+                        <i class="ri-bar-chart-grouped-line text-secondary fs-4"></i>
                     </div>
-                @endif
-
+                </div>
+                <div class="chart-body" wire:ignore>
+                    <x-grafico.apex :chart="$statusAgeChart" :chartId="$statusChartId" :showDataLabels="true" class="w-100 h-100" />
+                </div>
             </div>
         </div>
 
-        <div class="col-md-6"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Produção Ativos/Postes Diário</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarProducaoAtivosDiario"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarProducaoAtivosDiario"
-                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.line-chart :chart-id="$chartId6" :labels="$dadosGrafico6['labels']" :dataset="$dadosGrafico6['data']" height="300px"
-                        title="Produção Diária" />
-                </div>
-                @if (!array_sum($dadosGrafico6['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+        <div class="col-12 col-xl-6">
+            <div class="chart-card">
+                <div class="chart-head">
+                    <div>
+                        <h3 class="chart-title">Prazo Real</h3>
+                        <div class="chart-subtitle">Distribuição por dias consumidos; quanto maior, mais crítico</div>
                     </div>
-                @endif
-
-            </div>
-        </div>
-
-        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Relaçao Normal x RI</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarD5Proporcao"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarD5Proporcao" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.pie-chart :chart-id="$chartId" :labels="$dadosGrafico['labels']" :dataset="$dadosGrafico['data']" height="300px" />
-                </div>
-                @if (!array_sum($dadosGrafico['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Baixar imagem"
+                            aria-label="Baixar imagem do gráfico"
+                            onclick="window.dispatchDashboardDownloadChart(@js($deadlineChartId), 'prazo-real')">
+                            <i class="ri-download-2-line"></i>
+                        </button>
+                        <i class="ri-timer-line text-secondary fs-4"></i>
                     </div>
-                @endif
-
+                </div>
+                <div class="chart-body" wire:ignore>
+                    <x-grafico.apex :chart="$deadlineChart" :chartId="$deadlineChartId" :showDataLabels="true" class="w-100 h-100" />
+                </div>
             </div>
         </div>
 
-        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Motivos Retorno Contratação</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarDados" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.pie-chart :chart-id="$chartId3" :labels="$dadosGrafico3['labels']" :dataset="$dadosGrafico3['data']" height="300px" />
-                </div>
-                @if (!array_sum($dadosGrafico3['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+        <div class="col-12 col-xl-5">
+            <div class="chart-card h-100">
+                <div class="chart-head">
+                    <div>
+                        <h3 class="chart-title">Qtd por Colaborador</h3>
+                        <div class="chart-subtitle">Atribuições abertas por tempo com o colaborador</div>
                     </div>
-                @endif
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
-                </p>
-            </div>
-        </div>
-
-        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Motivos Retorno Analise</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados2"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarDados2" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.pie-chart :chart-id="$chartId5" :labels="$dadosGrafico5['labels']" :dataset="$dadosGrafico5['data']" height="300px" />
-                </div>
-                @if (!array_sum($dadosGrafico5['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Baixar imagem"
+                            aria-label="Baixar imagem do gráfico"
+                            onclick="window.dispatchDashboardDownloadChart(@js($userChartId), 'colaboradores')">
+                            <i class="ri-download-2-line"></i>
+                        </button>
+                        <i class="ri-user-3-line text-secondary fs-4"></i>
                     </div>
-                @endif
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
-                </p>
+                </div>
+                <div class="chart-body chart-body-sm" wire:ignore>
+                    <x-grafico.apex :chart="$userChart" :chartId="$userChartId" :showDataLabels="true" class="w-100 h-100" />
+                </div>
             </div>
         </div>
 
-        <div class="col-md-4"> <!-- Alterado para col-md-4 para ocupar 1/3 da largura em telas médias -->
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Motivos Retorno Viabilidade</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarDados1"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarDados1" class="spinner-border spinner-border-sm"
-                            role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <x-grafico.pie-chart :chart-id="$chartId4" :labels="$dadosGrafico4['labels']" :dataset="$dadosGrafico4['data']" height="300px" />
-                </div>
-                @if (!array_sum($dadosGrafico4['data']))
-                    <div class="card py-3">
-                        <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
+        <div class="col-12 col-xl-7">
+            <div class="table-card h-100">
+                <div class="chart-head">
+                    <div>
+                        <h3 class="chart-title">Pilha Crítica</h3>
+                        <div class="chart-subtitle">Ordenada por menor prazo real</div>
                     </div>
-                @endif
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>Obs: É considerado os aprovados e os que ainda estão em tratamento pelo RI.</em>
-                </p>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Ticket Médio Geral – {{ $service->service }}</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarTicketMedioServico"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarTicketMedioServico"
-                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    </button>
+                    <div class="chart-actions">
+                        <button type="button" class="icon-action" title="Exportar lista"
+                            aria-label="Exportar lista" wire:click="exportCriticalStack">
+                            <i class="ri-file-download-line"></i>
+                        </button>
+                        <i class="ri-table-line text-secondary fs-4"></i>
+                    </div>
                 </div>
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">
-                            <strong>Tempo de Reação:</strong>
-                            {{ \Carbon\CarbonInterval::minutes($ticketGeral->avg_reaction_time)->cascade()->forHumans() }}
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Tempo de Execução:</strong>
-                            {{ \Carbon\CarbonInterval::minutes($ticketGeral->avg_execution_time)->cascade()->forHumans() }}
-                        </li>
-                    </ul>
-                    <p class="fs-6 my-0 py-2 fw-thin">
-                        <em>Médias calculadas com base na diferença entre dispatch_at &rarr; att_at e att_at &rarr;
-                            completed_at.</em>
-                    </p>
-                </div>
-            </div>
-        </div>
-
-
-        <div class="col-md-6">
-            <div class="card" wire:ignore.self>
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">Tempo Médio para Conclusão – Por Usuário</h3>
-                    <button class="btn btn-sm btn-secondary ml-auto" wire:click="atualizarTicketMedioPorUsuario"
-                        wire:loading.attr="disabled">
-                        <i class="ri-refresh-line" wire:loading.remove></i>
-                        <span wire:loading wire:target="atualizarTicketMedioPorUsuario"
-                            class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    </button>
-                </div>
-                {{-- @php
-                    $productionStats = $this->getProductionStatsByUserProperty();
-                @endphp --}}
-                <p class="fs-6 my-0 py-2 fw-thin px-2" style="line-height: 1;">
-                    <em>
-                        Exibindo período: <strong>{{ Carbon::parse($dt_ini)->format('d/m/Y') }}</strong> até
-                        <strong>{{ Carbon::parse($dt_fim)->format('d/m/Y') }}</strong>.
-                    </em>
-                </p>
-                <div class="card-body">
-                    @if ($productionStats->isNotEmpty())
-                        <table class="table table-striped table-bordered">
-                            <thead>
-                                <tr class="table-dark">
-                                    <th>Usuário</th>
-                                    <th>Empresa</th>
-                                    <th>Retorno Interno</th>
-                                    <th>Normal</th>
-                                    <th>Total de Obras</th>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nota/OV</th>
+                                <th>Tipo</th>
+                                <th>Rubrica</th>
+                                <th>Município</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Prazo</th>
+                                <th>Usuário</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($criticalItems as $item)
+                                <tr>
+                                    <td class="fw-bold">{{ $item->document_number }}</td>
+                                    <td>{{ $item->document_type }}</td>
+                                    <td>{{ $item->category_name ?: '-' }}</td>
+                                    <td>{{ $item->city_name ?: '-' }}</td>
+                                    <td class="text-center">
+                                        @if ((int) $item->assigned === 1)
+                                            <span class="badge-stack badge-assigned">Em atribuição</span>
+                                        @else
+                                            <span class="badge-stack badge-open">Na pilha</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center fw-bold @if (($item->deadline_value ?? 0) < 0) text-danger @endif">
+                                        {{ $item->deadline_value ?? '-' }}
+                                    </td>
+                                    <td>{{ $item->assigned_user ?: '-' }}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($productionStats as $stat)
-                                    <tr>
-                                        <td>{{ $stat->name }}</td>
-                                        <td>{{ $stat->User && $stat->User->Company ? explode(' ', $stat->User->Company->name)[0] : '---' }}
-                                        </td>
-                                        <td>
-                                            @if ($stat->avg_resolution_d5)
-                                                {{ \Carbon\CarbonInterval::minutes($stat->avg_resolution_d5)->cascade()->forHumans() }}
-                                            @else
-                                                N/A
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if ($stat->avg_resolution_no_d5)
-                                                {{ \Carbon\CarbonInterval::minutes($stat->avg_resolution_no_d5)->cascade()->forHumans() }}
-                                            @else
-                                                N/A
-                                            @endif
-                                        </td>
-                                        <td>
-                                            {{ $stat->total }}
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @else
-                        <div class="card py-3">
-                            <h5 class="text-center fw-bold">SEM DADOS PARA O PERÍODO</h5>
-                        </div>
-                    @endif
-                    <p class="fs-6 my-0 py-2 fw-thin">
-                        <em>Tempo de resolução (att_at &rarr; completed_at) por usuário. É diferenciando por Retono
-                            Interno e
-                            Normal. <br>
-                            <strong>OBS: A média de
-                                tempo pode ser maior pela quantidade na pilha do usuário.</strong><br> </em>
-                    </p>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">Sem registros na pilha para o filtro atual.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-
-
     </div>
 
+    <script>
+        window.dispatchDashboardDownloadChart = function(chartId, filename) {
+            const chart = window['chartInstance_' + chartId];
+            const canvas = document.getElementById(chartId);
 
+            if (!chart || !canvas) {
+                return;
+            }
+
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = canvas.width;
+            exportCanvas.height = canvas.height;
+
+            const context = exportCanvas.getContext('2d');
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            context.drawImage(canvas, 0, 0);
+
+            const link = document.createElement('a');
+            link.href = exportCanvas.toDataURL('image/png');
+            link.download = `${filename || 'grafico'}-${new Date().toISOString().slice(0, 10)}.png`;
+            link.click();
+        };
+    </script>
 </div>

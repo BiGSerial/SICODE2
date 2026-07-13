@@ -306,11 +306,11 @@
                     <table class="table table-sm table-condensed table-striped table-hover mb-0">
                         <thead class="table-dark">
                             <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                                <th class="text-center" scope="col">Note</th>
+                                <th class="text-center" scope="col">Nota/OV</th>
                                 <th class="text-center" scope="col">Ordens</th>
                                 <th class="text-center" scope="col">Empreiteira</th>
                                 <th class="text-center" scope="col">Rubrica</th>
-                                <th class="text-center" scope="col">Files</th>
+                                <th class="text-center" scope="col">Arquivos</th>
                                 <th class="text-center" scope="col">Equipamentos</th>
                                 <th class="text-center" scope="col">Alteracao</th>
                                 <th class="text-center" scope="col">Equipe WPA</th>
@@ -368,7 +368,7 @@
         <div class="modal-dialog">
             <div class="modal-content edp-bg-stategrey-50">
                 <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+                    Busca em massa
                 </div>
                 <div>
                     <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"

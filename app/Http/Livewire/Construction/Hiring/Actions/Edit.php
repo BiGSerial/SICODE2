@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring\Actions;
 
 use App\Models\Company;
 use App\Models\File;
+use App\Models\Production;
 use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
@@ -166,6 +167,7 @@ class Edit extends Component
             try {
                 $this->viability->update($this->payloadNewSend());
                 $this->viability->days()->delete();
+                $this->reopenLatestCompletedProduction($this->viability);
 
                 // auditoria (dentro da transação)
                 LogRehiring::handle($before, $this->viability->fresh(), [
@@ -233,6 +235,7 @@ class Edit extends Component
                 if ($this->newsend) {
                     $viab->update($this->payloadNewSend());
                     $viab->days()->delete();
+                    $this->reopenLatestCompletedProduction($viab);
 
                     LogRehiring::handle($before, $viab->fresh(), [
                         'was_newsend'     => true,
@@ -283,6 +286,7 @@ class Edit extends Component
             'tacit'         => false,
             'approved'      => false,
             'rejected'      => false,
+            'completed'     => false,
             'status'        => 1,
             'tacit_at'      => null,
             'completed_at'  => null,
@@ -291,6 +295,32 @@ class Edit extends Component
             'inActivity'    => false,
             'returned_at'   => null,
         ];
+    }
+
+    protected function reopenLatestCompletedProduction(Viability $viability): void
+    {
+        if (!$viability->note_id) {
+            return;
+        }
+
+        $production = Production::query()
+            ->where('note_id', $viability->note_id)
+            ->where(function ($query) {
+                $query->where('completed', true)
+                    ->orWhereNotNull('completed_at');
+            })
+            ->orderByDesc('completed_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$production) {
+            return;
+        }
+
+        $production->update([
+            'completed' => false,
+            'completed_at' => null,
+        ]);
     }
 
     public function downloadFile($id)
