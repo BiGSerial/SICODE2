@@ -106,7 +106,10 @@
 <div class="files-manager-page">
     @php
         $isSuperAdm = (bool) auth()->user()?->superadm;
-    @endphp <div class="files-manager-panel">
+    @endphp 
+<x-show-loading />
+    
+    <div class="files-manager-panel">
         <div class="files-manager-header d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
             <div>
                 <h4>GERENCIAMENTO DE ARQUIVOS</h4>
