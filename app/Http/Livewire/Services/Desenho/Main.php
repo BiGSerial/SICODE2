@@ -428,7 +428,15 @@ class Main extends Component
             })
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where(function ($q) {
-                $q->where('productions.completed', false)
+                $q->where(function ($activeQuery) {
+                    $activeQuery
+                        ->where('productions.completed', false)
+                        ->where(function ($statusQuery) {
+                            $statusQuery
+                                ->whereNull('productions.status')
+                                ->orWhere('productions.status', '<>', 5);
+                        });
+                })
                     ->orWhere('productions.status', 4)
                     ->orWhere(function ($reviewQuery) {
                         $reviewQuery

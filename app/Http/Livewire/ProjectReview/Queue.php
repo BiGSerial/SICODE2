@@ -1114,6 +1114,8 @@ class Queue extends Component
 
                 $production->update([
                     'status' => 5,
+                    'completed' => true,
+                    'completed_at' => $production->completed_at ?? now(),
                 ]);
 
                 Notetimeline::create([
@@ -1447,9 +1449,16 @@ class Queue extends Component
                 'analyst_note' => trim($this->analystNote) ?: null,
             ]);
 
-            $this->selectedProduction->update([
+            $productionUpdate = [
                 'status' => $requiresSapRelease ? Production::STATUS_RELEASED_TO_FINISH : 5,
-            ]);
+            ];
+
+            if (!$requiresSapRelease) {
+                $productionUpdate['completed'] = true;
+                $productionUpdate['completed_at'] = $this->selectedProduction->completed_at ?? now();
+            }
+
+            $this->selectedProduction->update($productionUpdate);
 
             Notetimeline::create([
                 'note_id' => $this->selectedProduction->note_id,
