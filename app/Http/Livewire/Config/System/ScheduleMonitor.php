@@ -2,7 +2,6 @@
 
 namespace App\Http\Livewire\Config\System;
 
-use App\Jobs\System\ForceScheduledEventJob;
 use App\Models\ScheduleExecutionLog;
 use App\Models\UpdateExecutionLog;
 use Carbon\Carbon;
@@ -124,16 +123,26 @@ class ScheduleMonitor extends Component
         );
 
         try {
-            ForceScheduledEventJob::dispatch($eventHash, $displayName);
+            $exitCode = Artisan::call('schedule:force-run', [
+                'eventHash' => $eventHash,
+                'displayName' => $displayName,
+                '--timeout' => 3600,
+            ]);
         } catch (Throwable $e) {
             $this->forceStatus = 'danger';
-            $this->forceMessage = 'Falha ao enfileirar execucao forçada: ' . $e->getMessage();
+            $this->forceMessage = 'Falha ao executar comando: ' . $e->getMessage();
             $this->refreshData();
             return;
         }
 
-        $this->forceStatus = 'success';
-        $this->forceMessage = 'Execucao forçada enfileirada para ' . $displayName . '. Timeout maximo: 1h.';
+        if ((int) $exitCode === 0) {
+            $this->forceStatus = 'success';
+            $this->forceMessage = 'Execucao forçada concluida para ' . $displayName . '.';
+        } else {
+            $output = trim(Artisan::output());
+            $this->forceStatus = 'danger';
+            $this->forceMessage = 'Execucao forçada falhou para ' . $displayName . '. ' . ($output ?: 'Sem retorno do comando.');
+        }
 
         $this->refreshData();
     }
