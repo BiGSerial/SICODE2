@@ -123,11 +123,7 @@ class ScheduleMonitor extends Component
         );
 
         try {
-            $exitCode = Artisan::call('schedule:force-run', [
-                'eventHash' => $eventHash,
-                'displayName' => $displayName,
-                '--timeout' => 3600,
-            ]);
+            $pid = $this->startForcedScheduleProcess($eventHash, $displayName);
         } catch (Throwable $e) {
             $this->forceStatus = 'danger';
             $this->forceMessage = 'Falha ao executar comando: ' . $e->getMessage();
@@ -135,16 +131,35 @@ class ScheduleMonitor extends Component
             return;
         }
 
-        if ((int) $exitCode === 0) {
-            $this->forceStatus = 'success';
-            $this->forceMessage = 'Execucao forçada concluida para ' . $displayName . '.';
-        } else {
-            $output = trim(Artisan::output());
-            $this->forceStatus = 'danger';
-            $this->forceMessage = 'Execucao forçada falhou para ' . $displayName . '. ' . ($output ?: 'Sem retorno do comando.');
-        }
+        $this->forceStatus = 'success';
+        $this->forceMessage = 'Execucao forçada iniciada para ' . $displayName . ($pid ? " (PID {$pid})." : '.');
 
         $this->refreshData();
+    }
+
+    private function startForcedScheduleProcess(string $eventHash, string $displayName): ?int
+    {
+        $command = implode(' ', [
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(base_path('artisan')),
+            'schedule:force-run',
+            escapeshellarg($eventHash),
+            escapeshellarg($displayName),
+            '--timeout=3600',
+        ]);
+
+        $process = Process::fromShellCommandline($command . ' > /dev/null 2>&1 & echo $!', base_path());
+        $process->setTimeout(5);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            $output = trim($process->getOutput() . "\n" . $process->getErrorOutput());
+            throw new \RuntimeException($output ?: 'Sem retorno do processo.');
+        }
+
+        $pid = (int) trim($process->getOutput());
+
+        return $pid > 0 ? $pid : null;
     }
 
     public function stopRunningCommand(string $logId, string $pid): void
