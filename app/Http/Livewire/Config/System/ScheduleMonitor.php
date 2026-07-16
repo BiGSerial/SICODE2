@@ -9,6 +9,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -121,9 +122,10 @@ class ScheduleMonitor extends Component
             $this->extractArtisanCommands((string) $event->command),
             (string) $event->command
         );
+        $commands = $this->extractArtisanCommands((string) $event->command);
 
         try {
-            $pid = $this->startForcedScheduleProcess($eventHash, $displayName);
+            $pid = $this->startForcedScheduleProcess($eventHash, $displayName, $commands);
         } catch (Throwable $e) {
             $this->forceStatus = 'danger';
             $this->forceMessage = 'Falha ao executar comando: ' . $e->getMessage();
@@ -132,23 +134,39 @@ class ScheduleMonitor extends Component
         }
 
         $this->forceStatus = 'success';
-        $this->forceMessage = 'Execucao forçada iniciada para ' . $displayName . ($pid ? " (PID {$pid})." : '.');
+        $this->forceMessage = 'Execucao forçada iniciada para ' . $displayName . ($pid ? " (PID {$pid})." : '.') . ' Log: storage/logs/scheduler/force-run.log';
 
+        usleep(300000);
         $this->refreshData();
     }
 
-    private function startForcedScheduleProcess(string $eventHash, string $displayName): ?int
+    private function startForcedScheduleProcess(string $eventHash, string $displayName, array $commands): ?int
     {
+        if (count($commands) === 0) {
+            throw new \RuntimeException('Nao foi possivel extrair o comando artisan do evento agendado.');
+        }
+
+        $logPath = storage_path('logs/scheduler/force-run.log');
+        $logDirectory = dirname($logPath);
+
+        if (!is_dir($logDirectory)) {
+            mkdir($logDirectory, 0775, true);
+        }
+
+        $artisan = escapeshellarg(base_path('artisan'));
+        $php = escapeshellarg($this->phpCliBinary());
+        $shellCommand = collect($commands)
+            ->map(fn (string $command) => $php . ' ' . $artisan . ' ' . $command)
+            ->implode(' && ');
+
         $command = implode(' ', [
-            escapeshellarg(PHP_BINARY),
-            escapeshellarg(base_path('artisan')),
-            'schedule:force-run',
-            escapeshellarg($eventHash),
-            escapeshellarg($displayName),
-            '--timeout=3600',
+            escapeshellarg($this->nohupBinary()),
+            '/bin/sh',
+            '-c',
+            escapeshellarg($shellCommand),
         ]);
 
-        $process = Process::fromShellCommandline($command . ' > /dev/null 2>&1 & echo $!', base_path());
+        $process = Process::fromShellCommandline($command . ' >> ' . escapeshellarg($logPath) . ' 2>&1 < /dev/null & echo $!', base_path());
         $process->setTimeout(5);
         $process->run();
 
@@ -159,7 +177,42 @@ class ScheduleMonitor extends Component
 
         $pid = (int) trim($process->getOutput());
 
+        Log::info('Execucao forçada do schedule iniciada pelo monitor', [
+            'event_hash' => $eventHash,
+            'display_name' => $displayName,
+            'pid' => $pid > 0 ? $pid : null,
+            'php' => $this->phpCliBinary(),
+            'nohup' => $this->nohupBinary(),
+            'log' => $logPath,
+            'command' => $shellCommand,
+        ]);
+
         return $pid > 0 ? $pid : null;
+    }
+
+    private function nohupBinary(): string
+    {
+        foreach (['/usr/bin/nohup', '/bin/nohup'] as $candidate) {
+            if (is_file($candidate) && is_executable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return 'nohup';
+    }
+
+    private function phpCliBinary(): string
+    {
+        $configured = trim((string) env('PHP_CLI_BINARY', ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        $phpFromBindir = rtrim(PHP_BINDIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'php';
+
+        return is_file($phpFromBindir) && is_executable($phpFromBindir)
+            ? $phpFromBindir
+            : 'php';
     }
 
     public function stopRunningCommand(string $logId, string $pid): void
