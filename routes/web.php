@@ -145,6 +145,7 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     });
 
     Route::prefix('/externo')->name('oexterno.')->group(function () {
+        Route::get('/obras_liberadas', 'oexterno_released_works')->name('released_works');
         Route::get('/undefined', 'oexterno_undefined')->name('undefined');
         Route::get('/waiting_payment', 'oexterno_waiting_payment')->name('waiting_payment');
         Route::get('/waiting_orgao', 'oexterno_waiting_orgao')->name('waiting_orgao');

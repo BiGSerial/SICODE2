@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
 use App\Helpers\SelectOptions;
-use App\Models\{File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim, User};
+use App\Models\{ExternalOrganRelease, File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim, User};
 use App\Notifications\SystemNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -124,6 +124,7 @@ class Analise extends Component
     public bool $allowProjectReviewHistory = false;
     public string $modalContext = 'finish';
     public bool $hasProjectReviewCycles = false;
+    public string $externalOrganDependency = '';
 
 
     // Files
@@ -180,6 +181,7 @@ class Analise extends Component
             ->with('Note')
             ->find($productionId);
         $this->note = $this->production?->Note ?: Note::find($noteId);
+        $this->externalOrganDependency = (bool) ($this->note->doe ?? false) ? 'SIM' : '';
         $this->hasProjectReviewCycles = ((int) ($this->production->project_review_cycles_count ?? 0)) > 0;
 
         if ($isViewOnlyRequest && !$this->canOpenProjectReviewReadonly()) {
@@ -688,6 +690,60 @@ class Analise extends Component
             'info'       => $this->info,
             'preresult'  => $this->preresult,
         ]);
+    }
+
+    private function validateExternalOrganDependencyForFinish(): bool
+    {
+        if ($this->isSapReleaseFinalizeFlow) {
+            return true;
+        }
+
+        if (!in_array($this->externalOrganDependency, ['SIM', 'NAO'], true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ÓRGÃO EXTERNO NÃO DEFINIDO',
+                'html'     => 'Informe se o projeto depende de aprovação de Órgão Externo antes de concluir.',
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function syncExternalOrganRelease(): void
+    {
+        if ($this->isSapReleaseFinalizeFlow || !$this->note || !$this->production) {
+            return;
+        }
+
+        $dependsOnExternalOrgan = $this->externalOrganDependency === 'SIM';
+
+        $this->note->update([
+            'doe' => $dependsOnExternalOrgan,
+        ]);
+
+        if ($dependsOnExternalOrgan) {
+            ExternalOrganRelease::updateOrCreate(
+                [
+                    'note_id' => $this->note->id,
+                    'production_id' => $this->production->id,
+                ],
+                [
+                    'detected_nstats' => $this->note->nstats,
+                    'detected_dt_status' => $this->note->dt_status,
+                ]
+            );
+
+            return;
+        }
+
+        ExternalOrganRelease::query()
+            ->where('note_id', $this->note->id)
+            ->whereNull('exported_at')
+            ->whereNull('released_at')
+            ->delete();
     }
 
     public function addOrderToList(): void
@@ -1301,6 +1357,10 @@ class Analise extends Component
         $this->note       = Note::find($this->production->note_id);
         $isSapReleaseFinalizeFlow = $this->isSapReleaseFinalizeFlow;
 
+        if (!$this->validateExternalOrganDependencyForFinish()) {
+            return;
+        }
+
         if (
             (int) $this->production->status === Production::STATUS_IN_PROJECT_REVIEW
             && $this->isProjectReviewTracked()
@@ -1511,6 +1571,10 @@ class Analise extends Component
             return;
         }
 
+        if (!$this->validateExternalOrganDependencyForFinish()) {
+            return;
+        }
+
         if (
             (int) $this->production->status === Production::STATUS_IN_PROJECT_REVIEW
             && $this->isProjectReviewTracked()
@@ -1557,6 +1621,8 @@ class Analise extends Component
                     ]);
                 }
             }
+
+            $this->syncExternalOrganRelease();
 
             if ($isSapReleaseFinalizeFlow) {
                 $chk = $this->production->update([
@@ -1729,6 +1795,7 @@ class Analise extends Component
         $this->viewOnlyProjectReview = false;
         $this->allowProjectReviewHistory = false;
         $this->hasProjectReviewCycles = false;
+        $this->externalOrganDependency = '';
 
 
     }
@@ -1780,6 +1847,7 @@ class Analise extends Component
         $this->viewOnlyProjectReview = false;
         $this->allowProjectReviewHistory = false;
         $this->hasProjectReviewCycles = false;
+        $this->externalOrganDependency = '';
 
     }
 

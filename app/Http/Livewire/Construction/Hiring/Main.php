@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Exports\HiringAccompanyExport;
 use App\Exports\HiringListExport;
-use App\Models\{Company, File, HiringWaiting, Note, Order, Production, Reclaim, Service, User, Viability};
+use App\Models\{Company, ExternalOrganRelease, File, HiringWaiting, Note, Order, Production, Reclaim, Service, User, Viability};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads, WithPagination};
@@ -241,13 +241,14 @@ class Main extends Component
         $this->filter = $this->getActiveFilters();
 
         $query = Note::query();
+        $query->withoutPendingExternalOrganReleaseInStatuses(ExternalOrganRelease::HIRING_BLOCK_STATUSES);
 
         // Base query conditions
         if (!$this->allCenters) {
             $query->where(function ($query) {
                 $query->where(function ($qq) {
                     $qq->when(!$this->allCenters, function ($q) {
-                        $q->whereIn('nstats', [46, 47, 48, 49, 50]);
+                        $q->whereIn('nstats', [46, 47, 48, 49, 50, 51]);
                     })
                     ->whereNotIn('rubrica', ['Incoporação'])
                     ->where('type_note', 2);

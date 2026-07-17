@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Responsible;
 
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
+use App\Models\ExternalOrganRelease;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Production;
@@ -305,6 +306,7 @@ class ApprovalList extends Component
         }
 
         $query = Note::query();
+        $query->withoutPendingExternalOrganReleaseInStatuses(ExternalOrganRelease::TRACKED_STATUSES);
 
         $query->where(function ($query) {
             $query->where(function ($qq) {

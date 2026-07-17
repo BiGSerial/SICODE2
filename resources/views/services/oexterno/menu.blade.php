@@ -21,6 +21,13 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{{ route('services.oexterno.released_works', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="bi bi-box-arrow-up-right edp-text-verde-dark fs-5"></i> <span>OBRAS LIBERADAS</span>
+                            @livewire('services.oexterno.counts.released-works-count', key('released-works-count'))
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('services.oexterno.undefined', ['service' => $service->uuid]) }}"
                             class="nav-item text-white fw-normal">
                             <i class="bi bi-question-circle fs-5 text-warning"></i> <span>STATUS INDEFINIDOS</span>

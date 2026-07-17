@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\ExternalOrganRelease;
 use App\Models\Note;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -14,11 +15,13 @@ class HiringRepository
      */
     public function getBaseQuery(): Builder
     {
-        $query = Note::query()->excludeCanceledFullDone();
+        $query = Note::query()
+            ->excludeCanceledFullDone()
+            ->withoutPendingExternalOrganReleaseInStatuses(ExternalOrganRelease::HIRING_BLOCK_STATUSES);
 
         $query->where(function ($query) {
             $query->where(function ($qq) {
-                $qq->whereIn('nstats', [46, 47, 48, 49, 50])
+                $qq->whereIn('nstats', [46, 47, 48, 49, 50, 51])
                 ->whereNotIn('rubrica', ['Incoporação'])
                 ->where('type_note', 2);
             })
