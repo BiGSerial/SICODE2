@@ -410,7 +410,19 @@ class Analise extends Component
             'RETORNADO LEVANTAMENTO',
             'ARQUIVADO',
             'DEPENDE DE ORGAO EXTERNO',
+            'LIBERACAO AUTOCAD ORGAO EXTERNO',
         ], true);
+    }
+
+    public function getShouldAskExternalOrganDependencyProperty(): bool
+    {
+        if ($this->isSapReleaseFinalizeFlow) {
+            return false;
+        }
+
+        $conclusion = mb_strtoupper(trim((string) $this->conclusion));
+
+        return $conclusion !== 'LIBERACAO AUTOCAD ORGAO EXTERNO';
     }
 
     private function preResultRequiresProjectReview(): bool
@@ -694,7 +706,7 @@ class Analise extends Component
 
     private function validateExternalOrganDependencyForFinish(): bool
     {
-        if ($this->isSapReleaseFinalizeFlow) {
+        if (!$this->shouldAskExternalOrganDependency) {
             return true;
         }
 
@@ -714,7 +726,7 @@ class Analise extends Component
 
     private function syncExternalOrganRelease(): void
     {
-        if ($this->isSapReleaseFinalizeFlow || !$this->note || !$this->production) {
+        if (!$this->shouldAskExternalOrganDependency || !$this->note || !$this->production) {
             return;
         }
 

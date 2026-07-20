@@ -136,26 +136,36 @@
             <div class="col-12">
                 <div class="activity-filter-card">
                     <div class="activity-filter-title mb-2">Status da produção</div>
-                    @if (count($statusFilterOptions))
-                        <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
-                            @foreach ($statusFilterOptions as $statusOption)
-                                @php
-                                    $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
-                                @endphp
-                                <button type="button"
-                                    class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
-                                    wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
-                                    {{ $statusOption['label'] }}
-                                    <span class="badge text-bg-light ms-1">
-                                        {{ $statusOption['count'] }}
-                                    </span>
-                                </button>
-                            @endforeach
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        @if (count($statusFilterOptions))
+                            <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
+                                @foreach ($statusFilterOptions as $statusOption)
+                                    @php
+                                        $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
+                                    @endphp
+                                    <button type="button"
+                                        class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
+                                        wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
+                                        {{ $statusOption['label'] }}
+                                        <span class="badge text-bg-light ms-1">
+                                            {{ $statusOption['count'] }}
+                                        </span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @else
+                            <span class="text-muted small">Nenhum status disponível.</span>
+                        @endif
+
+                        <button type="button"
+                            class="btn {{ $showProjectReviewInProgress ? 'btn-outline-warning' : 'btn-outline-secondary' }}"
+                            wire:click.prevent="toggleProjectReviewInProgress">
+                            <i class="{{ $showProjectReviewInProgress ? 'ri-eye-off-line' : 'ri-eye-line' }} me-1"></i>
+                            {{ $showProjectReviewInProgress ? 'Ocultar em análise' : 'Mostrar em análise' }}
+                            <span class="badge text-bg-light ms-1">{{ $this->projectReviewInProgressCount }}</span>
+                        </button>
+                    </div>
                         </div>
-                    @else
-                        <span class="text-muted small">Nenhum status disponível.</span>
-                    @endif
-                </div>
             </div>
             <div class="col-12">
                 <div class="activity-filter-card">

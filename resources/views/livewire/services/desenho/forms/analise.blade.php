@@ -823,7 +823,7 @@
                             </div>
                         @endif
 
-                        @if (!$this->isSapReleaseFinalizeFlow)
+                        @if ($this->shouldAskExternalOrganDependency)
                             <div class="row mt-4">
                                 <div class="col-12 col-md-5 col-xl-4">
                                     <label class="form-label fw-semibold">Depende de Órgão Externo?</label>
