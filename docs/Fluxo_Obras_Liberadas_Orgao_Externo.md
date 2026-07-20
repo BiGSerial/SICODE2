@@ -14,8 +14,10 @@ Essa separacao evita que uma marcacao manual antiga em `notes.doe` bloqueie list
 ## Entrada no fluxo
 
 No encerramento do formulario de Desenho, o projetista deve preencher `Depende de Orgao Externo?`.
+Somente OVs (`notes.type_note = 2`) entram na lista Obras Liberadas.
 
 O Levantamento pode continuar atualizando `notes.doe`, mas nao cria pendencia em `external_organ_releases` e nao envia obra para a lista Obras Liberadas. A entrada operacional dessa lista nasce apenas no Desenho.
+Notas EP (`notes.type_note = 1`) nao entram nesse fluxo operacional.
 
 - `Nao`: grava `notes.doe = false` e nao cria pendencia operacional.
 - `Sim`: grava `notes.doe = true` e cria/atualiza `external_organ_releases` para a combinacao `note_id + production_id`.

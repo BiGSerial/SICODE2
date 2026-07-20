@@ -37,7 +37,7 @@
         </div>
         <div class="col-6 col-lg-3">
             <div class="border rounded px-2 py-1 h-100">
-                <div class="small text-muted">Atrasadas agora</div>
+                <div class="small text-muted">Atrasadas no período</div>
                 <div class="fw-bold text-danger" id="ads-ana-overdue">{{ (int) ($a['current_overdue'] ?? 0) }}</div>
             </div>
         </div>
@@ -111,6 +111,9 @@
             const buildQuery = (filters) => {
                 const p = new URLSearchParams();
                 Object.entries(filters || {}).forEach(([key, value]) => {
+                    if (key.startsWith('__')) {
+                        return;
+                    }
                     if (Array.isArray(value)) {
                         value.filter(v => v !== null && v !== '').forEach(v => p.append(`${key}[]`, String(v)));
                         return;
@@ -162,6 +165,10 @@
 
                 const endpoint = card.dataset.endpoint;
                 let filters = parseFilters(card.dataset.filters);
+                window.__adsDemandDeliveryTopFilters = window.__adsDemandDeliveryTopFilters || filters;
+                window.__adsDemandDeliveryChartFilters = window.__adsDemandDeliveryChartFilters || null;
+                window.__adsDemandDeliveryFilters = window.__adsDemandDeliveryChartFilters || window.__adsDemandDeliveryTopFilters;
+                window.__adsDemandDeliveryRequestSeq = window.__adsDemandDeliveryRequestSeq || 0;
                 if (!endpoint) return;
 
                 const setText = (id, value) => {
@@ -203,8 +210,9 @@
 
                 const fetchAndUpdate = async () => {
                     try {
+                        const requestSeq = ++window.__adsDemandDeliveryRequestSeq;
                         resetCountdown();
-                        const query = buildQuery(filters);
+                        const query = buildQuery(window.__adsDemandDeliveryFilters || filters);
                         const url = query ? `${endpoint}?${query}` : endpoint;
                         const res = await fetch(url, {
                             method: 'GET',
@@ -214,6 +222,7 @@
                         });
                         if (!res.ok) return;
                         const payload = await res.json();
+                        if (requestSeq !== window.__adsDemandDeliveryRequestSeq) return;
                         const analytics = payload.analytics || {};
                         const analyticsSignature = toSignature(analytics);
                         if (analyticsSignature !== null && analyticsSignature !== lastAnalyticsSignature) {
@@ -236,6 +245,8 @@
                     } catch (e) {}
                 };
 
+                window.__adsDemandDeliveryFetch = fetchAndUpdate;
+
                 renderNow(initialLineChart);
                 renderBarNow(initialBarChart);
                 fetchAndUpdate();
@@ -248,8 +259,24 @@
 
                 if (!window.__adsDemandDeliveryFiltersListener) {
                     window.addEventListener('ads-filters-updated', (event) => {
-                        filters = event?.detail || {};
-                        fetchAndUpdate();
+                        const incoming = event?.detail || {};
+                        const source = incoming.__source || 'top';
+                        const cleaned = Object.fromEntries(
+                            Object.entries(incoming).filter(([key]) => !key.startsWith('__'))
+                        );
+
+                        if (source === 'chart') {
+                            window.__adsDemandDeliveryChartFilters = cleaned;
+                            window.__adsDemandDeliveryFilters = cleaned;
+                        } else {
+                            window.__adsDemandDeliveryTopFilters = cleaned;
+                            window.__adsDemandDeliveryChartFilters = null;
+                            window.__adsDemandDeliveryFilters = cleaned;
+                        }
+
+                        if (typeof window.__adsDemandDeliveryFetch === 'function') {
+                            window.__adsDemandDeliveryFetch();
+                        }
                     });
                     window.__adsDemandDeliveryFiltersListener = true;
                 }

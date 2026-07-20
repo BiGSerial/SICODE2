@@ -73,7 +73,8 @@ class ReleasedWorks extends Component
         $ids = $this->baseQuery()
             ->whereNull('released_at')
             ->whereHas('note', function ($q) {
-                $q->whereIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
+                $q->where('type_note', 2)
+                    ->whereIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
             })
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
@@ -125,15 +126,25 @@ class ReleasedWorks extends Component
             $query->whereNull('released_at')
                 ->whereNull('exported_at')
                 ->whereHas('note', function ($q) {
-                    $q->whereIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
+                    $q->where('type_note', 2)
+                        ->whereIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
                 });
         } elseif ($this->tab === 'exported') {
             $query->whereNull('released_at')
-                ->whereNotNull('exported_at');
+                ->whereNotNull('exported_at')
+                ->whereHas('note', function ($q) {
+                    $q->where('type_note', 2);
+                });
         } elseif ($this->tab === 'released') {
-            $query->whereNotNull('released_at');
+            $query->whereNotNull('released_at')
+                ->whereHas('note', function ($q) {
+                    $q->where('type_note', 2);
+                });
         } else {
-            $query->whereNull('released_at');
+            $query->whereNull('released_at')
+                ->whereHas('note', function ($q) {
+                    $q->where('type_note', 2);
+                });
         }
 
         if (filled(trim((string) $this->search))) {

@@ -66,7 +66,8 @@ class ExternalOrganRelease extends Model
         return $query->pending()
             ->whereNull('exported_at')
             ->whereHas('note', function ($q) {
-                $q->whereIn('nstats', self::TRACKED_STATUSES);
+                $q->where('type_note', 2)
+                    ->whereIn('nstats', self::TRACKED_STATUSES);
             });
     }
 }

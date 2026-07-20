@@ -53,7 +53,7 @@ class DemandDeliveryChart extends Component
                     ],
                     [
                         'type' => 'line',
-                        'label' => 'Atrasadas (apos dia seguinte)',
+                        'label' => 'Atrasadas (>24h)',
                         'data' => $series['overdue_backlog'],
                         'borderColor' => 'rgba(239,68,68,0.95)',
                         'backgroundColor' => 'rgba(239,68,68,0.18)',

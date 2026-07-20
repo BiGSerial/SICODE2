@@ -60,6 +60,12 @@ class AdsRequestedReport extends Component
             $this->chartGranularity = 'day';
         }
 
+        $hasIncomingDateFilter = $this->hasAnyDateFilter();
+        $hasIncomingChartPeriod = request()->query->has('cp');
+        if ($hasIncomingDateFilter && !$hasIncomingChartPeriod && $this->chartPeriod !== 'custom') {
+            $this->chartPeriod = 'custom';
+        }
+
         $activeDateType = $this->resolveActiveDateType();
         if ($activeDateType === 'completed') {
             $this->date_in = null;
@@ -95,7 +101,7 @@ class AdsRequestedReport extends Component
             ];
         }, AdsRequestStatus::cases());
 
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function updating($name): void
@@ -108,7 +114,7 @@ class AdsRequestedReport extends Component
     public function updated($name): void
     {
         if ($name !== 'page') {
-            $this->dispatchFiltersToCharts();
+            $this->dispatchFiltersToCharts('top');
         }
     }
 
@@ -124,7 +130,7 @@ class AdsRequestedReport extends Component
         $this->completed_out = null;
         $this->perPage = 50;
         $this->resetPage();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function applyChartDayFilter(string $date): void
@@ -145,7 +151,7 @@ class AdsRequestedReport extends Component
             $this->chartPeriod = 'custom';
             $this->chartGranularity = 'day';
             $this->resetPage();
-            $this->dispatchFiltersToCharts();
+            $this->dispatchFiltersToCharts('chart');
             return;
         }
 
@@ -158,7 +164,7 @@ class AdsRequestedReport extends Component
         $this->chartPeriod = 'custom';
         $this->chartGranularity = 'day';
         $this->resetPage();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('chart');
     }
 
     public function applyChartQueueStatusFilter(string $status): void
@@ -170,7 +176,7 @@ class AdsRequestedReport extends Component
 
         $this->statusExact = $status;
         $this->resetPage();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('chart');
     }
 
     public function updatedChartPeriod(string $value): void
@@ -185,12 +191,12 @@ class AdsRequestedReport extends Component
         if ($value === 'custom') {
             $this->ensureCustomHasAnchorDate($activeDateType);
             $this->syncGranularityFromDateRange();
-            $this->dispatchFiltersToCharts();
+            $this->dispatchFiltersToCharts('top');
             return;
         }
 
         $this->applyChartPeriod($value, $activeDateType);
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function updatedDateIn(): void
@@ -198,17 +204,12 @@ class AdsRequestedReport extends Component
         $this->completed_in = null;
         $this->completed_out = null;
 
-        if ($this->chartPeriod !== 'custom') {
-            if (blank($this->date_out) && filled($this->date_in)) {
-                $this->date_out = $this->date_in;
-            }
-            $this->applyChartPeriod($this->chartPeriod, 'request');
-            $this->dispatchFiltersToCharts();
-            return;
+        if (blank($this->date_out) && filled($this->date_in)) {
+            $this->date_out = $this->date_in;
         }
 
         $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function updatedDateOut(): void
@@ -216,14 +217,8 @@ class AdsRequestedReport extends Component
         $this->completed_in = null;
         $this->completed_out = null;
 
-        if ($this->chartPeriod !== 'custom') {
-            $this->applyChartPeriod($this->chartPeriod, 'request');
-            $this->dispatchFiltersToCharts();
-            return;
-        }
-
         $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function updatedCompletedIn(): void
@@ -231,17 +226,12 @@ class AdsRequestedReport extends Component
         $this->date_in = null;
         $this->date_out = null;
 
-        if ($this->chartPeriod !== 'custom') {
-            if (blank($this->completed_out) && filled($this->completed_in)) {
-                $this->completed_out = $this->completed_in;
-            }
-            $this->applyChartPeriod($this->chartPeriod, 'completed');
-            $this->dispatchFiltersToCharts();
-            return;
+        if (blank($this->completed_out) && filled($this->completed_in)) {
+            $this->completed_out = $this->completed_in;
         }
 
         $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function updatedCompletedOut(): void
@@ -249,14 +239,8 @@ class AdsRequestedReport extends Component
         $this->date_in = null;
         $this->date_out = null;
 
-        if ($this->chartPeriod !== 'custom') {
-            $this->applyChartPeriod($this->chartPeriod, 'completed');
-            $this->dispatchFiltersToCharts();
-            return;
-        }
-
         $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts();
+        $this->dispatchFiltersToCharts('top');
     }
 
     public function getRowsProperty()
@@ -394,9 +378,13 @@ class AdsRequestedReport extends Component
         return checkdate($month, $day, $year);
     }
 
-    private function dispatchFiltersToCharts(): void
+    private function dispatchFiltersToCharts(string $source = 'top'): void
     {
-        $this->dispatchBrowserEvent('ads-filters-updated', $this->filters());
+        $filters = $this->filters();
+        $filters['__source'] = $source;
+        $filters['__issued_at'] = (string) microtime(true);
+
+        $this->dispatchBrowserEvent('ads-filters-updated', $filters);
     }
 
     private function applyChartPeriod(string $period, string $activeDateType = 'request'): void
@@ -458,6 +446,18 @@ class AdsRequestedReport extends Component
         }
 
         return 'request';
+    }
+
+    private function hasAnyDateFilter(): bool
+    {
+        return filled($this->date_in)
+            || filled($this->date_out)
+            || filled($this->completed_in)
+            || filled($this->completed_out)
+            || filled(request()->query('din'))
+            || filled(request()->query('dout'))
+            || filled(request()->query('cin'))
+            || filled(request()->query('cout'));
     }
 
     private function ensureCustomHasAnchorDate(string $activeDateType): void

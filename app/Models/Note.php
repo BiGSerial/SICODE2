@@ -222,7 +222,8 @@ class Note extends Model
 
     public function scopeWithPendingExternalOrganReleaseInStatuses($query, array $statuses)
     {
-        return $query->whereIn('nstats', $statuses)
+        return $query->where('type_note', 2)
+            ->whereIn('nstats', $statuses)
             ->whereHas('ExternalOrganReleases', function ($q) {
                 $q->whereNull('released_at');
             });
@@ -231,7 +232,8 @@ class Note extends Model
     public function scopeWithoutPendingExternalOrganReleaseInStatuses($query, array $statuses)
     {
         return $query->where(function ($q) use ($statuses) {
-            $q->whereNotIn('nstats', $statuses)
+            $q->where('type_note', '!=', 2)
+                ->orWhereNotIn('nstats', $statuses)
                 ->orWhereDoesntHave('ExternalOrganReleases', function ($releaseQuery) {
                     $releaseQuery->whereNull('released_at');
                 });

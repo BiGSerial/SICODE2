@@ -724,6 +724,10 @@ class Analise extends Component
             'doe' => $dependsOnExternalOrgan,
         ]);
 
+        if ((int) ($this->note->type_note ?? 0) !== 2) {
+            return;
+        }
+
         if ($dependsOnExternalOrgan) {
             ExternalOrganRelease::updateOrCreate(
                 [

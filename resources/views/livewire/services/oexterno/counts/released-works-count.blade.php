@@ -1,1 +1,5 @@
-<span wire:poll.60s class="badge rounded-pill text-bg-danger ms-1">{{ $count }}</span>
+<div wire:poll.40s>
+    @if ($count)
+        <span class="badge bg-danger align-middle ms-1">{{ $count }}</span>
+    @endif
+</div>
