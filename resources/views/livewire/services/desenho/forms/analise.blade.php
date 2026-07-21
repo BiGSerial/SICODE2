@@ -823,6 +823,23 @@
                             </div>
                         @endif
 
+                        @if ($this->shouldAskExternalOrganDependency)
+                            <div class="row mt-4">
+                                <div class="col-12 col-md-5 col-xl-4">
+                                    <label class="form-label fw-semibold">Depende de Órgão Externo?</label>
+                                    <select class="form-select @error('externalOrganDependency') is-invalid @enderror"
+                                        wire:model.defer="externalOrganDependency">
+                                        <option value="">Selecione</option>
+                                        <option value="SIM">Sim</option>
+                                        <option value="NAO">Não</option>
+                                    </select>
+                                    @error('externalOrganDependency')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        @endif
+
                         <div class="mt-4">
                             <label class="form-label fw-semibold">Informações Adicionais</label>
                             <textarea class="form-control" rows="6" wire:model.defer="info"></textarea>

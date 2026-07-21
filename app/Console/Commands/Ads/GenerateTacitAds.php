@@ -25,6 +25,11 @@ class GenerateTacitAds extends Command
 {
     use ShowsProgress;
 
+    private const ADS_LINK_REUSE_START_DATE = '2026-08-01 00:00:00';
+    private const ADS_LINK_REUSE_DAYS = 7;
+    private const AUTO_REUSE_DESCRIPTION = 'Solicitação automática concluída com reaproveitamento de ADS já disponível.';
+    private const AUTO_REUSE_AVAILABLE_DESCRIPTION = 'ADS já disponível. Solicitação finalizada automaticamente com link já existente.';
+
     protected $signature = 'ads:generate-tacit {--dry : Simula a execução sem criar/espelhar registros}';
 
     protected $description = 'Cria ADS tácita automaticamente para WorkReports vencidos sem ADS.';
@@ -189,12 +194,7 @@ class GenerateTacitAds extends Command
                             }
                         }
 
-                        $latestRequestWithUrl = AdsRequest::query()
-                            ->where('note_id', $workReport->note_id)
-                            ->whereNotNull('url')
-                            ->whereRaw("NULLIF(LTRIM(RTRIM(url)), '') IS NOT NULL")
-                            ->latest('created_at')
-                            ->first();
+                        $latestRequestWithUrl = $this->getLatestReusableRequestWithUrl((int) $workReport->note_id);
 
                         Adsform::create([
                             'work_report_id' => $workReport->id,
@@ -403,6 +403,34 @@ class GenerateTacitAds extends Command
         }
 
         return $costsByOrderId;
+    }
+
+    private function getLatestReusableRequestWithUrl(int $noteId): ?AdsRequest
+    {
+        if (!$this->canReuseAdsLink()) {
+            return null;
+        }
+
+        return AdsRequest::query()
+            ->where('note_id', $noteId)
+            ->whereNotNull('url')
+            ->whereRaw("NULLIF(LTRIM(RTRIM(url)), '') IS NOT NULL")
+            ->where('created_at', '>', now()->subDays(self::ADS_LINK_REUSE_DAYS))
+            ->where(function ($query) {
+                $query->whereNull('description')
+                    ->orWhere(function ($descriptionQuery) {
+                        $descriptionQuery
+                            ->where('description', 'not like', self::AUTO_REUSE_DESCRIPTION . '%')
+                            ->where('description', 'not like', self::AUTO_REUSE_AVAILABLE_DESCRIPTION . '%');
+                    });
+            })
+            ->latest('created_at')
+            ->first();
+    }
+
+    private function canReuseAdsLink(): bool
+    {
+        return now()->greaterThanOrEqualTo(Carbon::parse(self::ADS_LINK_REUSE_START_DATE));
     }
 
     private function mirrorToSqlServer(AdsRequest $request, string $noteNumber): bool

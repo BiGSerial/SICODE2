@@ -11,6 +11,7 @@ class AdsRequestedReportService
 {
     private const ADS_DEADLINE_HOURS = 24;
     private const AUTO_REUSE_DESCRIPTION = 'Solicitação automática concluída com reaproveitamento de ADS já disponível.';
+    private const AUTO_REUSE_AVAILABLE_DESCRIPTION = 'ADS já disponível. Solicitação finalizada automaticamente com link já existente.';
     private const AUTO_QUEUE_DESCRIPTION = 'Solicitação automática gerada por ADS tácita.';
 
     private const ACTIVE_STATUSES = [
@@ -147,6 +148,11 @@ class AdsRequestedReportService
      * }
      */
     public function demandVsDeliverySeries(array $filters): array
+    {
+        return $this->demandVsDeliverySeriesFromLocal($filters);
+    }
+
+    private function demandVsDeliverySeriesFromLocal(array $filters): array
     {
         [$start, $end] = $this->resolveDateRange($filters);
         $granularity = $this->resolveChartGranularity($filters, $start, $end);
@@ -294,6 +300,192 @@ class AdsRequestedReportService
         $backlogPeak = !empty($openSeries) ? (int) max($openSeries) : 0;
         $overdueAvg = !empty($overdueSeries) ? round(array_sum($overdueSeries) / count($overdueSeries), 1) : 0.0;
         $currentOpen = !empty($openSeries) ? (int) end($openSeries) : 0;
+        $currentOverdue = (int) array_sum($overdueSeries);
+
+        return [
+            'labels' => array_map(fn ($key) => $labels[$key], $orderedKeys),
+            'date_keys' => $orderedKeys,
+            'requested' => $requestedSeries,
+            'delivered' => $deliveredSeries,
+            'open_backlog' => $openSeries,
+            'overdue_backlog' => $overdueSeries,
+            'bucket' => $granularity,
+            'bucket_label' => $granularity === 'month' ? 'mensal' : 'diária',
+            'analytics' => [
+                'requested_total' => $requestedTotal,
+                'delivered_total' => $deliveredTotal,
+                'completion_rate' => $completionRate,
+                'backlog_avg' => $backlogAvg,
+                'backlog_peak' => $backlogPeak,
+                'overdue_avg' => $overdueAvg,
+                'current_open' => $currentOpen,
+                'current_overdue' => $currentOverdue,
+            ],
+        ];
+    }
+
+    private function demandVsDeliverySeriesFromSqlServer(array $filters): array
+    {
+        [$start, $end] = $this->resolveDateRange($filters);
+        $granularity = $this->resolveChartGranularity($filters, $start, $end);
+        $hasRequestDateScope = filled($filters['date_in'] ?? null) || filled($filters['date_out'] ?? null);
+        $requested = [];
+        $delivered = [];
+        $openBacklog = [];
+        $overdueBacklog = [];
+        $labels = [];
+
+        $cursor = $start->copy();
+        while ($cursor->lte($end)) {
+            $key = $cursor->format('Y-m-d');
+            $requested[$key] = 0;
+            $delivered[$key] = 0;
+            $openBacklog[$key] = 0;
+            $overdueBacklog[$key] = 0;
+            $labels[$key] = $cursor->format('d/m');
+            $cursor->addDay();
+        }
+
+        $requestedRows = $this->buildSqlAdsBaseQuery($filters)
+            ->whereNotIn('ar.status', [
+                AdsRequestStatus::CANCELED->value,
+                AdsRequestStatus::FAILED->value,
+            ])
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->selectRaw('CAST(ar.created_at as date) as ref_date, COUNT(*) as total')
+            ->groupByRaw('CAST(ar.created_at as date)')
+            ->get();
+
+        foreach ($requestedRows as $row) {
+            $dateKey = $this->sqlDateKey($row->ref_date ?? null);
+            if (array_key_exists($dateKey, $requested)) {
+                $requested[$dateKey] = (int) ($row->total ?? 0);
+            }
+        }
+
+        $terminalRowsBaseQuery = $this->buildSqlAdsBaseQuery($filters)
+            ->where('ar.status', AdsRequestStatus::DONE->value)
+            ->whereNotNull('ar.completed_at');
+
+        if ($hasRequestDateScope) {
+            $terminalRowsBaseQuery->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()]);
+        }
+
+        $deliveredRows = (clone $terminalRowsBaseQuery)
+            ->whereBetween('ar.completed_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->selectRaw('CAST(ar.completed_at as date) as ref_date, COUNT(*) as total')
+            ->groupByRaw('CAST(ar.completed_at as date)')
+            ->get();
+
+        foreach ($deliveredRows as $row) {
+            $dateKey = $this->sqlDateKey($row->ref_date ?? null);
+            if (array_key_exists($dateKey, $delivered)) {
+                $delivered[$dateKey] = (int) ($row->total ?? 0);
+            }
+        }
+
+        $activeStatuses = array_map(static fn (AdsRequestStatus $status) => $status->value, self::ACTIVE_STATUSES);
+        $openRows = $this->buildSqlAdsBaseQuery($filters)
+            ->whereIn('ar.status', $activeStatuses)
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->selectRaw('CAST(ar.created_at as date) as ref_date, COUNT(*) as total')
+            ->groupByRaw('CAST(ar.created_at as date)')
+            ->get();
+
+        $overdueRows = $this->buildSqlAdsBaseQuery($filters)
+            ->whereIn('ar.status', $activeStatuses)
+            ->whereBetween('ar.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->whereRaw('DATEDIFF(hour, ar.created_at, GETDATE()) > ?', [self::ADS_DEADLINE_HOURS])
+            ->selectRaw('CAST(ar.created_at as date) as ref_date, COUNT(*) as total')
+            ->groupByRaw('CAST(ar.created_at as date)')
+            ->get();
+
+        $openByCreatedDate = array_fill_keys(array_keys($labels), 0);
+        foreach ($openRows as $row) {
+            $dateKey = $this->sqlDateKey($row->ref_date ?? null);
+            if (array_key_exists($dateKey, $openByCreatedDate)) {
+                $openByCreatedDate[$dateKey] = (int) ($row->total ?? 0);
+            }
+        }
+
+        $overdueByCreatedDate = array_fill_keys(array_keys($labels), 0);
+        foreach ($overdueRows as $row) {
+            $dateKey = $this->sqlDateKey($row->ref_date ?? null);
+            if (array_key_exists($dateKey, $overdueByCreatedDate)) {
+                $overdueByCreatedDate[$dateKey] = (int) ($row->total ?? 0);
+            }
+        }
+
+        $openingOpenBacklog = 0;
+        $openingOverdueBacklog = 0;
+        if (!$hasRequestDateScope) {
+            $openingOpenBacklog = (int) $this->buildSqlAdsBaseQuery($filters)
+                ->whereIn('ar.status', $activeStatuses)
+                ->where('ar.created_at', '<', $start->copy()->startOfDay())
+                ->count();
+            $openingOverdueBacklog = (int) $this->buildSqlAdsBaseQuery($filters)
+                ->whereIn('ar.status', $activeStatuses)
+                ->where('ar.created_at', '<', $start->copy()->startOfDay())
+                ->whereRaw('DATEDIFF(hour, ar.created_at, GETDATE()) > ?', [self::ADS_DEADLINE_HOURS])
+                ->count();
+        }
+
+        $runningOpen = $openingOpenBacklog;
+        $runningOverdue = $openingOverdueBacklog;
+        foreach (array_keys($labels) as $key) {
+            $runningOpen += (int) ($openByCreatedDate[$key] ?? 0);
+            $runningOverdue += (int) ($overdueByCreatedDate[$key] ?? 0);
+            $openBacklog[$key] = $runningOpen;
+            $overdueBacklog[$key] = $runningOverdue;
+        }
+
+        $orderedKeys = array_keys($labels);
+        $requestedSeries = array_map(fn ($key) => (int) $requested[$key], $orderedKeys);
+        $deliveredSeries = array_map(fn ($key) => (int) $delivered[$key], $orderedKeys);
+        $openSeries = array_map(fn ($key) => (int) $openBacklog[$key], $orderedKeys);
+        $overdueSeries = array_map(fn ($key) => (int) $overdueBacklog[$key], $orderedKeys);
+
+        if ($granularity === 'month') {
+            $requestedByMonth = [];
+            $deliveredByMonth = [];
+            $openByMonth = [];
+            $overdueByMonth = [];
+            $labelsByMonth = [];
+
+            foreach ($orderedKeys as $index => $dayKey) {
+                $day = Carbon::createFromFormat('Y-m-d', $dayKey);
+                $monthKey = $day->format('Y-m');
+                if (!isset($requestedByMonth[$monthKey])) {
+                    $requestedByMonth[$monthKey] = 0;
+                    $deliveredByMonth[$monthKey] = 0;
+                    $openByMonth[$monthKey] = 0;
+                    $overdueByMonth[$monthKey] = 0;
+                    $labelsByMonth[$monthKey] = $day->format('m/Y');
+                }
+
+                $requestedByMonth[$monthKey] += (int) ($requestedSeries[$index] ?? 0);
+                $deliveredByMonth[$monthKey] += (int) ($deliveredSeries[$index] ?? 0);
+                $openByMonth[$monthKey] = (int) ($openSeries[$index] ?? 0);
+                $overdueByMonth[$monthKey] = (int) ($overdueSeries[$index] ?? 0);
+            }
+
+            $orderedKeys = array_keys($labelsByMonth);
+            $requestedSeries = array_map(fn ($key) => (int) ($requestedByMonth[$key] ?? 0), $orderedKeys);
+            $deliveredSeries = array_map(fn ($key) => (int) ($deliveredByMonth[$key] ?? 0), $orderedKeys);
+            $openSeries = array_map(fn ($key) => (int) ($openByMonth[$key] ?? 0), $orderedKeys);
+            $overdueSeries = array_map(fn ($key) => (int) ($overdueByMonth[$key] ?? 0), $orderedKeys);
+            $labels = $labelsByMonth;
+        }
+
+        $requestedTotal = (int) array_sum($requestedSeries);
+        $deliveredTotal = (int) array_sum($deliveredSeries);
+        $completionRate = $requestedTotal > 0
+            ? round(($deliveredTotal / $requestedTotal) * 100, 1)
+            : 0.0;
+        $backlogAvg = !empty($openSeries) ? round(array_sum($openSeries) / count($openSeries), 1) : 0.0;
+        $backlogPeak = !empty($openSeries) ? (int) max($openSeries) : 0;
+        $overdueAvg = !empty($overdueSeries) ? round(array_sum($overdueSeries) / count($overdueSeries), 1) : 0.0;
+        $currentOpen = !empty($openSeries) ? (int) end($openSeries) : 0;
         $currentOverdue = !empty($overdueSeries) ? (int) end($overdueSeries) : 0;
 
         return [
@@ -407,36 +599,7 @@ class AdsRequestedReportService
         $baseFilters['statusFilter'] = 'all';
         $baseFilters['status_exact'] = '';
 
-        $query = $this->buildNowBaseQuery($baseFilters, false);
-
-        $dateIn = $filters['date_in'] ?? null;
-        $dateOut = $filters['date_out'] ?? null;
-        $completedIn = $filters['completed_in'] ?? null;
-        $completedOut = $filters['completed_out'] ?? null;
-
-        if ($dateIn) {
-            $query->whereDate('ar.created_at', '>=', $dateIn);
-        }
-
-        if ($dateOut) {
-            $query->whereDate('ar.created_at', '<=', $dateOut);
-        }
-
-        if ($completedIn) {
-            $query->whereDate('ar.completed_at', '>=', $completedIn);
-        }
-
-        if ($completedOut) {
-            $query->whereDate('ar.completed_at', '<=', $completedOut);
-        }
-
-        $reused = (int) (clone $query)
-            ->where('ar.description', 'like', self::AUTO_REUSE_DESCRIPTION . '%')
-            ->count();
-
-        $queued = (int) (clone $query)
-            ->where('ar.description', 'like', self::AUTO_QUEUE_DESCRIPTION . '%')
-            ->count();
+        [$reused, $queued] = $this->reuseEconomyCountsFromLocal($baseFilters);
 
         $total = $reused + $queued;
         $reuseRate = $total > 0 ? round(($reused / $total) * 100, 1) : 0.0;
@@ -523,19 +686,43 @@ class AdsRequestedReportService
             ->orderByDesc('ar.created_at');
     }
 
+    private function reuseEconomyCountsFromLocal(array $filters): array
+    {
+        $query = $this->applyLocalDateFilters(
+            $this->buildNowBaseQuery($filters, false),
+            $filters
+        );
+
+        $reused = (int) (clone $query)
+            ->where(function ($sub) {
+                $sub->where('ar.description', 'like', self::AUTO_REUSE_DESCRIPTION . '%')
+                    ->orWhere('ar.description', 'like', self::AUTO_REUSE_AVAILABLE_DESCRIPTION . '%');
+            })
+            ->count();
+
+        $queued = (int) (clone $query)
+            ->where('ar.description', 'like', self::AUTO_QUEUE_DESCRIPTION . '%')
+            ->count();
+
+        return [$reused, $queued];
+    }
+
     private function buildSqlQueueBaseQuery(array $filters)
     {
-        $search = trim((string) ($filters['search'] ?? ''));
-        $companyIds = collect($filters['companyIds'] ?? [])->filter()->values();
-        $dateIn = $filters['date_in'] ?? null;
-        $dateOut = $filters['date_out'] ?? null;
-        $statusExact = trim((string) ($filters['status_exact'] ?? ''));
-
-        $query = DB::connection('sqlsrv2')
-            ->table('dbo.ads_requests as ar')
+        return $this->applySqlDateFilters($this->buildSqlAdsBaseQuery($filters), $filters)
             ->where('ar.status', '!=', AdsRequestStatus::DONE->value)
             ->where('ar.status', '!=', AdsRequestStatus::CANCELED->value)
             ->where('ar.status', '!=', AdsRequestStatus::FAILED->value);
+    }
+
+    private function buildSqlAdsBaseQuery(array $filters)
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+        $companyIds = collect($filters['companyIds'] ?? [])->filter()->values();
+        $statusExact = trim((string) ($filters['status_exact'] ?? ''));
+
+        $query = DB::connection('sqlsrv2')
+            ->table('dbo.ads_requests as ar');
 
         if ($search !== '') {
             $query->where(function ($sub) use ($search) {
@@ -563,6 +750,20 @@ class AdsRequestedReportService
             }
         }
 
+        if ($statusExact !== '') {
+            $query->where('ar.status', $statusExact);
+        }
+
+        return $query;
+    }
+
+    private function applySqlDateFilters($query, array $filters)
+    {
+        $dateIn = $filters['date_in'] ?? null;
+        $dateOut = $filters['date_out'] ?? null;
+        $completedIn = $filters['completed_in'] ?? null;
+        $completedOut = $filters['completed_out'] ?? null;
+
         if ($dateIn) {
             $query->whereDate('ar.created_at', '>=', $dateIn);
         }
@@ -571,8 +772,38 @@ class AdsRequestedReportService
             $query->whereDate('ar.created_at', '<=', $dateOut);
         }
 
-        if ($statusExact !== '') {
-            $query->where('ar.status', $statusExact);
+        if ($completedIn) {
+            $query->whereDate('ar.completed_at', '>=', $completedIn);
+        }
+
+        if ($completedOut) {
+            $query->whereDate('ar.completed_at', '<=', $completedOut);
+        }
+
+        return $query;
+    }
+
+    private function applyLocalDateFilters($query, array $filters)
+    {
+        $dateIn = $filters['date_in'] ?? null;
+        $dateOut = $filters['date_out'] ?? null;
+        $completedIn = $filters['completed_in'] ?? null;
+        $completedOut = $filters['completed_out'] ?? null;
+
+        if ($dateIn) {
+            $query->whereDate('ar.created_at', '>=', $dateIn);
+        }
+
+        if ($dateOut) {
+            $query->whereDate('ar.created_at', '<=', $dateOut);
+        }
+
+        if ($completedIn) {
+            $query->whereDate('ar.completed_at', '>=', $completedIn);
+        }
+
+        if ($completedOut) {
+            $query->whereDate('ar.completed_at', '<=', $completedOut);
         }
 
         return $query;
@@ -779,6 +1010,15 @@ class AdsRequestedReportService
         }
 
         return $value instanceof Carbon ? $value : Carbon::parse($value);
+    }
+
+    private function sqlDateKey(mixed $date): string
+    {
+        if ($date instanceof \DateTimeInterface) {
+            return Carbon::instance($date)->format('Y-m-d');
+        }
+
+        return Carbon::parse((string) $date)->format('Y-m-d');
     }
 
     private function formatDuration(int $seconds): string

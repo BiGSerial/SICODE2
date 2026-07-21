@@ -543,7 +543,8 @@ class SelectOptions
     {
         return [
             (object)['reason' => '10 - EM CONTATO COM CLIENTE', 'value' => 'EM CONTATO COM CLIENTE'],
-            (object)['reason' => '20 - DEPENDE DE ORGÃO EXTERNO', 'value' => 'DEPENDE DE ORGAO EXTERNO'],
+            // (object)['reason' => '20 - DEPENDE DE ORGÃO EXTERNO', 'value' => 'DEPENDE DE ORGAO EXTERNO'],
+            (object)['reason' => '11 - LIBERAÇÃO AUTOCAD ORGAO EXTERNO', 'value' => 'LIBERACAO AUTOCAD ORGAO EXTERNO'],
             (object)['reason' => '22 - PROCESSO PARA MEDIÇÃO', 'value' => 'PROCESSO PARA MEDICAO'],
             (object)['reason' => '27 - RETORNADO LEVANTAMENTO', 'value' => 'RETORNADO LEVANTAMENTO'],
             (object)['reason' => '47 - EXECUÇÃO DE OBRAS DA EMPRESA', 'value' => 'EXECUCAO DE OBRAS DA EMPRESA'],

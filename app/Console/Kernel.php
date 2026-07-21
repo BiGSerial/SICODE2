@@ -136,6 +136,9 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:log_externalEntities', 'log-external-entities')
             ->cron('15 */3 * * *');
 
+        $this->scheduleCommand($schedule, 'sicode:external-organ-releases:close', 'external-organ-releases-close')
+            ->hourlyAt(21);
+
         $this->scheduleCommand($schedule, 'sicode:log_informs_smc', 'log-informs-smc')
             ->hourlyAt(16);
 
@@ -306,6 +309,7 @@ class Kernel extends ConsoleKernel
             'reclaims' => 'Log Retorno Interno',
             'informs-ads-log' => 'Log ADS Informes',
             'log-external-entities' => 'Log entidades externas',
+            'external-organ-releases-close' => 'Fechar Obras Liberadas OE',
             'log-informs-smc' => 'Log informes SMC',
             'sync-log-partials-informs' => 'Log Informe parciais',
             'sync-note-inform-flows-to-sqlserver' => 'Atualizar fluxo informes SQL',

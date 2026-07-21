@@ -48,6 +48,7 @@ class Main extends Component
     public array $rubricaFilters = [];
     public bool $reviewCanFinish = false;
     public bool $notificationReviewHandled = false;
+    public bool $showProjectReviewInProgress = false;
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
@@ -60,6 +61,7 @@ class Main extends Component
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+        $this->showProjectReviewInProgress = (bool) session('desenho.show_project_review_in_progress', false);
     }
 
     public function visualizar()
@@ -328,6 +330,18 @@ class Main extends Component
         $this->resetPage();
     }
 
+    public function toggleProjectReviewInProgress(): void
+    {
+        $this->showProjectReviewInProgress = !$this->showProjectReviewInProgress;
+        session(['desenho.show_project_review_in_progress' => $this->showProjectReviewInProgress]);
+
+        if (!$this->showProjectReviewInProgress && (int) $this->statusFilter === Production::STATUS_IN_PROJECT_REVIEW) {
+            $this->statusFilter = '';
+        }
+
+        $this->resetPage();
+    }
+
     public function applyFilters(): void
     {
         $this->resetPage();
@@ -418,7 +432,14 @@ class Main extends Component
         );
     }
 
-    private function baseListQuery(bool $applyStatusFilter = true, array $exceptFilters = [])
+    public function getProjectReviewInProgressCountProperty(): int
+    {
+        return (clone $this->baseListQuery(false, [], false))
+            ->where('productions.status', Production::STATUS_IN_PROJECT_REVIEW)
+            ->count();
+    }
+
+    private function baseListQuery(bool $applyStatusFilter = true, array $exceptFilters = [], bool $respectProjectReviewInProgressPreference = true)
     {
         return Production::where('service_id', $this->service->uuid)
             ->when($this->user_s, function ($q) {
@@ -447,6 +468,13 @@ class Main extends Component
                             ])
                             ->whereHas('ProjectReviewCycles');
                     });
+            })
+            ->when($respectProjectReviewInProgressPreference && !$this->showProjectReviewInProgress, function ($q) {
+                return $q->where(function ($statusQuery) {
+                    $statusQuery
+                        ->whereNull('productions.status')
+                        ->orWhere('productions.status', '<>', Production::STATUS_IN_PROJECT_REVIEW);
+                });
             })
             ->when($this->search, function ($q, $s) {
                 return $q->where(function ($query) use ($s) {

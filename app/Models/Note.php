@@ -136,6 +136,11 @@ class Note extends Model
         return $this->hasMany(External::class);
     }
 
+    public function ExternalOrganReleases()
+    {
+        return $this->hasMany(ExternalOrganRelease::class);
+    }
+
     public function WorkForm()
     {
         return $this->hasOne(WorkReport::class)->where('canceled', false);
@@ -212,6 +217,28 @@ class Note extends Model
         return $query->whereDoesntHave('CancellationRequests', function ($q) {
             $q->where('status', CancellationRequestStatus::DONE->value)
               ->where('scope', CancellationRequestScope::NOTE_FULL->value);
+        });
+    }
+
+    public function scopeWithPendingExternalOrganReleaseInStatuses($query, array $statuses)
+    {
+        return $query->where('type_note', 2)
+            ->whereIn('nstats', $statuses)
+            ->whereHas('ExternalOrganReleases', function ($q) {
+                $q->whereNull('released_at')
+                    ->eligibleForExternalOrganList();
+            });
+    }
+
+    public function scopeWithoutPendingExternalOrganReleaseInStatuses($query, array $statuses)
+    {
+        return $query->where(function ($q) use ($statuses) {
+            $q->where('type_note', '!=', 2)
+                ->orWhereNotIn('nstats', $statuses)
+                ->orWhereDoesntHave('ExternalOrganReleases', function ($releaseQuery) {
+                    $releaseQuery->whereNull('released_at')
+                        ->eligibleForExternalOrganList();
+                });
         });
     }
 

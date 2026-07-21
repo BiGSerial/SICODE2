@@ -210,6 +210,15 @@ class ServicesController extends Controller
 
 
     // Orgao Externo
+    public function oexterno_released_works(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('services.oexterno.releasedWorks', [
+            'service' => $service,
+        ]);
+    }
+
     public function oexterno_undefined(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();
