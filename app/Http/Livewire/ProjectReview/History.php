@@ -3,19 +3,11 @@
 namespace App\Http\Livewire\ProjectReview;
 
 use App\Jobs\Reports\ExportProjectReviewHistoryListJob;
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Notetimeline;
-use App\Models\ProjectReviewCategory;
-use App\Models\ProjectReviewCycle;
-use App\Models\ProjectReviewMessage;
-use App\Models\ProjectReviewSubcategory;
-use App\Models\Production;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{Company, File, Notetimeline, Production, ProjectReviewCategory, ProjectReviewCycle, ProjectReviewMessage, ProjectReviewSubcategory};
+use App\Notifications\SystemNotification;
+use App\Support\Notifications\UserNotificationData;
+use Illuminate\Support\Facades\{DB, Schema, Storage};
+use Livewire\{Component, WithPagination};
 
 class History extends Component
 {
@@ -24,21 +16,37 @@ class History extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $search = '';
+
     public string $company_id = '';
+
     public ?string $from = null;
+
     public ?string $to = null;
+
     public ?ProjectReviewCycle $selectedCycle = null;
+
     public ?Production $selectedProduction = null;
+
     public string $selectedHistoryPointFilter = '';
+
     public bool $editingFindings = false;
+
     public array $historyFindingRows = [];
+
     public ?int $selectedCategoryId = null;
+
     public ?int $selectedSubcategoryId = null;
+
     public string $selectedPointLabel = 'P1';
+
     public string $selectedOrigin = 'PROJETO';
+
     public string $selectedActionType = 'FALTA';
+
     public string $newReply = '';
+
     public array $taxonomySubcategories = [];
+
     public array $taxonomyCategories = [];
 
     public function mount(): void
@@ -79,7 +87,7 @@ class History extends Component
                         ->orWhere('material', 'like', $s);
                 });
             })
-            ->when($this->company_id !== '', fn($q) => $q->where('company_id', $this->company_id))
+            ->when($this->company_id !== '', fn ($q) => $q->where('company_id', $this->company_id))
             ->when($this->from, function ($q) {
                 $q->whereHas('ProjectReviewCycles', function ($cq) {
                     $cq->where('submitted_at', '>=', $this->from . ' 00:00:00');
@@ -114,9 +122,9 @@ class History extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Exportação iniciada',
-            'html' => "<div class='card'><div class='card-body'>
+            'icon'     => 'success',
+            'title'    => 'Exportação iniciada',
+            'html'     => "<div class='card'><div class='card-body'>
                 <p>Seu histórico está sendo gerado.</p>
                 <p class='mb-0'><strong>Você será notificado quando o download estiver pronto.</strong></p>
             </div></div>",
@@ -129,10 +137,10 @@ class History extends Component
         $companyIds = auth()->user()?->contract ? $this->allowedCompanyIds()->all() : [];
 
         return [
-            'search' => $this->search,
-            'company_id' => $this->company_id,
-            'from' => $this->from,
-            'to' => $this->to,
+            'search'      => $this->search,
+            'company_id'  => $this->company_id,
+            'from'        => $this->from,
+            'to'          => $this->to,
             'company_ids' => $companyIds,
         ];
     }
@@ -172,9 +180,9 @@ class History extends Component
             ->firstWhere('decision', 'REJECTED')
             ?: $this->selectedProduction->ProjectReviewCycles->first();
         $this->selectedHistoryPointFilter = '';
-        $this->editingFindings = false;
-        $this->historyFindingRows = [];
-        $this->newReply = '';
+        $this->editingFindings            = false;
+        $this->historyFindingRows         = [];
+        $this->newReply                   = '';
         $this->refreshSelectedProductionMessages();
 
         $this->dispatchBrowserEvent('showModal', ['id' => 'historyProjectReviewModal']);
@@ -183,13 +191,16 @@ class History extends Component
     private function applyContractScopeToProductions($query): void
     {
         $user = auth()->user();
+
         if (!$user?->contract) {
             return;
         }
 
         $companyIds = $this->allowedCompanyIds();
+
         if ($companyIds->isEmpty()) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -199,6 +210,7 @@ class History extends Component
     private function allowedCompanyIds()
     {
         $user = auth()->user();
+
         if (!$user) {
             return collect();
         }
@@ -217,15 +229,16 @@ class History extends Component
         }
 
         $cycle = collect($this->selectedProduction->ProjectReviewCycles)->firstWhere('id', $cycleId);
+
         if (!$cycle) {
             return;
         }
 
-        $this->selectedCycle = $cycle;
+        $this->selectedCycle              = $cycle;
         $this->selectedHistoryPointFilter = '';
-        $this->editingFindings = false;
-        $this->historyFindingRows = [];
-        $this->newReply = '';
+        $this->editingFindings            = false;
+        $this->historyFindingRows         = [];
+        $this->newReply                   = '';
     }
 
     public function getCanEditSelectedCycleProperty(): bool
@@ -256,15 +269,16 @@ class History extends Component
         }
 
         $message = trim($this->newReply);
+
         if ($message === '') {
             return;
         }
 
         ProjectReviewMessage::create([
             'production_id' => $this->selectedProduction->id,
-            'cycle_id' => $this->selectedCycle->id,
-            'user_id' => auth()->id(),
-            'message' => $message,
+            'cycle_id'      => $this->selectedCycle->id,
+            'user_id'       => auth()->id(),
+            'message'       => $message,
         ]);
 
         $this->newReply = '';
@@ -280,15 +294,15 @@ class History extends Component
         $this->historyFindingRows = collect($this->selectedCycle->Findings ?? [])
             ->map(function ($f) {
                 return [
-                    'point_label' => $this->normalizePointLabel((string) ($f->point_label ?? '')),
-                    'subcategory_id' => (int) $f->subcategory_id,
+                    'point_label'      => $this->normalizePointLabel((string) ($f->point_label ?? '')),
+                    'subcategory_id'   => (int) $f->subcategory_id,
                     'subcategory_name' => (string) (optional($f->Subcategory)->name ?? 'Sem subcategoria'),
-                    'item_id' => $f->item_id ? (int) $f->item_id : null,
-                    'item_name' => (string) (optional($f->Item)->name ?? ''),
-                    'origin' => (string) ($f->origin ?: 'PROJETO'),
-                    'action_type' => (string) ($f->action_type ?: 'FALTA'),
-                    'quantity' => is_null($f->quantity) ? null : (int) $f->quantity,
-                    'note' => (string) ($f->note ?? ''),
+                    'item_id'          => $f->item_id ? (int) $f->item_id : null,
+                    'item_name'        => (string) (optional($f->Item)->name ?? ''),
+                    'origin'           => (string) ($f->origin ?: 'PROJETO'),
+                    'action_type'      => (string) ($f->action_type ?: 'FALTA'),
+                    'quantity'         => is_null($f->quantity) ? null : (int) $f->quantity,
+                    'note'             => (string) ($f->note ?? ''),
                 ];
             })
             ->values()
@@ -302,13 +316,13 @@ class History extends Component
 
     public function cancelFindingsEdit(): void
     {
-        $this->editingFindings = false;
-        $this->historyFindingRows = [];
-        $this->selectedCategoryId = null;
+        $this->editingFindings       = false;
+        $this->historyFindingRows    = [];
+        $this->selectedCategoryId    = null;
         $this->selectedSubcategoryId = null;
-        $this->selectedPointLabel = 'P1';
-        $this->selectedOrigin = 'PROJETO';
-        $this->selectedActionType = 'FALTA';
+        $this->selectedPointLabel    = 'P1';
+        $this->selectedOrigin        = 'PROJETO';
+        $this->selectedActionType    = 'FALTA';
         $this->resetValidation();
     }
 
@@ -324,20 +338,21 @@ class History extends Component
         }
 
         $subcategory = $this->subcategories->firstWhere('id', (int) $this->selectedSubcategoryId);
+
         if (!$subcategory) {
             return;
         }
 
         $this->historyFindingRows[] = [
-            'point_label' => $this->normalizePointLabel($this->selectedPointLabel),
-            'subcategory_id' => (int) $this->selectedSubcategoryId,
+            'point_label'      => $this->normalizePointLabel($this->selectedPointLabel),
+            'subcategory_id'   => (int) $this->selectedSubcategoryId,
             'subcategory_name' => (string) data_get($subcategory, 'name', 'Sem subcategoria'),
-            'item_id' => null,
-            'item_name' => '',
-            'origin' => $this->selectedOrigin,
-            'action_type' => $this->selectedActionType,
-            'quantity' => null,
-            'note' => '',
+            'item_id'          => null,
+            'item_name'        => '',
+            'origin'           => $this->selectedOrigin,
+            'action_type'      => $this->selectedActionType,
+            'quantity'         => null,
+            'note'             => '',
         ];
     }
 
@@ -348,11 +363,13 @@ class History extends Component
         }
 
         $subcategory = $this->subcategories->firstWhere('id', (int) $this->selectedSubcategoryId);
+
         if (!$subcategory) {
             return;
         }
 
         $item = $this->availableItems->firstWhere('id', $itemId);
+
         if (!$item) {
             return;
         }
@@ -372,15 +389,15 @@ class History extends Component
         }
 
         $this->historyFindingRows[] = [
-            'point_label' => $pointLabel,
-            'subcategory_id' => (int) $this->selectedSubcategoryId,
+            'point_label'      => $pointLabel,
+            'subcategory_id'   => (int) $this->selectedSubcategoryId,
             'subcategory_name' => (string) data_get($subcategory, 'name', 'Sem subcategoria'),
-            'item_id' => (int) $itemId,
-            'item_name' => (string) data_get($item, 'name', ''),
-            'origin' => $this->selectedOrigin,
-            'action_type' => $this->selectedActionType,
-            'quantity' => 1,
-            'note' => '',
+            'item_id'          => (int) $itemId,
+            'item_name'        => (string) data_get($item, 'name', ''),
+            'origin'           => $this->selectedOrigin,
+            'action_type'      => $this->selectedActionType,
+            'quantity'         => 1,
+            'note'             => '',
         ];
     }
 
@@ -403,13 +420,13 @@ class History extends Component
         $rows = collect($this->historyFindingRows)
             ->map(function ($row) {
                 return [
-                    'point_label' => $this->normalizePointLabel((string) ($row['point_label'] ?? '')),
+                    'point_label'    => $this->normalizePointLabel((string) ($row['point_label'] ?? '')),
                     'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
-                    'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
-                    'origin' => (string) ($row['origin'] ?? 'PROJETO'),
-                    'action_type' => (string) ($row['action_type'] ?? 'FALTA'),
-                    'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
-                    'note' => trim((string) ($row['note'] ?? '')) ?: null,
+                    'item_id'        => empty($row['item_id']) ? null : (int) $row['item_id'],
+                    'origin'         => (string) ($row['origin'] ?? 'PROJETO'),
+                    'action_type'    => (string) ($row['action_type'] ?? 'FALTA'),
+                    'quantity'       => empty($row['quantity']) ? null : (int) $row['quantity'],
+                    'note'           => trim((string) ($row['note'] ?? '')) ?: null,
                 ];
             })
             ->values();
@@ -417,11 +434,12 @@ class History extends Component
         if ($rows->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Sem apontamentos',
-                'html' => 'Adicione ao menos um apontamento para salvar.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Sem apontamentos',
+                'html'     => 'Adicione ao menos um apontamento para salvar.',
+                'timer'    => 2500,
             ]);
+
             return;
         }
 
@@ -450,11 +468,12 @@ class History extends Component
             $firstError = (string) collect($this->getErrorBag()->all())->first();
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Não foi possível salvar',
-                'html' => $firstError !== '' ? $firstError : 'Existem inconsistências para corrigir.',
-                'timer' => 3500,
+                'icon'     => 'warning',
+                'title'    => 'Não foi possível salvar',
+                'html'     => $firstError !== '' ? $firstError : 'Existem inconsistências para corrigir.',
+                'timer'    => 3500,
             ]);
+
             return;
         }
 
@@ -478,11 +497,11 @@ class History extends Component
                 foreach ($rows as $row) {
                     $payload = [
                         'subcategory_id' => (int) $row['subcategory_id'],
-                        'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
-                        'origin' => (string) $row['origin'],
-                        'action_type' => (string) $row['action_type'],
-                        'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
-                        'note' => $row['note'],
+                        'item_id'        => empty($row['item_id']) ? null : (int) $row['item_id'],
+                        'origin'         => (string) $row['origin'],
+                        'action_type'    => (string) $row['action_type'],
+                        'quantity'       => empty($row['quantity']) ? null : (int) $row['quantity'],
+                        'note'           => $row['note'],
                     ];
 
                     if ($this->hasPointLabelColumn()) {
@@ -499,11 +518,11 @@ class History extends Component
                     ->implode(', ');
 
                 Notetimeline::create([
-                    'note_id' => $this->selectedProduction->note_id,
-                    'service_id' => $this->selectedProduction->service_id,
+                    'note_id'       => $this->selectedProduction->note_id,
+                    'service_id'    => $this->selectedProduction->service_id,
                     'production_id' => $this->selectedProduction->id,
-                    'user_id' => auth()->id(),
-                    'info' => 'Estrutura da Análise de Projeto alterada na rodada '
+                    'user_id'       => auth()->id(),
+                    'info'          => 'Estrutura da Análise de Projeto alterada na rodada '
                         . $cycle->round_number
                         . '. Movimentos: '
                         . ($movementTypes !== '' ? $movementTypes : 'SEM MOVIMENTO'),
@@ -514,11 +533,12 @@ class History extends Component
             report($e);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Não foi possível salvar',
-                'html' => $e->getMessage() ?: 'A rodada foi atualizada por outro usuário. Reabra a tela e tente novamente.',
-                'timer' => 3800,
+                'icon'     => 'warning',
+                'title'    => 'Não foi possível salvar',
+                'html'     => $e->getMessage() ?: 'A rodada foi atualizada por outro usuário. Reabra a tela e tente novamente.',
+                'timer'    => 3800,
             ]);
+
             return;
         }
 
@@ -548,13 +568,13 @@ class History extends Component
         $this->selectedCycle = collect($this->selectedProduction->ProjectReviewCycles)
             ->firstWhere('id', $this->selectedCycle->id) ?: $this->selectedCycle;
 
-        $this->editingFindings = false;
+        $this->editingFindings    = false;
         $this->historyFindingRows = [];
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Estrutura atualizada com sucesso.',
-            'timer' => 2200,
+            'icon'     => 'success',
+            'title'    => 'Estrutura atualizada com sucesso.',
+            'timer'    => 2200,
         ]);
     }
 
@@ -604,6 +624,7 @@ class History extends Component
     public function getFilteredHistoryFindingsProperty()
     {
         $findings = collect($this->selectedCycle?->Findings ?? []);
+
         if ($this->selectedHistoryPointFilter === '') {
             return $findings;
         }
@@ -618,6 +639,7 @@ class History extends Component
     private function normalizePointLabel(?string $value): string
     {
         $label = trim((string) $value);
+
         if ($label === '') {
             return 'SEM REFERENCIA';
         }
@@ -654,6 +676,7 @@ class History extends Component
         }
 
         $subcategory = $this->subcategories->firstWhere('id', (int) $this->selectedSubcategoryId);
+
         if (!$subcategory) {
             return collect();
         }
@@ -669,6 +692,7 @@ class History extends Component
     private function hasPointLabelColumn(): bool
     {
         static $hasColumn = null;
+
         if (!is_null($hasColumn)) {
             return $hasColumn;
         }
@@ -698,37 +722,41 @@ class History extends Component
         if (!$file) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Arquivo não encontrado',
-                'html' => 'O arquivo selecionado não está disponível para esta nota.',
-                'timer' => 2600,
+                'icon'     => 'warning',
+                'title'    => 'Arquivo não encontrado',
+                'html'     => 'O arquivo selecionado não está disponível para esta nota.',
+                'timer'    => 2600,
             ]);
+
             return null;
         }
 
         if (!$file->path || !Storage::exists($file->path)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Arquivo indisponível',
-                'html' => 'Não foi possível localizar o arquivo no storage. Atualize a lista e tente novamente.',
-                'timer' => 3200,
+                'icon'     => 'warning',
+                'title'    => 'Arquivo indisponível',
+                'html'     => 'Não foi possível localizar o arquivo no storage. Atualize a lista e tente novamente.',
+                'timer'    => 3200,
             ]);
+
             return null;
         }
 
         $downloadName = $file->original_name ?: ($file->file_name . ($file->ext ? '.' . $file->ext : ''));
+
         try {
             return Storage::download($file->path, $downloadName);
         } catch (\Throwable $e) {
             report($e);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Erro ao baixar arquivo',
-                'html' => 'O arquivo não pôde ser lido no storage.',
-                'timer' => 3200,
+                'icon'     => 'error',
+                'title'    => 'Erro ao baixar arquivo',
+                'html'     => 'O arquivo não pôde ser lido no storage.',
+                'timer'    => 3200,
             ]);
+
             return null;
         }
     }
@@ -740,11 +768,103 @@ class History extends Component
 
     public function closeModal(): void
     {
-        $this->selectedProduction = null;
-        $this->selectedCycle = null;
+        $this->selectedProduction         = null;
+        $this->selectedCycle              = null;
         $this->selectedHistoryPointFilter = '';
         $this->cancelFindingsEdit();
         $this->resetValidation();
+    }
+
+    public function reopenForAnalysis(int $productionId): void
+    {
+        if (!auth()->user()?->can('analyst')) {
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($productionId) {
+                $query = Production::query()
+                    ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH]);
+                $this->applyContractScopeToProductions($query);
+
+                $production = $query->lockForUpdate()->findOrFail($productionId);
+
+                $cycle = ProjectReviewCycle::query()
+                    ->where('production_id', $production->id)
+                    ->where('decision', '!=', 'PENDING')
+                    ->orderByDesc('round_number')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$cycle) {
+                    throw new \RuntimeException('Nenhuma rodada finalizada foi encontrada para retornar à análise.');
+                }
+
+                $cycle->update([
+                    'decision'   => 'PENDING',
+                    'decided_by' => null,
+                    'decided_at' => null,
+                ]);
+
+                $production->update([
+                    'status'       => Production::STATUS_IN_PROJECT_REVIEW,
+                    'completed'    => false,
+                    'completed_at' => null,
+                ]);
+
+                Notetimeline::create([
+                    'note_id'       => $production->note_id,
+                    'service_id'    => $production->service_id,
+                    'production_id' => $production->id,
+                    'user_id'       => auth()->id(),
+                    'info'          => 'Análise de Projeto retornada para a fila de análise pelo analista '
+                        . (auth()->user()->name ?? '---')
+                        . '.',
+                    'status' => Production::STATUS_IN_PROJECT_REVIEW,
+                ]);
+
+                if ($production->User) {
+                    $production->User->notify(new SystemNotification(
+                        new UserNotificationData(
+                            title: 'Projeto Retornado para Análise',
+                            message: 'A nota <strong>' . optional($production->Note)->note . '</strong> foi retornada para a fila de Análise de Projeto pelo analista.',
+                            status: 'warning',
+                            link: route('services.production', [
+                                'service'             => $production->service_id,
+                                'prod'                => $production->id,
+                                'open_project_review' => 1,
+                                'production'          => $production->id,
+                                'note'                => $production->note_id,
+                                'focus'               => 'chat',
+                            ]),
+                        )
+                    ));
+                }
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Não foi possível retornar para a análise',
+                'html'     => $e->getMessage() ?: 'Tente novamente em instantes.',
+                'timer'    => 3800,
+            ]);
+
+            return;
+        }
+
+        if ($this->selectedProduction?->id === $productionId) {
+            $this->closeModal();
+            $this->dispatchBrowserEvent('hideModal');
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Retornado para a fila de análise com sucesso.',
+            'timer'    => 2500,
+        ]);
     }
 
     public function render()
@@ -752,12 +872,12 @@ class History extends Component
         $rows = $this->selectedProduction ? collect() : $this->rows;
 
         return view('livewire.project-review.history', [
-            'rows' => $rows,
-            'companies' => $this->companies,
-            'categories' => $this->categories,
-            'subcategories' => $this->subcategories,
+            'rows'                   => $rows,
+            'companies'              => $this->companies,
+            'categories'             => $this->categories,
+            'subcategories'          => $this->subcategories,
             'availableSubcategories' => $this->availableSubcategories,
-            'availableItems' => $this->availableItems,
+            'availableItems'         => $this->availableItems,
         ]);
     }
 
