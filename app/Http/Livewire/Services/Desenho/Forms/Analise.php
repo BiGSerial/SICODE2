@@ -740,7 +740,7 @@ class Analise extends Component
             return;
         }
 
-        if ($dependsOnExternalOrgan) {
+        if ($dependsOnExternalOrgan && $this->shouldCreateExternalOrganRelease()) {
             ExternalOrganRelease::updateOrCreate(
                 [
                     'note_id' => $this->note->id,
@@ -760,6 +760,17 @@ class Analise extends Component
             ->whereNull('exported_at')
             ->whereNull('released_at')
             ->delete();
+    }
+
+    private function shouldCreateExternalOrganRelease(): bool
+    {
+        if ((bool) ($this->production->d5 ?? false)) {
+            return false;
+        }
+
+        $conclusion = mb_strtoupper(trim((string) $this->conclusion));
+
+        return !in_array($conclusion, ExternalOrganRelease::EXCLUDED_CONCLUSIONS, true);
     }
 
     public function addOrderToList(): void

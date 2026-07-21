@@ -225,7 +225,8 @@ class Note extends Model
         return $query->where('type_note', 2)
             ->whereIn('nstats', $statuses)
             ->whereHas('ExternalOrganReleases', function ($q) {
-                $q->whereNull('released_at');
+                $q->whereNull('released_at')
+                    ->eligibleForExternalOrganList();
             });
     }
 
@@ -235,7 +236,8 @@ class Note extends Model
             $q->where('type_note', '!=', 2)
                 ->orWhereNotIn('nstats', $statuses)
                 ->orWhereDoesntHave('ExternalOrganReleases', function ($releaseQuery) {
-                    $releaseQuery->whereNull('released_at');
+                    $releaseQuery->whereNull('released_at')
+                        ->eligibleForExternalOrganList();
                 });
         });
     }

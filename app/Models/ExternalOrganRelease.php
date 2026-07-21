@@ -13,6 +13,10 @@ class ExternalOrganRelease extends Model
     public const TRACKED_STATUSES = [47, 48, 49, 50];
     public const HIRING_BLOCK_STATUSES = [47, 48, 49, 50, 51];
     public const RELEASE_STATUSES = [20, 11];
+    public const EXCLUDED_CONCLUSIONS = [
+        'ARQUIVADO',
+        'LIBERACAO AUTOCAD ORGAO EXTERNO',
+    ];
 
     protected $fillable = [
         'note_id',
@@ -65,9 +69,25 @@ class ExternalOrganRelease extends Model
     {
         return $query->pending()
             ->whereNull('exported_at')
+            ->eligibleForExternalOrganList()
             ->whereHas('note', function ($q) {
                 $q->where('type_note', 2)
                     ->whereIn('nstats', self::TRACKED_STATUSES);
+            });
+    }
+
+    public function scopeEligibleForExternalOrganList(Builder $query): Builder
+    {
+        return $query
+            ->whereHas('production', function ($q) {
+                $q->where(function ($productionQuery) {
+                    $productionQuery
+                        ->whereNull('d5')
+                        ->orWhere('d5', false);
+                })
+                    ->whereDoesntHave('Analise', function ($analiseQuery) {
+                        $analiseQuery->whereIn('conclusion', self::EXCLUDED_CONCLUSIONS);
+                    });
             });
     }
 }

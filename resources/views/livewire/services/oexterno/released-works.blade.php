@@ -70,6 +70,37 @@
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="pending" id="releasedWorksTabPending">
                             <label class="btn btn-outline-primary" for="releasedWorksTabPending">Pendentes</label>
+
+                            <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
+                                value="cancel_90" id="releasedWorksTabCancel90">
+                            <label class="btn btn-outline-danger" for="releasedWorksTabCancel90">Cancelamento 90+</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <div class="activity-filter-card">
+                        <div class="activity-filter-title mb-2">Liberação & Custo</div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-1" for="releaseStatusDateFrom">Status de</label>
+                                <input type="date" class="form-control border border-secondary"
+                                    id="releaseStatusDateFrom" wire:model="releaseStatusDateFrom">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-1" for="releaseStatusDateTo">Status até</label>
+                                <input type="date" class="form-control border border-secondary"
+                                    id="releaseStatusDateTo" wire:model="releaseStatusDateTo">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small text-muted mb-1" for="releasedWorksCostType">Custo</label>
+                                <select class="form-select border border-secondary" id="releasedWorksCostType"
+                                    wire:model="costType">
+                                    <option value="">Todos</option>
+                                    <option value="client">Custo cliente</option>
+                                    <option value="company">Custo empresa</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -122,21 +153,40 @@
                             <i class="ri-building-4-line me-2"></i>Obras liberadas para OE
                         </h5>
                         <div class="user-activity-table-subtitle">
-                            Exportar marca a pendência como enviada; a liberação ocorre apenas quando o status chegar em 20 ou 11.
+                            @if ($tab === 'cancel_90')
+                                Notas em status 70 há mais de 90 dias, disponíveis para envio ao cancelamento total.
+                            @else
+                                Exportar marca a pendência como enviada; a liberação ocorre apenas quando o status chegar em 20 ou 11.
+                            @endif
                         </div>
                     </div>
-                    <button wire:click="exportToExcel" class="btn btn-light">
-                        <i class="ri-file-excel-2-line me-2"></i>Exportar
-                    </button>
+                    <div class="d-flex flex-wrap gap-2">
+                        @if ($tab === 'cancel_90')
+                            <button wire:click="sendSelectedToCancellation" class="btn btn-danger"
+                                @if (!count($selectedReleaseIds)) disabled @endif>
+                                <i class="ri-close-circle-line me-2"></i>Enviar selecionadas para cancelamento
+                                @if (count($selectedReleaseIds))
+                                    <span class="badge text-bg-light ms-1">{{ count($selectedReleaseIds) }}</span>
+                                @endif
+                            </button>
+                        @endif
+                        <button wire:click="exportToExcel" class="btn btn-light">
+                            <i class="ri-file-excel-2-line me-2"></i>Exportar
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="table-dark">
                             <tr>
+                                @if ($tab === 'cancel_90')
+                                    <th class="text-center">Sel.</th>
+                                @endif
                                 <th>Nota/OV</th>
                                 <th>Cliente</th>
                                 <th>Município</th>
                                 <th>Rubrica</th>
+                                <th>Custo</th>
                                 <th>Status atual</th>
                                 <th>Marcado em</th>
                                 <th>Exportação</th>
@@ -146,11 +196,42 @@
                         </thead>
                         <tbody>
                             @foreach ($releases as $release)
+                                @php
+                                    $costSummary = $this->projectReviewCostSummary($release);
+                                @endphp
                                 <tr>
+                                    @if ($tab === 'cancel_90')
+                                        <td class="text-center">
+                                            <input type="checkbox" class="form-check-input"
+                                                wire:model="selectedReleaseIds"
+                                                value="{{ $release->id }}">
+                                        </td>
+                                    @endif
                                     <td class="fw-semibold">{{ $release->note?->note ?? '---' }}</td>
                                     <td>{{ $release->note?->client ?? '---' }}</td>
                                     <td>{{ $release->note?->lexp ?? '---' }}</td>
                                     <td>{{ $release->note?->rubrica ?? '---' }}</td>
+                                    <td>
+                                        @if ($costSummary['has_cycle'])
+                                            <span class="badge {{ $costSummary['has_client_cost'] ? 'text-bg-warning' : 'text-bg-success' }}">
+                                                Cliente: {{ $costSummary['has_client_cost'] ? 'Sim' : 'Não' }}
+                                            </span>
+                                            <div class="small mt-1">
+                                                Cliente: <strong>{{ $this->formatMoneyBr($costSummary['client_cost']) }}</strong>
+                                            </div>
+                                            <div class="small">
+                                                Empresa: <strong>{{ $this->formatMoneyBr($costSummary['company_cost']) }}</strong>
+                                            </div>
+                                            <div class="small text-muted">
+                                                Rodada {{ $costSummary['round_number'] }}
+                                                @if ($costSummary['orders'])
+                                                    · {{ $costSummary['orders'] }}
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="badge text-bg-secondary">Sem análise</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         <span class="badge text-bg-secondary">{{ $release->note?->nstats ?? '---' }}</span>
                                         <div class="small text-muted">{{ optional($release->note?->dt_status)->format('d/m/Y H:i') }}</div>
