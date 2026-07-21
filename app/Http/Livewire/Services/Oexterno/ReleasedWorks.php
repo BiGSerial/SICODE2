@@ -2,19 +2,15 @@
 
 namespace App\Http\Livewire\Services\Oexterno;
 
-use App\Enum\CancellationRequestScope;
-use App\Enum\CancellationRequestStatus;
+use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
 use App\Helpers\TextFormatter;
 use App\Jobs\Services\ExportExternalOrganReleasedWorksJob;
-use App\Models\CancellationCategory;
-use App\Models\ExternalOrganRelease;
-use App\Models\Service;
+use App\Models\{CancellationCategory, ExternalOrganRelease, Service};
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Livewire\{Component, WithPagination};
 use RuntimeException;
-use Livewire\Component;
-use Livewire\WithPagination;
 
 class ReleasedWorks extends Component
 {
@@ -24,24 +20,34 @@ class ReleasedWorks extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $search = '';
+
     public $advanceSearch = '';
+
     public $multisearch = [];
+
     public $tab = 'new';
+
     public $perPage = 100;
+
     public string $releaseStatusDateFrom = '';
+
     public string $releaseStatusDateTo = '';
+
     public string $costType = '';
+
     public array $selectedReleaseIds = [];
+
     private bool $closedReleasedStatuses = false;
 
     protected $queryString = [
-        'tab' => ['except' => 'new'],
-        'search' => ['except' => '', 'as' => 'buscar'],
+        'tab'                   => ['except' => 'new'],
+        'search'                => ['except' => '', 'as' => 'buscar'],
         'releaseStatusDateFrom' => ['except' => '', 'as' => 'liberacao_de'],
-        'releaseStatusDateTo' => ['except' => '', 'as' => 'liberacao_ate'],
-        'costType' => ['except' => '', 'as' => 'custo'],
-        'page' => ['except' => 1, 'as' => 'p'],
+        'releaseStatusDateTo'   => ['except' => '', 'as' => 'liberacao_ate'],
+        'costType'              => ['except' => '', 'as' => 'custo'],
+        'page'                  => ['except' => 1, 'as' => 'p'],
     ];
 
     public function mount($service): void
@@ -83,8 +89,8 @@ class ReleasedWorks extends Component
     public function buscarMulti(): void
     {
         if ($this->advanceSearch) {
-            $this->multisearch = $this->formatTextToArray($this->advanceSearch);
-            $this->search = '';
+            $this->multisearch   = $this->formatTextToArray($this->advanceSearch);
+            $this->search        = '';
             $this->advanceSearch = '';
             $this->resetPage();
             $this->dispatchBrowserEvent('hideModal');
@@ -93,13 +99,13 @@ class ReleasedWorks extends Component
 
     public function cleanAll(): void
     {
-        $this->search = '';
-        $this->advanceSearch = '';
-        $this->multisearch = [];
+        $this->search                = '';
+        $this->advanceSearch         = '';
+        $this->multisearch           = [];
         $this->releaseStatusDateFrom = '';
-        $this->releaseStatusDateTo = '';
-        $this->costType = '';
-        $this->selectedReleaseIds = [];
+        $this->releaseStatusDateTo   = '';
+        $this->costType              = '';
+        $this->selectedReleaseIds    = [];
         $this->resetPage();
     }
 
@@ -118,17 +124,18 @@ class ReleasedWorks extends Component
         if ($ids->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione ao menos uma nota.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma nota.',
+                'timer'    => 2500,
             ]);
+
             return;
         }
 
-        $category = $this->externalOrganCancellationCategory();
-        $service = app(CancellationRequestService::class);
+        $category  = $this->externalOrganCancellationCategory();
+        $service   = app(CancellationRequestService::class);
         $processed = 0;
-        $errors = 0;
+        $errors    = 0;
 
         $releases = $this->baseQuery()
             ->whereIn('external_organ_releases.id', $ids->all())
@@ -140,6 +147,7 @@ class ReleasedWorks extends Component
 
             if (!$note) {
                 $errors++;
+
                 continue;
             }
 
@@ -165,10 +173,10 @@ class ReleasedWorks extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => $processed ? 'success' : 'warning',
-            'title' => "{$processed} solicitação(ões) enviada(s) para cancelamento total.",
-            'html' => $errors ? "{$errors} item(ns) não foram enviados por já possuírem solicitação aberta ou estarem indisponíveis." : null,
-            'timer' => 4200,
+            'icon'     => $processed ? 'success' : 'warning',
+            'title'    => "{$processed} solicitação(ões) enviada(s) para cancelamento total.",
+            'html'     => $errors ? "{$errors} item(ns) não foram enviados por já possuírem solicitação aberta ou estarem indisponíveis." : null,
+            'timer'    => 4200,
         ]);
     }
 
@@ -189,9 +197,9 @@ class ReleasedWorks extends Component
         if (!count($ids)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma obra disponível para exportar.',
-                'timer' => 2800,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma obra disponível para exportar.',
+                'timer'    => 2800,
             ]);
 
             return;
@@ -201,10 +209,10 @@ class ReleasedWorks extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Exportação iniciada',
-            'html' => 'Você receberá uma notificação quando o arquivo estiver pronto.',
-            'timer' => 3000,
+            'icon'     => 'success',
+            'title'    => 'Exportação iniciada',
+            'html'     => 'Você receberá uma notificação quando o arquivo estiver pronto.',
+            'timer'    => 3000,
         ]);
     }
 
@@ -272,6 +280,12 @@ class ReleasedWorks extends Component
                                 ]);
                         });
                 });
+        } elseif ($this->tab === 'pending') {
+            $query->whereNull('released_at')
+                ->whereHas('note', function ($q) {
+                    $q->where('type_note', 2)
+                        ->whereNotIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
+                });
         } else {
             $query->whereNull('released_at')
                 ->whereHas('note', function ($q) {
@@ -327,6 +341,7 @@ class ReleasedWorks extends Component
                 $cycleQuery->whereHas('Orders', function ($orderQuery) {
                     $orderQuery->where('client_cost', '>', 0);
                 });
+
                 return;
             }
 
@@ -364,13 +379,13 @@ class ReleasedWorks extends Component
                 }
 
                 $release->update([
-                    'released_at' => $note->dt_status,
-                    'release_dt_status' => $note->dt_status,
+                    'released_at'         => $note->dt_status,
+                    'release_dt_status'   => $note->dt_status,
                     'release_detected_at' => now(),
-                    'release_nstats' => $note->nstats,
-                    'released_by' => null,
+                    'release_nstats'      => $note->nstats,
+                    'released_by'         => null,
                 ]);
-        });
+            });
     }
 
     private function externalOrganCancellationCategory(): CancellationCategory
@@ -378,11 +393,11 @@ class ReleasedWorks extends Component
         return CancellationCategory::query()->firstOrCreate(
             ['name' => 'Órgão Externo - Status 70 acima de 90 dias'],
             [
-                'description' => 'Cancelamento total solicitado pela lista de Obras Liberadas OE.',
-                'active' => true,
-                'require_evidence' => false,
+                'description'        => 'Cancelamento total solicitado pela lista de Obras Liberadas OE.',
+                'active'             => true,
+                'require_evidence'   => false,
                 'min_evidence_files' => 0,
-                'display_order' => 90,
+                'display_order'      => 90,
             ]
         );
     }
@@ -393,27 +408,27 @@ class ReleasedWorks extends Component
 
         if (!$cycle) {
             return [
-                'has_cycle' => false,
+                'has_cycle'       => false,
                 'has_client_cost' => false,
-                'round_number' => null,
-                'total_cost' => 0.0,
-                'company_cost' => 0.0,
-                'client_cost' => 0.0,
-                'orders' => '',
+                'round_number'    => null,
+                'total_cost'      => 0.0,
+                'company_cost'    => 0.0,
+                'client_cost'     => 0.0,
+                'orders'          => '',
             ];
         }
 
-        $orders = collect($cycle->Orders ?? []);
+        $orders     = collect($cycle->Orders ?? []);
         $clientCost = (float) $orders->sum(fn ($order) => (float) ($order->client_cost ?? 0));
 
         return [
-            'has_cycle' => true,
+            'has_cycle'       => true,
             'has_client_cost' => $clientCost > 0,
-            'round_number' => (int) $cycle->round_number,
-            'total_cost' => (float) $orders->sum(fn ($order) => (float) ($order->total_cost ?? 0)),
-            'company_cost' => (float) $orders->sum(fn ($order) => (float) ($order->company_cost ?? 0)),
-            'client_cost' => $clientCost,
-            'orders' => $orders
+            'round_number'    => (int) $cycle->round_number,
+            'total_cost'      => (float) $orders->sum(fn ($order) => (float) ($order->total_cost ?? 0)),
+            'company_cost'    => (float) $orders->sum(fn ($order) => (float) ($order->company_cost ?? 0)),
+            'client_cost'     => $clientCost,
+            'orders'          => $orders
                 ->pluck('order_number')
                 ->map(fn ($orderNumber) => trim((string) $orderNumber))
                 ->filter()

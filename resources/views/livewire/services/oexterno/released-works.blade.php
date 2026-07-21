@@ -18,6 +18,15 @@
             color: #1f2937;
             font-weight: 700;
         }
+
+        .released-works-tabs {
+            flex-wrap: wrap;
+        }
+
+        .released-works-tabs .btn {
+            flex: 1 1 auto;
+            white-space: nowrap;
+        }
     </style>
 
     <div class="container-fluid">
@@ -50,11 +59,11 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-lg-4">
+                <div class="col-12 col-lg-6">
                     <div class="activity-filter-card">
                         <div class="activity-filter-title mb-2">Visão</div>
                         <div class="small text-muted mb-2">Separe novas, exportadas e liberadas.</div>
-                        <div class="btn-group w-100" role="group" aria-label="Visão das obras liberadas">
+                        <div class="btn-group w-100 released-works-tabs" role="group" aria-label="Visão das obras liberadas">
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="new" id="releasedWorksTabNew">
                             <label class="btn btn-outline-primary" for="releasedWorksTabNew">Novas</label>
