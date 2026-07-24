@@ -2,13 +2,11 @@
 
 namespace App\Http\Livewire\Reports;
 
-use App\Enum\CancellationEngineerApprovalStatus;
-use App\Enum\CancellationRequestScope;
-use App\Enum\CancellationRequestStatus;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Enum\{CancellationEngineerApprovalStatus, CancellationRequestScope, CancellationRequestStatus};
+use App\Jobs\Reports\ExportCancellationListJob;
+use App\Support\Reports\CancellationListQuery;
+use Illuminate\Support\Facades\{Auth, DB};
+use Livewire\{Component, WithPagination};
 
 class CancellationList extends Component
 {
@@ -17,28 +15,35 @@ class CancellationList extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $dateFrom = '';
+
     public string $dateTo = '';
+
     public string $status = '';
+
     public string $scope = '';
+
     public string $categoryId = '';
+
     public string $search = '';
+
     public string $visibilityMode = 'HIERARCHY';
+
     public array $requesterIds = [];
 
     protected $queryString = [
-        'dateFrom' => ['except' => '', 'as' => 'de'],
-        'dateTo' => ['except' => '', 'as' => 'ate'],
-        'status' => ['except' => '', 'as' => 'sts'],
-        'scope' => ['except' => '', 'as' => 'tipo'],
-        'categoryId' => ['except' => '', 'as' => 'cat'],
-        'search' => ['except' => '', 'as' => 'q'],
+        'dateFrom'       => ['except' => '', 'as' => 'de'],
+        'dateTo'         => ['except' => '', 'as' => 'ate'],
+        'status'         => ['except' => '', 'as' => 'sts'],
+        'scope'          => ['except' => '', 'as' => 'tipo'],
+        'categoryId'     => ['except' => '', 'as' => 'cat'],
+        'search'         => ['except' => '', 'as' => 'q'],
         'visibilityMode' => ['except' => 'HIERARCHY', 'as' => 'vis'],
     ];
 
     public function mount(): void
     {
         if ($this->dateFrom === '' || $this->dateTo === '') {
-            $this->dateTo = now()->toDateString();
+            $this->dateTo   = now()->toDateString();
             $this->dateFrom = now()->subDays(29)->toDateString();
         }
 
@@ -49,9 +54,24 @@ class CancellationList extends Component
 
     public function updating($name): void
     {
-        if (in_array($name, ['dateFrom', 'dateTo', 'status', 'scope', 'categoryId', 'search', 'visibilityMode', 'requesterIds'], true)) {
+        if (in_array($name, ['dateFrom', 'dateTo', 'status', 'scope', 'categoryId', 'search', 'visibilityMode'], true)
+            || str_starts_with($name, 'requesterIds')) {
             $this->resetPage();
         }
+    }
+
+    public function exportToExcel(): void
+    {
+        ExportCancellationListJob::dispatch(
+            $this->filters(),
+            $this->visibleRequesterIds(),
+            (string) Auth::id(),
+        );
+
+        $this->dispatchBrowserEvent('swal', [
+            'icon'  => 'success',
+            'title' => 'Exportação iniciada. Você será notificado quando concluir.',
+        ]);
     }
 
     private function parseTokens(): array
@@ -93,36 +113,31 @@ class CancellationList extends Component
     private function selectedRequesterIds(): array
     {
         return collect($this->requesterIds)
-            ->filter(fn ($id) => is_numeric($id))
+            ->filter(fn ($id) => is_string($id) || is_int($id))
             ->map(fn ($id) => (string) $id)
+            ->filter()
+            ->unique()
             ->values()
             ->all();
     }
 
     private function baseQuery()
     {
-        $tokens = $this->parseTokens();
-        $visibleRequesterIds = $this->visibleRequesterIds();
-        $selectedRequesterIds = $this->selectedRequesterIds();
+        return CancellationListQuery::build($this->filters(), $this->visibleRequesterIds());
+    }
 
-        return DB::table('cancellation_requests as cr')
-            ->leftJoin('notes as n', 'n.id', '=', 'cr.note_id')
-            ->leftJoin('users as requester', 'requester.id', '=', 'cr.requested_by')
-            ->leftJoin('users as assignee', 'assignee.id', '=', 'cr.assigned_to')
-            ->leftJoin('users as engineer', 'engineer.id', '=', 'cr.engineer_approver_id')
-            ->leftJoin('cancellation_categories as cc', 'cc.id', '=', 'cr.category_id')
-            ->whereBetween(DB::raw('DATE(COALESCE(cr.submitted_at, cr.created_at))'), [$this->dateFrom, $this->dateTo])
-            ->when($visibleRequesterIds !== null, fn ($q) => $q->whereIn('cr.requested_by', $visibleRequesterIds))
-            ->when(count($selectedRequesterIds), fn ($q) => $q->whereIn('cr.requested_by', $selectedRequesterIds))
-            ->when($this->status !== '', fn ($q) => $q->where('cr.status', $this->status))
-            ->when($this->scope !== '', fn ($q) => $q->where('cr.scope', $this->scope))
-            ->when($this->categoryId !== '', fn ($q) => $q->where('cr.category_id', (int) $this->categoryId))
-            ->when(count($tokens), function ($q) use ($tokens) {
-                $q->where(function ($sub) use ($tokens) {
-                    $sub->whereIn('n.note', $tokens)
-                        ->orWhereIn('cr.id', collect($tokens)->filter(fn ($v) => ctype_digit((string) $v))->values()->all());
-                });
-            });
+    /** @return array<string, mixed> */
+    private function filters(): array
+    {
+        return [
+            'dateFrom'     => $this->dateFrom,
+            'dateTo'       => $this->dateTo,
+            'status'       => $this->status,
+            'scope'        => $this->scope,
+            'categoryId'   => $this->categoryId,
+            'requesterIds' => $this->selectedRequesterIds(),
+            'searchTokens' => $this->parseTokens(),
+        ];
     }
 
     private function statusOptions(): array
@@ -169,12 +184,15 @@ class CancellationList extends Component
         $minutes = intdiv($seconds, 60);
 
         $parts = [];
+
         if ($days > 0) {
             $parts[] = $days . 'd';
         }
+
         if ($hours > 0) {
             $parts[] = $hours . 'h';
         }
+
         if ($minutes > 0) {
             $parts[] = $minutes . 'min';
         }
@@ -210,17 +228,17 @@ class CancellationList extends Component
             ->paginate(25);
 
         $rows->getCollection()->transform(function ($item) {
-            $statusEnum = CancellationRequestStatus::tryFrom((string) ($item->status ?? ''));
-            $scopeEnum = CancellationRequestScope::tryFrom((string) ($item->scope ?? ''));
+            $statusEnum           = CancellationRequestStatus::tryFrom((string) ($item->status ?? ''));
+            $scopeEnum            = CancellationRequestScope::tryFrom((string) ($item->scope ?? ''));
             $engineerApprovalEnum = CancellationEngineerApprovalStatus::tryFrom((string) ($item->engineer_approval_status ?? ''));
 
-            $item->status_label = $statusEnum?->label() ?? ((string) ($item->status ?? '-') ?: '-');
+            $item->status_label       = $statusEnum?->label() ?? ((string) ($item->status ?? '-') ?: '-');
             $item->status_badge_class = $statusEnum?->badgeClass() ?? 'bg-secondary';
 
-            $item->scope_label = $scopeEnum?->label() ?? ((string) ($item->scope ?? '-') ?: '-');
+            $item->scope_label       = $scopeEnum?->label() ?? ((string) ($item->scope ?? '-') ?: '-');
             $item->scope_badge_class = $scopeEnum?->badgeClass() ?? 'bg-secondary';
 
-            $requiresEngineerApproval = (bool) ($item->requires_engineer_approval ?? false);
+            $requiresEngineerApproval      = (bool) ($item->requires_engineer_approval ?? false);
             $item->engineer_approval_label = $requiresEngineerApproval
                 ? ($engineerApprovalEnum?->label() ?? 'Aguardando Engenheiro')
                 : 'Não se aplica';
@@ -228,23 +246,25 @@ class CancellationList extends Component
                 ? ($engineerApprovalEnum?->badgeClass() ?? 'bg-warning text-dark')
                 : 'bg-secondary';
 
-            $item->waiting_label = null;
+            $item->waiting_label       = null;
             $item->waiting_badge_class = null;
+
             if ($statusEnum === CancellationRequestStatus::SUBMITTED && empty($item->assigned_at)) {
-                $item->waiting_label = 'Aguardando atribuição';
+                $item->waiting_label       = 'Aguardando atribuição';
                 $item->waiting_badge_class = 'bg-warning text-dark';
             } elseif ($requiresEngineerApproval && $engineerApprovalEnum === CancellationEngineerApprovalStatus::PENDING) {
-                $item->waiting_label = 'Aguardando engenheiro';
+                $item->waiting_label       = 'Aguardando engenheiro';
                 $item->waiting_badge_class = 'bg-warning text-dark';
             } elseif ($statusEnum === CancellationRequestStatus::PAUSED) {
-                $item->waiting_label = 'Aguardando retomada';
+                $item->waiting_label       = 'Aguardando retomada';
                 $item->waiting_badge_class = 'bg-info';
             }
 
-            $item->exec_human = $this->secondsToHuman(isset($item->exec_seconds) ? (int) $item->exec_seconds : null);
-            $item->eng_human = $this->secondsToHuman(isset($item->eng_seconds) ? (int) $item->eng_seconds : null);
+            $item->exec_human  = $this->secondsToHuman(isset($item->exec_seconds) ? (int) $item->exec_seconds : null);
+            $item->eng_human   = $this->secondsToHuman(isset($item->eng_seconds) ? (int) $item->eng_seconds : null);
             $item->close_human = $this->secondsToHuman(isset($item->close_seconds) ? (int) $item->close_seconds : null);
             $item->final_human = $this->secondsToHuman(isset($item->final_seconds) ? (int) $item->final_seconds : null);
+
             return $item;
         });
 
@@ -253,7 +273,7 @@ class CancellationList extends Component
             ->pluck('name', 'id');
 
         $visibleRequesterIds = $this->visibleRequesterIds();
-        $requesterOptions = DB::table('users as u')
+        $requesterOptions    = DB::table('users as u')
             ->join('cancellation_requests as cr', 'cr.requested_by', '=', 'u.id')
             ->when($visibleRequesterIds !== null, fn ($q) => $q->whereIn('u.id', $visibleRequesterIds))
             ->select('u.id', 'u.name')
@@ -262,12 +282,12 @@ class CancellationList extends Component
             ->get();
 
         return view('livewire.reports.cancellation-list', [
-            'rows' => $rows,
-            'categories' => $categories,
-            'statusOptions' => $this->statusOptions(),
-            'scopeOptions' => $this->scopeOptions(),
+            'rows'              => $rows,
+            'categories'        => $categories,
+            'statusOptions'     => $this->statusOptions(),
+            'scopeOptions'      => $this->scopeOptions(),
             'visibilityOptions' => $this->visibilityOptions(),
-            'requesterOptions' => $requesterOptions,
+            'requesterOptions'  => $requesterOptions,
         ]);
     }
 }
