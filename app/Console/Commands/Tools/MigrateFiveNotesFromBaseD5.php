@@ -103,14 +103,17 @@ class MigrateFiveNotesFromBaseD5 extends Command
              *    2) Order + BaseD5
              *    3) Operation 0010
              */
-            $companyId = $this->resolveCompanyId($order, $row, $skippedNoOp0010);
+            $companyResolution = $this->resolveCompanyId($order, $row, $skippedNoOp0010);
+            $companyId = $companyResolution['company_id'];
 
             // 6) Não incluir se não houver company_id válido
             if (! $companyId) {
                 $skippedNoCompanyId++;
                 $this->warn(
                     "Sem company_id válido para obra {$row->obra} "
-                    . "(cenTrabOrder={$order->cenTrab}, cenPlanOrder={$order->cenPlan}) "
+                    . "(cenTrabOrder={$order->cenTrab}, cenPlanOrder={$order->cenPlan}, "
+                    . "cenTrabOp0010={$companyResolution['op0010_cenTrab']}, "
+                    . "cenPlanOp0010={$companyResolution['op0010_cenPlan']}) "
                     . "- nota D5 {$row->nota}"
                 );
                 continue;
@@ -205,50 +208,71 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
     /**
      * Resolve company_id com fallback:
-     * 1) Order (com regra CONSTR)
-     * 2) Order + BaseD5
-     * 3) Operation 0010
+     * 1) Operation 0010 quando Order esta como CONSTR
+     * 2) Order (com regra CONSTR)
+     * 3) Order + BaseD5
+     * 4) Operation 0010
      */
-    protected function resolveCompanyId($order, $row, int &$skippedNoOp0010): ?string
+    protected function resolveCompanyId($order, $row, int &$skippedNoOp0010): array
     {
-        // 1) Tentativa pelo Order
-        $centrabOrder = $this->resolveCenTrabFromOrder($order, $row);
+        $operation = $this->findOperation0010($order);
+        $context = [
+            'company_id' => null,
+            'op0010_cenPlan' => $operation ? $this->cleanScalar($operation->cenPlan ?? null) : null,
+            'op0010_cenTrab' => $operation ? $this->cleanScalar($operation->cenTrab ?? null) : null,
+        ];
 
-        $companyId = $this->mapCompanyId($order->cenPlan ?? null, $centrabOrder ?? null);
-        if ($this->isValidCompanyId($companyId)) {
-            return $companyId;
+        // 1) Se o Order veio generico como CONSTR, usar o centro de trabalho da operacao 0010.
+        if ($this->isConstr($order->cenTrab ?? null) && $operation) {
+            $companyId = $this->mapCompanyId(
+                $this->firstFilled($operation->cenPlan ?? null, $order->cenPlan ?? null),
+                $this->firstFilled($operation->cenTrab ?? null)
+            );
+
+            if ($this->isValidCompanyId($companyId)) {
+                $context['company_id'] = $companyId;
+                return $context;
+            }
         }
 
-        // 2) Tentativa Order + BaseD5
-        $centrabFromD5 = $row->cenTrabResp
-            ?? $row->cenTrab
-            ?? $centrabOrder;
+        // 2) Tentativa pelo Order
+        $centrabOrder = $this->resolveCenTrabFromOrder($order, $row);
+        $companyId = $this->mapCompanyId($order->cenPlan ?? null, $centrabOrder ?? null);
+        if ($this->isValidCompanyId($companyId)) {
+            $context['company_id'] = $companyId;
+            return $context;
+        }
+
+        // 3) Tentativa Order + BaseD5
+        $centrabFromD5 = $this->firstFilled(
+            $row->cenTrabResp ?? null,
+            $row->cenTrab ?? null,
+            $centrabOrder
+        );
 
         $companyId = $this->mapCompanyId($order->cenPlan ?? null, $centrabFromD5 ?? null);
         if ($this->isValidCompanyId($companyId)) {
-            return $companyId;
+            $context['company_id'] = $companyId;
+            return $context;
         }
 
-        // 3) Tentativa pela Operation 0010
-        $operation = $order->operations()
-            ->whereIn('operacao', ['0010', '010', '10'])
-            ->first();
-
+        // 4) Tentativa pela Operation 0010
         if (! $operation) {
             $skippedNoOp0010++;
-            return null;
+            return $context;
         }
 
         $companyId = $this->mapCompanyId(
-            $operation->cenPlan ?? null,
-            $operation->cenTrab ?? null
+            $this->firstFilled($operation->cenPlan ?? null, $order->cenPlan ?? null),
+            $this->firstFilled($operation->cenTrab ?? null)
         );
 
         if ($this->isValidCompanyId($companyId)) {
-            return $companyId;
+            $context['company_id'] = $companyId;
+            return $context;
         }
 
-        return null;
+        return $context;
     }
 
     /**
@@ -257,11 +281,47 @@ class MigrateFiveNotesFromBaseD5 extends Command
      */
     protected function resolveCenTrabFromOrder($order, $row): ?string
     {
-        if (($order->cenTrab ?? null) === 'CONSTR') {
+        if ($this->isConstr($order->cenTrab ?? null)) {
             return $row->cenTrabResp ?? null;
         }
 
         return $order->cenTrab ?? null;
+    }
+
+    protected function findOperation0010($order)
+    {
+        return $order->operations()
+            ->whereIn('operacao', ['0010', '010', '10'])
+            ->first();
+    }
+
+    protected function isConstr(?string $cenTrab): bool
+    {
+        return trim((string) $cenTrab) === 'CONSTR';
+    }
+
+    protected function firstFilled(...$values): ?string
+    {
+        foreach ($values as $value) {
+            $value = $this->cleanScalar($value);
+
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected function cleanScalar($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**
