@@ -11,19 +11,41 @@ use Illuminate\Console\Command;
 class MigrateFiveNotesFromBaseD5 extends Command
 {
     protected $signature = 'sicode:migrate-five-notes
-                            {--limit=100 : Limite de registros da base D5 para processar}';
+                            {--limit=100 : Limite de registros da base D5 para processar}
+                            {--notes= : Lista de notas D5 separadas por virgula/espaco}
+                            {--orders= : Lista de obras/ordens separadas por virgula/espaco}
+                            {--notes-file= : Arquivo com notas D5}
+                            {--orders-file= : Arquivo com obras/ordens}';
 
     protected $description = 'Migra registros da tbld_usr_baseD5 (SQL Server) para five_notes (MySQL)';
 
     public function handle(): int
     {
         $limit = (int) $this->option('limit');
+        $notes = $this->readListOption('notes', 'notes-file');
+        $orders = $this->readListOption('orders', 'orders-file');
 
         $this->info("Iniciando migração das D5 (limit = {$limit})...");
+
+        if ($notes !== []) {
+            $this->line('Filtro notas D5: ' . count($notes));
+        }
+
+        if ($orders !== []) {
+            $this->line('Filtro obras/ordens: ' . count($orders));
+        }
 
         $query = BaseD5::query()
             ->whereNull('dtEncerramento')
             ->whereNotNull('obra');
+
+        if ($notes !== []) {
+            $query->whereIn('nota', $notes);
+        }
+
+        if ($orders !== []) {
+            $query->whereIn('obra', $orders);
+        }
 
         if ($limit > 0) {
             $query->limit($limit);
@@ -148,6 +170,37 @@ class MigrateFiveNotesFromBaseD5 extends Command
         $this->info('Migração concluída ✅');
 
         return self::SUCCESS;
+    }
+
+    protected function readListOption(string $inlineOption, string $fileOption): array
+    {
+        $contents = [];
+
+        $inline = trim((string) $this->option($inlineOption));
+        if ($inline !== '') {
+            $contents[] = $inline;
+        }
+
+        $file = trim((string) $this->option($fileOption));
+        if ($file !== '') {
+            if (! is_readable($file)) {
+                throw new \RuntimeException("Arquivo nao legivel: {$file}");
+            }
+
+            $contents[] = (string) file_get_contents($file);
+        }
+
+        if ($contents === []) {
+            return [];
+        }
+
+        return collect(preg_split('/[\s,;\t]+/', implode("\n", $contents)))
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->reject(fn ($value) => in_array(strtolower($value), ['nota', 'note_d5', 'obra', 'ordem'], true))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
