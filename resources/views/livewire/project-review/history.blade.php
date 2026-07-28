@@ -359,7 +359,13 @@
                                 <td>{{ $cycle?->DecidedBy?->name ?? '---' }}</td>
                                 <td>{{ $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---' }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary" wire:click="openProduction({{ $row->id }})">Abrir</button>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-primary" wire:click="openProduction({{ $row->id }})">Abrir</button>
+                                        <button type="button" class="btn btn-sm btn-danger" title="Retornar para a fila de análise"
+                                            onclick="requestReopenForAnalysis({{ $row->id }}, '{{ addslashes($row->Note?->note ?? '') }}')">
+                                            Retornar
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -933,6 +939,12 @@
                     @endif
                 </div>
                 <div class="modal-footer">
+                    @if($selectedProduction)
+                        <button type="button" class="btn btn-danger me-auto" title="Retornar para a fila de análise"
+                            onclick="requestReopenForAnalysis({{ $selectedProduction->id }}, '{{ addslashes($selectedProduction->Note?->note ?? '') }}')">
+                            Retornar para Análise
+                        </button>
+                    @endif
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" wire:click="closeModal">
                         Fechar
                     </button>
@@ -941,3 +953,22 @@
         </div>
     </div>
 </div>
+
+<script>
+    function requestReopenForAnalysis(productionId, note) {
+        Swal.fire({
+            title: 'Retornar para a fila de análise?',
+            html: 'A nota <strong>' + (note || productionId) + '</strong> voltará como <strong>pendente</strong> para a fila de Análise de Projeto do analista, desfazendo a decisão atual. Deseja continuar?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, retornar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#dc3545',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                @this.call('reopenForAnalysis', productionId);
+            }
+        });
+    }
+</script>

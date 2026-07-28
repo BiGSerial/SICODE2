@@ -11,19 +11,41 @@ use Illuminate\Console\Command;
 class MigrateFiveNotesFromBaseD5 extends Command
 {
     protected $signature = 'sicode:migrate-five-notes
-                            {--limit=100 : Limite de registros da base D5 para processar}';
+                            {--limit=100 : Limite de registros da base D5 para processar}
+                            {--notes= : Lista de notas D5 separadas por virgula/espaco}
+                            {--orders= : Lista de obras/ordens separadas por virgula/espaco}
+                            {--notes-file= : Arquivo com notas D5}
+                            {--orders-file= : Arquivo com obras/ordens}';
 
     protected $description = 'Migra registros da tbld_usr_baseD5 (SQL Server) para five_notes (MySQL)';
 
     public function handle(): int
     {
         $limit = (int) $this->option('limit');
+        $notes = $this->readListOption('notes', 'notes-file');
+        $orders = $this->readListOption('orders', 'orders-file');
 
         $this->info("Iniciando migração das D5 (limit = {$limit})...");
+
+        if ($notes !== []) {
+            $this->line('Filtro notas D5: ' . count($notes));
+        }
+
+        if ($orders !== []) {
+            $this->line('Filtro obras/ordens: ' . count($orders));
+        }
 
         $query = BaseD5::query()
             ->whereNull('dtEncerramento')
             ->whereNotNull('obra');
+
+        if ($notes !== []) {
+            $query->whereIn('nota', $notes);
+        }
+
+        if ($orders !== []) {
+            $query->whereIn('obra', $orders);
+        }
 
         if ($limit > 0) {
             $query->limit($limit);
@@ -81,14 +103,17 @@ class MigrateFiveNotesFromBaseD5 extends Command
              *    2) Order + BaseD5
              *    3) Operation 0010
              */
-            $companyId = $this->resolveCompanyId($order, $row, $skippedNoOp0010);
+            $companyResolution = $this->resolveCompanyId($order, $row, $skippedNoOp0010);
+            $companyId = $companyResolution['company_id'];
 
             // 6) Não incluir se não houver company_id válido
             if (! $companyId) {
                 $skippedNoCompanyId++;
                 $this->warn(
                     "Sem company_id válido para obra {$row->obra} "
-                    . "(cenTrabOrder={$order->cenTrab}, cenPlanOrder={$order->cenPlan}) "
+                    . "(cenTrabOrder={$order->cenTrab}, cenPlanOrder={$order->cenPlan}, "
+                    . "cenTrabOp0010={$companyResolution['op0010_cenTrab']}, "
+                    . "cenPlanOp0010={$companyResolution['op0010_cenPlan']}) "
                     . "- nota D5 {$row->nota}"
                 );
                 continue;
@@ -150,52 +175,112 @@ class MigrateFiveNotesFromBaseD5 extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Resolve company_id com fallback:
-     * 1) Order (com regra CONSTR)
-     * 2) Order + BaseD5
-     * 3) Operation 0010
-     */
-    protected function resolveCompanyId($order, $row, int &$skippedNoOp0010): ?string
+    protected function readListOption(string $inlineOption, string $fileOption): array
     {
-        // 1) Tentativa pelo Order
-        $centrabOrder = $this->resolveCenTrabFromOrder($order, $row);
+        $contents = [];
 
-        $companyId = $this->mapCompanyId($order->cenPlan ?? null, $centrabOrder ?? null);
-        if ($this->isValidCompanyId($companyId)) {
-            return $companyId;
+        $inline = trim((string) $this->option($inlineOption));
+        if ($inline !== '') {
+            $contents[] = $inline;
         }
 
-        // 2) Tentativa Order + BaseD5
-        $centrabFromD5 = $row->cenTrabResp
-            ?? $row->cenTrab
-            ?? $centrabOrder;
+        $file = trim((string) $this->option($fileOption));
+        if ($file !== '') {
+            if (! is_readable($file)) {
+                throw new \RuntimeException("Arquivo nao legivel: {$file}");
+            }
+
+            $contents[] = (string) file_get_contents($file);
+        }
+
+        if ($contents === []) {
+            return [];
+        }
+
+        return collect(preg_split('/[\s,;\t]+/', implode("\n", $contents)))
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->reject(fn ($value) => in_array(strtolower($value), ['nota', 'note_d5', 'obra', 'ordem'], true))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Resolve company_id com fallback:
+     * 1) Operation 0010 quando Order esta como CONSTR
+     * 2) Order (com regra CONSTR)
+     * 3) Order + BaseD5
+     * 4) Operation 0010
+     */
+    protected function resolveCompanyId($order, $row, int &$skippedNoOp0010): array
+    {
+        $operation = $this->findOperation0010($order);
+        $context = [
+            'company_id' => null,
+            'op0010_cenPlan' => $operation ? $this->cleanScalar($operation->cenPlan ?? null) : null,
+            'op0010_cenTrab' => $operation ? $this->cleanScalar($operation->cenTrab ?? null) : null,
+        ];
+
+        // 1) Se o Order veio generico como CONSTR, usar o centro de trabalho da operacao 0010.
+        if ($this->isConstr($order->cenTrab ?? null) && $operation) {
+            $companyId = $this->mapCompanyId(
+                $this->firstFilled($operation->cenPlan ?? null, $order->cenPlan ?? null),
+                $this->firstFilled($operation->cenTrab ?? null)
+            );
+
+            if (! $this->isValidCompanyId($companyId)) {
+                $companyId = $this->resolveCompanyIdFromOperationText($operation);
+            }
+
+            if ($this->isValidCompanyId($companyId)) {
+                $context['company_id'] = $companyId;
+                return $context;
+            }
+        }
+
+        // 2) Tentativa pelo Order
+        $centrabOrder = $this->resolveCenTrabFromOrder($order, $row);
+        $companyId = $this->mapCompanyId($order->cenPlan ?? null, $centrabOrder ?? null);
+        if ($this->isValidCompanyId($companyId)) {
+            $context['company_id'] = $companyId;
+            return $context;
+        }
+
+        // 3) Tentativa Order + BaseD5
+        $centrabFromD5 = $this->firstFilled(
+            $row->cenTrabResp ?? null,
+            $row->cenTrab ?? null,
+            $centrabOrder
+        );
 
         $companyId = $this->mapCompanyId($order->cenPlan ?? null, $centrabFromD5 ?? null);
         if ($this->isValidCompanyId($companyId)) {
-            return $companyId;
+            $context['company_id'] = $companyId;
+            return $context;
         }
 
-        // 3) Tentativa pela Operation 0010
-        $operation = $order->operations()
-            ->whereIn('operacao', ['0010', '010', '10'])
-            ->first();
-
+        // 4) Tentativa pela Operation 0010
         if (! $operation) {
             $skippedNoOp0010++;
-            return null;
+            return $context;
         }
 
         $companyId = $this->mapCompanyId(
-            $operation->cenPlan ?? null,
-            $operation->cenTrab ?? null
+            $this->firstFilled($operation->cenPlan ?? null, $order->cenPlan ?? null),
+            $this->firstFilled($operation->cenTrab ?? null)
         );
 
-        if ($this->isValidCompanyId($companyId)) {
-            return $companyId;
+        if (! $this->isValidCompanyId($companyId)) {
+            $companyId = $this->resolveCompanyIdFromOperationText($operation);
         }
 
-        return null;
+        if ($this->isValidCompanyId($companyId)) {
+            $context['company_id'] = $companyId;
+            return $context;
+        }
+
+        return $context;
     }
 
     /**
@@ -204,11 +289,99 @@ class MigrateFiveNotesFromBaseD5 extends Command
      */
     protected function resolveCenTrabFromOrder($order, $row): ?string
     {
-        if (($order->cenTrab ?? null) === 'CONSTR') {
+        if ($this->isConstr($order->cenTrab ?? null)) {
             return $row->cenTrabResp ?? null;
         }
 
         return $order->cenTrab ?? null;
+    }
+
+    protected function findOperation0010($order)
+    {
+        return $order->operations()
+            ->whereIn('operacao', ['0010', '010', '10'])
+            ->first();
+    }
+
+    protected function isConstr(?string $cenTrab): bool
+    {
+        return trim((string) $cenTrab) === 'CONSTR';
+    }
+
+    protected function firstFilled(...$values): ?string
+    {
+        foreach ($values as $value) {
+            $value = $this->cleanScalar($value);
+
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected function cleanScalar($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    protected function resolveCompanyIdFromOperationText($operation): ?string
+    {
+        $txtCenTrab = $this->cleanScalar($operation->txtCenTrab ?? null);
+        $cenTrab = $this->cleanScalar($operation->cenTrab ?? null);
+
+        if (! $txtCenTrab && ! $cenTrab) {
+            return null;
+        }
+
+        $candidates = Company::query()->get(['id', 'name']);
+        $txtNeedle = $this->normalizeCompanyText($txtCenTrab);
+        $cenTrabNeedle = $this->normalizeCompanyText($cenTrab);
+
+        foreach ($candidates as $company) {
+            $companyName = $this->normalizeCompanyText($company->name);
+
+            if ($txtNeedle && $companyName === $txtNeedle) {
+                return $company->id;
+            }
+
+            if ($txtNeedle && str_contains($txtNeedle, $companyName)) {
+                return $company->id;
+            }
+
+            if ($txtNeedle && str_contains($companyName, $txtNeedle)) {
+                return $company->id;
+            }
+
+            if ($cenTrabNeedle && str_contains($companyName, $cenTrabNeedle)) {
+                return $company->id;
+            }
+        }
+
+        return null;
+    }
+
+    protected function normalizeCompanyText(?string $value): ?string
+    {
+        $value = $this->cleanScalar($value);
+
+        if (! $value) {
+            return null;
+        }
+
+        $normalized = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        $normalized = $normalized === false ? $value : $normalized;
+        $normalized = strtoupper($normalized);
+        $normalized = preg_replace('/[^A-Z0-9]+/', ' ', $normalized);
+
+        return trim((string) preg_replace('/\s+/', ' ', (string) $normalized));
     }
 
     /**

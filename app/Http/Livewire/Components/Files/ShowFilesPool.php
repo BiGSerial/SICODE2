@@ -9,7 +9,7 @@ use Livewire\Component;
 class ShowFilesPool extends Component
 {
     public $files;
-    public string $activeTab = 'tab-0';
+    public string $activeTab = 'fm-tab-0';
 
     protected $listeners = ['setActiveTab'];
 

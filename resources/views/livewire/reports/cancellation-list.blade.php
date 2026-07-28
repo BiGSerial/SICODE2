@@ -48,21 +48,27 @@
                 <h4 class="mb-1">Lista Geral de Cancelamentos</h4>
                 <div class="small text-white-50">Consulta completa com filtros de período e indicadores por solicitação.</div>
             </div>
+            <button type="button" class="btn btn-light btn-sm" wire:click="exportToExcel" wire:loading.attr="disabled"
+                wire:target="exportToExcel">
+                <i class="bi bi-file-earmark-excel"></i>
+                <span wire:loading.remove wire:target="exportToExcel">Exportar Excel</span>
+                <span wire:loading wire:target="exportToExcel">Enviando...</span>
+            </button>
         </div>
 
         <div class="panel p-3 mb-3">
             <div class="row g-2">
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Período inicial</label>
-                    <input type="date" class="form-control form-control-sm" wire:model="dateFrom">
+                    <input type="date" class="form-control form-control-sm" wire:model.lazy="dateFrom">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Período final</label>
-                    <input type="date" class="form-control form-control-sm" wire:model="dateTo">
+                    <input type="date" class="form-control form-control-sm" wire:model.lazy="dateTo">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Status</label>
-                    <select class="form-select form-select-sm" wire:model="status">
+                    <select class="form-select form-select-sm" wire:model.lazy="status">
                         <option value="">Todos</option>
                         @foreach($statusOptions as $option)
                             <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
@@ -71,7 +77,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Tipo</label>
-                    <select class="form-select form-select-sm" wire:model="scope">
+                    <select class="form-select form-select-sm" wire:model.lazy="scope">
                         <option value="">Todos</option>
                         @foreach($scopeOptions as $option)
                             <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
@@ -80,7 +86,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Categoria</label>
-                    <select class="form-select form-select-sm" wire:model="categoryId">
+                    <select class="form-select form-select-sm" wire:model.lazy="categoryId">
                         <option value="">Todas</option>
                         @foreach($categories as $id => $name)
                             <option value="{{ $id }}">{{ $name }}</option>
@@ -94,7 +100,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small mb-1">Visão</label>
-                    <select class="form-select form-select-sm" wire:model="visibilityMode">
+                    <select class="form-select form-select-sm" wire:model.lazy="visibilityMode">
                         @foreach($visibilityOptions as $option)
                             <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
                         @endforeach

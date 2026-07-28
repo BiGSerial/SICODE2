@@ -22,6 +22,7 @@ registroUpdate.json
 
 # Local docs/config for AI agents (do not commit)
 /docs/agente/
+/docs/relatorios-executivos/
 /.agents/
 /.claude/
 /.codex

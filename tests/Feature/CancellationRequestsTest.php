@@ -2,17 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Models\CancellationCategory;
-use App\Models\CancellationRequest;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\User;
-use App\Enum\CancellationRequestScope;
-use App\Enum\CancellationEngineerApprovalStatus;
+use App\Enum\{CancellationEngineerApprovalStatus, CancellationRequestScope, CancellationRequestStatus};
+use App\Http\Livewire\Reports\CancellationList;
+use App\Jobs\Reports\ExportCancellationListJob;
+use App\Models\{CancellationCategory, CancellationRequest, Note, Order, User};
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\{Queue, Storage};
+use Livewire\Livewire;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -22,12 +20,13 @@ class CancellationRequestsTest extends TestCase
 
     private function makeNoteWithOrders(int $count = 2): array
     {
-        $note = Note::create(['note' => 'N' . rand(1000, 9999)]);
+        $note   = Note::create(['note' => 'N' . rand(1000, 9999)]);
         $orders = [];
+
         for ($i = 1; $i <= $count; $i++) {
             $orders[] = Order::create([
                 'note_id' => $note->id,
-                'ordem' => 'OV-' . $i,
+                'ordem'   => 'OV-' . $i,
             ]);
         }
 
@@ -37,10 +36,10 @@ class CancellationRequestsTest extends TestCase
     private function makeCategory(array $override = []): CancellationCategory
     {
         return CancellationCategory::create(array_merge([
-            'name' => 'Pedido do Cliente',
-            'slug' => 'pedido-do-cliente',
-            'active' => true,
-            'require_evidence' => true,
+            'name'               => 'Pedido do Cliente',
+            'slug'               => 'pedido-do-cliente',
+            'active'             => true,
+            'require_evidence'   => true,
             'min_evidence_files' => 1,
         ], $override));
     }
@@ -50,8 +49,8 @@ class CancellationRequestsTest extends TestCase
         Storage::fake('public');
 
         [$note, $orders] = $this->makeNoteWithOrders(2);
-        $category = $this->makeCategory();
-        $user = User::factory()->create(['user' => true]);
+        $category        = $this->makeCategory();
+        $user            = User::factory()->create(['user' => true]);
 
         $service = new CancellationRequestService();
 
@@ -68,9 +67,9 @@ class CancellationRequestsTest extends TestCase
         );
 
         $this->assertDatabaseHas('cancellation_requests', [
-            'id' => $request->id,
+            'id'      => $request->id,
             'note_id' => $note->id,
-            'status' => CancellationRequest::STATUS_SUBMITTED,
+            'status'  => CancellationRequest::STATUS_SUBMITTED,
         ]);
 
         $this->assertDatabaseCount('evidence_files', 1);
@@ -82,7 +81,7 @@ class CancellationRequestsTest extends TestCase
         $note->update(['canceled' => true]);
 
         $category = $this->makeCategory();
-        $user = User::factory()->create(['user' => true]);
+        $user     = User::factory()->create(['user' => true]);
 
         $service = new CancellationRequestService();
 
@@ -104,7 +103,7 @@ class CancellationRequestsTest extends TestCase
         $orders[0]->update(['canceled' => true]);
 
         $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
-        $user = User::factory()->create(['user' => true]);
+        $user     = User::factory()->create(['user' => true]);
 
         $service = new CancellationRequestService();
 
@@ -120,14 +119,14 @@ class CancellationRequestsTest extends TestCase
 
         $this->assertDatabaseHas('cancellation_request_orders', [
             'cancellation_request_id' => $request->id,
-            'order_id' => $orders[1]->id,
+            'order_id'                => $orders[1]->id,
         ]);
     }
 
     public function test_claim_is_atomic(): void
     {
         [$note, $orders] = $this->makeNoteWithOrders(1);
-        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $category        = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
 
         $user1 = User::factory()->create(['can_dispatch' => true]);
         $user2 = User::factory()->create(['can_dispatch' => true]);
@@ -153,8 +152,8 @@ class CancellationRequestsTest extends TestCase
     public function test_finalize_done_cancels_entities(): void
     {
         [$note, $orders] = $this->makeNoteWithOrders(2);
-        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
-        $user = User::factory()->create(['can_dispatch' => true]);
+        $category        = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $user            = User::factory()->create(['can_dispatch' => true]);
 
         $service = new CancellationRequestService();
 
@@ -174,7 +173,7 @@ class CancellationRequestsTest extends TestCase
         $this->assertTrue($note->fresh()->canceled);
         $this->assertTrue($orders[0]->fresh()->canceled);
         $this->assertDatabaseHas('cancellation_requests', [
-            'id' => $request->id,
+            'id'     => $request->id,
             'status' => CancellationRequest::STATUS_DONE,
         ]);
     }
@@ -182,8 +181,8 @@ class CancellationRequestsTest extends TestCase
     public function test_finalize_rejected_does_not_cancel(): void
     {
         [$note, $orders] = $this->makeNoteWithOrders(1);
-        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
-        $user = User::factory()->create(['can_dispatch' => true]);
+        $category        = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $user            = User::factory()->create(['can_dispatch' => true]);
 
         $service = new CancellationRequestService();
 
@@ -203,8 +202,8 @@ class CancellationRequestsTest extends TestCase
         $this->assertFalse($note->fresh()->canceled);
         $this->assertFalse($orders[0]->fresh()->canceled);
         $this->assertDatabaseHas('cancellation_requests', [
-            'id' => $request->id,
-            'status' => CancellationRequest::STATUS_REJECTED,
+            'id'           => $request->id,
+            'status'       => CancellationRequest::STATUS_REJECTED,
             'closure_note' => 'Motivo de rejeição',
         ]);
     }
@@ -212,9 +211,9 @@ class CancellationRequestsTest extends TestCase
     public function test_finalize_done_requires_engineer_approval_when_requested(): void
     {
         [$note, $orders] = $this->makeNoteWithOrders(1);
-        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
-        $executor = User::factory()->create(['can_dispatch' => true]);
-        $engineer = User::factory()->create(['engineer' => true]);
+        $category        = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $executor        = User::factory()->create(['can_dispatch' => true]);
+        $engineer        = User::factory()->create(['engineer' => true]);
 
         $service = new CancellationRequestService();
 
@@ -238,9 +237,9 @@ class CancellationRequestsTest extends TestCase
     public function test_finalize_done_after_engineer_approval(): void
     {
         [$note, $orders] = $this->makeNoteWithOrders(1);
-        $category = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
-        $executor = User::factory()->create(['can_dispatch' => true]);
-        $engineer = User::factory()->create(['engineer' => true]);
+        $category        = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        $executor        = User::factory()->create(['can_dispatch' => true]);
+        $engineer        = User::factory()->create(['engineer' => true]);
 
         $service = new CancellationRequestService();
 
@@ -261,9 +260,91 @@ class CancellationRequestsTest extends TestCase
 
         $this->assertTrue($orders[0]->fresh()->canceled);
         $this->assertDatabaseHas('cancellation_requests', [
-            'id' => $request->id,
-            'status' => CancellationRequest::STATUS_DONE,
+            'id'                       => $request->id,
+            'status'                   => CancellationRequest::STATUS_DONE,
             'engineer_approval_status' => CancellationEngineerApprovalStatus::APPROVED->value,
         ]);
+    }
+
+    public function test_cancellation_list_applies_status_filter_and_exports_current_filters(): void
+    {
+        $manager      = User::factory()->create(['management' => true]);
+        $requester    = User::factory()->create(['user' => true]);
+        $category     = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        [$firstNote]  = $this->makeNoteWithOrders(1);
+        [$secondNote] = $this->makeNoteWithOrders(1);
+
+        $completed = CancellationRequest::create([
+            'note_id'      => $firstNote->id,
+            'scope'        => CancellationRequestScope::NOTE_FULL->value,
+            'category_id'  => $category->id,
+            'requested_by' => $requester->id,
+            'status'       => CancellationRequestStatus::DONE->value,
+            'submitted_at' => now()->subDay(),
+            'closed_at'    => now(),
+        ]);
+
+        CancellationRequest::create([
+            'note_id'      => $secondNote->id,
+            'scope'        => CancellationRequestScope::WORK_FORM_ONLY->value,
+            'category_id'  => $category->id,
+            'requested_by' => $requester->id,
+            'status'       => CancellationRequestStatus::ASSIGNED->value,
+            'submitted_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($manager);
+
+        Queue::fake();
+
+        Livewire::test(CancellationList::class)
+            ->set('dateFrom', now()->subDays(2)->toDateString())
+            ->set('dateTo', now()->toDateString())
+            ->set('status', CancellationRequestStatus::DONE->value)
+            ->assertViewHas('rows', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $completed->id)
+            ->call('exportToExcel');
+
+        Queue::assertPushed(ExportCancellationListJob::class, function (ExportCancellationListJob $job) use ($manager) {
+            return $job->userId === $manager->id
+                && $job->filters['status'] === CancellationRequestStatus::DONE->value
+                && $job->filters['dateFrom'] === now()->subDays(2)->toDateString()
+                && $job->filters['dateTo'] === now()->toDateString();
+        });
+    }
+
+    public function test_cancellation_list_filters_by_selected_requesters(): void
+    {
+        $manager        = User::factory()->create(['management' => true]);
+        $selectedUser   = User::factory()->create(['user' => true]);
+        $otherUser      = User::factory()->create(['user' => true]);
+        $category       = $this->makeCategory(['require_evidence' => false, 'min_evidence_files' => 0]);
+        [$selectedNote] = $this->makeNoteWithOrders(1);
+        [$otherNote]    = $this->makeNoteWithOrders(1);
+
+        $selectedRequest = CancellationRequest::create([
+            'note_id'      => $selectedNote->id,
+            'scope'        => CancellationRequestScope::NOTE_FULL->value,
+            'category_id'  => $category->id,
+            'requested_by' => $selectedUser->id,
+            'status'       => CancellationRequestStatus::DONE->value,
+            'submitted_at' => now()->subDay(),
+        ]);
+
+        CancellationRequest::create([
+            'note_id'      => $otherNote->id,
+            'scope'        => CancellationRequestScope::NOTE_FULL->value,
+            'category_id'  => $category->id,
+            'requested_by' => $otherUser->id,
+            'status'       => CancellationRequestStatus::DONE->value,
+            'submitted_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($manager);
+
+        Livewire::test(CancellationList::class)
+            ->set('dateFrom', now()->subDays(2)->toDateString())
+            ->set('dateTo', now()->toDateString())
+            ->set('requesterIds', [(string) $selectedUser->id])
+            ->assertViewHas('rows', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $selectedRequest->id);
     }
 }
