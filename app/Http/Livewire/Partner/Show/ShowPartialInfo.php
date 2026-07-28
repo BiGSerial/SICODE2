@@ -3,6 +3,8 @@
 namespace App\Http\Livewire\Partner\Show;
 
 use App\Models\Partial;
+use App\Models\File;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class ShowPartialInfo extends Component
@@ -16,7 +18,7 @@ class ShowPartialInfo extends Component
     public function show_form(Partial $form)
     {
 
-        $this->form = $form->load(['Note', 'Company', 'User', 'Engineer', 'Supervisor', 'Payer']);
+        $this->form = $form->load(['Note.Orders', 'Orders', 'Company', 'User', 'Engineer', 'Supervisor', 'Payer', 'Files.Service']);
 
         // dd($this->form);
 
@@ -28,6 +30,11 @@ class ShowPartialInfo extends Component
                 'id' => 'modal_partial_info',
             ]);
         }
+    }
+
+    public function downloadFile(File $file)
+    {
+        return Storage::download($file->path, $file->stored_name);
     }
 
     public function render()

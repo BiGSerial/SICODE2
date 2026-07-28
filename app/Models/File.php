@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class File extends Model
 {
@@ -92,5 +93,29 @@ class File extends Model
             ->where('tacit', true)
             ->whereNotNull('work_report_id')
             ->exists();
+    }
+
+    public function getExtensionAttribute(): string
+    {
+        return (string) ($this->ext ?: pathinfo((string) $this->file_name, PATHINFO_EXTENSION));
+    }
+
+    public function getStoredNameAttribute(): string
+    {
+        $name = (string) ($this->original_name ?: $this->file_name ?: 'arquivo');
+        $extension = $this->extension;
+
+        if ($extension !== '' && !str_ends_with(strtolower($name), '.' . strtolower($extension))) {
+            return $name . '.' . $extension;
+        }
+
+        return $name;
+    }
+
+    public function getSizeAttribute(): int
+    {
+        return $this->path && Storage::exists($this->path)
+            ? (int) Storage::size($this->path)
+            : 0;
     }
 }

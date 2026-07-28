@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Admin\Control;
 
+use App\Models\Company;
 use App\Models\EvidenceFile;
 use App\Models\FiveNote;
 use App\Models\Production;
@@ -17,6 +18,7 @@ class D5Edit extends Component
     public $availableProductions = [];
     public $linkedProductions = [];
     public $pendingEvidenceSave = false;
+    public $companies;
 
     protected $listeners = [
         'getInfoResponse',
@@ -37,6 +39,7 @@ class D5Edit extends Component
             'five.sintoms'          => ['nullable', 'string'],
             'five.reason'           => ['nullable', 'string', 'max:191'],
             'five.description'      => ['nullable', 'string'],
+            'five.company_id'       => ['nullable', 'string', 'exists:companies,id'],
             'five.name'             => ['nullable', 'string', 'max:191'],
             'five.dispatch_at'      => ['nullable', 'date'],
             'five.visible_partner'  => ['boolean'],
@@ -50,6 +53,11 @@ class D5Edit extends Component
             'five.isPassive'        => ['boolean'],
             'five.returned'         => ['boolean'],
         ];
+    }
+
+    public function mount(): void
+    {
+        $this->companies = Company::orderBy('name')->get(['id', 'name']);
     }
 
     public function getInfoResponse(FiveNote $five): void

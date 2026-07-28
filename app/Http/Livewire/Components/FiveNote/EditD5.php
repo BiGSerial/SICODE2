@@ -47,7 +47,9 @@ class EditD5 extends Component
             'five.is_payed'        => ['boolean'],
             'five.payed_at'        => ['nullable','date'],
             'five.is_archived'     => ['boolean'],
-            'five.company_id'     => ['nullable','string','exists:companies,id'],
+            'five.isPassive'       => ['boolean'],
+            'five.returned'        => ['boolean'],
+            'five.company_id'      => ['nullable','string','exists:companies,id'],
         ];
     }
 

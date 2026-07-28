@@ -83,8 +83,17 @@
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Empresa</label>
-                                            <input type="text" class="form-control fivefx-control"
-                                                value="{{ $five->company?->name }}" readonly>
+                                            <select
+                                                class="form-select fivefx-select @error('five.company_id') is-invalid @enderror"
+                                                wire:model.defer="five.company_id">
+                                                <option value="">Selecione...</option>
+                                                @foreach ($companies as $company)
+                                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('five.company_id')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
                                         </div>
                                     </div>
 

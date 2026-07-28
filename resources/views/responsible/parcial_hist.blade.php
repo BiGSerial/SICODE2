@@ -18,7 +18,7 @@
 @endsection
 
 @section('content')
-    @livewire('engineers.partial-hist', key('engineers-partial-hist'))
+    @livewire('engineers.partial-hist', key('responsible-partial-hist'))
 @endsection
 
 

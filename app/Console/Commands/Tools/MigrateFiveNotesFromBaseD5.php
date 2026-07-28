@@ -229,6 +229,10 @@ class MigrateFiveNotesFromBaseD5 extends Command
                 $this->firstFilled($operation->cenTrab ?? null)
             );
 
+            if (! $this->isValidCompanyId($companyId)) {
+                $companyId = $this->resolveCompanyIdFromOperationText($operation);
+            }
+
             if ($this->isValidCompanyId($companyId)) {
                 $context['company_id'] = $companyId;
                 return $context;
@@ -266,6 +270,10 @@ class MigrateFiveNotesFromBaseD5 extends Command
             $this->firstFilled($operation->cenPlan ?? null, $order->cenPlan ?? null),
             $this->firstFilled($operation->cenTrab ?? null)
         );
+
+        if (! $this->isValidCompanyId($companyId)) {
+            $companyId = $this->resolveCompanyIdFromOperationText($operation);
+        }
 
         if ($this->isValidCompanyId($companyId)) {
             $context['company_id'] = $companyId;
@@ -322,6 +330,58 @@ class MigrateFiveNotesFromBaseD5 extends Command
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    protected function resolveCompanyIdFromOperationText($operation): ?string
+    {
+        $txtCenTrab = $this->cleanScalar($operation->txtCenTrab ?? null);
+        $cenTrab = $this->cleanScalar($operation->cenTrab ?? null);
+
+        if (! $txtCenTrab && ! $cenTrab) {
+            return null;
+        }
+
+        $candidates = Company::query()->get(['id', 'name']);
+        $txtNeedle = $this->normalizeCompanyText($txtCenTrab);
+        $cenTrabNeedle = $this->normalizeCompanyText($cenTrab);
+
+        foreach ($candidates as $company) {
+            $companyName = $this->normalizeCompanyText($company->name);
+
+            if ($txtNeedle && $companyName === $txtNeedle) {
+                return $company->id;
+            }
+
+            if ($txtNeedle && str_contains($txtNeedle, $companyName)) {
+                return $company->id;
+            }
+
+            if ($txtNeedle && str_contains($companyName, $txtNeedle)) {
+                return $company->id;
+            }
+
+            if ($cenTrabNeedle && str_contains($companyName, $cenTrabNeedle)) {
+                return $company->id;
+            }
+        }
+
+        return null;
+    }
+
+    protected function normalizeCompanyText(?string $value): ?string
+    {
+        $value = $this->cleanScalar($value);
+
+        if (! $value) {
+            return null;
+        }
+
+        $normalized = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        $normalized = $normalized === false ? $value : $normalized;
+        $normalized = strtoupper($normalized);
+        $normalized = preg_replace('/[^A-Z0-9]+/', ' ', $normalized);
+
+        return trim((string) preg_replace('/\s+/', ' ', (string) $normalized));
     }
 
     /**
