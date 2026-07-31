@@ -201,6 +201,7 @@
                                 <th>Exportação</th>
                                 <th>Liberação</th>
                                 <th>Origem</th>
+                                <th class="text-end">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -260,7 +261,13 @@
                                     <td>
                                         @if ($release->released_at)
                                             {{ $release->released_at->format('d/m/Y H:i') }}
-                                            <div class="small text-muted">Status {{ $release->release_nstats }}</div>
+                                            @if ($release->released_by && !in_array((int) $release->release_nstats, \App\Models\ExternalOrganRelease::RELEASE_STATUSES, true))
+                                                <div class="small text-muted">
+                                                    Recusa OE por {{ $release->releasedBy?->name ?? '---' }}
+                                                </div>
+                                            @else
+                                                <div class="small text-muted">Status {{ $release->release_nstats }}</div>
+                                            @endif
                                         @else
                                             <span class="badge text-bg-warning">Aguardando 20/11</span>
                                         @endif
@@ -268,6 +275,20 @@
                                     <td>
                                         <div>{{ $release->production?->Service?->service ?? '---' }}</div>
                                         <div class="small text-muted">{{ $release->production?->User?->name ?? '---' }}</div>
+                                    </td>
+                                    <td class="text-end">
+                                        @if (!$release->released_at && $tab !== 'cancel_90')
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                wire:click.prevent="confirmRejectExternalOrgan({{ $release->id }})"
+                                                wire:loading.attr="disabled"
+                                                wire:target="confirmRejectExternalOrgan({{ $release->id }})"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-title="Informar que não precisa de Órgão Externo e liberar para contratação">
+                                                <i class="ri-close-circle-line me-1"></i>Recusar OE
+                                            </button>
+                                        @else
+                                            <span class="text-muted">---</span>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

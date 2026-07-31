@@ -11,8 +11,8 @@ class City extends Model
 
     // conexão com 'edp-depc';
 
-    // protected $connection = 'sqlsrv1';
-    // protected $table = 'tble_bov_bases';
+    protected $connection = 'sqlsrv1';
+    protected $table = 'tble_bov_bases';
 
     protected $primaryKey = 'rdMunicipio';
 

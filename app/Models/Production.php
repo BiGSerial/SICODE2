@@ -173,6 +173,11 @@ class Production extends Model
         return $this->hasMany(ProjectReviewCycle::class)->orderBy('round_number');
     }
 
+    public function LatestProjectReviewCycle()
+    {
+        return $this->hasOne(ProjectReviewCycle::class)->ofMany('round_number', 'max');
+    }
+
     public function ProjectReviewMessages()
     {
         return $this->hasMany(ProjectReviewMessage::class);

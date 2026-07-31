@@ -740,6 +740,10 @@ class Analise extends Component
             return;
         }
 
+        if ($dependsOnExternalOrgan && $this->isTechnicalComplaintNote()) {
+            return;
+        }
+
         if ($dependsOnExternalOrgan && $this->shouldCreateExternalOrganRelease()) {
             ExternalOrganRelease::updateOrCreate(
                 [
@@ -771,6 +775,11 @@ class Analise extends Component
         $conclusion = mb_strtoupper(trim((string) $this->conclusion));
 
         return !in_array($conclusion, ExternalOrganRelease::EXCLUDED_CONCLUSIONS, true);
+    }
+
+    private function isTechnicalComplaintNote(): bool
+    {
+        return str_starts_with((string) ($this->note->note ?? ''), '800');
     }
 
     public function addOrderToList(): void

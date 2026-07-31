@@ -20,3 +20,37 @@
 @section('content')
     @livewire('services.oexterno.released-works', ['service' => $service->uuid])
 @endsection
+
+@push('script')
+    <script>
+        function escapeReleasedWorkText(value) {
+            return String(value).replace(/[&<>"']/g, function(match) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[match];
+            });
+        }
+
+        window.addEventListener('confirm-external-organ-rejection', function(e) {
+            const note = escapeReleasedWorkText(e.detail.note || '---');
+
+            Swal.fire({
+                title: 'Recusar Órgão Externo?',
+                html: 'A nota <strong>' + note + '</strong> será removida da fila de OE e liberada para aprovação de projeto.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, recusar OE',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Livewire.emit('rejectExternalOrganRequirement', e.detail.releaseId);
+                }
+            });
+        });
+    </script>
+@endpush

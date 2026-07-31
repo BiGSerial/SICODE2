@@ -9,6 +9,7 @@ use App\Models\{CancellationCategory, ExternalOrganRelease, Service};
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 use RuntimeException;
 
@@ -40,6 +41,10 @@ class ReleasedWorks extends Component
     public array $selectedReleaseIds = [];
 
     private bool $closedReleasedStatuses = false;
+
+    protected $listeners = [
+        'rejectExternalOrganRequirement' => 'rejectExternalOrganRequirement',
+    ];
 
     protected $queryString = [
         'tab'                   => ['except' => 'new'],
@@ -180,6 +185,80 @@ class ReleasedWorks extends Component
         ]);
     }
 
+    public function confirmRejectExternalOrgan(int $releaseId): void
+    {
+        $release = $this->baseQuery()
+            ->whereKey($releaseId)
+            ->with('note:id,note,nstats,dt_status,type_note')
+            ->first();
+
+        if (!$release || $release->released_at) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Obra indisponível para recusa.',
+                'timer'    => 2800,
+            ]);
+
+            return;
+        }
+
+        $this->dispatchBrowserEvent('confirm-external-organ-rejection', [
+            'releaseId' => $release->id,
+            'note'      => $release->note?->note ?? '---',
+        ]);
+    }
+
+    public function rejectExternalOrganRequirement(int $releaseId): void
+    {
+        $release = $this->baseQuery()
+            ->whereKey($releaseId)
+            ->with('note:id,nstats,dt_status,type_note')
+            ->first();
+
+        if (!$release || $release->released_at) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Obra indisponível para recusa.',
+                'timer'    => 2800,
+            ]);
+
+            return;
+        }
+
+        $note = $release->note;
+        $now  = now();
+
+        DB::transaction(function () use ($release, $note, $now) {
+            $release->update([
+                'released_at'         => $now,
+                'release_dt_status'   => $note?->dt_status,
+                'release_detected_at' => $now,
+                'release_nstats'      => $note?->nstats,
+                'released_by'         => Auth::id(),
+            ]);
+
+            $note?->update([
+                'doe' => false,
+            ]);
+        });
+
+        $this->selectedReleaseIds = array_values(array_diff(
+            $this->selectedReleaseIds,
+            [$releaseId, (string) $releaseId]
+        ));
+        $this->resetPage();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Pendência de OE recusada.',
+            'html'     => 'A obra foi removida do bloqueio de Órgão Externo e poderá seguir para aprovação de projeto.',
+            'timer'    => 3200,
+        ]);
+    }
+
     public function exportToExcel(): void
     {
         $this->closeReleasedStatuses();
@@ -218,8 +297,6 @@ class ReleasedWorks extends Component
 
     public function getReleasesProperty()
     {
-        $this->closeReleasedStatuses();
-
         return $this->baseQuery()
             ->orderByRaw('exported_at IS NOT NULL')
             ->orderBy('created_at')
@@ -235,12 +312,16 @@ class ReleasedWorks extends Component
                 'production.User:id,name',
                 'production.Company:id,name',
                 'production.Service:uuid,service',
-                'production.ProjectReviewCycles' => function ($q) {
-                    $q->select(['id', 'production_id', 'round_number'])
-                        ->orderByDesc('round_number')
+                'production.LatestProjectReviewCycle' => function ($q) {
+                    $q->select([
+                        'project_review_cycles.id',
+                        'project_review_cycles.production_id',
+                        'project_review_cycles.round_number',
+                    ])
                         ->with('Orders:id,cycle_id,sort_order,order_number,total_cost,company_cost,client_cost');
                 },
                 'exportedBy:id,name',
+                'releasedBy:id,name',
             ])
             ->eligibleForExternalOrganList();
 
@@ -404,7 +485,7 @@ class ReleasedWorks extends Component
 
     public function projectReviewCostSummary(ExternalOrganRelease $release): array
     {
-        $cycle = $release->production?->ProjectReviewCycles?->sortByDesc('round_number')->first();
+        $cycle = $release->production?->LatestProjectReviewCycle;
 
         if (!$cycle) {
             return [
