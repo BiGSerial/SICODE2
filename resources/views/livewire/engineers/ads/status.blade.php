@@ -224,6 +224,29 @@
             </div>
         </div>
 
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small text-muted">Data abonada</label>
+                        <input type="date" class="form-control border border-secondary" wire:model.defer="adjustmentDate">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted">Justificativa</label>
+                        <input type="text" class="form-control border border-secondary" wire:model.defer="adjustmentReason"
+                            placeholder="Motivo para considerar a data como não útil nos registros selecionados">
+                        @error('adjustmentReason') <small class="text-danger">{{ $message }}</small> @enderror
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <button class="btn btn-outline-primary w-100" wire:click="addNonWorkingDayAdjustment" wire:loading.attr="disabled"
+                            wire:target="addNonWorkingDayAdjustment">
+                            <i class="ri-calendar-close-line me-1"></i> Abonar selecionados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="ads-status-table-card">
             @if (!$rows->count())
                 <div class="card-body">
@@ -234,14 +257,18 @@
                     <table class="table table-sm table-striped table-hover mb-0">
                         <thead class="table-dark">
                             <tr>
+                                <th></th>
                                 <th>ID</th>
                                 <th>Nota</th>
                                 <th>Empreiteira</th>
+                                <th>UF</th>
                                 <th>Informe</th>
-                                <th>Vencimento tácito</th>
+                                <th>Data limite ADS</th>
                                 <th>Entrega ADS</th>
                                 <th>Status</th>
                                 <th>Tempo (dias)</th>
+                                <th>%</th>
+                                <th>Faixa</th>
                                 <th>Base</th>
                                 <th>Multa diária</th>
                                 <th>Multa prevista</th>
@@ -251,9 +278,13 @@
                         <tbody>
                             @foreach ($rows as $row)
                                 <tr wire:key="ads-status-{{ $row['work_report_id'] }}">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input" wire:model.defer="selectedRows.{{ $row['work_report_id'] }}">
+                                    </td>
                                     <td class="fw-semibold">#{{ $row['work_report_id'] }}</td>
                                     <td class="fw-semibold">{{ $row['note_number'] }}</td>
                                     <td>{{ $row['company_name'] }}</td>
+                                    <td>{{ $row['state'] }}</td>
                                     <td>{{ $row['informed_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['due_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['delivered_at']?->format('d/m/Y H:i') ?? '—' }}</td>
@@ -265,6 +296,8 @@
                                             {{ $row['delay_days'] }}
                                         @endif
                                     </td>
+                                    <td>{{ number_format($row['penalty_percentage'], 1, ',', '.') }}%</td>
+                                    <td>{{ str_replace('_', ' ', strtoupper($row['penalty_band'])) }}</td>
                                     <td>
                                         @if (isset($rowFineData[$row['work_report_id']]))
                                             R$ {{ number_format($rowFineData[$row['work_report_id']]['base_amount'], 2, ',', '.') }}

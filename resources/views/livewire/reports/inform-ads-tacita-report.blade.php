@@ -96,7 +96,7 @@
         <div class="iat-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             <div>
                 <h2 class="mb-1">INFORME DE OBRA X ADS TÁCITA</h2>
-                <div class="text-light opacity-75">Relatório com cálculo de multa linear e exportação em fila</div>
+                <div class="text-light opacity-75">Relatório com cálculo de prazo em dias úteis, entrega e penalidade</div>
             </div>
             <div class="d-flex gap-2">
                 <span class="badge bg-light text-dark px-3 py-2">Modo atual: {{ $modeLabel }}</span>
@@ -138,7 +138,7 @@
                     <label class="form-label small text-muted">Filtrar data por</label>
                     <select class="form-select border border-secondary" wire:model="dateField">
                         <option value="ads_created_at">ADS Criada</option>
-                        <option value="tacit_delivered_at">ADS tácita entregue</option>
+                        <option value="tacit_delivered_at">ADS da parceira entregue</option>
                     </select>
                 </div>
             </div>
@@ -245,13 +245,15 @@
                                 <th>Modo</th>
                                 <th>Número da NOTA</th>
                                 <th>Empreiteira</th>
+                                <th>UF</th>
                                 <th>{{ $modeLabel === 'Por NOTA' ? 'Ordens agrupadas' : 'Número da ORDEM' }}</th>
                                 <th>Entrega do informe</th>
-                                <th>Vencimento tácito</th>
-                                <th>Envio tácita</th>
+                                <th>Data limite ADS</th>
+                                <th>Entrega ADS parceira</th>
                                 <th>Status ADS</th>
                                 <th>Dias multa</th>
                                 <th>Percentual aplicado</th>
+                                <th>Faixa</th>
                                 <th>Base monetária</th>
                                 <th>Multa diária (0,5%)</th>
                                 <th>Multa total prevista</th>
@@ -263,6 +265,7 @@
                                     <td><span class="badge bg-secondary">{{ $row['mode_label'] }}</span></td>
                                     <td class="fw-semibold">{{ $row['note_number'] }}</td>
                                     <td>{{ $row['company_name'] }}</td>
+                                    <td>{{ $row['state'] }}</td>
                                     <td>{{ $row['order_numbers'] }}</td>
                                     <td>{{ $row['informed_delivery_at']?->format('d/m/Y H:i') ?? '—' }}</td>
                                     <td>{{ $row['tacit_due_at']?->format('d/m/Y H:i') ?? '—' }}</td>
@@ -277,6 +280,7 @@
                                     </td>
                                     <td class="text-center">{{ $row['delay_days'] }}</td>
                                     <td class="text-center">{{ number_format($row['applied_percentage'], 2, ',', '.') }}%</td>
+                                    <td>{{ str_replace('_', ' ', strtoupper($row['penalty_band'])) }}</td>
                                     <td>R$ {{ number_format($row['base_amount'], 2, ',', '.') }}</td>
                                     <td>R$ {{ number_format($row['daily_fine_amount'], 2, ',', '.') }}</td>
                                     <td class="fw-semibold">R$ {{ number_format($row['total_fine_amount'], 2, ',', '.') }}</td>

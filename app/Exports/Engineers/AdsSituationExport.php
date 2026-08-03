@@ -25,12 +25,15 @@ class AdsSituationExport implements FromCollection, WithHeadings, ShouldAutoSize
                 $row['work_report_id'],
                 $row['note_number'],
                 $row['company_name'],
+                $row['state'] ?? '',
                 $this->formatDateTime($row['informed_at']),
                 $this->formatDateTime($row['due_at']),
                 $this->formatDateTime($row['delivered_at']),
                 $row['status_label'],
                 $row['delay_days'],
                 $row['days_to_due'] ?? '',
+                ($row['penalty_percentage'] ?? 0) . '%',
+                str_replace('_', ' ', strtoupper($row['penalty_band'] ?? '')),
             ];
         });
     }
@@ -41,12 +44,15 @@ class AdsSituationExport implements FromCollection, WithHeadings, ShouldAutoSize
             'WorkReport ID',
             'Nota',
             'Empreiteira',
+            'UF',
             'Informe',
-            'Vencimento tácito',
+            'Data limite ADS',
             'Entrega ADS',
             'Status',
             'Dias vencidos',
             'Dias para vencer',
+            'Percentual de penalidade',
+            'Faixa de penalidade',
         ];
     }
 

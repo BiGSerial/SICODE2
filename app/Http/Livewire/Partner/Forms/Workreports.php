@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\WorkReport;
 use App\Models\Company;
 use App\Services\Partner\BlockEvaluator;
+use App\Services\WorkReports\WorkReportAcceptanceSignature;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -787,10 +789,13 @@ class Workreports extends Component
             }
         }
 
+        $acceptedAt = Carbon::parse($this->form['acceptance_at'] ?? now());
+        $signature = app(WorkReportAcceptanceSignature::class);
+
         $meta['server_ip'] = request()->ip();
         $meta['server_host'] = request()->getHost();
         $meta['server_user_agent'] = request()->userAgent();
-        $meta['captured_at'] = now()->toDateTimeString();
+        $meta['captured_at'] = $acceptedAt->toDateTimeString();
         $meta['asbuilt_confirmation'] = [
             'confirmed' => $this->requiresAsbuiltConfirmation() && $this->asBool($this->form['asbuilt_confirmation'] ?? false),
             'has_asbuilt' => $this->hasAsbuilt,
@@ -802,8 +807,24 @@ class Workreports extends Component
             'name' => auth()->user()?->name,
             'email' => auth()->user()?->email,
         ];
+        $meta['signature'] = $signature->make((string) ($this->form['acceptance_name'] ?? ''), $acceptedAt, [
+            'note_id' => $this->note?->id,
+            'note_number' => $this->note?->note,
+            'company_id' => $this->form['company_id'] ?? null,
+            'app_user_id' => auth()->id(),
+        ]);
 
         return $meta;
+    }
+
+    public function getAcceptanceStatementTextProperty(): string
+    {
+        return app(WorkReportAcceptanceSignature::class)->statementText();
+    }
+
+    public function getAcceptanceContractTextProperty(): string
+    {
+        return app(WorkReportAcceptanceSignature::class)->contractText();
     }
 
 

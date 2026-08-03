@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Components\Workform;
 
 use App\Models\WorkReport;
+use App\Services\WorkReports\WorkReportAcceptanceSignature;
 use Livewire\Component;
 
 class AcceptanceInfo extends Component
@@ -34,6 +35,15 @@ class AcceptanceInfo extends Component
 
     public function render()
     {
-        return view('livewire.components.workform.acceptance-info');
+        $meta = $this->workReport?->acceptance_meta ?? [];
+        $signature = $meta['current']['signature'] ?? $meta['signature'] ?? [];
+        $signatureService = app(WorkReportAcceptanceSignature::class);
+
+        return view('livewire.components.workform.acceptance-info', [
+            'signature' => is_array($signature) ? $signature : [],
+            'acceptedText' => is_array($signature) && isset($signature['signed_text'])
+                ? (string) $signature['signed_text']
+                : $signatureService->signedText(),
+        ]);
     }
 }

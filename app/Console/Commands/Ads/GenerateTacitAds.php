@@ -14,6 +14,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\WorkReport;
 use App\Notifications\SystemNotification;
+use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -49,10 +50,8 @@ class GenerateTacitAds extends Command
             // Log no mesmo padrão do seu BaseEP
             $log = new RegistroJson('ads_generate_tacit', $this->options());
 
-            // Regra: prazo de 6 dias a partir do informe (informed_at), vencendo no fim do 6o dia.
-            // Ex.: informe em 18/02 14:00 -> vence em 24/02 23:59:59; em 25/02 00:00 ja esta vencido.
+            $deadlinePolicy = app(AdsDeadlinePolicy::class);
             $startAt = Carbon::parse('2026-02-01 00:00:00');
-            $tacitOverdueThreshold = now()->subDays(6)->startOfDay();
 
             $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
             $defaultServiceId = SystemSetting::getValue('ads_auto_default_service_id');
@@ -69,7 +68,7 @@ class GenerateTacitAds extends Command
                 ->where('canceled', false)
                 ->whereNotNull('informed_at')
                 ->where('informed_at', '>=', $startAt)
-                ->where('informed_at', '<', $tacitOverdueThreshold)
+                ->where('informed_at', '<', now()->startOfDay())
                 ->whereHas('note.orders', function ($orderQuery) {
                     $orderQuery->where('canceled', false)
                         ->where(function ($statusQuery) {
@@ -78,7 +77,7 @@ class GenerateTacitAds extends Command
                         });
                 })
                 ->whereDoesntHave('adsform')
-                ->with(['note:id,note']);
+                ->with(['note:id,note', 'Company.Address']);
 
             $adsCreated = 0;
             $requestsCreated = 0;
@@ -114,6 +113,7 @@ class GenerateTacitAds extends Command
                 $defaultServiceId,
                 $testMode,
                 $dryRun,
+                $deadlinePolicy,
                 $bar
             ) {
                 foreach ($workReports as $workReport) {
@@ -131,10 +131,16 @@ class GenerateTacitAds extends Command
                         continue;
                     }
 
-                    // Regra do prazo: informado no dia D => vence em D+6 às 23:59:59
-                    $dueAt = Carbon::parse($workReport->informed_at)
-                        ->addDays(6)
-                        ->endOfDay();
+                    $state = $deadlinePolicy->stateForWorkReport($workReport);
+                    $dueAt = $deadlinePolicy->dueAt(
+                        Carbon::parse($workReport->informed_at),
+                        $state,
+                        (int) $workReport->id
+                    );
+
+                    if (now()->lte($dueAt)) {
+                        continue;
+                    }
 
                     $recipientIds = $this->resolveRecipientsForNote(
                         noteId: (int) $workReport->note_id,

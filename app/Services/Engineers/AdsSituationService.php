@@ -3,6 +3,7 @@
 namespace App\Services\Engineers;
 
 use App\Models\Edp_depc\BaseCosts;
+use App\Services\Ads\AdsDeadlinePolicy;
 use App\Services\Ads\TacitFineCalculator;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -13,7 +14,10 @@ class AdsSituationService
 {
     private const LEGACY_NO_ADS_CUTOFF = '2026-02-01';
 
-    public function __construct(private TacitFineCalculator $fineCalculator)
+    public function __construct(
+        private TacitFineCalculator $fineCalculator,
+        private AdsDeadlinePolicy $deadlinePolicy
+    )
     {
     }
 
@@ -106,6 +110,7 @@ class AdsSituationService
                 'af.tacit_due_at',
                 'af.tacit_delivered_at',
                 'af.created_at as ads_created_at',
+                DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1) as state'),
             ])
             ->orderByDesc('wr.informed_at')
             ->orderBy('wr.id');
@@ -229,6 +234,7 @@ class AdsSituationService
         $informedAt = $this->asCarbon($row->informed_at ?? null);
         $dueAt = $this->resolveDueAt($row);
         $deliveredAt = $this->resolveDeliveredAt($row);
+        $state = $this->deadlinePolicy->normalizeState($row->state ?? null);
         $daysToDue = $this->resolveDaysToDue($dueAt, $deliveredAt);
 
         $hasDelivery = $deliveredAt !== null;
@@ -236,7 +242,7 @@ class AdsSituationService
         $statusLabel = $this->statusLabel($statusCode);
         $statusBadge = $this->statusBadge($statusCode);
 
-        $delayDays = $this->fineCalculator->calcularDiasMulta($dueAt, $deliveredAt, now());
+        $delayDays = $this->deadlinePolicy->lateDays($dueAt, $deliveredAt, now(), $state, (int) $row->work_report_id);
         $delayDays = in_array($statusCode, ['vencida_sem_entrega', 'entregue_atraso', 'passivo'], true)
             ? $delayDays
             : 0;
@@ -246,6 +252,7 @@ class AdsSituationService
             'note_number' => (string) ($row->note_number ?? '—'),
             'company_name' => (string) ($row->company_name ?? '—'),
             'informed_at' => $informedAt,
+            'state' => $state,
             'due_at' => $dueAt,
             'delivered_at' => $deliveredAt,
             'has_delivery' => $hasDelivery,
@@ -254,6 +261,8 @@ class AdsSituationService
             'status_badge' => $statusBadge,
             'delay_days' => $delayDays,
             'days_to_due' => $daysToDue,
+            'penalty_percentage' => $this->deadlinePolicy->penaltyPercentage($delayDays),
+            'penalty_band' => $this->deadlinePolicy->penaltyBand($delayDays),
         ];
     }
 
@@ -269,6 +278,7 @@ class AdsSituationService
                 'af.tacit_due_at',
                 'af.tacit_delivered_at',
                 'af.created_at as ads_created_at',
+                DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1) as state'),
             ])
             ->where('wr.id', $workReportId)
             ->first();
@@ -318,9 +328,10 @@ class AdsSituationService
 
         $dueAt = $this->resolveDueAt($row);
         $deliveredAt = $this->resolveDeliveredAt($row);
+        $state = $this->deadlinePolicy->normalizeState($row->state ?? null);
         $status = $this->resolveStatusCode($this->asCarbon($row->informed_at), $dueAt, $deliveredAt);
         $delayDays = in_array($status, ['vencida_sem_entrega', 'entregue_atraso', 'passivo'], true)
-            ? $this->fineCalculator->calcularDiasMulta($dueAt, $deliveredAt, now())
+            ? $this->deadlinePolicy->lateDays($dueAt, $deliveredAt, now(), $state, $workReportId)
             : 0;
 
         $fine = $this->fineCalculator->calcularMultaPrevistaLinear($baseAmount, $delayDays);
@@ -330,6 +341,7 @@ class AdsSituationService
             'daily_fine_amount' => $fine['valor_diario'],
             'total_fine_amount' => $fine['valor_total'],
             'fine_percentage' => $fine['percentual_aplicado'],
+            'penalty_band' => $this->deadlinePolicy->penaltyBand($delayDays),
         ];
     }
 
@@ -382,7 +394,11 @@ class AdsSituationService
             return null;
         }
 
-        return $informedAt->copy()->addDays(6)->endOfDay();
+        return $this->deadlinePolicy->dueAt(
+            $informedAt,
+            $row->state ?? null,
+            isset($row->work_report_id) ? (int) $row->work_report_id : null
+        );
     }
 
     private function resolveDeliveredAt(object $row): ?Carbon
@@ -436,7 +452,7 @@ class AdsSituationService
 
     private function dueAtExpression(): string
     {
-        return "COALESCE(af.tacit_due_at, TIMESTAMP(DATE(DATE_ADD(wr.informed_at, INTERVAL 6 DAY)), '23:59:59'))";
+        return "COALESCE(af.tacit_due_at, TIMESTAMP(DATE(DATE_ADD(wr.informed_at, INTERVAL 7 DAY)), '23:59:59'))";
     }
 
     private function deliveryExpression(): string
