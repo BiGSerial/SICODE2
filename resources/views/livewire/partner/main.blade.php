@@ -705,8 +705,8 @@
                             <tbody>
                                 @foreach ($workReportsWithoutAdsDueSoon as $item)
                                     @php
-                                        $dueDate = $item->informed_at?->copy()->addDays(6)->endOfDay();
-                                        $daysLeft = $dueDate ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false) : null;
+                                        $dueDate = $item->ads_due_at;
+                                        $daysLeft = $item->ads_days_left;
                                     @endphp
                                     <tr>
                                         <td class="text-center fw-bold">{{ $item->note->note ?? '-' }}</td>
@@ -725,8 +725,9 @@
                 <div class="pd-legal-note">
                     <div class="pd-legal-note-title">Base contratual</div>
                     <p>
-                        <strong>ES.DT.PDN.02.01.006 - item 6.3.4.d</strong>: para a EDP ES, a CONTRATADA dispõe do
-                        <strong>prazo de 6 (seis) dias</strong>, contados da conclusão da obra ou serviço, para a
+                        A partir de 01/08/2026, aplica-se.
+                        <strong>ES.DT.PDN.02.01.006 - versão 06, item 5.3.4.d</strong>: para a EDP ES, a CONTRATADA dispõe do
+                        <strong>prazo de 3 (três) dias úteis</strong>, contados da conclusão da obra ou serviço, para a
                         entrega do inventário; <strong>expirado esse prazo, prevalecerá o inventário elaborado pela
                             CONTRATANTE</strong>.
                     </p>
@@ -758,9 +759,7 @@
                                 @foreach ($tacitAdsOverdueWithoutDelivery as $item)
                                     @php
                                         $dueDate = $item->Adsform?->tacit_due_at;
-                                        $daysLate = $dueDate
-                                            ? max(0, $dueDate->copy()->startOfDay()->diffInDays(now()->startOfDay()))
-                                            : 0;
+                                        $daysLate = $item->ads_late_days ?? 0;
                                     @endphp
                                     <tr>
                                         <td class="text-center fw-bold">{{ $item->note->note ?? '-' }}</td>
@@ -778,10 +777,11 @@
                 <div class="pd-legal-note">
                     <div class="pd-legal-note-title">Base contratual</div>
                     <p>
-                        <strong>ES.DT.PDN.02.01.006 - item 6.8 (Penalidades)</strong>: inclui, quando aplicável,
-                        <strong>glosa de medições</strong>, <strong>impedimento de faturamento</strong> e
-                        <strong>bloqueio de pagamento das obras correntes</strong>, nos termos do
-                        <strong>item 6.3.5</strong>, até a completa regularização das pendências.
+                        A partir de 01/08/2026 aplica-se:
+                        <strong>ES.DT.PDN.00265, versão 06, item 5.8 (Penalidades)</strong>: estabelece as multas
+                        aplicáveis aos descumprimentos contratuais previstos no documento. Para o atraso na entrega
+                        dos documentos de inventário, aplica-se a penalidade específica prevista no
+                        <strong>item 5.8.9</strong>.
                     </p>
                 </div>
             </div>

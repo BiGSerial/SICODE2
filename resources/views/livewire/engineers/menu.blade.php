@@ -133,6 +133,11 @@
                                 <i class="ri-timer-flash-line text-white fw-light fs-5"></i> <span>Situação de ADS</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('engineers.ads.calendar') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-calendar-check-line text-white fw-light fs-5"></i> <span>Calendário ADS</span>
+                            </a>
+                        </li>
                     </div>
                 </ul>
             </li>

@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Ads;
 
 use App\Console\Commands\Concerns\ShowsProgress;
+use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -16,16 +17,18 @@ class FixExistingTacitAds extends Command
         {--dry : Simula sem gravar alterações}
         {--chunk=500 : Tamanho do lote de processamento}';
 
-    protected $description = 'Corrige ADS tácitas existentes conforme regra de prazo por informed_at do WorkReport (D+6 23:59:59).';
+    protected $description = 'Corrige ADS tácitas existentes conforme regra de 3 dias úteis por informed_at do WorkReport.';
 
     public function handle(): int
     {
         try {
             $dryRun = (bool) $this->option('dry');
             $chunkSize = max(100, (int) $this->option('chunk'));
+            $deadlinePolicy = app(AdsDeadlinePolicy::class);
 
             $query = DB::table('adsforms as af')
                 ->join('work_reports as wr', 'wr.id', '=', 'af.work_report_id')
+                ->leftJoin('andresscompanies as ac', 'ac.company_id', '=', 'wr.company_id')
                 ->where('af.tacit', true)
                 ->where('wr.rejected', false)
                 ->where('wr.canceled', false)
@@ -34,8 +37,10 @@ class FixExistingTacitAds extends Command
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                     'wr.informed_at as informed_at',
+                    DB::raw('MAX(ac.uf) as state'),
                 ])
                 ->whereNotNull('wr.informed_at')
+                ->groupBy('af.id', 'af.tacit_due_at', 'af.tacit_delivered_at', 'wr.informed_at')
                 ->orderBy('af.id');
 
             $total = (clone $query)->count();
@@ -55,13 +60,15 @@ class FixExistingTacitAds extends Command
             $bar = $this->createProgressBar($total);
             $bar->start();
 
-            $query->chunkById($chunkSize, function ($rows) use ($dryRun, &$dueUpdated, &$tacitCleared, &$adsDeleted, &$processed, &$dryDeleteList, $bar) {
+            $query->chunkById($chunkSize, function ($rows) use ($dryRun, &$dueUpdated, &$tacitCleared, &$adsDeleted, &$processed, &$dryDeleteList, $bar, $deadlinePolicy) {
                 foreach ($rows as $row) {
                     $processed++;
 
-                    $newDueAt = Carbon::parse($row->informed_at)
-                        ->addDays(6)
-                        ->endOfDay();
+                    $newDueAt = $deadlinePolicy->dueAt(
+                        Carbon::parse($row->informed_at),
+                        $row->state,
+                        null
+                    );
 
                     $currentDueAt = $row->tacit_due_at ? Carbon::parse($row->tacit_due_at) : null;
                     $deliveredAt = $row->tacit_delivered_at ? Carbon::parse($row->tacit_delivered_at) : null;
@@ -123,8 +130,8 @@ class FixExistingTacitAds extends Command
             $this->info('Correção concluída.');
             $this->line('Modo: ' . ($dryRun ? 'DRY RUN (sem gravação)' : 'ATUALIZAÇÃO REAL'));
             $this->line("ADS processadas: {$processed}");
-            $this->line("Prazo tácito corrigido (D+6 23:59:59): {$dueUpdated}");
-            $this->line("Tácito limpo (entrega ate o prazo D+6 23:59:59): {$tacitCleared}");
+            $this->line("Prazo tácito corrigido (3 dias úteis): {$dueUpdated}");
+            $this->line("Tácito limpo (entrega ate o prazo de 3 dias úteis): {$tacitCleared}");
             $this->line("ADS removida (sem entrega e ainda no prazo): {$adsDeleted}");
 
             if ($dryRun && !empty($dryDeleteList)) {

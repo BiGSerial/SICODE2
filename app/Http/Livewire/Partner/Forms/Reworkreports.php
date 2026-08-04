@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\WorkReport;
+use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -149,7 +150,7 @@ class Reworkreports extends Workreports
             } elseif ($this->hasExistingAds) {
                 $adsMessage = $this->asBool($this->keepExistingAds)
                     ? '<p>A ADS existente será mantida. A data de entrega da ADS será atualizada para a data deste reenvio e o prazo de fiscalização será recalculado a partir da nova data.</p>'
-                    : '<p>A ADS existente será removida. Se houver arquivo vinculado à ADS, ele será apagado do servidor e a associação da ADS será removida. O usuário terá 6 dias, contados a partir deste reenvio, para enviar a ADS pela área <strong>Entregar ADS</strong>.</p>';
+                    : '<p>A ADS existente será removida. Se houver arquivo vinculado à ADS, ele será apagado do servidor e a associação da ADS será removida. O usuário terá 3 dias úteis, contados a partir deste reenvio, para enviar a ADS pela área <strong>Entregar ADS</strong>.</p>';
             }
 
             $this->dispatchBrowserEvent('alertar', [
@@ -399,7 +400,7 @@ class Reworkreports extends Workreports
             $adsForm->forceFill([
                 'created_at' => $informedAt,
                 'updated_at' => now(),
-                'tacit_due_at' => $informedAt->copy()->addDays(6)->endOfDay(),
+                'tacit_due_at' => app(AdsDeadlinePolicy::class)->dueAt($informedAt, null, (int) $this->workReport->id),
             ])->save();
 
             return;

@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'feriados_api' => [
+        'url' => env('FERIADOS_API_URL', 'https://feriadosapi.com'),
+        'key' => env('FERIADOS_API_KEY'),
+    ],
+
 ];

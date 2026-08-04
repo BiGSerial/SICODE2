@@ -308,7 +308,7 @@
                                         <label class="form-check-label" for="keep_ads_no">
                                             Remover ADS existente. Se houver arquivo vinculado, ele será apagado do
                                             servidor junto com a associação da ADS. Será necessário enviar uma nova ADS
-                                            pela área <strong>Entregar ADS</strong>, com prazo de 6 dias a partir deste reenvio.
+                                            pela área <strong>Entregar ADS</strong>, com prazo de 3 dias úteis a partir deste reenvio.
                                         </label>
                                     </div>
                                 </div>
@@ -834,21 +834,17 @@
                                 <div class="card-header bg-light">
                                     <h5 class="mb-0"><i class="ri-shield-check-line me-2"></i>Termo de Aceite</h5>
                                 </div>
-                                <div class="card-body">
-                                    <div class="term-box">
+	                                <div class="card-body">
+	                                    @php($acceptanceSignatureService = app(\App\Services\WorkReports\WorkReportAcceptanceSignature::class))
+	                                    <div class="term-box">
                                         <div class="term-icon">
                                             <i class="ri-shield-check-line"></i>
                                         </div>
                                         <div>
-                                            <p class="mb-2 fw-semibold">Declaração de responsabilidade</p>
-                                            <p class="text-muted mb-2">
-                                                Ao informar a obra no sistema, o usuário está em acordo que as informações
-                                                passadas nesse Informe de Conclusão são verdadeiras e não existem divergências.
-                                                Tendo ciência que existe um prazo para entrega da ADS conforme previsto em
-                                                contrato, que a data do prazo será considerado o momento do envio deste
-                                                informe, e não poderá ser contestado posteriormente. Você confirma o
-                                                entendimento e ciência dessa informação?
-                                            </p>
+	                                            <p class="mb-2 fw-semibold">Declaração de responsabilidade</p>
+	                                            <p class="text-muted mb-2">
+		                                                {{ $acceptanceSignatureService->statementText() }}
+	                                            </p>
                                             <div class="term-quote mt-3">
                                                 <div class="term-quote-icon">
                                                     <i class="ri-double-quotes-l"></i>
@@ -856,8 +852,8 @@
                                                 <div>
                                                     <p class="small text-uppercase fw-semibold mb-2">Citação contratual</p>
                                                     <p class="text-muted mb-0"><em>
-                                                        "Conforme estabelecido na Especificação Técnica corporativa <strong>ES.DT.PDN.02.01.006 – Construção e Manutenção em Redes Aéreas de Distribuição – Condições Específicas</strong>, em especial no item <strong>6.3 – Medição dos Serviços e Inventário de Materiais</strong>, a comunicação de conclusão da obra, acompanhada da documentação pertinente, é condição necessária para viabilizar a fiscalização, o aceite dos serviços e o faturamento. Adicionalmente, de acordo com o <strong>item 6.3.4.d</strong>, para a EDP ES, a CONTRATADA dispõe do <strong>prazo de 6 (seis) dias</strong>, contados a partir da conclusão da obra ou serviços, para a entrega do inventário, sendo que, expirado esse prazo,  <strong>prevalecerá o inventário elaborado pela CONTRATANTE</strong>".
-                                                    </em></p>
+		                                                        "{{ $acceptanceSignatureService->contractText() }}"
+	                                                    </em></p>
                                                 </div>
                                             </div>
                                         </div>
@@ -906,17 +902,19 @@
                                                         <th>Data</th>
                                                         <th>Nome</th>
                                                         <th>Usuário</th>
-                                                        <th>Origem</th>
+	                                                        <th>Origem</th>
+	                                                        <th>Hash</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     @foreach ($acceptanceHistory as $acceptance)
                                                         <tr>
                                                             <td>{{ $acceptance['acceptance_at'] ?? $acceptance['captured_at'] ?? $acceptance['collected_at'] ?? '---' }}</td>
-                                                            <td>{{ $acceptance['acceptance_name'] ?? '---' }}</td>
-                                                            <td>{{ $acceptance['app_user']['name'] ?? '---' }}</td>
-                                                            <td>{{ $acceptance['server_ip'] ?? $acceptance['host'] ?? '---' }}</td>
-                                                        </tr>
+	                                                            <td>{{ $acceptance['acceptance_name'] ?? '---' }}</td>
+	                                                            <td>{{ $acceptance['app_user']['name'] ?? '---' }}</td>
+	                                                            <td>{{ $acceptance['server_ip'] ?? $acceptance['host'] ?? '---' }}</td>
+	                                                            <td><code class="small">{{ $acceptance['signature']['hash'] ?? '---' }}</code></td>
+	                                                        </tr>
                                                     @endforeach
                                                 </tbody>
                                             </table>

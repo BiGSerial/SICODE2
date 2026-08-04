@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Services\Ads\AdsDeadlinePolicy;
 use App\Services\Ads\TacitFineCalculator;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -10,7 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 class InformAdsTacitReportService
 {
-    public function __construct(private TacitFineCalculator $fineCalculator)
+    public function __construct(
+        private TacitFineCalculator $fineCalculator,
+        private AdsDeadlinePolicy $deadlinePolicy
+    )
     {
     }
 
@@ -84,6 +88,7 @@ class InformAdsTacitReportService
                     DB::raw('COALESCE(c.name, "—") as company_name'),
                     DB::raw($this->ordersAggregationExpression() . ' as order_numbers'),
                     'wr.informed_at as informed_delivery_at',
+                    DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1) as state'),
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                     DB::raw('SUM(COALESCE(o.service_cost, 0)) as base_amount'),
@@ -93,6 +98,7 @@ class InformAdsTacitReportService
                     'n.note',
                     'c.name',
                     'wr.informed_at',
+                    DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1)'),
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                 ])
@@ -106,6 +112,7 @@ class InformAdsTacitReportService
                 DB::raw('COALESCE(c.name, "—") as company_name'),
                 'o.ordem as order_numbers',
                 'wr.informed_at as informed_delivery_at',
+                DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1) as state'),
                 'af.tacit_due_at',
                 'af.tacit_delivered_at',
                 DB::raw('COALESCE(o.service_cost, 0) as base_amount'),
@@ -123,10 +130,11 @@ class InformAdsTacitReportService
         $informedAt = $this->asCarbon($row->informed_delivery_at ?? null);
         $dueAt = $this->asCarbon($row->tacit_due_at ?? null);
         $deliveredAt = $this->asCarbon($row->tacit_delivered_at ?? null);
+        $state = $this->deadlinePolicy->normalizeState($row->state ?? null);
         $referenceAt = $deliveredAt ?: $openReferenceAt;
         $isOpen = $deliveredAt === null;
 
-        $delayDays = $this->fineCalculator->calcularDiasMulta($dueAt, $deliveredAt, $openReferenceAt);
+        $delayDays = $this->deadlinePolicy->lateDays($dueAt, $deliveredAt, $openReferenceAt, $state, (int) $row->work_report_id);
         $fine = $this->fineCalculator->calcularMultaPrevistaLinear($baseAmount, $delayDays);
 
         return [
@@ -135,6 +143,7 @@ class InformAdsTacitReportService
             'work_report_id' => $row->work_report_id,
             'note_number' => (string) ($row->note_number ?? '—'),
             'company_name' => (string) ($row->company_name ?? '—'),
+            'state' => $state,
             'order_numbers' => (string) ($row->order_numbers ?? '—'),
             'informed_delivery_at' => $informedAt,
             'tacit_due_at' => $dueAt,
@@ -142,6 +151,7 @@ class InformAdsTacitReportService
             'fine_reference_at' => $referenceAt,
             'fine_status' => $isOpen ? 'EM ABERTO' : 'ENTREGUE',
             'delay_days' => $delayDays,
+            'penalty_band' => $this->deadlinePolicy->penaltyBand($delayDays),
             'base_amount' => round($baseAmount, 2),
             'applied_percentage' => $fine['percentual_aplicado'],
             'daily_fine_amount' => $fine['valor_diario'],

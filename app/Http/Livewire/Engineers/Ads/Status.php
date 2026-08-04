@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Engineers\Ads;
 
 use App\Jobs\Engineers\ExportAdsSituationJob;
+use App\Models\AdsNonWorkingDayAdjustment;
 use App\Models\Company;
 use App\Services\Engineers\AdsSituationService;
 use Livewire\Component;
@@ -22,6 +23,9 @@ class Status extends Component
     public ?string $search = null;
     public array $companyIds = [];
     public array $rowFineData = [];
+    public array $selectedRows = [];
+    public ?string $adjustmentDate = null;
+    public ?string $adjustmentReason = null;
     public $companies;
 
     protected $queryString = [
@@ -89,6 +93,59 @@ class Status extends Component
         }
 
         $this->rowFineData[$workReportId] = $result;
+    }
+
+    public function addNonWorkingDayAdjustment(): void
+    {
+        $ids = collect($this->selectedRows)
+            ->filter(fn ($selected) => (bool) $selected)
+            ->keys()
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Selecione pelo menos um informe.',
+                'timer' => 2500,
+            ]);
+            return;
+        }
+
+        $this->validate([
+            'adjustmentDate' => ['required', 'date'],
+            'adjustmentReason' => ['required', 'string', 'min:10'],
+        ], [
+            'adjustmentDate.required' => 'Informe a data abonada.',
+            'adjustmentReason.required' => 'Informe a justificativa.',
+            'adjustmentReason.min' => 'A justificativa deve ter pelo menos 10 caracteres.',
+        ]);
+
+        foreach ($ids as $workReportId) {
+            AdsNonWorkingDayAdjustment::query()->updateOrCreate(
+                [
+                    'work_report_id' => $workReportId,
+                    'date' => $this->adjustmentDate,
+                ],
+                [
+                    'reason' => trim((string) $this->adjustmentReason),
+                    'created_by' => auth()->id(),
+                ]
+            );
+        }
+
+        $this->rowFineData = [];
+        $this->selectedRows = [];
+        $this->adjustmentDate = null;
+        $this->adjustmentReason = null;
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Dia abonado como não útil para os registros selecionados.',
+            'timer' => 3000,
+        ]);
     }
 
     public function updatedStatusFilter(): void

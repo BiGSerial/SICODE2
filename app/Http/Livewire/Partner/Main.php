@@ -9,6 +9,7 @@ use App\Models\ReturnWork;
 use App\Models\Viability;
 use App\Models\WorkReport;
 use App\Models\Adsform;
+use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -17,8 +18,6 @@ use Livewire\Component;
 
 class Main extends Component
 {
-    private const ADS_TACIT_DAYS = 6;
-
     public $pizza1;
     public $pizza2;
     public $backlogChart;
@@ -188,22 +187,31 @@ class Main extends Component
     {
         $today = Carbon::today();
         $dueLimit = Carbon::today()->addDays($this->daysAhead);
-
-        $from = $today->copy()->subDays(self::ADS_TACIT_DAYS)->startOfDay();
-        $to = $dueLimit->copy()->subDays(self::ADS_TACIT_DAYS)->endOfDay();
+        $deadlinePolicy = app(AdsDeadlinePolicy::class);
 
         $query = WorkReport::query()->active()
             ->where('rejected', false)
             ->whereNotNull('informed_at')
-            ->whereBetween('informed_at', [$from, $to])
+            ->where('informed_at', '>=', $today->copy()->subDays(14)->startOfDay())
+            ->where('informed_at', '<=', $dueLimit->endOfDay())
             ->whereDoesntHave('Note.Adsform')
             ->whereDoesntHave('Note.OldAds')
-            ->with(['Note:id,note', 'Company:id,name'])
+            ->with(['Note:id,note', 'Company:id,name', 'Company.Address'])
             ->orderBy('informed_at');
 
         $this->scopeByCompany($query);
 
-        return $query->get();
+        return $query->get()
+            ->map(function (WorkReport $workReport) use ($deadlinePolicy, $today) {
+                $state = $deadlinePolicy->stateForWorkReport($workReport);
+                $dueAt = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
+                $workReport->ads_due_at = $dueAt;
+                $workReport->ads_days_left = $today->copy()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false);
+
+                return $workReport;
+            })
+            ->filter(fn (WorkReport $workReport) => $workReport->ads_days_left >= 0 && $workReport->ads_days_left <= $this->daysAhead)
+            ->values();
     }
 
     public function getTacitAdsOverdueWithoutDelivery(): Collection
@@ -220,13 +228,28 @@ class Main extends Component
             ->with([
                 'Note:id,note',
                 'Adsform:id,work_report_id,tacit_due_at,tacit_delivered_at',
+                'Company.Address',
             ])
             ->orderBy('adsforms.tacit_due_at')
             ->select('work_reports.*');
 
         $this->scopeByCompany($query);
 
-        return $query->get();
+        $deadlinePolicy = app(AdsDeadlinePolicy::class);
+
+        return $query->get()
+            ->map(function (WorkReport $workReport) use ($deadlinePolicy) {
+                $state = $deadlinePolicy->stateForWorkReport($workReport);
+                $workReport->ads_late_days = $deadlinePolicy->lateDays(
+                    $workReport->Adsform?->tacit_due_at,
+                    $workReport->Adsform?->tacit_delivered_at,
+                    now(),
+                    $state,
+                    (int) $workReport->id
+                );
+
+                return $workReport;
+            });
     }
 
     public function getDashboardKpis(): array
@@ -264,7 +287,7 @@ class Main extends Component
         $workReportsWithoutAdsOverdueBase = WorkReport::query()->active()
             ->where('rejected', false)
             ->whereNotNull('informed_at')
-            ->where('informed_at', '<', $this->getAdsTacitOverdueThreshold())
+            ->where('informed_at', '<', now()->subDays(3)->startOfDay())
             ->whereDoesntHave('Note.Adsform')
             ->whereDoesntHave('Note.OldAds');
         $this->scopeByCompany($workReportsWithoutAdsOverdueBase);
@@ -891,13 +914,12 @@ class Main extends Component
 
     private function getAdsTacitDueAt(?Carbon $informedAt): ?Carbon
     {
-        return $informedAt?->copy()->addDays(self::ADS_TACIT_DAYS)->endOfDay();
+        return $informedAt ? app(AdsDeadlinePolicy::class)->dueAt($informedAt) : null;
     }
 
     private function getAdsTacitOverdueThreshold(): Carbon
     {
-        // Vence no fim do 6o dia; a partir de 00:00 do dia seguinte ja esta vencido.
-        return now()->subDays(self::ADS_TACIT_DAYS)->startOfDay();
+        return now()->subDays(3)->startOfDay();
     }
 
     public function render()
