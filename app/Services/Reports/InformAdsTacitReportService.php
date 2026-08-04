@@ -88,7 +88,7 @@ class InformAdsTacitReportService
                     DB::raw('COALESCE(c.name, "—") as company_name'),
                     DB::raw($this->ordersAggregationExpression() . ' as order_numbers'),
                     'wr.informed_at as informed_delivery_at',
-                    DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1) as state'),
+                    DB::raw('company_states.state as state'),
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                     DB::raw('SUM(COALESCE(o.service_cost, 0)) as base_amount'),
@@ -98,7 +98,7 @@ class InformAdsTacitReportService
                     'n.note',
                     'c.name',
                     'wr.informed_at',
-                    DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1)'),
+                    'company_states.state',
                     'af.tacit_due_at',
                     'af.tacit_delivered_at',
                 ])
@@ -112,7 +112,7 @@ class InformAdsTacitReportService
                 DB::raw('COALESCE(c.name, "—") as company_name'),
                 'o.ordem as order_numbers',
                 'wr.informed_at as informed_delivery_at',
-                DB::raw('(SELECT ac.uf FROM andresscompanies ac WHERE ac.company_id = wr.company_id ORDER BY ac.id LIMIT 1) as state'),
+                DB::raw('company_states.state as state'),
                 'af.tacit_due_at',
                 'af.tacit_delivered_at',
                 DB::raw('COALESCE(o.service_cost, 0) as base_amount'),
@@ -177,6 +177,9 @@ class InformAdsTacitReportService
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
             ->leftJoin('companies as c', 'c.id', '=', 'wr.company_id')
+            ->leftJoinSub($this->companyStateQuery(), 'company_states', function ($join) {
+                $join->on('company_states.company_id', '=', 'wr.company_id');
+            })
             ->join('adsforms as af', function ($join) {
                 $join->on('af.work_report_id', '=', 'wr.id')
                     ->where('af.tacit', '=', true);
@@ -186,10 +189,7 @@ class InformAdsTacitReportService
             ->where('wr.rejected', false)
             ->where('wr.canceled', false)
             ->whereNotNull('wr.informed_at')
-            ->where('o.canceled', false)
-            ->where('o.statusSist', 'not like', 'CANC%')
-            ->where('o.statusSist', 'not like', 'ENT%')
-            ->where('o.statusSist', 'not like', 'ENC%');
+            ->where('o.canceled', false);
 
         if ($dateIn) {
             $query->whereDate($dateColumn, '>=', $dateIn);
@@ -219,10 +219,30 @@ class InformAdsTacitReportService
         return $query;
     }
 
+    private function companyStateQuery()
+    {
+        return DB::table('andresscompanies as ac')
+            ->joinSub(
+                DB::table('andresscompanies')
+                    ->select('company_id', DB::raw('MIN(id) as first_address_id'))
+                    ->groupBy('company_id'),
+                'first_company_address',
+                function ($join) {
+                    $join->on('first_company_address.first_address_id', '=', 'ac.id');
+                }
+            )
+            ->select([
+                'ac.company_id',
+                DB::raw('ac.uf as state'),
+            ]);
+    }
+
     private function resolveDateColumn(string $dateField): string
     {
         return match ($dateField) {
             'tacit_delivered_at' => 'af.tacit_delivered_at',
+            'tacit_due_at' => 'af.tacit_due_at',
+            'informed_at' => 'wr.informed_at',
             default => 'af.created_at',
         };
     }

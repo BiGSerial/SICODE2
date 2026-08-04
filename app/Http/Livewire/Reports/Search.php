@@ -47,7 +47,22 @@ class Search extends Component
             })
             ->with([
                 // D5
-                'FiveNote:id,note_id,note_d5,visible_partner,is_completed,is_payed,is_archived,is_supervisioned,completed_at',
+                'FiveNote' => function ($q) {
+                    $q->with([
+                        'productions.Service:id,uuid,service',
+                        'productions.User:id,name,email',
+                    ])->select([
+                        'id',
+                        'note_id',
+                        'note_d5',
+                        'visible_partner',
+                        'is_completed',
+                        'is_payed',
+                        'is_archived',
+                        'is_supervisioned',
+                        'completed_at',
+                    ]);
+                },
 
                 // Arquivos
                 'Files:id,note_id,service_id,file_name,ext,path,created_at',
@@ -119,6 +134,18 @@ class Search extends Component
                         // CORRETO: devoluções também usam work_report_id
                         'Returnwork:id,work_report_id,created_at',
                         'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'FlowProductions' => function ($query) {
+                            $query->with([
+                                'Production.Service:id,uuid,service',
+                                'Production.User:id,name,email',
+                                'Production.Company:id,name',
+                                'LinkedBy:id,name,email',
+                            ])
+                                ->orderBy('stage')
+                                ->orderByDesc('is_current')
+                                ->orderBy('linked_at')
+                                ->orderBy('id');
+                        },
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
@@ -134,6 +161,18 @@ class Search extends Component
                         'Equipment:id,work_report_id',
                         'Returnwork:id,work_report_id,created_at',
                         'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'FlowProductions' => function ($query) {
+                            $query->with([
+                                'Production.Service:id,uuid,service',
+                                'Production.User:id,name,email',
+                                'Production.Company:id,name',
+                                'LinkedBy:id,name,email',
+                            ])
+                                ->orderBy('stage')
+                                ->orderByDesc('is_current')
+                                ->orderBy('linked_at')
+                                ->orderBy('id');
+                        },
                     ])
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',

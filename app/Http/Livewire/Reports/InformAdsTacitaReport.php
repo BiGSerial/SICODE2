@@ -37,9 +37,6 @@ class InformAdsTacitaReport extends Component
 
     public function mount(): void
     {
-        $this->date_in = $this->date_in ?: now()->startOfMonth()->format('Y-m-d');
-        $this->date_out = $this->date_out ?: now()->format('Y-m-d');
-
         $this->companies = Company::query()
             ->join('work_reports as wr', 'wr.company_id', '=', 'companies.id')
             ->join('adsforms as af', 'af.work_report_id', '=', 'wr.id')
@@ -64,8 +61,8 @@ class InformAdsTacitaReport extends Component
         $this->dateField = 'ads_created_at';
         $this->search = null;
         $this->companyIds = [];
-        $this->date_in = now()->startOfMonth()->format('Y-m-d');
-        $this->date_out = now()->format('Y-m-d');
+        $this->date_in = null;
+        $this->date_out = null;
         $this->perPage = 50;
         $this->resetPage();
     }

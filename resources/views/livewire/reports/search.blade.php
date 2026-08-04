@@ -1437,10 +1437,22 @@
                                             : '---' }}
                                     </td>
                                     <td class="text-center align-middle">
-                                        <span
-                                            class="badge {{ $workFormCanceled ? 'bg-danger text-wrap' : ($workForm?->rejected ? 'bg-warning text-wrap' : 'bg-primary text-wrap') }}">
-                                            {{ $workFormCanceled ? 'Cancelado Sistemicamente' : ($workForm->rejected ? 'Informe em Revisão' : 'Normal') }}
-                                        </span>
+                                        @php
+                                            $workStatus = app(\App\Services\WorkReports\WorkReportStatusResolver::class)->resolve($workForm);
+                                        @endphp
+
+                                        <div class="d-grid gap-1">
+                                            @if ($workFormCanceled)
+                                                <span class="badge bg-danger text-wrap">Cancelado Sistemicamente</span>
+                                            @else
+                                                @if ($workForm->rejected)
+                                                    <span class="badge bg-warning text-wrap">Informe em Revisão</span>
+                                                @endif
+                                                <span class="badge {{ $workStatus['class'] }} text-wrap">
+                                                    {{ $workStatus['label'] }}
+                                                </span>
+                                            @endif
+                                        </div>
                                     </td>
                                     <td class="text-center align-middle">
                                         @php

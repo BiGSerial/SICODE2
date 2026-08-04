@@ -103,6 +103,11 @@ class WorkReport extends Model
         return $this->hasMany(AdsNonWorkingDayAdjustment::class);
     }
 
+    public function FlowProductions()
+    {
+        return $this->hasMany(WorkReportFlowProduction::class);
+    }
+
     public function Files()
     {
         return $this->morphToMany(File::class, 'fileable')->withTimestamps();
