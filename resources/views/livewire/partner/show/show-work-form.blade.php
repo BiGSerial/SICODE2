@@ -62,6 +62,7 @@
                     @if ($form)
                         @php
                             $files = $form->Note->Files ?? collect();
+                            $flowProductions = $form->FlowProductions ?? collect();
                             $groupedFiles = $files
                                 ->groupBy(fn ($file) => mb_strtoupper($file->service->service ?? 'OUTROS'))
                                 ->sortKeys();
@@ -144,6 +145,90 @@
                                         <strong>{{ mb_strtoupper($form->informer ?: '-') }}</strong>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="card work-card mt-3">
+                            <div
+                                class="card-header py-2 my-0 edp-bg-sprucegreen-70 text-edp-verde d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                <h5 class="my-0 fw-bold">VÍNCULOS DE PRODUÇÃO</h5>
+                                @if ($flowProductions->isNotEmpty())
+                                    <span class="badge text-bg-light">{{ $flowProductions->count() }} vínculo(s)</span>
+                                @endif
+                            </div>
+                            <div class="card-body">
+                                @if ($flowProductions->isEmpty())
+                                    <div class="work-empty-state small-state">
+                                        NENHUMA PRODUÇÃO VINCULADA AO INFORME
+                                    </div>
+                                @else
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th class="text-center">Etapa</th>
+                                                    <th class="text-center">Produção</th>
+                                                    <th class="text-center">Serviço</th>
+                                                    <th class="text-center">Responsável</th>
+                                                    <th class="text-center">Atribuído em</th>
+                                                    <th class="text-center">Concluído em</th>
+                                                    <th class="text-center">Origem</th>
+                                                    <th class="text-center">Atual</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($flowProductions as $flowProduction)
+                                                    @php
+                                                        $production = $flowProduction->Production;
+                                                        $stageLabel = match ($flowProduction->stage) {
+                                                            \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION => 'Fiscalização',
+                                                            \App\Models\WorkReportFlowProduction::STAGE_PAYMENT => 'Pagamento',
+                                                            default => mb_strtoupper($flowProduction->stage ?? '-'),
+                                                        };
+                                                        $sourceLabel = match ($flowProduction->source) {
+                                                            'retrofill_inference' => 'Retrofill',
+                                                            'dispatch_supervision_main' => 'Despacho Fiscalização',
+                                                            'dispatch_payment_main' => 'Despacho Pagamento',
+                                                            'dispatch_payment_stack' => 'Pilha Pagamento',
+                                                            'services_payment_self_assign' => 'Autoatribuição Pagamento',
+                                                            default => $flowProduction->source ?: '-',
+                                                        };
+                                                    @endphp
+                                                    <tr>
+                                                        <td class="text-center">
+                                                            <span class="badge {{ $flowProduction->stage === \App\Models\WorkReportFlowProduction::STAGE_PAYMENT ? 'text-bg-primary' : 'text-bg-success' }}">
+                                                                {{ $stageLabel }}
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            #{{ $production?->id ?? $flowProduction->production_id }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ $production?->Service?->service ?? '-' }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ $production?->User?->name ?? '-' }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ $production?->att_at ? $production->att_at->format('d/m/Y H:i') : ($flowProduction->linked_at?->format('d/m/Y H:i') ?? '-') }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ $production?->completed_at ? $production->completed_at->format('d/m/Y H:i') : '-' }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="badge text-bg-light border">{{ $sourceLabel }}</span>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="badge {{ $flowProduction->is_current ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                                {{ $flowProduction->is_current ? 'SIM' : 'NÃO' }}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

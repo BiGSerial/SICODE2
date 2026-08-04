@@ -194,6 +194,11 @@ class Production extends Model
         )->withTimestamps();
     }
 
+    public function WorkReportFlowProductions()
+    {
+        return $this->hasMany(WorkReportFlowProduction::class);
+    }
+
 
     // Redução para ultimo registro
     public function latestWpa()

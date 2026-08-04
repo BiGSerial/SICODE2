@@ -10,6 +10,7 @@ use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, U
 use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\BlockEvaluator;
 use App\Services\Payment\NoteFilter;
+use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -609,6 +610,8 @@ class Main extends Component
 
 
             if ($production) {
+                app(WorkReportFlowProductionLinker::class)->linkPayment($production, 'dispatch_payment_main');
+
                 Notetimeline::create([
                     'note_id'      => $production->id, // (verifique se aqui não deveria ser $note->id)
                     'service_id'   => $production->service_id,

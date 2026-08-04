@@ -138,7 +138,9 @@
                     <label class="form-label small text-muted">Filtrar data por</label>
                     <select class="form-select border border-secondary" wire:model="dateField">
                         <option value="ads_created_at">ADS Criada</option>
+                        <option value="tacit_due_at">Data limite ADS</option>
                         <option value="tacit_delivered_at">ADS da parceira entregue</option>
+                        <option value="informed_at">Entrega do informe</option>
                     </select>
                 </div>
             </div>

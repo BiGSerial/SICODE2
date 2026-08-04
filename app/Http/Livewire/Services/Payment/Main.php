@@ -8,6 +8,7 @@ use App\Services\Payment\NoteFilter;
 use App\Helpers\TextFormatter;
 use App\Services\Payment\BlockEvaluator;
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -238,6 +239,8 @@ class Main extends Component
             ], $data);
 
         if ($production) {
+            app(WorkReportFlowProductionLinker::class)->linkPayment($production, 'services_payment_self_assign');
+
             Notetimeline::create([
                 'note_id'      => $this->note->id,
                 'service_id'   => $production->service_id,

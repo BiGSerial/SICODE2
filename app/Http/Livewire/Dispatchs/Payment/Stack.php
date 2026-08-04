@@ -8,6 +8,7 @@ use App\Models\Edp_depc\City;
 use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -529,6 +530,8 @@ class Stack extends Component
                             'status'       => $this->user_s ? 2 : 1,
                             'productionId' => $production->id,
                         ]);
+
+                        app(WorkReportFlowProductionLinker::class)->linkPayment($production, 'dispatch_payment_stack');
 
                         // Wpa::create([
                         //     'production_id' => $production->id,

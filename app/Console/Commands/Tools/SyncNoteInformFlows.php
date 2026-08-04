@@ -275,14 +275,19 @@ class SyncNoteInformFlows extends Command
             $workReportIds = $rows->pluck('id')->all();
             $noteContexts = $this->loadNoteContexts($noteIds);
             $nextCycleEnd = $this->loadNextFinalInformedAtByWorkReport($noteIds);
-            [$fiscalProdByWorkReport, $paymentProdByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds);
+            [$linkedFiscalByWorkReport, $linkedPaymentByWorkReport] = $this->loadLinkedProductionsForFinals($workReportIds, $noteIds);
+            [$legacyFiscalByWorkReport, $legacyPaymentByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds);
             $sapByWorkReport = $this->loadSapOperationStatusByWorkReportsFromNotes($rows);
             $upserts = [];
 
             foreach ($rows as $row) {
                 $context = $noteContexts[$row->note_id] ?? ['service_id' => null];
-                $fiscalProd = $fiscalProdByWorkReport[$row->id] ?? null;
-                $paymentProd = $paymentProdByWorkReport[$row->id] ?? null;
+                $linkedFiscalProd = $this->eligibleLinkedProduction($linkedFiscalByWorkReport[$row->id] ?? null, $row, $nextCycleEnd);
+                $linkedPaymentProd = $this->eligibleLinkedProduction($linkedPaymentByWorkReport[$row->id] ?? null, $row, $nextCycleEnd);
+                $fiscalProd = $linkedFiscalProd ?? $legacyFiscalByWorkReport[$row->id] ?? null;
+                $paymentProd = $linkedPaymentProd ?? $legacyPaymentByWorkReport[$row->id] ?? null;
+                $fiscalResolver = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
+                $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
                 $sap = $sapByWorkReport[$row->id] ?? [
                     'op30_all_conf' => false,
                     'op30_done_at' => null,
@@ -348,7 +353,13 @@ class SyncNoteInformFlows extends Command
                     'calculated_at' => $now,
                     'resolver_payload' => json_encode([
                         'source' => 'work_reports',
-                        'rule_version' => 1,
+                        'rule_version' => 2,
+                        'production_resolver' => [
+                            'fiscalization' => $fiscalResolver,
+                            'payment' => $paymentResolver,
+                            'fiscalization_origin_work_report_id' => $fiscalProd->linked_work_report_id ?? null,
+                            'payment_origin_work_report_id' => $paymentProd->linked_work_report_id ?? null,
+                        ],
                     ]),
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -368,6 +379,19 @@ class SyncNoteInformFlows extends Command
         }, 'wr.id', 'id');
 
         return $processed;
+    }
+
+    private function eligibleLinkedProduction(?object $production, object $workReport, array $nextCycleEnd): ?object
+    {
+        if (!$production) {
+            return null;
+        }
+
+        if ((int) $production->linked_work_report_id === (int) $workReport->id) {
+            return $production;
+        }
+
+        return empty($nextCycleEnd[$workReport->id]) ? $production : null;
     }
 
     private function incrementalSince(): Carbon
@@ -629,6 +653,73 @@ class SyncNoteInformFlows extends Command
         }
 
         return $nextByWr;
+    }
+
+    private function loadLinkedProductionsForFinals(array $workReportIds, array $noteIds): array
+    {
+        if (empty($workReportIds) || empty($noteIds)) {
+            return [[], []];
+        }
+
+        $targetWorkReports = DB::table('work_reports')
+            ->whereIn('id', $workReportIds)
+            ->select(['id', 'note_id'])
+            ->get()
+            ->keyBy('id');
+
+        $rows = DB::table('work_report_flow_productions as wrfp')
+            ->join('work_reports as wr', 'wr.id', '=', 'wrfp.work_report_id')
+            ->join('productions as prod', 'prod.id', '=', 'wrfp.production_id')
+            ->join('services as srv', 'srv.uuid', '=', 'prod.service_id')
+            ->leftJoin('users as usr', 'usr.id', '=', 'prod.user_id')
+            ->whereIn('wr.note_id', $noteIds)
+            ->where('wrfp.is_current', true)
+            ->whereIn('wrfp.stage', ['fiscalization', 'payment'])
+            ->select([
+                'wrfp.work_report_id as linked_work_report_id',
+                'wr.note_id',
+                'wrfp.stage',
+                'wrfp.linked_at',
+                'prod.id',
+                'srv.service',
+                'prod.att_at',
+                'prod.user_id',
+                'usr.name as user_name',
+                'prod.completed',
+                'prod.completed_at',
+                'prod.confirmed_at',
+            ])
+            ->orderByDesc('wrfp.linked_at')
+            ->orderByDesc('wrfp.id')
+            ->get()
+            ->groupBy('stage');
+
+        return [
+            $this->resolveLinkedStageForWorkReports($rows->get('fiscalization', collect()), $targetWorkReports),
+            $this->resolveLinkedStageForWorkReports($rows->get('payment', collect()), $targetWorkReports),
+        ];
+    }
+
+    private function resolveLinkedStageForWorkReports(Collection $links, Collection $targetWorkReports): array
+    {
+        if ($links->isEmpty()) {
+            return [];
+        }
+
+        $exact = $links->groupBy('linked_work_report_id')
+            ->map(fn (Collection $items) => $items->first());
+        $latestByNote = $links->groupBy('note_id')
+            ->map(fn (Collection $items) => $items->first());
+
+        $resolved = [];
+        foreach ($targetWorkReports as $workReportId => $workReport) {
+            $linked = $exact->get($workReportId) ?? $latestByNote->get($workReport->note_id);
+            if ($linked) {
+                $resolved[$workReportId] = $linked;
+            }
+        }
+
+        return $resolved;
     }
 
     private function loadProductionsByServiceForFinals(array $workReportIds): array

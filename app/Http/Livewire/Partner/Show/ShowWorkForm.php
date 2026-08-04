@@ -21,7 +21,21 @@ class ShowWorkForm extends Component
             'Equipment',
             'Meeters',
             'Note.Files.Service',
+            'Note.FiveNote.productions.Service:id,uuid,service',
+            'Note.FiveNote.productions.User:id,name,email',
             'Orders',
+            'FlowProductions' => function ($query) {
+                $query->with([
+                    'Production.Service:id,uuid,service',
+                    'Production.User:id,name,email',
+                    'Production.Company:id,name',
+                    'LinkedBy:id,name,email',
+                ])
+                    ->orderBy('stage')
+                    ->orderByDesc('is_current')
+                    ->orderBy('linked_at')
+                    ->orderBy('id');
+            },
         ]);
 
         // dd($this->form);

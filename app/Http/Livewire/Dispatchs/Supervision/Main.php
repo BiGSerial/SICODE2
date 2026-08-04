@@ -20,6 +20,7 @@ use App\Models\Wpa;
 use App\Repositories\SupervisionRepository;
 use App\Services\Supervision\BlockEvaluator;
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -638,6 +639,8 @@ class Main extends Component
                     }
 
                     if ($production) {
+                        app(WorkReportFlowProductionLinker::class)->linkFiscalization($production, 'dispatch_supervision_main');
+
                         Notetimeline::Create([
                             'note_id' => $production->id,
                             'service_id' => $production->service_id,
@@ -726,6 +729,8 @@ class Main extends Component
                     }
 
                     if ($production) {
+                        app(WorkReportFlowProductionLinker::class)->linkFiscalization($production, 'dispatch_supervision_main');
+
                         Notetimeline::Create([
                             'note_id' => $production->id,
                             'service_id' => $production->service_id,
