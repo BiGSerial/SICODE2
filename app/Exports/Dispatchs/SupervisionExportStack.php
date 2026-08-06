@@ -45,13 +45,14 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
         return [
             'Tipo','Nota/OV', 'DD', 'Sts WPA', 'MMGD', 'Rubrica', 'Municipio', 'Descrição', 'Despachado Por',
             'Emp Despachante', 'Atribuído Por', 'Emp Atribuidor', 'Fiscal', 'Emp Fiscal', 'Dt Despacho',
-            'Dt Atribuição', 'Dt Fiscalização', 'Dt Informe', 'Dt ADS', 'Empresa Informe', 'Informado Por', 'Status Informe', 'Motivo Rejeição Informe', 'Observação Informe', 'Status Produção'
+            'Dt Atribuição', 'Dt Fiscalização', 'Dt Informe', 'Dt ADS', 'Entrega ADS Tácita', 'Empresa Informe', 'Informado Por', 'Status Informe', 'Motivo Rejeição Informe', 'Observação Informe', 'Status Produção'
         ];
     }
 
     public function map($row): array
     {
         $adsInfomed = '';
+        $tacitDeliveredAt = '';
         $workForm = $row->Note->WorkForm ?: $row->Note->WorkFormAny;
 
         if ($row->partial) {
@@ -60,7 +61,10 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
             $informed_at = $workForm?->informed_at?->format('d/m/Y H:i') ?? '';
             $adsForm = $workForm?->Adsform;
             $adsInfomed = $adsForm
-                ? ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y H:i')
+                ? $adsForm->created_at?->format('d/m/Y H:i')
+                : '';
+            $tacitDeliveredAt = $adsForm?->tacit
+                ? $adsForm->tacit_delivered_at?->format('d/m/Y H:i')
                 : '';
         }
 
@@ -86,6 +90,7 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
             $row->completed_at ? $row->completed_at->format('d/m/Y') : '',
             $informed_at,
             $adsInfomed,
+            $tacitDeliveredAt,
             $workForm?->Company?->name,
             $workForm?->informer,
             !$workForm ? 'NORMAL' : ($workForm->canceled ? 'CANCELADO' : ($workForm->rejected ? 'REJEITADO' : 'NORMAL')),
@@ -144,7 +149,7 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
                     $event->sheet->getStyle('B2:B' . $highestRow)->getNumberFormat()->setFormatCode('0');
                     $event->sheet->getStyle('C2:C' . $highestRow)->getNumberFormat()->setFormatCode('0');
                     $event->sheet->getStyle('D2:D' . $highestRow)->getNumberFormat()->setFormatCode('0');
-                    $event->sheet->getStyle('O2:S' . $highestRow)->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                    $event->sheet->getStyle('O2:T' . $highestRow)->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 }
 
                 $event->sheet->autoSize();

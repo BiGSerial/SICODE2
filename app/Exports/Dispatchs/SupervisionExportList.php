@@ -78,7 +78,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Tipo ADS', 'Data ADS', 'Prazo ADS', 'Informado Em', 'Prazo Informe', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Custo', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
+            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Tipo ADS', 'Data ADS', 'Entrega ADS Tácita', 'Prazo ADS', 'Informado Em', 'Prazo Informe', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Custo', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
         ];
     }
 
@@ -152,14 +152,15 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
 
         $adsType = null;
+        $tacitDeliveredAt = null;
         if ($row->adsform) {
             $ads_origin = 'NOVO';
+            $ads = $this->adsDate($row->adsform);
             if ($row->adsform->tacit) {
                 $adsType = 'TACITA';
-                $ads = $row->adsform->tacit_delivered_at ?? $row->adsform->created_at;
+                $tacitDeliveredAt = $row->adsform->tacit_delivered_at;
             } else {
                 $adsType = 'NORMAL';
-                $ads = $row->adsform->created_at;
             }
         } elseif ($row->OldAds->isNotEmpty()) {
             $ads_origin = 'ANTIGO';
@@ -199,6 +200,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $ads_origin,
             $adsType ?? '---',
             $ads ? $ads->format('d/m/Y') : '---',
+            $tacitDeliveredAt ? Carbon::parse($tacitDeliveredAt)->format('d/m/Y') : '---',
             $prazoAds ? $prazoAds->format('d/m/Y') : '---',
             $row->work_dt_informed ? Carbon::parse($row->work_dt_informed)->format('d/m/Y') : '---',
             $inPrazo,
@@ -226,6 +228,11 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
         ];
     }
 
+    private function adsDate($adsForm): ?Carbon
+    {
+        return $adsForm->created_at ? Carbon::parse($adsForm->created_at) : null;
+    }
+
     public function properties(): array
     {
         return [
@@ -247,12 +254,13 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             AfterSheet::class => function (AfterSheet $event) {
                 // Centraliza verticalmente e horizontalmente todas as células e habilita quebras de linha
                 $sheet = $event->sheet->getDelegate();
-                $sheet->getStyle('A:Z')->getAlignment()
+                $lastCol   = $sheet->getHighestColumn();
+
+                $sheet->getStyle('A:' . $lastCol)->getAlignment()
                     ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
                     ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
-                $sheet->getStyle('A:Z')->getAlignment()->setWrapText(true);
-                $lastCol   = $sheet->getHighestColumn();
+                $sheet->getStyle('A:' . $lastCol)->getAlignment()->setWrapText(true);
 
                 $event->sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
                     'font' => [
@@ -267,8 +275,7 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
                 $event->sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
                 $event->sheet->getStyle('C')->getNumberFormat()->setFormatCode('0');
                 $event->sheet->getStyle('D')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('F')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-                $event->sheet->getStyle('H')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $event->sheet->getStyle('I:L')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $event->sheet->autoSize();
             },
         ];
