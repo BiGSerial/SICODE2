@@ -14,7 +14,7 @@
 
         <form wire:submit.prevent="saveFile">
             <input type="file" id="file-input" multiple wire:model="uploadsfiles" value=""
-                accept=".pdf,.jpg,.png,.xls,.xlsx" hidden>
+                accept=".pdf,.jpg,.png,.xls,.xlsx,.zip" hidden>
 
         </form>
 

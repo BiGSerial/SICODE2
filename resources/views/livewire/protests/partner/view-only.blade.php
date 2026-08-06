@@ -437,7 +437,7 @@
                                 <input type="file"
                                     class="form-control d-none @error('files.*') is-invalid @enderror" id="fileInput"
                                     x-ref="fileInput" multiple
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" wire:model="files">
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.zip" wire:model="files">
                                 <button type="button" class="btn btn-primary btn-lg px-4"
                                     onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
                                     <i class="ri-folder-open-line me-2"></i>

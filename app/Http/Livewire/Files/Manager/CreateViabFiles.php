@@ -69,7 +69,7 @@ class CreateViabFiles extends Component
                 'nullable',
                 'file',
                 'max:10240',
-                'mimes:jpg,jpeg,png,gif,bmp,svg,tiff,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp',
+                'mimes:jpg,jpeg,png,gif,bmp,svg,tiff,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp,zip',
             ],
         ];
     }
@@ -91,7 +91,7 @@ class CreateViabFiles extends Component
                 $allowedExtensions = [
                     'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
                     'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
-                    'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp',
+                    'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'zip',
                 ];
                 $maxSizeBytes = 10 * 1024 * 1024;
 
@@ -339,7 +339,7 @@ class CreateViabFiles extends Component
 
     protected $rules = [
 
-        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:10240',
+        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp,zip|max:10240',
     ];
 
 

@@ -299,7 +299,7 @@ class CreateAdsFiles extends Component
 
     protected $rules = [
 
-        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods|max:30370',
+        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,zip|max:30370',
     ];
 
 

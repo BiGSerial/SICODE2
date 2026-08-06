@@ -22,7 +22,7 @@ class ViewOnly extends Component
         'disk' => 'public',
         'path' => 'protest_attachments',
         'maxSize' => (10 * 1024),
-        'allowedTypes' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt'],
+        'allowedTypes' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt', 'zip'],
 
     ];
     /**
@@ -43,7 +43,7 @@ class ViewOnly extends Component
         'comment.required' => 'O comentário é obrigatório.',
         'comment.string' => 'O comentário deve ser uma string.',
         'comment.min' => 'O comentário deve ter pelo menos 10 caracteres.',
-        'files.*.mimes' => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
+        'files.*.mimes' => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT, ZIP são permitidos.',
         'files.*.max' => 'Cada arquivo não pode ter mais de 10MB.',
         'files.max' => 'Você pode anexar no máximo 5 arquivos de cada vez.',
     ];
