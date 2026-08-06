@@ -159,11 +159,11 @@
                     <div class="btn-group w-100" role="group" aria-label="Tipo de Protesto">
                         <input type="radio" class="btn-check" name="protestTypeFilter" id="ptype-bt"
                             wire:model="protestTypeFilter" value="only_btzero">
-                        <label class="btn btn-outline-primary" for="ptype-bt">BT Zero</label>
+                        <label class="btn btn-outline-primary" for="ptype-bt">Construção</label>
 
                         <input type="radio" class="btn-check" name="protestTypeFilter" id="ptype-no-bt"
                             wire:model="protestTypeFilter" value="without_btzero">
-                        <label class="btn btn-outline-primary" for="ptype-no-bt">Sem BT Zero</label>
+                        <label class="btn btn-outline-primary" for="ptype-no-bt">CIP</label>
 
                         <input type="radio" class="btn-check" name="protestTypeFilter" id="ptype-all"
                             wire:model="protestTypeFilter" value="all">
@@ -514,7 +514,7 @@
                                 </td>
 
                                 <td class="text-uppercase">
-                                    {{ $protest?->txtGrpCodificacao }}
+                                    {{ $medProtest?->protest_classification_label ?? 'CIP' }}
                                 </td>
 
                                 <td>

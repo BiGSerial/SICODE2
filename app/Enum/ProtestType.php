@@ -14,7 +14,7 @@ enum ProtestType: int
     public function label(): string
     {
         return match ($this) {
-            self::BTZERO         => 'BT Zero',
+            self::BTZERO         => 'Construção',
             self::CONSTRUCTION   => 'Construção',
             self::CIP            => 'CIP',
             default              => 'Desconhecido',
@@ -25,7 +25,7 @@ enum ProtestType: int
     {
 
         return match ($this) {
-            self::BTZERO         => 'badge bg-secondary',
+            self::BTZERO         => 'badge bg-primary',
             self::CONSTRUCTION   => 'badge bg-primary',
             self::CIP            => 'badge bg-warning text-dark',
             default              => 'badge bg-dark',

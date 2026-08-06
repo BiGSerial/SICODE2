@@ -873,7 +873,7 @@
                             </td>
 
                             <td class="text-uppercase">
-                                {{ $item->protest?->txtGrpCodificacao }}
+                                {{ $item->medProtest?->protest_classification_label ?? 'CIP' }}
                             </td>
 
                             <td>

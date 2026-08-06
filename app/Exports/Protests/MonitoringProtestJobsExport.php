@@ -51,13 +51,13 @@ class MonitoringProtestJobsExport implements FromQuery, WithMapping, WithHeading
 
         if ($showOnlyBtzero) {
             $query->whereHas('medProtest', function ($q) {
-                $q->identifiedAsBtzero();
+                $q->identifiedAsConstruction();
             });
         } elseif ($hideBtzero) {
             $query->where(function ($sub) {
                 $sub->whereNull('med_protest_id')
                     ->orWhereHas('medProtest', function ($q) {
-                        $q->notIdentifiedAsBtzero();
+                        $q->notIdentifiedAsConstruction();
                     });
             });
         }

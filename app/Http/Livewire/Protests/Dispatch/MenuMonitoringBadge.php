@@ -28,13 +28,13 @@ class MenuMonitoringBadge extends Component
         return ProtestJob::query()
             ->when($this->type === 'btzero', function ($q) {
                 $q->whereHas('medProtest', function ($sub) {
-                    $sub->identifiedAsBtzero();
+                    $sub->identifiedAsConstruction();
                 });
             }, function ($q) {
                 $q->where(function ($sub) {
                     $sub->whereNull('med_protest_id')
                         ->orWhereHas('medProtest', function ($inner) {
-                            $inner->notIdentifiedAsBtzero();
+                            $inner->notIdentifiedAsConstruction();
                         });
                 });
             });

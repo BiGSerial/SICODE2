@@ -2,7 +2,6 @@
 
 namespace App\Jobs\Protests;
 
-use App\Enum\ProtestType;
 use App\Exports\Protests\ProtestsExportList;
 use App\Models\Protest;
 use App\Models\User;
@@ -83,13 +82,10 @@ class ProtestExportListJob implements ShouldQueue
                         $q->where('statusSist', 'MEDA')
                             ->whereDoesntHave('ProtestJobs')
                             ->when($showOnlyBtzero, function ($typeQuery) {
-                                $typeQuery->where('protest_type', ProtestType::BTZERO->value);
+                                $typeQuery->identifiedAsConstruction();
                             }, function ($typeQuery) use ($hideBtzero) {
                                 if ($hideBtzero) {
-                                    $typeQuery->where(function ($sub) {
-                                        $sub->whereNull('protest_type')
-                                            ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
-                                    });
+                                    $typeQuery->notIdentifiedAsConstruction();
                                 }
                             })
                             ->orderByDesc('dtCriacaoMedida')
@@ -113,13 +109,10 @@ class ProtestExportListJob implements ShouldQueue
                     $q->where('statusSist', 'MEDA')
                         ->whereDoesntHave('ProtestJobs')
                         ->when($showOnlyBtzero, function ($typeQuery) {
-                            $typeQuery->where('protest_type', ProtestType::BTZERO->value);
+                            $typeQuery->identifiedAsConstruction();
                         }, function ($typeQuery) use ($hideBtzero) {
                             if ($hideBtzero) {
-                                $typeQuery->where(function ($sub) {
-                                    $sub->whereNull('protest_type')
-                                        ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
-                                });
+                                $typeQuery->notIdentifiedAsConstruction();
                             }
                         });
                 });
@@ -129,7 +122,7 @@ class ProtestExportListJob implements ShouldQueue
                 $query->whereDoesntHave('medProtests', function ($q) {
                     $q->where('statusSist', 'MEDA')
                         ->whereDoesntHave('ProtestJobs')
-                        ->where('protest_type', ProtestType::BTZERO->value);
+                        ->identifiedAsConstruction();
                 });
             }
 

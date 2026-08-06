@@ -3,7 +3,6 @@
 namespace App\Exports\Protests;
 
 use App\Enum\ProtestJobStatus;
-use App\Enum\ProtestType;
 use App\Models\ProtestJob;
 use App\Models\User;
 use App\Traits\WildcardFormmater;
@@ -100,12 +99,12 @@ class ClosedProtestJobsExport implements FromQuery, WithMapping, WithHeadings, W
         if ($protestTypeFilter === 'only_btzero') {
             $query->whereHas('protest.medProtests', function (Builder $q) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+                    ->identifiedAsConstruction();
             });
         } elseif ($protestTypeFilter === 'without_btzero') {
             $query->whereDoesntHave('protest.medProtests', function (Builder $q) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+                    ->identifiedAsConstruction();
             });
         }
 

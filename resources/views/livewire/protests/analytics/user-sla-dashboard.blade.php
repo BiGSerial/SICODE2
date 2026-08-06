@@ -254,9 +254,9 @@
                         <option value="without_job">Não Despachado</option>
                     </select>
                     <select wire:model="medaHistogramBtzeroFilter" class="form-select form-select-sm" style="min-width: 170px;">
-                        <option value="all">BT Zero: Todos</option>
-                        <option value="without_btzero">BT Zero: Sem BT Zero</option>
-                        <option value="only_btzero">BT Zero: Apenas BT Zero</option>
+                        <option value="all">Construção/CIP: Todos</option>
+                        <option value="without_btzero">CIP</option>
+                        <option value="only_btzero">Construção</option>
                     </select>
                     @if (!empty($medaOpenHistogram['selectedBucket']))
                         <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="clearMedaHistogramFilter">
@@ -271,7 +271,7 @@
                 <div class="col-md-3 col-12">
                     <div class="metric-label">MEDA em aberto</div>
                     <div class="metric-value">{{ $medaOpenHistogram['total'] ?? 0 }}</div>
-                    <div class="metric-subtitle">Em aberto no momento (incluindo BT Zero)</div>
+                    <div class="metric-subtitle">Em aberto no momento (incluindo Construção)</div>
                 </div>
                 <div class="col-md-3 col-12">
                     <div class="metric-label">Despachado</div>
@@ -284,7 +284,7 @@
                     <div class="metric-subtitle">Sem Atividade de Reclamação</div>
                 </div>
                 <div class="col-md-3 col-12">
-                    <div class="metric-label">BT Zero</div>
+                    <div class="metric-label">Construção</div>
                     <div class="metric-value">{{ $medaOpenHistogram['total_btzero'] ?? 0 }}</div>
                     <div class="metric-subtitle">
                         {{ $medaOpenHistogram['total_btzero_with_job'] ?? 0 }} com atividade /
@@ -468,8 +468,8 @@
                     <select wire:model="medaHistogramBtzeroFilter" class="form-select form-select-sm"
                         style="min-width: 180px;">
                         <option value="all">Todos</option>
-                        <option value="without_btzero">Sem BT Zero</option>
-                        <option value="only_btzero">Apenas BT Zero</option>
+                        <option value="without_btzero">CIP</option>
+                        <option value="only_btzero">Construção</option>
                     </select>
                     <span class="badge bg-light text-dark">Total: {{ $medaOpenDispatchList['total'] ?? 0 }}</span>
                     <span class="badge bg-success">Despachado em aberto:
@@ -515,7 +515,7 @@
                                     <div class="d-flex flex-column gap-1">
                                         <span>{{ $row['classificacao_reclamacao'] }}</span>
                                         @if ($row['is_btzero'])
-                                            <span class="badge bg-primary">BT Zero</span>
+                                            <span class="badge bg-primary">Construção</span>
                                         @endif
                                     </div>
                                 </td>
@@ -700,9 +700,9 @@
                     </select>
                     <select wire:model="generalMeasuresBtzeroFilter" class="form-select form-select-sm"
                         style="min-width: 170px;">
-                        <option value="all">BT Zero: Todos</option>
-                        <option value="with_btzero">Com BT Zero</option>
-                        <option value="without_btzero">Sem BT Zero</option>
+                        <option value="all">Construção/CIP: Todos</option>
+                        <option value="with_btzero">Construção</option>
+                        <option value="without_btzero">CIP</option>
                     </select>
                     <span class="badge bg-light text-dark">Total: {{ $generalProtestsList['total'] ?? 0 }}</span>
                     @if (!empty($generalProtestsList['search_mode']))
@@ -745,7 +745,7 @@
                                     <div class="d-flex flex-column gap-1">
                                         <span>{{ $row['classificacao_reclamacao'] }}</span>
                                         @if ($row['is_btzero'])
-                                            <span class="badge bg-primary">BT Zero</span>
+                                            <span class="badge bg-primary">Construção</span>
                                         @endif
                                     </div>
                                 </td>
@@ -797,9 +797,9 @@
                 <div class="d-flex align-items-center gap-2">
                     <select wire:model="complaintsBtzeroFilter" class="form-select form-select-sm"
                         style="min-width: 180px;">
-                        <option value="without_btzero">BT Zero: Sem BT Zero</option>
-                        <option value="all">BT Zero: Todos</option>
-                        <option value="only_btzero">BT Zero: Apenas BT Zero</option>
+                        <option value="without_btzero">CIP</option>
+                        <option value="all">Construção/CIP: Todos</option>
+                        <option value="only_btzero">Construção</option>
                     </select>
                     <span class="badge bg-light text-dark">Período: {{ $complaintsNaPanel['window_label'] ?? '-' }}</span>
                     <span class="badge bg-primary">Encerramentos: {{ $complaintsNaPanel['total'] ?? 0 }}</span>
@@ -851,9 +851,9 @@
                 <div class="d-flex align-items-center gap-2">
                     <select wire:model="complaintsBtzeroFilter" class="form-select form-select-sm"
                         style="min-width: 180px;">
-                        <option value="without_btzero">BT Zero: Sem BT Zero</option>
-                        <option value="all">BT Zero: Todos</option>
-                        <option value="only_btzero">BT Zero: Apenas BT Zero</option>
+                        <option value="without_btzero">CIP</option>
+                        <option value="all">Construção/CIP: Todos</option>
+                        <option value="only_btzero">Construção</option>
                     </select>
                     <span class="badge bg-light text-dark">Período: {{ $complaintsOuPanel['window_label'] ?? '-' }}</span>
                     <span class="badge bg-primary">Encerramentos: {{ $complaintsOuPanel['total'] ?? 0 }}</span>

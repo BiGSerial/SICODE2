@@ -160,9 +160,9 @@ class Lists extends Component
                 $this->applyNoValidJobsCondition($q);
 
                 if ($this->showOnlyBtzero) {
-                    $q->identifiedAsBtzero();
+                    $q->identifiedAsConstruction();
                 } elseif ($this->hideBtzero) {
-                    $q->notIdentifiedAsBtzero();
+                    $q->notIdentifiedAsConstruction();
                 }
             })
             ->distinct()
@@ -375,12 +375,12 @@ class Lists extends Component
         unset($includeNullWhenHiding);
 
         if ($this->showOnlyBtzero) {
-            $query->identifiedAsBtzero();
+            $query->identifiedAsConstruction();
             return;
         }
 
         if ($this->hideBtzero) {
-            $query->notIdentifiedAsBtzero();
+            $query->notIdentifiedAsConstruction();
         }
     }
 
