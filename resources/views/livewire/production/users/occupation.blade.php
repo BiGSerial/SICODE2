@@ -44,7 +44,7 @@
                         @endphp
 
                         <li class="list-group-item py-1 px-2 sidebar-row" role="button"
-                            wire:click.defer="$emit('filterUser', '{{ $list->id }}')">
+                            wire:click="$emit('filterUser', '{{ $list->id }}')">
 
                             <div class="d-flex align-items-center gap-2">
 

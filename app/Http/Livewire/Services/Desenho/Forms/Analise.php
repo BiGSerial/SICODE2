@@ -1705,19 +1705,18 @@ class Analise extends Component
                         : ($sendToProjectReview ? Production::STATUS_IN_PROJECT_REVIEW : 5),
                 ]);
 
-                //Encerrar RI Caso existir
-                if ($this->production->d5) {
-                    $d5 = Reclaim::where('production_id', $this->production->id)->first();
-
-                    if ($d5) {
-                        $d5->update([
+                Reclaim::query()
+                    ->where('production_id', $this->production->id)
+                    ->where('completed', false)
+                    ->get()
+                    ->each(function (Reclaim $reclaim): void {
+                        $reclaim->update([
                             'completed' => true,
-                            'completed_at' => date('Y-m-d H:i:s'),
+                            'completed_at' => now(),
                         ]);
 
-                        $d5->Viabilities()->update(['status' => 13]);
-                    }
-                }
+                        $reclaim->Viabilities()->update(['status' => 13]);
+                    });
 
 
 

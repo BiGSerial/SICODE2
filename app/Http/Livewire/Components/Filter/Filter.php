@@ -108,11 +108,18 @@ class Filter extends Component
                 if (!session()->isStarted()) { session()->start(); }
             }
 
-            if (isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
-                # code...
+            $persistedItems = session('filter.' . $this->group_filter . '.' . $this->myKey);
+            if (is_array($persistedItems)) {
+                $this->items = $persistedItems;
+                return;
             }
 
-            $this->items = $_SESSION['filter'][$this->group_filter][$this->myKey];
+            if (isset($_SESSION) && isset($_SESSION['filter'][$this->group_filter][$this->myKey])) {
+                $this->items = $_SESSION['filter'][$this->group_filter][$this->myKey];
+                return;
+            }
+
+            $this->items = [];
         }
     }
 
@@ -252,7 +259,13 @@ class Filter extends Component
         $query = $this->model::Query();
 
         if ($this->search) {
-            $query->where($this->column, 'like', '%' . $this->search . '%');
+            $query->where(function ($q) {
+                $q->where($this->column, 'like', '%' . $this->search . '%');
+
+                if ($this->column !== $this->values) {
+                    $q->orWhere($this->values, 'like', '%' . $this->search . '%');
+                }
+            });
         }
 
         if ($this->custom_query) {

@@ -14,8 +14,8 @@
             @endif
         </button>
 
-        <div x-show="isShow" @click.away="isShow = false" style="display: none;"
-            class="card position-absolute top-50 end-0 mt-4 z-3">
+        <div x-show="isShow" @click.away="isShow = false" style="display: none; z-index: 1080;"
+            class="card position-absolute top-100 end-0 mt-1">
 
             <div class="card-body">
                 <input type="text" wire:model="search" class="form-control border-1 border-secondary mb-3"

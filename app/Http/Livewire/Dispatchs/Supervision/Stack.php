@@ -44,6 +44,7 @@ class Stack extends Component
     protected $listeners = [
         'resetFilters',
         'refresh_list' => '$refresh',
+        'filterUser' => 'filterUser',
     ];
 
     public function mount($service)
@@ -52,13 +53,29 @@ class Stack extends Component
         $this->service = $service;
     }
 
+    public function filterUser($user_id)
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $this->gotoPage(1);
+        $_SESSION['filter'][$this->filter_group]['user'] = [$user_id];
+        session(['filter.' . $this->filter_group . '.user' => [$user_id]]);
+
+        $this->emit('toUpdate', 'user');
+    }
+
     public function exportToExcel()
     {
+        $this->loadFilters();
+
         \App\Jobs\Dispatchs\ExportDispatchSupervisionJob::dispatch([
             'service_id'   => $this->service,
             'search'       => $this->search,
             'multiSearch'  => $this->multiSearch,
             'note_type'    => $this->note_type,
+            'user_fs'      => $this->filter['user'] ?? [],
         ], auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
@@ -102,6 +119,22 @@ class Stack extends Component
         $this->multiSearch = [];
         $this->advancedSearch = null;
         $this->search = null;
+    }
+
+    private function loadFilters(): void
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $sessionFilters = session('filter.' . $this->filter_group);
+        if (is_array($sessionFilters)) {
+            $this->filter = $sessionFilters;
+        } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
+            $this->filter = $_SESSION['filter'][$this->filter_group];
+        } else {
+            $this->filter = [];
+        }
     }
 
     private function baseQuery()
@@ -175,18 +208,7 @@ class Stack extends Component
 
     private function filtersQuery()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        $sessionFilters = session('filter.' . $this->filter_group);
-        if (is_array($sessionFilters)) {
-            $this->filter = $sessionFilters;
-        } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        } else {
-            $this->filter = [];
-        }
+        $this->loadFilters();
 
 
 
@@ -235,6 +257,8 @@ class Stack extends Component
                 $q->where('productions.status', $this->statusFilter);
             })->when($this->note_type, function ($q) {
                 $q->where('n.type_note', $this->note_type);
+            })->when(!empty($this->filter['user']), function ($q) {
+                $q->whereIn('productions.user_id', $this->filter['user']);
             });
     }
 
