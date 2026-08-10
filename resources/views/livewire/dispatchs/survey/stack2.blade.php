@@ -189,13 +189,7 @@
                                         {{ $list->Company ? explode(' ', $list->Company->name)[0] : '-' }}</td>
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                        @php
-                                            $nome = $list->User ? explode(' ', $list->User->name) : '----';
-                                            if (is_array($nome)) {
-                                                $nome = $nome[0] . ' ' . substr(end($nome), 0, 1);
-                                            }
-                                        @endphp
-                                        {{ $nome }}
+                                        <x-user.status-name :user="$list->User" />
                                     </td>
                                     <td
                                         class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">

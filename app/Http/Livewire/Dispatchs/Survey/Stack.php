@@ -174,7 +174,7 @@ class Stack extends Component
             ->with([
                 'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                 'service:id,uuid,service',
-                'user:id,name',
+                'user:id,name,deleted_at',
                 'dispatcher:id,name',
                 'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
             ]);

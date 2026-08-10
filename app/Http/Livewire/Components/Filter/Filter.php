@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Components\Filter;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Livewire\Component;
 
 class Filter extends Component
@@ -35,6 +36,8 @@ class Filter extends Component
 
     public $myKey;
 
+    public $includeTrashed = false;
+
     protected $listeners = [
         'refresh_filter'     => 'refreshme',
         'refresh_myself'     => '$refresh',
@@ -57,7 +60,7 @@ class Filter extends Component
      * @param [string] $query Add a Custom Query EX. "where('column', 'value')->where('column2', 'value2')"
      * @return void
      */
-    public function mount($myKey, $sendFilter, $model, $column, $filter, $group_filter, $values, $direction, $query)
+    public function mount($myKey, $sendFilter, $model, $column, $filter, $group_filter, $values, $direction, $query, $includeTrashed = false)
     {
         $this->model        = app($model);
         $this->column       = $column;
@@ -69,6 +72,7 @@ class Filter extends Component
         $this->sendFilter   = $sendFilter;
         $this->custom_query = $query;
         $this->myKey        = $myKey;
+        $this->includeTrashed = (bool) $includeTrashed;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             if (!session()->isStarted()) { session()->start(); }
@@ -258,6 +262,10 @@ class Filter extends Component
 
         $query = $this->model::Query();
 
+        if ($this->includeTrashed && in_array(SoftDeletes::class, class_uses_recursive($this->model), true)) {
+            $query->withTrashed();
+        }
+
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where($this->column, 'like', '%' . $this->search . '%');
@@ -280,11 +288,23 @@ class Filter extends Component
         $query->orderBy($this->values, $this->direction);
 
         if ($this->column != $this->values) {
-            $query->select($this->column, $this->values)
-                ->groupBy($this->column, $this->values);
+            $select = [$this->column, $this->values];
+
+            if ($this->includeTrashed) {
+                $select[] = 'deleted_at';
+            }
+
+            $query->select($select)
+                ->groupBy($select);
         } else {
-            $query->select($this->column)
-                ->groupBy($this->column);
+            $select = [$this->column];
+
+            if ($this->includeTrashed) {
+                $select[] = 'deleted_at';
+            }
+
+            $query->select($select)
+                ->groupBy($select);
         }
 
         return $query->get();

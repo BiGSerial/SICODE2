@@ -85,7 +85,7 @@
                 <label class="btn btn-outline-primary btn-sm" for="note_type_ambos">Ambos</label>
             </div>
 
-            @livewire('components.filter.filter', ['myKey' => 'user', 'sendFilter' => '', 'model' => 'App\Models\User', 'column' => 'id', 'filter' => 'Usuário', 'group_filter' => 'supervision', 'values' => 'name', 'direction' => 'ASC', 'query' => "id in (select user_id from productions where service_id = '{$service}' and completed = 0 and user_id is not null)"], key('supervision-user'))
+            @livewire('components.filter.filter', ['myKey' => 'user', 'sendFilter' => '', 'model' => 'App\Models\User', 'column' => 'id', 'filter' => 'Usuário', 'group_filter' => 'supervision', 'values' => 'name', 'direction' => 'ASC', 'query' => "id in (select user_id from productions where service_id = '{$service}' and completed = 0 and user_id is not null)", 'includeTrashed' => true], key('supervision-user'))
 
 
             @livewire('components.filter.filter', ['myKey' => 'regiao', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('regiao'))
@@ -350,7 +350,8 @@
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->postes ?? '---' }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                {{ shortUser($item->user?->name) }}</td>
+                                <x-user.status-name :user="$item->user" />
+                            </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->att_at?->diffInDays(Carbon::now()) }} dias
                             </td>

@@ -32,7 +32,14 @@
                                     @php
                                         $valor = $item->$column;
                                     @endphp
-                                    <label for="opcao1">{{ $item->$values }}</label>
+                                    <label for="opcao1">
+                                        <span @if($item->deleted_at ?? false) class="text-muted text-decoration-line-through" @endif>
+                                            {{ $item->$values }}
+                                        </span>
+                                        @if($item->deleted_at ?? false)
+                                            <span class="badge text-bg-secondary ms-1">Inativo</span>
+                                        @endif
+                                    </label>
                                 </div>
                             @endif
                         @endforeach
