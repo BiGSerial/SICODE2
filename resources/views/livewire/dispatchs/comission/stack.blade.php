@@ -235,7 +235,7 @@
                                 {{ $item->company?->name ?? '---' }}
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                {{ shortUser($item->user?->name) }}
+                                <x-user.status-name :user="$item->user" />
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->att_at ? $item->att_at->diffInDays(Carbon::now()) . ' dias' : '---' }}

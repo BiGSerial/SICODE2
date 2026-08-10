@@ -38,9 +38,8 @@ class Occupation extends Component
         //     ->groupBy('users.id', 'users.name')
         //     ->get();
 
-        $query = User::with(['Productions', 'Employee.contract'])
-        ->join('productions', 'users.id', '=', 'productions.user_id')
-        ->join('employees', 'users.id', '=', 'employees.user_id')
+        $query = Production::query()
+        ->join('users', 'users.id', '=', 'productions.user_id')
         ->join('notes', 'productions.note_id', '=', 'notes.id')
         ->where('productions.service_id', $this->service->uuid)
         ->when(Auth()->user()->contract, function ($q) {
@@ -51,14 +50,14 @@ class Occupation extends Component
         })
         ->where('productions.completed', false)
         ->where(function ($q) {
-            $q->whereRelation('Productions', 'status', '!=', 29)
+            $q->where('productions.status', '!=', 29)
             ->orWhere('productions.confirmed', null);
         })
-        ->select('users.id', 'users.name')
+        ->select('users.id', 'users.name', 'users.deleted_at')
         ->selectRaw('count(productions.id) as registros')
         ->selectRaw('SUM(CASE WHEN notes.type_note = 2 THEN 1 ELSE 0 END) as ov')
         ->selectRaw('SUM(CASE WHEN notes.type_note = 1 THEN 1 ELSE 0 END) as notes')
-        ->groupBy('users.id', 'users.name')
+        ->groupBy('users.id', 'users.name', 'users.deleted_at')
         ->orderBy('registros', 'desc')
         ->orderBy('ov', 'desc')
         ->orderBy('notes', 'desc')

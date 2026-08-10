@@ -27,9 +27,9 @@ class MenuOpenBadge extends Component
             ->where('statusSist', 'MEDA')
             ->whereDoesntHave('ProtestJobs')
             ->when($this->type === 'btzero', function ($typeQuery) {
-                $typeQuery->identifiedAsBtzero();
+                $typeQuery->identifiedAsConstruction();
             }, function ($typeQuery) {
-                $typeQuery->notIdentifiedAsBtzero();
+                $typeQuery->notIdentifiedAsConstruction();
             })
             ->count();
     }

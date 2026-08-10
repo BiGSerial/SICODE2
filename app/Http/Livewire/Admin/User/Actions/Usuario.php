@@ -281,6 +281,18 @@ class Usuario extends Component
         $existingLocks  = $this->normalizePermissionLocks((array) ($originalUser?->permission_locks ?? []));
         $incomingLocks  = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
         $effectiveLocks = $isSuperAdm ? $incomingLocks : $existingLocks;
+        $primaryServiceId = $this->resolvePrimaryServiceId();
+
+        if (!$primaryServiceId) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma atividade para o usuário.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
 
         if (!$isSuperAdm) {
             foreach (self::LOCKABLE_PERMISSIONS as $permission) {
@@ -319,11 +331,13 @@ class Usuario extends Component
             // Atualiza o Employee existente
             $this->user->Employee()->update([
                 'contract_id' => $this->contract,
+                'service_id'  => $primaryServiceId,
             ]);
         } else {
             // Cria um novo Employee
             $this->user->Employee()->create([
                 'contract_id' => $this->contract,
+                'service_id'  => $primaryServiceId,
             ]);
         }
 
@@ -358,6 +372,21 @@ class Usuario extends Component
         }
 
         return $normalized;
+    }
+
+    private function resolvePrimaryServiceId(): ?string
+    {
+        if ($this->user?->exists) {
+            $serviceId = $this->user->ToServices()->value('service_id');
+            if ($serviceId) {
+                return $serviceId;
+            }
+        }
+
+        $temporaryService = collect($this->temporaryServices)
+            ->first(fn ($service) => !empty($service['service_id']));
+
+        return $temporaryService['service_id'] ?? null;
     }
 
     public function resetPassword()

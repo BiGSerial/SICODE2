@@ -87,7 +87,7 @@
                                     <div class="dropdown-item">
                                         <input type="checkbox" wire:model.defer="user_fs"
                                             value="{{ $user_f->user_id }}">
-                                        <label for="opcao1">{{ $user_f->User->name }}</label>
+                                        <label for="opcao1"><x-user.status-name :user="$user_f->User" :short="false" /></label>
                                     </div>
                                 @endif
                             @endforeach
@@ -614,13 +614,8 @@
                                     {{ $list->Company ? $list->Company->name : '-' }}</td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    @php
-                                        $nome = $list->User ? explode(' ', $list->User->name) : '----';
-                                        if (is_array($nome)) {
-                                            $nome = $nome[0] . ' ' . end($nome);
-                                        }
-                                    @endphp
-                                    {{ $nome }}</td>
+                                    <x-user.status-name :user="$list->User" />
+                                </td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}

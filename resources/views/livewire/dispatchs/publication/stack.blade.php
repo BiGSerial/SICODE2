@@ -390,13 +390,8 @@
 
                                     {{ $list->Company ? $list->Company->name : '-' }}</td>
                                 <td class="fw-light {{ $color }}">
-                                    @php
-                                        $nome = $list->User ? explode(' ', $list->User->name) : '----';
-                                        if (is_array($nome)) {
-                                            $nome = $nome[0] . ' ' . end($nome);
-                                        }
-                                    @endphp
-                                    {{ $nome }}</td>
+                                    <x-user.status-name :user="$list->User" />
+                                </td>
                                 <td class="fw-light {{ $color }}">
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
                                 </td>

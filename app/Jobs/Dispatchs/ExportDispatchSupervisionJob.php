@@ -101,6 +101,10 @@ class ExportDispatchSupervisionJob implements ShouldQueue
                 $builder->where('n.type_note', $this->params['note_type']);
             }
 
+            if (!empty($this->params['user_fs'])) {
+                $builder->whereIn('productions.user_id', (array) $this->params['user_fs']);
+            }
+
             // === Executa exportação ===
             $stored = (new DispatchSupervisionStack($builder, $service->uuid))
                 ->store($filePath, 'local');

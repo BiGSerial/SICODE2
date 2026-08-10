@@ -32,20 +32,20 @@
                     <li>
                         <a href="{{ route('protests.dispatch.lists') }}"
                             class="nav-item text-white fw-normal d-flex align-items-center">
-                            <i class="bi bi-inbox fs-5 edp-text-verde-dark me-1"></i> <span>EM ABERTO</span>
+                            <i class="bi bi-inbox fs-5 edp-text-verde-dark me-1"></i> <span>CIP EM ABERTO</span>
                             @livewire('protests.dispatch.menu-open-badge', ['type' => 'normal'], key('menu-open-normal'))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch.monitoring') }}"
                             class="nav-item text-white fw-normal d-flex align-items-center">
-                            <i class="bi bi-arrow-repeat fs-5 edp-text-verde-dark me-1"></i> <span>EM ANDAMENTO</span>
+                            <i class="bi bi-arrow-repeat fs-5 edp-text-verde-dark me-1"></i> <span>CIP EM ANDAMENTO</span>
                             @livewire('protests.dispatch.menu-monitoring-badge', ['type' => 'normal'], key('menu-monitoring-normal'))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch.closeds') }}" class="nav-item text-white fw-normal">
-                            <i class="bi bi-check-circle fs-5 edp-text-verde-dark"></i> <span>FECHADOS</span>
+                            <i class="bi bi-check-circle fs-5 edp-text-verde-dark"></i> <span>CIP FECHADOS</span>
                         </a>
                     </li>
 
@@ -58,21 +58,21 @@
                     <li>
                         <a href="{{ route('protests.dispatch_btzero.lists') }}"
                             class="nav-item text-white fw-normal d-flex align-items-center">
-                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark me-1"></i> <span>BT ZERO ABERTO</span>
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark me-1"></i> <span>CONSTRUÇÃO ABERTO</span>
                             @livewire('protests.dispatch.menu-open-badge', ['type' => 'btzero'], key('menu-open-btzero'))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch_btzero.monitoring') }}"
                             class="nav-item text-white fw-normal d-flex align-items-center">
-                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark me-1"></i> <span>BT ZERO ANDAMENTO</span>
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark me-1"></i> <span>CONSTRUÇÃO ANDAMENTO</span>
                             @livewire('protests.dispatch.menu-monitoring-badge', ['type' => 'btzero'], key('menu-monitoring-btzero'))
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('protests.dispatch_btzero.closeds') }}"
                             class="nav-item text-white fw-normal">
-                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark"></i> <span>BT ZERO FECHADOS</span>
+                            <i class="bi bi-bullseye fs-5 edp-text-verde-dark"></i> <span>CONSTRUÇÃO FECHADOS</span>
 
                         </a>
                     </li>

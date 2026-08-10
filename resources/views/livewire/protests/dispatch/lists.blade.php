@@ -286,7 +286,7 @@
                                 <td>{{ $protest?->tipoNota ?? '—' }}</td>
                                 <td>{{ $medProtest->codMedida ?? '—' }}</td>
                                 <td>{{ $protest?->codecodf ?? '—' }}</td>
-                                <td class="small text-uppercase">{{ $protest?->txtGrpCodificacao ?? '—' }}</td>
+                                <td class="small text-uppercase">{{ $medProtest->protest_classification_label }}</td>
                                 <td>{{ $medProtest->txtCodMedida ?? '—' }}</td>
                                 <td class="small">{{ Str::limit($protest?->descCausa ?? '—', 22) }}</td>
                                 <td class="small">{{ Str::limit($protest?->descricao ?? '—', 22) }}</td>

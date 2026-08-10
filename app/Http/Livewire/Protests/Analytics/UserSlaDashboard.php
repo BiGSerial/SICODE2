@@ -468,40 +468,16 @@ class UserSlaDashboard extends Component
 
     protected function applyComplaintsCipUniverseFilter($query)
     {
-        $query->where(function ($scope) {
-            // Universo principal: CIP por texto e por enum na medida
-            $scope->where(function ($cip) {
-                $cip->where('type', 'like', 'CIP%')
-                    ->whereHas('medProtests', function ($sub) {
-                        $sub->where('protest_type', ProtestType::CIP->value);
-                    });
-            })
-            // Inclusão explícita: sem informação em ambos (protest.type e med_protests.protest_type)
-            ->orWhere(function ($unknown) {
-                $unknown
-                    ->where(function ($type) {
-                        $type->whereNull('type')
-                            ->orWhereRaw('TRIM(type) = ""');
-                    })
-                    ->whereDoesntHave('medProtests', function ($sub) {
-                        $sub->whereNotNull('protest_type');
-                    });
-            });
-        });
-
-        // Expurgo fixo de Construção
-        $query->whereDoesntHave('medProtests', function ($sub) {
-            $sub->where('protest_type', ProtestType::CONSTRUCTION->value);
-        });
-
         if ($this->complaintsBtzeroFilter === 'without_btzero') {
             $query->whereDoesntHave('medProtests', function ($sub) {
-                $sub->identifiedAsBtzero();
+                $sub->identifiedAsConstruction();
             });
+            return $query;
         } elseif ($this->complaintsBtzeroFilter === 'only_btzero') {
             $query->whereHas('medProtests', function ($sub) {
-                $sub->identifiedAsBtzero();
+                $sub->identifiedAsConstruction();
             });
+            return $query;
         }
 
         return $query;
@@ -1841,9 +1817,9 @@ class UserSlaDashboard extends Component
         $query = $this->applyComplaintFiltersToMedProtestQuery($query);
 
         if ($this->medaHistogramBtzeroFilter === 'without_btzero') {
-            $query->notIdentifiedAsBtzero();
+            $query->notIdentifiedAsConstruction();
         } elseif ($this->medaHistogramBtzeroFilter === 'only_btzero') {
-            $query->identifiedAsBtzero();
+            $query->identifiedAsConstruction();
         }
 
         if ($applyDispatchFilter) {
@@ -2509,9 +2485,9 @@ class UserSlaDashboard extends Component
         }
 
         if ($this->generalMeasuresBtzeroFilter === 'with_btzero') {
-            $query->identifiedAsBtzero();
+            $query->identifiedAsConstruction();
         } elseif ($this->generalMeasuresBtzeroFilter === 'without_btzero') {
-            $query->notIdentifiedAsBtzero();
+            $query->notIdentifiedAsConstruction();
         }
 
         if (!$hasSearch) {
@@ -2635,6 +2611,8 @@ class UserSlaDashboard extends Component
         $procedenteByMonth = array_fill_keys($monthKeys, 0);
         $improcedenteByMonth = array_fill_keys($monthKeys, 0);
 
+        $complaintsScope = $this->complaintsBtzeroFilter;
+
         $protests = Protest::query()
             ->where('tipoNota', 'NA')
             ->whereIn('statUsuar', ['ENCI', 'ENCP'])
@@ -2644,11 +2622,16 @@ class UserSlaDashboard extends Component
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
             ->tap(fn ($q) => $this->applyComplaintsCipUniverseFilter($q))
             ->with([
-                'medProtests' => function ($q) {
-                    $q->select('id', 'protest_id', 'protest_type', 'dtCriacaoMedida', 'dtFimMedida')
-                        ->where('protest_type', ProtestType::CIP->value)
+                'medProtests' => function ($q) use ($complaintsScope) {
+                    $q->select('id', 'protest_id', 'protest_type', 'codMedida', 'dtCriacaoMedida', 'dtFimMedida')
                         ->orderByDesc('dtCriacaoMedida')
                         ->orderByDesc('id');
+
+                    if ($complaintsScope === 'without_btzero') {
+                        $q->notIdentifiedAsConstruction();
+                    } elseif ($complaintsScope === 'only_btzero') {
+                        $q->identifiedAsConstruction();
+                    }
                 },
             ])
             ->get();
@@ -2996,6 +2979,8 @@ class UserSlaDashboard extends Component
                 ->value();
         };
 
+        $complaintsScope = $this->complaintsBtzeroFilter;
+
         $protests = Protest::query()
             ->where('tipoNota', 'OU')
             ->whereNotNull('dtConclusaoDesej')
@@ -3004,11 +2989,16 @@ class UserSlaDashboard extends Component
             ->tap(fn ($q) => $this->applyProtestTypeFilter($q))
             ->tap(fn ($q) => $this->applyComplaintsCipUniverseFilter($q))
             ->with([
-                'medProtests' => function ($q) {
-                    $q->select('id', 'protest_id', 'protest_type', 'dtCriacaoMedida', 'dtFimMedida', 'dtFimMedidaDesej', 'result')
-                        ->where('protest_type', ProtestType::CIP->value)
+                'medProtests' => function ($q) use ($complaintsScope) {
+                    $q->select('id', 'protest_id', 'protest_type', 'codMedida', 'dtCriacaoMedida', 'dtFimMedida', 'dtFimMedidaDesej', 'result')
                         ->orderByDesc('dtCriacaoMedida')
                         ->orderByDesc('id');
+
+                    if ($complaintsScope === 'without_btzero') {
+                        $q->notIdentifiedAsConstruction();
+                    } elseif ($complaintsScope === 'only_btzero') {
+                        $q->identifiedAsConstruction();
+                    }
                 },
             ])
             ->get();
@@ -3381,20 +3371,7 @@ class UserSlaDashboard extends Component
 
     protected function isBtzeroMeasure(MedProtest $measure): bool
     {
-        $normalize = function (?string $value): string {
-            return Str::of((string) $value)->lower()->replace(['-', ' '], '')->value();
-        };
-
-        $rawProtestType = $measure->protest_type;
-        $protestType = $rawProtestType instanceof ProtestType
-            ? $rawProtestType->value
-            : (int) ($rawProtestType ?? 0);
-        $txtCodMedida = $normalize($measure->txtCodMedida ?? '');
-        $txtGrpCodificacao = $normalize($measure->protest?->txtGrpCodificacao ?? '');
-
-        return $protestType === ProtestType::BTZERO->value
-            || str_contains($txtCodMedida, 'btzero')
-            || str_contains($txtGrpCodificacao, 'btzero');
+        return $measure->isConstructionMeasure();
     }
 
     protected function buildDailyDispatchCompletionChart(Carbon $start, Carbon $end): array

@@ -124,6 +124,10 @@ class ExportDispatchSurveyJob implements ShouldQueue
                 $builder->where('n.type_note', $this->params['note_type']);
             }
 
+            if (!empty($this->params['user_fs'])) {
+                $builder->whereIn('productions.user_id', (array) $this->params['user_fs']);
+            }
+
             // =====================
             // 📤 EXPORTAÇÃO USANDO CLASSE
             // =====================

@@ -7,10 +7,47 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class MedProtest extends Model
 {
     use HasFactory;
+
+    public const CONSTRUCTION_MEASURE_CODES = [
+        'AL36',
+        'CA03',
+        'CC05',
+        'CP08',
+        'DE01',
+        'DE12',
+        'DE14',
+        'EG02',
+        'EG03',
+        'EL06',
+        'IR01',
+        'MR09',
+        'NB01',
+        'NB12',
+        'OU03',
+        'OU08',
+        'OU15',
+        'OU16',
+        'OU44',
+        'OU47',
+        'OU53',
+        'OU80',
+        'PL01',
+        'RA01',
+        'SA02',
+        'SA07',
+        'SA10',
+        'SU01',
+        'SU12',
+        'SU14',
+        'SU16',
+        'SU27',
+        'SU29',
+    ];
 
     public const RESULT_PROCEDENTE = 'procedente';
     public const RESULT_IMPROCEDENTE = 'improcedente';
@@ -45,7 +82,7 @@ class MedProtest extends Model
         'protest_type' => ProtestType::class,
     ];
 
-    protected $appends = ['protest_type_label', 'protest_type_badge_class'];
+    protected $appends = ['protest_type_label', 'protest_type_badge_class', 'protest_classification_label'];
 
     public static function resultOptions(): array
     {
@@ -68,12 +105,27 @@ class MedProtest extends Model
 
     public function getProtestTypeLabelAttribute(): string
     {
-        return $this->protest_type?->label() ?? 'Desconhecido';
+        return $this->protest_classification_label;
     }
 
     public function getProtestTypeBadgeClassAttribute(): string
     {
-        return $this->protest_type?->badgeClass() ?? 'badge bg-dark';
+        return $this->isConstructionMeasure() ? 'badge bg-primary' : 'badge bg-warning text-dark';
+    }
+
+    public function getProtestClassificationLabelAttribute(): string
+    {
+        return $this->isConstructionMeasure() ? 'Construção' : 'CIP';
+    }
+
+    public function isConstructionMeasure(): bool
+    {
+        return in_array($this->normalizedMeasureCode(), self::CONSTRUCTION_MEASURE_CODES, true);
+    }
+
+    protected function normalizedMeasureCode(): string
+    {
+        return mb_strtoupper(trim((string) $this->codMedida));
     }
 
 
@@ -132,37 +184,27 @@ class MedProtest extends Model
         return $this->hasOne(ProtestJob::class)->latestOfMany();
     }
 
-    /**
-     * Identifica registros BTZERO com fallback textual:
-     * - protest_type = BTZERO
-     * - txtCodMedida contendo "btzero" (normalizado)
-     * - protest.txtGrpCodificacao contendo "btzero" (normalizado)
-     */
-    public function scopeIdentifiedAsBtzero(Builder $query): Builder
+    public function scopeIdentifiedAsConstruction(Builder $query): Builder
+    {
+        return $query->whereIn(DB::raw('UPPER(TRIM(med_protests.codMedida))'), self::CONSTRUCTION_MEASURE_CODES);
+    }
+
+    public function scopeNotIdentifiedAsConstruction(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {
-            $q->where('protest_type', ProtestType::BTZERO->value)
-                ->orWhereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtCodMedida), '-', ''), ' ', ''), '') LIKE '%btzero%'")
-                ->orWhereHas('protest', function (Builder $protestQuery) {
-                    $protestQuery->whereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtGrpCodificacao), '-', ''), ' ', ''), '') LIKE '%btzero%'");
-                });
+            $q->whereNull('med_protests.codMedida')
+                ->orWhereNotIn(DB::raw('UPPER(TRIM(med_protests.codMedida))'), self::CONSTRUCTION_MEASURE_CODES);
         });
     }
 
-    /**
-     * Registros não classificados como BTZERO pelos mesmos critérios.
-     */
+    public function scopeIdentifiedAsBtzero(Builder $query): Builder
+    {
+        return $query->identifiedAsConstruction();
+    }
+
     public function scopeNotIdentifiedAsBtzero(Builder $query): Builder
     {
-        return $query
-            ->where(function (Builder $q) {
-                $q->whereNull('protest_type')
-                    ->orWhere('protest_type', '!=', ProtestType::BTZERO->value);
-            })
-            ->whereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtCodMedida), '-', ''), ' ', ''), '') NOT LIKE '%btzero%'")
-            ->whereDoesntHave('protest', function (Builder $protestQuery) {
-                $protestQuery->whereRaw("COALESCE(REPLACE(REPLACE(LOWER(txtGrpCodificacao), '-', ''), ' ', ''), '') LIKE '%btzero%'");
-            });
+        return $query->notIdentifiedAsConstruction();
     }
 
 }

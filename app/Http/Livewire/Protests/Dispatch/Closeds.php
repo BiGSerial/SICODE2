@@ -3,7 +3,6 @@
 namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Enum\ProtestJobStatus;
-use App\Enum\ProtestType;
 use App\Helpers\TextFormatter;
 use App\Jobs\Protests\ExportClosedProtestJobsJob;
 use App\Models\ProtestJob;
@@ -174,12 +173,12 @@ class Closeds extends Component
         if ($this->protestTypeFilter === 'only_btzero') {
             $query->whereHas('protest.medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+                    ->identifiedAsConstruction();
             });
         } elseif ($this->protestTypeFilter === 'without_btzero') {
             $query->whereDoesntHave('protest.medProtests', function ($q) {
                 $q->where('statusSist', 'MEDA')
-                    ->where('protest_type', ProtestType::BTZERO->value);
+                    ->identifiedAsConstruction();
             });
         }
 

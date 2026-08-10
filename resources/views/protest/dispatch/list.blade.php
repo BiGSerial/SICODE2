@@ -2,7 +2,7 @@
 
 @php
     $isBtzeroDispatch = $isBtzeroDispatch ?? false;
-    $dispatchBreadcrumb = $isBtzeroDispatch ? 'BT Zero - Em Aberto' : 'Em Aberto';
+    $dispatchBreadcrumb = $isBtzeroDispatch ? 'Construção - Em Aberto' : 'CIP - Em Aberto';
 @endphp
 
 @section('breadcrumb')

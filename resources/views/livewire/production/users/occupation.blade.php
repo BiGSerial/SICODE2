@@ -41,10 +41,11 @@
                             $perc = $pct($list->registros);
                             $rank = $indice + 1;
                             $barClass = $perc >= 50 ? 'bg-success' : ($perc >= 20 ? 'bg-warning' : 'bg-danger');
+                            $inactive = filled($list->deleted_at);
                         @endphp
 
                         <li class="list-group-item py-1 px-2 sidebar-row" role="button"
-                            wire:click.defer="$emit('filterUser', '{{ $list->id }}')">
+                            wire:click="$emit('filterUser', '{{ $list->id }}')">
 
                             <div class="d-flex align-items-center gap-2">
 
@@ -54,7 +55,7 @@
                                 {{-- Avatar + Nome --}}
                                 <div class="position-relative flex-shrink-0">
                                     <div
-                                        class="rounded-circle d-flex align-items-center justify-content-center fw-semibold text-white avatar-xxs">
+                                        class="rounded-circle d-flex align-items-center justify-content-center fw-semibold text-white avatar-xxs {{ $inactive ? 'avatar-inactive' : '' }}">
                                         {{ $initials }}
                                     </div>
 
@@ -69,7 +70,12 @@
                                 {{-- Conteúdo --}}
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="text-truncate small fw-semibold">{{ $display }}</span>
+                                        <span class="text-truncate small fw-semibold {{ $inactive ? 'text-muted text-decoration-line-through' : '' }}">
+                                            {{ $display }}
+                                            @if ($inactive)
+                                                <span class="badge text-bg-secondary ms-1">Inativo</span>
+                                            @endif
+                                        </span>
                                         <span class="small text-muted">{{ number_format($perc, 0, ',', '.') }}%</span>
                                     </div>
 
@@ -149,6 +155,11 @@
         font-size: 11px;
         background: linear-gradient(145deg, #0b4d3b, #0f7a5c);
         box-shadow: 0 2px 4px rgba(0, 0, 0, .12);
+    }
+
+    .avatar-inactive {
+        background: linear-gradient(145deg, #6b7280, #9ca3af);
+        opacity: .8;
     }
 
     .progress-xxs {

@@ -407,13 +407,13 @@ class Monitoring extends Component
 
         if ($this->showOnlyBtzero) {
             $query->whereHas('medProtest', function ($q) {
-                $q->identifiedAsBtzero();
+                $q->identifiedAsConstruction();
             });
         } elseif ($this->hideBtzero) {
             $query->where(function ($q) {
                 $q->whereNull('med_protest_id')
                     ->orWhereHas('medProtest', function ($sub) {
-                        $sub->notIdentifiedAsBtzero();
+                        $sub->notIdentifiedAsConstruction();
                     });
             });
         }
@@ -774,9 +774,9 @@ class Monitoring extends Component
         ];
 
         if ($this->showOnlyBtzero) {
-            $filters[] = 'Escopo fixo: apenas BT Zero';
+            $filters[] = 'Escopo fixo: apenas Construção';
         } elseif ($this->hideBtzero) {
-            $filters[] = 'Escopo fixo: sem BT Zero';
+            $filters[] = 'Escopo fixo: CIP';
         }
 
         return $filters;
