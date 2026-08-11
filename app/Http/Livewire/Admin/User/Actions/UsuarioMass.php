@@ -116,7 +116,7 @@ class UsuarioMass extends Component
 
     public function updatedCompany()
     {
-        $this->contractList = Contract::with('services')->where('company_id', $this->company)->orderBy('number')->get();
+        $this->contractList = $this->contractsForCompany($this->company);
         $this->contract = null;
         $this->serviceList = null;
         $this->temporaryServices = [];
@@ -435,5 +435,16 @@ class UsuarioMass extends Component
         $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
 
         return $contract?->services?->first()?->uuid;
+    }
+
+    private function contractsForCompany($companyId)
+    {
+        $company = $companyId ? Company::with('parent')->find($companyId) : null;
+        $companyIds = collect([$company?->id, $company?->parent_id])->filter()->values();
+
+        return Contract::with('services', 'company')
+            ->whereIn('company_id', $companyIds)
+            ->orderBy('number')
+            ->get();
     }
 }

@@ -108,8 +108,10 @@
                         @forelse ($companies_l as $company)
                             @php
                                 $address = $company->Address->first();
+                                $branchActivities = $company->branches->flatMap(fn ($branch) => $branch->contracts->flatMap(fn ($contract) => $contract->services));
                                 $activities = $company->contracts
                                     ->flatMap(fn ($contract) => $contract->services)
+                                    ->merge($branchActivities)
                                     ->unique('id')
                                     ->values();
                             @endphp
@@ -119,7 +121,12 @@
                                         <img src="{{ $company->logo_url }}" alt="Logo da Empresa" class="company-logo">
                                         <div>
                                             <div class="fw-bold @if ($company->trashed()) text-decoration-line-through text-danger @endif">{{ $company->name }}</div>
-                                            <div class="text-muted small">{{ $address?->street ?: 'Sem endereço principal' }}</div>
+                                            <div class="text-muted small">
+                                                {{ $address?->street ?: 'Sem endereço principal' }}
+                                                @if ($company->branches->count())
+                                                    · {{ $company->branches->count() }} unidades
+                                                @endif
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
@@ -132,8 +139,8 @@
                                     <div class="text-muted small">{{ $company->telephone ?: '-' }}</div>
                                 </td>
                                 <td>
-                                    <div class="fw-bold">{{ $company->contracts_count }}</div>
-                                    <div class="text-muted small">{{ $company->to_users_count }} usuários</div>
+                                    <div class="fw-bold">{{ $company->contracts_count + $company->branches->sum(fn ($branch) => $branch->contracts->count()) }}</div>
+                                    <div class="text-muted small">{{ $company->to_users_count }} usuários diretos</div>
                                 </td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
@@ -174,6 +181,63 @@
                                     @endif
                                 </td>
                             </tr>
+                            @foreach ($company->branches as $branch)
+                                @php
+                                    $branchAddress = $branch->Address->first();
+                                    $branchActivities = $branch->contracts->flatMap(fn ($contract) => $contract->services)->unique('id')->values();
+                                @endphp
+                                <tr class="bg-light" wire:key="company_branch_row_{{ $branch->id }}">
+                                    <td>
+                                        <div class="d-flex align-items-center gap-3 ps-4">
+                                            <i class="ri-corner-down-right-line text-muted"></i>
+                                            <img src="{{ $branch->logo_url }}" alt="Logo da Unidade" class="company-logo" style="width: 42px; height: 42px;">
+                                            <div>
+                                                <div class="fw-bold @if ($branch->trashed()) text-decoration-line-through text-danger @endif">{{ $branch->name }}</div>
+                                                <div class="text-muted small">Unidade de {{ $company->name }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>{{ $branchAddress?->city ?: '-' }}</div>
+                                        <div class="text-muted small">{{ $branchAddress?->uf }}</div>
+                                    </td>
+                                    <td>
+                                        <div>{{ $branch->email ?: '-' }}</div>
+                                        <div class="text-muted small">{{ $branch->telephone ?: '-' }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold">{{ $branch->contracts->count() }}</div>
+                                        <div class="text-muted small">unidade</div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @forelse ($branchActivities->take(3) as $activity)
+                                                <span class="badge text-bg-light border">{{ $activity->service }}</span>
+                                            @empty
+                                                <span class="text-muted small">Sem atividade</span>
+                                            @endforelse
+                                            @if ($branchActivities->count() > 3)
+                                                <span class="badge text-bg-secondary">+{{ $branchActivities->count() - 3 }}</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if ($branch->trashed())
+                                            <span class="badge text-bg-danger">Inativa</span>
+                                        @else
+                                            <span class="badge text-bg-success">Ativa</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-light border" wire:click.prevent="$emitTo('admin.company.action.update', 'openModal', '{{ $branch->id }}')">
+                                            <i class="ri-eye-line"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-primary" wire:click.prevent="$emitTo('admin.company.action.update', 'openModal', '{{ $branch->id }}')">
+                                            <i class="ri-pencil-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
                         @empty
                             <tr>
                                 <td colspan="7" class="text-center text-muted py-5">Nenhuma empresa encontrada.</td>

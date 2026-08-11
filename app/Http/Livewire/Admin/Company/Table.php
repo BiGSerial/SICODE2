@@ -58,10 +58,15 @@ class Table extends Component
                         ->orWhere('telephone', 'like', '%' . $s . '%')
                         ->orWhereRelation('Address', 'city', 'like', '%' . $s . '%')
                         ->orWhereRelation('contracts', 'number', 'like', '%' . $s . '%')
-                        ->orWhereRelation('contracts.services', 'service', 'like', '%' . $s . '%');
+                        ->orWhereRelation('contracts.services', 'service', 'like', '%' . $s . '%')
+                        ->orWhereRelation('branches', 'name', 'like', '%' . $s . '%')
+                        ->orWhereRelation('branches.Address', 'city', 'like', '%' . $s . '%')
+                        ->orWhereRelation('branches.contracts', 'number', 'like', '%' . $s . '%')
+                        ->orWhereRelation('branches.contracts.services', 'service', 'like', '%' . $s . '%');
                 });
             })
-            ->with('Address', 'contracts.services')
+            ->roots()
+            ->with('Address', 'contracts.services', 'branches.Address', 'branches.contracts.services')
             ->withCount(['contracts', 'toUsers'])
             ->orderBy('name')
             ->paginate($this->perPage);

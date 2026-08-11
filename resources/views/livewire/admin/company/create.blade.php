@@ -6,6 +6,23 @@
 
         <div class="row g-2">
             <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input wire:model="isBranch" class="form-check-input" type="checkbox" id="isBranch">
+                    <label class="form-check-label" for="isBranch">Cadastrar como unidade de uma empresa existente</label>
+                </div>
+            </div>
+            @if ($isBranch)
+                <div class="mb-3">
+                    <label class="form-label">Empresa concentradora</label>
+                    <select wire:model.defer="parent_id" class="form-select">
+                        <option value="">Selecione a empresa concentradora</option>
+                        @foreach ($parentCompanies as $parentCompany)
+                            <option value="{{ $parentCompany->id }}">{{ $parentCompany->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+            <div class="mb-3">
                 <label for="email" class="form-label">Email</label>
                 <input wire:model.defer="email" type="email" class="form-control" name="email" id="email"
                     placeholder="name@example.com" required>

@@ -149,7 +149,7 @@ class Usuario extends Component
                 $this->user->save();
             }
 
-            $this->contractList           = Contract::with('services')->where('company_id', $this->user->company_id)->orderBy('number')->get();
+            $this->contractList           = $this->contractsForCompany($this->user->company_id);
             $this->company                = $this->user->Employee->Contract->company->id ?? '';
             $this->contract               = $this->user->Employee->Contract->id ?? '';
             $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
@@ -167,10 +167,7 @@ class Usuario extends Component
     {
         $companyId = $value ?: $this->user?->company_id;
 
-        $this->contractList = Contract::with('services')
-            ->where('company_id', $companyId)
-            ->orderBy('number')
-            ->get();
+        $this->contractList = $this->contractsForCompany($companyId);
 
         $this->contract      = null;
         $this->serviceList   = null;
@@ -460,6 +457,17 @@ class Usuario extends Component
             ->first(fn ($service) => !empty($service['service_id']));
 
         return $temporaryService['service_id'] ?? null;
+    }
+
+    private function contractsForCompany($companyId)
+    {
+        $company = $companyId ? Company::with('parent')->find($companyId) : null;
+        $companyIds = collect([$company?->id, $company?->parent_id])->filter()->values();
+
+        return Contract::with('services', 'company')
+            ->whereIn('company_id', $companyIds)
+            ->orderBy('number')
+            ->get();
     }
 
     public function resetPassword()

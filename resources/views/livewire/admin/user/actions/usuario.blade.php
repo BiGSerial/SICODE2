@@ -63,7 +63,7 @@
                                                     <option value="">Selecione o contrato</option>
                                                     @if ($contractList)
                                                         @foreach ($contractList as $cList)
-                                                            <option value="{{ $cList->id }}">{{ $cList->number }} · {{ $cList->services->count() }} atividades</option>
+                                                            <option value="{{ $cList->id }}">{{ $cList->number }} · {{ $cList->company?->name }} · {{ $cList->services->count() }} atividades</option>
                                                         @endforeach
                                                     @endif
                                                 </select>

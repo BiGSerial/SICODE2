@@ -7,7 +7,14 @@
                 <!-- Cabeçalho do Modal -->
                 <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
                     <h5 class="modal-title fw-bold" id="companyModalLabel">Atualizar Dados da Empresa</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-light" wire:click.prevent="downloadUserRegistrationWorkbook" wire:loading.attr="disabled" wire:target="downloadUserRegistrationWorkbook">
+                            <i class="ri-file-excel-2-line" wire:loading.remove wire:target="downloadUserRegistrationWorkbook"></i>
+                            <span class="spinner-border spinner-border-sm" wire:loading wire:target="downloadUserRegistrationWorkbook"></span>
+                            Ficha de usuários
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
                 </div>
 
                 <!-- Corpo do Modal -->
@@ -204,6 +211,165 @@
                                 </div>
                             </div>
 
+                        </div>
+
+                        <div class="col-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-0">Cadastro em massa</h5>
+                                        <div class="text-muted small">Baixe a ficha, preencha os usuários e processe a validação antes de gravar.</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-success" wire:click.prevent="downloadUserRegistrationWorkbook" wire:loading.attr="disabled" wire:target="downloadUserRegistrationWorkbook">
+                                        <i class="ri-file-excel-2-line" wire:loading.remove wire:target="downloadUserRegistrationWorkbook"></i>
+                                        <span class="spinner-border spinner-border-sm" wire:loading wire:target="downloadUserRegistrationWorkbook"></span>
+                                        Baixar ficha
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-lg-5">
+                                            <label class="form-label">Ficha preenchida</label>
+                                            <input type="file" class="form-control" wire:model="registrationWorkbook" accept=".xlsx,.xls">
+                                            @error('registrationWorkbook')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                        <div class="col-lg-3 d-grid">
+                                            <button type="button" class="btn btn-primary" wire:click.prevent="processUserRegistrationWorkbook" wire:loading.attr="disabled" wire:target="processUserRegistrationWorkbook,registrationWorkbook">
+                                                <span class="spinner-border spinner-border-sm" wire:loading wire:target="processUserRegistrationWorkbook,registrationWorkbook"></span>
+                                                <i class="ri-shield-check-line" wire:loading.remove wire:target="processUserRegistrationWorkbook,registrationWorkbook"></i>
+                                                Processar ficha
+                                            </button>
+                                        </div>
+                                        @if ($registrationValidation)
+                                            @php($summary = $registrationValidation['summary'] ?? [])
+                                            <div class="col-lg-4">
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    <span class="badge text-bg-success">Usuários válidos: {{ $summary['users_valid'] ?? 0 }}</span>
+                                                    <span class="badge text-bg-danger">Usuários erro: {{ $summary['users_invalid'] ?? 0 }}</span>
+                                                    <span class="badge text-bg-success">Filiais válidas: {{ $summary['units_valid'] ?? 0 }}</span>
+                                                    <span class="badge text-bg-danger">Filiais erro: {{ $summary['units_invalid'] ?? 0 }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 d-flex flex-wrap gap-2">
+                                                <button type="button" class="btn btn-outline-danger" wire:click.prevent="exportUserRegistrationErrors" @disabled(!($summary['users_invalid'] ?? 0) && !($summary['units_invalid'] ?? 0))>
+                                                    <i class="ri-file-warning-line"></i> Exportar inconsistências
+                                                </button>
+                                                <button type="button" class="btn btn-success" wire:click.prevent="confirmUserRegistrationWorkbook" @disabled(!($summary['users_valid'] ?? 0) && !($summary['units_valid'] ?? 0))>
+                                                    <i class="ri-check-line"></i> Confirmar válidos
+                                                </button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-0">Unidades</h5>
+                                        <div class="text-muted small">
+                                            @if ($company?->parent)
+                                                Esta empresa é unidade de {{ $company->parent->name }}.
+                                            @else
+                                                Agrupe filiais sem duplicar a empresa principal.
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-primary" wire:click.prevent="newBranch">
+                                        <i class="ri-add-line"></i> Unidade
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    @if ($showBranchForm)
+                                        <div class="border rounded-2 p-3 mb-3 bg-white">
+                                            <div class="row g-3 align-items-end">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Nome da unidade</label>
+                                                    <input type="text" class="form-control" wire:model.defer="branchName" placeholder="Linhares, São Mateus...">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Email</label>
+                                                    <input type="email" class="form-control" wire:model.defer="branchEmail">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Telefone</label>
+                                                    <input type="text" class="form-control" wire:model.defer="branchTelephone">
+                                                </div>
+                                                <div class="col-md-2 d-flex gap-2">
+                                                    <button type="button" class="btn btn-outline-secondary" wire:click.prevent="cancelBranch">Cancelar</button>
+                                                    <button type="button" class="btn btn-primary" wire:click.prevent="saveBranch">Salvar</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <div class="border rounded-2 p-3 mb-3 bg-white">
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div>
+                                                <strong>Concentradora atual</strong>
+                                                <div class="text-muted small">{{ $company?->parent?->name ?: $company?->name }}</div>
+                                            </div>
+                                            <span class="badge text-bg-light border">A empresa aberta não aparece na lista de associação</span>
+                                        </div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-4">
+                                                <label class="form-label">Buscar outra empresa existente</label>
+                                                <input type="search" class="form-control" wire:model.debounce.300ms="branchSearch" placeholder="Ex.: Satel São Paulo">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Associar como unidade</label>
+                                                <select class="form-select" wire:model="branchAttachId">
+                                                    <option value="">Selecione uma empresa existente</option>
+                                                    @foreach ($branchCandidates as $candidate)
+                                                        <option value="{{ $candidate->id }}">{{ $candidate->name }} · {{ $candidate->email }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @if ($branchSearch && !$branchCandidates->count())
+                                                    <div class="text-muted small mt-1">Nenhuma empresa livre encontrada com esse termo.</div>
+                                                @endif
+                                            </div>
+                                            <div class="col-md-2 d-grid">
+                                                <button type="button" class="btn btn-outline-primary" wire:click.prevent="attachExistingBranch" @disabled(!$branchAttachId)>
+                                                    <i class="ri-links-line"></i> Associar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @if ($company?->branches?->count())
+                                        <div class="row g-2">
+                                            @foreach ($company->branches as $branch)
+                                                <div class="col-md-6 col-xl-4" wire:key="branch_{{ $branch->id }}">
+                                                    <div class="border rounded-2 p-3 h-100 bg-white">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <img src="{{ $branch->logo_url }}" alt="Logo da unidade" style="width: 38px; height: 38px; object-fit: contain; border-radius: 8px; background:#0f172a; padding:4px;">
+                                                            <div>
+                                                                <div class="fw-bold">{{ $branch->name }}</div>
+                                                                <div class="text-muted small">{{ $branch->Address->first()?->city ?: $branch->email }}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="d-flex gap-2 mt-3 small text-muted">
+                                                            <span>{{ $branch->contracts->count() }} contratos</span>
+                                                            <span>{{ $branch->contracts->flatMap(fn ($contract) => $contract->services)->unique('id')->count() }} atividades</span>
+                                                        </div>
+                                                        <div class="mt-3 text-end">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary" wire:click.prevent="detachBranch('{{ $branch->id }}')">
+                                                                <i class="ri-link-unlink"></i> Desassociar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <div class="text-muted small">Nenhuma unidade cadastrada.</div>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
 
                         <div class="col-12">

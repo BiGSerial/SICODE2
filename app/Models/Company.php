@@ -15,6 +15,7 @@ class Company extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'parent_id',
         'name',
         'email',
         'telephone',
@@ -27,6 +28,16 @@ class Company extends Model
     public function Address()
     {
         return $this->hasMany(Andresscompany::class);
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_id')->withTrashed();
+    }
+
+    public function branches()
+    {
+        return $this->hasMany(self::class, 'parent_id')->withTrashed();
     }
 
     public function contracts()
@@ -65,7 +76,35 @@ class Company extends Model
             return Storage::disk('public')->url($this->img_rw_path);
         }
 
+        if ($this->parent?->img_rw_path && Storage::disk('public')->exists($this->parent->img_rw_path)) {
+            return Storage::disk('public')->url($this->parent->img_rw_path);
+        }
+
         return asset('img/edp-img/edp-avatar.jpg');
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        if (!$this->parent) {
+            return $this->name;
+        }
+
+        return "{$this->parent->name} / {$this->name}";
+    }
+
+    public function getIsBranchAttribute(): bool
+    {
+        return (bool) $this->parent_id;
+    }
+
+    public function getIsConcentratorAttribute(): bool
+    {
+        return !$this->parent_id && $this->branches->isNotEmpty();
+    }
+
+    public function scopeRoots(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
     }
 
     public function scopeLinkedToService(Builder $query, string $serviceUuid): Builder

@@ -2,16 +2,20 @@
 
 namespace App\Http\Livewire\Admin\Company\Action;
 
+use App\Exports\Admin\Company\UserRegistrationWorkbookExport;
+use App\Exports\Admin\Company\UserRegistrationErrorsExport;
 use App\Models\Andresscompany;
 use App\Models\Centerjob;
 use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Service;
+use App\Services\Admin\Company\UserRegistrationWorkbookService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Update extends Component
 {
@@ -35,6 +39,14 @@ class Update extends Component
     public $contractActivitySearch = '';
     public $showContractForm = false;
     public $contractDeleteId;
+    public $branchName = '';
+    public $branchEmail = '';
+    public $branchTelephone = '';
+    public $showBranchForm = false;
+    public $branchSearch = '';
+    public $branchAttachId = '';
+    public $registrationWorkbook;
+    public array $registrationValidation = [];
 
     protected $listeners = [
         'refreshlist' => '$refresh',
@@ -64,6 +76,7 @@ class Update extends Component
         'photo1' => 'nullable|image|max:2048',
         'photo2' => 'nullable|image|max:2048',
         'photo3' => 'nullable|image|max:2048',
+        'registrationWorkbook' => 'nullable|file|mimes:xlsx,xls|max:10240',
     ];
 
     public function mount()
@@ -110,13 +123,14 @@ class Update extends Component
     public function openModal(Company $company)
     {
 
-        $this->company = $company->load('Address', 'Centerjobs', 'contracts.services');
+        $this->company = $company->load('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services');
         $this->addresses = $this->company->Address;
         $this->photo0 = null;
         $this->photo1 = null;
         $this->photo2 = null;
         $this->photo3 = null;
         $this->resetContractForm();
+        $this->resetBranchForm();
 
         // dd($this->company);
 
@@ -348,6 +362,174 @@ class Update extends Component
         $this->contractDeleteId = null;
     }
 
+    public function newBranch()
+    {
+        $this->resetBranchForm();
+        $this->showBranchForm = true;
+    }
+
+    public function cancelBranch()
+    {
+        $this->resetBranchForm();
+    }
+
+    public function saveBranch()
+    {
+        if (!$this->company || !trim($this->branchName) || !trim($this->branchEmail)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Informe nome e email da unidade.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $parentId = $this->company->parent_id ?: $this->company->id;
+
+        Company::create([
+            'parent_id'  => $parentId,
+            'name'       => ucwords(mb_strtolower($this->branchName)),
+            'email'      => $this->branchEmail,
+            'telephone'  => $this->branchTelephone,
+        ]);
+
+        $this->reloadCompany();
+        $this->resetBranchForm();
+        $this->emitUp('refresh_table_company');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Unidade cadastrada com sucesso.',
+            'timer'    => 2000,
+        ]);
+    }
+
+    public function attachExistingBranch()
+    {
+        if (!$this->company || !$this->branchAttachId || $this->branchAttachId === $this->company->id) {
+            return;
+        }
+
+        $branch = Company::find($this->branchAttachId);
+
+        if (!$branch) {
+            return;
+        }
+
+        $branch->parent_id = $this->company->parent_id ?: $this->company->id;
+        $branch->save();
+
+        $this->branchAttachId = '';
+        $this->branchSearch = '';
+        $this->reloadCompany();
+        $this->emitUp('refresh_table_company');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Empresa associada como unidade.',
+            'timer'    => 2000,
+        ]);
+    }
+
+    public function downloadUserRegistrationWorkbook()
+    {
+        if (!$this->company) {
+            return null;
+        }
+
+        $root = $this->company->parent ?: $this->company;
+        $filename = 'ficha-cadastro-usuarios-' . Str::slug($root->name) . '-' . now()->format('Ymd-His') . '.xlsx';
+
+        error_reporting(error_reporting() & ~E_DEPRECATED);
+
+        return Excel::download(new UserRegistrationWorkbookExport($root), $filename);
+    }
+
+    public function processUserRegistrationWorkbook()
+    {
+        $this->validate([
+            'registrationWorkbook' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        $service = app(UserRegistrationWorkbookService::class);
+        $path = $this->registrationWorkbook->store('tmp/user-registration-workbooks');
+        $this->registrationValidation = $service->validate($this->company, $path, 'local');
+
+        $summary = $this->registrationValidation['summary'] ?? [];
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => (($summary['users_invalid'] ?? 0) || ($summary['units_invalid'] ?? 0)) ? 'warning' : 'success',
+            'title'    => 'Ficha processada',
+            'html'     => sprintf(
+                'Usuarios validos: <strong>%s</strong><br>Usuarios com erro: <strong>%s</strong><br>Filiais validas: <strong>%s</strong><br>Filiais com erro: <strong>%s</strong>',
+                $summary['users_valid'] ?? 0,
+                $summary['users_invalid'] ?? 0,
+                $summary['units_valid'] ?? 0,
+                $summary['units_invalid'] ?? 0
+            ),
+            'timer'    => 4000,
+        ]);
+    }
+
+    public function exportUserRegistrationErrors()
+    {
+        if (!$this->registrationValidation) {
+            return null;
+        }
+
+        error_reporting(error_reporting() & ~E_DEPRECATED);
+
+        return Excel::download(
+            new UserRegistrationErrorsExport($this->registrationValidation),
+            'inconsistencias-ficha-usuarios-' . now()->format('Ymd-His') . '.xlsx'
+        );
+    }
+
+    public function confirmUserRegistrationWorkbook()
+    {
+        if (!$this->registrationValidation) {
+            return;
+        }
+
+        $service = app(UserRegistrationWorkbookService::class);
+        $result = $service->processValid($this->company, $this->registrationValidation);
+        $this->registrationValidation = [];
+        $this->registrationWorkbook = null;
+        $this->reloadCompany();
+        $this->emitUp('refresh_table_company');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Importacao concluida',
+            'html'     => sprintf(
+                'Filiais criadas: <strong>%s</strong><br>Usuarios criados: <strong>%s</strong><br>Usuarios atualizados: <strong>%s</strong><br>Usuarios removidos: <strong>%s</strong>',
+                $result['createdUnits'] ?? 0,
+                $result['createdUsers'] ?? 0,
+                $result['updatedUsers'] ?? 0,
+                $result['removedUsers'] ?? 0
+            ),
+            'timer'    => 4500,
+        ]);
+    }
+
+    public function detachBranch(Company $branch)
+    {
+        if (!$this->company || $branch->parent_id !== ($this->company->parent_id ?: $this->company->id)) {
+            return;
+        }
+
+        $branch->parent_id = null;
+        $branch->save();
+
+        $this->reloadCompany();
+        $this->emitUp('refresh_table_company');
+    }
+
     public function save()
     {
         $this->validate([
@@ -416,6 +598,16 @@ class Update extends Component
                 ->when($this->contractActivitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
                 ->orderBy('service')
                 ->get(),
+            'branchCandidates' => Company::query()
+                ->whereNull('parent_id')
+                ->when($this->company?->id, fn ($q) => $q->where('id', '!=', $this->company->id))
+                ->when($this->branchSearch, fn ($q, $search) => $q->where(function ($query) use ($search) {
+                    $query->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
+                }))
+                ->orderBy('name')
+                ->limit(15)
+                ->get(),
         ]);
     }
 
@@ -454,7 +646,17 @@ class Update extends Component
             return;
         }
 
-        $this->company = Company::with('Address', 'Centerjobs', 'contracts.services')->find($this->company->id);
+        $this->company = Company::with('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services')->find($this->company->id);
         $this->addresses = $this->company?->Address ?? [];
+    }
+
+    private function resetBranchForm(): void
+    {
+        $this->branchName = '';
+        $this->branchEmail = '';
+        $this->branchTelephone = '';
+        $this->showBranchForm = false;
+        $this->branchSearch = '';
+        $this->branchAttachId = '';
     }
 }
