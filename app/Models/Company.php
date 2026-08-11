@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\{Model, SoftDeletes};
+use Illuminate\Support\Facades\Storage;
 
 class Company extends Model
 {
@@ -56,6 +57,15 @@ class Company extends Model
     public function WorkReports()
     {
         return $this->hasMany(WorkReport::class);
+    }
+
+    public function getLogoUrlAttribute(): string
+    {
+        if ($this->img_rw_path && Storage::disk('public')->exists($this->img_rw_path)) {
+            return Storage::disk('public')->url($this->img_rw_path);
+        }
+
+        return asset('img/edp-img/edp-avatar.jpg');
     }
 
     public function scopeLinkedToService(Builder $query, string $serviceUuid): Builder

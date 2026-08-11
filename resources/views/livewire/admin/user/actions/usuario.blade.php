@@ -60,17 +60,32 @@
                                     <div class="col-md-4">
                                         <label class="form-label">Contrato</label>
                                         <select class="form-select" wire:model="contract" required>
-                                            <option value="">Selecione o contrato</option>
-                                            @if ($contractList)
-                                                @foreach ($contractList as $cList)
-                                                    <option value="{{ $cList->id }}">{{ $cList->number }}</option>
+                                                    <option value="">Selecione o contrato</option>
+                                                    @if ($contractList)
+                                                        @foreach ($contractList as $cList)
+                                                            <option value="{{ $cList->id }}">{{ $cList->number }} · {{ $cList->services->count() }} atividades</option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2 d-grid align-items-end">
+                                                <button type="button" class="btn btn-outline-primary" wire:click="applyContractServices" @disabled(!$contract)>
+                                                    <i class="ri-magic-line"></i> Aplicar
+                                                </button>
+                                            </div>
+                                        </div>
+                                        @if ($contract && $contractActivities->count())
+                                            <div class="d-flex flex-wrap gap-1 mt-3">
+                                                @foreach ($contractActivities->take(6) as $activity)
+                                                    <span class="badge text-bg-light border">{{ $activity->service }}</span>
                                                 @endforeach
-                                            @endif
-                                        </select>
+                                                @if ($contractActivities->count() > 6)
+                                                    <span class="badge text-bg-secondary">+{{ $contractActivities->count() - 6 }}</span>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
-                            </div>
-                        </div>
 
                         <div class="card border-0 shadow-sm mb-3">
                             <div class="card-header bg-white">
@@ -89,10 +104,10 @@
                                         ['key' => 'operator', 'label' => 'Operador'],
                                         ['key' => 'user', 'label' => 'Usuario'],
                                         ['key' => 'btzero', 'label' => 'BTZero'],
-                                        ['key' => 'onlyparner', 'label' => 'Empreiteira (visão exclusiva)'],
+                                        ['key' => 'onlyparner', 'label' => 'Empreiteira'],
                                         ['key' => 'can_dispatch', 'label' => 'Pode despachar'],
                                         ['key' => 'analyst', 'label' => 'Analista'],
-                                        ['key' => 'contract', 'label' => 'Terceirizado'],
+                                        ['key' => 'contract', 'label' => 'Contratado'],
                                     ];
                                     $legalPermissions = [
                                         ['key' => 'legal_controller', 'label' => 'Jurídico — Controlador'],
@@ -207,8 +222,8 @@
                                                         @foreach ($this->user->ToServices as $toService)
                                                             <tr wire:key="service_single_{{ $toService->id }}">
                                                                 <td>{{ $toService->Service->service }}</td>
-                                                                <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:click.prevent="ServiceOption({{ $toService->id }}, 'service')" @checked($toService->service)> <label class="form-check-label">Serviço</label></div></td>
-                                                                <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:click.prevent="ServiceOption({{ $toService->id }}, 'dispatch')" @checked($toService->dispatch)> <label class="form-check-label">Despacho</label></div></td>
+                                                                <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:click.prevent="ServiceOption({{ $toService->id }}, 'service')" @checked($toService->service)> <label class="form-check-label">Executar</label></div></td>
+                                                                <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:click.prevent="ServiceOption({{ $toService->id }}, 'dispatch')" @checked($toService->dispatch)> <label class="form-check-label">Despachar</label></div></td>
                                                                 <td class="text-end"><i class="ri-delete-bin-line text-danger" style="cursor: pointer;" wire:click="removeService({{ $toService->id }})"></i></td>
                                                             </tr>
                                                         @endforeach
@@ -220,8 +235,8 @@
                                                             @if ($service)
                                                                 <tr wire:key="service_single_{{ $index }}">
                                                                     <td>{{ $service->service }}</td>
-                                                                    <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.service"> <label class="form-check-label">Serviço</label></div></td>
-                                                                    <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.dispatch"> <label class="form-check-label">Despacho</label></div></td>
+                                                                    <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.service"> <label class="form-check-label">Executar</label></div></td>
+                                                                    <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.dispatch"> <label class="form-check-label">Despachar</label></div></td>
                                                                     <td class="text-end"><i class="ri-delete-bin-line text-danger" style="cursor: pointer;" wire:click="removeService({{ $index }})"></i></td>
                                                                 </tr>
                                                             @endif

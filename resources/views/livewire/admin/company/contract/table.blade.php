@@ -9,11 +9,11 @@ use Carbon\Carbon;
 
     <div class="container">
         <div class="row">
-            <div class="row justify-content-between">
-                <div class="mb-3 col-3">
+            <div class="row justify-content-between align-items-end">
+                <div class="mb-3 col-md-5">
                     <label for="search" class="form-label">Buscar</label>
-                    <input wire:model.bounce.2s="search" type="email"
-                        class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
+                    <input wire:model.debounce.400ms="search" type="search"
+                        class="form-control border border-2 border-secondary" id="search" placeholder="Contrato, empresa ou atividade">
                 </div>
 
                 <div class="mb-3 col-1">
@@ -33,6 +33,7 @@ use Carbon\Carbon;
                                         <th><span>Contrato</span></th>
                                         <th class="text-center"><span>Vigência</span></th>
                                         <th class="text-center"><span>Tipo</span></th>
+                                        <th><span>Atividades liberadas</span></th>
                                         <th class="text-center"><span>Tempo Restante</span></th>
                                         <th class="text-center"><span>Criado em</span></th>
 
@@ -64,6 +65,23 @@ use Carbon\Carbon;
                                                 @if ($contract->construction)
                                                     <span class="mr-2">Construção</span>
                                                 @endif
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    @forelse ($contract->services->take(4) as $service)
+                                                        <span class="badge text-bg-light border">
+                                                            {{ $service->service }}
+                                                            @if ($service->pivot->dispatch)
+                                                                <span class="text-danger">/ Despacho</span>
+                                                            @endif
+                                                        </span>
+                                                    @empty
+                                                        <span class="text-muted small">Sem atividade definida</span>
+                                                    @endforelse
+                                                    @if ($contract->services->count() > 4)
+                                                        <span class="badge text-bg-secondary">+{{ $contract->services->count() - 4 }}</span>
+                                                    @endif
+                                                </div>
                                             </td>
 
                                             <td class="fs-5 fw-bold text-center">
@@ -119,7 +137,7 @@ use Carbon\Carbon;
 
     <div wire:ignore.self class="modal fade" id="create_modal" tabindex="-1" aria-labelledby="create"
         aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content edp-bg-gray">
                 <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
                     <h1 class="modal-title fs-5" id="exampleModalLabel"><i
@@ -140,11 +158,11 @@ use Carbon\Carbon;
 
     <div wire:ignore.self class="modal fade" id="update_modal" tabindex="-1" aria-labelledby="update"
         aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content edp-bg-gray">
                 <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
                     <h1 class="modal-title fs-5" id="exampleModalLabel"><i
-                            class="ri-user-add-fill fs-4 align-middle"></i> ATUALIZAR EMPRESA</h1>
+                            class="ri-file-list-3-line fs-4 align-middle"></i> ATUALIZAR CONTRATO</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">

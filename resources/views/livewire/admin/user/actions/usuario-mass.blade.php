@@ -45,7 +45,7 @@
                                             <option value="">Selecione o contrato</option>
                                             @if ($contractList)
                                                 @foreach ($contractList as $cList)
-                                                    <option value="{{ $cList->id }}">{{ $cList->number }}</option>
+                                                    <option value="{{ $cList->id }}">{{ $cList->number }} · {{ $cList->services->count() }} atividades</option>
                                                 @endforeach
                                             @endif
                                         </select>
@@ -72,10 +72,10 @@
                                     <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massOperator" wire:model.defer="permissions.operator"><label class="form-check-label" for="massOperator">Operador</label></div></div>
                                     <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massUser" wire:model.defer="permissions.user"><label class="form-check-label" for="massUser">Usuario</label></div></div>
                                     <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massBtzero" wire:model.defer="permissions.btzero"><label class="form-check-label" for="massBtzero">BTzero</label></div></div>
-                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massOnlypartner" wire:model.defer="permissions.onlyparner"><label class="form-check-label" for="massOnlypartner">Empreiteira (visão exclusiva)</label></div></div>
+                                    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massOnlypartner" wire:model.defer="permissions.onlyparner"><label class="form-check-label" for="massOnlypartner">Empreiteira</label></div></div>
                                     @if (Auth()->user()->superadm)
                                         <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="massAnalyst" wire:model.defer="permissions.analyst"><label class="form-check-label" for="massAnalyst">Analista</label></div></div>
-                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="contractMass" wire:model.defer="permissions.contract"><label class="form-check-label" for="contractMass">Terceirizado</label></div></div>
+                                        <div class="col-md-3"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="contractMass" wire:model.defer="permissions.contract"><label class="form-check-label" for="contractMass">Contratado</label></div></div>
                                     @endif
                                 </div>
                             </div>
@@ -111,8 +111,8 @@
                                                     @if ($service)
                                                         <tr wire:key="service_list_{{ $index }}">
                                                             <td>{{ $service->service }}</td>
-                                                            <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model="temporaryServices.{{ $index }}.service"> <label class="form-check-label">Serviço</label></div></td>
-                                                            <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.dispatch"> <label class="form-check-label">Despacho</label></div></td>
+                                                            <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model="temporaryServices.{{ $index }}.service"> <label class="form-check-label">Executar</label></div></td>
+                                                            <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.dispatch"> <label class="form-check-label">Despachar</label></div></td>
                                                             <td class="text-end"><i class="ri-delete-bin-line text-danger" wire:click="removeService({{ $index }})" style="cursor: pointer;"></i></td>
                                                         </tr>
                                                     @endif

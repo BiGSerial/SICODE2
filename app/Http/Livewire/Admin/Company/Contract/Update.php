@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Admin\Company\Contract;
 
-use App\Models\Contract;
+use App\Models\{Contract, Service};
 use Livewire\Component;
 
 class Update extends Component
@@ -21,6 +21,12 @@ class Update extends Component
 
     public $contract_update;
 
+    public $selectedServices = [];
+
+    public $serviceDispatch = [];
+
+    public $activitySearch = '';
+
     protected $listeners = [
         'open_contract_update' => 'open_update',
         'save_update_contract' => 'update',
@@ -29,13 +35,21 @@ class Update extends Component
     public function open_update(Contract $contract)
     {
 
-        $this->contract_update = $contract->load('company');
+        $this->contract_update = $contract->load('company', 'services');
 
         $this->company      = $this->contract_update->company->name;
         $this->number       = $this->contract_update->number;
         $this->date_end     = $this->contract_update->date_end;
         $this->construction = $this->contract_update->construction;
         $this->service      = $this->contract_update->service;
+        $this->selectedServices = $this->contract_update->services
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+        $this->serviceDispatch = $this->contract_update->services
+            ->mapWithKeys(fn ($service) => [(string) $service->id => (bool) $service->pivot->dispatch])
+            ->all();
         $this->show_update  = true;
 
         $this->dispatchBrowserEvent('showModal', [
@@ -79,6 +93,17 @@ class Update extends Component
             return;
         }
 
+        if (!count($this->selectedServices)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma atividade liberada para o contrato.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
         $chk = $this->contract_update->update([
             'number'       => $this->number,
             'service'      => $this->service ? true : false,
@@ -87,6 +112,8 @@ class Update extends Component
         ]);
 
         if ($chk) {
+            $this->syncServices();
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'success',
@@ -114,12 +141,39 @@ class Update extends Component
         $this->date_end     = '';
         $this->construction = false;
         $this->service      = false;
+        $this->selectedServices = [];
+        $this->serviceDispatch  = [];
+        $this->activitySearch   = '';
+        $this->show_update      = false;
 
         $this->dispatchBrowserEvent('hideModal');
     }
 
+    private function syncServices(): void
+    {
+        $payload = [];
+
+        foreach ($this->selectedServices as $serviceId) {
+            $payload[(int) $serviceId] = [
+                'posts'    => false,
+                'qtd'      => 0,
+                'days'     => 0,
+                'dispatch' => (bool) ($this->serviceDispatch[$serviceId] ?? false),
+            ];
+        }
+
+        $this->contract_update->services()->sync($payload);
+    }
+
     public function render()
     {
-        return view('livewire.admin.company.contract.update');
+        return view('livewire.admin.company.contract.update', [
+            'services_l' => Service::query()
+                ->when($this->service && !$this->construction, fn ($q) => $q->where('project', true))
+                ->when($this->construction && !$this->service, fn ($q) => $q->where('construction', true))
+                ->when($this->activitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
+                ->orderBy('service')
+                ->get(),
+        ]);
     }
 }

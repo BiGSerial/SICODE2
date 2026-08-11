@@ -2,7 +2,7 @@
     <x-show-loading />
     <div wire:ignore.self class="modal fade" id="companyModal" tabindex="-1" aria-labelledby="companyModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content edp-bg-gray rounded shadow">
                 <!-- Cabeçalho do Modal -->
                 <div class="modal-header edp-bg-sprucegreen-100 edp-text-verde-dark">
@@ -206,26 +206,156 @@
 
                         </div>
 
+                        <div class="col-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-0">Contratos e atividades</h5>
+                                        <div class="text-muted small">Configure a base que sera usada no cadastro dos usuarios.</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-primary" wire:click.prevent="newContract">
+                                        <i class="ri-add-line"></i> Contrato
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    @if ($showContractForm)
+                                        <div class="border rounded-2 p-3 mb-3 bg-white">
+                                            <div class="row g-3">
+                                                <div class="col-md-5">
+                                                    <label class="form-label">Numero do contrato</label>
+                                                    <input type="text" class="form-control" wire:model.defer="contractNumber">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Validade</label>
+                                                    <input type="date" class="form-control" wire:model.defer="contractDateEnd">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label d-block">Tipo</label>
+                                                    <div class="d-flex gap-3">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" id="companyContractService" wire:model="contractService">
+                                                            <label class="form-check-label" for="companyContractService">Serviços</label>
+                                                        </div>
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" id="companyContractConstruction" wire:model="contractConstruction">
+                                                            <label class="form-check-label" for="companyContractConstruction">Construção</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                                                        <strong>Atividades liberadas</strong>
+                                                        <input type="search" class="form-control form-control-sm" style="max-width: 260px;" placeholder="Buscar atividade" wire:model.debounce.300ms="contractActivitySearch">
+                                                    </div>
+                                                    <div class="row g-2" style="max-height: 320px; overflow:auto;">
+                                                        @forelse ($services_l as $activity)
+                                                            <div class="col-md-6 col-xl-4" wire:key="company_contract_activity_{{ $activity->id }}">
+                                                                <div class="border rounded-2 p-3 h-100">
+                                                                    <div class="d-flex align-items-start gap-2">
+                                                                        <input class="form-check-input mt-1" type="checkbox" value="{{ $activity->id }}" wire:model="contractSelectedServices" id="company_activity_{{ $activity->id }}">
+                                                                        <div class="flex-grow-1">
+                                                                            <label class="fw-bold mb-1" for="company_activity_{{ $activity->id }}">{{ $activity->service }}</label>
+                                                                            <div class="d-flex flex-wrap gap-1">
+                                                                                @if ($activity->project)
+                                                                                    <span class="badge text-bg-primary">Projeto</span>
+                                                                                @endif
+                                                                                @if ($activity->construction)
+                                                                                    <span class="badge text-bg-secondary">Construcao</span>
+                                                                                @endif
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="form-check form-switch mt-3">
+                                                                        <input class="form-check-input" type="checkbox" wire:model.defer="contractServiceDispatch.{{ $activity->id }}" id="company_dispatch_{{ $activity->id }}" @disabled(!in_array((string) $activity->id, $contractSelectedServices, true) && !in_array($activity->id, $contractSelectedServices, true))>
+                                                                        <label class="form-check-label" for="company_dispatch_{{ $activity->id }}">Permitir despacho</label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        @empty
+                                                            <div class="col-12 text-center text-muted py-3">Nenhuma atividade encontrada.</div>
+                                                        @endforelse
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 d-flex justify-content-end gap-2">
+                                                    <button type="button" class="btn btn-outline-secondary" wire:click.prevent="cancelContract">Cancelar</button>
+                                                    <button type="button" class="btn btn-primary" wire:click.prevent="saveContract">
+                                                        <i class="ri-save-line"></i> Salvar contrato
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Contrato</th>
+                                                    <th>Validade</th>
+                                                    <th>Tipo</th>
+                                                    <th>Atividades</th>
+                                                    <th class="text-end"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse ($company?->contracts ?? [] as $contract)
+                                                    <tr wire:key="company_contract_row_{{ $contract->id }}">
+                                                        <td class="fw-bold">{{ $contract->number }}</td>
+                                                        <td>{{ $contract->date_end ? date('d/m/Y', strtotime($contract->date_end)) : '-' }}</td>
+                                                        <td>
+                                                            @if ($contract->service)
+                                                                <span class="badge text-bg-primary">Serviços</span>
+                                                            @endif
+                                                            @if ($contract->construction)
+                                                                <span class="badge text-bg-secondary">Construção</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex flex-wrap gap-1">
+                                                                @forelse ($contract->services->take(4) as $service)
+                                                                    <span class="badge text-bg-light border">
+                                                                        {{ $service->service }}
+                                                                        @if ($service->pivot->dispatch)
+                                                                            <span class="text-danger">/ despacho</span>
+                                                                        @endif
+                                                                    </span>
+                                                                @empty
+                                                                    <span class="text-muted small">Sem atividades</span>
+                                                                @endforelse
+                                                                @if ($contract->services->count() > 4)
+                                                                    <span class="badge text-bg-secondary">+{{ $contract->services->count() - 4 }}</span>
+                                                                @endif
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <button type="button" class="btn btn-sm btn-primary" wire:click.prevent="editContract({{ $contract->id }})">
+                                                                <i class="ri-pencil-line"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-sm btn-danger" wire:click.prevent="confirmRemoveContract({{ $contract->id }})">
+                                                                <i class="ri-delete-bin-line"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="5" class="text-center text-muted py-3">Nenhum contrato cadastrado.</td>
+                                                    </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="d-flex align-items-center gap-4 flex-wrap mt-3">
                             @for ($i = 0; $i < 4; $i++)
                                 <div class="d-flex align-items-center gap-3">
                                     <!-- Imagem de Preview -->
                                     <div class="image-preview">
-                                        @php
-                                            $column = $this->title_img($i)->name;
-                                        @endphp
-                                        @if (${'photo' . $i})
-                                            <img src="{{ ${'photo' . $i}->temporaryUrl() }}" alt="Preview"
-                                                class="img-thumbnail shadow-sm"
-                                                style="width: 100px; height: 100px; object-fit: contain;">
-                                        @elseif (isset($company) && !empty($company->$column))
-                                            <img src="" alt="Imagem armazenada"
-                                                class="img-thumbnail shadow-sm"
-                                                style="width: 100px; height: 100px; object-fit: contain;">
-                                        @else
-                                            <img src="" alt="Sem imagem" class="img-thumbnail shadow-sm"
-                                                style="width: 100px; height: 100px; object-fit: contain;">
-                                        @endif
+                                        <img src="{{ $this->logoPreviewUrl($i) }}" alt="{{ $this->title_img($i)->title }}"
+                                            class="img-thumbnail shadow-sm bg-white"
+                                            style="width: 100px; height: 100px; object-fit: contain;">
                                     </div>
 
                                     <!-- Input de Upload e Barra de Progresso -->
@@ -233,16 +363,10 @@
                                         <label for="photo{{ $i }}"
                                             class="form-label">{{ $this->title_img($i)->title }}</label>
                                         <input type="file" id="photo{{ $i }}" class="form-control"
-                                            wire:model="photo{{ $i }}">
-
-                                        <!-- Barra de progresso -->
-                                        <div class="progress mt-2" style="height: 5px; width: 150px;">
-                                            <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                                role="progressbar" style="width: {{ $uploadProgress[$i] ?? 0 }}%;"
-                                                aria-valuenow="{{ $uploadProgress[$i] ?? 0 }}" aria-valuemin="0"
-                                                aria-valuemax="100">
-                                            </div>
-                                        </div>
+                                            wire:model="photo{{ $i }}" accept="image/*">
+                                        @error('photo' . $i)
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                        @enderror
                                     </div>
                                 </div>
                             @endfor
