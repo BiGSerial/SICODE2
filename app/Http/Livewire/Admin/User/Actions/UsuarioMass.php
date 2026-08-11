@@ -141,7 +141,7 @@ class UsuarioMass extends Component
             $this->temporaryServices[] = [
                 'service_id' => $service->uuid,
                 'service'    => true,
-                'dispatch'   => (bool) $service->pivot->dispatch,
+                'dispatch'   => $this->profileCanDispatch(),
             ];
         }
     }
@@ -246,28 +246,6 @@ class UsuarioMass extends Component
                 }
 
 
-                if (count($this->temporaryServices)) {
-
-                    $user->ToServices()->delete();
-
-
-
-                    foreach ($this->temporaryServices as $service) {
-
-                        $user->ToServices()->updateOrCreate(
-                            [
-                                'service_id' => $service['service_id'],
-                            ],
-                            [
-                                'service' => $service['service'],
-                                'dispatch' => $service['dispatch'],
-                            ]
-                        );
-                    }
-
-
-                }
-
                 if ($this->changePermission) {
 
 
@@ -294,6 +272,7 @@ class UsuarioMass extends Component
 
 
                 $user->save();
+                $this->syncUserServices($user);
 
             }
 
@@ -425,6 +404,12 @@ class UsuarioMass extends Component
 
     private function resolvePrimaryServiceId(): ?string
     {
+        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+        $contractServiceId = $contract?->services?->first()?->uuid;
+        if ($contractServiceId) {
+            return $contractServiceId;
+        }
+
         $temporaryService = collect($this->temporaryServices)
             ->first(fn ($service) => !empty($service['service_id']));
 
@@ -432,9 +417,39 @@ class UsuarioMass extends Component
             return $temporaryService['service_id'];
         }
 
-        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+        return null;
+    }
 
-        return $contract?->services?->first()?->uuid;
+    private function syncUserServices(User $user): void
+    {
+        $serviceIds = collect($this->temporaryServices)
+            ->pluck('service_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        if (!$serviceIds) {
+            $user->ToServices()->delete();
+            return;
+        }
+
+        $user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
+        $canDispatch = (bool) ($user->admin || $user->operator);
+
+        foreach ($serviceIds as $serviceId) {
+            $user->ToServices()->updateOrCreate(
+                ['service_id' => $serviceId],
+                [
+                    'service' => true,
+                    'dispatch' => $canDispatch,
+                ]
+            );
+        }
+    }
+
+    private function profileCanDispatch(): bool
+    {
+        return (bool) (($this->permissions['admin'] ?? false) || ($this->permissions['operator'] ?? false));
     }
 
     private function contractsForCompany($companyId)

@@ -126,19 +126,35 @@ class UserRegistrationWorkbookService
                     );
                 }
 
-                foreach ($contract->services as $service) {
-                    $user->ToServices()->updateOrCreate(
-                        ['service_id' => $service->uuid],
-                        [
-                            'service' => true,
-                            'dispatch' => (bool) $service->pivot->dispatch,
-                        ]
-                    );
-                }
+                $this->syncUserContractServices($user, $contract);
             }
         }
 
         return compact('createdUnits', 'createdUsers', 'updatedUsers', 'removedUsers');
+    }
+
+    private function syncUserContractServices(User $user, Contract $contract): void
+    {
+        $contractServices = $contract->services()->get();
+        $serviceIds = $contractServices->pluck('uuid')->filter()->values()->all();
+        $canDispatch = (bool) ($user->admin || $user->operator);
+
+        if (!$serviceIds) {
+            $user->ToServices()->delete();
+            return;
+        }
+
+        $user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
+
+        foreach ($contractServices as $service) {
+            $user->ToServices()->updateOrCreate(
+                ['service_id' => $service->uuid],
+                [
+                    'service' => true,
+                    'dispatch' => $canDispatch,
+                ]
+            );
+        }
     }
 
     private function validateUnits(array $rows, Company $root, Collection $units): array
