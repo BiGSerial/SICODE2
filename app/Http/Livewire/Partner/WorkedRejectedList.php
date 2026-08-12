@@ -69,7 +69,7 @@ class WorkedRejectedList extends Component
                         ->orWhere('company_id', Auth()->user()->Company->id);
                 });
             })
-            ->where('rejected', true)
+            ->pendingRejectedForPartner()
             ->with([
                 'Note',
                 'Company',
@@ -159,14 +159,7 @@ class WorkedRejectedList extends Component
                 ->latest('created_at')
                 ->limit(1),
         ])
-        ->where('rejected', true)
-        ->whereDoesntHave('Note', function ($q) {
-            $q->whereIn('nstats', [55])
-                ->orWhere(function ($q) {
-                    $q->where('nstats', 99)
-                        ->where('type_note', 1);
-                });
-        })
+        ->pendingRejectedForPartner()
         ->with([
             'Note',
             'Orders',
@@ -201,7 +194,7 @@ class WorkedRejectedList extends Component
                     ->orWhere('company_id', Auth()->user()->Company->id);
             });
         })
-            ->where('rejected', true)
+            ->pendingRejectedForPartner()
             ->findOrFail($workReportId);
 
         $token = Str::random(48);

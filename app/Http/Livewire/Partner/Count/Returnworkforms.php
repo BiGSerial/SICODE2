@@ -15,7 +15,7 @@ class Returnworkforms extends Component
                     ->orWhere('company_id', Auth()->user()->Company->id);
             });
         })
-        ->where('rejected', true)
+        ->pendingRejectedForPartner()
         ->count();
     }
 

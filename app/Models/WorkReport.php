@@ -118,6 +118,19 @@ class WorkReport extends Model
         return $query->where('canceled', false);
     }
 
+    public function scopePendingRejectedForPartner(Builder $query): Builder
+    {
+        return $query->active()
+            ->where('rejected', true)
+            ->whereDoesntHave('Note', function ($q) {
+                $q->whereIn('nstats', [55])
+                    ->orWhere(function ($q) {
+                        $q->where('nstats', 99)
+                            ->where('type_note', 1);
+                    });
+            });
+    }
+
 
 
 
