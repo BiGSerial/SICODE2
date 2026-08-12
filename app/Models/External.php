@@ -64,4 +64,11 @@ class External extends Model
         return $this->hasMany(ExternalPoolpayment::class);
     }
 
+    public function scopeWithoutPendingExternalOrganRelease($query)
+    {
+        return $query->whereDoesntHave('Note.ExternalOrganReleases', function ($releaseQuery) {
+            $releaseQuery->whereNull('released_at');
+        });
+    }
+
 }

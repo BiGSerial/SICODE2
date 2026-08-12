@@ -194,6 +194,7 @@
                                 <th>Nota/OV</th>
                                 <th>Cliente</th>
                                 <th>Município</th>
+                                <th>Entidade</th>
                                 <th>Rubrica</th>
                                 <th>Custo</th>
                                 <th>Status atual</th>
@@ -220,6 +221,10 @@
                                     <td class="fw-semibold">{{ $release->note?->note ?? '---' }}</td>
                                     <td>{{ $release->note?->client ?? '---' }}</td>
                                     <td>{{ $release->note?->lexp ?? '---' }}</td>
+                                    <td>
+                                        @php $entities = $this->externalEntitySummary($release); @endphp
+                                        {{ $entities !== '' ? $entities : '---' }}
+                                    </td>
                                     <td>{{ $release->note?->rubrica ?? '---' }}</td>
                                     <td>
                                         @if ($costSummary['has_cycle'])

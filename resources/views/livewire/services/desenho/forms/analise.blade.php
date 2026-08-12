@@ -824,11 +824,11 @@
                         @endif
 
                         @if ($this->shouldAskExternalOrganDependency)
-                            <div class="row mt-4">
+                            <div class="row mt-4 g-3">
                                 <div class="col-12 col-md-5 col-xl-4">
                                     <label class="form-label fw-semibold">Depende de Órgão Externo?</label>
                                     <select class="form-select @error('externalOrganDependency') is-invalid @enderror"
-                                        wire:model.defer="externalOrganDependency">
+                                        wire:model="externalOrganDependency">
                                         <option value="">Selecione</option>
                                         <option value="SIM">Sim</option>
                                         <option value="NAO">Não</option>
@@ -837,6 +837,32 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
+                                @if ($externalOrganDependency === 'SIM')
+                                    <div class="col-12 col-md-4 col-xl-3">
+                                        <label class="form-label fw-semibold">Tipo de Entidade</label>
+                                        <select class="form-select" wire:model="selectedExternalEntityTypeId">
+                                            <option value="">Todos</option>
+                                            @foreach ($this->externalEntityTypeOptions as $type)
+                                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-12 col-xl-5">
+                                        <label class="form-label fw-semibold">Órgão(s) Externo(s)</label>
+                                        <select multiple size="6"
+                                            class="form-select @error('selectedExternalEntityIds') is-invalid @enderror"
+                                            wire:model.defer="selectedExternalEntityIds">
+                                            @foreach ($this->externalEntityOptions as $entity)
+                                                <option value="{{ $entity->id }}">
+                                                    {{ $entity->nick ? $entity->nick . ' - ' : '' }}{{ $entity->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('selectedExternalEntityIds')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                @endif
                             </div>
                         @endif
 

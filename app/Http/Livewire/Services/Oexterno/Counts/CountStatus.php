@@ -22,7 +22,9 @@ class CountStatus extends Component
     {
         // dd($this->stats);
 
-        $q = External::query()->where('completed', false);
+        $q = External::query()
+            ->withoutPendingExternalOrganRelease()
+            ->where('completed', false);
 
         if ($this->null) {
             $q->where(function ($qq) {
