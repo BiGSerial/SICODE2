@@ -142,7 +142,7 @@ return [
     |
     */
 
-    'path' => '/',
+    'path' => env('SESSION_PATH', '/'),
 
     /*
     |--------------------------------------------------------------------------
@@ -196,6 +196,6 @@ return [
     |
     */
 
-    'same_site' => 'lax',
+    'same_site' => env('SESSION_SAME_SITE', 'lax'),
 
 ];

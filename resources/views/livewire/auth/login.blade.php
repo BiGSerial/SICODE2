@@ -16,6 +16,12 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                     </div>
 
                     <div class="card-body">
+                        @if (session('warning'))
+                            <div class="alert alert-warning py-2 mb-3">
+                                {{ session('warning') }}
+                            </div>
+                        @endif
+
                         <!-- Conteúdo do formulário de login -->
                         @if ($this->show == 0)
                             <div wire:loading.remove wire:target="login">
