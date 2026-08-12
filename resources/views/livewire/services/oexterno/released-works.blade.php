@@ -62,7 +62,7 @@
                 <div class="col-12 col-lg-6">
                     <div class="activity-filter-card">
                         <div class="activity-filter-title mb-2">Visão</div>
-                        <div class="small text-muted mb-2">Separe novas, exportadas e liberadas.</div>
+                        <div class="small text-muted mb-2">Separe novas, exportadas, liberadas e recusadas.</div>
                         <div class="btn-group w-100 released-works-tabs" role="group" aria-label="Visão das obras liberadas">
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="new" id="releasedWorksTabNew">
@@ -74,7 +74,7 @@
 
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="released" id="releasedWorksTabReleased">
-                            <label class="btn btn-outline-primary" for="releasedWorksTabReleased">Liberadas</label>
+                            <label class="btn btn-outline-primary" for="releasedWorksTabReleased">Liberadas/Recusadas</label>
 
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="pending" id="releasedWorksTabPending">
@@ -165,7 +165,7 @@
                             @if ($tab === 'cancel_90')
                                 Notas em status 70 há mais de 90 dias, disponíveis para envio ao cancelamento total.
                             @else
-                                Exportar marca a pendência como enviada; a liberação ocorre apenas quando o status chegar em 20 ou 11.
+                                Exportar marca a pendência como enviada; a liberação ocorre quando o status chegar em 20 ou 11, ou por recusa manual de OE.
                             @endif
                         </div>
                     </div>
