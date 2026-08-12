@@ -460,13 +460,25 @@ class Usuario extends Component
 
         $this->user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
         $canDispatch = $this->profileCanDispatch();
+        $existingServices = $this->user->ToServices()
+            ->whereIn('service_id', $serviceIds)
+            ->get()
+            ->keyBy('service_id');
+        $temporaryServices = collect($this->temporaryServices)->keyBy('service_id');
 
         foreach ($serviceIds as $serviceId) {
+            $existingService = $existingServices->get($serviceId);
+            $temporaryService = $temporaryServices->get($serviceId);
+
             $this->user->ToServices()->updateOrCreate(
                 ['service_id' => $serviceId],
                 [
-                    'service' => true,
-                    'dispatch' => $canDispatch,
+                    'service' => $existingService
+                        ? (bool) $existingService->service
+                        : (bool) ($temporaryService['service'] ?? true),
+                    'dispatch' => $existingService
+                        ? (bool) $existingService->dispatch
+                        : (bool) ($temporaryService['dispatch'] ?? $canDispatch),
                 ]
             );
         }

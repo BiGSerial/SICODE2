@@ -114,6 +114,8 @@
                                     ->merge($branchActivities)
                                     ->unique('id')
                                     ->values();
+                                $branchUsersCount = $company->branches->sum(fn ($branch) => (int) ($branch->to_users_count ?? 0));
+                                $totalUsersCount = (int) $company->to_users_count + $branchUsersCount;
                             @endphp
                             <tr>
                                 <td>
@@ -140,7 +142,10 @@
                                 </td>
                                 <td>
                                     <div class="fw-bold">{{ $company->contracts_count + $company->branches->sum(fn ($branch) => $branch->contracts->count()) }}</div>
-                                    <div class="text-muted small">{{ $company->to_users_count }} usuários diretos</div>
+                                    <div class="text-muted small">{{ $totalUsersCount }} usuários no grupo</div>
+                                    @if ($branchUsersCount)
+                                        <div class="text-muted small">{{ $company->to_users_count }} matriz · {{ $branchUsersCount }} filiais</div>
+                                    @endif
                                 </td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
@@ -207,7 +212,7 @@
                                     </td>
                                     <td>
                                         <div class="fw-bold">{{ $branch->contracts->count() }}</div>
-                                        <div class="text-muted small">unidade</div>
+                                        <div class="text-muted small">{{ $branch->to_users_count ?? 0 }} usuários na filial</div>
                                     </td>
                                     <td>
                                         <div class="d-flex flex-wrap gap-1">

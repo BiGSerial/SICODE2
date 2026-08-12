@@ -134,10 +134,40 @@ class LogScheduledTask
             'status' => ScheduleExecutionLog::STATUS_SKIPPED,
             'scheduled_at' => now()->startOfMinute(),
             'finished_at' => now(),
-            'skip_reason' => $task->withoutOverlapping
-                ? 'Filtros do Scheduler nao passaram ou havia execucao sobreposta.'
-                : 'Filtros do Scheduler nao passaram.',
+            'skip_reason' => $this->skipReason($task),
         ]));
+    }
+
+    private function skipReason(Event $task): string
+    {
+        if ((filter_var(env('APP_QA'), FILTER_VALIDATE_BOOLEAN) || env('APP_ENV') === 'local' || app()->environment('local'))
+            && $this->isSqlServerSchedule($task)
+        ) {
+            return 'Ignorado por ambiente QA/local: comando de log/sincronismo SQL Server nao deve executar neste ambiente.';
+        }
+
+        return $task->withoutOverlapping
+            ? 'Filtros do Scheduler nao passaram ou havia execucao sobreposta.'
+            : 'Filtros do Scheduler nao passaram.';
+    }
+
+    private function isSqlServerSchedule(Event $task): bool
+    {
+        $command = (string) $task->command;
+        $label = (string) ($task->description ?: '');
+
+        return str_contains($command, 'sqlsrv')
+            || str_contains($command, 'sync-log-')
+            || str_contains($command, 'log_')
+            || str_contains($command, 'log-')
+            || str_contains($command, 'sicode:reclaims')
+            || str_contains($command, 'sicode:users-log')
+            || str_contains($command, 'sicode:wpas_log')
+            || str_contains($command, 'sicode:transfer_log')
+            || str_contains($command, 'sicode:notestop_log')
+            || str_contains($command, 'sicode:log_production')
+            || str_contains($label, 'Log ')
+            || str_contains($label, ' SQL');
     }
 
     private function latestRunningLog(Event $task): ?ScheduleExecutionLog

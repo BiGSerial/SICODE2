@@ -66,7 +66,13 @@ class Table extends Component
                 });
             })
             ->roots()
-            ->with('Address', 'contracts.services', 'branches.Address', 'branches.contracts.services')
+            ->with([
+                'Address',
+                'contracts.services',
+                'branches' => fn ($query) => $query
+                    ->with('Address', 'contracts.services')
+                    ->withCount('toUsers'),
+            ])
             ->withCount(['contracts', 'toUsers'])
             ->orderBy('name')
             ->paginate($this->perPage);
