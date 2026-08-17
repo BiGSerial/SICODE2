@@ -43,16 +43,21 @@ class ProtestUpd extends Command
         // Pega apenas o último registro por nota (maior dtCriacaoMedida)
         $baseQuery = BaseProtest::query()
             ->from('tbld_usr_baseReclamacoes as t')
+            ->whereNotNull('t.numOrdenacao')
+            ->whereRaw("NULLIF(LTRIM(RTRIM(CAST(t.numOrdenacao AS varchar(50)))), '') IS NOT NULL")
             ->whereIn('id', function ($query) {
                 $query->select('id')
                     ->from('tbld_usr_baseReclamacoes as sub')
                     ->whereColumn('sub.nota', 't.nota')
+                    ->whereNotNull('sub.numOrdenacao')
+                    ->whereRaw("NULLIF(LTRIM(RTRIM(CAST(sub.numOrdenacao AS varchar(50)))), '') IS NOT NULL")
                     ->orderByDesc('sub.dtCriacaoMedida')
                     ->limit(1); // vira TOP 1 no SQL Server
             })
             ->select([
                 't.id',
                 't.nota',
+                't.numOrdenacao',
                 't.tipoNota',
                 't.codecodf',
                 't.txtGrpCodificacao',
@@ -95,6 +100,12 @@ class ProtestUpd extends Command
                 $upsertData = [];
 
                 foreach ($protests as $record) {
+                    if (!$this->hasValidNumOrdenacao($record->numOrdenacao ?? null)) {
+                        $count['errors']++;
+                        $bar->advance();
+                        continue;
+                    }
+
                     $existing = $existingNotes->get($record->nota);
 
                     $data = [
@@ -173,5 +184,10 @@ class ProtestUpd extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function hasValidNumOrdenacao(mixed $value): bool
+    {
+        return trim((string) $value) !== '';
     }
 }
