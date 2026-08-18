@@ -5,6 +5,10 @@
     use App\Helpers\DaysLeft;
 @endphp
 
+@php
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+@endphp
+
 <div>
     <x-show-loading />
 
@@ -74,8 +78,10 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        @if ($partnerCan('viability.export'))
+                            <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                    class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        @endif
 
                     </div>
                 </div>
@@ -217,10 +223,12 @@
                                 <td class="text-center align-middle text-danger">
                                     {{ Carbon::parse($viab->tacit_at)->diffForHumans() }}</td>
                                 <td class="text-center align-middle">
-                                    <button class="btn btn-sm btn-primary"
-                                        wire:click.prevent="$emitTo('partner.actions.tacit-justify', 'getResponse', '{{ $viab->id }}')">
-                                        <i class="ri-file-list-3-line align-middle"></i> Justificar
-                                    </button>
+                                    @if ($partnerCan('viability.tacit'))
+                                        <button class="btn btn-sm btn-primary"
+                                            wire:click.prevent="$emitTo('partner.actions.tacit-justify', 'getResponse', '{{ $viab->id }}')">
+                                            <i class="ri-file-list-3-line align-middle"></i> Justificar
+                                        </button>
+                                    @endif
                                 </td>
                         @endforeach
                     </tbody>

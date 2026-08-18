@@ -2,12 +2,15 @@
 
 namespace App\Http\Livewire\Partner\Actions;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class ViabResponse extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public $viability;
     public $description;
 
@@ -29,8 +32,13 @@ class ViabResponse extends Component
 
     public function getResponse(Viability $viability)
     {
+        $this->authorizePartnerAccess('viability.respond');
 
-        $this->viability = $viability;
+        $query = Viability::query()->whereKey($viability->id);
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $this->viability = $query->firstOrFail();
 
         if ($this->viability) {
 
@@ -42,6 +50,7 @@ class ViabResponse extends Component
 
     public function goGranted()
     {
+        $this->authorizePartnerAccess('viability.respond');
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
@@ -61,6 +70,7 @@ class ViabResponse extends Component
 
     public function goDismissed()
     {
+        $this->authorizePartnerAccess('viability.respond');
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
@@ -80,6 +90,7 @@ class ViabResponse extends Component
 
     public function granted()
     {
+        $this->authorizePartnerAccess('viability.respond');
         DB::beginTransaction();
 
         try {
@@ -127,6 +138,7 @@ class ViabResponse extends Component
 
     public function dismissed()
     {
+        $this->authorizePartnerAccess('viability.respond');
         DB::beginTransaction();
 
         try {

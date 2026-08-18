@@ -72,6 +72,8 @@ class Reworkreports extends Workreports
 
     public function submit()
     {
+        $this->authorizePartnerAccess('conclusion_reports.reinform');
+
         if (!$this->canInformNote($this->note)) {
             return;
         }

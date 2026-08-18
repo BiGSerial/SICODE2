@@ -1,3 +1,7 @@
+@php
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+@endphp
+
 @push('css')
     <style>
         .item {
@@ -118,9 +122,11 @@
                                 data-bs-title="Imprimir Check-List FTVEO (Genérica)"
                                 data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras (Obrigatório Anexar no Sicode ao Retornar a Viabilidade).</p>"></i>
                         </a>
-                        <button class="btn btn-sm btn-primary ms-2" wire:click.prevent="export_excel">
-                            <i class="ri-file-excel-2-line align-middle"></i> Exportar
-                        </button>
+                        @if ($partnerCan('viability.export'))
+                            <button class="btn btn-sm btn-primary ms-2" wire:click.prevent="export_excel">
+                                <i class="ri-file-excel-2-line align-middle"></i> Exportar
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -255,19 +261,21 @@
                                         $blockCmd = $viability->approved || $viability->rejected;
                                     @endphp
 
-                                    @unless ($blockCmd)
+                                    @if (!$blockCmd && $partnerCan('viability.return'))
                                         <i class="bx bxs-badge-check text-success fs-4 me-2" style="cursor:pointer;"
                                             wire:click.prevent="$emitTo('partner.forms.return-viability', 'openViability', '{{ $viability->id }}')"
                                             data-bs-toggle="popover" data-bs-trigger="hover focus"
                                             data-bs-placement="right" data-bs-title="Encerrar Atividade"
                                             data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
-                                    @endunless
+                                    @endif
                                 </td>
 
                                 <td class="align-middle">
-                                    <input class="form-check-input border border-secondary" type="checkbox"
-                                        wire:click.prevent="putInActivity({{ $viability->id }})"
-                                        @checked($this->checkInActivity($viability))>
+                                    @if ($partnerCan('viability.respond'))
+                                        <input class="form-check-input border border-secondary" type="checkbox"
+                                            wire:click.prevent="putInActivity({{ $viability->id }})"
+                                            @checked($this->checkInActivity($viability))>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

@@ -2,11 +2,14 @@
 
 namespace App\Http\Livewire\Partner\Count;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Viability;
 use Livewire\Component;
 
 class Tacitcount extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public function getTacitCountProperty()
     {
         $query = Viability::query()
@@ -24,6 +27,8 @@ class Tacitcount extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
         return $query->count();
 

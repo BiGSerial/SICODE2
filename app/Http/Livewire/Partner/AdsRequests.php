@@ -16,6 +16,7 @@ use Livewire\WithPagination;
 
 class AdsRequests extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     private const ADS_LINK_REUSE_START_DATE = '2026-08-01 00:00:00';
@@ -84,6 +85,8 @@ class AdsRequests extends Component
 
     public function analyzeNotes()
     {
+        $this->authorizePartnerAccess('conclusion_reports.ads_requests');
+
         $noteNumbers = $this->parseNotesInput();
 
         if (!$noteNumbers) {
@@ -112,8 +115,12 @@ class AdsRequests extends Component
         $items = [];
 
         foreach ($noteNumbers as $noteNumber) {
-            $note = Note::query()
-                ->where('note', $noteNumber)
+            $noteQuery = Note::query()
+                ->where('note', $noteNumber);
+
+            $this->applyPartnerBranchScopeToNotes($noteQuery, $companyId);
+
+            $note = $noteQuery
                 ->first();
 
             if (!$note) {
@@ -296,6 +303,8 @@ class AdsRequests extends Component
 
     public function confirmProcessRequests()
     {
+        $this->authorizePartnerAccess('conclusion_reports.ads_requests');
+
         if ($this->isProcessingRequests) {
             return;
         }
@@ -721,6 +730,8 @@ class AdsRequests extends Component
 
     public function exportHistory()
     {
+        $this->authorizePartnerAccess('conclusion_reports.export');
+
         $user = auth()->user();
 
         ExportAdsRequestsHistoryJob::dispatch([
@@ -762,6 +773,8 @@ class AdsRequests extends Component
                 AdsRequestStatus::FAILED->value,
             ])
             ->orderByDesc('created_at');
+
+        $this->applyPartnerBranchScopeToNoteRelation($query, null, 'note');
 
         if ($this->activeSearch) {
             $terms = $this->parseActiveSearchTerms();
@@ -907,6 +920,8 @@ class AdsRequests extends Component
                 AdsRequestStatus::FAILED->value,
                 AdsRequestStatus::CANCELED->value,
             ]);
+
+        $this->applyPartnerBranchScopeToNoteRelation($query, null, 'note');
 
         if ($this->historySearch) {
             $terms = $this->parseHistorySearchTerms();

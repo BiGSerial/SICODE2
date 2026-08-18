@@ -10,6 +10,7 @@ use Livewire\WithPagination;
 
 class ViabRejectedList extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -70,6 +71,8 @@ class ViabRejectedList extends Component
             }
         }
 
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
         return $query->orderBy('updated_at');
     }
 
@@ -105,11 +108,14 @@ class ViabRejectedList extends Component
             }
         }
 
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
         return $query->orderBy('updated_at');
     }
 
     public function downloadFile($id)
     {
+        $this->authorizePartnerAccess('viability.view_files');
 
 
         if ($file = File::find($id)) {

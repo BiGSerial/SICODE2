@@ -3,6 +3,7 @@
     use App\Custom\Notestatus;
     use Carbon\Carbon;
     use App\Helpers\DaysLeft;
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
 @endphp
 
 <div>
@@ -59,8 +60,10 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        @if ($partnerCan('viability.export'))
+                            <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                    class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        @endif
 
                     </div>
                 </div>
@@ -211,13 +214,16 @@
                                 <td class="text-center align-middle">{{ $myViab->Company->name }}</td>
                                 <td class="text-center align-middle text-danger">
                                     {{ Carbon::parse($myViab->updated_at)->diffForHumans() }}</td>
-                                <td class="text-center align-middle"> <i
-                                        class="ri-play-circle-line text-success fs-4 me-2" style="cursor: pointer;"
-                                        wire:click.prevent="$emitTo('partner.actions.viab-response', 'getResponse', '{{ $myViab->id }}')"
-                                        role="group" aria-label="Basic example" tabindex="0"
-                                        data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
-                                        data-bs-title="Responder Viabilidade"
-                                        data-bs-content="<p>Tréplica ao questionamento da Viabilidade.</p>"></i></td>
+                                <td class="text-center align-middle">
+                                    @if ($partnerCan('viability.respond'))
+                                        <i class="ri-play-circle-line text-success fs-4 me-2" style="cursor: pointer;"
+                                            wire:click.prevent="$emitTo('partner.actions.viab-response', 'getResponse', '{{ $myViab->id }}')"
+                                            role="group" aria-label="Basic example" tabindex="0"
+                                            data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
+                                            data-bs-title="Responder Viabilidade"
+                                            data-bs-content="<p>Tréplica ao questionamento da Viabilidade.</p>"></i>
+                                    @endif
+                                </td>
                         @endforeach
                     </tbody>
                 </table>
@@ -264,8 +270,10 @@
                     </div>
                     <div class="col-3 d-flex justify-content-end">
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        @if ($partnerCan('viability.export'))
+                            <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                                    class="ri-file-excel-2-line align-middle"></i> Exportar</button>
+                        @endif
 
                     </div>
                 </div>

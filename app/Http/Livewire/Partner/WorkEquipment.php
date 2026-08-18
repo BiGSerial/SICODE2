@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Jobs\Partner\ExportDeclaredEquipmentJob;
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -10,6 +11,7 @@ use App\Services\Partner\DeclaredEquipmentQueryService;
 
 class WorkEquipment extends Component
 {
+    use AuthorizesPartnerAccess;
     use WithPagination;
 
     private const EXCEL_EXPORT_LIMIT = 10000;
@@ -94,6 +96,8 @@ class WorkEquipment extends Component
 
     public function exportFile(string $format): void
     {
+        $this->authorizePartnerAccess('conclusion_reports.export');
+
         $format = $format === ExportDeclaredEquipmentJob::FORMAT_XLSX
             ? ExportDeclaredEquipmentJob::FORMAT_XLSX
             : ExportDeclaredEquipmentJob::FORMAT_CSV;

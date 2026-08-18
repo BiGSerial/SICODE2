@@ -1,4 +1,8 @@
 <div>
+    @php
+        $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+    @endphp
+
     <x-show-loading />
 
     @if (!$sqlSyncEnabled)
@@ -27,11 +31,13 @@
                     <textarea class="form-control border border-secondary" rows="3" wire:model.defer="notesInput"></textarea>
                 </div>
                 <div class="col-12 col-lg-3 d-flex gap-2">
-                    <button class="btn btn-primary w-100" wire:click.prevent="analyzeNotes"
-                        wire:loading.attr="disabled" wire:target="analyzeNotes,processRequests,confirmProcessRequests"
-                        @if ($isProcessingRequests) disabled @endif>
-                        <i class="ri-search-line align-middle"></i> Pré-analisar
-                    </button>
+                    @if ($partnerCan('conclusion_reports.ads_requests'))
+                        <button class="btn btn-primary w-100" wire:click.prevent="analyzeNotes"
+                            wire:loading.attr="disabled" wire:target="analyzeNotes,processRequests,confirmProcessRequests"
+                            @if ($isProcessingRequests) disabled @endif>
+                            <i class="ri-search-line align-middle"></i> Pré-analisar
+                        </button>
+                    @endif
                     <button class="btn btn-outline-secondary w-100" wire:click.prevent="clearPreview">
                         Limpar
                     </button>
@@ -51,14 +57,16 @@
                         $processableCount = collect($previewItems)->where('can_process', true)->count();
                     @endphp
                     <span class="me-3">Aptos: {{ $processableCount }}</span>
-                    <button class="btn btn-success btn-sm" wire:click.prevent="processRequests"
-                        wire:loading.attr="disabled" wire:target="processRequests,confirmProcessRequests"
-                        @if ($processableCount === 0 || $isProcessingRequests) disabled @endif>
-                        <span wire:loading.remove wire:target="processRequests,confirmProcessRequests">
-                            <i class="ri-check-line align-middle"></i> Processar lista
-                        </span>
-                        <span wire:loading wire:target="processRequests,confirmProcessRequests">Processando...</span>
-                    </button>
+                    @if ($partnerCan('conclusion_reports.ads_requests'))
+                        <button class="btn btn-success btn-sm" wire:click.prevent="processRequests"
+                            wire:loading.attr="disabled" wire:target="processRequests,confirmProcessRequests"
+                            @if ($processableCount === 0 || $isProcessingRequests) disabled @endif>
+                            <span wire:loading.remove wire:target="processRequests,confirmProcessRequests">
+                                <i class="ri-check-line align-middle"></i> Processar lista
+                            </span>
+                            <span wire:loading wire:target="processRequests,confirmProcessRequests">Processando...</span>
+                        </button>
+                    @endif
                     <button class="btn btn-outline-danger btn-sm ms-2" wire:click.prevent="removeAllPreview"
                         @if (count($previewItems) === 0) disabled @endif>
                         Remover todos
@@ -290,10 +298,12 @@
                             </button>
                         </div>
                         <div class="col-12 col-lg-4 d-flex align-items-end">
-                            <button class="btn btn-light w-100" wire:click.prevent="exportHistory"
-                                @if ($historyRequests->total() === 0) disabled @endif>
-                                Exportar
-                            </button>
+                            @if ($partnerCan('conclusion_reports.export'))
+                                <button class="btn btn-light w-100" wire:click.prevent="exportHistory"
+                                    @if ($historyRequests->total() === 0) disabled @endif>
+                                    Exportar
+                                </button>
+                            @endif
                         </div>
                     </div>
                 </div>
