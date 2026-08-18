@@ -14,6 +14,7 @@ use ZipArchive;
 
 class Histviab extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
     use TextFormatter;
 
@@ -59,6 +60,7 @@ class Histviab extends Component
 
     public function export_excel()
     {
+        $this->authorizePartnerAccess('viability.export');
 
         return (new HistoricReport($this->lists->orderBy('sended_at')->get()))->download(date('YmdHis-') . 'HistViabExport.xlsx');
     }
@@ -70,6 +72,8 @@ class Histviab extends Component
 
     public function downloadFile($id)
     {
+        $this->authorizePartnerAccess('viability.view_files');
+
         if ($file = File::find($id)) {
 
             if (Storage::disk('local')->exists($file->path)) {
@@ -121,6 +125,8 @@ class Histviab extends Component
 
     public function downloadZip()
     {
+        $this->authorizePartnerAccess('viability.view_files');
+
         if (count($this->files_selected)) {
             $files = File::find($this->files_selected);
 
@@ -200,6 +206,7 @@ class Histviab extends Component
             }
         }
 
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
         if ($this->search) {
             $query->where(function ($q) {

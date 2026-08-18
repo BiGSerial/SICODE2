@@ -15,6 +15,8 @@ use Livewire\Component;
 
 class Workreports extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+
     public bool $requireFilesForSubmit = true;
     public bool $canSelectCompany = false;
     public bool $selectCompanyFromUserRelations = false;
@@ -210,6 +212,8 @@ class Workreports extends Component
 
     public function submit()
     {
+        $this->authorizePartnerAccess('conclusion_reports.create');
+
         $this->configureCompanySelection();
 
         if (!$this->canInformNote($this->note)) {

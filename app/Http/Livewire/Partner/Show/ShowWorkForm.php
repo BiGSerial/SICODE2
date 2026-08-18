@@ -2,11 +2,14 @@
 
 namespace App\Http\Livewire\Partner\Show;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\WorkReport;
 use Livewire\Component;
 
 class ShowWorkForm extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public ?WorkReport $form = null;
 
     protected $listeners = [
@@ -15,8 +18,13 @@ class ShowWorkForm extends Component
 
     public function show_form(WorkReport $form)
     {
+        $this->authorizePartnerAccess('conclusion_reports.list');
 
-        $this->form = $form->load([
+        $query = WorkReport::query()->whereKey($form->id);
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $this->form = $query->firstOrFail()->load([
             'Company',
             'Equipment',
             'Meeters',

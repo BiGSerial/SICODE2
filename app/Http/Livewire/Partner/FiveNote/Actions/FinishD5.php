@@ -11,6 +11,8 @@ use Livewire\Component;
 
 class FinishD5 extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+
     public $five;
     public $hasEvidence = false;
     public $observations;
@@ -82,6 +84,8 @@ class FinishD5 extends Component
 
     public function finishD5()
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         if ($this->isSaving || !$this->five) {
             return;
         }

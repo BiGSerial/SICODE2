@@ -2,11 +2,15 @@
 
 namespace App\Http\Livewire\Partner\Actions;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Approveaction extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public $list;
     public $modal;
     public $comment;
@@ -17,6 +21,8 @@ class Approveaction extends Component
 
     public function agree()
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         if (strlen(trim($this->comment)) <= 5) {
 
             $this->dispatchBrowserEvent('swal', [
@@ -46,6 +52,8 @@ class Approveaction extends Component
 
     public function desagree()
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         if (strlen(trim($this->comment)) <= 5) {
 
             $this->dispatchBrowserEvent('swal', [
@@ -76,6 +84,8 @@ class Approveaction extends Component
 
     public function confirm()
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         if ($this->modal && $this->modal['action'] == 'confirm') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.
@@ -84,6 +94,11 @@ class Approveaction extends Component
 
             if ($this->list->Viabilities->count()) {
                 foreach ($this->list->Viabilities as $viability) {
+                    $query = Viability::query()->whereKey($viability->id);
+                    $this->applyPartnerCompanyScope($query);
+                    $this->applyPartnerBranchScopeToNoteRelation($query);
+                    $viability = $query->firstOrFail();
+
                     DB::beginTransaction();
 
                     try {
@@ -140,6 +155,11 @@ class Approveaction extends Component
 
             if ($this->list->Viabilities->count()) {
                 foreach ($this->list->Viabilities as $viability) {
+                    $query = Viability::query()->whereKey($viability->id);
+                    $this->applyPartnerCompanyScope($query);
+                    $this->applyPartnerBranchScopeToNoteRelation($query);
+                    $viability = $query->firstOrFail();
+
                     DB::beginTransaction();
 
                     try {

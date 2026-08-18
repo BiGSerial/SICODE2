@@ -7,7 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\{Builder, SoftDeletes};
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\{Collection, Str};
@@ -162,6 +162,23 @@ class User extends Authenticatable
     public function Companies()
     {
         return $this->belongsToMany(Company::class, 'company_user')->withTrashed();
+    }
+
+    public function partnerPermissionExceptions(): HasMany
+    {
+        return $this->hasMany(PartnerUserPermissionException::class);
+    }
+
+    public function partnerBranches(): HasMany
+    {
+        return $this->hasMany(PartnerUserBranch::class);
+    }
+
+    public function partnerBranchAddresses(): BelongsToMany
+    {
+        return $this->belongsToMany(Andresscompany::class, 'partner_user_branches', 'user_id', 'branch_id')
+            ->withPivot(['company_id', 'created_by'])
+            ->withTimestamps();
     }
 
     public function d5Return()

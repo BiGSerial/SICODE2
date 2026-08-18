@@ -2,12 +2,15 @@
 
 namespace App\Http\Livewire\Partner\Actions;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Equipment;
 use App\Models\WorkReport;
 use Livewire\Component;
 
 class WorkedReturnForm extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public ?WorkReport $workReport = null;
 
     public $pag = 0;
@@ -75,7 +78,13 @@ class WorkedReturnForm extends Component
 
     public function toReturnWork(WorkReport $workReport)
     {
-        $this->workReport = $workReport;
+        $this->authorizePartnerAccess('conclusion_reports.reinform');
+
+        $query = WorkReport::query()->whereKey($workReport->id);
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $this->workReport = $query->firstOrFail();
 
         if ($this->workReport) {
 
@@ -91,6 +100,8 @@ class WorkedReturnForm extends Component
 
     public function toSave()
     {
+        $this->authorizePartnerAccess('conclusion_reports.reinform');
+
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'ATUALIZAÇÃO DE INFORME',
             'msg'           => "<p class='fw-bold'>Você deseja submeter novamente o INFORME de OBRAS?</p>
@@ -116,6 +127,7 @@ class WorkedReturnForm extends Component
 
     public function save()
     {
+        $this->authorizePartnerAccess('conclusion_reports.reinform');
 
 
         unset($this->workReport->equipment);

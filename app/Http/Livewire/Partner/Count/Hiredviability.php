@@ -2,11 +2,14 @@
 
 namespace App\Http\Livewire\Partner\Count;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Note;
 use Livewire\Component;
 
 class Hiredviability extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public function getCountProperty()
     {
         $query = Note::Query();
@@ -33,6 +36,7 @@ class Hiredviability extends Component
                 ->where('completed', false);
             }, 'Files']);
 
+        $this->applyPartnerBranchScopeToNotes($query);
 
         $this->emit('hiredcount', $query->count());
 

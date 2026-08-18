@@ -1,3 +1,7 @@
+@php
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+@endphp
+
 <div class="five-list-page d-flex flex-column gap-3">
     {{-- === CSS escopado === --}}
     <style>
@@ -163,9 +167,11 @@
                         {{ $fives->total() }} registros no filtro atual
                     </span>
                 </div>
-                <button type="button" class="btn btn-outline-primary" wire:click="exportExcel">
-                    <i class="ri-download-2-line me-1"></i> Exportar Excel
-                </button>
+                @if ($partnerCan('d5_notes.export'))
+                    <button type="button" class="btn btn-outline-primary" wire:click="exportExcel">
+                        <i class="ri-download-2-line me-1"></i> Exportar Excel
+                    </button>
+                @endif
             </div>
         </div>
     </div>

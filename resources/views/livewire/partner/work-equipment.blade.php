@@ -3,6 +3,7 @@
     use App\Custom\Notestatus;
     use Carbon\Carbon;
     use App\Helpers\SelectOptions;
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
 @endphp
 
 @push('css')
@@ -212,31 +213,33 @@
                         <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">EQUIPAMENTOS INFORMADOS</h4>
                     </div>
                     <div class="col-auto d-flex justify-content-end">
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="ri-download-2-line align-middle"></i> Exportar
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <button class="dropdown-item {{ $equipments->total() > $excelExportLimit ? 'disabled text-muted' : '' }}"
-                                        type="button"
-                                        @if ($equipments->total() <= $excelExportLimit) wire:click.prevent="exportFile('xlsx')" @endif>
-                                        <i class="ri-file-excel-2-line align-middle"></i>
-                                        Excel
-                                        @if ($equipments->total() > $excelExportLimit)
-                                            <small class="text-muted">(até {{ number_format($excelExportLimit, 0, ',', '.') }})</small>
-                                        @endif
-                                    </button>
-                                </li>
-                                <li>
-                                    <button class="dropdown-item" type="button" wire:click.prevent="exportFile('csv')">
-                                        <i class="ri-file-list-3-line align-middle"></i>
-                                        CSV
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
+                        @if ($partnerCan('conclusion_reports.export'))
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="ri-download-2-line align-middle"></i> Exportar
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button class="dropdown-item {{ $equipments->total() > $excelExportLimit ? 'disabled text-muted' : '' }}"
+                                            type="button"
+                                            @if ($equipments->total() <= $excelExportLimit) wire:click.prevent="exportFile('xlsx')" @endif>
+                                            <i class="ri-file-excel-2-line align-middle"></i>
+                                            Excel
+                                            @if ($equipments->total() > $excelExportLimit)
+                                                <small class="text-muted">(até {{ number_format($excelExportLimit, 0, ',', '.') }})</small>
+                                            @endif
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item" type="button" wire:click.prevent="exportFile('csv')">
+                                            <i class="ri-file-list-3-line align-middle"></i>
+                                            CSV
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

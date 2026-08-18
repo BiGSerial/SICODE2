@@ -10,6 +10,7 @@ use Livewire\{Component, WithFileUploads};
 
 class Viability extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithFileUploads;
 
     public $data;
@@ -173,6 +174,8 @@ class Viability extends Component
 
     public function saveForm()
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         // Verify mandatory fields
         if ($this->changes) {
 

@@ -2,11 +2,14 @@
 
 namespace App\Http\Livewire\Partner\Count;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\FiveNote;
 use Livewire\Component;
 
 class D5OpenCount extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public bool $returned = false;
 
     public function render()
@@ -33,6 +36,8 @@ class D5OpenCount extends Component
                 }
             });
         }
+
+        $this->applyPartnerBranchScopeToFiveNotes($query);
 
         return $query->count();
     }

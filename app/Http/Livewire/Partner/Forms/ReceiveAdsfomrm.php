@@ -18,6 +18,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ReceiveAdsfomrm extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithFileUploads;
     use WithFileUploadProcessing;
 
@@ -308,6 +309,8 @@ class ReceiveAdsfomrm extends Component
 
     public function save()
     {
+        $this->authorizePartnerAccess('conclusion_reports.ads_delivery');
+
         $newName = "ADS_IFINAL_" . $this->note->note;
         $newName = $newName . "_N" . str_pad((File::where('file_name', 'like', $newName . "%")->count() + 1), 3, '0', STR_PAD_LEFT);
 

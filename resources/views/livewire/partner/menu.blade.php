@@ -1,7 +1,17 @@
 <div>
+    @php
+        $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+        $canViability = $partnerCan('viability');
+        $canConclusion = $partnerCan('conclusion_reports');
+        $canPartial = $partnerCan('partial_reports');
+        $canComplaints = $partnerCan('complaints');
+        $canD5 = $partnerCan('d5_notes');
+        $canAdmin = $partnerCan('admin_panel.access');
+    @endphp
     <aside id="sidebar" class="sidebar edp-bg-cobaltblue-100">
 
         <ul class="sidebar-nav" id="sidebar-nav">
+            @if ($canViability)
             <li class="nav-item ">
                 <a class="nav-link collapsed" data-bs-target="#viability-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-eye-line"></i><span>Viabilidade</span>
@@ -10,30 +20,36 @@
                 {{-- Para deixar o Dropdown Aberto, acrescemte 'show' na classe --}}
                 <ul id="viability-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
+                        @if ($partnerCan('viability.list'))
                         <li>
                             <a href="{{ route('partner.todo.viability') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-play-circle-line fw-light fs-5"></i> <span>À Viabilizar </span>
                                 @livewire('partner.count.todoviabilitycount', key('count-viab'))
                             </a>
                         </li>
+                        @endif
                     </div>
 
                     <div class="border-start border-3 mb-1 py-0">
+                        @if ($partnerCan('viability.rejected'))
                         <li>
                             <a href="{{ route('partner.rejected.viability') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-tools-fill fw-light fs-5"></i> <span>Em Tratativa </span>
                                 @livewire('partner.count.rejectedanswercount', key('answer-count-viab'))
                             </a>
                         </li>
+                        @endif
                     </div>
 
                     <div class="border-start border-3 mb-1 py-0">
+                        @if ($partnerCan('viability.tacit'))
                         <li>
                             <a href="{{ route('partner.tacit.viability') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-timer-flash-fill fw-light fs-5"></i> <span>Tácitas a Justificar </span>
                                 @livewire('partner.count.tacitcount', key('answer-count-tacit'))
                             </a>
                         </li>
+                        @endif
                     </div>
 
                     {{-- <div class="border-start border-3 mb-1 py-0">
@@ -46,15 +62,19 @@
                     </div> --}}
 
                     <div class="border-start border-3 mb-1 py-0">
+                        @if ($partnerCan('viability.history'))
                         <li>
                             <a href="{{ route('partner.hist.viability') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-history-line fw-light fs-5"></i> <span>Histórico</span>
                             </a>
                         </li>
+                        @endif
                     </div>
                 </ul>
             </li>
+            @endif
 
+            @if ($canConclusion)
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#conclusion-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-information-fill text-success"></i><span>Informes Conclusão</span><i
@@ -63,7 +83,7 @@
 
                 <ul id="conclusion-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
-                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner))
+                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner) && $partnerCan('conclusion_reports.create'))
                             <li>
                                 <a href="{{ route('partner.report.workreport') }}"
                                     class="nav-item text-white fw-normal">
@@ -72,6 +92,7 @@
                                 </a>
                             </li>
                         @endif
+                        @if ($partnerCan('conclusion_reports.rejected'))
                         <li>
                             <a href="{{ route('partner.report.rejectedWorked') }}"
                                 class="nav-item text-white fw-normal">
@@ -79,7 +100,8 @@
                                     Rejeitados</span>@livewire('partner.count.returnworkforms', key('returnWorkForm-count'))
                             </a>
                         </li>
-                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner))
+                        @endif
+                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner) && $partnerCan('conclusion_reports.ads_delivery'))
                             <li>
                                 <a href="{{ route('partner.report.sendAdsForm') }}"
                                     class="nav-item text-white fw-normal">
@@ -88,27 +110,36 @@
                                 </a>
                             </li>
                         @endif
+                        @if ($partnerCan('conclusion_reports.ads_requests'))
                         <li>
                             <a href="{{ route('partner.ads.requests') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-file-add-line fw-light fs-5"></i> <span>Solicitacoes ADS</span>
                             </a>
-                        </li>                        <li>
+                        </li>
+                        @endif
+                        @if ($partnerCan('conclusion_reports.list'))
+                        <li>
                             <a href="{{ route('partner.report.workedlist') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Concluídas Informadas</span>
                             </a>
                         </li>
+                        @endif
+                        @if ($partnerCan('conclusion_reports.equipment'))
                         <li>
                             <a href="{{ route('partner.declared.equipment') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-device-line fw-light fs-5"></i> <span>Equipamentos Obras Concluídas
                                     Declarados</span>
                             </a>
                         </li>
+                        @endif
                     </div>
 
 
                 </ul>
             </li>
+            @endif
 
+            @if ($canPartial)
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#partial-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-information-line text-danger"></i><span>Informes Parcial</span><i
@@ -117,7 +148,7 @@
 
                 <ul id="partial-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
-                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner))
+                        @if (!(auth()->user()->engineer && auth()->user()->onlyparner) && $partnerCan('partial_reports.create'))
                             <li>
                                 <a href="{{ route('partner.report.partial') }}" class="nav-item text-white fw-normal">
                                     <i class="ri-user-voice-line fw-light fs-5 text-warning"></i> <span>Informar
@@ -127,16 +158,20 @@
                             </li>
                         @endif
 
+                        @if ($partnerCan('partial_reports.list'))
                         <li>
                             <a href="{{ route('partner.report.partiallist') }}" class="nav-item text-white fw-normal">
                                 <i class="ri-user-star-line fw-light fs-5"></i> <span>Obras Parciais Informadas</span>
                             </a>
                         </li>
+                        @endif
 
                     </div>
                 </ul>
             </li>
+            @endif
 
+            @if ($canComplaints)
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#protests-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-alert-line fw-light fs-5 text-warning"></i><span>Reclamações</span><i
@@ -146,6 +181,7 @@
 
                 <ul id="protests-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
+                        @if ($partnerCan('complaints.index'))
                         <li>
                             <a href="{{ route('protests.partner.main') }}" class="nav-item text-white fw-normal">
                                 <i class="bi bi-file-earmark-text fs-5 edp-text-verde-dark"></i> <span>AGUARDANDO
@@ -153,17 +189,22 @@
                                 @livewire('components.count.protest.count-protests', ['type' => 'U'], key('menu_protests_has_protests_user'))
                             </a>
                         </li>
+                        @endif
 
+                        @if ($partnerCan('complaints.history'))
                         <li>
                             <a href="{{ route('protests.partner.history') }}" class="nav-item text-white fw-normal">
                                 <i class="bi bi-clock-history fs-5 edp-text-verde-dark"></i> <span>MEU HISTÓRICO</span>
                             </a>
                         </li>
+                        @endif
 
                     </div>
                 </ul>
             </li>
+            @endif
 
+            @if ($canD5)
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#d5note-nav" data-bs-toggle="collapse" href="#">
                     <i class="ri-file-text-line fw-light fs-5 text-info"></i><span>Notas D5</span><i
@@ -173,6 +214,7 @@
 
                 <ul id="d5note-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
+                        @if ($partnerCan('d5_notes.list'))
                         <li>
                             <a href="{{ route('partner.note_d5.list') }}"
                                 class="nav-item text-white fw-normal d-flex align-items-center">
@@ -181,6 +223,8 @@
                                 @livewire('partner.count.d5-open-count', ['returned' => false], key('menu-d5-open'))
                             </a>
                         </li>
+                        @endif
+                        @if ($partnerCan('d5_notes.returned'))
                         <li>
                             <a href="{{ route('partner.note_d5.returned') }}"
                                 class="nav-item text-white fw-normal d-flex align-items-center">
@@ -188,16 +232,61 @@
                                 @livewire('partner.count.d5-open-count', ['returned' => true], key('menu-d5-returned'))
                             </a>
                         </li>
+                        @endif
 
+                        @if ($partnerCan('d5_notes.history'))
                         <li>
                             <a href="{{ route('partner.note_d5.historic') }}" class="nav-item text-white fw-normal">
                                 <i class="bi bi-clock-history fs-5 edp-text-verde-dark"></i> <span>MEU HISTÓRICO</span>
                             </a>
                         </li>
+                        @endif
 
                     </div>
                 </ul>
             </li>
+            @endif
+            @if ($canAdmin)
+                <li class="nav-item">
+                    <a class="nav-link collapsed" data-bs-target="#partner-admin-nav" data-bs-toggle="collapse" href="#">
+                        <i class="ri-settings-3-line fw-light fs-5"></i><span>Administração</span><i
+                            class="bi bi-chevron-down ms-auto"></i>
+                    </a>
+
+                    <ul id="partner-admin-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                        <div class="border-start border-3 mb-1 py-0">
+                            @if ($partnerCan('admin_users.view'))
+                                <li>
+                                    <a href="{{ route('partner.admin.users') }}" class="nav-item text-white fw-normal">
+                                        <i class="ri-user-settings-line fw-light fs-5"></i> <span>Usuários</span>
+                                    </a>
+                                </li>
+                            @endif
+                            @if ($partnerCan('admin_permissions.view'))
+                                <li>
+                                    <a href="{{ route('partner.admin.permissions') }}" class="nav-item text-white fw-normal">
+                                        <i class="ri-lock-password-line fw-light fs-5"></i> <span>Permissões</span>
+                                    </a>
+                                </li>
+                            @endif
+                            @if ($partnerCan('admin_user_exceptions.manage'))
+                                <li>
+                                    <a href="{{ route('partner.admin.exceptions') }}" class="nav-item text-white fw-normal">
+                                        <i class="ri-user-unfollow-line fw-light fs-5"></i> <span>Exceções por Usuário</span>
+                                    </a>
+                                </li>
+                            @endif
+                            @if ($partnerCan('admin_audit.view'))
+                                <li>
+                                    <a href="{{ route('partner.admin.audit') }}" class="nav-item text-white fw-normal">
+                                        <i class="ri-history-line fw-light fs-5"></i> <span>Auditoria</span>
+                                    </a>
+                                </li>
+                            @endif
+                        </div>
+                    </ul>
+                </li>
+            @endif
         </ul>
 
     </aside>

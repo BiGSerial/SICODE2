@@ -58,6 +58,16 @@ class Company extends Model
         return $this->hasMany(WorkReport::class);
     }
 
+    public function partnerRole()
+    {
+        return $this->hasOne(PartnerRole::class);
+    }
+
+    public function partnerUserBranches()
+    {
+        return $this->hasMany(PartnerUserBranch::class);
+    }
+
     public function scopeLinkedToService(Builder $query, string $serviceUuid): Builder
     {
         return $query->whereHas('contracts.services', function (Builder $serviceQuery) use ($serviceUuid) {

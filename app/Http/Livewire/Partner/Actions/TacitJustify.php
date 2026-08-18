@@ -2,12 +2,15 @@
 
 namespace App\Http\Livewire\Partner\Actions;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class TacitJustify extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public $viability;
     public $description;
     public $hasFile = false;
@@ -35,8 +38,13 @@ class TacitJustify extends Component
 
     public function getResponse(Viability $viability)
     {
+        $this->authorizePartnerAccess('viability.tacit');
 
-        $this->viability = $viability;
+        $query = Viability::query()->whereKey($viability->id);
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $this->viability = $query->firstOrFail();
 
         if ($this->viability) {
 
@@ -49,6 +57,7 @@ class TacitJustify extends Component
 
     public function goJustify()
     {
+        $this->authorizePartnerAccess('viability.tacit');
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
@@ -68,6 +77,7 @@ class TacitJustify extends Component
 
     public function justify()
     {
+        $this->authorizePartnerAccess('viability.tacit');
         DB::beginTransaction();
 
         try {

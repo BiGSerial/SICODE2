@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Protests\Partner;
 
 use App\Enum\ProtestJobStatus;
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\EvidenceFile;
 use App\Models\ProtestJob;
 use App\Models\User;
@@ -16,6 +17,7 @@ use Livewire\WithFileUploads;
 
 class View extends Component
 {
+    use AuthorizesPartnerAccess;
     use WithFileUploads;
 
     /** @var ProtestJob|null */
@@ -70,7 +72,7 @@ class View extends Component
     /** Carrega o JOB como raiz, e dele puxa Protest + MedProtest */
     public function mount(int $jobId): void
     {
-        $this->job = ProtestJob::with([
+        $query = ProtestJob::query()->with([
             'protest.Notes',
             'medProtest' => function ($q) {
                 $q->with([
@@ -83,7 +85,11 @@ class View extends Component
             'Comments' => fn ($q) => $q->latest(),
             'owner:id,name',
             'creator:id,name',
-        ])->findOrFail($jobId);
+        ]);
+
+        $this->applyPartnerBranchScopeToProtestJobs($query);
+
+        $this->job = $query->findOrFail($jobId);
 
         if (! $this->job->medProtest) {
             abort(404, 'Medida de Reclamação não associada a este Job.');

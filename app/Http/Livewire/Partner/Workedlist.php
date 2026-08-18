@@ -14,6 +14,7 @@ use Livewire\WithPagination;
 
 class Workedlist extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -168,6 +169,7 @@ class Workedlist extends Component
             }
         }
 
+        $this->applyPartnerBranchScopeToNoteRelation($query, $this->companyId ?: null);
 
         if (($this->date_in || $this->date_out)) {
 

@@ -11,6 +11,7 @@ use Livewire\WithPagination;
 
 class D5list extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use TextFormatter;
     use WildcardFormmater;
     use WithPagination;
@@ -58,6 +59,8 @@ class D5list extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
+
+        $this->applyPartnerBranchScopeToFiveNotes($query);
 
         $query->where('visible_partner', true)
             ->where('is_completed', false)
@@ -145,6 +148,8 @@ class D5list extends Component
 
     public function exportExcel(): void
     {
+        $this->authorizePartnerAccess('d5_notes.export');
+
         $userId = auth()->id();
 
         if (!$userId) {
