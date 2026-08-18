@@ -67,6 +67,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/', 'cancellation_categories')->name('main');
     });
 
+    Route::prefix('/protests')->name('protests.')->group(function () {
+        Route::get('/measure-codes', 'protest_measure_codes')->name('measure_codes');
+    });
+
     Route::prefix('/audits')->name('audits.')->group(function () {
         Route::get('/notes', 'audit_notes')->name('notes');
     });
