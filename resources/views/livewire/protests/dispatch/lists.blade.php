@@ -60,17 +60,6 @@
                             </div>
                         </div>
 
-                        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
-                            <div class="form-floating">
-                                <select class="form-select border border-secondary" id="filterProtestType"
-                                    wire:model="selectedProtestType" multiple size="4">
-                                    @foreach ($protest_Types as $type)
-                                        <option value="{{ $type->protest_type }}">{{ $type->protest_type_label }}</option>
-                                    @endforeach
-                                </select>
-                                <label for="filterProtestType">Tipo de Reclamação</label>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="row g-3 align-items-end mt-0 mt-md-3">
@@ -100,7 +89,7 @@
                     <div class="row mt-3">
                         <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
                             <button type="button" class="btn btn-outline-secondary"
-                                wire:click="$set('search',''); $set('advanceSearch',''); $set('multisearch',[]); $set('selectedTipoNota',[]); $set('selectedProtestType',[]); $set('cityFilter', []); $set('selectedCodf', []); $set('statusCardFilter', null); $set('histogramBucket', null); $set('page',1)">
+                                wire:click="$set('search',''); $set('advanceSearch',''); $set('multisearch',[]); $set('selectedTipoNota',[]); $set('cityFilter', []); $set('selectedCodf', []); $set('statusCardFilter', null); $set('histogramBucket', null); $set('page',1)">
                                 <i class="ri-eraser-line me-1"></i>
                                 Limpar
                             </button>

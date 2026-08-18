@@ -13,42 +13,6 @@ class MedProtest extends Model
 {
     use HasFactory;
 
-    public const CONSTRUCTION_MEASURE_CODES = [
-        'AL36',
-        'CA03',
-        'CC05',
-        'CP08',
-        'DE01',
-        'DE12',
-        'DE14',
-        'EG02',
-        'EG03',
-        'EL06',
-        'IR01',
-        'MR09',
-        'NB01',
-        'NB12',
-        'OU03',
-        'OU08',
-        'OU15',
-        'OU16',
-        'OU44',
-        'OU47',
-        'OU53',
-        'OU80',
-        'PL01',
-        'RA01',
-        'SA02',
-        'SA07',
-        'SA10',
-        'SU01',
-        'SU12',
-        'SU14',
-        'SU16',
-        'SU27',
-        'SU29',
-    ];
-
     public const RESULT_PROCEDENTE = 'procedente';
     public const RESULT_IMPROCEDENTE = 'improcedente';
 
@@ -120,7 +84,7 @@ class MedProtest extends Model
 
     public function isConstructionMeasure(): bool
     {
-        return in_array($this->normalizedMeasureCode(), self::CONSTRUCTION_MEASURE_CODES, true);
+        return in_array($this->normalizedMeasureCode(), ProtestMeasureCodeClassification::constructionCodes(), true);
     }
 
     protected function normalizedMeasureCode(): string
@@ -186,14 +150,28 @@ class MedProtest extends Model
 
     public function scopeIdentifiedAsConstruction(Builder $query): Builder
     {
-        return $query->whereIn(DB::raw('UPPER(TRIM(med_protests.codMedida))'), self::CONSTRUCTION_MEASURE_CODES);
+        $constructionCodes = ProtestMeasureCodeClassification::constructionCodes();
+
+        if (empty($constructionCodes)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn(DB::raw('UPPER(TRIM(med_protests.codMedida))'), $constructionCodes);
     }
 
     public function scopeNotIdentifiedAsConstruction(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
+        $constructionCodes = ProtestMeasureCodeClassification::constructionCodes();
+
+        return $query->where(function (Builder $q) use ($constructionCodes) {
             $q->whereNull('med_protests.codMedida')
-                ->orWhereNotIn(DB::raw('UPPER(TRIM(med_protests.codMedida))'), self::CONSTRUCTION_MEASURE_CODES);
+                ->orWhere(DB::raw('TRIM(med_protests.codMedida)'), '');
+
+            if (!empty($constructionCodes)) {
+                $q->orWhereNotIn(DB::raw('UPPER(TRIM(med_protests.codMedida))'), $constructionCodes);
+            } else {
+                $q->orWhereNotNull('med_protests.codMedida');
+            }
         });
     }
 
