@@ -2,12 +2,14 @@
 
 namespace App\Http\Livewire\Partner\Count;
 
-use App\Models\Note;
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Viability;
 use Livewire\Component;
 
 class Rejectedanswercount extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public function getCountProperty()
     {
         $query = Viability::query()->where('rejected', true)
@@ -25,6 +27,8 @@ class Rejectedanswercount extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
         return $query->count();
 

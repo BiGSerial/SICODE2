@@ -65,4 +65,9 @@ class AdminController extends Controller
     {
         return view('admin.cancellation_categories');
     }
+
+    public function protest_measure_codes()
+    {
+        return view('admin.protest_measure_codes');
+    }
 }

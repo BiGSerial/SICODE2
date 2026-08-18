@@ -216,7 +216,7 @@ class UsuarioMass extends Component
         $actorLocks = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
         $primaryServiceId = $this->resolvePrimaryServiceId();
 
-        if (!$primaryServiceId) {
+        if ($this->selectedContractHasServices() && !$primaryServiceId) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -418,6 +418,18 @@ class UsuarioMass extends Component
         }
 
         return null;
+    }
+
+    private function selectedContractHasServices(): bool
+    {
+        if (!$this->contract) {
+            return false;
+        }
+
+        return Contract::query()
+            ->whereKey($this->contract)
+            ->whereHas('services')
+            ->exists();
     }
 
     private function syncUserServices(User $user): void

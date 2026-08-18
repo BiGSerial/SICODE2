@@ -22,4 +22,9 @@ class Andresscompany extends Model
     {
         return $this->belongsTo(Company::class)->withTrashed();
     }
+
+    public function partnerUserBranches()
+    {
+        return $this->hasMany(PartnerUserBranch::class, 'branch_id');
+    }
 }

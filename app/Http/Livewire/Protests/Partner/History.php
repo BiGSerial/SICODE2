@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Protests\Partner;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\ProtestJob;
 use App\Models\User;
 use App\Traits\WildcardFormmater;
@@ -13,6 +14,7 @@ use Livewire\WithPagination;
 
 class History extends Component
 {
+    use AuthorizesPartnerAccess;
     use WildcardFormmater;
     use WithPagination;
 
@@ -62,6 +64,8 @@ class History extends Component
             ])
             ->whereIn('owner_id', $userIds)
             ->whereNotNull('closed_at');
+
+        $this->applyPartnerBranchScopeToProtestJobs($query);
 
         $query->when($this->search, function ($q) {
             $term = $this->formatWithWildcard($this->search);

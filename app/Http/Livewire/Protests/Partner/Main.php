@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Protests\Partner;
 
 use App\Exports\Protests\OpenProtestJobsExport;
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\ProtestJob;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -10,6 +11,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class Main extends Component
 {
+    use AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -34,7 +36,7 @@ class Main extends Component
      */
     protected function baseQuery()
     {
-        return ProtestJob::query()
+        $query = ProtestJob::query()
             ->open() // scopeOpen do modelo
             ->where('owner_id', auth()->id())
             ->with([
@@ -61,6 +63,8 @@ class Main extends Component
             ->orderByDesc('priority')
             ->orderBy('sla_due_at')
             ->orderByDesc('sent_at');
+
+        return $this->applyPartnerBranchScopeToProtestJobs($query);
     }
 
     /** Lista paginada */
@@ -77,7 +81,10 @@ class Main extends Component
      */
     public function accept(int $jobId): void
     {
-        $job = ProtestJob::where('owner_id', auth()->id())->findOrFail($jobId);
+        $query = ProtestJob::query()->where('owner_id', auth()->id());
+        $this->applyPartnerBranchScopeToProtestJobs($query);
+
+        $job = $query->findOrFail($jobId);
 
         $job->accept();
 
@@ -90,7 +97,10 @@ class Main extends Component
      */
     public function open(int $jobId): void
     {
-        $job = ProtestJob::where('owner_id', auth()->id())->findOrFail($jobId);
+        $query = ProtestJob::query()->where('owner_id', auth()->id());
+        $this->applyPartnerBranchScopeToProtestJobs($query);
+
+        $job = $query->findOrFail($jobId);
 
         $this->emitTo('protests.dispatch.actions.view-protest-job', 'open', $job->id);
     }

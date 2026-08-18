@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class Todoviability extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -73,6 +74,8 @@ class Todoviability extends Component
      */
     public function export_excel()
     {
+        $this->authorizePartnerAccess('viability.export');
+
         $rows = $this->listsQuery()->get();
 
         $fileName = now()->format('YmdHis') . '-exportViabilityPartner.xlsx';
@@ -85,6 +88,8 @@ class Todoviability extends Component
      */
     public function downloadFile(int $id)
     {
+        $this->authorizePartnerAccess('viability.view_files');
+
         $file = File::find($id);
         if (!$file) {
             return;
@@ -117,6 +122,8 @@ class Todoviability extends Component
      */
     public function downloadZip()
     {
+        $this->authorizePartnerAccess('viability.view_files');
+
         if (!count($this->files_selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -248,6 +255,8 @@ class Todoviability extends Component
                 }
             });
         }
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
         // Carrega só o que a view usa
         $query->with([

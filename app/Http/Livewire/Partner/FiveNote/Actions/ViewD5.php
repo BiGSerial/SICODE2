@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Partner\FiveNote\Actions;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\EvidenceFile;
 use App\Models\FiveNote;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +11,8 @@ use Livewire\Component;
 
 class ViewD5 extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public $five;
     public $hasEvidence = false;
 
@@ -28,7 +31,13 @@ class ViewD5 extends Component
 
     public function getInfoResponse(FiveNote $five)
     {
-        $this->five = $five;
+        $this->authorizePartnerAccess('d5_notes.show');
+
+        $query = FiveNote::query()->whereKey($five->id);
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToFiveNotes($query);
+
+        $this->five = $query->firstOrFail();
 
         if ($this->five) {
             $this->dispatchBrowserEvent('showModal', [
@@ -39,6 +48,8 @@ class ViewD5 extends Component
 
     public function dowloadFile(EvidenceFile $file)
     {
+        $this->authorizePartnerAccess('d5_notes.show');
+
         // dd(Storage::fileExists('public/'.$file->path));
 
         if (Storage::fileExists('public/'.$file->path)) {
@@ -57,6 +68,8 @@ class ViewD5 extends Component
 
     public function deleteFile(EvidenceFile $file)
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         if ($file) {
             $file->delete();
             $this->dispatchBrowserEvent('torrada', [
@@ -74,6 +87,8 @@ class ViewD5 extends Component
 
     public function finishD5()
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
@@ -92,6 +107,8 @@ class ViewD5 extends Component
 
     public function toSave(): void
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         $this->emitTo('files.evidence.upload-evidence', 'saveEvidences');
     }
 
@@ -103,6 +120,8 @@ class ViewD5 extends Component
 
     public function finish()
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         DB::beginTransaction();
 
         try {

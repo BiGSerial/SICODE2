@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Services\Desenho\Forms;
 
 use App\Helpers\SelectOptions;
-use App\Models\{ExternalOrganRelease, File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim, User};
+use App\Models\{Entity, EntityType, External, ExternalOrganRelease, File, Note, Notetimeline, Production, ProjectReviewCycle, ProjectReviewFinding, ProjectReviewMessage, Reclaim, User};
 use App\Notifications\SystemNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -125,6 +125,8 @@ class Analise extends Component
     public string $modalContext = 'finish';
     public bool $hasProjectReviewCycles = false;
     public string $externalOrganDependency = '';
+    public string $selectedExternalEntityTypeId = '';
+    public array $selectedExternalEntityIds = [];
 
 
     // Files
@@ -182,6 +184,14 @@ class Analise extends Component
             ->find($productionId);
         $this->note = $this->production?->Note ?: Note::find($noteId);
         $this->externalOrganDependency = (bool) ($this->note->doe ?? false) ? 'SIM' : '';
+        $this->selectedExternalEntityIds = $this->note
+            ? $this->note->Externals()
+                ->whereNotNull('entity_id')
+                ->pluck('entity_id')
+                ->map(fn ($id) => (string) $id)
+                ->all()
+            : [];
+        $this->selectedExternalEntityTypeId = $this->defaultExternalEntityTypeId();
         $this->hasProjectReviewCycles = ((int) ($this->production->project_review_cycles_count ?? 0)) > 0;
 
         if ($isViewOnlyRequest && !$this->canOpenProjectReviewReadonly()) {
@@ -423,6 +433,38 @@ class Analise extends Component
         $conclusion = mb_strtoupper(trim((string) $this->conclusion));
 
         return $conclusion !== 'LIBERACAO AUTOCAD ORGAO EXTERNO';
+    }
+
+    public function getExternalEntityOptionsProperty(): Collection
+    {
+        return Entity::query()
+            ->select(['id', 'name', 'nick'])
+            ->when($this->selectedExternalEntityTypeId !== '', function ($query) {
+                $query->where('entity_type_id', (int) $this->selectedExternalEntityTypeId);
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function getExternalEntityTypeOptionsProperty(): Collection
+    {
+        return EntityType::query()
+            ->select(['id', 'name'])
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function updatedExternalOrganDependency($value): void
+    {
+        if ($value !== 'SIM') {
+            $this->selectedExternalEntityTypeId = '';
+            $this->selectedExternalEntityIds = [];
+        }
+    }
+
+    public function updatedSelectedExternalEntityTypeId(): void
+    {
+        $this->selectedExternalEntityIds = [];
     }
 
     private function preResultRequiresProjectReview(): bool
@@ -721,6 +763,17 @@ class Analise extends Component
             return false;
         }
 
+        if ($this->externalOrganDependency === 'SIM' && empty($this->normalizedSelectedExternalEntityIds())) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ÓRGÃO EXTERNO NÃO INFORMADO',
+                'html'     => 'Selecione ao menos uma entidade externa antes de concluir.',
+            ]);
+
+            return false;
+        }
+
         return true;
     }
 
@@ -735,6 +788,8 @@ class Analise extends Component
         $this->note->update([
             'doe' => $dependsOnExternalOrgan,
         ]);
+
+        $this->syncExternalEntitiesForDependency($dependsOnExternalOrgan);
 
         if ((int) ($this->note->type_note ?? 0) !== 2) {
             return;
@@ -764,6 +819,115 @@ class Analise extends Component
             ->whereNull('exported_at')
             ->whereNull('released_at')
             ->delete();
+    }
+
+    private function syncExternalEntitiesForDependency(bool $dependsOnExternalOrgan): void
+    {
+        if (!$this->note) {
+            return;
+        }
+
+        $selectedIds = $dependsOnExternalOrgan
+            ? $this->normalizedSelectedExternalEntityIds()
+            : [];
+
+        $validEntities = Entity::query()
+            ->whereIn('id', $selectedIds)
+            ->get(['id', 'nick', 'name'])
+            ->keyBy('id');
+
+        foreach ($validEntities as $entity) {
+            $external = External::query()->firstOrNew([
+                'note_id' => $this->note->id,
+                'entity_id' => $entity->id,
+            ]);
+
+            $external->user_id = $external->user_id ?: auth()->id();
+            $external->entidade = $entity->nick ?: $entity->name;
+
+            if (!$external->exists) {
+                $external->status = '1';
+                $external->completed = false;
+            }
+
+            $external->save();
+        }
+
+        $this->note->Externals()
+            ->whereNotNull('entity_id')
+            ->whereNotIn('entity_id', $validEntities->keys()->all())
+            ->whereDoesntHave('Protocols')
+            ->whereDoesntHave('Comments')
+            ->whereDoesntHave('PoolPayments')
+            ->whereDoesntHave('Reclaims')
+            ->whereDoesntHave('Files')
+            ->delete();
+    }
+
+    private function applyExternalOrganInfoToAdditionalInfo(): void
+    {
+        if ($this->externalOrganDependency === 'SIM') {
+            $entities = $this->selectedExternalEntityNamesForInfo();
+
+            if ($entities === '') {
+                return;
+            }
+
+            $info = preg_replace('/^\s*Órgão Externo:.*(?:\R|$)/mu', '', (string) $this->info) ?? '';
+            $info = rtrim($info);
+            $line = 'Órgão Externo: ' . $entities;
+            $this->info = $info === '' ? $line : $info . "\n" . $line;
+
+            return;
+        }
+
+        $info = preg_replace('/^\s*Órgão Externo:.*(?:\R|$)/mu', '', (string) $this->info) ?? '';
+        $this->info = rtrim($info);
+    }
+
+    private function selectedExternalEntityNamesForInfo(): string
+    {
+        $selectedIds = $this->normalizedSelectedExternalEntityIds();
+
+        if (empty($selectedIds)) {
+            return '';
+        }
+
+        return Entity::query()
+            ->whereIn('id', $selectedIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'nick'])
+            ->map(fn ($entity) => trim(($entity->nick ? $entity->nick . ' - ' : '') . (string) $entity->name))
+            ->filter()
+            ->implode('; ');
+    }
+
+    private function defaultExternalEntityTypeId(): string
+    {
+        $selectedIds = $this->normalizedSelectedExternalEntityIds();
+
+        if (empty($selectedIds)) {
+            return '';
+        }
+
+        $typeIds = Entity::query()
+            ->whereIn('id', $selectedIds)
+            ->pluck('entity_type_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $typeIds->count() === 1 ? (string) $typeIds->first() : '';
+    }
+
+    private function normalizedSelectedExternalEntityIds(): array
+    {
+        return collect($this->selectedExternalEntityIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function shouldCreateExternalOrganRelease(): bool
@@ -1388,6 +1552,7 @@ class Analise extends Component
 
     public function to_finish(Production $production)
     {
+        $this->applyExternalOrganInfoToAdditionalInfo();
         $this->save_info();
         $this->production = $production;
         $this->note       = Note::find($this->production->note_id);
@@ -1831,6 +1996,8 @@ class Analise extends Component
         $this->allowProjectReviewHistory = false;
         $this->hasProjectReviewCycles = false;
         $this->externalOrganDependency = '';
+        $this->selectedExternalEntityTypeId = '';
+        $this->selectedExternalEntityIds = [];
 
 
     }
@@ -1883,6 +2050,8 @@ class Analise extends Component
         $this->allowProjectReviewHistory = false;
         $this->hasProjectReviewCycles = false;
         $this->externalOrganDependency = '';
+        $this->selectedExternalEntityTypeId = '';
+        $this->selectedExternalEntityIds = [];
 
     }
 

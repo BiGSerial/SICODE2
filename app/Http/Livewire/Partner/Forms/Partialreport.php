@@ -16,6 +16,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Partialreport extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithFileUploads;
 
     public $search;
@@ -181,6 +182,7 @@ class Partialreport extends Component
 
     public function save()
     {
+        $this->authorizePartnerAccess('partial_reports.create');
 
         $newName = "ADS_IPARC_".$this->note->note;
         $newName = $newName."_N".str_pad((File::where('file_name', 'like', $newName."%")->count() + 1), 3, '0', STR_PAD_LEFT);

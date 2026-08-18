@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note};
 use Illuminate\Support\Facades\{Crypt, Storage};
@@ -10,6 +11,7 @@ use ZipArchive;
 
 class Hiredviability extends Component
 {
+    use AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -47,6 +49,8 @@ class Hiredviability extends Component
 
     public function downloadFile($id)
     {
+        $this->authorizePartnerAccess('viability.view_files');
+
         if ($file = File::find($id)) {
 
             if (Storage::disk('local')->exists($file->path)) {
@@ -57,6 +61,8 @@ class Hiredviability extends Component
 
     public function openForms($id)
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         if ($id) {
 
             return redirect()->route('forms.viability', ['id' => Crypt::encrypt($id)]);
@@ -65,6 +71,8 @@ class Hiredviability extends Component
 
     public function downloadZip()
     {
+        $this->authorizePartnerAccess('viability.view_files');
+
         if (count($this->files_selected)) {
             $files = File::find($this->files_selected);
 
@@ -150,6 +158,8 @@ class Hiredviability extends Component
 
             $query->whereIn('lexp', $this->filter['city']);
         }
+
+        $this->applyPartnerBranchScopeToNotes($query);
 
         return $query->paginate($this->perPage);
     }

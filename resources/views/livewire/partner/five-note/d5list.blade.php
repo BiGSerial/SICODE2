@@ -1,3 +1,7 @@
+@php
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+@endphp
+
 <div class="d5list-page">
     {{-- Carrega o Loading da pagina --}}
     <x-show-loading />
@@ -235,9 +239,11 @@
                         <div class="filter-card h-100">
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <h6 class="mb-0">Acoes e exibicao</h6>
-                                <button type="button" class="btn btn-outline-primary" wire:click="exportExcel">
-                                    <i class="ri-download-2-line me-1"></i> Exportar Excel
-                                </button>
+                                @if ($partnerCan('d5_notes.export'))
+                                    <button type="button" class="btn btn-outline-primary" wire:click="exportExcel">
+                                        <i class="ri-download-2-line me-1"></i> Exportar Excel
+                                    </button>
+                                @endif
                             </div>
                             <div class="row g-2 align-items-end">
                                 <div class="col-12 col-md-7">
@@ -358,7 +364,7 @@
                                     <td class="text-center">{{ $five->company?->name }}</td>
                                     <td class="text-center">
                                         <button class="btn btn-sm btn-success"
-                                            wire:click="$emitTo('partner.five-note.actions.finish-d5', 'getInfoResponse', {{ $five->id }})">
+                                            @if ($partnerCan('d5_notes.finish')) wire:click="$emitTo('partner.five-note.actions.finish-d5', 'getInfoResponse', {{ $five->id }})" @endif>
                                             <i class="ri-play-line"></i>
                                         </button>
                                     </td>

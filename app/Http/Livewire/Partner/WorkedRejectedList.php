@@ -10,6 +10,7 @@ use Livewire\WithPagination;
 
 class WorkedRejectedList extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -62,14 +63,18 @@ class WorkedRejectedList extends Component
 
     public function openRejectDetails(int $workReportId, ?int $startIndex = null)
     {
-        $workReport = WorkReport::query()
+        $query = WorkReport::query()
             ->when(!Auth()->User()->superadm, function ($q) {
                 $q->where(function ($subQuery) {
                     $subQuery->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
                         ->orWhere('company_id', Auth()->user()->Company->id);
                 });
-            })
-            ->where('rejected', true)
+            });
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $workReport = $query
+            ->pendingRejectedForPartner()
             ->with([
                 'Note',
                 'Company',
@@ -139,6 +144,8 @@ class WorkedRejectedList extends Component
                 });
             });
 
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
         $searchTerms = $this->parseSearchTerms($this->search);
         if (!empty($searchTerms)) {
             $query->where(function ($subQuery) use ($searchTerms) {
@@ -159,14 +166,7 @@ class WorkedRejectedList extends Component
                 ->latest('created_at')
                 ->limit(1),
         ])
-        ->where('rejected', true)
-        ->whereDoesntHave('Note', function ($q) {
-            $q->whereIn('nstats', [55])
-                ->orWhere(function ($q) {
-                    $q->where('nstats', 99)
-                        ->where('type_note', 1);
-                });
-        })
+        ->pendingRejectedForPartner()
         ->with([
             'Note',
             'Orders',
@@ -195,13 +195,17 @@ class WorkedRejectedList extends Component
 
     public function reinform(int $workReportId)
     {
-        $workReport = WorkReport::when(!Auth()->User()->superadm, function ($q) {
+        $query = WorkReport::query()->when(!Auth()->User()->superadm, function ($q) {
             $q->where(function ($query) {
                 $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
                     ->orWhere('company_id', Auth()->user()->Company->id);
             });
-        })
-            ->where('rejected', true)
+        });
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $workReport = $query
+            ->pendingRejectedForPartner()
             ->findOrFail($workReportId);
 
         $token = Str::random(48);

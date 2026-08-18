@@ -199,10 +199,13 @@
                                         <strong>Atividades liberadas</strong>
                                     </div>
                                     <div class="card-body">
+                                        @php
+                                            $hasAvailableServices = $this->serviceList && $this->serviceList->count();
+                                        @endphp
                                         <div class="row g-2 mb-3">
                                             <div class="col-9">
-                                                <select class="form-select" wire:model.defer="serviceSelect">
-                                                    <option value="">Selecione atividade</option>
+                                                <select class="form-select" wire:model.defer="serviceSelect" @disabled(!$hasAvailableServices)>
+                                                    <option value="">{{ $hasAvailableServices ? 'Selecione atividade' : 'Contrato sem atividade cadastrada' }}</option>
                                                     @if ($this->serviceList)
                                                         @foreach ($this->serviceList as $sList)
                                                             <option value="{{ $sList->uuid }}">{{ $sList->service }}</option>
@@ -211,7 +214,7 @@
                                                 </select>
                                             </div>
                                             <div class="col-3 d-grid">
-                                                <button type="button" class="btn btn-success" wire:click="addService"><i class="ri-add-line"></i> Adicionar</button>
+                                                <button type="button" class="btn btn-success" wire:click="addService" @disabled(!$hasAvailableServices)><i class="ri-add-line"></i> Adicionar</button>
                                             </div>
                                         </div>
 

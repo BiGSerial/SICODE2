@@ -10,6 +10,7 @@ use Livewire\WithPagination;
 
 class PartialList extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
     protected $paginationTheme = 'bootstrap';
 
@@ -62,6 +63,8 @@ class PartialList extends Component
             $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
             ->orWhere('company_id', Auth()->user()->Company->id);
         }
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
         if ($this->search) {
             $query->whereRelation('Note', 'note', 'like', '%' . trim($this->search) . '%')

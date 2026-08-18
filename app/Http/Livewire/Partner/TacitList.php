@@ -10,6 +10,7 @@ use Livewire\WithPagination;
 
 class TacitList extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -39,6 +40,7 @@ class TacitList extends Component
 
     public function export_excel()
     {
+        $this->authorizePartnerAccess('viability.export');
 
     }
 
@@ -68,6 +70,8 @@ class TacitList extends Component
             }
         }
 
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
         if ($this->search) {
             $query->where(function ($q) {
                 $q->whereRelation('Note', 'note', $this->search)
@@ -92,6 +96,7 @@ class TacitList extends Component
 
     public function downloadFile($id)
     {
+        $this->authorizePartnerAccess('viability.view_files');
 
 
         if ($file = File::find($id)) {

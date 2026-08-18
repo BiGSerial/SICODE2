@@ -107,6 +107,21 @@ class Company extends Model
         return $query->whereNull('parent_id');
     }
 
+    public function partnerRole()
+    {
+        return $this->hasOne(PartnerRole::class);
+    }
+
+    public function partnerPermissionGrants()
+    {
+        return $this->hasMany(PartnerCompanyPermissionGrant::class);
+    }
+
+    public function partnerUserBranches()
+    {
+        return $this->hasMany(PartnerUserBranch::class);
+    }
+
     public function scopeLinkedToService(Builder $query, string $serviceUuid): Builder
     {
         return $query->whereHas('contracts.services', function (Builder $serviceQuery) use ($serviceUuid) {

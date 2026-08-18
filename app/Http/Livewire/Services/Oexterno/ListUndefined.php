@@ -105,6 +105,7 @@ class ListUndefined extends Component
     public function baseQuery()
     {
         return External::query()
+            ->withoutPendingExternalOrganRelease()
             ->select([
                 'externals.id',
                 'externals.note_id',

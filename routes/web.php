@@ -67,6 +67,10 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
         Route::get('/', 'cancellation_categories')->name('main');
     });
 
+    Route::prefix('/protests')->name('protests.')->group(function () {
+        Route::get('/measure-codes', 'protest_measure_codes')->name('measure_codes');
+    });
+
     Route::prefix('/audits')->name('audits.')->group(function () {
         Route::get('/notes', 'audit_notes')->name('notes');
     });
@@ -254,7 +258,9 @@ Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middlewar
 });
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
-    Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)->name('viability');
+    Route::get('/viability/{id?}', App\Http\Livewire\Partner\Forms\Viability::class)
+        ->middleware('partner.permission:viability.respond')
+        ->name('viability');
 });
 
 Route::prefix('/testes')->controller(TesteController::class)->name('tests.')->group(function () {
@@ -350,29 +356,46 @@ Route::prefix('/project-review')->controller(ProjectReviewController::class)->mi
 });
 
 // Partners Route's
+Route::prefix('/partner/admin')
+    ->controller(\App\Http\Controllers\PartnerAdminController::class)
+    ->name('partner.admin.')
+    ->middleware(['auth', 'partner.permission:admin_panel.access'])
+    ->group(function () {
+        Route::get('/users', 'users')->middleware('partner.permission:admin_users.view')->name('users');
+        Route::get('/users/create', 'createUser')->middleware('partner.permission:admin_users.create')->name('users.create');
+        Route::post('/users', 'storeUser')->middleware('partner.permission:admin_users.create')->name('users.store');
+        Route::get('/users/import-template', 'importTemplate')->middleware('partner.permission:admin_users.template_export')->name('users.import_template');
+        Route::post('/users/import-preview', 'previewImport')->middleware('partner.permission:admin_users.bulk_import')->name('users.import.preview');
+        Route::post('/users/import-confirm', 'confirmImport')->middleware('partner.permission:admin_users.bulk_import')->name('users.import.confirm');
+        Route::get('/users/{user}/edit', 'editUser')->middleware('partner.permission:admin_users.update')->name('users.edit');
+        Route::put('/users/{user}', 'updateUser')->middleware('partner.permission:admin_users.update')->name('users.update');
+        Route::delete('/users/{user}', 'disableUser')->middleware('partner.permission:admin_users.disable')->name('users.disable');
+        Route::get('/audit', 'auditEvents')->middleware('partner.permission:admin_audit.view')->name('audit');
+    });
+
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->name('main.viability');
-    Route::get('/search-notes', 'searchNotes')->name('search.notes');
-    Route::get('/todo-viability', 'viability')->name('todo.viability');
+    Route::get('/', 'main')->middleware('partner.permission:portal.access')->name('main.viability');
+    Route::get('/search-notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes');
+    Route::get('/todo-viability', 'viability')->middleware('partner.permission:viability.list')->name('todo.viability');
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
-    Route::get('/historic-viability', 'historic_viab')->name('hist.viability');
-    Route::get('/workreport', 'workreport')->name('report.workreport');
-    Route::get('/workedlist', 'workedlist')->name('report.workedlist');
-    Route::get('/rejectedWorked', 'rejectedWorked')->name('report.rejectedWorked');
-    Route::get('/rejectedWorked/reinform/{token}', 'reinformWorkreport')->name('report.reinformWorkreport');
-    Route::get('/rejected_viability_list', 'rejectedViabList')->name('rejected.viability');
-    Route::get('/tacit_viab_list', 'tacitViabList')->name('tacit.viability');
-    Route::get('/declared_eqipment', 'declaredEquipment')->name('declared.equipment');
-    Route::get('/partialreport', 'partialreport')->name('report.partial');
-    Route::get('/partialreportlist', 'partialreportlist')->name('report.partiallist');
-    Route::get('/send_ads_form', 'sendAdsForm')->name('report.sendAdsForm');
-    Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
-    Route::get('/search_notes', 'searchNotes')->name('search.notes.legacy');
+    Route::get('/historic-viability', 'historic_viab')->middleware('partner.permission:viability.history')->name('hist.viability');
+    Route::get('/workreport', 'workreport')->middleware('partner.permission:conclusion_reports.create')->name('report.workreport');
+    Route::get('/workedlist', 'workedlist')->middleware('partner.permission:conclusion_reports.list')->name('report.workedlist');
+    Route::get('/rejectedWorked', 'rejectedWorked')->middleware('partner.permission:conclusion_reports.rejected')->name('report.rejectedWorked');
+    Route::get('/rejectedWorked/reinform/{token}', 'reinformWorkreport')->middleware('partner.permission:conclusion_reports.reinform')->name('report.reinformWorkreport');
+    Route::get('/rejected_viability_list', 'rejectedViabList')->middleware('partner.permission:viability.rejected')->name('rejected.viability');
+    Route::get('/tacit_viab_list', 'tacitViabList')->middleware('partner.permission:viability.tacit')->name('tacit.viability');
+    Route::get('/declared_eqipment', 'declaredEquipment')->middleware('partner.permission:conclusion_reports.equipment')->name('declared.equipment');
+    Route::get('/partialreport', 'partialreport')->middleware('partner.permission:partial_reports.create')->name('report.partial');
+    Route::get('/partialreportlist', 'partialreportlist')->middleware('partner.permission:partial_reports.list')->name('report.partiallist');
+    Route::get('/send_ads_form', 'sendAdsForm')->middleware('partner.permission:conclusion_reports.ads_delivery')->name('report.sendAdsForm');
+    Route::get('/ads_requests', 'adsRequests')->middleware('partner.permission:conclusion_reports.ads_requests')->name('ads.requests');
+    Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
-        Route::get('/list', 'partner_d5_list')->name('list');
-        Route::get('/returned', 'partner_d5_returned')->name('returned');
-        Route::get('/historic', 'partner_d5_historic')->name('historic');
+        Route::get('/list', 'partner_d5_list')->middleware('partner.permission:d5_notes.list')->name('list');
+        Route::get('/returned', 'partner_d5_returned')->middleware('partner.permission:d5_notes.returned')->name('returned');
+        Route::get('/historic', 'partner_d5_historic')->middleware('partner.permission:d5_notes.history')->name('historic');
     });
 });
 
@@ -425,10 +448,10 @@ Route::prefix('/protests')->controller(ProtestController::class)->name('protests
     });
 
     Route::prefix('/partner')->name('partner.')->group(function () {
-        Route::get('/', 'partner_main')->name('main');
-        Route::get('/view/{medProtestId}', 'partner_view')->name('view');
-        Route::get('/view_only/{medProtestId}', 'partner_view_only')->name('view_only');
-        Route::get('/history', 'partner_history')->name('history');
+        Route::get('/', 'partner_main')->middleware('partner.permission:complaints.index')->name('main');
+        Route::get('/view/{medProtestId}', 'partner_view')->middleware('partner.permission:complaints.show')->name('view');
+        Route::get('/view_only/{medProtestId}', 'partner_view_only')->middleware('partner.permission:complaints.show')->name('view_only');
+        Route::get('/history', 'partner_history')->middleware('partner.permission:complaints.history')->name('history');
 
     });
 

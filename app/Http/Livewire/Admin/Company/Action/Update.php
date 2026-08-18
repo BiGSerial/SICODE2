@@ -8,8 +8,10 @@ use App\Models\Andresscompany;
 use App\Models\Centerjob;
 use App\Models\Company;
 use App\Models\Contract;
+use App\Models\PartnerCompanyPermissionGrant;
 use App\Models\Service;
 use App\Services\Admin\Company\UserRegistrationWorkbookService;
+use App\Services\PartnerAccess\PartnerPermissionCatalog;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -47,6 +49,8 @@ class Update extends Component
     public $branchAttachId = '';
     public $registrationWorkbook;
     public array $registrationValidation = [];
+    public array $partnerGrantPermissions = [];
+    public bool $partnerGrantConfigured = false;
 
     protected $listeners = [
         'refreshlist' => '$refresh',
@@ -131,6 +135,7 @@ class Update extends Component
         $this->photo3 = null;
         $this->resetContractForm();
         $this->resetBranchForm();
+        $this->loadPartnerGrantPermissions();
 
         // dd($this->company);
 
@@ -541,6 +546,7 @@ class Update extends Component
 
 
         if ($this->company) {
+            $this->savePartnerPermissionGrants();
 
             for ($i = 0; $i < 4; $i++) {
                 $photo = $this->title_img($i);
@@ -588,10 +594,16 @@ class Update extends Component
         return asset('img/edp-img/edp-avatar.jpg');
     }
 
+    public function permissionInputKey(string $permissionKey): string
+    {
+        return str_replace('.', '__', $permissionKey);
+    }
+
 
     public function render()
     {
         return view('livewire.admin.company.action.update', [
+            'partnerPermissionCatalog' => PartnerPermissionCatalog::groups(),
             'services_l' => Service::query()
                 ->when($this->contractService && !$this->contractConstruction, fn ($q) => $q->where('project', true))
                 ->when($this->contractConstruction && !$this->contractService, fn ($q) => $q->where('construction', true))
@@ -648,6 +660,7 @@ class Update extends Component
 
         $this->company = Company::with('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services')->find($this->company->id);
         $this->addresses = $this->company?->Address ?? [];
+        $this->loadPartnerGrantPermissions();
     }
 
     private function resetBranchForm(): void
@@ -658,5 +671,64 @@ class Update extends Component
         $this->showBranchForm = false;
         $this->branchSearch = '';
         $this->branchAttachId = '';
+    }
+
+    private function loadPartnerGrantPermissions(): void
+    {
+        $root = $this->partnerPermissionCompany();
+
+        if (!$root) {
+            $this->partnerGrantConfigured = false;
+            $this->partnerGrantPermissions = [];
+
+            return;
+        }
+
+        $grants = PartnerCompanyPermissionGrant::query()
+            ->where('company_id', $root->id)
+            ->get()
+            ->keyBy('permission_key');
+
+        $this->partnerGrantConfigured = $grants->isNotEmpty();
+        $this->partnerGrantPermissions = [];
+
+        foreach (PartnerPermissionCatalog::allPermissionKeys() as $permissionKey) {
+            $this->partnerGrantPermissions[$this->permissionInputKey($permissionKey)] = $this->partnerGrantConfigured
+                ? (bool) ($grants->get($permissionKey)?->enabled ?? false)
+                : true;
+        }
+    }
+
+    private function savePartnerPermissionGrants(): void
+    {
+        $root = $this->partnerPermissionCompany();
+
+        if (!$root) {
+            return;
+        }
+
+        foreach (PartnerPermissionCatalog::allPermissionKeys() as $permissionKey) {
+            PartnerCompanyPermissionGrant::query()->updateOrCreate(
+                [
+                    'company_id' => $root->id,
+                    'permission_key' => $permissionKey,
+                ],
+                [
+                    'scope_type' => array_key_exists($permissionKey, PartnerPermissionCatalog::groups()) ? 'group' : 'item',
+                    'enabled' => (bool) ($this->partnerGrantPermissions[$this->permissionInputKey($permissionKey)] ?? false),
+                ]
+            );
+        }
+
+        $this->partnerGrantConfigured = true;
+    }
+
+    private function partnerPermissionCompany(): ?Company
+    {
+        if (!$this->company) {
+            return null;
+        }
+
+        return $this->company->parent ?: $this->company;
     }
 }

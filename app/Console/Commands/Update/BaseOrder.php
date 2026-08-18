@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class BaseOrder extends Command
@@ -70,6 +71,7 @@ class BaseOrder extends Command
         $globalUpdated = 0;
         $globalCancelled = 0;
         $globalErrors = 0;
+        $canUseUpsert = $this->canUseSafeUpsert();
 
         Edp_depcBaseOrder::query()
             ->orderBy('id')
@@ -79,7 +81,8 @@ class BaseOrder extends Command
                 $bar,
                 &$globalCreated,
                 &$globalUpdated,
-                &$globalErrors
+                &$globalErrors,
+                $canUseUpsert
             ) {
                 // lookup de notes para o lote
                 $notesMap = Note::whereIn('note', $origins->pluck('ovNota')->filter()->unique())
@@ -114,9 +117,12 @@ class BaseOrder extends Command
                     $existing = Order::query()
                         ->whereIn('note_id', $noteIds)
                         ->whereIn('ordem', $ordens)
-                        ->get(['note_id','ordem']);
+                        ->orderBy('id')
+                        ->get(['id','note_id','ordem'])
+                        ->groupBy(fn ($r) => $r->note_id.'|'.$r->ordem)
+                        ->map(fn ($orders) => $orders->first());
 
-                    $existingMap = $existing->keyBy(fn ($r) => $r->note_id.'|'.$r->ordem);
+                    $existingMap = $existing;
                 }
 
                 // montar upsert em lote e contar created/updated
@@ -167,16 +173,18 @@ class BaseOrder extends Command
 
                     // contabilização prévia: se existe o par, será "update"; senão, "create"
                     $pairKey = $noteId.'|'.$ordemStr;
-                    if (isset($existingMap[$pairKey])) {
+                    $existing = $existingMap->get($pairKey);
+                    if ($existing) {
                         $globalUpdated++;
                     } else {
                         $globalCreated++;
                     }
 
+                    $row['_existing_id'] = $existing?->id;
                     $bucket[$pairKey] = $row;
 
                     if (count($bucket) >= $upsertBatchSize) {
-                        Order::upsert(array_values($bucket), ['note_id','ordem'], $updateColumns);
+                        $this->persistOrderRows(array_values($bucket), $updateColumns, $canUseUpsert);
                         $bucket = [];
                     }
 
@@ -184,7 +192,7 @@ class BaseOrder extends Command
                 }
 
                 if (!empty($bucket)) {
-                    Order::upsert(array_values($bucket), ['note_id','ordem'], $updateColumns);
+                    $this->persistOrderRows(array_values($bucket), $updateColumns, $canUseUpsert);
                 }
             });
 
@@ -223,5 +231,79 @@ class BaseOrder extends Command
         // Se quiser considerar "00123" == "123", descomente:
         // $v = ltrim($v, '0'); if ($v === '') $v = '0';
         return $v;
+    }
+
+    private function canUseSafeUpsert(): bool
+    {
+        if (!$this->indexExists('orders', 'uniq_note_ordem')) {
+            $this->warn('Blindagem: uniq_note_ordem nao existe. O comando usara escrita manual por id para nao duplicar ordens.');
+
+            return false;
+        }
+
+        $duplicatePairs = Order::query()
+            ->select('note_id', 'ordem')
+            ->groupBy('note_id', 'ordem')
+            ->havingRaw('COUNT(*) > 1')
+            ->limit(1)
+            ->exists();
+
+        if ($duplicatePairs) {
+            $this->warn('Blindagem: existem ordens duplicadas por note_id/ordem. O comando atualizara apenas o registro canonico de menor id e nao usara upsert.');
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function persistOrderRows(array $rows, array $updateColumns, bool $canUseUpsert): void
+    {
+        if (empty($rows)) {
+            return;
+        }
+
+        if ($canUseUpsert) {
+            Order::upsert(
+                array_map(fn (array $row) => $this->withoutInternalColumns($row), $rows),
+                ['note_id','ordem'],
+                $updateColumns
+            );
+
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $existingId = $row['_existing_id'] ?? null;
+            $row = $this->withoutInternalColumns($row);
+
+            if ($existingId) {
+                $updates = [];
+                foreach ($updateColumns as $column) {
+                    $updates[$column] = $row[$column] ?? null;
+                }
+
+                Order::whereKey($existingId)->update($updates);
+                continue;
+            }
+
+            Order::create($row);
+        }
+    }
+
+    private function withoutInternalColumns(array $row): array
+    {
+        unset($row['_existing_id']);
+
+        return $row;
+    }
+
+    private function indexExists(string $table, string $index): bool
+    {
+        return DB::table('information_schema.statistics')
+            ->where('table_schema', DB::getDatabaseName())
+            ->where('table_name', $table)
+            ->where('index_name', $index)
+            ->exists();
     }
 }

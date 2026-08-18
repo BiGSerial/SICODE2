@@ -355,7 +355,7 @@ class Usuario extends Component
         $effectiveLocks = $isSuperAdm ? $incomingLocks : $existingLocks;
         $primaryServiceId = $this->resolvePrimaryServiceId();
 
-        if (!$primaryServiceId) {
+        if ($this->selectedContractHasServices() && !$primaryServiceId) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -444,6 +444,18 @@ class Usuario extends Component
             ->first(fn ($service) => !empty($service['service_id']));
 
         return $temporaryService['service_id'] ?? null;
+    }
+
+    private function selectedContractHasServices(): bool
+    {
+        if (!$this->contract) {
+            return false;
+        }
+
+        return Contract::query()
+            ->whereKey($this->contract)
+            ->whereHas('services')
+            ->exists();
     }
 
     private function syncSelectedContractServices(): void

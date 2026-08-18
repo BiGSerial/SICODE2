@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Partner\Actions;
 
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Note;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
@@ -9,6 +10,8 @@ use Livewire\Component;
 
 class Responserviab extends Component
 {
+    use AuthorizesPartnerAccess;
+
     public ?Viability $viability = null;
     public $decision;
     public $responser;
@@ -23,7 +26,13 @@ class Responserviab extends Component
 
     public function getInfoResponse(Viability $viability)
     {
-        $this->viability = $viability;
+        $this->authorizePartnerAccess('viability.respond');
+
+        $query = Viability::query()->whereKey($viability->id);
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        $this->viability = $query->firstOrFail();
 
         if ($this->viability) {
             $this->dispatchBrowserEvent('showModal', [
@@ -54,6 +63,8 @@ class Responserviab extends Component
 
     public function toResponser()
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         if (!trim($this->responser) ||  !$this->decision) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -106,6 +117,8 @@ class Responserviab extends Component
 
     public function confirm_response()
     {
+        $this->authorizePartnerAccess('viability.respond');
+
         if ($this->decision === 'CONCORDAR') {
 
             // Acrescenta decisão da Empreiteira a mensagem postada.

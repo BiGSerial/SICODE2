@@ -242,12 +242,15 @@ class ReleasedWorks extends Component
             $note?->update([
                 'doe' => false,
             ]);
+
+            $this->removePendingExternalEntityLinks($note);
         });
 
         $this->selectedReleaseIds = array_values(array_diff(
             $this->selectedReleaseIds,
             [$releaseId, (string) $releaseId]
         ));
+        $this->tab = 'released';
         $this->resetPage();
 
         $this->dispatchBrowserEvent('swal', [
@@ -257,6 +260,23 @@ class ReleasedWorks extends Component
             'html'     => 'A obra foi removida do bloqueio de Órgão Externo e poderá seguir para aprovação de projeto.',
             'timer'    => 3200,
         ]);
+    }
+
+    private function removePendingExternalEntityLinks($note): void
+    {
+        if (!$note) {
+            return;
+        }
+
+        $note->Externals()
+            ->whereNotNull('entity_id')
+            ->where('completed', false)
+            ->whereDoesntHave('Protocols')
+            ->whereDoesntHave('Comments')
+            ->whereDoesntHave('PoolPayments')
+            ->whereDoesntHave('Reclaims')
+            ->whereDoesntHave('Files')
+            ->delete();
     }
 
     public function exportToExcel(): void
@@ -297,7 +317,16 @@ class ReleasedWorks extends Component
 
     public function getReleasesProperty()
     {
-        return $this->baseQuery()
+        $query = $this->baseQuery();
+
+        if ($this->tab === 'released') {
+            return $query
+                ->orderByDesc('released_at')
+                ->orderByDesc('id')
+                ->paginate($this->perPage);
+        }
+
+        return $query
             ->orderByRaw('exported_at IS NOT NULL')
             ->orderBy('created_at')
             ->paginate($this->perPage);
@@ -308,6 +337,8 @@ class ReleasedWorks extends Component
         $query = ExternalOrganRelease::query()
             ->with([
                 'note:id,note,client,lexp,rubrica,nstats,dt_status,dt_created,numPedido,type_note,centerjob',
+                'note.Externals:id,note_id,entity_id,entidade,completed',
+                'note.Externals.Entity:id,name,nick',
                 'production:id,note_id,user_id,company_id,service_id,completed_at,status',
                 'production.User:id,name',
                 'production.Company:id,name',
@@ -322,18 +353,19 @@ class ReleasedWorks extends Component
                 },
                 'exportedBy:id,name',
                 'releasedBy:id,name',
-            ])
-            ->eligibleForExternalOrganList();
+            ]);
 
         if ($this->tab === 'new') {
-            $query->whereNull('released_at')
+            $query->eligibleForExternalOrganList()
+                ->whereNull('released_at')
                 ->whereNull('exported_at')
                 ->whereHas('note', function ($q) {
                     $q->where('type_note', 2)
                         ->whereIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
                 });
         } elseif ($this->tab === 'exported') {
-            $query->whereNull('released_at')
+            $query->eligibleForExternalOrganList()
+                ->whereNull('released_at')
                 ->whereNotNull('exported_at')
                 ->whereHas('note', function ($q) {
                     $q->where('type_note', 2)
@@ -345,7 +377,8 @@ class ReleasedWorks extends Component
                     $q->where('type_note', 2);
                 });
         } elseif ($this->tab === 'cancel_90') {
-            $query->whereNull('released_at')
+            $query->eligibleForExternalOrganList()
+                ->whereNull('released_at')
                 ->whereHas('note', function ($q) {
                     $q->where('type_note', 2)
                         ->where('nstats', 70)
@@ -362,13 +395,15 @@ class ReleasedWorks extends Component
                         });
                 });
         } elseif ($this->tab === 'pending') {
-            $query->whereNull('released_at')
+            $query->eligibleForExternalOrganList()
+                ->whereNull('released_at')
                 ->whereHas('note', function ($q) {
                     $q->where('type_note', 2)
                         ->whereNotIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
                 });
         } else {
-            $query->whereNull('released_at')
+            $query->eligibleForExternalOrganList()
+                ->whereNull('released_at')
                 ->whereHas('note', function ($q) {
                     $q->where('type_note', 2)
                         ->whereIn('nstats', ExternalOrganRelease::TRACKED_STATUSES);
@@ -520,6 +555,23 @@ class ReleasedWorks extends Component
     public function formatMoneyBr(float $value): string
     {
         return 'R$ ' . number_format($value, 2, ',', '.');
+    }
+
+    public function externalEntitySummary(ExternalOrganRelease $release): string
+    {
+        return collect($release->note?->Externals ?? [])
+            ->map(function ($external) {
+                $entity = $external->Entity;
+
+                return trim((string) (
+                    $entity
+                        ? (($entity->nick ? $entity->nick . ' - ' : '') . $entity->name)
+                        : $external->entidade
+                ));
+            })
+            ->filter()
+            ->unique()
+            ->implode('; ');
     }
 
     public function render()

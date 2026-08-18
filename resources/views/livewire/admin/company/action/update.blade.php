@@ -217,6 +217,55 @@
                             <div class="card shadow-sm border-0">
                                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                     <div>
+                                        <h5 class="mb-0">Permissões liberadas pelo contratante</h5>
+                                        <div class="text-muted small">
+                                            Configuração da matriz/concentradora usada como teto para os admins da empresa.
+                                        </div>
+                                    </div>
+                                    @if (!$partnerGrantConfigured)
+                                        <span class="badge text-bg-info">Acesso legado completo</span>
+                                    @endif
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        @foreach ($partnerPermissionCatalog as $groupKey => $group)
+                                            <div class="col-md-6 col-xl-4" wire:key="contractor_permission_group_{{ $groupKey }}">
+                                                <div class="border rounded-2 p-3 h-100 bg-white">
+                                                    <div class="form-check form-switch mb-2">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            id="contractor_permission_{{ $groupKey }}"
+                                                            wire:model.defer="partnerGrantPermissions.{{ $this->permissionInputKey($groupKey) }}">
+                                                        <label class="form-check-label fw-bold" for="contractor_permission_{{ $groupKey }}">
+                                                            {{ $group['label'] }}
+                                                        </label>
+                                                    </div>
+
+                                                    <div class="row g-1">
+                                                        @foreach ($group['items'] as $permissionKey => $label)
+                                                            <div class="col-12" wire:key="contractor_permission_item_{{ $permissionKey }}">
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                        id="contractor_permission_{{ str_replace('.', '_', $permissionKey) }}"
+                                                                        wire:model.defer="partnerGrantPermissions.{{ $this->permissionInputKey($permissionKey) }}">
+                                                                    <label class="form-check-label small" for="contractor_permission_{{ str_replace('.', '_', $permissionKey) }}">
+                                                                        {{ $label }}
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <div>
                                         <h5 class="mb-0">Cadastro em massa</h5>
                                         <div class="text-muted small">Baixe a ficha, preencha os usuários e processe a validação antes de gravar.</div>
                                     </div>

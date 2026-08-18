@@ -1,3 +1,7 @@
+@php
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+@endphp
+
 @push('css')
     <style>
         .work-rejected-page {
@@ -180,10 +184,12 @@
                                     </button>
                                 </td>
                                 <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-outline-success"
-                                        wire:click="reinform({{ $list->id }})" title="Reinformar">
-                                        <i class="ri-play-circle-fill align-middle"></i>
-                                    </button>
+                                    @if ($partnerCan('conclusion_reports.reinform'))
+                                        <button type="button" class="btn btn-sm btn-outline-success"
+                                            wire:click="reinform({{ $list->id }})" title="Reinformar">
+                                            <i class="ri-play-circle-fill align-middle"></i>
+                                        </button>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

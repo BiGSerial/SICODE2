@@ -45,7 +45,11 @@ class ProtestListUpd extends Command
         $baseQuery = BaseProtest::query()->when(
             $this->option('onlyMeda'),
             fn ($query) => $query->where('statusSist', 'MEDA')
-        )->orderBy('nota', 'ASC')->orderBy('numOrdenacao', 'ASC');
+        )
+            ->whereNotNull('numOrdenacao')
+            ->whereRaw("NULLIF(LTRIM(RTRIM(CAST(numOrdenacao AS varchar(50)))), '') IS NOT NULL")
+            ->orderBy('nota', 'ASC')
+            ->orderBy('numOrdenacao', 'ASC');
 
         $total = $baseQuery->count();
         $log->setTotal($total);
@@ -76,7 +80,7 @@ class ProtestListUpd extends Command
 
                 $protest = $existingProtests->get($record->nota);
 
-                if (! $protest || is_null($record->numOrdenacao)) {
+                if (! $protest || !$this->hasValidNumOrdenacao($record->numOrdenacao ?? null)) {
                     $count['errors']++;
                     $bar->advance();
                     continue;
@@ -161,4 +165,8 @@ class ProtestListUpd extends Command
         }
     }
 
+    private function hasValidNumOrdenacao(mixed $value): bool
+    {
+        return trim((string) $value) !== '';
+    }
 }

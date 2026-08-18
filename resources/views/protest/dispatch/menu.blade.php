@@ -23,6 +23,13 @@
             </a>
             <ul id="protests-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <div class="border-start border-3 mb-1 py-0">
+                    @can('admin')
+                        <li>
+                            <a href="{{ route('admin.protests.measure_codes') }}" class="nav-item text-white fw-normal">
+                                <i class="bi bi-sliders fs-5 edp-text-verde-dark"></i> <span>CÓDIGOS CIP/CONSTRUÇÃO</span>
+                            </a>
+                        </li>
+                    @endcan
                     <li>
                         <a href="{{ route('protests.dashboard') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-speedometer2 fs-5 edp-text-verde-dark"></i> <span>DASHBOARD</span>

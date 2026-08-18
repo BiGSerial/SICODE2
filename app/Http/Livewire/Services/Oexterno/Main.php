@@ -323,7 +323,10 @@ class Main extends Component
                 'dt_status',
                 'dt_created',
             ])
-            ->excludeCanceledFullDone();
+            ->excludeCanceledFullDone()
+            ->whereDoesntHave('ExternalOrganReleases', function ($releaseQuery) {
+                $releaseQuery->whereNull('released_at');
+            });
 
         // RuleBuilder::applyRules($query, $this->service->Status);
 

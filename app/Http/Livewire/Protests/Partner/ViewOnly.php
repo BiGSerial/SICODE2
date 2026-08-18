@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Protests\Partner;
 
 use App\Models\EvidenceFile;
+use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\MedProtest;
 use App\Notifications\SystemNotification;
 use Livewire\Component;
@@ -13,6 +14,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ViewOnly extends Component
 {
+    use AuthorizesPartnerAccess;
     use WithFileUploads;
 
     public $medProtest;
@@ -147,13 +149,17 @@ class ViewOnly extends Component
 
     public function mount($medProtestId)
     {
-        $this->medProtest = MedProtest::with([
+        $query = MedProtest::query()->with([
             'Protest',
             'Comments.User',
             'Notes',
             'Assignments.User',
 
-        ])->findOrFail($medProtestId);
+        ]);
+
+        $this->applyPartnerBranchScopeToMedProtests($query);
+
+        $this->medProtest = $query->findOrFail($medProtestId);
 
         if (!$this->medProtest) {
             abort(404, 'Medida de Reclamação não encontrada');

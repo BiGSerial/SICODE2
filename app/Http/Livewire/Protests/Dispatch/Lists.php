@@ -46,7 +46,6 @@ class Lists extends Component
     public $selected = null;
 
     // Variáveis de seleção (Filtros)
-    public array $selectedProtestType = [];
     public array $selectedTipoNota = [];
     public array $cityOptions = [];
     public array $codfOptions = [];
@@ -71,7 +70,6 @@ class Lists extends Component
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
-        'selectedProtestType' => ['except' => [], 'as' => 'pt'],
         'selectedTipoNota' => ['except' => [], 'as' => 'tn'],
         'cityFilter' => ['except' => [], 'as' => 'city'],
         'selectedCodf' => ['except' => [], 'as' => 'codf'],
@@ -129,7 +127,6 @@ class Lists extends Component
         }
 
         $this->selectedTipoNota = collect((array) $this->selectedTipoNota)->filter()->values()->all();
-        $this->selectedProtestType = collect((array) $this->selectedProtestType)->filter()->values()->all();
         $this->cityFilter = collect((array) $this->cityFilter)->filter()->values()->all();
         $this->selectedCodf = collect((array) $this->selectedCodf)->filter()->values()->all();
         $this->loadCityOptions();
@@ -178,12 +175,6 @@ class Lists extends Component
     public function updatedSelectedTipoNota($value): void
     {
         $this->selectedTipoNota = collect((array) $value)->filter()->values()->all();
-        $this->resetPage();
-    }
-
-    public function updatedSelectedProtestType($value): void
-    {
-        $this->selectedProtestType = collect((array) $value)->filter()->values()->all();
         $this->resetPage();
     }
 
@@ -405,22 +396,6 @@ class Lists extends Component
             ->get();
     }
 
-    /*
-     * Computed Property para Tipos de Protesto
-     * Substitui a antiga variável pública.
-     */
-    public function getProtestTypesProperty()
-    {
-        $query = MedProtest::select('protest_type')
-            ->distinct()
-            ->where('statusSist', 'MEDA')
-            ->orderBy('protest_type', 'ASC');
-
-        $this->applyBtzeroVisibilityFilter($query, includeNullWhenHiding: false);
-
-        return $query->get();
-    }
-
     public function showDetails($id)
     {
         $this->selected = Protest::with(['medProtests' => fn ($q) => $q->orderBy('dtCriacaoMedida', 'DESC')->with('assignments.user')])->find($id);
@@ -628,10 +603,6 @@ class Lists extends Component
             $query->whereHas('Protest', function ($protestQuery) {
                 $protestQuery->whereIn('tipoNota', $this->selectedTipoNota);
             });
-        });
-
-        $query->when(!empty($this->selectedProtestType), function ($query) {
-            $query->whereIn('protest_type', $this->selectedProtestType);
         });
 
         $query->when(!empty($this->cityFilter), function ($query) {
@@ -881,7 +852,6 @@ class Lists extends Component
 
         return view('livewire.protests.dispatch.lists', [
             'lists' => $lists,
-            'protest_Types' =>  $this->ProtestTypes,
             'tipoNotas' => $this->TypeNotes,
             'dueTodayCount' => $this->dueTodayCount,
             'overdueCount' => $this->overdueCount,

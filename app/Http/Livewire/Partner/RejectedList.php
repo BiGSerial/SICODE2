@@ -8,6 +8,7 @@ use Livewire\WithPagination;
 
 class Rejectedlist extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -68,6 +69,7 @@ class Rejectedlist extends Component
             }
         }
 
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
 
         return $query->orderBy('updated_at');
@@ -104,6 +106,8 @@ class Rejectedlist extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
+
+        $this->applyPartnerBranchScopeToNoteRelation($query);
 
         return $query->orderBy('updated_at');
     }

@@ -27,6 +27,38 @@
             flex: 1 1 auto;
             white-space: nowrap;
         }
+
+        .released-work-table {
+            font-size: .92rem;
+        }
+
+        .released-work-table th {
+            white-space: nowrap;
+        }
+
+        .released-work-table td {
+            vertical-align: middle;
+        }
+
+        .released-work-primary {
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+        .released-work-muted {
+            color: #64748b;
+            font-size: .78rem;
+            line-height: 1.25;
+        }
+
+        .released-work-entity {
+            max-width: 260px;
+            line-height: 1.25;
+        }
+
+        .released-work-cost {
+            min-width: 130px;
+        }
     </style>
 
     <div class="container-fluid">
@@ -62,7 +94,7 @@
                 <div class="col-12 col-lg-6">
                     <div class="activity-filter-card">
                         <div class="activity-filter-title mb-2">Visão</div>
-                        <div class="small text-muted mb-2">Separe novas, exportadas e liberadas.</div>
+                        <div class="small text-muted mb-2">Separe novas, exportadas, liberadas e recusadas.</div>
                         <div class="btn-group w-100 released-works-tabs" role="group" aria-label="Visão das obras liberadas">
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="new" id="releasedWorksTabNew">
@@ -74,7 +106,7 @@
 
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="released" id="releasedWorksTabReleased">
-                            <label class="btn btn-outline-primary" for="releasedWorksTabReleased">Liberadas</label>
+                            <label class="btn btn-outline-primary" for="releasedWorksTabReleased">Liberadas/Recusadas</label>
 
                             <input type="radio" class="btn-check" name="releasedWorksTab" wire:model="tab"
                                 value="pending" id="releasedWorksTabPending">
@@ -165,7 +197,7 @@
                             @if ($tab === 'cancel_90')
                                 Notas em status 70 há mais de 90 dias, disponíveis para envio ao cancelamento total.
                             @else
-                                Exportar marca a pendência como enviada; a liberação ocorre apenas quando o status chegar em 20 ou 11.
+                                Exportar marca a pendência como enviada; a liberação ocorre quando o status chegar em 20 ou 11, ou por recusa manual de OE.
                             @endif
                         </div>
                     </div>
@@ -185,21 +217,19 @@
                     </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle released-work-table">
                         <thead class="table-dark">
                             <tr>
                                 @if ($tab === 'cancel_90')
                                     <th class="text-center">Sel.</th>
                                 @endif
                                 <th>Nota/OV</th>
-                                <th>Cliente</th>
-                                <th>Município</th>
+                                <th>Cliente / Município</th>
+                                <th>Entidade</th>
                                 <th>Rubrica</th>
-                                <th>Custo</th>
-                                <th>Status atual</th>
-                                <th>Marcado em</th>
-                                <th>Exportação</th>
-                                <th>Liberação</th>
+                                <th>Custos</th>
+                                <th>Status</th>
+                                <th>Export. / Lib.</th>
                                 <th>Origem</th>
                                 <th class="text-end">Ações</th>
                             </tr>
@@ -217,23 +247,32 @@
                                                 value="{{ $release->id }}">
                                         </td>
                                     @endif
-                                    <td class="fw-semibold">{{ $release->note?->note ?? '---' }}</td>
-                                    <td>{{ $release->note?->client ?? '---' }}</td>
-                                    <td>{{ $release->note?->lexp ?? '---' }}</td>
-                                    <td>{{ $release->note?->rubrica ?? '---' }}</td>
                                     <td>
+                                        <div class="released-work-primary">{{ $release->note?->note ?? '---' }}</div>
+                                        <div class="released-work-muted">Pedido {{ $release->note?->numPedido ?? '---' }}</div>
+                                    </td>
+                                    <td>
+                                        <div>{{ $release->note?->client ?? '---' }}</div>
+                                        <div class="released-work-muted">{{ $release->note?->lexp ?? '---' }}</div>
+                                    </td>
+                                    <td class="released-work-entity">
+                                        @php $entities = $this->externalEntitySummary($release); @endphp
+                                        <div>{{ $entities !== '' ? $entities : '---' }}</div>
+                                    </td>
+                                    <td>{{ $release->note?->rubrica ?? '---' }}</td>
+                                    <td class="released-work-cost">
                                         @if ($costSummary['has_cycle'])
-                                            <span class="badge {{ $costSummary['has_client_cost'] ? 'text-bg-warning' : 'text-bg-success' }}">
-                                                Cliente: {{ $costSummary['has_client_cost'] ? 'Sim' : 'Não' }}
-                                            </span>
-                                            <div class="small mt-1">
-                                                Cliente: <strong>{{ $this->formatMoneyBr($costSummary['client_cost']) }}</strong>
+                                            <div>
+                                                <span class="badge {{ $costSummary['has_client_cost'] ? 'text-bg-warning' : 'text-bg-success' }}">
+                                                    Cliente {{ $costSummary['has_client_cost'] ? 'Sim' : 'Não' }}
+                                                </span>
                                             </div>
-                                            <div class="small">
-                                                Empresa: <strong>{{ $this->formatMoneyBr($costSummary['company_cost']) }}</strong>
+                                            <div class="released-work-muted mt-1">
+                                                C: <strong>{{ $this->formatMoneyBr($costSummary['client_cost']) }}</strong>
+                                                · E: <strong>{{ $this->formatMoneyBr($costSummary['company_cost']) }}</strong>
                                             </div>
-                                            <div class="small text-muted">
-                                                Rodada {{ $costSummary['round_number'] }}
+                                            <div class="released-work-muted">
+                                                R{{ $costSummary['round_number'] }}
                                                 @if ($costSummary['orders'])
                                                     · {{ $costSummary['orders'] }}
                                                 @endif
@@ -244,37 +283,35 @@
                                     </td>
                                     <td>
                                         <span class="badge text-bg-secondary">{{ $release->note?->nstats ?? '---' }}</span>
-                                        <div class="small text-muted">{{ optional($release->note?->dt_status)->format('d/m/Y H:i') }}</div>
-                                    </td>
-                                    <td>
-                                        {{ optional($release->created_at)->format('d/m/Y H:i') }}
-                                        <div class="small text-muted">Status origem: {{ $release->detected_nstats ?? '---' }}</div>
+                                        <div class="released-work-muted">{{ optional($release->note?->dt_status)->format('d/m/Y H:i') }}</div>
+                                        <div class="released-work-muted">
+                                            Marcado {{ optional($release->created_at)->format('d/m H:i') }}
+                                            · Origem {{ $release->detected_nstats ?? '---' }}
+                                        </div>
                                     </td>
                                     <td>
                                         @if ($release->exported_at)
-                                            {{ $release->exported_at->format('d/m/Y H:i') }}
-                                            <div class="small text-muted">{{ $release->exportedBy?->name ?? '---' }}</div>
+                                            <div>Exp. {{ $release->exported_at->format('d/m H:i') }}</div>
+                                            <div class="released-work-muted">{{ $release->exportedBy?->name ?? '---' }}</div>
                                         @else
-                                            <span class="badge text-bg-danger">Nova</span>
+                                            <div><span class="badge text-bg-danger">Nova</span></div>
                                         @endif
-                                    </td>
-                                    <td>
                                         @if ($release->released_at)
-                                            {{ $release->released_at->format('d/m/Y H:i') }}
+                                            <div class="mt-1">Lib. {{ $release->released_at->format('d/m H:i') }}</div>
                                             @if ($release->released_by && !in_array((int) $release->release_nstats, \App\Models\ExternalOrganRelease::RELEASE_STATUSES, true))
-                                                <div class="small text-muted">
+                                                <div class="released-work-muted">
                                                     Recusa OE por {{ $release->releasedBy?->name ?? '---' }}
                                                 </div>
                                             @else
-                                                <div class="small text-muted">Status {{ $release->release_nstats }}</div>
+                                                <div class="released-work-muted">Status {{ $release->release_nstats }}</div>
                                             @endif
                                         @else
-                                            <span class="badge text-bg-warning">Aguardando 20/11</span>
+                                            <div class="mt-1"><span class="badge text-bg-warning">Aguardando 20/11</span></div>
                                         @endif
                                     </td>
                                     <td>
                                         <div>{{ $release->production?->Service?->service ?? '---' }}</div>
-                                        <div class="small text-muted">{{ $release->production?->User?->name ?? '---' }}</div>
+                                        <div class="released-work-muted">{{ $release->production?->User?->name ?? '---' }}</div>
                                     </td>
                                     <td class="text-end">
                                         @if (!$release->released_at && $tab !== 'cancel_90')

@@ -2,6 +2,7 @@
     use App\Custom\Viabilitiesstatus;
     use App\Custom\Notestatus;
     use Carbon\Carbon;
+    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
 @endphp
 
 @push('css')
@@ -371,8 +372,12 @@
                                                             type="checkbox" value="{{ $file->id }}"
                                                             wire:model.defer="files_selected">
                                                         <i class="bx bxs-file-{{ $file->ext }} text-danger"></i>
-                                                        <span wire:click.prevent="downloadFile({{ $file->id }})"
-                                                            style="cursor: pointer;">{{ $file->file_name }}</span>
+                                                        @if ($partnerCan('viability.view_files'))
+                                                            <span wire:click.prevent="downloadFile({{ $file->id }})"
+                                                                style="cursor: pointer;">{{ $file->file_name }}</span>
+                                                        @else
+                                                            <span>{{ $file->file_name }}</span>
+                                                        @endif
                                                     </p>
                                                 @endforeach
                                             @endif
@@ -396,10 +401,12 @@
                                         <td></td>
                                         <td>
 
-                                            <span wire:click.prevent="downloadZip" style="cursor: pointer;"><i
-                                                    class="bx bx-cloud-download text-primary fs-5 align-middle"></i>
-                                                Baixar
-                                            </span>
+                                            @if ($partnerCan('viability.view_files'))
+                                                <span wire:click.prevent="downloadZip" style="cursor: pointer;"><i
+                                                        class="bx bx-cloud-download text-primary fs-5 align-middle"></i>
+                                                    Baixar
+                                                </span>
+                                            @endif
 
                                         </td>
                                         <td></td>

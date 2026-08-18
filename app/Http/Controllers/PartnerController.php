@@ -2,9 +2,54 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PartnerAccess\PartnerAccessGate;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
 class PartnerController extends Controller
 {
-    public function main()
+    public function main(Request $request): RedirectResponse|View
+    {
+        foreach ($this->landingRoutes() as $routeName => $permissionKey) {
+            if (PartnerAccessGate::allows($request->user(), $permissionKey)) {
+                if ($routeName === 'partner.main.viability') {
+                    return view('partner.main');
+                }
+
+                return redirect()->route($routeName);
+            }
+        }
+
+        abort(403);
+    }
+
+    private function landingRoutes(): array
+    {
+        return [
+            'partner.main.viability' => 'viability.dashboard',
+            'partner.todo.viability' => 'viability.list',
+            'partner.rejected.viability' => 'viability.rejected',
+            'partner.tacit.viability' => 'viability.tacit',
+            'partner.hist.viability' => 'viability.history',
+            'partner.report.workreport' => 'conclusion_reports.create',
+            'partner.report.rejectedWorked' => 'conclusion_reports.rejected',
+            'partner.report.sendAdsForm' => 'conclusion_reports.ads_delivery',
+            'partner.ads.requests' => 'conclusion_reports.ads_requests',
+            'partner.report.workedlist' => 'conclusion_reports.list',
+            'partner.declared.equipment' => 'conclusion_reports.equipment',
+            'partner.report.partial' => 'partial_reports.create',
+            'partner.report.partiallist' => 'partial_reports.list',
+            'protests.partner.main' => 'complaints.index',
+            'protests.partner.history' => 'complaints.history',
+            'partner.note_d5.list' => 'd5_notes.list',
+            'partner.note_d5.returned' => 'd5_notes.returned',
+            'partner.note_d5.historic' => 'd5_notes.history',
+            'partner.admin.users' => 'admin_users.view',
+        ];
+    }
+
+    public function dashboard(): View
     {
         return view('partner.main');
     }
