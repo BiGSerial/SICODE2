@@ -14,6 +14,7 @@ class fixBaseDestiny extends Command
         {--status= : Status/numStat que deve ser conferido}
         {--ov= : OV especifica que deve ser corrigida}
         {--fix : Aplica as correcoes encontradas}
+        {--refresh : Com --fix, atualiza todas as OVs atuais da origem para o status informado}
         {--limit=50 : Quantidade maxima de OVs exibidas por grupo}';
 
     protected $description = 'Compare and fix BaseOV origin records against notes destination records.';
@@ -39,10 +40,12 @@ class fixBaseDestiny extends Command
     private function checkStatus(string $status): int
     {
         $fix = (bool) $this->option('fix');
+        $statusValue = ctype_digit($status) ? (int) $status : $status;
 
         $originOvs = BaseOV::query()
-            ->where('numStat', $status)
+            ->where('numStat', $statusValue)
             ->where('ultimoStatus', 1)
+            ->distinct()
             ->pluck('OV')
             ->map(fn ($value) => trim((string) $value))
             ->filter()
@@ -50,8 +53,9 @@ class fixBaseDestiny extends Command
             ->values();
 
         $destinyOvs = Note::query()
-            ->where('nstats', $status)
+            ->where('nstats', $statusValue)
             ->where('type_note', 2)
+            ->distinct()
             ->pluck('note')
             ->map(fn ($value) => trim((string) $value))
             ->filter()
@@ -82,24 +86,26 @@ class fixBaseDestiny extends Command
         $updated = 0;
         $created = 0;
         $notFound = 0;
+        $candidateOrigins = $this->option('refresh')
+            ? $originOvs
+            : $missingInDestiny;
 
-        BaseOV::query()
-            ->where('numStat', $status)
-            ->where('ultimoStatus', 1)
-            ->orderBy('OV')
-            ->chunk(500, function ($origins) use (&$updated, &$created) {
-                foreach ($origins->unique('OV') as $origin) {
-                    $result = $this->applyOriginToDestiny($origin);
-                    $updated += $result === 'updated' ? 1 : 0;
-                    $created += $result === 'created' ? 1 : 0;
-                }
-            });
+        if ($originOvs->isEmpty() && $destinyOvs->isNotEmpty()) {
+            $this->error('ABORTADO: a origem BaseOV retornou 0 OVs, mas o destino tem registros. Isso indica falha de consulta/conexao ou status invalido; nenhuma correcao foi aplicada.');
+
+            return Command::FAILURE;
+        }
+
+        foreach ($this->currentOriginsByOv($candidateOrigins) as $origin) {
+            $result = $this->applyOriginToDestiny($origin);
+            $updated += $result === 'updated' ? 1 : 0;
+            $created += $result === 'created' ? 1 : 0;
+        }
+
+        $currentOrigins = $this->currentOriginsByOv($missingInOrigin);
 
         foreach ($missingInOrigin as $extraDestinyOv) {
-            $origin = BaseOV::query()
-                ->where('OV', $extraDestinyOv)
-                ->where('ultimoStatus', 1)
-                ->first();
+            $origin = $currentOrigins->get((string) $extraDestinyOv);
 
             if (!$origin) {
                 $notFound++;
@@ -111,7 +117,8 @@ class fixBaseDestiny extends Command
             $created += $result === 'created' ? 1 : 0;
         }
 
-        $this->info("Correcoes aplicadas. Atualizadas: {$updated}. Criadas: {$created}. Sem origem atual: {$notFound}.");
+        $mode = $this->option('refresh') ? 'com refresh completo' : 'somente divergencias';
+        $this->info("Correcoes aplicadas ({$mode}). Atualizadas: {$updated}. Criadas: {$created}. Sem origem atual: {$notFound}.");
 
         return Command::SUCCESS;
     }
@@ -218,6 +225,31 @@ class fixBaseDestiny extends Command
             ->map(fn ($value) => trim((string) $value))
             ->filter()
             ->values();
+    }
+
+    private function currentOriginsByOv(Collection $ovs): Collection
+    {
+        if ($ovs->isEmpty()) {
+            return collect();
+        }
+
+        $origins = collect();
+
+        $ovs->map(fn ($ov) => (string) $ov)
+            ->filter()
+            ->unique()
+            ->chunk(500)
+            ->each(function (Collection $chunk) use ($origins) {
+                BaseOV::query()
+                    ->where('ultimoStatus', 1)
+                    ->whereIn('OV', $chunk->all())
+                    ->get()
+                    ->each(function (BaseOV $origin) use ($origins) {
+                        $origins->put(trim((string) $origin->OV), $origin);
+                    });
+            });
+
+        return $origins;
     }
 
     private function printOvList(string $title, Collection $ovs): void
