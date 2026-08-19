@@ -18,6 +18,7 @@ use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\PartnerAccess\PartnerBranchScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
@@ -603,6 +604,126 @@ it('does not list users from another company in partner admin', function () {
         ->assertSee($visible->name)
         ->assertDontSee($hidden->name)
         ->assertDontSee($internal->name);
+});
+
+it('shows partner user branches and last access in the admin user list', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $visible = partnerAccessUser($company, [
+        'name' => 'Usuário com Filial',
+        'last_seen_at' => now()->setDate(2026, 8, 18)->setTime(14, 35),
+    ]);
+    $branch = Andresscompany::query()->create([
+        'company_id' => $company->id,
+        'city' => 'Campinas',
+        'street' => 'Base Campinas',
+    ]);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    PartnerUserBranch::query()->create([
+        'company_id' => $company->id,
+        'user_id' => $visible->id,
+        'branch_id' => $branch->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk()
+        ->assertSee('Filiais')
+        ->assertSee('Último acesso')
+        ->assertSee('Parceira Teste - Campinas')
+        ->assertSee('18/08/2026 14:35')
+        ->assertSee('Ativos')
+        ->assertSee('Desativados');
+});
+
+it('lists soft deleted partner users only in the disabled tab', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $active = partnerAccessUser($company, ['name' => 'Usuário Ativo']);
+    $disabled = partnerAccessUser($company, ['name' => 'Usuário Desativado']);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    $disabled->delete();
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk()
+        ->assertSee($active->name)
+        ->assertDontSee($disabled->name);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users', ['status' => 'disabled']))
+        ->assertOk()
+        ->assertSee($disabled->name)
+        ->assertDontSee($active->name);
+});
+
+it('resets a partner user password from the edit action', function () {
+    $this->withoutMiddleware(VerifyCsrfToken::class);
+
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $target = partnerAccessUser($company, [
+        'password' => Hash::make('senha-antiga'),
+        'first_pass' => false,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('partner.admin.users.reset_password', $target))
+        ->assertRedirect(route('partner.admin.users.edit', $target));
+
+    $target->refresh();
+
+    expect(Hash::check('123456', $target->password))->toBeTrue()
+        ->and($target->first_pass)->toBeTrue();
+});
+
+it('soft deletes inactive partner users according to the company policy', function () {
+    $company = partnerAccessCompany(['partner_user_inactivity_days' => 30]);
+    $inactive = partnerAccessUser($company, [
+        'last_seen_at' => now()->subDays(31),
+    ]);
+    $neverLogged = partnerAccessUser($company, [
+        'created_at' => now()->subDays(31),
+        'last_seen_at' => null,
+        'last_login_at' => null,
+    ]);
+    $recent = partnerAccessUser($company, [
+        'last_seen_at' => now()->subDays(5),
+    ]);
+    $activeByRecentAccess = partnerAccessUser($company, [
+        'last_login_at' => now()->subDays(90),
+        'last_seen_at' => now()->subDays(5),
+    ]);
+    $withoutPolicyCompany = partnerAccessCompany();
+    $withoutPolicy = partnerAccessUser($withoutPolicyCompany, [
+        'last_seen_at' => now()->subDays(60),
+    ]);
+
+    $this->artisan('partner-users:disable-inactive')
+        ->assertSuccessful();
+
+    expect(User::withTrashed()->find($inactive->id)->trashed())->toBeTrue()
+        ->and(User::withTrashed()->find($neverLogged->id)->trashed())->toBeTrue()
+        ->and(User::withTrashed()->find($recent->id)->trashed())->toBeFalse()
+        ->and(User::withTrashed()->find($activeByRecentAccess->id)->trashed())->toBeFalse()
+        ->and(User::withTrashed()->find($withoutPolicy->id)->trashed())->toBeFalse();
+});
+
+it('updates last seen when an authenticated user opens a saved page', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, [
+        'admin' => true,
+        'last_seen_at' => now()->subDay(),
+    ]);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk();
+
+    expect($admin->refresh()->last_seen_at->greaterThan(now()->subMinute()))->toBeTrue();
 });
 
 it('rejects assigning a user to a branch from another company', function () {

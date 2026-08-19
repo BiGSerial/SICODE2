@@ -141,14 +141,27 @@
                 </div>
             </form>
 
-            @if ($user->exists && \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.disable') && $user->id !== auth()->id())
-                <form method="POST" action="{{ route('partner.admin.users.disable', $user) }}" class="mt-3">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-outline-danger">
-                        <i class="ri-user-forbid-line"></i> Desativar usuário
-                    </button>
-                </form>
+            @if ($user->exists)
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.update'))
+                        <form method="POST" action="{{ route('partner.admin.users.reset_password', $user) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-warning">
+                                <i class="ri-lock-password-line"></i> Redefinir senha
+                            </button>
+                        </form>
+                    @endif
+
+                    @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.disable') && $user->id !== auth()->id())
+                        <form method="POST" action="{{ route('partner.admin.users.disable', $user) }}">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="ri-user-forbid-line"></i> Desativar usuário
+                            </button>
+                        </form>
+                    @endif
+                </div>
             @endif
             </div>
         </div>

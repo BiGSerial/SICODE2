@@ -46,6 +46,9 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'exports:clear-old', 'exports-clear-old')
             ->dailyAt('00:00');
 
+        $this->scheduleCommand($schedule, 'partner-users:disable-inactive', 'partner-users-disable-inactive')
+            ->dailyAt('00:30');
+
 
         /*
         |--------------------------------------------------------------------------

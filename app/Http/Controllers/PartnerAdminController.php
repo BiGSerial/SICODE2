@@ -27,22 +27,42 @@ class PartnerAdminController extends Controller
     {
         $permissionCompanyId = $this->permissionCompanyId($request);
         $companyIds = $this->branchCompanyIdsFor($permissionCompanyId);
+        $status = $request->query('status') === 'disabled' ? 'disabled' : 'active';
 
         $users = User::query()
-            ->with('Company:id,parent_id,name')
+            ->with([
+                'Company:id,parent_id,name',
+                'partnerBranchAddresses' => fn ($query) => $query
+                    ->wherePivot('company_id', $permissionCompanyId)
+                    ->with('Company:id,parent_id,name')
+                    ->orderBy('city')
+                    ->orderBy('street'),
+            ])
             ->where('onlyparner', true)
             ->whereIn('company_id', $companyIds)
+            ->when($status === 'disabled', fn ($query) => $query->onlyTrashed())
+            ->when($status === 'active', fn ($query) => $query->whereNull('deleted_at'))
             ->orderBy('name')
             ->paginate(25);
 
+        $activeCount = User::query()
+            ->where('onlyparner', true)
+            ->whereIn('company_id', $companyIds)
+            ->whereNull('deleted_at')
+            ->count();
+        $disabledCount = User::onlyTrashed()
+            ->where('onlyparner', true)
+            ->whereIn('company_id', $companyIds)
+            ->count();
+
         return view('partner.admin.users', [
             'users' => $users,
+            'status' => $status,
             'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
             'branchCount' => max(count($companyIds) - 1, 0),
-            'userCount' => User::query()
-                ->where('onlyparner', true)
-                ->whereIn('company_id', $companyIds)
-                ->count(),
+            'userCount' => $activeCount + $disabledCount,
+            'activeCount' => $activeCount,
+            'disabledCount' => $disabledCount,
         ]);
     }
 
@@ -159,6 +179,27 @@ class PartnerAdminController extends Controller
             ->with('status', 'Usuário desativado.');
     }
 
+    public function resetUserPassword(Request $request, string $user): RedirectResponse
+    {
+        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
+
+        $companyId = $this->companyId($request);
+        $target = $this->targetUser(User::withTrashed()->findOrFail($user), $companyId);
+
+        abort_if($target->trashed(), 403);
+
+        $target->forceFill([
+            'password' => Hash::make(123456),
+            'first_pass' => true,
+        ])->save();
+
+        $this->audit($request, 'reset_user_password', $target);
+
+        return redirect()
+            ->route('partner.admin.users.edit', $target)
+            ->with('status', 'Senha redefinida para 123456.');
+    }
+
     public function auditEvents(Request $request): ViewContract
     {
         $companyId = $this->permissionCompanyId($request);
@@ -185,13 +226,14 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt'],
         ]);
 
         $import = new PartnerUserBulkImport();
         Excel::import($import, $request->file('file'));
-        $preview = $this->buildImportPreview($import->rows, $companyId);
+        $preview = $this->buildImportPreview($import->rows, $permissionCompanyId);
         $token = (string) Str::uuid();
 
         session()->put("partner_user_import.{$token}", $preview['valid_rows']);
@@ -208,12 +250,13 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $token = $request->validate(['token' => ['required', 'string']])['token'];
         $rows = session()->pull("partner_user_import.{$token}", []);
 
         abort_if(empty($rows), 422);
 
-        $created = DB::transaction(function () use ($rows, $companyId, $request) {
+        $created = DB::transaction(function () use ($rows, $companyId, $permissionCompanyId, $request) {
             $count = 0;
 
             foreach ($rows as $row) {
@@ -228,7 +271,7 @@ class PartnerAdminController extends Controller
                 ]);
 
                 $user->Companies()->syncWithoutDetaching([$companyId]);
-                $this->syncBranches($user, $companyId, [$row['branch_id']], $request->user()->id);
+                $this->syncBranches($user, $permissionCompanyId, [$row['branch_id']], $request->user()->id);
                 $count++;
             }
 
@@ -464,9 +507,11 @@ class PartnerAdminController extends Controller
             return null;
         }
 
+        $companyIds = $this->branchCompanyIdsFor($companyId);
+
         if (ctype_digit($label)) {
             return Andresscompany::query()
-                ->where('company_id', $companyId)
+                ->whereIn('company_id', $companyIds)
                 ->where('id', (int) $label)
                 ->first();
         }
@@ -474,7 +519,7 @@ class PartnerAdminController extends Controller
         $needle = Str::lower($label);
 
         return Andresscompany::query()
-            ->where('company_id', $companyId)
+            ->whereIn('company_id', $companyIds)
             ->get()
             ->first(function (Andresscompany $branch) use ($needle) {
                 $labels = collect([

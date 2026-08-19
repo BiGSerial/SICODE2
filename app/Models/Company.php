@@ -19,10 +19,15 @@ class Company extends Model
         'name',
         'email',
         'telephone',
+        'partner_user_inactivity_days',
         'img_b_path',
         'img_w_path',
         'img_rb_path',
         'img_rw_path',
+    ];
+
+    protected $casts = [
+        'partner_user_inactivity_days' => 'integer',
     ];
 
     public function Address()

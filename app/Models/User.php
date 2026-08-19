@@ -75,6 +75,8 @@ class User extends Authenticatable
         'legal_field',
         'legal_manager',
         'permission_locks',
+        'last_login_at',
+        'last_seen_at',
     ];
 
     /**
@@ -115,6 +117,8 @@ class User extends Authenticatable
         'legal_field'      => 'boolean',
         'legal_manager'    => 'boolean',
         'permission_locks' => 'array',
+        'last_login_at'    => 'datetime',
+        'last_seen_at'     => 'datetime',
 
     ];
 

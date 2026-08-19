@@ -42,6 +42,18 @@
                                         <input wire:model.defer="company.telephone" type="text" class="form-control"
                                             id="telephone">
                                     </div>
+                                    <div class="mb-3">
+                                        <label for="partner_user_inactivity_days" class="form-label">Auto desativar usuários parceiros após</label>
+                                        <div class="input-group">
+                                            <input wire:model.defer="company.partner_user_inactivity_days" type="number"
+                                                min="1" max="3650" class="form-control" id="partner_user_inactivity_days">
+                                            <span class="input-group-text">dias sem login</span>
+                                        </div>
+                                        <div class="form-text">Deixe vazio para não aplicar auto desativação.</div>
+                                        @error('company.partner_user_inactivity_days')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                        @enderror
+                                    </div>
                                 </div>
                             </div>
                         </div>

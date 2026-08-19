@@ -369,6 +369,7 @@ Route::prefix('/partner/admin')
         Route::post('/users/import-confirm', 'confirmImport')->middleware('partner.permission:admin_users.bulk_import')->name('users.import.confirm');
         Route::get('/users/{user}/edit', 'editUser')->middleware('partner.permission:admin_users.update')->name('users.edit');
         Route::put('/users/{user}', 'updateUser')->middleware('partner.permission:admin_users.update')->name('users.update');
+        Route::post('/users/{user}/reset-password', 'resetUserPassword')->middleware('partner.permission:admin_users.update')->name('users.reset_password');
         Route::delete('/users/{user}', 'disableUser')->middleware('partner.permission:admin_users.disable')->name('users.disable');
         Route::get('/audit', 'auditEvents')->middleware('partner.permission:admin_audit.view')->name('audit');
     });

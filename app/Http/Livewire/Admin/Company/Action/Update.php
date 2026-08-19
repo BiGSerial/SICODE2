@@ -64,6 +64,7 @@ class Update extends Component
         'company.name' => 'required|string|max:255',
         'company.email' => 'required|email',
         'company.telephone' => 'required|string',
+        'company.partner_user_inactivity_days' => 'nullable|integer|min:1|max:3650',
         'addresses' => 'nullable|array',
         'addresses.*.street' => 'nullable|string',
         'addresses.*.city' => 'nullable|string',
@@ -542,10 +543,12 @@ class Update extends Component
             'photo1' => 'nullable|image|max:2048',
             'photo2' => 'nullable|image|max:2048',
             'photo3' => 'nullable|image|max:2048',
+            'company.partner_user_inactivity_days' => 'nullable|integer|min:1|max:3650',
         ]);
 
 
         if ($this->company) {
+            $this->company->partner_user_inactivity_days = $this->company->partner_user_inactivity_days ?: null;
             $this->savePartnerPermissionGrants();
 
             for ($i = 0; $i < 4; $i++) {

@@ -33,6 +33,11 @@
                         <span>usuários</span>
                     </div>
                     <div class="partner-admin-hero-chip">
+                        <i class="ri-user-follow-line"></i>
+                        <strong>{{ $activeCount }}</strong>
+                        <span>ativos</span>
+                    </div>
+                    <div class="partner-admin-hero-chip">
                         <i class="ri-node-tree"></i>
                         <strong>{{ $branchCount }}</strong>
                         <span>filiais</span>
@@ -77,12 +82,27 @@
                 </form>
             @endif
 
+            <div class="partner-admin-tabs">
+                <a href="{{ route('partner.admin.users') }}" class="{{ $status === 'active' ? 'is-active' : '' }}">
+                    <i class="ri-user-follow-line"></i>
+                    Ativos
+                    <span>{{ $activeCount }}</span>
+                </a>
+                <a href="{{ route('partner.admin.users', ['status' => 'disabled']) }}" class="{{ $status === 'disabled' ? 'is-active' : '' }}">
+                    <i class="ri-user-unfollow-line"></i>
+                    Desativados
+                    <span>{{ $disabledCount }}</span>
+                </a>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-sm align-middle partner-admin-table">
                     <thead>
                         <tr>
                             <th>Nome</th>
                             <th>Email</th>
+                            <th>Filiais</th>
+                            <th>Último acesso</th>
                             <th>Admin</th>
                             <th>Ativo</th>
                             <th></th>
@@ -90,9 +110,33 @@
                     </thead>
                     <tbody>
                         @forelse ($users as $user)
+                            @php
+                                $branchLabels = $user->partnerBranchAddresses
+                                    ->map(function ($branch) {
+                                        $companyName = $branch->Company?->display_name ?: $branch->Company?->name;
+
+                                        return trim(($companyName ?: 'Filial') . ($branch->city ? ' - ' . $branch->city : ''));
+                                    })
+                                    ->filter()
+                                    ->unique()
+                                    ->values();
+                            @endphp
                             <tr>
                                 <td>{{ $user->name }}</td>
                                 <td>{{ $user->email }}</td>
+                                <td>
+                                    @if ($branchLabels->isEmpty())
+                                        <span class="text-muted">Sem filial definida</span>
+                                    @else
+                                        <span class="partner-admin-branch-summary">
+                                            {{ $branchLabels->take(2)->implode(', ') }}
+                                            @if ($branchLabels->count() > 2)
+                                                <small>+{{ $branchLabels->count() - 2 }}</small>
+                                            @endif
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>{{ ($user->last_seen_at ?: $user->last_login_at)?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
                                 <td>
                                     <span class="partner-admin-status {{ $user->admin ? 'is-on' : 'is-off' }}">
                                         {{ $user->admin ? 'Sim' : 'Não' }}
@@ -104,7 +148,7 @@
                                     </span>
                                 </td>
                                 <td class="text-end">
-                                    @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.update'))
+                                    @if ($status === 'active' && \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.update'))
                                         <a href="{{ route('partner.admin.users.edit', $user) }}" class="btn btn-sm btn-outline-primary">
                                             <i class="ri-edit-line"></i> Editar
                                         </a>
@@ -113,7 +157,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center text-muted">Nenhum usuário encontrado.</td>
+                                <td colspan="7" class="text-center text-muted">Nenhum usuário encontrado.</td>
                             </tr>
                         @endforelse
                     </tbody>
