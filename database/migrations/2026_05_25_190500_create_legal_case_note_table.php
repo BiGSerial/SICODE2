@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('legal_case_id')->constrained('legal_cases')->cascadeOnDelete();
             $table->foreignId('note_id')->constrained('notes')->cascadeOnDelete();
             $table->uuid('linked_by')->nullable();
-            $table->foreign('linked_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('linked_by')->references('id')->on('users');
             $table->timestamp('linked_at')->nullable();
             $table->text('context')->nullable();
             $table->timestamps();

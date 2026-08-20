@@ -15,7 +15,7 @@ return new class () extends Migration {
         Schema::create('protest_user_triggers', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('protest_user_id');
-            $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete(); // usuário da "cadeia" (UUID)
+            $table->foreignUuid('user_id')->constrained('users'); // usuário da "cadeia" (UUID)
             $table->timestamps();
 
 

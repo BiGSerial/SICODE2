@@ -218,7 +218,9 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.template_export'), 403);
 
-        return Excel::download(new PartnerUserImportTemplateExport(), 'modelo-cadastro-usuarios-parceira.xlsx');
+        $company = Company::withTrashed()->findOrFail($this->permissionCompanyId($request));
+
+        return Excel::download(new PartnerUserImportTemplateExport($company), 'modelo-cadastro-usuarios-parceira.xlsx');
     }
 
     public function previewImport(Request $request): ViewContract
@@ -460,6 +462,10 @@ class PartnerAdminController extends Controller
             $email = strtolower(trim((string) ($row['email'] ?? '')));
             $branchName = trim((string) ($row['filial'] ?? $row['branch'] ?? ''));
             $errors = [];
+
+            if ($name === '' && $email === '' && $branchName === '') {
+                continue;
+            }
 
             if ($name === '') {
                 $errors[] = 'Nome obrigatório.';

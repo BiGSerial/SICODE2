@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamp('occurred_at');
             $table->timestamps();
 
-            $table->foreign('actor_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('actor_user_id')->references('id')->on('users');
 
             $table->index(['legal_demand_subdemand_id', 'occurred_at'], 'idx_legal_subdemand_events_subdemand_occurred');
             $table->index(['event_type', 'occurred_at'], 'idx_legal_subdemand_events_type_occurred');

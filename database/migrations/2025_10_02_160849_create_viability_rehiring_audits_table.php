@@ -17,13 +17,13 @@ return new class () extends Migration {
             $table->foreignId('viability_id')->constrained()->cascadeOnDelete();
 
             // === USUÁRIOS SÃO UUIDs ===
-            $table->foreignUuid('acted_by_user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('old_engineer_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('new_engineer_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('acted_by_user_id')->nullable()->constrained('users');
+            $table->foreignUuid('old_engineer_id')->nullable()->constrained('users');
+            $table->foreignUuid('new_engineer_id')->nullable()->constrained('users');
 
             // Empresas (assumindo companies.id inteiro; ver variação abaixo se for UUID)
-            $table->foreignUuid('old_company_id')->nullable()->constrained('companies')->nullOnDelete();
-            $table->foreignUuid('new_company_id')->nullable()->constrained('companies')->nullOnDelete();
+            $table->foreignUuid('old_company_id')->nullable()->constrained('companies');
+            $table->foreignUuid('new_company_id')->nullable()->constrained('companies');
 
             // Flags do processo
             $table->boolean('was_newsend')->default(false);

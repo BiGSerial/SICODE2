@@ -12,17 +12,19 @@ return new class () extends Migration {
     public function up(): void
     {
         Schema::table('viabilities', function (Blueprint $table) {
-            Schema::table('viabilities', function (Blueprint $table) {
-                // Remover a chave estrangeira (constraint)
-                $table->dropForeign(['order_id']);
+            // Remover a chave estrangeira (constraint)
+            $table->dropForeign(['order_id']);
 
-                // Tornar a coluna 'order_id' nullable
-                $table->unsignedBigInteger('order_id')->nullable()->change();
-
-            });
+            // Tornar a coluna 'order_id' nullable
+            $table->unsignedBigInteger('order_id')->nullable()->change();
         });
 
-        DB::statement('ALTER TABLE viabilities MODIFY COLUMN note_id BIGINT UNSIGNED NULL AFTER order_id');
+        match (DB::getDriverName()) {
+            'sqlsrv' => DB::statement('ALTER TABLE viabilities ALTER COLUMN note_id BIGINT NULL'),
+            'mysql' => DB::statement('ALTER TABLE viabilities MODIFY COLUMN note_id BIGINT UNSIGNED NULL AFTER order_id'),
+            'pgsql' => DB::statement('ALTER TABLE viabilities ALTER COLUMN note_id DROP NOT NULL'),
+            default => null,
+        };
     }
 
     /**

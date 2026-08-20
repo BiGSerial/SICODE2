@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
@@ -35,7 +36,7 @@ return new class () extends Migration {
         });
 
         Schema::table('cancellation_requests', function (Blueprint $table) {
-            if (!collect(Schema::getIndexes('cancellation_requests'))->has('cxl_req_eng_status_approver_idx')) {
+            if (!$this->hasIndex('cancellation_requests', 'cxl_req_eng_status_approver_idx')) {
                 $table->index(['engineer_approval_status', 'engineer_approver_id'], 'cxl_req_eng_status_approver_idx');
             }
         });
@@ -44,7 +45,7 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('cancellation_requests', function (Blueprint $table) {
-            if (collect(Schema::getIndexes('cancellation_requests'))->has('cxl_req_eng_status_approver_idx')) {
+            if ($this->hasIndex('cancellation_requests', 'cxl_req_eng_status_approver_idx')) {
                 $table->dropIndex('cxl_req_eng_status_approver_idx');
             }
             if (Schema::hasColumn('cancellation_requests', 'engineer_approval_requested_by')) {
@@ -69,5 +70,33 @@ return new class () extends Migration {
                 $table->dropColumn($toDrop);
             }
         });
+    }
+
+    private function hasIndex(string $table, string $indexName): bool
+    {
+        if (DB::getDriverName() === 'sqlsrv') {
+            return (bool) DB::selectOne(
+                'SELECT 1
+                 FROM sys.indexes AS idx
+                 INNER JOIN sys.tables AS tbl ON idx.object_id = tbl.object_id
+                 INNER JOIN sys.schemas AS scm ON tbl.schema_id = scm.schema_id
+                 WHERE tbl.name = ?
+                   AND scm.name = SCHEMA_NAME()
+                   AND idx.name = ?',
+                [$table, $indexName]
+            );
+        }
+
+        $dbName = DB::getDatabaseName();
+
+        return (bool) DB::selectOne(
+            'SELECT 1
+             FROM information_schema.statistics
+             WHERE table_schema = ?
+               AND table_name = ?
+               AND index_name = ?
+             LIMIT 1',
+            [$dbName, $table, $indexName]
+        );
     }
 };

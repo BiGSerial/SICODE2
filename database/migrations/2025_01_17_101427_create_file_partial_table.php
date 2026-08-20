@@ -12,7 +12,7 @@ return new class () extends Migration {
     {
         Schema::create('file_partial', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('file_id')->constrained('files')->onDelete('cascade');
+            $table->foreignId('file_id')->constrained('files');
             $table->foreignId('partial_id')->constrained('partials')->onDelete('cascade');
         });
     }

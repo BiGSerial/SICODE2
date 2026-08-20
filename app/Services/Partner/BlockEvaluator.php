@@ -63,14 +63,16 @@ class BlockEvaluator
         }
 
 
-        // // 3) Obra fora de status de construção
-        if ($note->type_note == 2 && !$this->isConstructionNstats($note->nstats)) {
-            return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
-        }
+        if (!$this->noteStatusBlocksSuspended()) {
+            // // 3) Obra fora de status de construção
+            if ($note->type_note == 2 && !$this->isConstructionNstats($note->nstats)) {
+                return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
+            }
 
-        // // 4) Obra fora de status de construção
-        if ($note->type_note == 1 && $this->centerjobIsSetAndNotCONS($note->centerjob)) {
-            return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
+            // // 4) Obra fora de status de construção
+            if ($note->type_note == 1 && $this->centerjobIsSetAndNotCONS($note->centerjob)) {
+                return $this->res(self::HOLD_YELLOW, false, '<strong>Obra fora de status de construção</strong> <p>Entre em contato com o engenheiro da sua região</p>');
+            }
         }
 
         // 5) Liberado
@@ -99,6 +101,11 @@ class BlockEvaluator
         $normalized = mb_strtoupper(trim($centerjob));
         // PHP 8+: testa se NÃO inicia com 'CONS'
         return !str_starts_with($normalized, 'CONS');
+    }
+
+    private function noteStatusBlocksSuspended(): bool
+    {
+        return (bool) config('features.suspend_work_report_note_status_blocks', false);
     }
 
     private function res(int $block, bool $command, string $reason, ?Partial $partial = null, ?WorkReport $work = null, ?Production $production = null): object

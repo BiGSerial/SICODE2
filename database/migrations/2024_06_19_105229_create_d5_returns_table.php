@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('d5_returns', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('note_id')->constrained('notes')->cascadeOnDelete();
+            $table->foreignId('note_id')->constrained('notes');
             $table->foreignId('production_id')->constrained('productions')->cascadeOnDelete();
             $table->foreignUuid('user_id')->constrained('users');
             $table->string('note')->nullable();

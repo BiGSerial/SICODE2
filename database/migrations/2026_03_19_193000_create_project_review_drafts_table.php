@@ -10,7 +10,7 @@ return new class () extends Migration {
         Schema::create('project_review_drafts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('production_id')->constrained('productions')->cascadeOnDelete();
-            $table->foreignId('cycle_id')->constrained('project_review_cycles')->cascadeOnDelete();
+            $table->foreignId('cycle_id')->constrained('project_review_cycles');
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->json('payload');
             $table->timestamps();
@@ -25,4 +25,3 @@ return new class () extends Migration {
         Schema::dropIfExists('project_review_drafts');
     }
 };
-

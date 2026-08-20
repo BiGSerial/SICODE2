@@ -27,7 +27,12 @@ return new class () extends Migration {
         }
 
         // Estrutura sem item precisa ser permitida no fluxo atual.
-        DB::statement('ALTER TABLE project_review_findings MODIFY item_id BIGINT UNSIGNED NULL');
+        match (DB::getDriverName()) {
+            'sqlsrv' => DB::statement('ALTER TABLE project_review_findings ALTER COLUMN item_id BIGINT NULL'),
+            'mysql' => DB::statement('ALTER TABLE project_review_findings MODIFY item_id BIGINT UNSIGNED NULL'),
+            'pgsql' => DB::statement('ALTER TABLE project_review_findings ALTER COLUMN item_id DROP NOT NULL'),
+            default => null,
+        };
     }
 
     public function down(): void
@@ -35,4 +40,3 @@ return new class () extends Migration {
         // Migration de compatibilidade: sem rollback destrutivo.
     }
 };
-

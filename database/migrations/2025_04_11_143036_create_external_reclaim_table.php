@@ -13,7 +13,7 @@ return new class () extends Migration {
         Schema::create('external_reclaim', function (Blueprint $table) {
             $table->id();
             $table->foreignId('external_id')->constrained('externals')->onDelete('cascade');
-            $table->foreignId('reclaim_id')->constrained('reclaims')->onDelete('cascade');
+            $table->foreignId('reclaim_id')->constrained('reclaims');
             $table->timestamps();
         });
     }

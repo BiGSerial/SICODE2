@@ -11,8 +11,7 @@ return new class () extends Migration {
             $table->foreignUuid('parent_id')
                 ->nullable()
                 ->after('id')
-                ->constrained('companies')
-                ->nullOnDelete();
+                ->constrained('companies');
 
             $table->index('parent_id');
         });

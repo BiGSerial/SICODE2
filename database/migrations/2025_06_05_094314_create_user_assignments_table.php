@@ -14,7 +14,7 @@ return new class () extends Migration {
             $table->id();
             $table->morphs('assignable');
             $table->foreignUuid('user_id')->constrained()->onDelete('cascade');
-            $table->foreignUuid('service_id')->nullable()->constrained('services', 'uuid')->nullOnDelete();
+            $table->foreignUuid('service_id')->nullable()->constrained('services', 'uuid');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('ended_at')->nullable();
             $table->timestamp('due_at')->nullable();

@@ -13,7 +13,7 @@ return new class () extends Migration {
 
             // Relações inteiras (para protests/med_protests)
             $table->foreignId('protest_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('med_protest_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('med_protest_id')->constrained();
 
             // Relações com users (UUID)
             $table->foreignUuid('created_by')->constrained('users');

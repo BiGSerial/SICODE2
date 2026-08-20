@@ -12,20 +12,20 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('five_note_id')->constrained('five_notes')->cascadeOnDelete();
-            $table->foreignId('note_id')->constrained('notes')->cascadeOnDelete();
+            $table->foreignId('note_id')->constrained('notes');
 
             $table->string('event_type', 80);
             $table->string('from_stage', 80)->nullable();
             $table->string('to_stage', 80)->nullable();
 
-            $table->foreignUuid('actor_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('actor_user_id')->nullable()->constrained('users');
             $table->string('actor_role', 50)->nullable();
 
-            $table->foreignUuid('owner_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('owner_user_id')->nullable()->constrained('users');
             $table->string('owner_role', 50)->nullable();
 
-            $table->foreignUuid('service_id')->nullable()->constrained('services', 'uuid')->nullOnDelete();
-            $table->foreignId('production_id')->nullable()->constrained('productions')->nullOnDelete();
+            $table->foreignUuid('service_id')->nullable()->constrained('services', 'uuid');
+            $table->foreignId('production_id')->nullable()->constrained('productions');
 
             $table->timestamp('occurred_at');
             $table->boolean('inferred')->default(false);
@@ -46,4 +46,3 @@ return new class extends Migration
         Schema::dropIfExists('timeline_events');
     }
 };
-

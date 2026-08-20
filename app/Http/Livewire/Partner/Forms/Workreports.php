@@ -902,6 +902,10 @@ class Workreports extends Component
             return false;
         }
 
+        if ((bool) config('features.suspend_work_report_note_status_blocks', false)) {
+            return true;
+        }
+
         $freshNote = Note::query()->find($note->id);
         if (!$freshNote || $freshNote->canceled) {
             $this->dispatchBrowserEvent('swal', [

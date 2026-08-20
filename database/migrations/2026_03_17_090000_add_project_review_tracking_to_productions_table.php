@@ -16,8 +16,7 @@ return new class () extends Migration {
                 $table->unsignedBigInteger('project_review_last_cycle_id')->nullable()->after('project_review_rejections_count');
                 $table->foreign('project_review_last_cycle_id', 'fk_prod_last_project_review_cycle')
                     ->references('id')
-                    ->on('project_review_cycles')
-                    ->nullOnDelete();
+                    ->on('project_review_cycles');
             }
 
             $table->index(['status', 'completed'], 'idx_productions_status_completed_review');

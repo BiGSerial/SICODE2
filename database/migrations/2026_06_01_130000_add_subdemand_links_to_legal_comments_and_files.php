@@ -13,8 +13,7 @@ return new class extends Migration
                 $table->foreignId('legal_demand_subdemand_id')
                     ->nullable()
                     ->after('assignment_id')
-                    ->constrained('legal_demand_subdemands')
-                    ->nullOnDelete();
+                    ->constrained('legal_demand_subdemands');
                 $table->index(['legal_demand_subdemand_id', 'created_at'], 'idx_legal_comments_subdemand_created');
             }
         });
@@ -24,8 +23,7 @@ return new class extends Migration
                 $table->foreignId('legal_demand_subdemand_id')
                     ->nullable()
                     ->after('assignment_id')
-                    ->constrained('legal_demand_subdemands')
-                    ->nullOnDelete();
+                    ->constrained('legal_demand_subdemands');
                 $table->index(['legal_demand_subdemand_id', 'created_at'], 'idx_legal_files_subdemand_created');
             }
         });

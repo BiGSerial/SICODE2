@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
+        if (!in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         $this->dropForeignIfExists('ads_requests', 'requested_by');
         $this->dropForeignIfExists('ads_requests', 'company_id');
 
@@ -28,6 +32,10 @@ return new class () extends Migration {
 
     public function down(): void
     {
+        if (!in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         $this->dropForeignIfExists('ads_requests', 'requested_by');
         $this->dropForeignIfExists('ads_requests', 'company_id');
 

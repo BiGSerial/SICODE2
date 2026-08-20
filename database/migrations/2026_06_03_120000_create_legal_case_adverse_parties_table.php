@@ -20,8 +20,8 @@ return new class extends Migration
             $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('created_by')->references('id')->on('users');
+            $table->foreign('updated_by')->references('id')->on('users');
             $table->unique(['legal_case_id', 'document_hash'], 'uq_legal_case_adverse_party_document');
             $table->index('document_hash');
             $table->index(['legal_case_id', 'name']);

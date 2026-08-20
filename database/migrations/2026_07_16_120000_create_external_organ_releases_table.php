@@ -10,16 +10,16 @@ return new class () extends Migration {
         Schema::create('external_organ_releases', function (Blueprint $table) {
             $table->id();
             $table->foreignId('note_id')->constrained('notes')->cascadeOnDelete();
-            $table->foreignId('production_id')->nullable()->constrained('productions')->nullOnDelete();
+            $table->foreignId('production_id')->nullable()->constrained('productions');
             $table->unsignedSmallInteger('detected_nstats')->nullable();
             $table->dateTime('detected_dt_status')->nullable();
             $table->dateTime('exported_at')->nullable();
-            $table->foreignUuid('exported_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('exported_by')->nullable()->constrained('users');
             $table->dateTime('released_at')->nullable();
             $table->dateTime('release_dt_status')->nullable();
             $table->dateTime('release_detected_at')->nullable();
             $table->unsignedSmallInteger('release_nstats')->nullable();
-            $table->foreignUuid('released_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('released_by')->nullable()->constrained('users');
             $table->timestamps();
 
             $table->unique(['note_id', 'production_id'], 'external_organ_releases_note_production_unique');

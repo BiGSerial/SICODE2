@@ -26,8 +26,7 @@ return new class extends Migration
                 $table->foreignId('parent_demand_id')
                     ->nullable()
                     ->after('legal_case_id')
-                    ->constrained('legal_demands')
-                    ->nullOnDelete();
+                    ->constrained('legal_demands');
             }
 
             if (!Schema::hasColumn('legal_demands', 'is_manual_sub_demand')) {
@@ -39,4 +38,3 @@ return new class extends Migration
         });
     }
 };
-

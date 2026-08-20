@@ -32,6 +32,7 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('services', function (Blueprint $table) {
+            $table->dropUnique('services_uuid_unique');
             $table->dropColumn('folder', 'uuid');
         });
     }

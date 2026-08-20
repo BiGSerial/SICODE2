@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->uuid('created_by')->nullable();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('created_by')->references('id')->on('users');
             $table->timestamp('last_used_at')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

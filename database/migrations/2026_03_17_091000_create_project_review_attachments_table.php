@@ -9,12 +9,12 @@ return new class () extends Migration {
     {
         Schema::create('project_review_attachments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('file_id')->constrained('files')->cascadeOnDelete();
+            $table->foreignId('file_id')->constrained('files');
             $table->foreignId('production_id')->constrained('productions')->cascadeOnDelete();
-            $table->foreignId('cycle_id')->nullable()->constrained('project_review_cycles')->nullOnDelete();
-            $table->foreignId('finding_id')->nullable()->constrained('project_review_findings')->nullOnDelete();
-            $table->foreignId('message_id')->nullable()->constrained('project_review_messages')->nullOnDelete();
-            $table->foreignUuid('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('cycle_id')->nullable()->constrained('project_review_cycles');
+            $table->foreignId('finding_id')->nullable()->constrained('project_review_findings');
+            $table->foreignId('message_id')->nullable()->constrained('project_review_messages');
+            $table->foreignUuid('user_id')->nullable()->constrained('users');
             $table->string('context', 30)->default('cycle'); // cycle|finding|message
             $table->timestamps();
 

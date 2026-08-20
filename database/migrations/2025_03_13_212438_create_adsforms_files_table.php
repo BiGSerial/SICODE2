@@ -13,7 +13,7 @@ return new class () extends Migration {
         Schema::create('adsforms_files', function (Blueprint $table) {
             $table->id();
             $table->foreignId('adsform_id')->constrained()->onDelete('cascade');
-            $table->foreignId('file_id')->constrained()->onDelete('cascade');
+            $table->foreignId('file_id')->constrained();
             $table->timestamps();
         });
     }

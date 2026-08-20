@@ -50,8 +50,7 @@ return new class () extends Migration {
             $table->unsignedInteger('version')->default(1); // versão crescente por note_id
             $table->timestamp('canceled_at')->nullable()->index();
             $table->foreignId('superseded_by_id')->nullable()
-                ->constrained('ads_requests')
-                ->nullOnDelete();
+                ->constrained('ads_requests');
 
             // Execução/entrega
             $table->timestamp('started_at')->nullable()->index();

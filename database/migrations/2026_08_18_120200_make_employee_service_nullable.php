@@ -9,6 +9,7 @@ return new class () extends Migration {
     {
         match (DB::getDriverName()) {
             'pgsql' => DB::statement('ALTER TABLE employees ALTER COLUMN service_id DROP NOT NULL'),
+            'sqlsrv' => DB::statement('ALTER TABLE employees ALTER COLUMN service_id CHAR(36) NULL'),
             'sqlite' => null,
             default => DB::statement('ALTER TABLE employees MODIFY service_id CHAR(36) NULL'),
         };
@@ -20,6 +21,7 @@ return new class () extends Migration {
 
         match (DB::getDriverName()) {
             'pgsql' => DB::statement('ALTER TABLE employees ALTER COLUMN service_id SET NOT NULL'),
+            'sqlsrv' => DB::statement('ALTER TABLE employees ALTER COLUMN service_id CHAR(36) NOT NULL'),
             'sqlite' => null,
             default => DB::statement('ALTER TABLE employees MODIFY service_id CHAR(36) NOT NULL'),
         };

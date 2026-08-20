@@ -12,8 +12,7 @@ return new class () extends Migration {
             $t->foreignUuid('manager_id')
               ->nullable()
               ->after('id')
-              ->constrained('users')
-              ->nullOnDelete();
+              ->constrained('users');
 
             $t->index('manager_id', 'users_manager_id_idx');
         });

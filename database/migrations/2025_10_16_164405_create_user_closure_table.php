@@ -22,7 +22,7 @@ return new class () extends Migration {
 
             // FKs explícitas (MariaDB aceita FK em char(36))
             $t->foreign('ancestor_id')->references('id')->on('users')->cascadeOnDelete();
-            $t->foreign('descendant_id')->references('id')->on('users')->cascadeOnDelete();
+            $t->foreign('descendant_id')->references('id')->on('users');
 
             // Índices auxiliares
             $t->index(['ancestor_id','depth'], 'uc_ancestor_depth_idx');

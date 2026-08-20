@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\DB;
 return new class () extends Migration {
     public function up(): void
     {
+        $currentTimestamp = DB::getDriverName() === 'sqlsrv' ? 'CURRENT_TIMESTAMP' : 'NOW()';
+        $createView = DB::getDriverName() === 'sqlsrv' ? 'CREATE OR ALTER VIEW' : 'CREATE OR REPLACE VIEW';
+
         DB::unprepared("
-            CREATE OR REPLACE VIEW user_visibility_current AS
+            {$createView} user_visibility_current AS
             SELECT
                 v.viewer_id,
                 v.descendant_id,
@@ -30,8 +33,8 @@ return new class () extends Migration {
                 FROM user_observations o
                 JOIN user_closure uc ON uc.ancestor_id = o.target_id
                 WHERE o.mode = 'subtree'
-                  AND NOW() >= o.valid_from
-                  AND (o.valid_to IS NULL OR NOW() <= o.valid_to)
+                  AND {$currentTimestamp} >= o.valid_from
+                  AND (o.valid_to IS NULL OR {$currentTimestamp} <= o.valid_to)
 
                 UNION ALL
 
@@ -42,8 +45,8 @@ return new class () extends Migration {
                     1 AS depth
                 FROM user_observations o
                 WHERE o.mode = 'node_only'
-                  AND NOW() >= o.valid_from
-                  AND (o.valid_to IS NULL OR NOW() <= o.valid_to)
+                  AND {$currentTimestamp} >= o.valid_from
+                  AND (o.valid_to IS NULL OR {$currentTimestamp} <= o.valid_to)
             ) v
             GROUP BY v.viewer_id, v.descendant_id
         ");
@@ -51,8 +54,11 @@ return new class () extends Migration {
 
     public function down(): void
     {
+        $currentTimestamp = DB::getDriverName() === 'sqlsrv' ? 'CURRENT_TIMESTAMP' : 'NOW()';
+        $createView = DB::getDriverName() === 'sqlsrv' ? 'CREATE OR ALTER VIEW' : 'CREATE OR REPLACE VIEW';
+
         DB::unprepared("
-            CREATE OR REPLACE VIEW user_visibility_current AS
+            {$createView} user_visibility_current AS
             -- visão nativa (closure)
             SELECT uc.ancestor_id AS viewer_id,
                    uc.descendant_id,
@@ -65,8 +71,8 @@ return new class () extends Migration {
                    uc.depth
             FROM user_delegations d
             JOIN user_closure uc ON uc.ancestor_id = d.principal_id
-            WHERE NOW() >= d.valid_from
-              AND (d.valid_to IS NULL OR NOW() <= d.valid_to)
+            WHERE {$currentTimestamp} >= d.valid_from
+              AND (d.valid_to IS NULL OR {$currentTimestamp} <= d.valid_to)
         ");
     }
 };

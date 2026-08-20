@@ -14,7 +14,7 @@ return new class extends Migration
                 $table->timestamp('external_access_expires_at')->nullable()->after('external_access_token_hash');
                 $table->timestamp('external_access_revoked_at')->nullable()->after('external_access_expires_at');
                 $table->uuid('external_access_generated_by')->nullable()->after('external_access_revoked_at');
-                $table->foreign('external_access_generated_by')->references('id')->on('users')->nullOnDelete();
+                $table->foreign('external_access_generated_by')->references('id')->on('users');
                 $table->index('external_access_token_hash', 'idx_legal_subdemands_external_token_hash');
             }
         });
