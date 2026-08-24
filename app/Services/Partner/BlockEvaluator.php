@@ -105,7 +105,7 @@ class BlockEvaluator
 
     private function noteStatusBlocksSuspended(): bool
     {
-        return (bool) config('features.suspend_work_report_note_status_blocks', false);
+        return (bool) config('features.suspend_work_report_note_status_blocks', true);
     }
 
     private function res(int $block, bool $command, string $reason, ?Partial $partial = null, ?WorkReport $work = null, ?Production $production = null): object
