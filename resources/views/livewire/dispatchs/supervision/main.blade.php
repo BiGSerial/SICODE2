@@ -663,13 +663,21 @@
                                             data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV' }}"></i>
                                     @else
                                         @php
+                                            $assignedName = $production?->User
+                                                ? dispatchMainShortName($production->User->name)
+                                                : 'Pilha';
+
                                             if ($production && $production->Company) {
-                                                $name = explode(' ', $production->Company->name)[0];
+                                                $companyName = explode(' ', $production->Company->name)[0];
+                                                $companyName = mb_convert_case(mb_strtolower($companyName, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
                                             } else {
-                                                $name = 'Desconhecido';
+                                                $companyName = 'Desconhecido';
                                             }
                                         @endphp
-                                        <span style="font-size: 11px">{{ $name }}</span>
+                                        <div style="font-size: 11px; line-height: 1.15;">
+                                            <strong>{{ $assignedName }}</strong>
+                                            <div class="text-muted">{{ $companyName }}</div>
+                                        </div>
                                     @endif
 
                                 </td>

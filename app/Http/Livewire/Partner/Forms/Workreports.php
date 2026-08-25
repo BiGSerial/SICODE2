@@ -2,13 +2,10 @@
 
 namespace App\Http\Livewire\Partner\Forms;
 
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\User;
-use App\Models\WorkReport;
-use App\Models\Company;
+use App\Models\{Company, Note, Order, User, WorkReport};
 use App\Services\Partner\BlockEvaluator;
 use App\Services\WorkReports\WorkReportAcceptanceSignature;
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -18,61 +15,79 @@ class Workreports extends Component
     use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 
     public bool $requireFilesForSubmit = true;
+
     public bool $canSelectCompany = false;
+
     public bool $selectCompanyFromUserRelations = false;
+
     public $companies = [];
 
     public ?Note $note = null;
+
     public ?WorkReport $workReport = null;
+
     public $preNote;
+
     public $notes;
+
     public $search;
+
     public $s_order;
+
     public bool $hasFiles = false;
+
     public bool $hasAsbuilt = false;
+
     public bool $hasPendingAsbuilt = false;
+
     public bool $hasEvidenceFile = false;
+
     public bool $showAsbuiltMissingFeedback = false;
+
     public $hasPartial;
+
     public $acceptance_meta_json;
 
-
     public $equipment;
+
     public $meeters;
+
     public $model_equipment = [
-        'type' => null,
+        'type'      => null,
         'patrimony' => null,
-        'fases' => null,
-        'pole' => null,
+        'fases'     => null,
+        'pole'      => null,
         'installed' => false,
     ];
 
     public $model_meeter = [
         'number' => null,
-        'borne' => null,
-        'fases' => null,
+        'borne'  => null,
+        'fases'  => null,
     ];
 
     public $form = [
-        'note_id' => null,
-        'company_id' => null,
-        'user_id' => null,
-        'date' => null,
-        'equipment' => null,
-        'connection' => null,
-        'changes' => null,
-        'observation' => null,
-        'damage' => null,
-        'description' => '',
-        'team' => null,
-        'responsible' => null,
-        'acceptance_accepted' => false,
-        'acceptance_name' => null,
+        'note_id'              => null,
+        'company_id'           => null,
+        'user_id'              => null,
+        'date'                 => null,
+        'equipment'            => null,
+        'connection'           => null,
+        'changes'              => null,
+        'observation'          => null,
+        'damage'               => null,
+        'description'          => '',
+        'team'                 => null,
+        'responsible'          => null,
+        'acceptance_accepted'  => false,
+        'acceptance_name'      => null,
         'asbuilt_confirmation' => false,
     ];
 
     public $temp_orders = [];
+
     public $temp_equipment = [];
+
     public $temp_meeters = [];
 
     protected $listeners = [
@@ -85,60 +100,84 @@ class Workreports extends Component
         'savedFiles',
     ];
 
-    protected $rules = [
-        'form.company_id' => 'nullable',
-        'form.date' => 'required|date|before_or_equal:today',
-        'form.equipment' => 'required|boolean',
-        'form.changes' => 'required|boolean',
-        'form.observation' => 'nullable|string|max:5000',
-        'form.damage' => 'required|boolean',
-        'form.description' => 'required_if:form.damage,1|nullable|string|min:10|max:5000',
-        'form.connection' => 'required|boolean',
-        'form.team' => 'required|string|max:255',
-        'form.dd' => 'required|string|max:255',
-        'form.responsible' => 'required|string|max:255',
-        'form.informer' => 'required|string|max:255',
-        'form.acceptance_accepted' => 'accepted',
-        'form.acceptance_name' => 'required|string|max:255',
-        'form.asbuilt_confirmation' => 'nullable|boolean',
+    protected function rules()
+    {
+        $rules = [
+            'form.company_id'           => 'nullable',
+            'form.date'                 => 'required|date|before_or_equal:today',
+            'form.observation'          => 'nullable|string|max:5000',
+            'form.team'                 => 'required|string|max:255',
+            'form.responsible'          => 'required|string|max:255',
+            'form.informer'             => 'required|string|max:255',
+            'form.acceptance_accepted'  => 'accepted',
+            'form.acceptance_name'      => 'required|string|max:255',
+            'form.asbuilt_confirmation' => 'nullable|boolean',
+        ];
 
-    ];
+        foreach (['equipment', 'changes', 'damage', 'connection'] as $field) {
+            if (SicodeRules::workReportFieldEnabled($field)) {
+                $rules["form.{$field}"] = 'required|boolean';
+            }
+        }
+
+        $rules['form.description'] = SicodeRules::workReportFieldEnabled('damage')
+            ? 'required_if:form.damage,1|nullable|string|min:10|max:5000'
+            : 'nullable|string|max:5000';
+
+        $rules['form.dd'] = match (SicodeRules::workReportDdMode()) {
+            'required' => 'required|string|max:255',
+            default    => 'nullable|string|max:255',
+        };
+
+        return $rules;
+    }
 
     public function mount()
     {
+        $this->requireFilesForSubmit = SicodeRules::workReportRequiresFiles();
+
+        foreach (['equipment', 'changes', 'damage', 'connection'] as $field) {
+            if (!SicodeRules::workReportFieldEnabled($field)) {
+                $this->form[$field] = false;
+            }
+        }
+
+        $user                   = auth()->user();
+        $this->form['informer'] = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
+
         $this->configureCompanySelection();
     }
 
     public function messages()
     {
         return [
-            'form.date.required' => 'O campo [data de conclusão] é obrigatório.',
-            'form.date.date' => 'O campo [data de conclusão] deve ser uma data válida.',
-            'form.date.before_or_equal' => 'O campo data de conclusão deve ser uma data anterior ou igual a hoje.',
-            'form.equipment.required' => 'O campo [Equipamento Instalados] é obrigatório.',
-            'form.equipment.boolean' => 'O campo [Equipamento Instalados] deve ser verdadeiro ou falso.',
-            'form.changes.required' => 'O campo [Houveram Mudanças] é obrigatório.',
-            'form.changes.boolean' => 'O campo [Houveram Mudanças] deve ser verdadeiro ou falso.',
-            'form.observation.string' => 'O campo [Observações] deve ser uma string.',
-            'form.damage.required' => 'O campo [Houve Dano] é obrigatório.',
-            'form.damage.boolean' => 'O campo [Houve Dano] deve ser verdadeiro ou falso.',
-            'form.description.required_if' => 'A descrição do DANO é obrigatório quado for informado a existência de DANO.',
-            'form.description.string' => 'O campo [Descrição] deve ser uma string.',
-            'form.connection.required' => 'O campo [Houve Ligação] é obrigatório.',
-            'form.connection.boolean' => 'O campo [Houve Ligação] deve ser verdadeiro ou falso.',
-            'form.meeters.required' => 'O campo [Medidores Istalados] é obrigatório.',
-            'form.meeters.boolean' => 'O campo [Medidores Istalados] deve ser verdadeiro ou falso.',
-            'form.dd.required' => 'O campo [Numero da DD] é obrigatório.',
-            'form.dd.string' => 'O campo [Numero da DD] deve ser uma string.',
-            'form.team.required' => 'O campo [Nome da Equipe] é obrigatório.',
-            'form.team.string' => 'O campo [Nome da Equipe] deve ser uma string.',
-            'form.responsible.required' => 'O campo [Encarregado Responsável] é obrigatório.',
-            'form.responsible.string' => 'O campo [Encarregado Responsável] deve ser uma string.',
-            'form.informer.required' => 'O campo [Informante Responsável] é obrigatório.',
-            'form.informer.string' => 'O campo [Informante Responsável] deve ser uma string.',
-            'form.acceptance_accepted.accepted' => 'Você precisa aceitar o termo de responsabilidade do informe.',
-            'form.acceptance_name.required' => 'Informe o nome completo para o aceite do termo.',
-            'form.acceptance_name.string' => 'O campo [Nome do Aceite] deve ser uma string.',
+            'form.date.required'                 => 'O campo [data de conclusão] é obrigatório.',
+            'form.date.date'                     => 'O campo [data de conclusão] deve ser uma data válida.',
+            'form.date.before_or_equal'          => 'O campo data de conclusão deve ser uma data anterior ou igual a hoje.',
+            'form.equipment.required'            => 'O campo [Equipamento Instalados] é obrigatório.',
+            'form.equipment.boolean'             => 'O campo [Equipamento Instalados] deve ser verdadeiro ou falso.',
+            'form.changes.required'              => 'O campo [Houveram Mudanças] é obrigatório.',
+            'form.changes.boolean'               => 'O campo [Houveram Mudanças] deve ser verdadeiro ou falso.',
+            'form.observation.string'            => 'O campo [Observações] deve ser uma string.',
+            'form.damage.required'               => 'O campo [Houve Dano] é obrigatório.',
+            'form.damage.boolean'                => 'O campo [Houve Dano] deve ser verdadeiro ou falso.',
+            'form.description.required_if'       => 'A descrição do DANO é obrigatório quado for informado a existência de DANO.',
+            'form.description.string'            => 'O campo [Descrição] deve ser uma string.',
+            'form.connection.required'           => 'O campo [Houve Ligação] é obrigatório.',
+            'form.connection.boolean'            => 'O campo [Houve Ligação] deve ser verdadeiro ou falso.',
+            'form.meeters.required'              => 'O campo [Medidores Istalados] é obrigatório.',
+            'form.meeters.boolean'               => 'O campo [Medidores Istalados] deve ser verdadeiro ou falso.',
+            'form.dd.required'                   => 'O campo [Numero da DD] é obrigatório.',
+            'form.dd.string'                     => 'O campo [Numero da DD] deve ser uma string.',
+            'form.team.required'                 => 'O campo [Nome da Equipe] é obrigatório.',
+            'form.team.string'                   => 'O campo [Nome da Equipe] deve ser uma string.',
+            'form.responsible.required'          => 'O campo [Encarregado Responsável] é obrigatório.',
+            'form.responsible.string'            => 'O campo [Encarregado Responsável] deve ser uma string.',
+            'form.informer.required'             => 'O campo [Informante Responsável] é obrigatório.',
+            'form.informer.string'               => 'O campo [Informante Responsável] deve ser uma string.',
+            'form.acceptance_accepted.accepted'  => 'Você precisa aceitar o termo de responsabilidade do informe.',
+            'form.acceptance_name.required'      => 'Informe o nome completo para o aceite do termo.',
+            'form.acceptance_name.string'        => 'O campo [Nome do Aceite] deve ser uma string.',
             'form.asbuilt_confirmation.accepted' => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração de projeto.',
         ];
     }
@@ -190,7 +229,6 @@ class Workreports extends Component
     {
         if (trim($this->search)) {
 
-
             // NOTE: Implementar restriçao para evitar enviar Informe de Obra Final sem STATUS contrataçao.
             $this->notes = Note::where('note', trim($this->search))->orWhereRelation('Orders', 'ordem', trim($this->search))->orderBy('note')->get();
 
@@ -227,6 +265,7 @@ class Workreports extends Component
                 'title'    => 'Empreiteira obrigatória',
                 'html'     => 'Selecione a empreiteira responsável por este informe.',
             ]);
+
             return;
         }
 
@@ -237,11 +276,13 @@ class Workreports extends Component
                 'title'    => 'Empreiteira inválida',
                 'html'     => 'Selecione uma empreiteira vinculada ao seu usuário.',
             ]);
+
             return;
         }
 
         if ($this->requiresAsbuiltForSubmit() && !$this->hasAsbuilt) {
             $this->showMissingAsbuiltFeedback();
+
             return;
         }
 
@@ -252,6 +293,7 @@ class Workreports extends Component
                 'title'    => 'Arquivos Obrigatórios',
                 'html'     => 'Desde do dia <strong>01/05/2025</strong>, tornou-se obrigatório o anexo de imagens evidenciando a obra, incluindo os ativos cadastrados. Favor anexar os arquivos antes de prosseguir.',
             ]);
+
             return;
         }
 
@@ -262,18 +304,17 @@ class Workreports extends Component
                 'title'    => 'Confirmação do ASBUILT obrigatória',
                 'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
             ]);
+
             return;
         }
-
 
         try {
 
             $this->validate();
 
-
             $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'CONFIRMAR CONCLUSÂO OBRA ' . $this->note->note,
-                'msg'           => '
+                'title' => 'CONFIRMAR CONCLUSÂO OBRA ' . $this->note->note,
+                'msg'   => '
                     <div class="card">
                         <div class="card-body text-start">
                            <p>Você está preste a confirmar a obra ' . $this->note->note . '. Reforçamos que a confirmação PARCIAL da obra poderá acarretar atrasos, incluindo qualquer recursos oriundo em depedência deste informa.</p>
@@ -291,7 +332,8 @@ class Workreports extends Component
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->validator->errors()->all();
-            $html = '<ul>';
+            $html   = '<ul>';
+
             foreach ($errors as $error) {
                 $html .= '<li>' . $error . '</li>';
             }
@@ -317,6 +359,7 @@ class Workreports extends Component
         }
 
         $this->form['note_id'] = $this->note->id;
+
         if ($this->canSelectCompany) {
             $this->form['company_id'] = $this->form['company_id'] ?: null;
         } else {
@@ -330,12 +373,13 @@ class Workreports extends Component
                 'title'    => 'Empreiteira inválida',
                 'html'     => 'Selecione uma empreiteira vinculada ao seu usuário.',
             ]);
+
             return;
         }
 
-        $this->form['user_id'] = Auth()->User()->id;
-        $this->form['informed_at'] = date('Y-m-d H:i:s');
-        $this->form['acceptance_at'] = date('Y-m-d H:i:s');
+        $this->form['user_id']         = Auth()->User()->id;
+        $this->form['informed_at']     = date('Y-m-d H:i:s');
+        $this->form['acceptance_at']   = date('Y-m-d H:i:s');
         $this->form['acceptance_meta'] = $this->buildAcceptanceMeta();
 
         if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
@@ -375,6 +419,7 @@ class Workreports extends Component
 
         if ($this->requiresAsbuiltForSubmit() && !$this->hasAsbuilt) {
             $this->showMissingAsbuiltFeedback();
+
             return;
         }
 
@@ -448,17 +493,16 @@ class Workreports extends Component
                     }
                 }
 
-
                 if ($this->hasPartial) {
 
                     $user = User::first();
 
                     $this->hasPartial->update([
-                        'complete' => true,
-                        'allow' => false,
-                        'deny' => true,
-                        'engineer_id' => $user->id,
-                        'decision_at' => now(),
+                        'complete'      => true,
+                        'allow'         => false,
+                        'deny'          => true,
+                        'engineer_id'   => $user->id,
+                        'decision_at'   => now(),
                         'engineer_info' => 'Parcial cancelada automaticamente devido a entrada do informe final. (System Info)',
                     ]);
                 }
@@ -485,7 +529,6 @@ class Workreports extends Component
                 }
 
                 // return;
-
 
             }
         } catch (\Throwable $th) {
@@ -535,15 +578,16 @@ class Workreports extends Component
 
         if (empty($this->temp_equipment)) {
 
-
             $this->temp_equipment[] = array_map('trim', $this->model_equipment);
         } else {
             $add = true;
 
             $this->model_equipment = array_map('trim', $this->model_equipment);
+
             foreach ($this->temp_equipment as $equip) {
                 if ($equip['type'] == $this->model_equipment['type'] && $equip['patrimony'] == $this->model_equipment['patrimony']) {
                     $add = false;
+
                     break;
                 }
             }
@@ -570,11 +614,13 @@ class Workreports extends Component
 
             $this->temp_meeters[] = array_map('trim', $this->model_meeter);
         } else {
-            $add = true;
+            $add                = true;
             $this->model_meeter = array_map('trim', $this->model_meeter);
+
             foreach ($this->temp_meeters as $equip) {
                 if ($equip['number'] == $this->model_meeter['number']) {
                     $add = false;
+
                     break;
                 }
             }
@@ -596,11 +642,9 @@ class Workreports extends Component
     {
         $this->note = $this->preNote;
 
-
         $filteredOrders = $this->note->Orders->filter(function ($order) {
             return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
         });
-
 
         if (count($filteredOrders)) {
             foreach ($filteredOrders as $order) {
@@ -652,14 +696,14 @@ class Workreports extends Component
             return;
         }
 
-
         $eval = (new BlockEvaluator())->evaluate($this->preNote);
 
         if (!$eval->command) {
             $productionInfo = '';
+
             if (isset($eval->production) && $eval->production) {
-                $userName = $eval->production->user->name ?? 'Não informado';
-                $serviceName = $eval->production->service->service ?? 'Não informado';
+                $userName       = $eval->production->user->name ?? 'Não informado';
+                $serviceName    = $eval->production->service->service ?? 'Não informado';
                 $productionInfo = "<div class='alert alert-info'>
                 <strong>Resposável:</strong><br>
                 Usuário: {$userName}<br>
@@ -668,10 +712,10 @@ class Workreports extends Component
             }
 
             $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'error',
-            'title'    => 'OBRA BLOQUEADA',
-            'html'     => "<div class='card'>
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OBRA BLOQUEADA',
+                'html'     => "<div class='card'>
                 <div class='card-body'>
                     <h5 class='card-title'>Obra: <strong>{$this->preNote->note}</strong></h5>
                     <div class='alert alert-danger'>
@@ -687,8 +731,8 @@ class Workreports extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'INFORMAR OBRA ' . $note->note,
-            'msg'           => '
+            'title' => 'INFORMAR OBRA ' . $note->note,
+            'msg'   => '
                 <div class="card">
                     <div class="card-body text-start">
                         <h5 class="mb-3">Nota/OV: <strong>' . $note->note . '</strong></h5>
@@ -719,9 +763,9 @@ class Workreports extends Component
 
     public function cleanAll()
     {
-        $this->preNote = "";
-        $this->search = "";
-        $this->notes = "";
+        $this->preNote    = "";
+        $this->search     = "";
+        $this->notes      = "";
         $this->hasPartial = "";
         $this->workReport = null;
     }
@@ -737,48 +781,53 @@ class Workreports extends Component
     public function initForm()
     {
 
-        $this->s_order = '';
-        $this->equipment = '';
-        $this->hasFiles = false;
-        $this->hasAsbuilt = false;
-        $this->hasPendingAsbuilt = false;
-        $this->hasEvidenceFile = false;
+        $this->s_order                    = '';
+        $this->equipment                  = '';
+        $this->hasFiles                   = false;
+        $this->hasAsbuilt                 = false;
+        $this->hasPendingAsbuilt          = false;
+        $this->hasEvidenceFile            = false;
         $this->showAsbuiltMissingFeedback = false;
-        $this->temp_orders = [];
-        $this->temp_equipment = [];
+        $this->temp_orders                = [];
+        $this->temp_equipment             = [];
+
+        $user         = auth()->user();
+        $informerName = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
+
         $this->form = [
-            'note_id' => null,
+            'note_id'    => null,
             'company_id' => $this->companies && $this->companies->count() === 1
                 ? $this->companies->first()->id
                 : null,
-            'user_id' => null,
-            'date' => null,
-            'equipment' => null,
-            'connection' => null,
-            'changes' => null,
-            'observation' => null,
-            'damage' => null,
-            'description' => null,
-            'team' => null,
-            'responsible' => null,
-            'acceptance_accepted' => false,
-            'acceptance_name' => null,
+            'user_id'              => null,
+            'date'                 => null,
+            'equipment'            => SicodeRules::workReportFieldEnabled('equipment') ? null : false,
+            'connection'           => SicodeRules::workReportFieldEnabled('connection') ? null : false,
+            'changes'              => SicodeRules::workReportFieldEnabled('changes') ? null : false,
+            'observation'          => null,
+            'damage'               => SicodeRules::workReportFieldEnabled('damage') ? null : false,
+            'description'          => null,
+            'team'                 => null,
+            'responsible'          => null,
+            'informer'             => $informerName,
+            'dd'                   => null,
+            'acceptance_accepted'  => false,
+            'acceptance_name'      => null,
             'asbuilt_confirmation' => false,
         ];
         $this->model_equipment = [
-            'type' => null,
+            'type'      => null,
             'patrimony' => null,
-            'fases' => null,
-            'pole' => null,
+            'fases'     => null,
+            'pole'      => null,
             'installed' => null,
         ];
 
         $this->model_meeter = [
             'number' => null,
-            'borne' => null,
-            'fases' => null,
+            'borne'  => null,
+            'fases'  => null,
         ];
-
 
     }
 
@@ -788,33 +837,34 @@ class Workreports extends Component
 
         if (is_string($this->acceptance_meta_json) && trim($this->acceptance_meta_json) !== '') {
             $decoded = json_decode($this->acceptance_meta_json, true);
+
             if (is_array($decoded)) {
                 $meta = $decoded;
             }
         }
 
         $acceptedAt = Carbon::parse($this->form['acceptance_at'] ?? now());
-        $signature = app(WorkReportAcceptanceSignature::class);
+        $signature  = app(WorkReportAcceptanceSignature::class);
 
-        $meta['server_ip'] = request()->ip();
-        $meta['server_host'] = request()->getHost();
-        $meta['server_user_agent'] = request()->userAgent();
-        $meta['captured_at'] = $acceptedAt->toDateTimeString();
+        $meta['server_ip']            = request()->ip();
+        $meta['server_host']          = request()->getHost();
+        $meta['server_user_agent']    = request()->userAgent();
+        $meta['captured_at']          = $acceptedAt->toDateTimeString();
         $meta['asbuilt_confirmation'] = [
-            'confirmed' => $this->requiresAsbuiltConfirmation() && $this->asBool($this->form['asbuilt_confirmation'] ?? false),
-            'has_asbuilt' => $this->hasAsbuilt,
+            'confirmed'                => $this->requiresAsbuiltConfirmation() && $this->asBool($this->form['asbuilt_confirmation'] ?? false),
+            'has_asbuilt'              => $this->hasAsbuilt,
             'project_changes_declared' => $this->normalizeNullableBool($this->form['changes'] ?? null),
-            'message' => 'Usuário confirmou visualmente que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
+            'message'                  => 'Usuário confirmou visualmente que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
         ];
         $meta['app_user'] = [
-            'id' => auth()->id(),
-            'name' => auth()->user()?->name,
+            'id'    => auth()->id(),
+            'name'  => auth()->user()?->name,
             'email' => auth()->user()?->email,
         ];
         $meta['signature'] = $signature->make((string) ($this->form['acceptance_name'] ?? ''), $acceptedAt, [
-            'note_id' => $this->note?->id,
+            'note_id'     => $this->note?->id,
             'note_number' => $this->note?->note,
-            'company_id' => $this->form['company_id'] ?? null,
+            'company_id'  => $this->form['company_id'] ?? null,
             'app_user_id' => auth()->id(),
         ]);
 
@@ -831,7 +881,6 @@ class Workreports extends Component
         return app(WorkReportAcceptanceSignature::class)->contractText();
     }
 
-
     public function render()
     {
         return view('livewire.partner.forms.workreports');
@@ -839,11 +888,11 @@ class Workreports extends Component
 
     protected function configureCompanySelection(): void
     {
-        $companyIds = $this->relatedCompanyIdsForUser();
+        $companyIds                    = $this->relatedCompanyIdsForUser();
         $shouldSelectFromUserRelations = $this->shouldSelectCompanyFromUserRelations($companyIds);
 
         if ($shouldSelectFromUserRelations) {
-            $this->canSelectCompany = true;
+            $this->canSelectCompany               = true;
             $this->selectCompanyFromUserRelations = true;
         }
 
@@ -858,6 +907,7 @@ class Workreports extends Component
     {
         if (!$this->canSelectCompany) {
             $this->companies = [];
+
             return;
         }
 
@@ -906,7 +956,12 @@ class Workreports extends Component
             return true;
         }
 
+        if (!SicodeRules::workReportBlocksByNoteStatus()) {
+            return true;
+        }
+
         $freshNote = Note::query()->find($note->id);
+
         if (!$freshNote || $freshNote->canceled) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -914,6 +969,7 @@ class Workreports extends Component
                 'title'    => 'OBRA CANCELADA',
                 'html'     => 'Não é permitido informar obra para uma nota cancelada.',
             ]);
+
             return false;
         }
 

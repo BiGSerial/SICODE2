@@ -3,17 +3,20 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\Edp_depc\City;
-use App\Models\Form;
-use App\Models\Viability;
+use App\Models\{Form, Viability};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class ReturnViability extends Component
 {
     public $viability;
+
     public $cities;
+
     public $reason = null;
+
     public $hasFile = false;
+
     public $hasFVTO = false;
 
     // Controle
@@ -23,39 +26,36 @@ class ReturnViability extends Component
         'openViability',
         'hasFile',
         'hasFVTO',
-        'savedFiles' => 'closeAll',
+        'savedFiles'                       => 'closeAll',
         '71848750afd86770dfc52096788e78c6' => 'save',
     ];
 
-
     protected $rules = [
-        'reason.reason' => 'required|string|in:AJUSTE MATERIAL,AJUSTE DE PROJETO,PROPOSTA MELHORIA',
+        'reason.reason'      => 'required|string|in:AJUSTE MATERIAL,AJUSTE DE PROJETO,PROPOSTA MELHORIA',
         'reason.description' => 'required|string|max:1000',
-        'reason.changes' => 'required|integer|min:0|max:10',
+        'reason.changes'     => 'required|integer|min:0|max:10',
         'reason.responsible' => 'required|string|max:100',
 
     ];
 
     protected $messages = [
         'reason.reason.required' => 'O motivo da alteração é obrigatório.',
-        'reason.reason.string' => 'O motivo da alteração deve ser um texto válido.',
-        'reason.reason.in' => 'Escolha uma das opções válidas: AJUSTE MATERIAL, AJUSTE DE PROJETO ou PROPOSTA MELHORIA.',
+        'reason.reason.string'   => 'O motivo da alteração deve ser um texto válido.',
+        'reason.reason.in'       => 'Escolha uma das opções válidas: AJUSTE MATERIAL, AJUSTE DE PROJETO ou PROPOSTA MELHORIA.',
 
         'reason.description.required' => 'A descrição é obrigatória.',
-        'reason.description.string' => 'A descrição deve ser um texto válido.',
-        'reason.description.max' => 'A descrição não pode ter mais de 1000 caracteres.',
+        'reason.description.string'   => 'A descrição deve ser um texto válido.',
+        'reason.description.max'      => 'A descrição não pode ter mais de 1000 caracteres.',
 
         'reason.changes.required' => 'O nível de alteração é obrigatório.',
-        'reason.changes.integer' => 'O nível de alteração deve ser um número inteiro.',
-        'reason.changes.min' => 'O nível de alteração deve ser no mínimo 0.',
-        'reason.changes.max' => 'O nível de alteração deve ser no máximo 10.',
+        'reason.changes.integer'  => 'O nível de alteração deve ser um número inteiro.',
+        'reason.changes.min'      => 'O nível de alteração deve ser no mínimo 0.',
+        'reason.changes.max'      => 'O nível de alteração deve ser no máximo 10.',
 
         'reason.responsible.required' => 'O responsável pelo informe é obrigatório.',
-        'reason.responsible.string' => 'O nome do responsável deve ser um texto válido.',
-        'reason.responsible.max' => 'O nome do responsável não pode ter mais de 100 caracteres.',
+        'reason.responsible.string'   => 'O nome do responsável deve ser um texto válido.',
+        'reason.responsible.max'      => 'O nome do responsável não pode ter mais de 100 caracteres.',
     ];
-
-
 
     public function mount()
     {
@@ -83,6 +83,9 @@ class ReturnViability extends Component
                 $this->reason = $this->viability->Form;
             } else {
                 $this->reason = new Form();
+
+                $user                      = Auth()->User();
+                $this->reason->responsible = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
             }
 
             $this->dispatchBrowserEvent('showModal', [
@@ -108,8 +111,6 @@ class ReturnViability extends Component
 
         }
 
-
-
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENTREGAR ANALISE DE VIABILIDADE',
             'msg'   => "<p class='fw-bold'>Você deseja entregar esta análise de viabilidade?</p>
@@ -125,26 +126,16 @@ class ReturnViability extends Component
             'cancel_msg'    => 'Nenhuma analise foi salva.',
         ]);
 
-
-
-
-
-
-
-
-
     }
-
 
     public function save()
     {
-
 
         if ($this->changes === 'SIM') {
             $this->validate();
 
             // VIABILITY
-            $this->viability->status = 4;
+            $this->viability->status   = 4;
             $this->viability->rejected = true;
             $this->viability->approved = false;
 
@@ -159,8 +150,8 @@ class ReturnViability extends Component
 
             if ($this->viability->hired) {
 
-                $this->viability->status = 9;
-                $this->viability->completed = true;
+                $this->viability->status       = 9;
+                $this->viability->completed    = true;
                 $this->viability->completed_at = date('Y-m-d H:i:s');
 
             } else {
@@ -172,31 +163,25 @@ class ReturnViability extends Component
             $this->viability->rejected = false;
             $this->viability->approved = true;
 
-
             // FORM
-            $this->reason->reason = "VIABILIZADO";
+            $this->reason->reason      = "VIABILIZADO";
             $this->reason->description = "<< [by System] O Usuário indicou que não houveram alterações no projeto, e entende-se que o mesmo segue conforme o projeto. >>";
-            $this->reason->rejected = false;
-            $this->reason->approved = true;
+            $this->reason->rejected    = false;
+            $this->reason->approved    = true;
         }
 
         // FORM
         $this->reason->user_id = Auth()->User()->id;
 
         // VIABILITY
-        $this->viability->partner_id = Auth()->User()->id;
+        $this->viability->partner_id  = Auth()->User()->id;
         $this->viability->returned_at = date('Y-m-d H:i:s');
 
-
         DB::beginTransaction();
-
 
         try {
             Form::updateOrCreate(['viability_id' => $this->viability->id], $this->reason->toArray());
             $this->viability->save();
-
-
-
 
             if ($this->hasFile) {
 
@@ -260,7 +245,6 @@ class ReturnViability extends Component
                 return;
             }
 
-
         } catch (\Throwable $th) {
             DB::rollback();
 
@@ -278,8 +262,6 @@ class ReturnViability extends Component
 
     }
 
-
-
     public function closeAll()
     {
 
@@ -288,19 +270,17 @@ class ReturnViability extends Component
         }
 
         $this->viability = null;
-        $this->reason = null;
-        $this->changes = null;
-        $this->hasFile = false;
-        $this->hasFVTO = false;
+        $this->reason    = null;
+        $this->changes   = null;
+        $this->hasFile   = false;
+        $this->hasFVTO   = false;
         $this->resetErrorBag();
         $this->resetValidation();
-
 
         $this->emitUp('refresh_list');
         $this->dispatchBrowserEvent('hideModal');
 
     }
-
 
     public function render()
     {

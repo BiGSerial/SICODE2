@@ -8,27 +8,54 @@ return [
     'rules' => [
         'es' => [
             'dispatch' => [
-                'allows_company_stack' => true,
+                'allows_company_stack'            => true,
                 'partner_can_claim_company_stack' => true,
-                'survey' => [
+                'survey'                          => [
                     'requires_dd' => true,
                 ],
                 'supervision' => [
                     'requires_dd' => true,
                 ],
             ],
+
+            'work_report' => [
+                // Campos de Sim/Não do Informe de Obra. Quando false, o campo some
+                // do formulário e o valor salvo é sempre forçado para "Não".
+                'fields' => [
+                    'equipment'  => true,
+                    'changes'    => true,
+                    'damage'     => true,
+                    'connection' => true,
+                ],
+                // required: campo visível e obrigatório | optional: visível, não obrigatório | hidden: some do formulário
+                'dd_mode'               => 'required',
+                'requires_files'        => true,
+                'blocks_by_note_status' => false,
+            ],
         ],
 
         'sp' => [
             'dispatch' => [
-                'allows_company_stack' => true,
+                'allows_company_stack'            => true,
                 'partner_can_claim_company_stack' => true,
-                'survey' => [
+                'survey'                          => [
                     'requires_dd' => true,
                 ],
                 'supervision' => [
                     'requires_dd' => true,
                 ],
+            ],
+
+            'work_report' => [
+                'fields' => [
+                    'equipment'  => true,
+                    'changes'    => true,
+                    'damage'     => true,
+                    'connection' => true,
+                ],
+                'dd_mode'               => 'required',
+                'requires_files'        => true,
+                'blocks_by_note_status' => false,
             ],
         ],
     ],

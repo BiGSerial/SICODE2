@@ -2,30 +2,16 @@
 
 namespace App\Http\Livewire\Dispatchs\Supervision;
 
-use App\Custom\RuleBuilder;
-use App\Exports\Dispatchs\SupervisionExportList;
-use App\Exports\ExportDDExcel;
-use App\Exports\ExportDDSupervision;
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
-use App\Models\Bancoupdate;
-use App\Models\Company;
+use App\Models\{Bancoupdate, Company, Note, Production, Service, User, Wpa};
 use App\Models\Edp_depc\City;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Wpa;
 use App\Repositories\SupervisionRepository;
-use App\Services\Dispatch\DispatchException;
-use App\Services\Dispatch\DispatchWorkflowService;
+use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Supervision\BlockEvaluator;
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
-use PhpParser\Node\Expr\Empty_;
+use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
@@ -35,56 +21,78 @@ class Main extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 100;
+
     public $search;
+
     public $search_user;
+
     public $rubrica_s = [];
+
     public $rubrica_l;
+
     public $note;
+
     public $last_update;
+
     public $advanceSearch;
+
     public $multiSearch = [];
 
     public $selectAll;
+
     public $selected = [];
+
     public $company_l;
+
     public $company_s;
+
     public $user_l;
+
     public $user_s;
+
     public $type;
+
     public $additionalData = [];
+
     public $additionalDataUpd = [];
 
     public $typeNote = '';
 
     public $notes;
+
     public $filteredLists;
 
     public $note_type = '';
 
     // Filtros Municípios
     public $region_l;
-    public $region_s = [];
-    public $district_l;
-    public $district_s = [];
-    public $city_l;
-    public $city_s = [];
 
+    public $region_s = [];
+
+    public $district_l;
+
+    public $district_s = [];
+
+    public $city_l;
+
+    public $city_s = [];
 
     public $branco = false;
 
-
-
-
     //Variáveis para DDs
     public $enter_dd;
+
     public $existDD;
 
     public $key;
+
     public $municipio_edit;
 
     //Botão de exibição de nao atribuído
     public $not_assigned = false;
+
     public $filter_d5 = false;
 
     // Filters
@@ -92,15 +100,13 @@ class Main extends Component
 
     private $filter;
 
-
-
     protected $listeners = [
-        'refresh_dispatch' => '$refresh',
+        'refresh_dispatch'  => '$refresh',
         'refresh_list'      => '$refresh',
-        'getCopy' => 'copy',
+        'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
-        'confirm_dispatch' => 'confirmed_att',
-        'confirm_mass_dd' => 'confirmed_mass_dd',
+        'confirm_dispatch'  => 'confirmed_att',
+        'confirm_mass_dd'   => 'confirmed_mass_dd',
     ];
 
     protected $queryString = [
@@ -109,8 +115,6 @@ class Main extends Component
         'perPage'  => ['as' => 'pp'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
-
-
 
     private $supervisionRepository;
 
@@ -141,9 +145,9 @@ class Main extends Component
             if ($note->update(['lexp' => mb_strtoupper(trim($this->municipio_edit))])) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'success',
-                    'title' => 'Informação Alterada',
-                    'timer' => 2500,
+                    'icon'     => 'success',
+                    'title'    => 'Informação Alterada',
+                    'timer'    => 2500,
                 ]);
 
                 $this->municipio_edit = "";
@@ -153,9 +157,9 @@ class Main extends Component
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma informação inserida.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma informação inserida.',
+                'timer'    => 2500,
             ]);
             $this->municipio_edit = "";
             $this->hide_edit();
@@ -166,7 +170,7 @@ class Main extends Component
     public function mount($service)
     {
 
-        $this->service = Service::where('uuid', $service)->with('Status')->first();
+        $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
 
         // if (!session()->isStarted()) { session()->start(); }
@@ -195,7 +199,6 @@ class Main extends Component
         //         auth()->user()->id
         //     );
 
-
         //     $this->dispatchBrowserEvent('swal', [
         //         'position' => 'center',
         //         'icon' => 'success',
@@ -222,11 +225,14 @@ class Main extends Component
         // return;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
-        $this->filter = [];
+        $this->filter   = [];
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -234,27 +240,25 @@ class Main extends Component
         }
 
         ExportSupervisionList::dispatch([
-            'search'      => $this->search,
-            'multiSearch' => $this->multiSearch,
-            'rubrica_s'   => $this->rubrica_s,
-            'typeNote'    => $this->typeNote,
+            'search'       => $this->search,
+            'multiSearch'  => $this->multiSearch,
+            'rubrica_s'    => $this->rubrica_s,
+            'typeNote'     => $this->typeNote,
             'not_assigned' => $this->not_assigned,
-            'filter'      => $this->filter,
-            'serviceUuid' => $this->service->uuid,
-            'user_id'     => auth()->user()->id,
+            'filter'       => $this->filter,
+            'serviceUuid'  => $this->service->uuid,
+            'user_id'      => auth()->user()->id,
             'filterD5'     => $this->filter_d5,
         ]);
 
         $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Seu relatório está sendo gerado. Você será avisado quando estiver pronto!',
-                'timer' => 3000,
-            ]);
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Seu relatório está sendo gerado. Você será avisado quando estiver pronto!',
+            'timer'    => 3000,
+        ]);
 
-        return;
     }
-
 
     public function hasPublication(Note $note)
     {
@@ -270,11 +274,10 @@ class Main extends Component
     public function needBlock(Note $note): array
     {
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
         // retorna estrutura pra view usar diretamente
         return $eval;
     }
-
-
 
     public function hasPublicationCount(Note $note)
     {
@@ -335,6 +338,7 @@ class Main extends Component
 
         if (!$this->company_s) {
             $this->user_l = collect();
+
             return;
         }
 
@@ -381,6 +385,7 @@ class Main extends Component
             // Adicionar os IDs que cumprem as regras à lista de selecionados
             foreach ($this->toLists as $item) {
                 $id = $item->id;
+
                 if (!in_array($id, $this->selected)) {
                     if (Auth()->User()?->contract) {
                         if (SicodeRules::openCompanyStackProductionFor($item, Auth()->User(), $this->service->uuid)) {
@@ -409,7 +414,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds = $this->toLists->pluck('id')->toArray();
+            $visibleIds     = $this->toLists->pluck('id')->toArray();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
@@ -429,7 +434,7 @@ class Main extends Component
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
-            'status' => 'success',
+            'status'   => 'success',
             'menssage' => $msg,
         ]);
     }
@@ -437,12 +442,15 @@ class Main extends Component
     public function filter_save()
     {
         $this->gotoPage(1);
+
         // session()->put('filtro', $this->rubrica_s);
-        if (!session()->isStarted()) { session()->start(); }
-        $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
-        $_SESSION['filtro']['city'] = $this->city_s;
+        if (!session()->isStarted()) {
+            session()->start();
+        }
+        $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
+        $_SESSION['filtro']['city']     = $this->city_s;
         $_SESSION['filtro']['district'] = $this->district_s;
-        $_SESSION['filtro']['region'] = $this->region_s;
+        $_SESSION['filtro']['region']   = $this->region_s;
         $this->emit('refresh_service');
     }
 
@@ -450,12 +458,15 @@ class Main extends Component
     {
         $this->gotoPage(1);
 
-        $this->rubrica_s = [];
-        $this->city_s = [];
+        $this->rubrica_s  = [];
+        $this->city_s     = [];
         $this->district_s = [];
-        $this->region_s = [];
+        $this->region_s   = [];
 
-        if (!session()->isStarted()) { session()->start(); }
+        if (!session()->isStarted()) {
+            session()->start();
+        }
+
         if (isset($_SESSION['filtro'])) {
             unset($_SESSION['filtro']);
         }
@@ -478,9 +489,9 @@ class Main extends Component
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -494,9 +505,9 @@ class Main extends Component
         if (!$this->company_s) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -507,9 +518,9 @@ class Main extends Component
             if (!$this->user_s) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer' => 2500,
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                    'timer'    => 2500,
                 ]);
 
                 return;
@@ -526,35 +537,32 @@ class Main extends Component
                 ->where('deny', false);
         })->count();
 
-
         if ($partial > 0) {
 
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Despachar',
-                'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}. <p class='py-2 my-3 text-bg-danger'> <strong>Atenção:</strong> Existem Notas/OVs Parciais para Fiscalização neste remessa.</strong></p>",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Despache!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_dispatch",
+                'title'         => 'Confirmar Despachar',
+                'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}. <p class='py-2 my-3 text-bg-danger'> <strong>Atenção:</strong> Existem Notas/OVs Parciais para Fiscalização neste remessa.</strong></p>",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Despache!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => "confirm_dispatch",
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
             ]);
         } else {
             $this->dispatchBrowserEvent('alertar', [
-                'title' =>  'Confirmar Despachar',
-                'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, Despache!',
-                'btnCanceltxt' => 'Não, Cancele',
-                'action' => "confirm_dispatch",
+                'title'         => 'Confirmar Despachar',
+                'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, Despache!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => "confirm_dispatch",
                 'cancel_titulo' => 'Cancelado!',
-                'cancel_msg' => 'Nenhuma nenhum usuário foi removido.',
+                'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
 
             ]);
         }
-
-
 
     }
 
@@ -563,9 +571,9 @@ class Main extends Component
         if (!trim($this->enter_dd)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma entrada para atribuição!',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma entrada para atribuição!',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -601,19 +609,19 @@ class Main extends Component
         if (!in_array((string) $this->type, ['1', '2'], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione o tipo de despacho.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Selecione o tipo de despacho.',
+                'timer'    => 2500,
             ]);
 
             return;
         }
 
         try {
-            $workflow = app(DispatchWorkflowService::class);
-            $company = Company::findOrFail($this->company_s);
+            $workflow   = app(DispatchWorkflowService::class);
+            $company    = Company::findOrFail($this->company_s);
             $targetUser = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
-            $actor = Auth()->User();
+            $actor      = Auth()->User();
 
             DB::transaction(function () use ($workflow, $company, $targetUser, $actor) {
                 foreach ($this->notes as $key => $note) {
@@ -629,9 +637,9 @@ class Main extends Component
         } catch (DispatchException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => $e->getMessage(),
-                'timer' => 6000,
+                'icon'     => 'warning',
+                'title'    => $e->getMessage(),
+                'timer'    => 6000,
             ]);
 
             return;
@@ -640,9 +648,9 @@ class Main extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Erro ao despachar as Notas/OVs.',
-                'timer' => 5000,
+                'icon'     => 'error',
+                'title'    => 'Erro ao despachar as Notas/OVs.',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -650,26 +658,23 @@ class Main extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Notas Despachadas com sucesso!',
-            'timer' => 2500,
+            'icon'     => 'success',
+            'title'    => 'Notas Despachadas com sucesso!',
+            'timer'    => 2500,
         ]);
 
         $this->closeall();
         $this->emit('refresh_dispatch');
     }
 
-
-
     public function closeall()
     {
         $this->dispatchBrowserEvent('hideModal');
 
-
         $this->company_s = "";
-        $this->selected = [];
-        $this->user_s = "";
-        $this->user_l = collect();
+        $this->selected  = [];
+        $this->user_s    = "";
+        $this->user_l    = collect();
         // $this->type = "";
         $this->additionalData = [];
 
@@ -679,11 +684,11 @@ class Main extends Component
     public function clean()
     {
 
-        $this->company_s = "";
-        $this->enter_dd = "";
-        $this->user_s = "";
+        $this->company_s   = "";
+        $this->enter_dd    = "";
+        $this->user_s      = "";
         $this->search_user = "";
-        $this->user_l = collect();
+        $this->user_l      = collect();
         // $this->type = "";
         $this->additionalData = [];
     }
@@ -702,7 +707,6 @@ class Main extends Component
         }
     }
 
-
     /**
      * Atribuição de DD em Mmassa.
      *
@@ -711,28 +715,27 @@ class Main extends Component
      * correspondentes.
      */
 
-
     public function mass_modal()
     {
         if (!trim($this->enter_dd)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhum entrada para atribuição',
-                'timer' => 5000,
+                'icon'     => 'warning',
+                'title'    => 'Nenhum entrada para atribuição',
+                'timer'    => 5000,
             ]);
 
             return;
         }
 
-        $additionalData = [];
+        $additionalData    = [];
         $additionalDataUpd = [];
 
         $linhas = explode("\n", trim($this->enter_dd));
 
         if ($linhas && count($linhas)) {
             $count = 0;
-            $ok = 0;
+            $ok    = 0;
 
             foreach ($linhas as $linha) {
 
@@ -754,15 +757,13 @@ class Main extends Component
                     if (!(count($coluna) > 1)) {
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => "Gentileza separar os valores com alguma forma válida: ' ', ';', ','.",
+                            'icon'     => 'warning',
+                            'title'    => "Gentileza separar os valores com alguma forma válida: ' ', ';', ','.",
 
                         ]);
 
                         return;
                     }
-
-
 
                     if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
 
@@ -775,8 +776,8 @@ class Main extends Component
                             if ($note->note != trim($coluna[0])) {
                                 $this->dispatchBrowserEvent('swal', [
                                     'position' => 'center',
-                                    'icon' => 'warning',
-                                    'title' => "A DD {$dd->dd} já foi atribuída a Nota: {$note->note}. (Nenhuma Nota foi associada. Verifique novamente.)",
+                                    'icon'     => 'warning',
+                                    'title'    => "A DD {$dd->dd} já foi atribuída a Nota: {$note->note}. (Nenhuma Nota foi associada. Verifique novamente.)",
 
                                 ]);
 
@@ -792,15 +793,15 @@ class Main extends Component
 
                                 $this->dispatchBrowserEvent('swal', [
                                     'position' => 'center',
-                                    'icon' => 'warning',
-                                    'title' => "A DD {$dd->dd} já foi atribuída para a nota {$production->Note->note} despachada para {$name_user}",
+                                    'icon'     => 'warning',
+                                    'title'    => "A DD {$dd->dd} já foi atribuída para a nota {$production->Note->note} despachada para {$name_user}",
 
                                 ]);
                             } else {
                                 $this->dispatchBrowserEvent('swal', [
                                     'position' => 'center',
-                                    'icon' => 'error',
-                                    'title' => "A DD {$dd->dd} parece que ja foi despachada anteriormente, porém não encontrei relação de produção. Informe ao ADM.",
+                                    'icon'     => 'error',
+                                    'title'    => "A DD {$dd->dd} parece que ja foi despachada anteriormente, porém não encontrei relação de produção. Informe ao ADM.",
 
                                 ]);
                             }
@@ -808,12 +809,10 @@ class Main extends Component
                             return;
                         }
 
-                        $dd = Wpa::WhereRelation('Note', 'note', trim($coluna[0]))->whereNull('production_id')->first();
+                        $dd   = Wpa::WhereRelation('Note', 'note', trim($coluna[0]))->whereNull('production_id')->first();
                         $note = Note::where('note', trim($coluna[0]))->first();
 
                         if (!$dd && $note) {
-
-
 
                             if (count($additionalData)) {
                                 $dd_encontrada = array_search(trim($coluna[1]), array_column($additionalData, 'dd'));
@@ -822,9 +821,9 @@ class Main extends Component
 
                                     $this->dispatchBrowserEvent('swal', [
                                         'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada. <br> Revise novamente as DDs a serem cadastradas.<br> Nenhuma DD foi associada.",
+                                        'icon'     => 'warning',
+                                        'title'    => "DD Duplicada",
+                                        'html'     => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada. <br> Revise novamente as DDs a serem cadastradas.<br> Nenhuma DD foi associada.",
 
                                     ]);
 
@@ -839,9 +838,9 @@ class Main extends Component
 
                                     $this->dispatchBrowserEvent('swal', [
                                         'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
+                                        'icon'     => 'warning',
+                                        'title'    => "DD Duplicada",
+                                        'html'     => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
 
                                     ]);
 
@@ -849,12 +848,9 @@ class Main extends Component
                                 }
                             }
 
-
-
-
                             $additionalData[] = [
                                 'note_id' => $note->id,
-                                'dd' => trim($coluna[1]),
+                                'dd'      => trim($coluna[1]),
                             ];
 
                             $ok++;
@@ -869,9 +865,9 @@ class Main extends Component
 
                                     $this->dispatchBrowserEvent('swal', [
                                         'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
+                                        'icon'     => 'warning',
+                                        'title'    => "DD Duplicada",
+                                        'html'     => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
 
                                     ]);
 
@@ -886,9 +882,9 @@ class Main extends Component
 
                                     $this->dispatchBrowserEvent('swal', [
                                         'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
+                                        'icon'     => 'warning',
+                                        'title'    => "DD Duplicada",
+                                        'html'     => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
 
                                     ]);
 
@@ -906,8 +902,8 @@ class Main extends Component
                     } else {
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => "Existem Notas/OV ou DD com caracteres inválidos (SOMENTE NÚMEROS SÃO PERMITIDOS). Confira novamente.",
+                            'icon'     => 'warning',
+                            'title'    => "Existem Notas/OV ou DD com caracteres inválidos (SOMENTE NÚMEROS SÃO PERMITIDOS). Confira novamente.",
 
                         ]);
 
@@ -920,18 +916,18 @@ class Main extends Component
 
                 $count = count($additionalData) + count($additionalDataUpd);
 
-                $this->additionalData = $additionalData;
+                $this->additionalData    = $additionalData;
                 $this->additionalDataUpd = $additionalDataUpd;
 
                 $this->dispatchBrowserEvent('alertar', [
-                    'title' =>  'Confirmar Atribuir DD?',
-                    'msg' => "Você está prestes a atribuir {$count} de {$ok} notas DD, Deseja Continuar?",
-                    'icon' => 'info',
-                    'btnOktxt' => 'Sim, Continue!',
-                    'btnCanceltxt' => 'Não, Cancele',
-                    'action' => "confirm_mass_dd",
+                    'title'         => 'Confirmar Atribuir DD?',
+                    'msg'           => "Você está prestes a atribuir {$count} de {$ok} notas DD, Deseja Continuar?",
+                    'icon'          => 'info',
+                    'btnOktxt'      => 'Sim, Continue!',
+                    'btnCanceltxt'  => 'Não, Cancele',
+                    'action'        => "confirm_mass_dd",
                     'cancel_titulo' => 'Cancelado!',
-                    'cancel_msg' => 'Nenhuma Nota Atribuída.',
+                    'cancel_msg'    => 'Nenhuma Nota Atribuída.',
 
                 ]);
             }
@@ -963,23 +959,23 @@ class Main extends Component
         }
 
         $totalErrors = $error + $errorUpd;
-        $totalCount = $count + $countUpd;
+        $totalCount  = $count + $countUpd;
 
         if (!$totalErrors) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'Notas DDs associadas com sucesso',
-                'timer' => 2500,
+                'icon'     => 'success',
+                'title'    => 'Notas DDs associadas com sucesso',
+                'timer'    => 2500,
             ]);
 
             $this->closeall();
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => "OOPS!, Ocorreram {$totalErrors} de {$totalCount} ao associar as DD às Notas.",
-                'timer' => 8000,
+                'icon'     => 'error',
+                'title'    => "OOPS!, Ocorreram {$totalErrors} de {$totalCount} ao associar as DD às Notas.",
+                'timer'    => 8000,
             ]);
         }
     }
@@ -998,15 +994,17 @@ class Main extends Component
         $this->filter_d5 = !$this->filter_d5;
     }
 
-
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
-        $this->filter = [];
+        $this->filter   = [];
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -1016,7 +1014,6 @@ class Main extends Component
         // if ($this->filter) {
         //     dd($this->filter);
         // }
-
 
         $query = Note::query()
             ->excludeCanceledFullDone()
@@ -1028,9 +1025,7 @@ class Main extends Component
             fn ($statusQuery) => $this->supervisionRepository->applyBaseRules($statusQuery)
         );
 
-
         if (strlen($this->search)) {
-
 
             $query->where(function ($q) {
                 return $q->where('note', 'like', '%' . trim($this->search) . '%')
@@ -1099,7 +1094,7 @@ class Main extends Component
 
         $query->with(['orders' => function ($q) {
             $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-        },'Productions.User', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
+        }, 'Productions.User', 'Productions.Company', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
             ->select('notes.*', 'work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('id', 'ASC');
@@ -1148,13 +1143,12 @@ class Main extends Component
         return $this->lists->paginate($this->perPage);
     }
 
-
     public function render()
     {
 
         return view('livewire.dispatchs.supervision.main', [
-            'lists' => $this->toLists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first()
+            'lists'  => $this->toLists,
+            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }
 }

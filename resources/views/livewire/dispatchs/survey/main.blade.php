@@ -419,6 +419,7 @@
                                 $rowClass = '';
                                 $lastUser = '';
                                 $lastCompany = '';
+                                $currentAssignee = '';
 
                                 $count = $list->Productions
                                     ->where('service_id', $service->uuid)
@@ -446,6 +447,10 @@
                                     } else {
                                         $lastCompany = 'Desconhecido';
                                     }
+
+                                    $currentAssignee = $production->User
+                                        ? dispatchMainShortName($production->User->name)
+                                        : 'Pilha';
 
                                     if ($production->dt_note == $list->dt_status || !$production->confirmed) {
                                         $block = true;
@@ -599,7 +604,10 @@
                                                 data-bs-custom-class="custom-tooltip"
                                                 data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV' }}"></i>
                                         @else
-                                            <span style="font-size: 11px">{{ $lastCompany }}</span>
+                                            <div style="font-size: 11px; line-height: 1.15;">
+                                                <strong>{{ $currentAssignee ?: 'Desconhecido' }}</strong>
+                                                <div class="text-muted">{{ $lastCompany }}</div>
+                                            </div>
                                         @endif
                                     @endcan
 

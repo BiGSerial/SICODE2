@@ -2,10 +2,7 @@
 
 namespace App\Support;
 
-use App\Models\Note;
-use App\Models\Production;
-use App\Models\Company;
-use App\Models\User;
+use App\Models\{Company, Note, Production, User};
 use Illuminate\Support\Collection;
 
 class SicodeRules
@@ -38,6 +35,28 @@ class SicodeRules
     public static function partnerCanClaimCompanyStack(): bool
     {
         return self::boolRule('dispatch.partner_can_claim_company_stack', true);
+    }
+
+    public static function workReportFieldEnabled(string $field): bool
+    {
+        return self::boolRule("work_report.fields.{$field}", true);
+    }
+
+    public static function workReportDdMode(): string
+    {
+        $mode = (string) config('sicode.rules.' . self::ruleset() . '.work_report.dd_mode', 'required');
+
+        return in_array($mode, ['required', 'optional', 'hidden'], true) ? $mode : 'required';
+    }
+
+    public static function workReportRequiresFiles(): bool
+    {
+        return self::boolRule('work_report.requires_files', true);
+    }
+
+    public static function workReportBlocksByNoteStatus(): bool
+    {
+        return self::boolRule('work_report.blocks_by_note_status', false);
     }
 
     public static function visibleCompanyIdsFor(User $user): array

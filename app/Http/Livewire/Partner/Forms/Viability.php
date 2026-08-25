@@ -35,7 +35,7 @@ class Viability extends Component
     protected $listeners = [
         'confirm_cancelForm' => 'cancelForm',
         'confirm_save_form'  => 'saveForm',
-        'hasFile'
+        'hasFile',
     ];
 
     public function mount($id)
@@ -49,6 +49,9 @@ class Viability extends Component
         }
 
         $this->result['sizechange'] = 0;
+
+        $user                        = Auth()->User();
+        $this->result['responsible'] = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
 
         if ($id) {
             $this->data = Note::With(['Viabilities' => function ($query) {
@@ -286,10 +289,6 @@ class Viability extends Component
                 //     }
                 // }
 
-
-
-
-
                 foreach ($formData as $data) {
                     $chk_form = Form::updateOrCreate(['viability_id' => $data['viability_id']], $data);
 
@@ -300,12 +299,12 @@ class Viability extends Component
                     $chk_viability = ModelsViability::find($data['viability_id']);
 
                     $chk_viability->update([
-                        'returned_at' => date('Y-m-d H:i:s'),
-                        'approved'    => $data['approved'] ? true : false,
-                        'rejected'    => $data['rejected'] ? true : false,
-                        'completed'   => $chk_viability->hired && $data['approved'] ? true : false,
-                        'completed_at'   => $chk_viability->hired && $data['approved'] ? date('Y-m-d H:i:s') : null,
-                        'status'    => $chk_viability->hired && $data['approved'] ? 9 : $data['status'],
+                        'returned_at'  => date('Y-m-d H:i:s'),
+                        'approved'     => $data['approved'] ? true : false,
+                        'rejected'     => $data['rejected'] ? true : false,
+                        'completed'    => $chk_viability->hired && $data['approved'] ? true : false,
+                        'completed_at' => $chk_viability->hired && $data['approved'] ? date('Y-m-d H:i:s') : null,
+                        'status'       => $chk_viability->hired && $data['approved'] ? 9 : $data['status'],
                     ]);
 
                     if (!$chk_viability) {
