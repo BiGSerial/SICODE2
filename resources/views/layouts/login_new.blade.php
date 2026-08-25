@@ -7,7 +7,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 <html lang="pt_br">
 
 <head>
-    <title>{{ config('app.name', 'Laravel') }}</title>
+    <title>{{ \App\Support\SicodeRules::displayName(config('app.name', 'Laravel')) }}</title>
 
     <link rel="shortcut icon" href="{{ asset('img/favicon.ico') }}" type="image/x-icon">
 
@@ -50,7 +50,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
     <footer class="text-center mt-5 text-white" style="margin-top: 40px">
         <div class="copyright">
-            &copy; Copyright <strong><span>SICODE 2022 - {{ date('Y') }}
+            &copy; Copyright <strong><span>{{ \App\Support\SicodeRules::displayName('SICODE') }} 2022 - {{ date('Y') }}
                     v{{ $version->appver }}</span></strong>.
             <br>
             Centro Integrado de Projetos - Espirito Santo<br>
@@ -58,7 +58,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
             PHP v{{ phpversion() }}<br>
 
             @if (env('APP_QA'))
-                <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
+                <h3>{{ \App\Support\SicodeRules::displayName('SICODE') }} - AMBIENTE DE QUALIDADE</h3>
             @endif
 
         </div>

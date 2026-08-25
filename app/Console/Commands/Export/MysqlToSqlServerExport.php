@@ -4,9 +4,12 @@ namespace App\Console\Commands\Export;
 
 use App\Services\Database\MysqlToSqlServerExporter;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Helper\ProgressBar;
 
 class MysqlToSqlServerExport extends Command
 {
+    private ?ProgressBar $overallBar = null;
+
     protected $signature = 'sicode:export-mysql-to-sqlserver
         {--source=mysql : Conexão MySQL de origem}
         {--destination=sqlsrv2 : Conexão SQL Server de destino}
@@ -16,6 +19,7 @@ class MysqlToSqlServerExport extends Command
         {--except= : Lista de tabelas a ignorar}
         {--chunk=1000 : Tamanho do lote de leitura}
         {--fresh : Limpa cada tabela no destino antes de copiar}
+        {--resume : Pula tabelas cuja contagem origem/destino já bate e recopia a primeira divergente}
         {--no-identity-insert : Não habilita IDENTITY_INSERT em tabelas com coluna identity}
         {--keep-constraints : Mantém constraints ativas durante --fresh}
         {--dry-run : Simula a exportação sem gravar no SQL Server}
@@ -36,6 +40,7 @@ class MysqlToSqlServerExport extends Command
         $this->line('Destino: ' . $this->option('destination') . '.' . $this->option('schema'));
         $this->line('Modo: ' . ((bool) $this->option('dry-run') ? 'dry-run' : 'gravação'));
         $this->line('Limpeza destino: ' . ((bool) $this->option('fresh') ? 'sim' : 'não'));
+        $this->line('Continuação por contagem: ' . ((bool) $this->option('resume') ? 'sim' : 'não'));
         $this->newLine();
 
         try {
@@ -48,6 +53,7 @@ class MysqlToSqlServerExport extends Command
                 'except' => $this->parseListOption($this->option('except')),
                 'chunk' => $chunk,
                 'fresh' => (bool) $this->option('fresh'),
+                'resume' => (bool) $this->option('resume'),
                 'dry_run' => (bool) $this->option('dry-run'),
                 'continue_on_error' => (bool) $this->option('continue-on-error'),
                 'identity_insert' => !(bool) $this->option('no-identity-insert'),
@@ -56,11 +62,14 @@ class MysqlToSqlServerExport extends Command
                 $this->showProgressEvent($event, $data);
             });
         } catch (\Throwable $e) {
+            $this->finishOverallBar();
             $this->error('Exportação interrompida: ' . $e->getMessage());
             report($e);
 
             return self::FAILURE;
         }
+
+        $this->finishOverallBar();
 
         $this->newLine();
         $this->info('Exportação finalizada.');
@@ -100,23 +109,71 @@ class MysqlToSqlServerExport extends Command
 
     private function showProgressEvent(string $event, array $data): void
     {
+        if ($event === 'export_plan') {
+            $rows = (int) ($data['rows_planned'] ?? 0);
+            if ($rows > 0) {
+                $this->overallBar = $this->output->createProgressBar($rows);
+                $this->overallBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%');
+                $this->overallBar->start();
+            }
+
+            return;
+        }
+
         if ($event === 'table_start') {
-            $this->line('Tabela: ' . $data['table']);
             return;
         }
 
         if ($event === 'table_count') {
-            $this->line("  Linhas: {$data['total']} | Colunas comuns: {$data['columns']}");
+            return;
+        }
+
+        if ($event === 'table_skip_matching_count') {
+            $this->advanceOverall((int) ($data['total'] ?? 0));
+            return;
+        }
+
+        if ($event === 'table_resume_mismatch') {
             return;
         }
 
         if ($event === 'table_advance') {
-            $this->line("  Copiadas: {$data['rows_written']} / lidas: {$data['rows_read']}");
+            $this->advanceOverall((int) ($data['steps'] ?? 0));
+            return;
+        }
+
+        if ($event === 'identity_insert_on') {
             return;
         }
 
         if ($event === 'table_error') {
+            $this->finishOverallBar();
             $this->warn("  Erro em {$data['table']}: {$data['error']}");
         }
+    }
+
+    private function advanceOverall(int $steps): void
+    {
+        if ($steps <= 0) {
+            return;
+        }
+
+        if ($this->overallBar instanceof ProgressBar) {
+            $this->overallBar->advance($steps);
+        }
+    }
+
+    private function finishOverallBar(): void
+    {
+        if (!$this->overallBar instanceof ProgressBar) {
+            return;
+        }
+
+        if ($this->overallBar->getProgress() < $this->overallBar->getMaxSteps()) {
+            $this->overallBar->finish();
+        }
+
+        $this->newLine(2);
+        $this->overallBar = null;
     }
 }

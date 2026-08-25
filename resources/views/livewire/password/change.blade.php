@@ -10,7 +10,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                         <div class="row text-center">
                             <img src="{{ asset('img/EDP-Logo-white.svg') }}" class="align-middle" alt=""
                                 height="80">
-                            <span class="text-white fs-1">sicode <span
+                            <span class="text-white fs-1">{{ \App\Support\SicodeRules::displayName() }} <span
                                     class="text-white fs-6">v{{ $version->appver }}</span></span>
                         </div>
                     </div>

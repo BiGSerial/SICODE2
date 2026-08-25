@@ -3,6 +3,7 @@
 use App\Enum\AdsRequestStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
@@ -58,13 +59,22 @@ return new class () extends Migration {
             $table->timestamp('delivered_at')->nullable()->index(); // quando enviou email/doc, se aplicar
 
             // Rastreamento de sync com SQL Server (opcional, mas ajuda MUITO)
-            $table->unsignedBigInteger('sqlserver_id')->nullable()->unique();
+            $table->unsignedBigInteger('sqlserver_id')->nullable();
 
             $table->timestamps();
 
             // Índices úteis
             $table->index(['note_id', 'status']);
             $table->index(['note_id', 'version']);
+        });
+
+        if (DB::getDriverName() === 'sqlsrv') {
+            DB::statement('CREATE UNIQUE INDEX ads_requests_sqlserver_id_unique ON ads_requests (sqlserver_id) WHERE sqlserver_id IS NOT NULL');
+            return;
+        }
+
+        Schema::table('ads_requests', function (Blueprint $table) {
+            $table->unique('sqlserver_id', 'ads_requests_sqlserver_id_unique');
         });
     }
 

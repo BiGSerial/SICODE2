@@ -20,6 +20,7 @@ class MysqlToSqlServerExporter
         $schema = (string) ($options['schema'] ?? 'dbo');
         $chunk = max(1, (int) ($options['chunk'] ?? 1000));
         $fresh = (bool) ($options['fresh'] ?? false);
+        $resume = (bool) ($options['resume'] ?? false);
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $continueOnError = (bool) ($options['continue_on_error'] ?? false);
         $identityInsert = (bool) ($options['identity_insert'] ?? true);
@@ -51,6 +52,7 @@ class MysqlToSqlServerExporter
             'schema' => $schema,
             'dry_run' => $dryRun,
             'fresh' => $fresh,
+            'resume' => $resume,
             'tables_total' => count($tables),
             'tables_exported' => 0,
             'tables_skipped' => 0,
@@ -61,8 +63,25 @@ class MysqlToSqlServerExporter
             'tables' => [],
         ];
 
+        $tableTotals = [];
+        $plannedRows = 0;
+
+        foreach ($tables as $table) {
+            $tableTotals[$table] = (int) $sourceConnection->table($table)->count();
+            $plannedRows += $tableTotals[$table];
+        }
+
+        $summary['rows_planned'] = $plannedRows;
+
+        if ($progress) {
+            $progress('export_plan', [
+                'tables' => count($tables),
+                'rows_planned' => $plannedRows,
+            ]);
+        }
+
         try {
-            if ($fresh && !$dryRun && $disableConstraints) {
+            if (($fresh || $resume) && !$dryRun && $disableConstraints) {
                 $this->toggleConstraints($destinationConnection, $schema, $tables, false);
             }
 
@@ -75,8 +94,10 @@ class MysqlToSqlServerExporter
                         $table,
                         $chunk,
                         $fresh,
+                        $resume,
                         $dryRun,
                         $identityInsert,
+                        $tableTotals[$table] ?? null,
                         $progress
                     );
 
@@ -105,7 +126,7 @@ class MysqlToSqlServerExporter
                 }
             }
         } finally {
-            if ($fresh && !$dryRun && $disableConstraints) {
+            if (($fresh || $resume) && !$dryRun && $disableConstraints) {
                 $this->toggleConstraints($destinationConnection, $schema, $tables, true);
             }
         }
@@ -152,8 +173,10 @@ class MysqlToSqlServerExporter
         string $table,
         int $chunk,
         bool $fresh,
+        bool $resume,
         bool $dryRun,
         bool $identityInsert,
+        ?int $knownTotal,
         ?callable $progress
     ): array {
         if ($progress) {
@@ -186,14 +209,35 @@ class MysqlToSqlServerExporter
             ];
         }
 
-        $total = (int) $source->table($table)->count();
+        $total = $knownTotal ?? (int) $source->table($table)->count();
+        $statementTable = $this->statementTable($schema, $table);
+        $queryTable = $this->queryTable($schema, $table);
+        $destinationTotal = $resume ? $this->destinationCount($destination, $queryTable) : null;
 
         if ($progress) {
             $progress('table_count', [
                 'table' => $table,
                 'total' => $total,
+                'destination_total' => $destinationTotal,
                 'columns' => count($columns),
             ]);
+        }
+
+        if ($resume && $destinationTotal === $total) {
+            if ($progress) {
+                $progress('table_skip_matching_count', [
+                    'table' => $table,
+                    'total' => $total,
+                ]);
+            }
+
+            return [
+                'status' => 'skipped',
+                'reason' => 'matching_count',
+                'rows_read' => 0,
+                'rows_written' => 0,
+                'columns' => count($columns),
+            ];
         }
 
         if ($dryRun) {
@@ -206,23 +250,37 @@ class MysqlToSqlServerExporter
             ];
         }
 
-        $statementTable = $this->statementTable($schema, $table);
-        $queryTable = $this->queryTable($schema, $table);
+        if ($fresh || $resume) {
+            if ($resume && $progress) {
+                $progress('table_resume_mismatch', [
+                    'table' => $table,
+                    'source_total' => $total,
+                    'destination_total' => $destinationTotal ?? 0,
+                ]);
+            }
 
-        if ($fresh) {
             $this->clearDestinationTable($destination, $statementTable);
         }
 
         $identityColumn = $this->identityColumn($destinationColumns);
-        $useIdentityInsert = $identityInsert && $identityColumn !== null && in_array($identityColumn, $columns, true);
+        $shouldTryIdentityInsert = $identityInsert
+            && (
+                ($identityColumn !== null && in_array($identityColumn, $columns, true))
+                || in_array('id', $columns, true)
+            );
 
         $rowsRead = 0;
         $rowsWritten = 0;
         $insertBatchSize = min($chunk, $this->safeBatchSize(count($columns)));
+        $identityInsertEnabled = false;
 
         try {
-            if ($useIdentityInsert) {
-                $destination->statement('SET IDENTITY_INSERT ' . $statementTable . ' ON');
+            if ($shouldTryIdentityInsert) {
+                $identityInsertEnabled = $this->enableIdentityInsert($destination, $statementTable, $identityColumn !== null);
+
+                if ($identityInsertEnabled && $progress) {
+                    $progress('identity_insert_on', ['table' => $table]);
+                }
             }
 
             $source->table($table)
@@ -231,8 +289,10 @@ class MysqlToSqlServerExporter
                 ->chunk($chunk, function ($rows) use (
                     $destination,
                     $queryTable,
+                    $statementTable,
                     $destinationColumns,
                     $insertBatchSize,
+                    $identityInsertEnabled,
                     &$rowsRead,
                     &$rowsWritten,
                     $progress,
@@ -251,20 +311,26 @@ class MysqlToSqlServerExporter
                             continue;
                         }
 
-                        $destination->table($queryTable)->insert($batch);
+                        if ($identityInsertEnabled) {
+                            $this->insertIdentityBatch($destination, $statementTable, $batch);
+                        } else {
+                            $destination->table($queryTable)->insert($batch);
+                        }
+
                         $rowsWritten += count($batch);
                     }
 
                     if ($progress) {
                         $progress('table_advance', [
                             'table' => $table,
+                            'steps' => count($payload),
                             'rows_read' => $rowsRead,
                             'rows_written' => $rowsWritten,
                         ]);
                     }
                 });
         } finally {
-            if ($useIdentityInsert) {
+            if ($identityInsertEnabled) {
                 $destination->statement('SET IDENTITY_INSERT ' . $statementTable . ' OFF');
             }
         }
@@ -306,58 +372,48 @@ class MysqlToSqlServerExporter
 
     private function destinationColumns(Connection $destination, string $schema, string $table): array
     {
-        $rows = $destination
-            ->table('INFORMATION_SCHEMA.COLUMNS')
-            ->select([
-                'COLUMN_NAME as column_name',
-                'DATA_TYPE as data_type',
-                'CHARACTER_MAXIMUM_LENGTH as max_length',
-            ])
-            ->where('TABLE_SCHEMA', $schema)
-            ->where('TABLE_NAME', $table)
-            ->orderBy('ORDINAL_POSITION')
-            ->get();
+        $rows = collect($destination->select(
+            "SELECT
+                COLUMN_NAME AS column_name,
+                DATA_TYPE AS data_type,
+                CHARACTER_MAXIMUM_LENGTH AS max_length,
+                COLUMNPROPERTY(OBJECT_ID(TABLE_SCHEMA + '.' + TABLE_NAME), COLUMN_NAME, 'IsIdentity') AS is_identity
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+            ORDER BY ORDINAL_POSITION",
+            [$schema, $table]
+        ));
 
         if ($rows->isEmpty()) {
             return [];
         }
 
-        $identityColumns = $this->identityColumns($destination, $schema, $table);
         $columns = [];
 
         foreach ($rows as $row) {
-            $name = (string) $row->column_name;
+            $name = (string) $this->metadataValue($row, 'column_name');
             $columns[$name] = [
-                'data_type' => strtolower((string) $row->data_type),
-                'max_length' => (int) ($row->max_length ?? 0),
-                'identity' => isset($identityColumns[$name]),
+                'data_type' => strtolower((string) $this->metadataValue($row, 'data_type')),
+                'max_length' => (int) ($this->metadataValue($row, 'max_length') ?? 0),
+                'identity' => (int) ($this->metadataValue($row, 'is_identity') ?? 0) === 1,
             ];
         }
 
         return $columns;
     }
 
-    private function identityColumns(Connection $destination, string $schema, string $table): array
+    private function metadataValue(object $row, string $key): mixed
     {
-        try {
-            $rows = $destination->select(
-                "SELECT c.name AS column_name
-                FROM sys.columns c
-                INNER JOIN sys.tables t ON t.object_id = c.object_id
-                INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
-                WHERE s.name = ? AND t.name = ? AND c.is_identity = 1",
-                [$schema, $table]
-            );
-        } catch (\Throwable) {
-            return [];
+        if (property_exists($row, $key)) {
+            return $row->{$key};
         }
 
-        $identityColumns = [];
-        foreach ($rows as $row) {
-            $identityColumns[(string) $row->column_name] = true;
+        $upperKey = strtoupper($key);
+        if (property_exists($row, $upperKey)) {
+            return $row->{$upperKey};
         }
 
-        return $identityColumns;
+        return null;
     }
 
     private function identityColumn(array $columns): ?string
@@ -378,6 +434,55 @@ class MysqlToSqlServerExporter
         } catch (\Throwable) {
             $destination->statement('DELETE FROM ' . $qualifiedTable);
         }
+    }
+
+    private function destinationCount(Connection $destination, string $queryTable): int
+    {
+        return (int) $destination->table($queryTable)->count();
+    }
+
+    private function enableIdentityInsert(Connection $destination, string $statementTable, bool $mustEnable): bool
+    {
+        try {
+            $destination->statement('SET IDENTITY_INSERT ' . $statementTable . ' ON');
+            return true;
+        } catch (\Throwable $e) {
+            if ($mustEnable) {
+                throw $e;
+            }
+
+            return false;
+        }
+    }
+
+    private function insertIdentityBatch(Connection $destination, string $statementTable, array $batch): void
+    {
+        if (empty($batch)) {
+            return;
+        }
+
+        $columns = array_keys($batch[0]);
+        $columnSql = collect($columns)
+            ->map(fn (string $column) => '[' . str_replace(']', ']]', $column) . ']')
+            ->implode(', ');
+
+        $bindings = [];
+        $valueRows = [];
+
+        foreach ($batch as $row) {
+            $valueRows[] = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
+
+            foreach ($columns as $column) {
+                $bindings[] = $row[$column] ?? null;
+            }
+        }
+
+        $sql = 'SET IDENTITY_INSERT ' . $statementTable . ' ON; '
+            . 'INSERT INTO ' . $statementTable . ' (' . $columnSql . ') VALUES '
+            . implode(', ', $valueRows)
+            . '; SET IDENTITY_INSERT ' . $statementTable . ' OFF;';
+
+        $destination->statement($sql, $bindings);
     }
 
     private function toggleConstraints(Connection $destination, string $schema, array $tables, bool $enabled): void
