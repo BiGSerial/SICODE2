@@ -25,7 +25,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
+    <title>{{ \App\Support\SicodeRules::displayName(config('app.name', 'Laravel')) }}</title>
 
     <!-- Nucleo Icons -->
     <link href="{{ asset('css/nucleo-icons.css') }}" rel="stylesheet" />
@@ -57,12 +57,12 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <footer id="footer" class="footer mt-5">
         <div class="row">
             <div class="col-lg-8 mx-auto mb-0 mt-1 text-center">
-                &copy; Copyright <strong><span>SICODE 2022 - {{ date('Y') }}
+                &copy; Copyright <strong><span>{{ \App\Support\SicodeRules::displayName('SICODE') }} 2022 - {{ date('Y') }}
                         v{{ $version->appver }}</span></strong>.
                 Centro Integrado de Projetos - Espirito Santo<br>
                 Laravel Framework v{{ app()->version() }}<br>
                 @if (env('APP_QA'))
-                    <h3>SICODE - AMBIENTE DE QUALIDADE</h3>
+                    <h3>{{ \App\Support\SicodeRules::displayName('SICODE') }} - AMBIENTE DE QUALIDADE</h3>
                 @endif
             </div>
             {{-- <div class="credits">

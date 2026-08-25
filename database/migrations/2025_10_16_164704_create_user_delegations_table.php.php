@@ -13,7 +13,7 @@ return new class () extends Migration {
         Schema::create('user_delegations', function (Blueprint $t) {
             $t->uuid('id')->primary();
             $t->foreignUuid('principal_id')->constrained('users')->cascadeOnDelete(); // titular
-            $t->foreignUuid('delegate_id')->constrained('users')->cascadeOnDelete();  // cobridor
+            $t->foreignUuid('delegate_id')->constrained('users');  // cobridor
             $t->timestamp('valid_from')->useCurrent();
             $t->timestamp('valid_to')->nullable();
             $t->text('reason')->nullable();

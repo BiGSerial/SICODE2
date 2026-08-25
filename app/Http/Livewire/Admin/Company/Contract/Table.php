@@ -34,9 +34,13 @@ class Table extends Component
     public function getContractsProperty()
     {
         return Contract::when($this->search, function ($q, $s) {
-            return $q->where('number', 'like', '%' . $s . '%');
+            return $q->where(function ($query) use ($s) {
+                $query->where('number', 'like', '%' . $s . '%')
+                    ->orWhereRelation('Company', 'name', 'like', '%' . $s . '%')
+                    ->orWhereRelation('services', 'service', 'like', '%' . $s . '%');
+            });
         })
-            ->with('Company')
+            ->with('Company', 'services')
             ->orderBy('number')
             ->paginate($this->perPage);
     }

@@ -21,13 +21,11 @@ return new class () extends Migration {
 
             $table->foreignId('note_id')
                 ->nullable()
-                ->constrained('notes') 
-                ->nullOnDelete();
+                ->constrained('notes');
 
             $table->foreignUuid('user_id')
                 ->nullable()
                 ->constrained('users')
-                ->nullOnDelete()
                 ->comment('Usuário que criou o registro');
 
             // Identificadores primários do Pool / Pedido

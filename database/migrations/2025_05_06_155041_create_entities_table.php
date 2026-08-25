@@ -12,7 +12,7 @@ return new class () extends Migration {
     {
         Schema::create('entities', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('entity_type_id')->nullable()->constrained('entity_types')->nullOnDelete();
+            $table->foreignId('entity_type_id')->nullable()->constrained('entity_types');
             $table->string('name')->nullable();
             $table->string('nick')->nullable();
             $table->boolean('approve')->default(false);

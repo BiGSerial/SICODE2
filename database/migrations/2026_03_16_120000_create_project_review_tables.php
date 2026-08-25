@@ -45,14 +45,14 @@ return new class () extends Migration {
             $table->foreignId('production_id')->constrained('productions')->cascadeOnDelete();
             $table->unsignedInteger('round_number')->default(1);
 
-            $table->foreignUuid('submitted_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('submitted_by')->nullable()->constrained('users');
             $table->timestamp('submitted_at')->nullable();
 
             $table->boolean('proportionality_ok')->nullable();
             $table->decimal('proportionality_value', 14, 2)->nullable();
 
             $table->enum('decision', ['PENDING', 'APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED'])->default('PENDING');
-            $table->foreignUuid('decided_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('decided_by')->nullable()->constrained('users');
             $table->timestamp('decided_at')->nullable();
             $table->text('analyst_note')->nullable();
             $table->text('designer_note')->nullable();
@@ -81,7 +81,7 @@ return new class () extends Migration {
             $table->id();
             $table->foreignId('cycle_id')->constrained('project_review_cycles')->cascadeOnDelete();
             $table->foreignId('subcategory_id')->constrained('project_review_subcategories')->cascadeOnDelete();
-            $table->foreignId('item_id')->constrained('project_review_items')->cascadeOnDelete();
+            $table->foreignId('item_id')->constrained('project_review_items');
             $table->enum('origin', ['LEVANTAMENTO', 'PROJETO', 'AMBOS']);
             $table->text('note')->nullable();
             $table->timestamps();
@@ -92,9 +92,9 @@ return new class () extends Migration {
         Schema::create('project_review_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('production_id')->constrained('productions')->cascadeOnDelete();
-            $table->foreignId('cycle_id')->nullable()->constrained('project_review_cycles')->nullOnDelete();
+            $table->foreignId('cycle_id')->nullable()->constrained('project_review_cycles');
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('parent_id')->nullable()->constrained('project_review_messages')->nullOnDelete();
+            $table->foreignId('parent_id')->nullable()->constrained('project_review_messages');
             $table->text('message');
             $table->timestamps();
 

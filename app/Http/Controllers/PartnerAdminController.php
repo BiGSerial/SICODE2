@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Exports\Partner\PartnerUserImportTemplateExport;
 use App\Imports\PartnerUserBulkImport;
 use App\Models\Andresscompany;
+use App\Models\Company;
 use App\Models\PartnerAdminAuditEvent;
-use App\Models\PartnerRole;
 use App\Models\PartnerUserBranch;
 use App\Models\PartnerUserPermissionException;
 use App\Models\User;
@@ -25,27 +25,59 @@ class PartnerAdminController extends Controller
 {
     public function users(Request $request): ViewContract
     {
-        $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
+        $companyIds = $this->branchCompanyIdsFor($permissionCompanyId);
+        $status = $request->query('status') === 'disabled' ? 'disabled' : 'active';
 
         $users = User::query()
-            ->where(function ($query) use ($companyId) {
-                $query->where('company_id', $companyId)
-                    ->orWhereHas('Companies', fn ($companyQuery) => $companyQuery->where('companies.id', $companyId));
-            })
+            ->with([
+                'Company:id,parent_id,name',
+                'partnerBranchAddresses' => fn ($query) => $query
+                    ->wherePivot('company_id', $permissionCompanyId)
+                    ->with('Company:id,parent_id,name')
+                    ->orderBy('city')
+                    ->orderBy('street'),
+            ])
+            ->where('onlyparner', true)
+            ->whereIn('company_id', $companyIds)
+            ->when($status === 'disabled', fn ($query) => $query->onlyTrashed())
+            ->when($status === 'active', fn ($query) => $query->whereNull('deleted_at'))
             ->orderBy('name')
             ->paginate(25);
 
+        $activeCount = User::query()
+            ->where('onlyparner', true)
+            ->whereIn('company_id', $companyIds)
+            ->whereNull('deleted_at')
+            ->count();
+        $disabledCount = User::onlyTrashed()
+            ->where('onlyparner', true)
+            ->whereIn('company_id', $companyIds)
+            ->count();
+
         return view('partner.admin.users', [
             'users' => $users,
+            'status' => $status,
+            'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
+            'branchCount' => max(count($companyIds) - 1, 0),
+            'userCount' => $activeCount + $disabledCount,
+            'activeCount' => $activeCount,
+            'disabledCount' => $disabledCount,
         ]);
     }
 
     public function createUser(Request $request): ViewContract
     {
+        $permissionCompanyId = $this->permissionCompanyId($request);
+
         return view('partner.admin.user-form', [
             'user' => new User(),
-            'branches' => $this->branchesFor($request),
+            'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
+            'branches' => $this->branchesFor($permissionCompanyId),
             'selectedBranches' => collect(),
+            'userPermissionCatalog' => [],
+            'userPermissionValues' => [],
+            'canManageUserPermissions' => false,
         ]);
     }
 
@@ -54,10 +86,11 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.create'), 403);
 
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $data = $this->validateUserData($request);
-        $branchIds = $this->validBranchIds($request, $companyId);
+        $branchIds = $this->validBranchIds($request, $permissionCompanyId);
 
-        $user = DB::transaction(function () use ($data, $branchIds, $companyId, $request) {
+        $user = DB::transaction(function () use ($data, $branchIds, $companyId, $permissionCompanyId, $request) {
             $user = User::query()->create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -69,7 +102,7 @@ class PartnerAdminController extends Controller
             ]);
 
             $user->Companies()->syncWithoutDetaching([$companyId]);
-            $this->syncBranches($user, $companyId, $branchIds, $request->user()->id);
+            $this->syncBranches($user, $permissionCompanyId, $branchIds, $request->user()->id);
             $this->audit($request, PartnerAdminAuditEvent::CREATED_USER, $user, [
                 'branches' => $branchIds,
             ]);
@@ -85,14 +118,19 @@ class PartnerAdminController extends Controller
     public function editUser(Request $request, User $user): ViewContract
     {
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $target = $this->targetUser($user, $companyId);
 
         return view('partner.admin.user-form', [
             'user' => $target,
-            'branches' => $this->branchesFor($request),
+            'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
+            'branches' => $this->branchesFor($permissionCompanyId),
             'selectedBranches' => $target->partnerBranches()
-                ->where('company_id', $companyId)
+                ->where('company_id', $permissionCompanyId)
                 ->pluck('branch_id'),
+            'userPermissionCatalog' => $this->editablePermissionCatalog($permissionCompanyId),
+            'userPermissionValues' => $this->userPermissionValues($target, $permissionCompanyId),
+            'canManageUserPermissions' => PartnerAccessGate::allows($request->user(), 'admin_user_exceptions.manage'),
         ]);
     }
 
@@ -101,17 +139,19 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
 
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $target = $this->targetUser($user, $companyId);
         $data = $this->validateUserData($request, $target);
-        $branchIds = $this->validBranchIds($request, $companyId);
+        $branchIds = $this->validBranchIds($request, $permissionCompanyId);
 
-        DB::transaction(function () use ($target, $data, $branchIds, $companyId, $request) {
+        DB::transaction(function () use ($target, $data, $branchIds, $companyId, $permissionCompanyId, $request) {
             $target->update([
                 'name' => $data['name'],
                 'email' => $data['email'],
             ]);
 
-            $this->syncBranches($target, $companyId, $branchIds, $request->user()->id);
+            $this->syncBranches($target, $permissionCompanyId, $branchIds, $request->user()->id);
+            $this->syncUserPermissions($request, $target, $permissionCompanyId);
             $this->audit($request, PartnerAdminAuditEvent::UPDATED_USER_BRANCHES, $target, [
                 'branches' => $branchIds,
             ]);
@@ -139,140 +179,33 @@ class PartnerAdminController extends Controller
             ->with('status', 'Usuário desativado.');
     }
 
-    public function permissions(Request $request): ViewContract
+    public function resetUserPassword(Request $request, string $user): RedirectResponse
     {
-        $companyId = $this->companyId($request);
-        $role = PartnerRole::query()
-            ->where('company_id', $companyId)
-            ->with('permissions')
-            ->first();
-
-        return view('partner.admin.permissions', [
-            'catalog' => PartnerPermissionCatalog::groups(),
-            'configured' => (bool) $role,
-            'permissions' => $role?->permissions?->keyBy('permission_key') ?? collect(),
-        ]);
-    }
-
-    public function updatePermissions(Request $request): RedirectResponse
-    {
-        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_permissions.update'), 403);
+        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
 
         $companyId = $this->companyId($request);
-        $allowedKeys = PartnerPermissionCatalog::allPermissionKeys();
-        $enabledKeys = collect($request->input('permissions', []))
-            ->filter(fn ($enabled) => filter_var($enabled, FILTER_VALIDATE_BOOLEAN))
-            ->keys()
-            ->intersect($allowedKeys)
-            ->values();
+        $target = $this->targetUser(User::withTrashed()->findOrFail($user), $companyId);
 
-        $role = PartnerRole::query()->firstOrCreate(
-            ['company_id' => $companyId],
-            ['name' => 'Padrão']
-        );
+        abort_if($target->trashed(), 403);
 
-        foreach ($allowedKeys as $permissionKey) {
-            $role->permissions()->updateOrCreate(
-                ['permission_key' => $permissionKey],
-                [
-                    'scope_type' => array_key_exists($permissionKey, PartnerPermissionCatalog::groups()) ? 'group' : 'item',
-                    'enabled' => $enabledKeys->contains($permissionKey),
-                ]
-            );
-        }
+        $target->forceFill([
+            'password' => Hash::make(123456),
+            'first_pass' => true,
+        ])->save();
 
-        PartnerAdminAuditEvent::query()->create([
-            'company_id' => $companyId,
-            'actor_user_id' => $request->user()->id,
-            'event_type' => PartnerAdminAuditEvent::UPDATED_PERMISSIONS,
-            'payload' => [
-                'enabled_permissions' => $enabledKeys->all(),
-            ],
-        ]);
+        $this->audit($request, 'reset_user_password', $target);
 
         return redirect()
-            ->route('partner.admin.permissions')
-            ->with('status', 'Permissões atualizadas.');
-    }
-
-    public function exceptions(Request $request): ViewContract
-    {
-        $companyId = $this->companyId($request);
-
-        return view('partner.admin.exceptions', [
-            'users' => $this->companyUsers($companyId)->get(),
-            'catalog' => PartnerPermissionCatalog::groups(),
-            'exceptions' => PartnerUserPermissionException::query()
-                ->with(['user', 'creator'])
-                ->where('company_id', $companyId)
-                ->orderByDesc('updated_at')
-                ->paginate(25),
-        ]);
-    }
-
-    public function storeException(Request $request): RedirectResponse
-    {
-        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_user_exceptions.manage'), 403);
-
-        $companyId = $this->companyId($request);
-        $data = $request->validate([
-            'user_id' => ['required', 'uuid'],
-            'permission_key' => ['required', 'string'],
-            'enabled' => ['required', 'boolean'],
-            'reason' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        abort_unless(PartnerPermissionCatalog::allPermissionKeys()->contains($data['permission_key']), 422);
-        $target = $this->targetUser(User::query()->findOrFail($data['user_id']), $companyId);
-
-        PartnerUserPermissionException::query()->updateOrCreate(
-            [
-                'company_id' => $companyId,
-                'user_id' => $target->id,
-                'permission_key' => $data['permission_key'],
-            ],
-            [
-                'enabled' => (bool) $data['enabled'],
-                'reason' => $data['reason'] ?? null,
-                'created_by' => $request->user()->id,
-            ]
-        );
-
-        $this->audit($request, 'updated_user_permission_exception', $target, [
-            'permission_key' => $data['permission_key'],
-            'enabled' => (bool) $data['enabled'],
-        ]);
-
-        return redirect()
-            ->route('partner.admin.exceptions')
-            ->with('status', 'Exceção atualizada.');
-    }
-
-    public function destroyException(Request $request, PartnerUserPermissionException $exception): RedirectResponse
-    {
-        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_user_exceptions.manage'), 403);
-
-        $companyId = $this->companyId($request);
-        abort_unless($exception->company_id === $companyId, 403);
-
-        $targetUserId = $exception->user_id;
-        $payload = $exception->only(['permission_key', 'enabled']);
-        $exception->delete();
-
-        $this->audit($request, 'deleted_user_permission_exception', null, array_merge($payload, [
-            'target_user_id' => $targetUserId,
-        ]));
-
-        return redirect()
-            ->route('partner.admin.exceptions')
-            ->with('status', 'Exceção removida.');
+            ->route('partner.admin.users.edit', $target)
+            ->with('status', 'Senha redefinida para 123456.');
     }
 
     public function auditEvents(Request $request): ViewContract
     {
-        $companyId = $this->companyId($request);
+        $companyId = $this->permissionCompanyId($request);
 
         return view('partner.admin.audit', [
+            'managedCompany' => Company::withTrashed()->find($companyId),
             'events' => PartnerAdminAuditEvent::query()
                 ->with(['actor', 'target'])
                 ->where('company_id', $companyId)
@@ -285,7 +218,9 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.template_export'), 403);
 
-        return Excel::download(new PartnerUserImportTemplateExport(), 'modelo-cadastro-usuarios-parceira.xlsx');
+        $company = Company::withTrashed()->findOrFail($this->permissionCompanyId($request));
+
+        return Excel::download(new PartnerUserImportTemplateExport($company), 'modelo-cadastro-usuarios-parceira.xlsx');
     }
 
     public function previewImport(Request $request): ViewContract
@@ -293,19 +228,21 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt'],
         ]);
 
         $import = new PartnerUserBulkImport();
         Excel::import($import, $request->file('file'));
-        $preview = $this->buildImportPreview($import->rows, $companyId);
+        $preview = $this->buildImportPreview($import->rows, $permissionCompanyId);
         $token = (string) Str::uuid();
 
         session()->put("partner_user_import.{$token}", $preview['valid_rows']);
 
         return view('partner.admin.import-preview', [
             'token' => $token,
+            'managedCompany' => Company::withTrashed()->find(PartnerAccessGate::permissionCompanyIdFor($request->user())),
             'preview' => $preview,
         ]);
     }
@@ -315,12 +252,13 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
         $companyId = $this->companyId($request);
+        $permissionCompanyId = $this->permissionCompanyId($request);
         $token = $request->validate(['token' => ['required', 'string']])['token'];
         $rows = session()->pull("partner_user_import.{$token}", []);
 
         abort_if(empty($rows), 422);
 
-        $created = DB::transaction(function () use ($rows, $companyId, $request) {
+        $created = DB::transaction(function () use ($rows, $companyId, $permissionCompanyId, $request) {
             $count = 0;
 
             foreach ($rows as $row) {
@@ -335,7 +273,7 @@ class PartnerAdminController extends Controller
                 ]);
 
                 $user->Companies()->syncWithoutDetaching([$companyId]);
-                $this->syncBranches($user, $companyId, [$row['branch_id']], $request->user()->id);
+                $this->syncBranches($user, $permissionCompanyId, [$row['branch_id']], $request->user()->id);
                 $count++;
             }
 
@@ -364,6 +302,15 @@ class PartnerAdminController extends Controller
         return $companyId;
     }
 
+    private function permissionCompanyId(Request $request): string
+    {
+        $companyId = PartnerAccessGate::permissionCompanyIdFor($request->user());
+
+        abort_unless($companyId, 403);
+
+        return $companyId;
+    }
+
     private function validateUserData(Request $request, ?User $user = null): array
     {
         return $request->validate([
@@ -371,32 +318,55 @@ class PartnerAdminController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email' . ($user ? ',' . $user->id : '')],
             'branches' => ['array'],
             'branches.*' => ['integer'],
+            'user_permissions' => ['array'],
+            'user_permissions.*' => ['boolean'],
         ]);
     }
 
-    private function branchesFor(Request $request)
+    private function editablePermissionKeys(string $companyId)
+    {
+        $adminKeys = collect(['admin'])
+            ->merge(PartnerPermissionCatalog::itemKeysForGroup(PartnerPermissionCatalog::GROUP_ADMIN));
+
+        return PartnerAccessGate::grantedPermissionKeysForCompany($companyId)
+            ->diff($adminKeys)
+            ->values();
+    }
+
+    private function editablePermissionCatalog(string $companyId): array
+    {
+        $catalog = PartnerPermissionCatalog::filterGroupsByKeys($this->editablePermissionKeys($companyId));
+        unset($catalog[PartnerPermissionCatalog::GROUP_ADMIN]);
+
+        return $catalog;
+    }
+
+    private function userPermissionValues(User $target, string $companyId): array
+    {
+        return $this->editablePermissionKeys($companyId)
+            ->mapWithKeys(fn (string $permissionKey) => [
+                $permissionKey => PartnerAccessGate::allows($target, $permissionKey),
+            ])
+            ->all();
+    }
+
+    private function branchesFor(string $permissionCompanyId)
     {
         return Andresscompany::query()
-            ->where('company_id', $this->companyId($request))
+            ->with('Company:id,name,parent_id')
+            ->whereIn('company_id', $this->branchCompanyIdsFor($permissionCompanyId))
             ->orderBy('city')
             ->orderBy('street')
             ->get();
     }
 
-    private function companyUsers(string $companyId)
-    {
-        return User::query()
-            ->where(function ($query) use ($companyId) {
-                $query->where('company_id', $companyId)
-                    ->orWhereHas('Companies', fn ($companyQuery) => $companyQuery->where('companies.id', $companyId));
-            })
-            ->orderBy('name');
-    }
-
     private function targetUser(User $user, string $companyId): User
     {
+        $managedCompanyId = PartnerAccessGate::permissionCompanyIdFor(auth()->user());
+        $companyIds = $managedCompanyId ? $this->branchCompanyIdsFor($managedCompanyId) : [$companyId];
+
         abort_unless(
-            $user->company_id === $companyId || $user->Companies()->where('companies.id', $companyId)->exists(),
+            $user->onlyparner && in_array($user->company_id, $companyIds, true),
             403
         );
 
@@ -416,7 +386,7 @@ class PartnerAdminController extends Controller
         }
 
         $valid = Andresscompany::query()
-            ->where('company_id', $companyId)
+            ->whereIn('company_id', $this->branchCompanyIdsFor($companyId))
             ->whereIn('id', $ids)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
@@ -425,6 +395,15 @@ class PartnerAdminController extends Controller
         abort_unless($valid->count() === $ids->count(), 403);
 
         return $valid->all();
+    }
+
+    private function branchCompanyIdsFor(string $permissionCompanyId): array
+    {
+        return Company::query()
+            ->where('id', $permissionCompanyId)
+            ->orWhere('parent_id', $permissionCompanyId)
+            ->pluck('id')
+            ->all();
     }
 
     private function syncBranches(User $user, string $companyId, array $branchIds, string $actorUserId): void
@@ -444,6 +423,33 @@ class PartnerAdminController extends Controller
         }
     }
 
+    private function syncUserPermissions(Request $request, User $target, string $companyId): void
+    {
+        if (!$target->exists || !$request->has('user_permissions')) {
+            return;
+        }
+
+        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_user_exceptions.manage'), 403);
+
+        $allowedKeys = $this->editablePermissionKeys($companyId);
+        $submitted = collect($request->input('user_permissions', []));
+
+        foreach ($allowedKeys as $permissionKey) {
+            PartnerUserPermissionException::query()->updateOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'user_id' => $target->id,
+                    'permission_key' => $permissionKey,
+                ],
+                [
+                    'enabled' => filter_var($submitted->get($permissionKey, false), FILTER_VALIDATE_BOOLEAN),
+                    'reason' => 'Configurado no cadastro do usuário.',
+                    'created_by' => $request->user()->id,
+                ]
+            );
+        }
+    }
+
     private function buildImportPreview(array $rows, string $companyId): array
     {
         $seenEmails = [];
@@ -456,6 +462,10 @@ class PartnerAdminController extends Controller
             $email = strtolower(trim((string) ($row['email'] ?? '')));
             $branchName = trim((string) ($row['filial'] ?? $row['branch'] ?? ''));
             $errors = [];
+
+            if ($name === '' && $email === '' && $branchName === '') {
+                continue;
+            }
 
             if ($name === '') {
                 $errors[] = 'Nome obrigatório.';
@@ -503,9 +513,11 @@ class PartnerAdminController extends Controller
             return null;
         }
 
+        $companyIds = $this->branchCompanyIdsFor($companyId);
+
         if (ctype_digit($label)) {
             return Andresscompany::query()
-                ->where('company_id', $companyId)
+                ->whereIn('company_id', $companyIds)
                 ->where('id', (int) $label)
                 ->first();
         }
@@ -513,7 +525,7 @@ class PartnerAdminController extends Controller
         $needle = Str::lower($label);
 
         return Andresscompany::query()
-            ->where('company_id', $companyId)
+            ->whereIn('company_id', $companyIds)
             ->get()
             ->first(function (Andresscompany $branch) use ($needle) {
                 $labels = collect([
@@ -530,7 +542,7 @@ class PartnerAdminController extends Controller
     private function audit(Request $request, string $eventType, ?User $target = null, array $payload = []): void
     {
         PartnerAdminAuditEvent::query()->create([
-            'company_id' => $this->companyId($request),
+            'company_id' => $this->permissionCompanyId($request),
             'actor_user_id' => $request->user()->id,
             'target_user_id' => $target?->id,
             'event_type' => $eventType,

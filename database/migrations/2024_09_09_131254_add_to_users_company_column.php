@@ -11,7 +11,7 @@ return new class () extends Migration {
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->foreignUuid('company_id')->nullable()->constrained('companies')->nullOnDelete();
+            $table->foreignUuid('company_id')->nullable()->constrained('companies');
             $table->boolean('responsible')->nullable()->default(false);
         });
     }

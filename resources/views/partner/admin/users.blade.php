@@ -18,25 +18,54 @@
 @endsection
 
 @section('content')
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Usuários da empresa</h5>
-            <div class="d-flex gap-2">
+    @include('partner.admin._styles')
+
+    <div class="partner-admin-shell">
+        <div class="partner-admin-header">
+            <div>
+                <div class="partner-admin-eyebrow">Administração da parceira</div>
+                <h1 class="partner-admin-title">{{ $managedCompany?->name ?? 'Empresa parceira' }}</h1>
+                <p class="partner-admin-subtitle">Usuários</p>
+                <div class="partner-admin-hero-meta">
+                    <div class="partner-admin-hero-chip">
+                        <i class="ri-user-settings-line"></i>
+                        <strong>{{ $userCount }}</strong>
+                        <span>usuários</span>
+                    </div>
+                    <div class="partner-admin-hero-chip">
+                        <i class="ri-user-follow-line"></i>
+                        <strong>{{ $activeCount }}</strong>
+                        <span>ativos</span>
+                    </div>
+                    <div class="partner-admin-hero-chip">
+                        <i class="ri-node-tree"></i>
+                        <strong>{{ $branchCount }}</strong>
+                        <span>filiais</span>
+                    </div>
+                </div>
+            </div>
+            <div class="partner-admin-actions">
                 @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.template_export'))
-                    <a href="{{ route('partner.admin.users.import_template') }}" class="btn btn-sm btn-outline-primary">Exportar modelo</a>
+                    <a href="{{ route('partner.admin.users.import_template') }}" class="btn btn-outline-primary">
+                        <i class="ri-download-2-line"></i> Exportar modelo
+                    </a>
                 @endif
                 @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.create'))
-                    <a href="{{ route('partner.admin.users.create') }}" class="btn btn-sm btn-primary">Novo usuário</a>
+                    <a href="{{ route('partner.admin.users.create') }}" class="btn btn-primary">
+                        <i class="ri-user-add-line"></i> Novo usuário
+                    </a>
                 @endif
             </div>
         </div>
-        <div class="card-body">
+
+        <div class="partner-admin-panel">
+            <div class="partner-admin-panel-body">
             @if (session('status'))
                 <div class="alert alert-success">{{ session('status') }}</div>
             @endif
 
             @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.bulk_import'))
-                <form method="POST" action="{{ route('partner.admin.users.import.preview') }}" enctype="multipart/form-data" class="row g-2 align-items-end mb-4">
+                <form method="POST" action="{{ route('partner.admin.users.import.preview') }}" enctype="multipart/form-data" class="partner-admin-toolbar row g-2 align-items-end">
                     @csrf
                     <div class="col-md-8">
                         <label class="form-label">Importar usuários</label>
@@ -46,17 +75,34 @@
                         @enderror
                     </div>
                     <div class="col-md-4">
-                        <button type="submit" class="btn btn-outline-primary w-100">Pré-visualizar importação</button>
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="ri-file-search-line"></i> Pré-visualizar importação
+                        </button>
                     </div>
                 </form>
             @endif
 
+            <div class="partner-admin-tabs">
+                <a href="{{ route('partner.admin.users') }}" class="{{ $status === 'active' ? 'is-active' : '' }}">
+                    <i class="ri-user-follow-line"></i>
+                    Ativos
+                    <span>{{ $activeCount }}</span>
+                </a>
+                <a href="{{ route('partner.admin.users', ['status' => 'disabled']) }}" class="{{ $status === 'disabled' ? 'is-active' : '' }}">
+                    <i class="ri-user-unfollow-line"></i>
+                    Desativados
+                    <span>{{ $disabledCount }}</span>
+                </a>
+            </div>
+
             <div class="table-responsive">
-                <table class="table table-sm align-middle">
+                <table class="table table-sm align-middle partner-admin-table">
                     <thead>
                         <tr>
                             <th>Nome</th>
                             <th>Email</th>
+                            <th>Filiais</th>
+                            <th>Último acesso</th>
                             <th>Admin</th>
                             <th>Ativo</th>
                             <th></th>
@@ -64,20 +110,54 @@
                     </thead>
                     <tbody>
                         @forelse ($users as $user)
+                            @php
+                                $branchLabels = $user->partnerBranchAddresses
+                                    ->map(function ($branch) {
+                                        $companyName = $branch->Company?->display_name ?: $branch->Company?->name;
+
+                                        return trim(($companyName ?: 'Filial') . ($branch->city ? ' - ' . $branch->city : ''));
+                                    })
+                                    ->filter()
+                                    ->unique()
+                                    ->values();
+                            @endphp
                             <tr>
                                 <td>{{ $user->name }}</td>
                                 <td>{{ $user->email }}</td>
-                                <td>{{ $user->admin ? 'Sim' : 'Não' }}</td>
-                                <td>{{ $user->deleted_at ? 'Não' : 'Sim' }}</td>
+                                <td>
+                                    @if ($branchLabels->isEmpty())
+                                        <span class="text-muted">Sem filial definida</span>
+                                    @else
+                                        <span class="partner-admin-branch-summary">
+                                            {{ $branchLabels->take(2)->implode(', ') }}
+                                            @if ($branchLabels->count() > 2)
+                                                <small>+{{ $branchLabels->count() - 2 }}</small>
+                                            @endif
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>{{ ($user->last_seen_at ?: $user->last_login_at)?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
+                                <td>
+                                    <span class="partner-admin-status {{ $user->admin ? 'is-on' : 'is-off' }}">
+                                        {{ $user->admin ? 'Sim' : 'Não' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="partner-admin-status {{ $user->deleted_at ? 'is-off' : 'is-on' }}">
+                                        {{ $user->deleted_at ? 'Não' : 'Sim' }}
+                                    </span>
+                                </td>
                                 <td class="text-end">
-                                    @if (\App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.update'))
-                                        <a href="{{ route('partner.admin.users.edit', $user) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                    @if ($status === 'active' && \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'admin_users.update'))
+                                        <a href="{{ route('partner.admin.users.edit', $user) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="ri-edit-line"></i> Editar
+                                        </a>
                                     @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center text-muted">Nenhum usuário encontrado.</td>
+                                <td colspan="7" class="text-center text-muted">Nenhum usuário encontrado.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -85,6 +165,7 @@
             </div>
 
             {{ $users->links() }}
+            </div>
         </div>
     </div>
 @endsection

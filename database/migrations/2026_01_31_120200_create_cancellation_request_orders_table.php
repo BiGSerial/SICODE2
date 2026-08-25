@@ -10,7 +10,7 @@ return new class () extends Migration {
         Schema::create('cancellation_request_orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('cancellation_request_id')->constrained('cancellation_requests')->cascadeOnDelete();
-            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->foreignId('order_id')->constrained('orders');
             $table->timestamps();
 
             $table->unique(['cancellation_request_id', 'order_id'], 'cxl_req_order_unique');

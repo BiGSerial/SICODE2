@@ -11,11 +11,11 @@ return new class extends Migration
         Schema::create('work_report_flow_productions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('work_report_id')->constrained('work_reports')->cascadeOnDelete();
-            $table->foreignId('production_id')->constrained('productions')->cascadeOnDelete();
+            $table->foreignId('production_id')->constrained('productions');
             $table->string('stage', 40);
             $table->boolean('is_current')->default(true);
             $table->timestamp('linked_at')->nullable();
-            $table->foreignUuid('linked_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('linked_by')->nullable()->constrained('users');
             $table->string('source', 80)->default('dispatch');
             $table->json('metadata')->nullable();
             $table->timestamps();

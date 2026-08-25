@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\DB;
 return new class () extends Migration {
     public function up(): void
     {
+        $currentTimestamp = DB::getDriverName() === 'sqlsrv' ? 'CURRENT_TIMESTAMP' : 'NOW()';
+        $createView = DB::getDriverName() === 'sqlsrv' ? 'CREATE OR ALTER VIEW' : 'CREATE OR REPLACE VIEW';
+
         DB::unprepared("
-            CREATE OR REPLACE VIEW user_visibility_current AS
+            {$createView} user_visibility_current AS
             -- visão nativa (closure)
             SELECT uc.ancestor_id AS viewer_id,
                    uc.descendant_id
@@ -18,8 +21,8 @@ return new class () extends Migration {
                    uc.descendant_id
             FROM user_delegations d
             JOIN user_closure uc ON uc.ancestor_id = d.principal_id
-            WHERE NOW() >= d.valid_from
-              AND (d.valid_to IS NULL OR NOW() <= d.valid_to)
+            WHERE {$currentTimestamp} >= d.valid_from
+              AND (d.valid_to IS NULL OR {$currentTimestamp} <= d.valid_to)
         ");
     }
 

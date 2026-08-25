@@ -24,8 +24,8 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
 
-            $table->foreign('assigned_to_user_id')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('created_by_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('assigned_to_user_id')->references('id')->on('users');
+            $table->foreign('created_by_user_id')->references('id')->on('users');
 
             $table->index(['legal_demand_id', 'status'], 'idx_legal_subdemands_demand_status');
             $table->index(['status', 'deadline_at'], 'idx_legal_subdemands_status_deadline');

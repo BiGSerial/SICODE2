@@ -7,6 +7,31 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
 {
+    private const SQLSERVER_SCHEDULE_LOGS = [
+        'wpas-log',
+        'collect-sqlsrv1-health',
+        'sync-log-protest-jobs',
+        'transfer-log',
+        'notestop-log',
+        'log-viability',
+        'log-inform',
+        'log-rejected-viab',
+        'users-log',
+        'log-inform-return',
+        'reclaims',
+        'informs-ads-log',
+        'log-external-entities',
+        'log-informs-smc',
+        'sync-log-partials-informs',
+        'sync-note-inform-flows-to-sqlserver',
+        'sync-five-notes-report',
+        'log-production',
+        'log-production-yesterday',
+        'log-hiring-and-hired-status',
+        'log-hiring-and-hired-status-night',
+        'sync-ads-requests',
+    ];
+
     /**
      * Define the application's command schedule.
      */
@@ -20,6 +45,9 @@ class Kernel extends ConsoleKernel
 
         $this->scheduleCommand($schedule, 'exports:clear-old', 'exports-clear-old')
             ->dailyAt('00:00');
+
+        $this->scheduleCommand($schedule, 'partner-users:disable-inactive', 'partner-users-disable-inactive')
+            ->dailyAt('00:30');
 
 
         /*
@@ -257,6 +285,7 @@ class Kernel extends ConsoleKernel
     {
         return $schedule->command($command)
             ->name($this->scheduleDisplayName($logName))
+            ->skip(fn () => $this->shouldSkipSqlServerSchedule($command, $logName))
             ->withoutOverlapping(180)
             ->appendOutputTo(storage_path("logs/scheduler/{$logName}.log"));
     }
@@ -277,8 +306,29 @@ class Kernel extends ConsoleKernel
 
         return $schedule->exec($chain)
             ->name($this->scheduleDisplayName($logName))
+            ->skip(fn () => $this->shouldSkipSqlServerSchedule(implode(' && ', $commands), $logName))
             ->withoutOverlapping(180)
             ->appendOutputTo(storage_path("logs/scheduler/{$logName}.log"));
+    }
+
+    protected function shouldSkipSqlServerSchedule(string $command, string $logName): bool
+    {
+        if (str_contains($command, '--force')) {
+            return false;
+        }
+
+        if (!$this->isQaOrLocalEnvironment()) {
+            return false;
+        }
+
+        return in_array($logName, self::SQLSERVER_SCHEDULE_LOGS, true);
+    }
+
+    protected function isQaOrLocalEnvironment(): bool
+    {
+        return filter_var(env('APP_QA'), FILTER_VALIDATE_BOOLEAN)
+            || env('APP_ENV') === 'local'
+            || app()->environment('local');
     }
 
     /**

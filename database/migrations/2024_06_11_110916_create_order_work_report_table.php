@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('order_work_report', function (Blueprint $table) {
             $table->id();
             $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
-            $table->foreignId('work_report_id')->constrained('work_reports')->cascadeOnDelete();
+            $table->foreignId('work_report_id')->constrained('work_reports');
             $table->timestamps();
         });
     }

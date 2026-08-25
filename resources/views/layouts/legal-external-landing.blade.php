@@ -7,7 +7,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>SICODE Jurídico - Execução Externa</title>
+    <title>{{ \App\Support\SicodeRules::displayName('SICODE') }} Jurídico - Execução Externa</title>
 
     <link rel="shortcut icon" href="{{ asset('img/favicon.ico') }}" type="image/x-icon">
     <link href="{{ asset('assets/vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">

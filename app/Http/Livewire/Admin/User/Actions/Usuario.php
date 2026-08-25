@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Admin\User\Actions;
 
-use App\Models\{City, Company, Contract, ServiceUser, User};
+use App\Models\{City, Company, Contract, Service, ServiceUser, User};
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 
@@ -149,7 +149,7 @@ class Usuario extends Component
                 $this->user->save();
             }
 
-            $this->contractList           = Contract::where('company_id', $this->user->company_id)->get();
+            $this->contractList           = $this->contractsForCompany($this->user->company_id);
             $this->company                = $this->user->Employee->Contract->company->id ?? '';
             $this->contract               = $this->user->Employee->Contract->id ?? '';
             $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
@@ -163,9 +163,40 @@ class Usuario extends Component
 
     }
 
-    public function updatedUserCompanyId()
+    public function updatedUserCompanyId($value = null)
     {
-        $this->contractList = Contract::where('company_id', $this->user->company_id)->get();
+        $companyId = $value ?: $this->user?->company_id;
+
+        $this->contractList = $this->contractsForCompany($companyId);
+
+        $this->contract      = null;
+        $this->serviceList   = null;
+        $this->serviceSelect = null;
+
+        if (!$this->user?->exists) {
+            $this->temporaryServices = [];
+        }
+
+        if ($this->contractList->count() === 1) {
+            $this->contract = $this->contractList->first()->id;
+            $this->updatedContract($this->contract);
+        }
+    }
+
+    public function updatedContract($value)
+    {
+        $contract = $value ? Contract::with('services')->find($value) : null;
+
+        $this->serviceList   = $contract?->services;
+        $this->serviceSelect = null;
+
+        if (!$contract) {
+            return;
+        }
+
+        if (!$this->user?->exists || (!$this->user->ToServices->count() && !count($this->temporaryServices))) {
+            $this->applyContractServices();
+        }
     }
 
     public function newUser()
@@ -173,6 +204,7 @@ class Usuario extends Component
 
         $this->user                   = new User();
         $this->user->permission_locks = $this->normalizePermissionLocks([]);
+        $this->user->user             = true;
 
         $this->temporaryPassword  = Hash::make(123456);
         $this->temporaryFirstPass = 1;
@@ -185,6 +217,9 @@ class Usuario extends Component
 
     public function addService()
     {
+        if (!$this->serviceSelect) {
+            return;
+        }
 
         if ($this->user->ToServices->count()) {
             ServiceUser::updateOrCreate(
@@ -207,6 +242,43 @@ class Usuario extends Component
                 'dispatch'   => false,
             ];
 
+        }
+
+        $this->emitSelf('refreshuser');
+    }
+
+    public function applyContractServices()
+    {
+        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+
+        if (!$contract || !$contract->services->count()) {
+            return;
+        }
+
+        $canDispatch = $this->profileCanDispatch();
+
+        foreach ($contract->services as $service) {
+            if ($this->user?->exists) {
+                $this->user->ToServices()->updateOrCreate(
+                    ['service_id' => $service->uuid],
+                    [
+                        'service'  => true,
+                        'dispatch' => $canDispatch,
+                    ]
+                );
+
+                continue;
+            }
+
+            if (collect($this->temporaryServices)->contains('service_id', $service->uuid)) {
+                continue;
+            }
+
+            $this->temporaryServices[] = [
+                'service_id' => $service->uuid,
+                'service'    => true,
+                'dispatch'   => $canDispatch,
+            ];
         }
 
         $this->emitSelf('refreshuser');
@@ -283,7 +355,7 @@ class Usuario extends Component
         $effectiveLocks = $isSuperAdm ? $incomingLocks : $existingLocks;
         $primaryServiceId = $this->resolvePrimaryServiceId();
 
-        if (!$primaryServiceId) {
+        if ($this->selectedContractHasServices() && !$primaryServiceId) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -341,21 +413,7 @@ class Usuario extends Component
             ]);
         }
 
-        if (count($this->temporaryServices)) {
-            foreach ($this->temporaryServices as $service) {
-                if ($service['service_id']) {
-                    $this->user->ToServices()->updateOrCreate(
-                        [
-                            'service_id' => $service['service_id'],
-                        ],
-                        [
-                            'service'  => $service['service'],
-                            'dispatch' => $service['dispatch'],
-                        ]
-                    );
-                }
-            }
-        }
+        $this->syncSelectedContractServices();
 
         $this->emitUp('refresh_table_user');
 
@@ -376,17 +434,82 @@ class Usuario extends Component
 
     private function resolvePrimaryServiceId(): ?string
     {
-        if ($this->user?->exists) {
-            $serviceId = $this->user->ToServices()->value('service_id');
-            if ($serviceId) {
-                return $serviceId;
-            }
+        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+        $contractServiceId = $contract?->services?->first()?->uuid;
+        if ($contractServiceId) {
+            return $contractServiceId;
         }
 
         $temporaryService = collect($this->temporaryServices)
             ->first(fn ($service) => !empty($service['service_id']));
 
         return $temporaryService['service_id'] ?? null;
+    }
+
+    private function selectedContractHasServices(): bool
+    {
+        if (!$this->contract) {
+            return false;
+        }
+
+        return Contract::query()
+            ->whereKey($this->contract)
+            ->whereHas('services')
+            ->exists();
+    }
+
+    private function syncSelectedContractServices(): void
+    {
+        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+        $serviceIds = $contract
+            ? $contract->services->pluck('uuid')->filter()->values()->all()
+            : collect($this->temporaryServices)->pluck('service_id')->filter()->values()->all();
+
+        if (!$serviceIds) {
+            $this->user->ToServices()->delete();
+            return;
+        }
+
+        $this->user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
+        $canDispatch = $this->profileCanDispatch();
+        $existingServices = $this->user->ToServices()
+            ->whereIn('service_id', $serviceIds)
+            ->get()
+            ->keyBy('service_id');
+        $temporaryServices = collect($this->temporaryServices)->keyBy('service_id');
+
+        foreach ($serviceIds as $serviceId) {
+            $existingService = $existingServices->get($serviceId);
+            $temporaryService = $temporaryServices->get($serviceId);
+
+            $this->user->ToServices()->updateOrCreate(
+                ['service_id' => $serviceId],
+                [
+                    'service' => $existingService
+                        ? (bool) $existingService->service
+                        : (bool) ($temporaryService['service'] ?? true),
+                    'dispatch' => $existingService
+                        ? (bool) $existingService->dispatch
+                        : (bool) ($temporaryService['dispatch'] ?? $canDispatch),
+                ]
+            );
+        }
+    }
+
+    private function profileCanDispatch(): bool
+    {
+        return (bool) (($this->user?->admin ?? false) || ($this->user?->operator ?? false));
+    }
+
+    private function contractsForCompany($companyId)
+    {
+        $company = $companyId ? Company::with('parent')->find($companyId) : null;
+        $companyIds = collect([$company?->id, $company?->parent_id])->filter()->values();
+
+        return Contract::with('services', 'company')
+            ->whereIn('company_id', $companyIds)
+            ->orderBy('number')
+            ->get();
     }
 
     public function resetPassword()
@@ -450,12 +573,16 @@ class Usuario extends Component
 
     public function render()
     {
-        if ($this->contract && $contract = Contract::findOrFail($this->contract)) {
+        if ($this->contract && $contract = Contract::with('services')->findOrFail($this->contract)) {
             $this->serviceList = $contract->services;
         } else {
             $this->serviceList = null;
         }
 
-        return view('livewire.admin.user.actions.usuario');
+        return view('livewire.admin.user.actions.usuario', [
+            'contractActivities' => $this->contract
+                ? Service::whereRelation('Contracts', 'contracts.id', $this->contract)->orderBy('service')->get()
+                : collect(),
+        ]);
     }
 }

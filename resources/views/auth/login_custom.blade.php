@@ -9,7 +9,7 @@
                         <div class="card card-plain mt-8 border border-1">
                             <div class="card-header bg-transparent pb-0 text-left">
                                 <h3 class="font-weight-bolder text-info text-gradient text-center"> <img
-                                        src="{{ asset('img/EDP-Logo-white.svg') }}" style="max-height: 45px;"> SICODE</h3>
+                                        src="{{ asset('img/EDP-Logo-white.svg') }}" style="max-height: 45px;"> {{ \App\Support\SicodeRules::displayName('SICODE') }}</h3>
                                 {{-- <h3 class="font-weight-bolder text-info text-gradient">SICODE</h3> --}}
                                 <p class="mb-0 edp-text-verde-dark text-center">Entre com seu Email e Senha para Acessar</p>
                             </div>

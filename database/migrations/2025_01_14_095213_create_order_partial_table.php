@@ -13,7 +13,7 @@ return new class () extends Migration {
         Schema::create('order_partial', function (Blueprint $table) {
             $table->id();
             $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
-            $table->foreignId('partial_id')->constrained('partials')->cascadeOnDelete();
+            $table->foreignId('partial_id')->constrained('partials');
             $table->timestamps();
         });
     }

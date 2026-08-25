@@ -25,6 +25,10 @@ class Create extends Component
 
     public $telephone;
 
+    public $isBranch = false;
+
+    public $parent_id;
+
     public function save()
     {
         if (!$this->email || !trim($this->name)) {
@@ -39,6 +43,7 @@ class Create extends Component
         }
 
         $company = Company::Create([
+            'parent_id'  => $this->isBranch ? $this->parent_id : null,
             'email'     => $this->email,
             'name'      => ucwords(mb_strtolower($this->name)),
             'telephone' => $this->telephone,
@@ -88,12 +93,16 @@ class Create extends Component
         $this->uf         = '';
         $this->city       = '';
         $this->telephone  = '';
+        $this->isBranch   = false;
+        $this->parent_id  = '';
 
         $this->dispatchBrowserEvent('hideModal');
     }
 
     public function render()
     {
-        return view('livewire.admin.company.create');
+        return view('livewire.admin.company.create', [
+            'parentCompanies' => Company::roots()->orderBy('name')->get(),
+        ]);
     }
 }

@@ -35,7 +35,7 @@ return new class () extends Migration {
             $table->string('permission_key');
             $table->boolean('enabled')->default(false);
             $table->text('reason')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users');
             $table->timestamps();
 
             $table->unique(['user_id', 'company_id', 'permission_key'], 'partner_user_permission_unique');
@@ -46,8 +46,8 @@ return new class () extends Migration {
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignUuid('company_id')->constrained('companies')->cascadeOnDelete();
-            $table->foreignId('branch_id')->constrained('andresscompanies')->cascadeOnDelete();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('branch_id')->constrained('andresscompanies');
+            $table->foreignUuid('created_by')->nullable()->constrained('users');
             $table->timestamps();
 
             $table->unique(['user_id', 'company_id', 'branch_id'], 'partner_user_branch_unique');
@@ -57,7 +57,7 @@ return new class () extends Migration {
             $table->uuid('id')->primary();
             $table->foreignUuid('company_id')->constrained('companies')->cascadeOnDelete();
             $table->foreignUuid('actor_user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignUuid('target_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('target_user_id')->nullable()->constrained('users');
             $table->string('event_type');
             $table->json('payload')->nullable();
             $table->timestamps();

@@ -27,12 +27,22 @@ return new class () extends Migration {
         }
 
         // Permite criar estrutura de subcategoria sem item vinculado.
-        DB::statement('ALTER TABLE project_review_findings MODIFY item_id BIGINT UNSIGNED NULL');
+        match (DB::getDriverName()) {
+            'sqlsrv' => DB::statement('ALTER TABLE project_review_findings ALTER COLUMN item_id BIGINT NULL'),
+            'mysql' => DB::statement('ALTER TABLE project_review_findings MODIFY item_id BIGINT UNSIGNED NULL'),
+            'pgsql' => DB::statement('ALTER TABLE project_review_findings ALTER COLUMN item_id DROP NOT NULL'),
+            default => null,
+        };
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE project_review_findings MODIFY item_id BIGINT UNSIGNED NOT NULL');
+        match (DB::getDriverName()) {
+            'sqlsrv' => DB::statement('ALTER TABLE project_review_findings ALTER COLUMN item_id BIGINT NOT NULL'),
+            'mysql' => DB::statement('ALTER TABLE project_review_findings MODIFY item_id BIGINT UNSIGNED NOT NULL'),
+            'pgsql' => DB::statement('ALTER TABLE project_review_findings ALTER COLUMN item_id SET NOT NULL'),
+            default => null,
+        };
 
         if (Schema::hasColumn('project_review_findings', 'action_type')) {
             Schema::table('project_review_findings', function (Blueprint $table) {

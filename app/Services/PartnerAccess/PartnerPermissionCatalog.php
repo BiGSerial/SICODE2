@@ -85,8 +85,6 @@ class PartnerPermissionCatalog
                     'admin_users.assign_branches' => 'Vincular filiais',
                     'admin_users.bulk_import' => 'Importar usuários',
                     'admin_users.template_export' => 'Exportar modelo',
-                    'admin_permissions.view' => 'Visualizar permissões',
-                    'admin_permissions.update' => 'Editar permissões',
                     'admin_user_exceptions.manage' => 'Gerenciar exceções',
                     'admin_audit.view' => 'Visualizar auditoria',
                 ],
@@ -121,10 +119,31 @@ class PartnerPermissionCatalog
             ->values();
     }
 
+    public static function filterGroupsByKeys(Collection $allowedKeys): array
+    {
+        return collect(self::groups())
+            ->map(function (array $group, string $groupKey) use ($allowedKeys) {
+                $items = collect($group['items'])
+                    ->filter(fn (string $label, string $permissionKey) => $allowedKeys->contains($permissionKey))
+                    ->all();
+
+                if (!$allowedKeys->contains($groupKey) && $items === []) {
+                    return null;
+                }
+
+                return [
+                    'label' => $group['label'],
+                    'items' => $items,
+                ];
+            })
+            ->filter()
+            ->all();
+    }
+
     public static function routePermissionMap(): array
     {
         return [
-            'partner.main.viability' => 'viability.dashboard',
+            'partner.main.viability' => 'portal.access',
             'partner.search.notes' => 'viability.search_notes',
             'partner.search.notes.legacy' => 'viability.search_notes',
             'partner.todo.viability' => 'viability.list',

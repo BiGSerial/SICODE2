@@ -13,7 +13,7 @@ return new class () extends Migration {
         Schema::create('adsforms', function (Blueprint $table) {
             $table->id();
             $table->foreignId('work_report_id')->constrained('work_reports')->onDelete('cascade');
-            $table->foreignId('note_id')->constrained('notes')->onDelete('cascade');
+            $table->foreignId('note_id')->constrained('notes');
             $table->foreignUuid('user_id');
             $table->string('name')->nullable();
             $table->text('obs')->nullable();

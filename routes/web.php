@@ -369,17 +369,13 @@ Route::prefix('/partner/admin')
         Route::post('/users/import-confirm', 'confirmImport')->middleware('partner.permission:admin_users.bulk_import')->name('users.import.confirm');
         Route::get('/users/{user}/edit', 'editUser')->middleware('partner.permission:admin_users.update')->name('users.edit');
         Route::put('/users/{user}', 'updateUser')->middleware('partner.permission:admin_users.update')->name('users.update');
+        Route::post('/users/{user}/reset-password', 'resetUserPassword')->middleware('partner.permission:admin_users.update')->name('users.reset_password');
         Route::delete('/users/{user}', 'disableUser')->middleware('partner.permission:admin_users.disable')->name('users.disable');
-        Route::get('/permissions', 'permissions')->middleware('partner.permission:admin_permissions.view')->name('permissions');
-        Route::put('/permissions', 'updatePermissions')->middleware('partner.permission:admin_permissions.update')->name('permissions.update');
-        Route::get('/exceptions', 'exceptions')->middleware('partner.permission:admin_user_exceptions.manage')->name('exceptions');
-        Route::post('/exceptions', 'storeException')->middleware('partner.permission:admin_user_exceptions.manage')->name('exceptions.store');
-        Route::delete('/exceptions/{exception}', 'destroyException')->middleware('partner.permission:admin_user_exceptions.manage')->name('exceptions.destroy');
         Route::get('/audit', 'auditEvents')->middleware('partner.permission:admin_audit.view')->name('audit');
     });
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
-    Route::get('/', 'main')->middleware('partner.permission:viability.dashboard')->name('main.viability');
+    Route::get('/', 'main')->middleware('partner.permission:portal.access')->name('main.viability');
     Route::get('/search-notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes');
     Route::get('/todo-viability', 'viability')->middleware('partner.permission:viability.list')->name('todo.viability');
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');

@@ -3,6 +3,7 @@
 namespace App\Services\PartnerAccess;
 
 use App\Models\Andresscompany;
+use App\Models\Company;
 use App\Models\PartnerUserBranch;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -134,14 +135,14 @@ class PartnerBranchScope
 
     public function branchLabelsFor(User $user, ?string $companyId = null): Collection
     {
-        $companyId ??= PartnerAccessGate::companyIdFor($user);
+        $companyId = $this->permissionCompanyIdFor($user, $companyId);
 
         if (!$companyId) {
             return collect();
         }
 
         return Andresscompany::query()
-            ->where('company_id', $companyId)
+            ->whereIn('company_id', $this->branchCompanyIdsFor($companyId))
             ->whereHas('partnerUserBranches', fn (Builder $query) => $query->where('user_id', $user->id))
             ->get()
             ->flatMap(fn (Andresscompany $branch) => [
@@ -158,6 +159,8 @@ class PartnerBranchScope
 
     private function shouldRestrict(User $user, ?string $companyId): bool
     {
+        $companyId = $this->permissionCompanyIdFor($user, $companyId);
+
         if (!$companyId || $user->superadm || $user->admin) {
             return false;
         }
@@ -165,5 +168,27 @@ class PartnerBranchScope
         return PartnerUserBranch::query()
             ->where('company_id', $companyId)
             ->exists();
+    }
+
+    private function permissionCompanyIdFor(User $user, ?string $companyId = null): ?string
+    {
+        $companyId ??= PartnerAccessGate::companyIdFor($user);
+
+        if (!$companyId) {
+            return null;
+        }
+
+        $company = Company::withTrashed()->find($companyId);
+
+        return $company?->parent_id ?: $companyId;
+    }
+
+    private function branchCompanyIdsFor(string $permissionCompanyId): array
+    {
+        return Company::query()
+            ->where('id', $permissionCompanyId)
+            ->orWhere('parent_id', $permissionCompanyId)
+            ->pluck('id')
+            ->all();
     }
 }

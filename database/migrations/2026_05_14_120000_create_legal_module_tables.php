@@ -61,7 +61,7 @@ return new class extends Migration
             $table->json('sources_seen')->nullable();
             $table->timestamp('first_seen_at')->nullable();
             $table->timestamp('last_seen_at')->nullable();
-            $table->foreignId('last_import_batch_id')->nullable()->constrained('legal_import_batches')->nullOnDelete();
+            $table->foreignId('last_import_batch_id')->nullable()->constrained('legal_import_batches');
 
             $table->json('raw_latest_payload')->nullable();
             $table->json('normalized_latest_payload')->nullable();
@@ -132,14 +132,14 @@ return new class extends Migration
             $table->string('action_state')->default('waiting_controller_triage');
 
             $table->uuid('controller_user_id')->nullable();
-            $table->foreign('controller_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('controller_user_id')->references('id')->on('users');
             $table->uuid('current_assigned_user_id')->nullable();
-            $table->foreign('current_assigned_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('current_assigned_user_id')->references('id')->on('users');
             $table->uuid('current_assigned_team_id')->nullable();
 
             $table->timestamp('closed_at')->nullable();
             $table->uuid('closed_by')->nullable();
-            $table->foreign('closed_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('closed_by')->references('id')->on('users');
             $table->text('closure_reason')->nullable();
 
             $table->timestamp('external_closed_at')->nullable();
@@ -150,9 +150,9 @@ return new class extends Migration
             $table->json('normalized_payload')->nullable();
             $table->json('source_specific_payload')->nullable();
 
-            $table->foreignId('last_seen_import_batch_id')->nullable()->constrained('legal_import_batches')->nullOnDelete();
-            $table->foreignId('last_missing_batch_id')->nullable()->constrained('legal_import_batches')->nullOnDelete();
-            $table->foreignId('last_returned_batch_id')->nullable()->constrained('legal_import_batches')->nullOnDelete();
+            $table->foreignId('last_seen_import_batch_id')->nullable()->constrained('legal_import_batches');
+            $table->foreignId('last_missing_batch_id')->nullable()->constrained('legal_import_batches');
+            $table->foreignId('last_returned_batch_id')->nullable()->constrained('legal_import_batches');
 
             $table->timestamps();
 
@@ -167,7 +167,7 @@ return new class extends Migration
         Schema::create('legal_source_snapshots', function (Blueprint $table) {
             $table->id();
             $table->foreignId('legal_demand_id')->constrained('legal_demands')->cascadeOnDelete();
-            $table->foreignId('import_batch_id')->nullable()->constrained('legal_import_batches')->nullOnDelete();
+            $table->foreignId('import_batch_id')->nullable()->constrained('legal_import_batches');
             $table->string('source_type', 50);
             $table->string('source_record_key', 64)->nullable();
             $table->string('source_hash', 64)->nullable();
@@ -187,14 +187,14 @@ return new class extends Migration
             $table->id();
             $table->foreignId('legal_demand_id')->constrained('legal_demands')->cascadeOnDelete();
             $table->foreignId('assignment_id')->nullable();
-            $table->foreignId('import_batch_id')->nullable()->constrained('legal_import_batches')->nullOnDelete();
+            $table->foreignId('import_batch_id')->nullable()->constrained('legal_import_batches');
             $table->string('event_type');
             $table->string('from_status')->nullable();
             $table->string('to_status')->nullable();
             $table->uuid('actor_user_id')->nullable();
-            $table->foreign('actor_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('actor_user_id')->references('id')->on('users');
             $table->uuid('target_user_id')->nullable();
-            $table->foreign('target_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('target_user_id')->references('id')->on('users');
             $table->uuid('target_team_id')->nullable();
             $table->text('description')->nullable();
             $table->json('metadata')->nullable();
@@ -209,9 +209,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('legal_demand_id')->constrained('legal_demands')->cascadeOnDelete();
             $table->uuid('from_user_id')->nullable();
-            $table->foreign('from_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('from_user_id')->references('id')->on('users');
             $table->uuid('to_user_id')->nullable();
-            $table->foreign('to_user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('to_user_id')->references('id')->on('users');
             $table->uuid('to_team_id')->nullable();
             $table->string('status')->default('sent');
             $table->timestamp('sent_at')->nullable();
@@ -229,7 +229,7 @@ return new class extends Migration
             $table->foreignId('legal_demand_id')->constrained('legal_demands')->cascadeOnDelete();
             $table->foreignId('assignment_id')->nullable();
             $table->uuid('uploaded_by')->nullable();
-            $table->foreign('uploaded_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('uploaded_by')->references('id')->on('users');
             $table->string('file_name');
             $table->string('original_name')->nullable();
             $table->string('path');
@@ -238,7 +238,7 @@ return new class extends Migration
             $table->string('visibility')->default('internal');
             $table->timestamp('removed_at')->nullable();
             $table->uuid('removed_by')->nullable();
-            $table->foreign('removed_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('removed_by')->references('id')->on('users');
             $table->timestamps();
         });
 
@@ -247,7 +247,7 @@ return new class extends Migration
             $table->foreignId('legal_demand_id')->constrained('legal_demands')->cascadeOnDelete();
             $table->foreignId('assignment_id')->nullable();
             $table->uuid('user_id')->nullable();
-            $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('user_id')->references('id')->on('users');
             $table->text('comment');
             $table->string('visibility')->default('internal');
             $table->timestamps();

@@ -10,7 +10,7 @@ return new class () extends Migration {
         Schema::create('user_observations', function (Blueprint $t) {
             $t->uuid('id')->primary();
             $t->foreignUuid('observer_id')->constrained('users')->cascadeOnDelete();
-            $t->foreignUuid('target_id')->constrained('users')->cascadeOnDelete();
+            $t->foreignUuid('target_id')->constrained('users');
             $t->string('mode', 20)->default('subtree'); // subtree | node_only
             $t->timestamp('valid_from')->useCurrent();
             $t->timestamp('valid_to')->nullable();

@@ -14,8 +14,8 @@ return new class extends Migration
             $table->boolean('enabled')->default(true);
             $table->unsignedInteger('display_order')->default(0);
             $table->unsignedInteger('duration_seconds')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users');
+            $table->foreignUuid('updated_by')->nullable()->constrained('users');
             $table->timestamps();
         });
 

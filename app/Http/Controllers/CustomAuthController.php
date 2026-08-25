@@ -25,6 +25,10 @@ class CustomAuthController extends Controller
 
         if (Auth::attempt($request->only('email', 'password'))) {
             $request->session()->regenerate();
+            Auth::user()->forceFill([
+                'last_login_at' => now(),
+                'last_seen_at' => now(),
+            ])->saveQuietly();
 
             if (Auth::User()->first_pass) {
                 return redirect()->route('login.show.change');

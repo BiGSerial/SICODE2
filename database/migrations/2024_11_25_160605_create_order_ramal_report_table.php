@@ -18,7 +18,7 @@ return new class () extends Migration {
 
             // Definindo as chaves estrangeiras
             $table->foreign('ramal_report_id')->references('id')->on('ramal_reports')->cascadeOnDelete();
-            $table->foreign('order_id')->references('id')->on('orders')->cascadeOnDelete();
+            $table->foreign('order_id')->references('id')->on('orders');
 
             // Índice único para evitar duplicidade
             $table->unique(['ramal_report_id', 'order_id']);

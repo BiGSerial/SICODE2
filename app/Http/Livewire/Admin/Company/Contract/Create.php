@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Admin\Company\Contract;
 
-use App\Models\{Company, Contract};
+use App\Models\{Company, Contract, Service};
 use Livewire\Component;
 
 class Create extends Component
@@ -16,6 +16,12 @@ class Create extends Component
     public $construction;
 
     public $service;
+
+    public $selectedServices = [];
+
+    public $serviceDispatch = [];
+
+    public $activitySearch = '';
 
     protected $listeners = [
         'save_create_contract' => 'save',
@@ -67,6 +73,17 @@ class Create extends Component
             return;
         }
 
+        if (!count($this->selectedServices)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma atividade liberada para o contrato.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
         $company = Company::find($this->company_s);
 
         if ($company) {
@@ -78,6 +95,8 @@ class Create extends Component
             ]);
 
             if ($company->contracts()->save($contract)) {
+                $this->syncServices($contract);
+
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'success',
@@ -106,14 +125,39 @@ class Create extends Component
         $this->date_end     = '';
         $this->construction = false;
         $this->service      = false;
+        $this->selectedServices = [];
+        $this->serviceDispatch  = [];
+        $this->activitySearch   = '';
 
         $this->dispatchBrowserEvent('hideModal');
+    }
+
+    private function syncServices(Contract $contract): void
+    {
+        $payload = [];
+
+        foreach ($this->selectedServices as $serviceId) {
+            $payload[(int) $serviceId] = [
+                'posts'    => false,
+                'qtd'      => 0,
+                'days'     => 0,
+                'dispatch' => (bool) ($this->serviceDispatch[$serviceId] ?? false),
+            ];
+        }
+
+        $contract->services()->sync($payload);
     }
 
     public function render()
     {
         return view('livewire.admin.company.contract.create', [
             'companies_l' => Company::orderBy('name')->get(),
+            'services_l'  => Service::query()
+                ->when($this->service && !$this->construction, fn ($q) => $q->where('project', true))
+                ->when($this->construction && !$this->service, fn ($q) => $q->where('construction', true))
+                ->when($this->activitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
+                ->orderBy('service')
+                ->get(),
         ]);
     }
 }

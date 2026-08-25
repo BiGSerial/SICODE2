@@ -13,7 +13,7 @@ return new class () extends Migration {
         Schema::create('viability_approval_reclaim', function (Blueprint $table) {
             $table->id();
             $table->foreignId('viability_approval_id')->constrained('viability_approvals')->cascadeOnDelete();
-            $table->foreignId('reclaim_id')->constrained('reclaims')->cascadeOnDelete();
+            $table->foreignId('reclaim_id')->constrained('reclaims');
         });
     }
 

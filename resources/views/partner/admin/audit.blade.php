@@ -5,13 +5,28 @@
 @endsection
 
 @section('content')
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">Auditoria administrativa</h5>
+    @include('partner.admin._styles')
+
+    <div class="partner-admin-shell">
+        <div class="partner-admin-header">
+            <div>
+                <div class="partner-admin-eyebrow">{{ $managedCompany?->name ?? 'Empresa parceira' }}</div>
+                <h1 class="partner-admin-title">Auditoria administrativa</h1>
+                <p class="partner-admin-subtitle">Eventos administrativos</p>
+                <div class="partner-admin-hero-meta">
+                    <div class="partner-admin-hero-chip">
+                        <i class="ri-history-line"></i>
+                        <strong>{{ $events->total() }}</strong>
+                        <span>eventos</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
+
+        <div class="partner-admin-panel">
+            <div class="partner-admin-panel-body">
             <div class="table-responsive">
-                <table class="table table-sm align-middle">
+                <table class="table table-sm align-middle partner-admin-table">
                     <thead>
                         <tr>
                             <th>Data</th>
@@ -28,7 +43,7 @@
                                 <td>{{ $event->actor?->name }}</td>
                                 <td>{{ $event->target?->name ?: '-' }}</td>
                                 <td>{{ $event->event_type }}</td>
-                                <td><code>{{ json_encode($event->payload, JSON_UNESCAPED_UNICODE) }}</code></td>
+                                <td><code class="partner-admin-code">{{ json_encode($event->payload, JSON_UNESCAPED_UNICODE) }}</code></td>
                             </tr>
                         @empty
                             <tr>
@@ -40,6 +55,7 @@
             </div>
 
             {{ $events->links() }}
+            </div>
         </div>
     </div>
 @endsection

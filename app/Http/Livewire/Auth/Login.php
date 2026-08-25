@@ -46,6 +46,10 @@ class Login extends Component
 
         if (Auth::attempt($credentials, $remember)) {
             session()->regenerate();
+            Auth::user()->forceFill([
+                'last_login_at' => now(),
+                'last_seen_at' => now(),
+            ])->saveQuietly();
 
             $this->msg = "REDIRECIONANDO... ";
 

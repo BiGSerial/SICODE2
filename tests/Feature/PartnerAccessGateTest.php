@@ -5,6 +5,7 @@ use App\Models\Andresscompany;
 use App\Models\Bancoupdate;
 use App\Models\Note;
 use App\Models\Order;
+use App\Models\PartnerCompanyPermissionGrant;
 use App\Models\PartnerRole;
 use App\Models\PartnerUserBranch;
 use App\Models\PartnerUserPermissionException;
@@ -17,16 +18,17 @@ use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\PartnerAccess\PartnerBranchScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
-function partnerAccessCompany(): Company
+function partnerAccessCompany(array $attributes = []): Company
 {
-    return Company::query()->create([
+    return Company::query()->create(array_merge([
         'name' => 'Parceira Teste',
         'email' => fake()->unique()->safeEmail(),
-    ]);
+    ], $attributes));
 }
 
 function partnerAccessUser(Company $company, array $attributes = []): User
@@ -96,6 +98,21 @@ function partnerAccessRoleWithPermissions(Company $company, array $enabledPermis
     }
 
     return $role;
+}
+
+function partnerAccessGrantWithPermissions(Company $company, array $enabledPermissions, array $disabledPermissions = []): void
+{
+    $enabledPermissions = collect($enabledPermissions);
+    $disabledPermissions = collect($disabledPermissions);
+
+    foreach (\App\Services\PartnerAccess\PartnerPermissionCatalog::allPermissionKeys() as $permissionKey) {
+        PartnerCompanyPermissionGrant::query()->create([
+            'company_id' => $company->id,
+            'permission_key' => $permissionKey,
+            'scope_type' => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
+            'enabled' => $enabledPermissions->contains($permissionKey) && !$disabledPermissions->contains($permissionKey),
+        ]);
+    }
 }
 
 it('keeps full access for a partner company without configured role permissions', function () {
@@ -199,11 +216,82 @@ it('uses user exceptions to block an otherwise allowed permission', function () 
     expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
 });
 
+it('resolves branch permissions from the parent company configuration', function () {
+    $parent = partnerAccessCompany();
+    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $user = partnerAccessUser($branch);
+
+    partnerAccessRoleWithPermissions($parent, ['viability'], ['viability.export']);
+
+    expect(PartnerAccessGate::allows($user, 'viability.list'))->toBeTrue()
+        ->and(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
+});
+
+it('ignores branch permission configuration because the parent company is the authority', function () {
+    $parent = partnerAccessCompany();
+    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $user = partnerAccessUser($branch);
+
+    partnerAccessRoleWithPermissions($parent, ['viability'], ['viability.export']);
+    partnerAccessRoleWithPermissions($branch, ['viability', 'viability.export']);
+
+    expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
+});
+
+it('uses parent company user exceptions for branch users', function () {
+    $parent = partnerAccessCompany();
+    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $user = partnerAccessUser($branch);
+
+    partnerAccessRoleWithPermissions($parent, ['viability', 'viability.export']);
+
+    PartnerUserPermissionException::query()->create([
+        'company_id' => $parent->id,
+        'user_id' => $user->id,
+        'permission_key' => 'viability.export',
+        'enabled' => false,
+    ]);
+
+    expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
+});
+
+it('does not allow company admin permissions beyond the contractor grant', function () {
+    $company = partnerAccessCompany();
+    $user = partnerAccessUser($company);
+
+    partnerAccessGrantWithPermissions($company, ['viability', 'viability.list'], ['viability.export']);
+    partnerAccessRoleWithPermissions($company, ['viability', 'viability.export']);
+
+    expect(PartnerAccessGate::allows($user, 'viability.list'))->toBeTrue()
+        ->and(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
+});
+
 it('requires a company admin for administrative partner permissions', function () {
     $company = partnerAccessCompany();
 
     expect(PartnerAccessGate::allows(partnerAccessUser($company), 'admin_panel.access'))->toBeFalse()
         ->and(PartnerAccessGate::allows(partnerAccessUser($company, ['admin' => true]), 'admin_panel.access'))->toBeTrue();
+});
+
+it('allows a company admin to see the admin panel even when the company role does not include admin permissions', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+
+    partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access', 'admin_users.view']);
+    partnerAccessRoleWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
+
+    expect(PartnerAccessGate::allows($admin, 'admin_panel.access'))->toBeTrue()
+        ->and(PartnerAccessGate::allows($admin, 'admin_users.view'))->toBeTrue();
+});
+
+it('does not allow company admin permissions beyond contractor grants', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+
+    partnerAccessGrantWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
+
+    expect(PartnerAccessGate::allows($admin, 'admin_panel.access'))->toBeFalse()
+        ->and(PartnerAccessGate::allows($admin, 'admin_users.view'))->toBeFalse();
 });
 
 it('returns forbidden for direct partner urls when the route permission is blocked', function () {
@@ -222,6 +310,271 @@ it('returns forbidden for direct partner urls when the route permission is block
         ->assertForbidden();
 });
 
+it('keeps the partner portal entry available when viability is disabled but another module is granted', function () {
+    $company = partnerAccessCompany();
+    $user = partnerAccessUser($company);
+
+    partnerAccessGrantWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
+
+    $this->actingAs($user)
+        ->get(route('partner.main.viability'))
+        ->assertRedirect(route('partner.report.workedlist'));
+});
+
+it('keeps the partner portal entry available when viability is disabled but another role module is enabled', function () {
+    $company = partnerAccessCompany();
+    $user = partnerAccessUser($company);
+
+    partnerAccessRoleWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list'], ['viability']);
+
+    $this->actingAs($user)
+        ->get(route('partner.main.viability'))
+        ->assertRedirect(route('partner.report.workreport'));
+});
+
+it('does not open the partner portal for non admin users with only admin permissions', function () {
+    $company = partnerAccessCompany();
+    $user = partnerAccessUser($company);
+
+    partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access', 'admin_users.view']);
+
+    $this->actingAs($user)
+        ->get(route('partner.main.viability'))
+        ->assertForbidden();
+});
+
+it('shows editable user permissions in the partner user edit form without the admin group', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $target = partnerAccessUser($company);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    partnerAccessGrantWithPermissions($company, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.update',
+        'admin_user_exceptions.manage',
+        'viability',
+        'viability.list',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users.edit', $target))
+        ->assertOk()
+        ->assertSee('Permissões individuais')
+        ->assertSee('Viabilidade')
+        ->assertSee('Listar pendentes')
+        ->assertDontSee('user-permission-admin');
+});
+
+it('does not show the partner permissions administration menu item', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    partnerAccessGrantWithPermissions($company, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.view',
+        'admin_audit.view',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk()
+        ->assertSee('Usuários')
+        ->assertSee('Auditoria')
+        ->assertDontSee('Permissões');
+});
+
+it('shows all branch addresses from the parent company in the partner user edit form', function () {
+    $parent = partnerAccessCompany(['name' => 'Matriz Parceira']);
+    $branch = partnerAccessCompany(['name' => 'Filial Norte', 'parent_id' => $parent->id]);
+    $sibling = partnerAccessCompany(['name' => 'Filial Sul', 'parent_id' => $parent->id]);
+    $admin = partnerAccessUser($branch, ['admin' => true]);
+    $target = partnerAccessUser($branch);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    Andresscompany::query()->create(['company_id' => $parent->id, 'city' => 'Vitoria', 'street' => 'Base Matriz']);
+    Andresscompany::query()->create(['company_id' => $branch->id, 'city' => 'Linhares', 'street' => 'Base Norte']);
+    Andresscompany::query()->create(['company_id' => $sibling->id, 'city' => 'Cachoeiro', 'street' => 'Base Sul']);
+
+    partnerAccessGrantWithPermissions($parent, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.update',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users.edit', $target))
+        ->assertOk()
+        ->assertSee('Matriz Parceira - Vitoria - Base Matriz')
+        ->assertSee('Matriz Parceira / Filial Norte - Linhares - Base Norte')
+        ->assertSee('Matriz Parceira / Filial Sul - Cachoeiro - Base Sul');
+});
+
+it('hides contractor blocked permissions from a branch admin user edit form', function () {
+    $parent = partnerAccessCompany();
+    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $admin = partnerAccessUser($branch, ['admin' => true]);
+    $target = partnerAccessUser($branch);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    partnerAccessGrantWithPermissions($parent, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.update',
+        'admin_user_exceptions.manage',
+        'conclusion_reports',
+        'conclusion_reports.list',
+    ]);
+    partnerAccessRoleWithPermissions($parent, [
+        'viability',
+        'viability.list',
+        'conclusion_reports',
+        'conclusion_reports.list',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users.edit', $target))
+        ->assertOk()
+        ->assertSee('Permissões individuais')
+        ->assertSee('Informes Conclusão')
+        ->assertSee('Obras concluídas informadas')
+        ->assertDontSee('user-permission-viability')
+        ->assertDontSee('Listar pendentes');
+});
+
+it('allows a branch admin to assign sibling branch data visibility to a user', function () {
+    $this->withoutMiddleware(VerifyCsrfToken::class);
+
+    $parent = partnerAccessCompany();
+    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $sibling = partnerAccessCompany(['parent_id' => $parent->id]);
+    $admin = partnerAccessUser($branch, ['admin' => true]);
+    $target = partnerAccessUser($branch);
+
+    $siblingAddress = Andresscompany::query()->create([
+        'company_id' => $sibling->id,
+        'city' => 'Cachoeiro',
+        'street' => 'Base Sul',
+    ]);
+
+    partnerAccessGrantWithPermissions($parent, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.update',
+        'viability',
+        'viability.list',
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('partner.admin.users.update', $target), [
+            'name' => $target->name,
+            'email' => $target->email,
+            'branches' => [$siblingAddress->id],
+        ])
+        ->assertRedirect(route('partner.admin.users.edit', $target));
+
+    $visible = partnerAccessViability($branch, $target, '5001', 'Cachoeiro');
+    $hidden = partnerAccessViability($branch, $target, '5002', 'Linhares');
+    $query = Viability::query()->where('company_id', $branch->id);
+    app(PartnerBranchScope::class)->applyToNoteRelation($query, $target, $branch->id);
+
+    expect(PartnerUserBranch::query()
+        ->where('company_id', $parent->id)
+        ->where('user_id', $target->id)
+        ->where('branch_id', $siblingAddress->id)
+        ->exists())->toBeTrue()
+        ->and($query->pluck('id')->all())->toBe([$visible->id])
+        ->and($query->pluck('id')->all())->not->toContain($hidden->id);
+});
+
+it('updates individual user permissions from the partner user edit form', function () {
+    $this->withoutMiddleware(VerifyCsrfToken::class);
+
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $target = partnerAccessUser($company);
+
+    partnerAccessGrantWithPermissions($company, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.update',
+        'admin_user_exceptions.manage',
+        'conclusion_reports',
+        'conclusion_reports.list',
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('partner.admin.users.update', $target), [
+            'name' => $target->name,
+            'email' => $target->email,
+            'branches' => [],
+            'user_permissions' => [
+                'conclusion_reports' => '1',
+                'conclusion_reports.list' => '0',
+            ],
+        ])
+        ->assertRedirect(route('partner.admin.users.edit', $target));
+
+    expect(PartnerUserPermissionException::query()
+        ->where('company_id', $company->id)
+        ->where('user_id', $target->id)
+        ->where('permission_key', 'conclusion_reports')
+        ->value('enabled'))->toBeTrue()
+        ->and(PartnerUserPermissionException::query()
+            ->where('company_id', $company->id)
+            ->where('user_id', $target->id)
+            ->where('permission_key', 'conclusion_reports.list')
+            ->value('enabled'))->toBeFalse()
+        ->and(PartnerUserPermissionException::query()
+            ->where('company_id', $company->id)
+            ->where('user_id', $target->id)
+            ->where('permission_key', 'admin_panel.access')
+            ->exists())->toBeFalse();
+});
+
+it('stores branch user individual permission changes on the parent company', function () {
+    $this->withoutMiddleware(VerifyCsrfToken::class);
+
+    $parent = partnerAccessCompany();
+    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $admin = partnerAccessUser($branch, ['admin' => true]);
+    $target = partnerAccessUser($branch);
+
+    partnerAccessGrantWithPermissions($parent, [
+        'admin',
+        'admin_panel.access',
+        'admin_users.update',
+        'admin_user_exceptions.manage',
+        'conclusion_reports',
+        'conclusion_reports.list',
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('partner.admin.users.update', $target), [
+            'name' => $target->name,
+            'email' => $target->email,
+            'branches' => [],
+            'user_permissions' => [
+                'conclusion_reports' => '1',
+                'conclusion_reports.list' => '0',
+            ],
+        ])
+        ->assertRedirect(route('partner.admin.users.edit', $target));
+
+    expect(PartnerUserPermissionException::query()
+        ->where('company_id', $parent->id)
+        ->where('user_id', $target->id)
+        ->where('permission_key', 'conclusion_reports.list')
+        ->value('enabled'))->toBeFalse()
+        ->and(PartnerUserPermissionException::query()
+            ->where('company_id', $branch->id)
+            ->where('user_id', $target->id)
+            ->exists())->toBeFalse();
+});
+
 it('blocks partner admin routes for non admin company users', function () {
     $company = partnerAccessCompany();
     $user = partnerAccessUser($company);
@@ -237,13 +590,140 @@ it('does not list users from another company in partner admin', function () {
     $admin = partnerAccessUser($company, ['admin' => true]);
     $visible = partnerAccessUser($company, ['name' => 'Usuário Visível']);
     $hidden = partnerAccessUser($otherCompany, ['name' => 'Usuário Oculto']);
+    $internal = User::factory()->create([
+        'name' => 'Usuário Interno',
+        'company_id' => $otherCompany->id,
+        'onlyparner' => false,
+    ]);
+    $internal->Companies()->syncWithoutDetaching([$company->id]);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     $this->actingAs($admin)
         ->get(route('partner.admin.users'))
         ->assertOk()
         ->assertSee($visible->name)
-        ->assertDontSee($hidden->name);
+        ->assertDontSee($hidden->name)
+        ->assertDontSee($internal->name);
+});
+
+it('shows partner user branches and last access in the admin user list', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $visible = partnerAccessUser($company, [
+        'name' => 'Usuário com Filial',
+        'last_seen_at' => now()->setDate(2026, 8, 18)->setTime(14, 35),
+    ]);
+    $branch = Andresscompany::query()->create([
+        'company_id' => $company->id,
+        'city' => 'Campinas',
+        'street' => 'Base Campinas',
+    ]);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    PartnerUserBranch::query()->create([
+        'company_id' => $company->id,
+        'user_id' => $visible->id,
+        'branch_id' => $branch->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk()
+        ->assertSee('Filiais')
+        ->assertSee('Último acesso')
+        ->assertSee('Parceira Teste - Campinas')
+        ->assertSee('18/08/2026 14:35')
+        ->assertSee('Ativos')
+        ->assertSee('Desativados');
+});
+
+it('lists soft deleted partner users only in the disabled tab', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $active = partnerAccessUser($company, ['name' => 'Usuário Ativo']);
+    $disabled = partnerAccessUser($company, ['name' => 'Usuário Desativado']);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    $disabled->delete();
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk()
+        ->assertSee($active->name)
+        ->assertDontSee($disabled->name);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users', ['status' => 'disabled']))
+        ->assertOk()
+        ->assertSee($disabled->name)
+        ->assertDontSee($active->name);
+});
+
+it('resets a partner user password from the edit action', function () {
+    $this->withoutMiddleware(VerifyCsrfToken::class);
+
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, ['admin' => true]);
+    $target = partnerAccessUser($company, [
+        'password' => Hash::make('senha-antiga'),
+        'first_pass' => false,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('partner.admin.users.reset_password', $target))
+        ->assertRedirect(route('partner.admin.users.edit', $target));
+
+    $target->refresh();
+
+    expect(Hash::check('123456', $target->password))->toBeTrue()
+        ->and($target->first_pass)->toBeTrue();
+});
+
+it('soft deletes inactive partner users according to the company policy', function () {
+    $company = partnerAccessCompany(['partner_user_inactivity_days' => 30]);
+    $inactive = partnerAccessUser($company, [
+        'last_seen_at' => now()->subDays(31),
+    ]);
+    $neverLogged = partnerAccessUser($company, [
+        'created_at' => now()->subDays(31),
+        'last_seen_at' => null,
+        'last_login_at' => null,
+    ]);
+    $recent = partnerAccessUser($company, [
+        'last_seen_at' => now()->subDays(5),
+    ]);
+    $activeByRecentAccess = partnerAccessUser($company, [
+        'last_login_at' => now()->subDays(90),
+        'last_seen_at' => now()->subDays(5),
+    ]);
+    $withoutPolicyCompany = partnerAccessCompany();
+    $withoutPolicy = partnerAccessUser($withoutPolicyCompany, [
+        'last_seen_at' => now()->subDays(60),
+    ]);
+
+    $this->artisan('partner-users:disable-inactive')
+        ->assertSuccessful();
+
+    expect(User::withTrashed()->find($inactive->id)->trashed())->toBeTrue()
+        ->and(User::withTrashed()->find($neverLogged->id)->trashed())->toBeTrue()
+        ->and(User::withTrashed()->find($recent->id)->trashed())->toBeFalse()
+        ->and(User::withTrashed()->find($activeByRecentAccess->id)->trashed())->toBeFalse()
+        ->and(User::withTrashed()->find($withoutPolicy->id)->trashed())->toBeFalse();
+});
+
+it('updates last seen when an authenticated user opens a saved page', function () {
+    $company = partnerAccessCompany();
+    $admin = partnerAccessUser($company, [
+        'admin' => true,
+        'last_seen_at' => now()->subDay(),
+    ]);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    $this->actingAs($admin)
+        ->get(route('partner.admin.users'))
+        ->assertOk();
+
+    expect($admin->refresh()->last_seen_at->greaterThan(now()->subMinute()))->toBeTrue();
 });
 
 it('rejects assigning a user to a branch from another company', function () {
@@ -365,7 +845,7 @@ it('blocks direct access to partner import template without permission', functio
     $company = partnerAccessCompany();
     $admin = partnerAccessUser($company, ['admin' => true]);
 
-    partnerAccessRoleWithPermissions($company, ['admin', 'admin_panel.access'], ['admin_users.template_export']);
+    partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access']);
 
     $this->actingAs($admin)
         ->get(route('partner.admin.users.import_template'))
@@ -378,7 +858,7 @@ it('blocks direct access to partner bulk import without permission', function ()
     $company = partnerAccessCompany();
     $admin = partnerAccessUser($company, ['admin' => true]);
 
-    partnerAccessRoleWithPermissions($company, ['admin', 'admin_panel.access'], ['admin_users.bulk_import']);
+    partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access']);
 
     $file = UploadedFile::fake()->createWithContent('usuarios.csv', "Nome,Email,Filial\nMaria,maria@example.test,Campinas\n");
 

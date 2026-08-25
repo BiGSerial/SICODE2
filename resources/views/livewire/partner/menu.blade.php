@@ -262,20 +262,6 @@
                                     </a>
                                 </li>
                             @endif
-                            @if ($partnerCan('admin_permissions.view'))
-                                <li>
-                                    <a href="{{ route('partner.admin.permissions') }}" class="nav-item text-white fw-normal">
-                                        <i class="ri-lock-password-line fw-light fs-5"></i> <span>Permissões</span>
-                                    </a>
-                                </li>
-                            @endif
-                            @if ($partnerCan('admin_user_exceptions.manage'))
-                                <li>
-                                    <a href="{{ route('partner.admin.exceptions') }}" class="nav-item text-white fw-normal">
-                                        <i class="ri-user-unfollow-line fw-light fs-5"></i> <span>Exceções por Usuário</span>
-                                    </a>
-                                </li>
-                            @endif
                             @if ($partnerCan('admin_audit.view'))
                                 <li>
                                     <a href="{{ route('partner.admin.audit') }}" class="nav-item text-white fw-normal">

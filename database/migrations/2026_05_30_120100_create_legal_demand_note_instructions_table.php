@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('legal_demand_id')->constrained('legal_demands')->cascadeOnDelete();
             $table->foreignId('note_id')->constrained('notes')->cascadeOnDelete();
             $table->uuid('created_by')->nullable();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('created_by')->references('id')->on('users');
             $table->text('instruction');
             $table->boolean('active')->default(true);
             $table->timestamps();

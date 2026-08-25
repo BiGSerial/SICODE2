@@ -31,7 +31,7 @@ return new class extends Migration
             $table->foreignId('work_report_id')->constrained('work_reports')->cascadeOnDelete();
             $table->date('date');
             $table->text('reason');
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users');
             $table->timestamps();
 
             $table->unique(['work_report_id', 'date'], 'ads_non_working_adjustments_unique');

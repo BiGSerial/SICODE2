@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('activity_type', 64);
             $table->unsignedBigInteger('activity_id');
             $table->uuid('linked_by')->nullable();
-            $table->foreign('linked_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('linked_by')->references('id')->on('users');
             $table->timestamp('linked_at')->nullable();
             $table->timestamp('unlinked_at')->nullable();
             $table->text('unlink_reason')->nullable();
