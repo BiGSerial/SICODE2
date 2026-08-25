@@ -2,6 +2,12 @@
 
 namespace App\Support;
 
+use App\Models\Note;
+use App\Models\Production;
+use App\Models\Company;
+use App\Models\User;
+use Illuminate\Support\Collection;
+
 class SicodeRules
 {
     public static function ruleset(): string
@@ -12,5 +18,249 @@ class SicodeRules
     public static function displayName(string $fallback = 'sicode'): string
     {
         return (string) config('sicode.display_name', $fallback);
+    }
+
+    public static function requiresDdForSurveyDispatch(): bool
+    {
+        return self::boolRule('dispatch.survey.requires_dd', true);
+    }
+
+    public static function requiresDdForSupervisionDispatch(): bool
+    {
+        return self::boolRule('dispatch.supervision.requires_dd', true);
+    }
+
+    public static function allowsCompanyStackDispatch(): bool
+    {
+        return self::boolRule('dispatch.allows_company_stack', true);
+    }
+
+    public static function partnerCanClaimCompanyStack(): bool
+    {
+        return self::boolRule('dispatch.partner_can_claim_company_stack', true);
+    }
+
+    public static function visibleCompanyIdsFor(User $user): array
+    {
+        return self::visibleCompanyIdsCollectionFor($user)->all();
+    }
+
+    public static function userCanAccessCompany(User $user, ?string $companyId): bool
+    {
+        if (!$companyId) {
+            return false;
+        }
+
+        if (!$user->contract) {
+            return true;
+        }
+
+        return self::visibleCompanyIdsCollectionFor($user)->contains($companyId);
+    }
+
+    public static function primaryCompanyNameFor(User $user): ?string
+    {
+        if (!$user->contract) {
+            return null;
+        }
+
+        $companyId = $user->Employee?->Contract?->company_id
+            ?: $user->company_id
+            ?: self::visibleCompanyIdsCollectionFor($user)->first();
+
+        if (!$companyId) {
+            return null;
+        }
+
+        return Company::where('id', $companyId)->value('name');
+    }
+
+    public static function applyContractDispatchListVisibility($query, User $user, string $serviceId)
+    {
+        if (!$user->contract) {
+            return $query;
+        }
+
+        $companyIds = self::visibleCompanyIdsFor($user);
+
+        if (!count($companyIds)) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereHas('Productions', function ($q) use ($companyIds, $serviceId) {
+            $q->where('service_id', $serviceId)
+                ->whereIn('company_id', $companyIds)
+                ->where('completed', false);
+        });
+    }
+
+    public static function hasCompanyDispatchProductionFor(Note $note, User $user, string $serviceId): bool
+    {
+        if (!$user->contract) {
+            return true;
+        }
+
+        $companyIds = self::visibleCompanyIdsFor($user);
+
+        if (!count($companyIds)) {
+            return false;
+        }
+
+        if ($note->relationLoaded('Productions')) {
+            return $note->Productions
+                ->where('service_id', $serviceId)
+                ->whereIn('company_id', $companyIds)
+                ->where('completed', false)
+                ->isNotEmpty();
+        }
+
+        return $note->Productions()
+            ->where('service_id', $serviceId)
+            ->whereIn('company_id', $companyIds)
+            ->where('completed', false)
+            ->exists();
+    }
+
+    public static function applyContractDispatchMainVisibility($query, User $user, string $serviceId, callable $applyStatusRules)
+    {
+        if (!$user->contract) {
+            $applyStatusRules($query);
+
+            return $query;
+        }
+
+        $companyIds = self::visibleCompanyIdsFor($user);
+
+        if (!count($companyIds)) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where(function ($visibility) use ($applyStatusRules, $companyIds, $serviceId) {
+            $visibility->where(function ($statusRules) use ($applyStatusRules) {
+                $applyStatusRules($statusRules);
+            })->orWhereHas('Productions', function ($production) use ($companyIds, $serviceId) {
+                $production->where('service_id', $serviceId)
+                    ->whereIn('company_id', $companyIds)
+                    ->where('completed', false);
+            });
+        })->whereHas('Productions', function ($production) use ($companyIds, $serviceId) {
+            $production->where('service_id', $serviceId)
+                ->whereIn('company_id', $companyIds)
+                ->where('completed', false);
+        });
+    }
+
+    public static function openCompanyStackProductionFor(Note $note, User $user, string $serviceId): ?Production
+    {
+        if (!$user->contract) {
+            return null;
+        }
+
+        $companyIds = self::visibleCompanyIdsFor($user);
+
+        if (!count($companyIds)) {
+            return null;
+        }
+
+        if ($note->relationLoaded('Productions')) {
+            return $note->Productions
+                ->where('service_id', $serviceId)
+                ->whereIn('company_id', $companyIds)
+                ->whereNull('user_id')
+                ->where('completed', false)
+                ->where('confirmed', false)
+                ->first();
+        }
+
+        return $note->Productions()
+            ->where('service_id', $serviceId)
+            ->whereIn('company_id', $companyIds)
+            ->whereNull('user_id')
+            ->where('completed', false)
+            ->where('confirmed', false)
+            ->first();
+    }
+
+    public static function dispatchDdFor(Note $note, string $serviceId, ?Production $production = null): ?string
+    {
+        $wpas = $note->relationLoaded('Wpas')
+            ? $note->Wpas
+            : $note->Wpas()->get();
+
+        $wpas = $wpas->filter(fn ($wpa) => filled($wpa->dd));
+
+        if ($production) {
+            $dd = $wpas
+                ->where('production_id', $production->id)
+                ->sortByDesc('id')
+                ->first()?->dd;
+
+            if ($dd) {
+                return $dd;
+            }
+        }
+
+        $openProductionIds = $note->relationLoaded('Productions')
+            ? $note->Productions
+                ->where('service_id', $serviceId)
+                ->where('completed', false)
+                ->where('confirmed', false)
+                ->pluck('id')
+                ->all()
+            : $note->Productions()
+                ->where('service_id', $serviceId)
+                ->where('completed', false)
+                ->where('confirmed', false)
+                ->pluck('id')
+                ->all();
+
+        if (count($openProductionIds)) {
+            $dd = $wpas
+                ->where('service_id', $serviceId)
+                ->whereIn('production_id', $openProductionIds)
+                ->sortByDesc('id')
+                ->first()?->dd;
+
+            if ($dd) {
+                return $dd;
+            }
+        }
+
+        $dd = $wpas
+            ->where('service_id', $serviceId)
+            ->whereNull('production_id')
+            ->sortByDesc('id')
+            ->first()?->dd;
+
+        if ($dd) {
+            return $dd;
+        }
+
+        return $wpas->sortByDesc('id')->first()?->dd;
+    }
+
+    private static function visibleCompanyIdsCollectionFor(User $user): Collection
+    {
+        $ids = collect([
+            $user->company_id,
+            $user->Employee?->Contract?->company_id,
+        ]);
+
+        if ($user->relationLoaded('Companies')) {
+            $ids = $ids->merge($user->Companies->pluck('id'));
+        } else {
+            $ids = $ids->merge($user->Companies()->pluck('companies.id'));
+        }
+
+        return $ids
+            ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+    }
+
+    private static function boolRule(string $key, bool $default = false): bool
+    {
+        return (bool) config('sicode.rules.' . self::ruleset() . '.' . $key, $default);
     }
 }

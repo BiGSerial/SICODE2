@@ -5,6 +5,7 @@ namespace App\Services\Admin\Company;
 use App\Imports\Admin\Company\UserRegistrationWorkbookImport;
 use App\Models\Company;
 use App\Models\Contract;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -115,46 +116,39 @@ class UserRegistrationWorkbookService
             }
 
             if ($contract) {
-                $primaryServiceId = $contract->services()->first()?->uuid;
-                if ($primaryServiceId) {
-                    $user->Employee()->updateOrCreate(
-                        ['user_id' => $user->id],
-                        [
-                            'contract_id' => $contract->id,
-                            'service_id' => $primaryServiceId,
-                        ]
-                    );
-                }
+                $primaryService = $this->findContractServiceByName($contract, $userRow['primary_service']);
 
-                $this->syncUserContractServices($user, $contract);
+                $user->Employee()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'contract_id' => $contract->id,
+                        'service_id' => $primaryService?->uuid,
+                    ]
+                );
+
+                if ($primaryService) {
+                    $this->ensurePrimaryServiceAccess($user, $primaryService->uuid);
+                }
             }
         }
 
         return compact('createdUnits', 'createdUsers', 'updatedUsers', 'removedUsers');
     }
 
-    private function syncUserContractServices(User $user, Contract $contract): void
+    private function ensurePrimaryServiceAccess(User $user, string $serviceId): void
     {
-        $contractServices = $contract->services()->get();
-        $serviceIds = $contractServices->pluck('uuid')->filter()->values()->all();
-        $canDispatch = (bool) ($user->admin || $user->operator);
-
-        if (!$serviceIds) {
-            $user->ToServices()->delete();
+        if ($user->ToServices()->where('service_id', $serviceId)->exists()) {
             return;
         }
 
-        $user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
+        $canExecute = (bool) ($user->user || $user->operator || $user->admin);
+        $canDispatch = (bool) ($user->operator || $user->admin);
 
-        foreach ($contractServices as $service) {
-            $user->ToServices()->updateOrCreate(
-                ['service_id' => $service->uuid],
-                [
-                    'service' => true,
-                    'dispatch' => $canDispatch,
-                ]
-            );
-        }
+        $user->ToServices()->create([
+            'service_id' => $serviceId,
+            'service' => $canExecute,
+            'dispatch' => $canDispatch,
+        ]);
     }
 
     private function validateUnits(array $rows, Company $root, Collection $units): array
@@ -257,7 +251,12 @@ class UserRegistrationWorkbookService
             if ($unit && !$contractLabel && $this->contractsFor(collect([$unit, $unit->parent])->filter())->count() > 1) {
                 $errors[] = 'Contrato obrigatorio para unidade com mais de um contrato aplicavel.';
             }
-            foreach (['admin' => 6, 'operator' => 7, 'user' => 8, 'management' => 9] as $field => $position) {
+            $primaryServiceLabel = $this->cell($row, 6);
+            if ($contract && !$this->findContractServiceByName($contract, $primaryServiceLabel)) {
+                $errors[] = 'Atividade principal invalida para o contrato informado.';
+            }
+
+            foreach (['admin' => 7, 'operator' => 8, 'user' => 9, 'management' => 10] as $field => $position) {
                 if (!in_array($this->cell($row, $position), ['Sim', 'Nao'], true)) {
                     $errors[] = "Valor invalido em {$field}.";
                 }
@@ -271,10 +270,11 @@ class UserRegistrationWorkbookService
                 'registration' => $this->cell($row, 3),
                 'unit' => $unitLabel,
                 'contract' => $contractLabel,
-                'admin' => $this->cell($row, 6) === 'Sim',
-                'operator' => $this->cell($row, 7) === 'Sim',
-                'user' => $this->cell($row, 8) === 'Sim',
-                'management' => $this->cell($row, 9) === 'Sim',
+                'primary_service' => $primaryServiceLabel,
+                'admin' => $this->cell($row, 7) === 'Sim',
+                'operator' => $this->cell($row, 8) === 'Sim',
+                'user' => $this->cell($row, 9) === 'Sim',
+                'management' => $this->cell($row, 10) === 'Sim',
                 'error' => implode(' ', $errors),
             ];
 
@@ -326,6 +326,16 @@ class UserRegistrationWorkbookService
         }
 
         return $contracts->first(fn ($contract) => "{$contract->number} | {$contract->company?->display_name}" === $label);
+    }
+
+    private function findContractServiceByName(Contract $contract, ?string $serviceName): ?Service
+    {
+        if (!$serviceName) {
+            return $contract->services()->first();
+        }
+
+        return $contract->services->first(fn ($service) => $service->service === $serviceName)
+            ?: $contract->services()->where('service', $serviceName)->first();
     }
 
     private function dataRows(array $rows, string $firstHeader): array

@@ -82,7 +82,7 @@
                         </div>
 
                         <div class="card border-0 shadow-sm">
-                            <div class="card-header bg-white"><strong>Atividades para aplicar a todos</strong></div>
+                            <div class="card-header bg-white"><strong>Atividade principal para aplicar a todos</strong></div>
                             <div class="card-body">
                                 @php
                                     $hasAvailableServices = $this->serviceList && $this->serviceList->count();
@@ -99,7 +99,7 @@
                                         </select>
                                     </div>
                                     <div class="col-md-3 d-grid">
-                                        <button type="button" class="btn btn-success" wire:click="addService" @disabled(!$hasAvailableServices)><i class="ri-add-line"></i> Adicionar</button>
+                                        <button type="button" class="btn btn-success" wire:click="addService" @disabled(!$hasAvailableServices)><i class="ri-check-line"></i> Definir</button>
                                     </div>
                                 </div>
 
@@ -114,15 +114,15 @@
                                                     @if ($service)
                                                         <tr wire:key="service_list_{{ $index }}">
                                                             <td>{{ $service->service }}</td>
-                                                            <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model="temporaryServices.{{ $index }}.service"> <label class="form-check-label">Executar</label></div></td>
-                                                            <td><div class="form-check"><input class="form-check-input" type="checkbox" wire:model.defer="temporaryServices.{{ $index }}.dispatch"> <label class="form-check-label">Despachar</label></div></td>
+                                                            <td><span class="badge text-bg-light">Executar: perfil Usuario/Operador/Admin</span></td>
+                                                            <td><span class="badge text-bg-light">Despachar: perfil Operador/Admin</span></td>
                                                             <td class="text-end"><i class="ri-delete-bin-line text-danger" wire:click="removeService({{ $index }})" style="cursor: pointer;"></i></td>
                                                         </tr>
                                                     @endif
                                                 @endforeach
                                             @else
                                                 <tr>
-                                                    <td colspan="4" class="text-center text-muted">Sem atividade liberada</td>
+                                                    <td colspan="4" class="text-center text-muted">Sem atividade principal definida</td>
                                                 </tr>
                                             @endif
                                         </tbody>

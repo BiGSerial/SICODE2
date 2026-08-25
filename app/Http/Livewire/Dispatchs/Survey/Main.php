@@ -15,6 +15,10 @@ use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Wpa;
+use App\Services\Dispatch\DispatchException;
+use App\Services\Dispatch\DispatchWorkflowService;
+use App\Support\SicodeRules;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use PhpParser\Node\Expr\Empty_;
@@ -156,8 +160,94 @@ class Main extends Component
 
     public function updatedCompanyS()
     {
-
         $this->user_s = '';
+        $this->loadDispatchUsers();
+    }
+
+    public function dispatchCompanyChanged($companyId): void
+    {
+        $this->company_s = $companyId;
+        $this->updatedCompanyS();
+    }
+
+    public function loadDispatchCompanies(): void
+    {
+        if (Auth()->User()?->contract && $this->notes && $this->notes->count()) {
+            $companyIds = Production::whereIn('note_id', $this->notes->pluck('id'))
+                ->where('service_id', $this->service->uuid)
+                ->whereIn('company_id', SicodeRules::visibleCompanyIdsFor(Auth()->User()))
+                ->whereNull('user_id')
+                ->where('completed', false)
+                ->where('confirmed', false)
+                ->distinct()
+                ->pluck('company_id');
+
+            $this->company_l = Company::whereIn('id', $companyIds)
+                ->orderBy('name', 'ASC')
+                ->get();
+
+            return;
+        }
+
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where('service', true);
+            });
+        })
+            ->when(Auth()->User()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
+
+                return count($companyIds)
+                    ? $q->whereIn('id', $companyIds)
+                    : $q->whereRaw('0 = 1');
+            })
+            ->orderBy('name', 'ASC')
+            ->get();
+    }
+
+    public function loadDispatchUsers(): void
+    {
+        $this->user_s = '';
+
+        if (!$this->company_s) {
+            $this->user_l = collect();
+            return;
+        }
+
+        $this->user_l = User::whereRelation('ToServices', function ($q) {
+            $q->where('service_id', $this->service->uuid)
+                ->where('service', true);
+        })
+            ->where(function ($q) {
+                $q->where('company_id', $this->company_s)
+                    ->orWhereRelation('Employee.Contract', 'company_id', $this->company_s)
+                    ->orWhereRelation('Companies', 'companies.id', $this->company_s);
+            })
+            ->when($this->search_user, function ($q) {
+                return $q->where('name', 'like', '%' . $this->search_user . '%');
+            })
+            ->select('id', 'name')
+            ->orderBy('name', 'ASC')
+            ->get();
+    }
+
+    private function preselectContractDispatchCompany(): void
+    {
+        if (!Auth()->User()?->contract || !$this->notes || !$this->notes->count()) {
+            return;
+        }
+
+        $companyIds = $this->notes
+            ->map(fn ($note) => SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid)?->company_id)
+            ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($companyIds->count() === 1) {
+            $this->company_s = $companyIds->first();
+        }
     }
 
     public function updatedSelectall($val)
@@ -246,27 +336,22 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::with('Wpas')->find($this->selected);
-
-        $this->type = '2';
-
-        $this->additionalData = [];
-
-        if ($this->notes->count()) {
-
-            foreach ($this->notes as $index => $wpa) {
-                $this->additionalData[$index] = $wpa->Wpas->count() ? (!$wpa->Wpas->last()->production_id ? $wpa->Wpas->last()->dd : '') : '';
-            }
-
-
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes'
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
     }
 
     public function confirm_att()
     {
+        if (!$this->company_s) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer' => 2500,
+            ]);
+
+            return;
+        }
+
         if ($this->type === "2") {
 
             if (!$this->user_s) {
@@ -283,18 +368,6 @@ class Main extends Component
             $para = User::find($this->user_s)->name." da ".(Company::find($this->company_s))->name;
 
         } else {
-
-            if (!$this->company_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer' => 2500,
-                ]);
-
-                return;
-            }
-
             $para = (Company::find($this->company_s))->name;
         }
 
@@ -353,182 +426,54 @@ class Main extends Component
 
     public function confirmed_att()
     {
-        if ($this->type == "2") {
+        if (!in_array((string) $this->type, ['1', '2'], true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Selecione o tipo de despacho.',
+                'timer' => 2500,
+            ]);
 
-
-
-            // Verifica se todas as entradas estão com DD atriobuídas.
-            if (count($this->additionalData)) {
-
-
-                // Checa se existe DD não preenchida
-                foreach ($this->additionalData as $key => $value) {
-                    if (!trim($value)) {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => 'Todas as Notas/OVs precisam estar associadas a uma Nota DD',
-                            'timer' => 5000,
-                        ]);
-
-                        return;
-                    }
-                }
-
-
-                if (count(array_unique($this->additionalData)) !== count($this->additionalData)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon' => 'warning',
-                        'title' => 'Existem Notas DD repetidas atribuídas a Nota/OVs diferentes',
-                        'timer' => 5000,
-                    ]);
-
-                    return;
-                }
-
-                //Checa se existe DD Repetida
-
-
-                $dds = Wpa::whereIn('dd', $this->additionalData)->with('Note')->get();
-
-                if ($dds->count()) {
-
-                    foreach ($this->additionalData as $key => $value) {
-                        $chk = $dds->where('dd', $value)->first();
-
-                        if ($chk && $chk->Note->note != $this->notes[$key]->note) {
-                            $this->dispatchBrowserEvent('swal', [
-                                'position' => 'center',
-                                'icon' => 'error',
-                                'title' => "DD {$value} já foi associada a Nota/OV {$chk->Note->note}",
-                                'timer' => 5000,
-                            ]);
-
-                            return;
-                        }
-                    }
-                }
-
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma Nota DD associada as Notas/OVs!',
-                    'timer' => 5000,
-                ]);
-
-                return;
-            }
+            return;
         }
 
+        try {
+            $workflow = app(DispatchWorkflowService::class);
+            $company = Company::findOrFail($this->company_s);
+            $targetUser = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
+            $actor = Auth()->User();
 
-        if ($this->type == "2") {
+            DB::transaction(function () use ($workflow, $company, $targetUser, $actor) {
+                foreach ($this->notes as $key => $note) {
+                    $dd = $this->additionalData[$key] ?? null;
 
-            foreach ($this->notes as $key => $note) {
-
-                $erros = [];
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id' => $note->id,
-                        'service_id' => $this->service->uuid,
-                        'user_id' => $this->user_s,
-                        'company_id' => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'att_by' => Auth()->User()->id,
-                        'dt_note' => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'att_at' => date('Y-m-d H:i:s'),
-                        'status' => 2,
-                        'centroTrab' => $note->centerjob,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    if (trim($this->user_s)) {
-                        $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
+                    if ($targetUser) {
+                        $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd);
                     } else {
-                        $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
+                        $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd);
                     }
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "Usuário {$user} {$user_info}",
-                            'status' => 2,
-                            'productionId' => $production->id,
-                        ]);
-                    }
-
-
-                    if ($production) {
-
-                        $wpa = Wpa::where('note_id', $note->id)->where('dd', $this->additionalData[$key])->whereNull('production_id')->first();
-
-                        if ($wpa) {
-                            $wpa->update([
-                                 'production_id' => $production->id,
-                             ]);
-                        } else {
-                            Wpa::create([
-                                'production_id' => $production->id,
-                                'note_id' => $note->id,
-                                'dd' => $this->additionalData[$key]
-                            ]);
-                        }
-
-
-                    }
-                } else {
-                    $erros[] = $erro;
                 }
+            });
+        } catch (DispatchException $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => $e->getMessage(),
+                'timer' => 6000,
+            ]);
 
+            return;
+        } catch (\Throwable $e) {
+            report($e);
 
-            }
-        } else {
-            foreach ($this->notes as $key => $note) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'error',
+                'title' => 'Erro ao despachar as Notas/OVs.',
+                'timer' => 5000,
+            ]);
 
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id' => $note->id,
-                        'service_id' => $this->service->uuid,
-                        'company_id' => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'dt_note' => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'status' => 1,
-                        'centroTrab' => $note->centerjob,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    if (trim($this->user_s)) {
-                        $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
-                    } else {
-                        $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
-                    }
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "Usuário {$user} {$user_info}",
-                            'status' => 1,
-                            'productionId' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
-
-
-            }
+            return;
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -552,6 +497,7 @@ class Main extends Component
         $this->company_s = "";
         $this->selected = [];
         $this->user_s = "";
+        $this->user_l = collect();
         // $this->type = "";
         $this->additionalData = [];
 
@@ -564,6 +510,8 @@ class Main extends Component
         $this->company_s = "";
         $this->enter_dd = "";
         $this->user_s = "";
+        $this->search_user = "";
+        $this->user_l = collect();
         // $this->type = "";
         $this->additionalData = [];
     }
@@ -950,7 +898,12 @@ class Main extends Component
         // dd($this->base);
 
         $query = Note::query()->excludeCanceledFullDone();
-        RuleBuilder::applyRules($query, $this->service->Status);
+        SicodeRules::applyContractDispatchMainVisibility(
+            $query,
+            Auth()->User(),
+            $this->service->uuid,
+            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
+        );
 
 
         if (strlen($this->search)) {
@@ -1013,8 +966,11 @@ class Main extends Component
             });
         }
 
-
-        $query->with('Productions.User', 'Wpas')
+        $query->with([
+            'Productions.User',
+            'Productions.Company',
+            'Wpas',
+        ])
                     ->orderBy('is45', 'DESC')
                     ->orderBy('type_note', 'DESC')
                     ->orderBy('days_left');
@@ -1062,6 +1018,9 @@ class Main extends Component
     public function render()
     {
         $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
+            if (Auth()->User()?->contract) {
+                return SicodeRules::hasCompanyDispatchProductionFor($list, Auth()->User(), $this->service->uuid);
+            }
 
             return !$list->Productions
                     ->where('status_note', $list->nstats)
@@ -1081,35 +1040,6 @@ class Main extends Component
 
         //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
         // }
-
-        $this->company_l = Company::whereHas('toUsers', function ($query) {
-            $query->whereRelation('ToServices', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where('service', true);
-            });
-        })
-            ->orderBy('name', 'ASC')
-            ->get();
-
-        $this->user_l = User::whereRelation('ToServices', function ($q) {
-            $q->where('service_id', $this->service->uuid)
-                ->where('service', true);
-        })
-         ->where(function ($q) {
-             $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
-         })
-        ->when($this->search_user, function ($q) {
-            return $q->where('name', 'like', '%' . $this->search_user . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
-
-
-        // $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)
-        //             ->when($this->search_user, function ($q) {
-        //                 return $q->where('name', 'like', "%".$this->search_user."%");
-        //             })
-        //             ->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 

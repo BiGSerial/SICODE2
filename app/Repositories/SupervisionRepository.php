@@ -14,10 +14,18 @@ class SupervisionRepository
      */
     public function getBaseQuery(): Builder
     {
-        return Note::query()
-            ->excludeCanceledFullDone()
-            ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id')
-            ->where(function ($q) {
+        return $this->applyBaseRules(
+            Note::query()
+                ->excludeCanceledFullDone()
+                ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id')
+        )
+            ->select('notes.*', 'work_reports.created_at as work_dt_created')
+            ->orderBy('work_dt_created', 'ASC');
+    }
+
+    public function applyBaseRules(Builder $query): Builder
+    {
+        return $query->where(function ($q) {
                 $q->orWhere(function ($q) {
                     $q->whereHas('FiveNote', function ($q2) {
                         $q2->where('is_supervisioned', false)
@@ -73,8 +81,6 @@ class SupervisionRepository
                         });
                     });
                 });
-            })
-            ->select('notes.*', 'work_reports.created_at as work_dt_created')
-            ->orderBy('work_dt_created', 'ASC');
+            });
     }
 }

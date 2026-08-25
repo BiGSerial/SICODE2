@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Levantamento;
 
 use App\Jobs\Services\ExportLevantamentoProductionListJob;
 use App\Models\{File, Production, Service};
+use App\Support\SicodeRules;
 use Illuminate\Support\Facades\{Storage, Auth, DB};
 use Livewire\{Component, WithPagination};
 
@@ -242,6 +243,13 @@ class Main extends Component
             ->where('productions.service_id', $this->service->uuid)
             ->where('productions.user_id', Auth::id())
             ->where('productions.completed', false)
+            ->when(Auth::user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(Auth::user());
+
+                return count($companyIds)
+                    ? $q->whereIn('productions.company_id', $companyIds)
+                    : $q->whereRaw('0 = 1');
+            })
             ->when($this->search, function ($q, $s) {
                 $q->where(function ($sub) use ($s) {
                     $sub->where('n.note', 'like', "%{$s}%")

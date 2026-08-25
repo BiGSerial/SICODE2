@@ -181,17 +181,32 @@
                 </thead>
                 <tbody>
                     @php
-                        if (!function_exists('shortUser')) {
-                            function shortUser($name)
+                        if (!function_exists('dispatchStackShortName')) {
+                            function dispatchStackShortName($user)
                             {
+                                $name = is_string($user) ? $user : $user?->name;
+
                                 if (empty($name)) {
                                     return 'Desconhecido';
                                 }
 
-                                $parts = explode(' ', $name);
-                                $shortName = $parts[0] . ' ' . end($parts); // Começa com o primeiro nome
+                                $parts = collect(explode(' ', trim($name)))->filter()->values();
 
-                                return $shortName;
+                                if ($parts->count() <= 1) {
+                                    return $parts->first() ?? 'Desconhecido';
+                                }
+
+                                return $parts->first() . ' ' . $parts->last();
+                            }
+                        }
+
+                        if (!function_exists('dispatchStackCompanyName')) {
+                            function dispatchStackCompanyName($user, $fallbackCompany = null)
+                            {
+                                return $fallbackCompany?->name
+                                    ?? $user?->Company?->name
+                                    ?? $user?->Employee?->Contract?->company?->name
+                                    ?? null;
                             }
                         }
 
@@ -301,7 +316,11 @@
 
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                {{ shortUser($item->dispatcher?->name) }}</td>
+                                <div>{{ dispatchStackShortName($item->dispatcher) }}</div>
+                                @if ($dispatcherCompany = dispatchStackCompanyName($item->dispatcher))
+                                    <div class="small fw-normal text-muted">{{ $dispatcherCompany }}</div>
+                                @endif
+                            </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->note }}
                                 <x-legal.note-demand-tags :note-id="$item->note_id" :row-key="'dispatchs-survey-'.$item->id" />
@@ -321,7 +340,10 @@
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->group2 ?? '---' }}</td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                <x-user.status-name :user="$item->user" />
+                                <div>{{ dispatchStackShortName($item->user) }}</div>
+                                @if ($assignedCompany = dispatchStackCompanyName($item->user, $item->company))
+                                    <div class="small fw-normal text-muted">{{ $assignedCompany }}</div>
+                                @endif
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 {{ $item->att_at?->diffInDays(Carbon::now()) }} dias

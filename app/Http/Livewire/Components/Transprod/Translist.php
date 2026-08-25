@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Components\Transprod;
 
 use App\Models\{Notetimeline, Notify, Prodtransfer, Production, Service, User};
 use App\Notifications\SystemNotification;
+use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -52,6 +53,13 @@ class Translist extends Component
             return $q->where('from', Auth()->User()->id)
                 ->orWhere('to', Auth()->User()->id);
         })
+            ->when(auth()->user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                return count($companyIds)
+                    ? $q->whereHas('Production', fn ($production) => $production->whereIn('company_id', $companyIds))
+                    : $q->whereRaw('0 = 1');
+            })
             ->whereRelation('Production', 'completed', false)
             ->orderBy('updated_at', 'DESC')
             ->with('To', 'From', 'Production.Note')
