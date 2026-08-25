@@ -15,8 +15,29 @@ return [
     // work_report.dd_mode: required (default) | optional | hidden.
     'rules' => [
         'es' => [
+            'dispatch' => [
+                'allows_company_stack'            => true,
+                'partner_can_claim_company_stack' => true,
+                'survey'                          => [
+                    'requires_dd' => true,
+                ],
+                'supervision' => [
+                    'requires_dd' => true,
+                ],
+            ],
+
             'work_report' => [
-                // ES ativou o bloqueio por status de construção (default é desligado).
+                // Campos de Sim/Não do Informe de Obra. Quando false, o campo some
+                // do formulário e o valor salvo é sempre forçado para "Não".
+                'fields' => [
+                    'equipment'  => true,
+                    'changes'    => true,
+                    'damage'     => true,
+                    'connection' => true,
+                ],
+                // required: campo visível e obrigatório | optional: visível, não obrigatório | hidden: some do formulário
+                'dd_mode'               => 'required',
+                'requires_files'        => true,
                 'blocks_by_note_status' => true,
             ],
         ],
@@ -24,6 +45,8 @@ return [
         'sp' => [
             'dispatch' => [
                 // SP tem sistema próprio de despacho; DD não é exigida aqui.
+                'allows_company_stack'            => true,
+                'partner_can_claim_company_stack' => true,
                 'survey'      => ['requires_dd' => false],
                 'supervision' => ['requires_dd' => false],
             ],
@@ -33,11 +56,14 @@ return [
                 'fields' => [
                     'equipment'  => false,
                     'changes'    => false,
+                    'damage'     => true,
                     'connection' => false,
                     'meeters'    => false,
                     'team'       => false,
                 ],
-                'requires_files' => false,
+                'dd_mode'               => 'required',
+                'requires_files'        => false,
+                'blocks_by_note_status' => false,
             ],
         ],
     ],
