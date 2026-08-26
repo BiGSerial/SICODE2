@@ -682,30 +682,31 @@
                             </div>
 
                             <!-- Meeters Section -->
-                            <div class="card shadow-sm mb-4">
-                                <div class="card-header bg-light">
-                                    <h5 class="mb-0"><i class="ri-dashboard-line me-2"></i>Medidores</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <select class="form-select @error('meeters') is-invalid @enderror"
-                                                    wire:model="meeters">
-                                                    <option value="">Selecione</option>
-                                                    <option value="1">Sim</option>
-                                                    <option value="0">Não</option>
-                                                </select>
-                                                <label>Foram Instalados Medidores? <span
-                                                        class="text-danger">*</span></label>
-                                                @error('meeters')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                            @if (SicodeRules::workReportFieldEnabled('meeters'))
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0"><i class="ri-dashboard-line me-2"></i>Medidores</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <select class="form-select @error('meeters') is-invalid @enderror"
+                                                        wire:model="meeters">
+                                                        <option value="">Selecione</option>
+                                                        <option value="1">Sim</option>
+                                                        <option value="0">Não</option>
+                                                    </select>
+                                                    <label>Foram Instalados Medidores? <span
+                                                            class="text-danger">*</span></label>
+                                                    @error('meeters')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    @if ($meeters)
+                                        @if ($meeters)
                                         <div class="row g-3 mt-2">
                                             <div class="col-md-3">
                                                 <div class="form-floating">
@@ -777,8 +778,9 @@
                                             </div>
                                         @endif
                                     @endif
+                                    </div>
                                 </div>
-                            </div>
+                            @endif
 
                             <!-- Final Information Section -->
                             <div class="card shadow-sm mb-4">
@@ -805,18 +807,20 @@
                                                 </div>
                                             </div>
                                         @endif
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text"
-                                                    class="form-control @error('form.team') is-invalid @enderror"
-                                                    id="team" wire:model.defer="form.team">
-                                                <label for="team">Nome da Equipe (WPA) <span
-                                                        class="text-danger">*</span></label>
-                                                @error('form.team')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                                        @if (SicodeRules::workReportFieldEnabled('team'))
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <input type="text"
+                                                        class="form-control @error('form.team') is-invalid @enderror"
+                                                        id="team" wire:model.defer="form.team">
+                                                    <label for="team">Nome da Equipe (WPA) <span
+                                                            class="text-danger">*</span></label>
+                                                    @error('form.team')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
-                                        </div>
+                                        @endif
                                         <div class="col-md-6">
                                             <div class="form-floating">
                                                 <input type="text"
@@ -858,18 +862,18 @@
                                         </div>
                                         <div>
 	                                            <p class="mb-2 fw-semibold">Declaração de responsabilidade</p>
-	                                            <p class="text-muted mb-2">
-		                                                {{ $acceptanceSignatureService->statementText() }}
-	                                            </p>
+	                                            <div class="text-muted mb-2">
+		                                                {!! $acceptanceSignatureService->statementText() !!}
+	                                            </div>
                                             <div class="term-quote mt-3">
                                                 <div class="term-quote-icon">
                                                     <i class="ri-double-quotes-l"></i>
                                                 </div>
                                                 <div>
                                                     <p class="small text-uppercase fw-semibold mb-2">Citação contratual</p>
-                                                    <p class="text-muted mb-0"><em>
-		                                                        "{{ $acceptanceSignatureService->contractText() }}"
-	                                                    </em></p>
+                                                    <div class="text-muted mb-0"><em>
+		                                                        {!! $acceptanceSignatureService->contractText() !!}
+	                                                    </em></div>
                                                 </div>
                                             </div>
                                         </div>

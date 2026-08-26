@@ -201,12 +201,14 @@
                                     </div>
                                 @endif
 
-                                <div class="mb-3">
-                                    <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA)
-                                        <span class="text-danger fw-bold">*</span>:</label>
-                                    <input type="text" class="form-control" id="team"
-                                        wire:model.defer="workReport.team">
-                                </div>
+                                @if (SicodeRules::workReportFieldEnabled('team'))
+                                    <div class="mb-3">
+                                        <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA)
+                                            <span class="text-danger fw-bold">*</span>:</label>
+                                        <input type="text" class="form-control" id="team"
+                                            wire:model.defer="workReport.team">
+                                    </div>
+                                @endif
 
                                 <div class="mb-3">
                                     <label for="exampleFormControlInput1" class="form-label">Qual o encarregado

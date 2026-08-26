@@ -106,7 +106,6 @@ class Workreports extends Component
             'form.company_id'           => 'nullable',
             'form.date'                 => 'required|date|before_or_equal:today',
             'form.observation'          => 'nullable|string|max:5000',
-            'form.team'                 => 'required|string|max:255',
             'form.responsible'          => 'required|string|max:255',
             'form.informer'             => 'required|string|max:255',
             'form.acceptance_accepted'  => 'accepted',
@@ -119,6 +118,10 @@ class Workreports extends Component
                 $rules["form.{$field}"] = 'required|boolean';
             }
         }
+
+        $rules['form.team'] = SicodeRules::workReportFieldEnabled('team')
+            ? 'required|string|max:255'
+            : 'nullable|string|max:255';
 
         $rules['form.description'] = SicodeRules::workReportFieldEnabled('damage')
             ? 'required_if:form.damage,1|nullable|string|min:10|max:5000'
@@ -140,6 +143,14 @@ class Workreports extends Component
             if (!SicodeRules::workReportFieldEnabled($field)) {
                 $this->form[$field] = false;
             }
+        }
+
+        if (!SicodeRules::workReportFieldEnabled('meeters')) {
+            $this->meeters = false;
+        }
+
+        if (!SicodeRules::workReportFieldEnabled('team')) {
+            $this->form['team'] = null;
         }
 
         $user                   = auth()->user();
@@ -791,6 +802,10 @@ class Workreports extends Component
         $this->temp_orders                = [];
         $this->temp_equipment             = [];
 
+        if (!SicodeRules::workReportFieldEnabled('meeters')) {
+            $this->meeters = false;
+        }
+
         $user         = auth()->user();
         $informerName = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
 
@@ -953,10 +968,6 @@ class Workreports extends Component
         }
 
         if ((bool) config('features.suspend_work_report_note_status_blocks', true)) {
-            return true;
-        }
-
-        if (!SicodeRules::workReportBlocksByNoteStatus()) {
             return true;
         }
 

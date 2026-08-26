@@ -481,10 +481,8 @@
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 align-items-lg-start mb-2">
             <h3 class="pd-section-title">Informes</h3>
             <div class="pd-disclaimer">
-    <strong class="fs-5">Valores meramente informativos.</strong>
-    Os valores apresentados correspondem exclusivamente às informações fornecidas pela parceira nas ADS dos informes e nos parciais solicitados válidos do período filtrado.
-    <strong>Esses valores não constituem validação financeira, medição aprovada ou autorização para pagamento.</strong>
-</div>
+                {!! app(\App\Services\Partner\DashboardLegalNotices::class)->valuesDisclaimerText() !!}
+            </div>
         </div>
         <div class="pd-subsection-title mb-2">Informes parciais</div>
         <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2 mb-3">
@@ -722,20 +720,10 @@
                     <div class="card-body text-center text-muted">Sem entregas de ADS vencendo no horizonte atual.</div>
                 @endif
 
+                @php($dashboardLegalNotices = app(\App\Services\Partner\DashboardLegalNotices::class))
                 <div class="pd-legal-note">
                     <div class="pd-legal-note-title">Base contratual</div>
-                    <p>
-                        A partir de 01/08/2026, aplica-se.
-                        <strong>ES.DT.PDN.02.01.006 - versão 06, item 5.3.4.d</strong>: para a EDP ES, a CONTRATADA dispõe do
-                        <strong>prazo de 3 (três) dias úteis</strong>, contados da conclusão da obra ou serviço, para a
-                        entrega do inventário; <strong>expirado esse prazo, prevalecerá o inventário elaborado pela
-                            CONTRATANTE</strong>.
-                    </p>
-                    <p>
-                        <strong>Observação: a adoção do inventário da CONTRATANTE não exime a CONTRATADA da obrigação
-                            de entrega, permanecendo a contagem do prazo até a regularização integral da
-                            pendência.</strong>
-                    </p>
+                    {!! $dashboardLegalNotices->adsDueText() !!}
                 </div>
             </div>
 
@@ -776,13 +764,7 @@
 
                 <div class="pd-legal-note">
                     <div class="pd-legal-note-title">Base contratual</div>
-                    <p>
-                        A partir de 01/08/2026 aplica-se:
-                        <strong>ES.DT.PDN.00265, versão 06, item 5.8 (Penalidades)</strong>: estabelece as multas
-                        aplicáveis aos descumprimentos contratuais previstos no documento. Para o atraso na entrega
-                        dos documentos de inventário, aplica-se a penalidade específica prevista no
-                        <strong>item 5.8.9</strong>.
-                    </p>
+                    {!! $dashboardLegalNotices->adsOverdueText() !!}
                 </div>
             </div>
 

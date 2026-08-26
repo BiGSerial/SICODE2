@@ -31,7 +31,6 @@ class WorkedReturnForm extends Component
         $rules = [
             'workReport.date'        => 'required|date|before_or_equal:today',
             'workReport.observation' => 'nullable|string|max:5000',
-            'workReport.team'        => 'required|string|max:255',
             'workReport.responsible' => 'required|string|max:255',
             'workReport.informer'    => 'required|string|max:255',
         ];
@@ -41,6 +40,10 @@ class WorkedReturnForm extends Component
                 $rules["workReport.{$field}"] = 'required|boolean';
             }
         }
+
+        $rules['workReport.team'] = SicodeRules::workReportFieldEnabled('team')
+            ? 'required|string|max:255'
+            : 'nullable|string|max:255';
 
         $rules['workReport.description'] = SicodeRules::workReportFieldEnabled('damage')
             ? 'required_if:workReport.damage,1|nullable|string|min:10|max:5000'
