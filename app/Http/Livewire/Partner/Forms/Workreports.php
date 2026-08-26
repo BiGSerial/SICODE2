@@ -986,10 +986,6 @@ class Workreports extends Component
             return true;
         }
 
-        if (!SicodeRules::workReportBlocksByNoteStatus()) {
-            return true;
-        }
-
         $freshNote = Note::query()->find($note->id);
 
         if (!$freshNote || $freshNote->canceled) {
