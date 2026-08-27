@@ -6,6 +6,7 @@ use App\Exports\Partner\PartnerUserImportTemplateExport;
 use App\Imports\PartnerUserBulkImport;
 use App\Models\Andresscompany;
 use App\Models\Company;
+use App\Models\Contract;
 use App\Models\PartnerAdminAuditEvent;
 use App\Models\PartnerUserBranch;
 use App\Models\PartnerUserPermissionException;
@@ -262,6 +263,10 @@ class PartnerAdminController extends Controller
             $count = 0;
 
             foreach ($rows as $row) {
+                $contract = Contract::query()->with('services')->find($row['contract_id']);
+
+                abort_unless($contract, 422);
+
                 $user = User::query()->create([
                     'name' => $row['name'],
                     'email' => $row['email'],
@@ -273,6 +278,13 @@ class PartnerAdminController extends Controller
                 ]);
 
                 $user->Companies()->syncWithoutDetaching([$companyId]);
+                $user->Employee()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'contract_id' => $contract->id,
+                        'service_id' => $contract->services->first()?->uuid,
+                    ]
+                );
                 $this->syncBranches($user, $permissionCompanyId, [$row['branch_id']], $request->user()->id);
                 $count++;
             }
@@ -282,6 +294,7 @@ class PartnerAdminController extends Controller
                 'rows' => collect($rows)->map(fn ($row) => [
                     'email' => $row['email'],
                     'branch_id' => $row['branch_id'],
+                    'contract_id' => $row['contract_id'],
                 ])->values()->all(),
             ]);
 
@@ -486,6 +499,12 @@ class PartnerAdminController extends Controller
                 $errors[] = 'Filial não encontrada na empresa.';
             }
 
+            $contract = $branch ? $this->defaultContractForCompany($branch->company_id) : null;
+
+            if ($branch && !$contract) {
+                $errors[] = 'Empresa/Filial sem contrato válido para associar ao usuário.';
+            }
+
             $valid = empty($errors);
             $item = compact('line', 'name', 'email', 'branchName', 'errors', 'valid');
             $items[] = $item;
@@ -495,6 +514,7 @@ class PartnerAdminController extends Controller
                     'name' => $name,
                     'email' => $email,
                     'branch_id' => $branch->id,
+                    'contract_id' => $contract->id,
                 ];
             }
         }
@@ -537,6 +557,21 @@ class PartnerAdminController extends Controller
 
                 return $labels->contains($needle);
             });
+    }
+
+    private function defaultContractForCompany(string $companyId): ?Contract
+    {
+        $company = Company::withTrashed()->find($companyId);
+        $companyIds = collect([$companyId, $company?->parent_id])->filter()->all();
+
+        return Contract::query()
+            ->whereIn('company_id', $companyIds)
+            ->where(fn ($query) => $query
+                ->whereNull('date_end')
+                ->orWhereDate('date_end', '>=', now()->toDateString()))
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->first();
     }
 
     private function audit(Request $request, string $eventType, ?User $target = null, array $payload = []): void

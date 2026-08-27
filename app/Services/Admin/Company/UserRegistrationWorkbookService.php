@@ -77,7 +77,8 @@ class UserRegistrationWorkbookService
 
         foreach ($validation['valid_users'] ?? [] as $userRow) {
             $unit = $this->findUnitByDisplayName($units, $userRow['unit']);
-            $contract = $this->findContractByLabel($contracts, $userRow['contract']);
+            $contract = $this->findContractByLabel($contracts, $userRow['contract'])
+                ?: ($unit ? $this->defaultContractForUnit($contracts, $unit) : null);
 
             if ($userRow['action'] === 'Remover') {
                 $user = User::withTrashed()->where('email', $userRow['email'])->first();
@@ -116,15 +117,13 @@ class UserRegistrationWorkbookService
 
             if ($contract) {
                 $primaryServiceId = $contract->services()->first()?->uuid;
-                if ($primaryServiceId) {
-                    $user->Employee()->updateOrCreate(
-                        ['user_id' => $user->id],
-                        [
-                            'contract_id' => $contract->id,
-                            'service_id' => $primaryServiceId,
-                        ]
-                    );
-                }
+                $user->Employee()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'contract_id' => $contract->id,
+                        'service_id' => $primaryServiceId,
+                    ]
+                );
 
                 $this->syncUserContractServices($user, $contract);
             }
@@ -254,8 +253,8 @@ class UserRegistrationWorkbookService
             if ($contractLabel && !$contract) {
                 $errors[] = 'Contrato invalido para esta concentradora/unidade.';
             }
-            if ($unit && !$contractLabel && $this->contractsFor(collect([$unit, $unit->parent])->filter())->count() > 1) {
-                $errors[] = 'Contrato obrigatorio para unidade com mais de um contrato aplicavel.';
+            if ($unit && !$contractLabel && !$this->defaultContractForUnit($contracts, $unit)) {
+                $errors[] = 'Empresa/Unidade sem contrato valido para associar ao usuario.';
             }
             foreach (['admin' => 6, 'operator' => 7, 'user' => 8, 'management' => 9] as $field => $position) {
                 if (!in_array($this->cell($row, $position), ['Sim', 'Nao'], true)) {
@@ -302,8 +301,28 @@ class UserRegistrationWorkbookService
         return $units
             ->filter()
             ->flatMap(fn ($unit) => $unit->contracts()->with('company.parent', 'services')->get())
+            ->filter(fn (Contract $contract) => $this->contractIsValid($contract))
             ->unique('id')
             ->values();
+    }
+
+    private function defaultContractForUnit(Collection $contracts, Company $unit): ?Contract
+    {
+        $companyIds = collect([$unit->id, $unit->parent_id])->filter()->all();
+
+        return $contracts
+            ->filter(fn (Contract $contract) => in_array($contract->company_id, $companyIds, true))
+            ->sortBy(fn (Contract $contract) => sprintf(
+                '%s-%012d',
+                $contract->created_at?->format('YmdHis.u') ?? '',
+                $contract->id
+            ))
+            ->first();
+    }
+
+    private function contractIsValid(Contract $contract): bool
+    {
+        return !$contract->date_end || $contract->date_end >= now()->toDateString();
     }
 
     private function userBelongsToScope(User $user, Collection $units): bool
