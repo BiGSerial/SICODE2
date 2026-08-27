@@ -374,7 +374,17 @@ class Workreports extends Component
         if ($this->canSelectCompany) {
             $this->form['company_id'] = $this->form['company_id'] ?: null;
         } else {
-            $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
+            $this->form['company_id'] = $this->form['company_id'] ?: $this->defaultCompanyIdForUser();
+        }
+
+        if (empty($this->form['company_id'])) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Empreiteira não vinculada',
+                'html'     => 'Não foi possível identificar uma empreiteira vinculada ao seu usuário.',
+            ]);
+            return;
         }
 
         if ($this->selectCompanyFromUserRelations && !$this->selectedCompanyBelongsToUser()) {
@@ -947,6 +957,11 @@ class Workreports extends Component
             ->filter()
             ->unique()
             ->values();
+    }
+
+    protected function defaultCompanyIdForUser(): ?string
+    {
+        return $this->relatedCompanyIdsForUser()->first();
     }
 
     protected function selectedCompanyBelongsToUser(): bool
