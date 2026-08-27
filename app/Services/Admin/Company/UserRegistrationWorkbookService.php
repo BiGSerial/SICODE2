@@ -117,18 +117,7 @@ class UserRegistrationWorkbookService
             }
 
             if ($contract) {
-<<<<<<< HEAD
-                $primaryService = $this->findContractServiceByName($contract, $userRow['primary_service']);
-=======
-                $primaryServiceId = $contract->services()->first()?->uuid;
-                $user->Employee()->updateOrCreate(
-                    ['user_id' => $user->id],
-                    [
-                        'contract_id' => $contract->id,
-                        'service_id' => $primaryServiceId,
-                    ]
-                );
->>>>>>> develop
+                $primaryService = $this->findContractServiceByName($contract, $userRow['primary_service'] ?? null);
 
                 $user->Employee()->updateOrCreate(
                     ['user_id' => $user->id],
