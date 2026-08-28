@@ -27,9 +27,15 @@ class ReferenceListsSheet implements FromArray, WithEvents, WithTitle
                 'validity' => $contract->date_end ? date('d/m/Y', strtotime($contract->date_end)) : '',
             ]))
             ->values();
+        $services = $this->units
+            ->flatMap(fn ($unit) => $unit->contracts)
+            ->flatMap(fn ($contract) => $contract->services)
+            ->unique('uuid')
+            ->sortBy('service')
+            ->values();
 
-        $maxRows = max($this->units->count(), $contracts->count(), 1);
-        $rows = [['Empresas/Unidades validas', 'Contratos validos', 'Contrato pertence a', 'Validade']];
+        $maxRows = max($this->units->count(), $contracts->count(), $services->count(), 1);
+        $rows = [['Empresas/Unidades validas', 'Contratos validos', 'Contrato pertence a', 'Validade', 'Atividades validas']];
 
         for ($index = 0; $index < $maxRows; $index++) {
             $rows[] = [
@@ -37,6 +43,7 @@ class ReferenceListsSheet implements FromArray, WithEvents, WithTitle
                 $contracts[$index]['label'] ?? '',
                 $contracts[$index]['unit'] ?? '',
                 $contracts[$index]['validity'] ?? '',
+                $services->get($index)?->service ?? '',
             ];
         }
 
@@ -54,10 +61,10 @@ class ReferenceListsSheet implements FromArray, WithEvents, WithTitle
             AfterSheet::class => function (AfterSheet $event): void {
                 $sheet = $event->sheet->getDelegate();
                 $lastRow = max(2, $sheet->getHighestRow());
-                $this->styleHeader($sheet, 'A1:D1');
-                $this->styleBody($sheet, "A1:D{$lastRow}");
-                $this->setWidths($sheet, ['A' => 38, 'B' => 44, 'C' => 38, 'D' => 14]);
-                $this->freezeAndFilter($event, 'A2', "A1:D{$lastRow}");
+                $this->styleHeader($sheet, 'A1:E1');
+                $this->styleBody($sheet, "A1:E{$lastRow}");
+                $this->setWidths($sheet, ['A' => 38, 'B' => 44, 'C' => 38, 'D' => 14, 'E' => 32]);
+                $this->freezeAndFilter($event, 'A2', "A1:E{$lastRow}");
                 $this->protectSheet($sheet);
                 $sheet->getTabColor()->setRGB('64748B');
             },

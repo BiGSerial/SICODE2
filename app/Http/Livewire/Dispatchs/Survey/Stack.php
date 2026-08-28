@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Survey;
 use App\Helpers\TextFormatter;
 use App\Models\Production;
 use App\Models\Service;
+use App\Support\SicodeRules;
 use App\Traits\WildcardFormatter;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -167,6 +168,13 @@ class Stack extends Component
         return Production::Query()
             ->where('service_id', $this->service)
             ->where('completed', false)
+            ->when(auth()->user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                return count($companyIds)
+                    ? $q->whereIn('productions.company_id', $companyIds)
+                    : $q->whereRaw('0 = 1');
+            })
             ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
             ->addSelect('productions.*')
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
@@ -174,8 +182,17 @@ class Stack extends Component
             ->with([
                 'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                 'service:id,uuid,service',
-                'user:id,name,deleted_at',
-                'dispatcher:id,name',
+                'company:id,name',
+                'user:id,name,company_id,deleted_at',
+                'user.Company:id,name',
+                'user.Employee:id,user_id,contract_id',
+                'user.Employee.Contract:id,company_id',
+                'user.Employee.Contract.company:id,name',
+                'dispatcher:id,name,company_id,deleted_at',
+                'dispatcher.Company:id,name',
+                'dispatcher.Employee:id,user_id,contract_id',
+                'dispatcher.Employee.Contract:id,company_id',
+                'dispatcher.Employee.Contract.company:id,name',
                 'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
             ]);
     }

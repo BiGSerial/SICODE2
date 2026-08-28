@@ -2,17 +2,10 @@
 
 namespace App\Http\Livewire\Partner\Forms;
 
-use App\Custom\Partial\Ads;
-use App\Custom\Partial\Rules;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\Partial;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use PhpOffice\PhpSpreadsheet\IOFactory;
+use App\Custom\Partial\{Ads};
+use App\Models\{File, Note, Order, Partial};
+use Illuminate\Support\Facades\{DB, Storage};
+use Livewire\{Component, WithFileUploads};
 
 class Partialreport extends Component
 {
@@ -20,43 +13,55 @@ class Partialreport extends Component
     use WithFileUploads;
 
     public $search;
+
     public $note;
+
     public $notes;
+
     public $partial;
+
     public $file;
+
     public $orders = [];
+
     public $process = false;
+
     public $responsible;
+
     public $observation;
+
     public $amount;
 
     protected $theAds = null;
 
     protected $listeners = [
-        'confirm_save' => 'save'
+        'confirm_save' => 'save',
     ];
 
     public function mount()
     {
         $this->search = '';
-        $this->note = null;
-        $this->notes = null;
-        $this->file = null;
+        $this->note   = null;
+        $this->notes  = null;
+        $this->file   = null;
+
+        $user              = Auth()->User();
+        $this->responsible = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
     }
 
     public function updatedFile()
     {
 
         $this->process = false;
-        $this->theAds = null;
+        $this->theAds  = null;
     }
 
     public function search()
     {
 
-        $this->note = null;
+        $this->note  = null;
         $this->notes = null;
-        $this->file = null;
+        $this->file  = null;
 
         $this->notes = Note::where(function ($q) {
             $q->where('note', trim($this->search))
@@ -75,7 +80,6 @@ class Partialreport extends Component
         $this->process = false;
 
         $path = $this->file->getRealPath();
-
 
         $this->theAds = new Ads($path);
 
@@ -127,11 +131,12 @@ class Partialreport extends Component
     {
         if (trim($this->responsible) == '') {
             $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'error',
-            'title'    => 'SEM RESPONSÁVEL',
-            'html'     => "INSIRA O NOME DO RESPONSAVEL POR ESTE INFORME.",
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'SEM RESPONSÁVEL',
+                'html'     => "INSIRA O NOME DO RESPONSAVEL POR ESTE INFORME.",
             ]);
+
             return;
         }
 
@@ -156,7 +161,8 @@ class Partialreport extends Component
                 'icon'     => 'error',
                 'title'    => 'VALOR ADS NÃO INFORMADO',
                 'html'     => "INSIRA O VALOR DA ADS PARCIAL.",
-                ]);
+            ]);
+
             return;
         }
 
@@ -184,8 +190,8 @@ class Partialreport extends Component
     {
         $this->authorizePartnerAccess('partial_reports.create');
 
-        $newName = "ADS_IPARC_".$this->note->note;
-        $newName = $newName."_N".str_pad((File::where('file_name', 'like', $newName."%")->count() + 1), 3, '0', STR_PAD_LEFT);
+        $newName = "ADS_IPARC_" . $this->note->note;
+        $newName = $newName . "_N" . str_pad((File::where('file_name', 'like', $newName . "%")->count() + 1), 3, '0', STR_PAD_LEFT);
 
         DB::beginTransaction();
 
@@ -193,18 +199,19 @@ class Partialreport extends Component
 
             $partial = Partial::create(
                 [
-                    'note_id' => $this->note->id,
-                    'company_id' => Auth()->User()->Employee->Contract->company_id,
-                    'user_id' => Auth()->User()->id,
+                    'note_id'     => $this->note->id,
+                    'company_id'  => Auth()->User()->Employee->Contract->company_id,
+                    'user_id'     => Auth()->User()->id,
                     'observation' => $this->observation,
                     'responsible' => $this->responsible,
-                    'value' => $this->amount ? $this->amount : 0.00,
+                    'value'       => $this->amount ? $this->amount : 0.00,
                 ]
             );
 
             if ($partial) {
 
                 $orders = Order::where('note_id', $this->note->id)->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
+
                 // Order::where(
                 //     'note_id',
                 //     $this->note->id
@@ -215,19 +222,19 @@ class Partialreport extends Component
                     }
                 }
 
-                $caminho = $this->file->storeAs('/arquivos/ADS/', $newName.'.'.$this->file->getClientOriginalExtension());
+                $caminho = $this->file->storeAs('/arquivos/ADS/', $newName . '.' . $this->file->getClientOriginalExtension());
 
                 if (Storage::exists($caminho)) {
                     $partial->Files()->create([
-                        'note_id' => $this->note->id,
-                        'user_id' => Auth()->User()->id,
-                        'service_id' => null,
-                        'file_name' => $newName,
+                        'note_id'       => $this->note->id,
+                        'user_id'       => Auth()->User()->id,
+                        'service_id'    => null,
+                        'file_name'     => $newName,
                         'original_name' => $this->file->getClientOriginalName(),
-                        'path' => $caminho,
-                        'ext' => $this->file->getClientOriginalExtension(),
-                        'suspicious' => false,
-                        'noexists' => false,
+                        'path'          => $caminho,
+                        'ext'           => $this->file->getClientOriginalExtension(),
+                        'suspicious'    => false,
+                        'noexists'      => false,
                     ]);
                 } else {
                     DB::rollback();
@@ -269,7 +276,7 @@ class Partialreport extends Component
                 'html'     => '<div class="card bg-primary text-white"><div class="card-body">
                             <p class="fw-bold">Ocoreu algum problema ao tentar registrar o envio do Informe parcial. Revvise as operações e tente novamente.</p>
 
-                            </div></div>'.$th->getMessage(),
+                            </div></div>' . $th->getMessage(),
 
             ]);
 
@@ -279,20 +286,22 @@ class Partialreport extends Component
 
     public function cleanAll()
     {
-        $this->process = false;
-        $this->theAds = null;
-        $this->file = null;
-        $this->note = null;
-        $this->notes = null;
-        $this->search = '';
+        $this->process     = false;
+        $this->theAds      = null;
+        $this->file        = null;
+        $this->note        = null;
+        $this->notes       = null;
+        $this->search      = '';
         $this->observation = '';
-        $this->responsible = '';
+
+        $user              = Auth()->User();
+        $this->responsible = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
     }
 
     public function render()
     {
         return view('livewire.partner.forms.partialreport', [
-            'myAds' => $this->theAds
+            'myAds' => $this->theAds,
         ]);
     }
 }

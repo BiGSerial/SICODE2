@@ -27,6 +27,6 @@ class Employee extends Model
 
     public function Service()
     {
-        return $this->belongTo(Service::class);
+        return $this->belongsTo(Service::class, 'service_id', 'uuid');
     }
 }

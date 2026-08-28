@@ -3,8 +3,8 @@
 namespace App\Http\Livewire\Partner\Actions;
 
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\Equipment;
-use App\Models\WorkReport;
+use App\Models\{WorkReport};
+use App\Support\SicodeRules;
 use Livewire\Component;
 
 class WorkedReturnForm extends Component
@@ -14,8 +14,8 @@ class WorkedReturnForm extends Component
     public ?WorkReport $workReport = null;
 
     public $pag = 0;
-    public bool $hasFile = false;
 
+    public bool $hasFile = false;
 
     protected $listeners = [
         'tefresh_form' => '$refresh',
@@ -23,29 +23,44 @@ class WorkedReturnForm extends Component
         'hasFile',
         'savedFiles',
         'confirm_workform' => 'save',
-        'closeAll'
+        'closeAll',
     ];
 
-    protected $rules = [
-        'workReport.date' => 'required|date|before_or_equal:today',
-        'workReport.equipment' => 'required|boolean',
-        'workReport.changes' => 'required|boolean',
-        'workReport.observation' => 'nullable|string|max:5000',
-        'workReport.damage' => 'required|boolean',
-        'workReport.description' => 'required_if:workReport.damage,1|nullable|string|min:10|max:5000',
-        'workReport.connection' => 'required|boolean',
-        'workReport.team' => 'required|string|max:255',
-        'workReport.dd' => 'required|string|max:255',
-        'workReport.responsible' => 'required|string|max:255',
-        'workReport.informer' => 'required|string|max:255',
+    protected function rules()
+    {
+        $rules = [
+            'workReport.date'        => 'required|date|before_or_equal:today',
+            'workReport.observation' => 'nullable|string|max:5000',
+            'workReport.responsible' => 'required|string|max:255',
+            'workReport.informer'    => 'required|string|max:255',
+        ];
 
-    ];
+        foreach (['equipment', 'changes', 'damage', 'connection'] as $field) {
+            if (SicodeRules::workReportFieldEnabled($field)) {
+                $rules["workReport.{$field}"] = 'required|boolean';
+            }
+        }
+
+        $rules['workReport.team'] = SicodeRules::workReportFieldEnabled('team')
+            ? 'required|string|max:255'
+            : 'nullable|string|max:255';
+
+        $rules['workReport.description'] = SicodeRules::workReportFieldEnabled('damage')
+            ? 'required_if:workReport.damage,1|nullable|string|min:10|max:5000'
+            : 'nullable|string|max:5000';
+
+        $rules['workReport.dd'] = match (SicodeRules::workReportDdMode()) {
+            'required' => 'required|string|max:255',
+            default    => 'nullable|string|max:255',
+        };
+
+        return $rules;
+    }
 
     public function hasFile(bool $hasFile)
     {
         $this->hasFile = $hasFile;
     }
-
 
     // Reasons Navigate if More than one.
     public function getPage()
@@ -74,8 +89,6 @@ class WorkedReturnForm extends Component
         return --$this->pag;
     }
 
-
-
     public function toReturnWork(WorkReport $workReport)
     {
         $this->authorizePartnerAccess('conclusion_reports.reinform');
@@ -103,36 +116,32 @@ class WorkedReturnForm extends Component
         $this->authorizePartnerAccess('conclusion_reports.reinform');
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'ATUALIZAÇÃO DE INFORME',
-            'msg'           => "<p class='fw-bold'>Você deseja submeter novamente o INFORME de OBRAS?</p>
+            'title' => 'ATUALIZAÇÃO DE INFORME',
+            'msg'   => "<p class='fw-bold'>Você deseja submeter novamente o INFORME de OBRAS?</p>
                                 <div class='card'>
     <div class='card-body'>
         <p>Lembre-se, o informe poderá ser retornado novamente para revisão pelas partes responsáveis. A cada nova remessa, a data de envio do INFORME será alterada para esta nova data, como se fosse a primeira vez.</p>
         <p><strong>Tenha certeza de ter atendido as requisições</strong>. Todos os retornos e seus motivos são registrados e ficam à disposição do setor responsável.</p>
     </div>
 </div> ",
-            'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Submeta!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_workform',
+            'icon'         => 'question',
+            'btnOktxt'     => 'Sim, Submeta!',
+            'btnCanceltxt' => 'Não, Cancele',
+            'action'       => 'confirm_workform',
             // 'chave'         => '',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma Resposta foi Enviada.',
         ]);
 
-        return;
     }
-
-
 
     public function save()
     {
         $this->authorizePartnerAccess('conclusion_reports.reinform');
 
-
         unset($this->workReport->equipment);
 
-        $this->workReport->rejected = 0;
+        $this->workReport->rejected    = 0;
         $this->workReport->informed_at = date('Y-m-d H:i:s');
 
         $this->workReport->save();
@@ -150,8 +159,6 @@ class WorkedReturnForm extends Component
         $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
         $this->closeAll();
     }
-
-
 
     public function closeAll()
     {

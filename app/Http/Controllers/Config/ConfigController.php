@@ -45,4 +45,14 @@ class ConfigController extends Controller
     {
         return view('config.ads_request_recipients');
     }
+
+    public function acceptanceTerms()
+    {
+        return view('config.acceptance_terms');
+    }
+
+    public function partnerDashboardLegalNotes()
+    {
+        return view('config.partner_dashboard_legal_notes');
+    }
 }

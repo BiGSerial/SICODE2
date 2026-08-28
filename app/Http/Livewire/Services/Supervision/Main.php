@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Supervision;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
+use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -106,6 +107,13 @@ class Main extends Component
         $check = Production::where('service_id', $this->service->uuid)
             ->where('user_id', auth()->id())
             ->where('status', 3) // em atividade
+            ->when(auth()->user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                return count($companyIds)
+                    ? $q->whereIn('company_id', $companyIds)
+                    : $q->whereRaw('0 = 1');
+            })
             ->select('id', 'note_id', 'status')
             ->first();
 
@@ -233,6 +241,13 @@ class Main extends Component
                 fn ($q) => $q->where('productions.user_id', auth()->id())
             )
             ->where('productions.completed', false)
+            ->when(auth()->user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                return count($companyIds)
+                    ? $q->whereIn('productions.company_id', $companyIds)
+                    : $q->whereRaw('0 = 1');
+            })
 
             ->when($this->search, function (Builder $q, $search) {
                 $q->where(function (Builder $sub) use ($search) {
@@ -279,6 +294,17 @@ class Main extends Component
     {
         // Lista de usuários p/ filtro (somente o que é necessário)
         $this->user_l = User::select('id', 'name')
+            ->when(auth()->user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                return count($companyIds)
+                    ? $q->where(function ($users) use ($companyIds) {
+                        $users->whereIn('company_id', $companyIds)
+                            ->orWhereHas('Employee.Contract', fn ($contract) => $contract->whereIn('company_id', $companyIds))
+                            ->orWhereHas('Companies', fn ($company) => $company->whereIn('companies.id', $companyIds));
+                    })
+                    : $q->whereRaw('0 = 1');
+            })
             ->when($this->user_search, fn ($q) =>
                 $q->where('name', 'like', '%' . $this->user_search . '%'))
             ->orderBy('name')

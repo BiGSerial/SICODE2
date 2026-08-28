@@ -1,5 +1,6 @@
 @php
     use App\Helpers\SelectOptions;
+    use App\Support\SicodeRules;
 @endphp
 <div class="workreports-container modern-informe">
     <x-show-loading />
@@ -364,41 +365,45 @@
                                 </div>
 
                                 <!-- Equipment Selection -->
-                                <div class="col-md-4">
-                                    <div class="form-floating mb-3">
-                                        <select class="form-select @error('form.equipment') is-invalid @enderror"
-                                            wire:model="form.equipment">
-                                            <option value="">Selecione</option>
-                                            <option value="1">Sim</option>
-                                            <option value="0">Não</option>
-                                        </select>
-                                        <label>Houve Instalação/Desinstalação de Equipamento? <span
-                                                class="text-danger">*</span></label>
-                                        @error('form.equipment')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
+                                @if (SicodeRules::workReportFieldEnabled('equipment'))
+                                    <div class="col-md-4">
+                                        <div class="form-floating mb-3">
+                                            <select class="form-select @error('form.equipment') is-invalid @enderror"
+                                                wire:model="form.equipment">
+                                                <option value="">Selecione</option>
+                                                <option value="1">Sim</option>
+                                                <option value="0">Não</option>
+                                            </select>
+                                            <label>Houve Instalação/Desinstalação de Equipamento? <span
+                                                    class="text-danger">*</span></label>
+                                            @error('form.equipment')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
                                     </div>
-                                </div>
+                                @endif
 
                                 <!-- Project Changes -->
-                                <div class="col-md-4">
-                                    <div class="form-floating mb-3">
-                                        <select class="form-select @error('form.changes') is-invalid @enderror"
-                                            wire:model="form.changes">
-                                            <option value="">Selecione</option>
-                                            <option value="1">Sim</option>
-                                            <option value="0">Não</option>
-                                        </select>
-                                        <label>Houve Alterações no projeto? <span class="text-danger">*</span></label>
-                                        @error('form.changes')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
+                                @if (SicodeRules::workReportFieldEnabled('changes'))
+                                    <div class="col-md-4">
+                                        <div class="form-floating mb-3">
+                                            <select class="form-select @error('form.changes') is-invalid @enderror"
+                                                wire:model="form.changes">
+                                                <option value="">Selecione</option>
+                                                <option value="1">Sim</option>
+                                                <option value="0">Não</option>
+                                            </select>
+                                            <label>Houve Alterações no projeto? <span class="text-danger">*</span></label>
+                                            @error('form.changes')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
                                     </div>
-                                </div>
+                                @endif
                             </div>
 
                             <!-- Equipment Section (Conditional) -->
-                            @if ($form['equipment'])
+                            @if (SicodeRules::workReportFieldEnabled('equipment') && $form['equipment'])
                                 <div class="card shadow-sm mb-4 border-primary border-top border-2">
                                     <div class="card-header bg-light">
                                         <h5 class="mb-0"><i class="ri-tools-line me-2"></i>Equipamentos</h5>
@@ -519,15 +524,17 @@
                                         Evidencias de Obras</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="alert alert-info d-flex align-items-start" role="alert">
-                                        <i class="ri-information-line me-2 fs-5"></i>
-                                        <div>
-                                            <strong>Atenção:</strong> Apartir de <strong>01/12/2025</strong> torna-se
-                                            obrigatório anexar as evidências de realização das obras, incluindo fotos
-                                            dos ativos cadastrados e instalados.
+                                    @if ($requireFilesForSubmit)
+                                        <div class="alert alert-info d-flex align-items-start" role="alert">
+                                            <i class="ri-information-line me-2 fs-5"></i>
+                                            <div>
+                                                <strong>Atenção:</strong> Apartir de <strong>01/12/2025</strong> torna-se
+                                                obrigatório anexar as evidências de realização das obras, incluindo fotos
+                                                dos ativos cadastrados e instalados.
+                                            </div>
                                         </div>
-                                    </div>
-                                    @if (!($reinform ?? false))
+                                    @endif
+                                    @if ($requireFilesForSubmit && !($reinform ?? false))
                                         <div class="alert alert-warning d-flex align-items-start" role="alert">
                                             <i class="ri-file-warning-line me-2 fs-5"></i>
                                             <div>
@@ -620,40 +627,44 @@
                                             </div>
                                         </div>
 
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <select class="form-select @error('form.damage') is-invalid @enderror"
-                                                    wire:model="form.damage" id="damage">
-                                                    <option value="">Selecione</option>
-                                                    <option value="1">Sim</option>
-                                                    <option value="0">Não</option>
-                                                </select>
-                                                <label for="damage">Houveram danos a propriedade de particulares?
-                                                    <span class="text-danger">*</span></label>
-                                                @error('form.damage')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                                        @if (SicodeRules::workReportFieldEnabled('damage'))
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <select class="form-select @error('form.damage') is-invalid @enderror"
+                                                        wire:model="form.damage" id="damage">
+                                                        <option value="">Selecione</option>
+                                                        <option value="1">Sim</option>
+                                                        <option value="0">Não</option>
+                                                    </select>
+                                                    <label for="damage">Houveram danos a propriedade de particulares?
+                                                        <span class="text-danger">*</span></label>
+                                                    @error('form.damage')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
-                                        </div>
+                                        @endif
 
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <select
-                                                    class="form-select @error('form.connection') is-invalid @enderror"
-                                                    wire:model="form.connection" id="connection">
-                                                    <option value="">Selecione</option>
-                                                    <option value="1">Sim</option>
-                                                    <option value="0">Não</option>
-                                                </select>
-                                                <label for="connection">Ligação foi executada no momento da obra? <span
-                                                        class="text-danger">*</span></label>
-                                                @error('form.connection')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                                        @if (SicodeRules::workReportFieldEnabled('connection'))
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <select
+                                                        class="form-select @error('form.connection') is-invalid @enderror"
+                                                        wire:model="form.connection" id="connection">
+                                                        <option value="">Selecione</option>
+                                                        <option value="1">Sim</option>
+                                                        <option value="0">Não</option>
+                                                    </select>
+                                                    <label for="connection">Ligação foi executada no momento da obra? <span
+                                                            class="text-danger">*</span></label>
+                                                    @error('form.connection')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
-                                        </div>
+                                        @endif
 
-                                        @if ($form['damage'])
+                                        @if (SicodeRules::workReportFieldEnabled('damage') && $form['damage'])
                                             <div class="col-md-12">
                                                 <div class="form-floating">
                                                     <textarea class="form-control @error('form.description') is-invalid @enderror" id="description" style="height: 100px"
@@ -671,30 +682,31 @@
                             </div>
 
                             <!-- Meeters Section -->
-                            <div class="card shadow-sm mb-4">
-                                <div class="card-header bg-light">
-                                    <h5 class="mb-0"><i class="ri-dashboard-line me-2"></i>Medidores</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <select class="form-select @error('meeters') is-invalid @enderror"
-                                                    wire:model="meeters">
-                                                    <option value="">Selecione</option>
-                                                    <option value="1">Sim</option>
-                                                    <option value="0">Não</option>
-                                                </select>
-                                                <label>Foram Instalados Medidores? <span
-                                                        class="text-danger">*</span></label>
-                                                @error('meeters')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                            @if (SicodeRules::workReportFieldEnabled('meeters'))
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header bg-light">
+                                        <h5 class="mb-0"><i class="ri-dashboard-line me-2"></i>Medidores</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <select class="form-select @error('meeters') is-invalid @enderror"
+                                                        wire:model="meeters">
+                                                        <option value="">Selecione</option>
+                                                        <option value="1">Sim</option>
+                                                        <option value="0">Não</option>
+                                                    </select>
+                                                    <label>Foram Instalados Medidores? <span
+                                                            class="text-danger">*</span></label>
+                                                    @error('meeters')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    @if ($meeters)
+                                        @if ($meeters)
                                         <div class="row g-3 mt-2">
                                             <div class="col-md-3">
                                                 <div class="form-floating">
@@ -766,8 +778,9 @@
                                             </div>
                                         @endif
                                     @endif
+                                    </div>
                                 </div>
-                            </div>
+                            @endif
 
                             <!-- Final Information Section -->
                             <div class="card shadow-sm mb-4">
@@ -777,30 +790,37 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text"
-                                                    class="form-control @error('form.dd') is-invalid @enderror"
-                                                    id="dd" wire:model.defer="form.dd">
-                                                <label for="dd">Número da DD (Último relacionado a esta obra)
-                                                    <span class="text-danger">*</span></label>
-                                                @error('form.dd')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                                        @if (SicodeRules::workReportDdMode() !== 'hidden')
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <input type="text"
+                                                        class="form-control @error('form.dd') is-invalid @enderror"
+                                                        id="dd" wire:model.defer="form.dd">
+                                                    <label for="dd">Número da DD (Último relacionado a esta obra)
+                                                        @if (SicodeRules::workReportDdMode() === 'required')
+                                                            <span class="text-danger">*</span>
+                                                        @endif
+                                                    </label>
+                                                    @error('form.dd')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="text"
-                                                    class="form-control @error('form.team') is-invalid @enderror"
-                                                    id="team" wire:model.defer="form.team">
-                                                <label for="team">Nome da Equipe (WPA) <span
-                                                        class="text-danger">*</span></label>
-                                                @error('form.team')
-                                                    <div class="invalid-feedback">{{ $message }}</div>
-                                                @enderror
+                                        @endif
+                                        @if (SicodeRules::workReportFieldEnabled('team'))
+                                            <div class="col-md-6">
+                                                <div class="form-floating">
+                                                    <input type="text"
+                                                        class="form-control @error('form.team') is-invalid @enderror"
+                                                        id="team" wire:model.defer="form.team">
+                                                    <label for="team">Nome da Equipe (WPA) <span
+                                                            class="text-danger">*</span></label>
+                                                    @error('form.team')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </div>
-                                        </div>
+                                        @endif
                                         <div class="col-md-6">
                                             <div class="form-floating">
                                                 <input type="text"
@@ -842,18 +862,18 @@
                                         </div>
                                         <div>
 	                                            <p class="mb-2 fw-semibold">Declaração de responsabilidade</p>
-	                                            <p class="text-muted mb-2">
-		                                                {{ $acceptanceSignatureService->statementText() }}
-	                                            </p>
+	                                            <div class="text-muted mb-2">
+		                                                {!! $acceptanceSignatureService->statementText() !!}
+	                                            </div>
                                             <div class="term-quote mt-3">
                                                 <div class="term-quote-icon">
                                                     <i class="ri-double-quotes-l"></i>
                                                 </div>
                                                 <div>
                                                     <p class="small text-uppercase fw-semibold mb-2">Citação contratual</p>
-                                                    <p class="text-muted mb-0"><em>
-		                                                        "{{ $acceptanceSignatureService->contractText() }}"
-	                                                    </em></p>
+                                                    <div class="text-muted mb-0"><em>
+		                                                        {!! $acceptanceSignatureService->contractText() !!}
+	                                                    </em></div>
                                                 </div>
                                             </div>
                                         </div>

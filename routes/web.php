@@ -96,6 +96,8 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
+    Route::get('/acceptance-terms', 'acceptanceTerms')->middleware('can:superadm')->name('acceptance_terms');
+    Route::get('/partner-dashboard-legal-notes', 'partnerDashboardLegalNotes')->middleware('can:superadm')->name('partner_dashboard_legal_notes');
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
         Route::post('/jobs_view/restart', function (Request $request) {

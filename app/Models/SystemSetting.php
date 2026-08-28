@@ -27,6 +27,7 @@ class SystemSetting extends Model
     public static function getBool(string $key, bool $default = false): bool
     {
         $value = static::getValue($key);
+
         if ($value === null) {
             return $default;
         }
@@ -39,9 +40,11 @@ class SystemSetting extends Model
         static::query()->updateOrCreate(
             ['key' => $key],
             [
-                'value' => $value,
+                'value'      => $value,
                 'updated_by' => auth()->id(),
             ]
         );
+
+        SystemSettingVersion::recordFor($key, $value);
     }
 }

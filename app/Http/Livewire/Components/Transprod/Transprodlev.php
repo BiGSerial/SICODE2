@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Components\Transprod;
 
 use App\Models\{Notify, Prodtransfer, Production, User};
 use App\Notifications\SystemNotification;
+use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -44,6 +45,17 @@ class Transprodlev extends Component
                 ->where('service', true);
             });
         })
+        ->when(auth()->user()?->contract, function ($q) {
+            $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+            return count($companyIds)
+                ? $q->where(function ($users) use ($companyIds) {
+                    $users->whereIn('company_id', $companyIds)
+                        ->orWhereHas('Employee.Contract', fn ($contract) => $contract->whereIn('company_id', $companyIds))
+                        ->orWhereHas('Companies', fn ($company) => $company->whereIn('companies.id', $companyIds));
+                })
+                : $q->whereRaw('0 = 1');
+        })
         ->When($this->search, function ($q, $s) {
             return $q->where('name', 'like', '%' . $s . '%');
         })
@@ -74,6 +86,24 @@ class Transprodlev extends Component
                 'title'    => 'INFORMAÇÃO OBRIGATÓRIA.',
                 'html'     => '<strong> (MOTIVO) </strong> A informação do motivo é obrigatório. Seja Claro e Objetivo.',
                 'timer'    => 10000,
+            ]);
+
+            return;
+        }
+
+        $targetUser = User::with('Employee.Contract', 'Companies')->find($this->user_transfer_id);
+
+        if (
+            auth()->user()?->contract
+            && (!$targetUser || !collect(SicodeRules::visibleCompanyIdsFor($targetUser))
+                ->intersect(SicodeRules::visibleCompanyIdsFor(auth()->user()))
+                ->count())
+        ) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Usuário fora da empresa permitida.',
+                'timer'    => 3000,
             ]);
 
             return;

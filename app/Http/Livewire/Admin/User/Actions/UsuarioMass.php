@@ -137,12 +137,15 @@ class UsuarioMass extends Component
             return;
         }
 
-        foreach ($contract->services as $service) {
-            $this->temporaryServices[] = [
-                'service_id' => $service->uuid,
+        $primaryService = $contract->services->first();
+
+        if ($primaryService) {
+            $this->serviceSelect = $primaryService->uuid;
+            $this->temporaryServices = [[
+                'service_id' => $primaryService->uuid,
                 'service'    => true,
                 'dispatch'   => $this->profileCanDispatch(),
-            ];
+            ]];
         }
     }
 
@@ -155,17 +158,11 @@ class UsuarioMass extends Component
             return;
         }
 
-        if (collect($this->temporaryServices)->contains('service_id', $this->serviceSelect)) {
-
-            return;
-        }
-
-
-        $this->temporaryServices[] = [
+        $this->temporaryServices = [[
             'service_id' => $this->serviceSelect,
             'service' => true,
-            'dispatch' => false,
-        ];
+            'dispatch' => $this->profileCanDispatch(),
+        ]];
 
         $this->emitSelf('refreshuser');
     }
@@ -405,11 +402,6 @@ class UsuarioMass extends Component
     private function resolvePrimaryServiceId(): ?string
     {
         $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
-        $contractServiceId = $contract?->services?->first()?->uuid;
-        if ($contractServiceId) {
-            return $contractServiceId;
-        }
-
         $temporaryService = collect($this->temporaryServices)
             ->first(fn ($service) => !empty($service['service_id']));
 
@@ -434,29 +426,20 @@ class UsuarioMass extends Component
 
     private function syncUserServices(User $user): void
     {
-        $serviceIds = collect($this->temporaryServices)
-            ->pluck('service_id')
-            ->filter()
-            ->values()
-            ->all();
+        $serviceId = $this->resolvePrimaryServiceId();
 
-        if (!$serviceIds) {
-            $user->ToServices()->delete();
+        if (!$serviceId || $user->ToServices()->where('service_id', $serviceId)->exists()) {
             return;
         }
 
-        $user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
-        $canDispatch = (bool) ($user->admin || $user->operator);
+        $canExecute = (bool) ($user->user || $user->operator || $user->admin);
+        $canDispatch = (bool) ($user->operator || $user->admin);
 
-        foreach ($serviceIds as $serviceId) {
-            $user->ToServices()->updateOrCreate(
-                ['service_id' => $serviceId],
-                [
-                    'service' => true,
-                    'dispatch' => $canDispatch,
-                ]
-            );
-        }
+        $user->ToServices()->create([
+            'service_id' => $serviceId,
+            'service' => $canExecute,
+            'dispatch' => $canDispatch,
+        ]);
     }
 
     private function profileCanDispatch(): bool

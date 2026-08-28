@@ -52,6 +52,8 @@
                             ['label' => 'AUDITORIA NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
                             ['label' => 'CONTROLE DE DADOS', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
                             ['label' => 'GERENCIAMENTO ADS', 'route' => 'admin.control.ads_requests', 'icon' => 'ri-survey-line', 'can' => 'superadm'],
+                            ['label' => 'TERMO DE ACEITE - INFORME', 'route' => 'config.acceptance_terms', 'icon' => 'ri-file-text-line', 'can' => 'superadm'],
+                            ['label' => 'AVISOS LEGAIS - PAINEL PARCEIRO', 'route' => 'config.partner_dashboard_legal_notes', 'icon' => 'ri-file-text-line', 'can' => 'superadm'],
                             ['label' => 'GERENCIAMENTO DE ARQUIVOS', 'route' => 'files.main', 'icon' => 'ri-folder-2-line'],
                             ['label' => 'MONITOR ATIVIDADE', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
                             ['label' => 'PAINEL CONFIGURAÇÕES', 'route' => 'config.main', 'icon' => 'ri-home-gear-fill'],

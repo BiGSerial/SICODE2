@@ -2,8 +2,9 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
+    $contractCompanyName = \App\Support\SicodeRules::primaryCompanyNameFor(Auth()->User());
 @endphp
-<div>
+<div class="survey-main-page">
 
     @push('css')
         <style>
@@ -23,6 +24,79 @@
                 75% {
                     transform: scaleX(-1) scaleY(1);
                 }
+            }
+
+            .survey-main-page .table-card {
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 1rem;
+                overflow: hidden;
+                box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            }
+
+            .survey-main-page .table-card .card-header {
+                padding: 0.9rem 1.25rem;
+            }
+
+            .survey-main-page .table-card .table thead th {
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                white-space: nowrap;
+            }
+
+            .survey-main-page .table-card .main-table {
+                border-collapse: separate;
+                border-spacing: 0 0.45rem;
+                margin: 0;
+            }
+
+            .survey-main-page .table-card .main-table thead th {
+                border: 0;
+                background: #1f2937;
+                color: #f8fafc;
+                box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+            }
+
+            .survey-main-page .table-card .main-table tbody tr {
+                transition: transform .15s ease, box-shadow .15s ease;
+            }
+
+            .survey-main-page .table-card .main-table tbody tr:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+            }
+
+            .survey-main-page .table-card .main-table tbody td {
+                font-size: 0.9rem;
+                vertical-align: middle;
+                border-top: 1px solid #e2e8f0;
+                border-bottom: 1px solid #e2e8f0;
+                padding-top: 0.6rem;
+                padding-bottom: 0.6rem;
+            }
+
+            .survey-main-page .table-card .main-table tbody td.table-primary,
+            .survey-main-page .table-card .main-table tbody td.table-warning,
+            .survey-main-page .table-card .main-table tbody td.table-success,
+            .survey-main-page .table-card .main-table tbody td.table-danger {
+                border-color: rgba(15, 23, 42, 0.08);
+            }
+
+            .survey-main-page .table-card .main-table tbody td:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger):not(.text-bg-secondary) {
+                background: #f8fafc;
+            }
+
+            .survey-main-page .table-card .main-table tbody td:first-child {
+                border-left: 1px solid #e2e8f0;
+                border-top-left-radius: 0.7rem;
+                border-bottom-left-radius: 0.7rem;
+            }
+
+            .survey-main-page .table-card .main-table tbody td:last-child {
+                border-right: 1px solid #e2e8f0;
+                border-top-right-radius: 0.7rem;
+                border-bottom-right-radius: 0.7rem;
             }
         </style>
     @endpush
@@ -243,7 +317,7 @@
 
     </div>
 
-    <div class="card">
+    <div class="table-card">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -259,6 +333,9 @@
                 <div class="row">
                     <div class="col">
                         <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
+                            @if ($contractCompanyName)
+                                - {{ mb_strtoupper($contractCompanyName) }}
+                            @endif
                             @if ($service->Status->count())
                                 @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                                     ({{ $sts->value }})
@@ -286,7 +363,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
+                <table class="table table-sm table-condensed table-hover mb-0 main-table">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -316,11 +393,33 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            if (!function_exists('dispatchMainShortName')) {
+                                function dispatchMainShortName($name)
+                                {
+                                    $name = trim((string) $name);
+
+                                    if ($name === '') {
+                                        return 'Desconhecido';
+                                    }
+
+                                    $parts = collect(explode(' ', $name))->filter()->values();
+                                    $shortName = $parts->count() > 1
+                                        ? $parts->first() . ' ' . $parts->last()
+                                        : $parts->first();
+
+                                    return mb_convert_case(mb_strtolower($shortName, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
+                                }
+                            }
+                        @endphp
                         @foreach ($lists as $list)
                             @php
                                 $block = null;
+                                $production = null;
+                                $rowClass = '';
                                 $lastUser = '';
                                 $lastCompany = '';
+                                $currentAssignee = '';
 
                                 $count = $list->Productions
                                     ->where('service_id', $service->uuid)
@@ -336,21 +435,22 @@
                                     //     ->where('completed', true)
                                     //     ->last()->User->name;
 
-                                    $lastUser = $count2->last()->User->name;
-
-                                    $lastUser = explode(' ', $lastUser);
-                                    $lastUser = $lastUser[0] . ' ' . end($lastUser);
+                                    $lastUser = dispatchMainShortName($count2->last()->User?->name);
                                 }
 
                                 if ($count->count()) {
-                                    $production = $count->load('Company')->last();
+                                    $production = $count->last();
 
                                     if (isset($production->Company->name)) {
                                         $lastCompany = explode(' ', $production->Company->name);
-                                        $lastCompany = mb_strtoupper($lastCompany[0]);
+                                        $lastCompany = mb_convert_case(mb_strtolower($lastCompany[0], 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
                                     } else {
                                         $lastCompany = 'Desconhecido';
                                     }
+
+                                    $currentAssignee = $production->User
+                                        ? dispatchMainShortName($production->User->name)
+                                        : 'Pilha';
 
                                     if ($production->dt_note == $list->dt_status || !$production->confirmed) {
                                         $block = true;
@@ -366,31 +466,32 @@
                                     }
                                 }
 
+                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+                                $canDispatch = !$block || $stackProductionAvailable;
+
+                                if ($block && !$stackProductionAvailable && $production) {
+                                    $rowClass = match (true) {
+                                        (int) $production->status === 1 => 'table-warning',
+                                        (int) $production->status === 2 => 'table-primary',
+                                        (int) $production->status === 5 && !$production->confirmed => 'table-success',
+                                        (int) $production->status === 5 && $production->confirmed => 'table-danger',
+                                        default => 'table-primary',
+                                    };
+                                }
                             @endphp
 
 
-                            <tr
-                                class="align-middle
-                                    @if ($block) @if ($production->status == 1)
-                                        table-warning
-                                        @elseif ($production->status == 2)
-                                        table-primary
-                                        @elseif ($production->status == 5 && !$production->confirmed)
-                                        table-success
-                                        @elseif ($production->status == 5 && $production->confirmed)
-                                        table-danger
-                                        @else
-                                        table-primary @endif @endif">
-                                <td>
+                            <tr class="align-middle">
+                                <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
-                                        @disabled($block)>
+                                        @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
                                         </td>
                                     @endcan --}}
-                                <td class="fw-bold copy-text @if ($list->is45) text-bg-warning @endif"
+                                <td class="fw-bold copy-text text-center {{ $rowClass }} @if ($list->is45) text-bg-warning @endif"
                                     data-value="{{ $list->note }}">
                                     <span>
                                         {{ $list->note }}
@@ -408,17 +509,17 @@
                                     </span>
                                     <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-survey-main-'.$list->id" />
                                 </td>
-                                <td class="fw-bold text-danger text-center">
-                                    {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}
+                                <td class="fw-bold text-danger text-center {{ $rowClass }}">
+                                    {{ \App\Support\SicodeRules::dispatchDdFor($list, $service->uuid) ?? '' }}
                                 </td>
-                                <td class="fw-bold text-danger text-center">
+                                <td class="fw-bold text-danger text-center {{ $rowClass }}">
                                     {{ $list->mmgd ? 'MMGD' : '' }}
                                 </td>
-                                <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
+                                <td class="fw-light text-center {{ $rowClass }}">{{ date('d/m/Y', strToTime($list->dt_created)) }}
                                 </td>
-                                <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
-                                <td class="fw-light text-center">{{ $list->rubrica }}</td>
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">{{ mb_strtoupper($list->numPedido) }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->rubrica }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     @if (!empty($list->lexp))
                                         {{ $list->lexp }}
                                     @else
@@ -432,17 +533,17 @@
                                     @endif
 
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group1 }}</td>
-                                <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->group1 }}</td>
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->group2 ? $list->group2 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->group4 ? $list->group4 : '_____' }}
                                 </td>
-                                <td class="fw-light text-center">{{ $list->group5 ? $list->group5 : '_____' }}
+                                <td class="fw-light text-center {{ $rowClass }}">{{ $list->group5 ? $list->group5 : '_____' }}
                                 </td>
 
 
 
-                                <td class="fw-light text-center" tabindex="2" data-bs-toggle="popover"
+                                <td class="fw-light text-center {{ $rowClass }}" tabindex="2" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Levantamentos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
@@ -454,7 +555,7 @@
                                     @endif
                                 </td>
 
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
                                 {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
                                 @php
@@ -481,7 +582,7 @@
                                         ">
                                     {{ 30 - $days_left }}
                                 </td>
-                                <td class="fw-light text-center">
+                                <td class="fw-light text-center {{ $rowClass }}">
                                     @if ($list->pze_parecer === 'Vencido')
                                         <span class="badge text-bg-danger">VENCIDO</span>
                                     @elseif ($list->pze_parecer === 'Não vencido')
@@ -492,18 +593,21 @@
                                 </td>
 
 
-                                <td class="fw-bold text-center">
+                                <td class="fw-bold text-center {{ $rowClass }}">
 
                                     @can('operator')
-                                        @if (!isset($block))
+                                        @if ($canDispatch)
                                             <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                                 style="cursor: pointer;"
-                                                wire:click.prevent="get_single_note({{ $list->id }})"
+                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
                                                 data-bs-toggle="tooltip" data-bs-placement="top"
                                                 data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Despachar esta Nota/OV"></i>
+                                                data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV' }}"></i>
                                         @else
-                                            <span style="font-size: 11px">{{ $lastCompany }}</span>
+                                            <div style="font-size: 11px; line-height: 1.15;">
+                                                <strong>{{ $currentAssignee ?: 'Desconhecido' }}</strong>
+                                                <div class="text-muted">{{ $lastCompany }}</div>
+                                            </div>
                                         @endif
                                     @endcan
 
@@ -583,141 +687,7 @@
         </div>
     </div>
 
-    <div wire:ignore.self class="modal fade" id="add_mass_notes" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Despachar {{ $service->service }}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    @if ($notes && $notes->count())
-                        <div class="row">
-                            <div class="mb-3">
-                                <label for="exampleFormControlInput1" class="form-label">Tipo de Despacho</label>
-                                <select class="form-select form-select-sm" aria-label="Small select example"
-                                    wire:model="type" disabled>
-                                    <option selected>Selecione</option>
-                                    <option value="1">Pilha</option>
-                                    <option value="2">Individual</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3 ">
-                                <label for="exampleFormControlInput1" class="form-label">Empresa:</label>
-
-                                <select class="form-select form-select-sm" aria-label="" wire:model="company_s">
-                                    <option selected>Selecione</option>
-
-                                    @if ($company_l && $company_l->count())
-
-                                        @foreach ($company_l as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-                                </select>
-                            </div>
-
-                            @if ($type === '2')
-
-                                <div class="row mb-3">
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Buscar
-                                            Usuario:</label>
-                                        <input wire:model="search_user" class="form-control form-control-sm"
-                                            type="text" placeholder="Digite um nome" aria-label="">
-                                    </div>
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                        <select class="form-select form-select-sm" aria-label=""
-                                            wire:model="user_s">
-
-                                            @if ($user_l && $user_l->count())
-                                                <option value="" selected>Selecione um Usuário</option>
-                                                @foreach ($user_l as $user)
-                                                    <option wire:key='{{ $user->id }}'
-                                                        value="{{ $user->id }}">{{ $user->name }}
-                                                    </option>
-                                                @endforeach
-                                            @else
-                                                <option selected>Escolha uma Empresa Primeiro</option>
-                                            @endif
-                                        </select>
-                                    </div>
-                                </div>
-
-
-                                {{-- <div class="mb-2 ">
-                                    <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                                        MASSA:</label>
-                                    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"
-                                        placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <button class="btn-sm btn btn-primary" wire:click.prevent="add_dd">DD em
-                                        MASSA</button>
-                                </div> --}}
-                            @endif
-
-                            <div class="col-12 fw-bold">
-                                DESPACHANDO {{ $notes->count() }} OV/NOTA(S)
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-condensed table-striped">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">#</th>
-                                        <th scope="col">Note</th>
-                                        <th scope="col">Desc</th>
-                                        <th scope="col">DD</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($notes as $index => $note)
-                                        <tr>
-                                            <td scope="col" class="fw-bold">{{ $index + 1 }}</td>
-                                            <td>{{ $note->note }}</td>
-                                            <td>{{ $note->material }}</td>
-                                            <td>
-                                                @if ($this->type === '2' && isset($list))
-                                                    @php
-                                                        $dd = $list->Wpas->count()
-                                                            ? (!$list->Wpas->last()->production_id
-                                                                ? $list->Wpas->last()->dd
-                                                                : '')
-                                                            : '';
-
-                                                        $additionalData[$index] = $dd;
-                                                    @endphp
-
-
-                                                    <input wire:model.defer="additionalData.{{ $index }}"
-                                                        class="form-control form-control-sm" type="text"
-                                                        placeholder="Informe a DD" aria-label="" value="">
-                                                @endif
-
-                                            </td>
-
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                    @endif
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
-                        wire:loading.attr="disabled" wire:target="confirm_att">
-                        Despachar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-'.$service->uuid))
 
 
 

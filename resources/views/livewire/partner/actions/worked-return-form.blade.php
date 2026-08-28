@@ -1,5 +1,6 @@
 @php
     use App\Helpers\SelectOptions;
+    use App\Support\SicodeRules;
     use Illuminate\Support\Facades\Storage;
     use Carbon\Carbon;
 @endphp
@@ -147,56 +148,67 @@
                                     <textarea type="text" class="form-control" id="observacao" rows="4" wire:model.defer="workReport.observation"> </textarea>
                                 </div>
 
-                                <div class="mb-3 " style="max-width: 300px">
-                                    <label for="exampleFormControlInput1" class="form-label">Houveram danos a
-                                        propriedade
-                                        de
-                                        particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.) <span
-                                            class="text-danger fw-bold">*</span></label>
-                                    <select class="form-select" aria-label="Default select example"
-                                        wire:model="workReport.damage" id="damage">
-                                        <option selected>Selecione</option>
-                                        <option value="1">Sim</option>
-                                        <option value="0">Não</option>
-                                    </select>
-                                </div>
+                                @if (SicodeRules::workReportFieldEnabled('damage'))
+                                    <div class="mb-3 " style="max-width: 300px">
+                                        <label for="exampleFormControlInput1" class="form-label">Houveram danos a
+                                            propriedade
+                                            de
+                                            particulares? (Ex.: Calçada Quebrada, Padrão Danificado, e outros.) <span
+                                                class="text-danger fw-bold">*</span></label>
+                                        <select class="form-select" aria-label="Default select example"
+                                            wire:model="workReport.damage" id="damage">
+                                            <option selected>Selecione</option>
+                                            <option value="1">Sim</option>
+                                            <option value="0">Não</option>
+                                        </select>
+                                    </div>
 
-                                @if ($workReport->damage)
-                                    <div class="mb-3">
-                                        <label for="exampleFormControlInput1" class="form-label">Detalhar os Danos
-                                            Causados e
-                                            Previsão de reparo: <span class="text-danger fw-bold">*</span></label>
-                                        <textarea type="text" class="form-control" id="description" rows="4"
-                                            wire:model.defer="workReport.description"> </textarea>
+                                    @if ($workReport->damage)
+                                        <div class="mb-3">
+                                            <label for="exampleFormControlInput1" class="form-label">Detalhar os Danos
+                                                Causados e
+                                                Previsão de reparo: <span class="text-danger fw-bold">*</span></label>
+                                            <textarea type="text" class="form-control" id="description" rows="4"
+                                                wire:model.defer="workReport.description"> </textarea>
+                                        </div>
+                                    @endif
+                                @endif
+
+                                @if (SicodeRules::workReportFieldEnabled('connection'))
+                                    <div class="mb-3 " style="max-width: 300px">
+                                        <label for="exampleFormControlInput1" class="form-label">Ligação foi executada do
+                                            momento
+                                            da obra? <span class="text-danger fw-bold">*</span></label>
+                                        <select class="form-select" aria-label="Default select example"
+                                            wire:model="workReport.connection" id="connection">
+                                            <option selected>Selecione</option>
+                                            <option value="1">Sim</option>
+                                            <option value="0">Não</option>
+                                        </select>
                                     </div>
                                 @endif
 
-                                <div class="mb-3 " style="max-width: 300px">
-                                    <label for="exampleFormControlInput1" class="form-label">Ligação foi executada do
-                                        momento
-                                        da obra? <span class="text-danger fw-bold">*</span></label>
-                                    <select class="form-select" aria-label="Default select example"
-                                        wire:model="workReport.connection" id="connection">
-                                        <option selected>Selecione</option>
-                                        <option value="1">Sim</option>
-                                        <option value="0">Não</option>
-                                    </select>
-                                </div>
+                                @if (SicodeRules::workReportDdMode() !== 'hidden')
+                                    <div class="mb-3">
+                                        <label for="exampleFormControlInput1" class="form-label">Numero da DD (Ultimo
+                                            Relacionado a esta obra)
+                                            @if (SicodeRules::workReportDdMode() === 'required')
+                                                <span class="text-danger fw-bold">*</span>
+                                            @endif
+                                        </label>
+                                        <input type="text" class="form-control" id="dd"
+                                            wire:model.defer="workReport.dd">
+                                    </div>
+                                @endif
 
-
-                                <div class="mb-3">
-                                    <label for="exampleFormControlInput1" class="form-label">Numero da DD (Ultimo
-                                        Relacionado a esta obra) <span class="text-danger fw-bold">*</span></label>
-                                    <input type="text" class="form-control" id="dd"
-                                        wire:model.defer="workReport.dd">
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA)
-                                        <span class="text-danger fw-bold">*</span>:</label>
-                                    <input type="text" class="form-control" id="team"
-                                        wire:model.defer="workReport.team">
-                                </div>
+                                @if (SicodeRules::workReportFieldEnabled('team'))
+                                    <div class="mb-3">
+                                        <label for="exampleFormControlInput1" class="form-label">Nome da Equipe (WPA)
+                                            <span class="text-danger fw-bold">*</span>:</label>
+                                        <input type="text" class="form-control" id="team"
+                                            wire:model.defer="workReport.team">
+                                    </div>
+                                @endif
 
                                 <div class="mb-3">
                                     <label for="exampleFormControlInput1" class="form-label">Qual o encarregado

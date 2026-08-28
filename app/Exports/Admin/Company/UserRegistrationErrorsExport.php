@@ -21,6 +21,7 @@ class UserRegistrationErrorsExport implements WithMultipleSheets
                 'Email',
                 'Empresa/Unidade',
                 'Contrato',
+                'Atividade Principal',
                 'Erro',
                 'Como corrigir',
             ], collect($this->validation['invalid_users'] ?? [])->map(fn ($row) => [
@@ -30,6 +31,7 @@ class UserRegistrationErrorsExport implements WithMultipleSheets
                 $row['email'] ?? '',
                 $row['unit'] ?? '',
                 $row['contract'] ?? '',
+                $row['primary_service'] ?? '',
                 $row['error'] ?? '',
                 'Corrija a linha na ficha original ou ajuste o cadastro no SICODE antes de importar.',
             ])->all()),

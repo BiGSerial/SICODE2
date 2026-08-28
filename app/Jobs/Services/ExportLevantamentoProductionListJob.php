@@ -6,6 +6,7 @@ use App\Exports\ProductionServiceExport;
 use App\Models\Production;
 use App\Models\User;
 use App\Notifications\SystemNotification;
+use App\Support\SicodeRules;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -92,6 +93,13 @@ class ExportLevantamentoProductionListJob implements ShouldQueue
                 ->where('productions.service_id', $this->params['service_uuid'])
                 ->where('productions.user_id', $this->params['user_id'])
                 ->where('productions.completed', false)
+                ->when($user?->contract, function ($q) use ($user) {
+                    $companyIds = SicodeRules::visibleCompanyIdsFor($user);
+
+                    return count($companyIds)
+                        ? $q->whereIn('productions.company_id', $companyIds)
+                        : $q->whereRaw('0 = 1');
+                })
                 ->when($this->params['search'] ?? null, function ($q, $s) {
                     $q->where(function ($sub) use ($s) {
                         $sub->where('n.note', 'like', "%{$s}%")

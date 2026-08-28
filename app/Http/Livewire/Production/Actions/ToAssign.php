@@ -5,7 +5,9 @@ namespace App\Http\Livewire\Production\Actions;
 use App\Models\Company;
 use App\Models\Production;
 use App\Models\User;
-use App\Services\D5\D5WorkflowService;
+use App\Services\Dispatch\DispatchException;
+use App\Services\Dispatch\DispatchWorkflowService;
+use App\Support\SicodeRules;
 use Livewire\Component;
 
 class ToAssign extends Component
@@ -31,9 +33,22 @@ class ToAssign extends Component
         $this->users = null;
         $this->userSelected = null;
 
+        if (!SicodeRules::userCanAccessCompany(auth()->user(), $value)) {
+            $this->companySelected = null;
+            return;
+        }
+
         $this->users = User::whereRelation('ToServices', function ($q) {
             $q->where('service_id', $this->production->service_id);
-        })->where('company_id', $value)->orderBy('name')->get();
+        })
+            ->where(function ($q) use ($value) {
+                $q->where('company_id', $value)
+                    ->orWhereRelation('Employee.Contract', 'company_id', $value)
+                    ->orWhereRelation('Companies', 'companies.id', $value);
+            })
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
     }
 
     public function toAssign(?Production $production)
@@ -44,16 +59,37 @@ class ToAssign extends Component
             $this->toRemoveAssign();
         } elseif ($this->production && !$this->production->user_id) {
             if ($this->production) {
+                if (!SicodeRules::userCanAccessCompany(auth()->user(), $this->production->company_id)) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => 'Voce nao tem permissao para atribuir atividade desta empresa.',
+                        'timer'    => 3500,
+                    ]);
+
+                    return;
+                }
 
                 $this->companies = Company::whereRelation('contracts.services', function ($q) {
                     $q->where('uuid', $this->production->service_id);
-                })->orderBy('name')->get();
+                })
+                    ->when(auth()->user()?->contract, function ($q) {
+                        $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                        return count($companyIds)
+                            ? $q->whereIn('id', $companyIds)
+                            : $q->whereRaw('0 = 1');
+                    })
+                    ->orderBy('name')
+                    ->get();
 
                 // $this->users = User::whereRelation('ToServices', function ($q) {
                 //     $q->where('service_id', $this->production->service_id);
                 // })->orderBy('name')->get();
 
                 $this->ri = $this->production->d5;
+                $this->companySelected = $this->production->company_id;
+                $this->updatedCompanySelected($this->companySelected);
 
                 $this->dispatchBrowserEvent('showModal', [
                     'id' => 'assign_production',
@@ -81,23 +117,8 @@ class ToAssign extends Component
 
     public function executeRemoveAssign()
     {
-        $previousUserId = $this->production->user_id;
-
         try {
-            $this->production->update([
-                'user_id' => null,
-                'status'  => 1,
-            ]);
-
-            $five = $this->production->note?->FiveNote;
-            if ($five && $previousUserId) {
-                app(D5WorkflowService::class)->onProductionUnassigned(
-                    $five,
-                    $this->production,
-                    auth()->id(),
-                    $previousUserId
-                );
-            }
+            app(DispatchWorkflowService::class)->unassignProduction($this->production, auth()->user());
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -109,7 +130,18 @@ class ToAssign extends Component
 
             $this->emitUp('refresh_list');
 
+        } catch (DispatchException $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => $e->getMessage(),
+                'timer'    => 5000,
+            ]);
+
+            return;
         } catch (\Exception $e) {
+            report($e);
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
@@ -156,31 +188,14 @@ class ToAssign extends Component
 
     public function executeAssign()
     {
-        $previousUserId = $this->production->user_id;
-
         try {
-            $this->production->update([
-                'user_id' => $this->userSelected,
-                'company_id' => $this->companySelected,
-                'att_by' => auth()->id(),
-                'att_at' => now(),
-                'completed_at' => null,
-                'completed' => false,
-                'status' => 2,
-                'd5' => $this->ri,
-            ]);
-
-            $five = $this->production->note?->FiveNote;
-            if ($five) {
-                $five->productions()->syncWithoutDetaching([$this->production->id]);
-
-                app(D5WorkflowService::class)->onProductionAssigned(
-                    $five,
-                    $this->production,
-                    auth()->id(),
-                    $previousUserId
-                );
-            }
+            app(DispatchWorkflowService::class)->assignProduction(
+                $this->production,
+                Company::findOrFail($this->companySelected),
+                User::findOrFail($this->userSelected),
+                auth()->user(),
+                (bool) $this->ri
+            );
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -194,7 +209,18 @@ class ToAssign extends Component
 
             $this->closeall();
 
+        } catch (DispatchException $e) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => $e->getMessage(),
+                'timer'    => 5000,
+            ]);
+
+            return;
         } catch (\Exception $e) {
+            report($e);
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',

@@ -2,11 +2,8 @@
 
 namespace App\Services\Partner;
 
-use App\Models\Note;
-use App\Models\Partial;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\WorkReport;
+use App\Models\{Note, Partial, Production, Service, WorkReport};
+use App\Support\SicodeRules;
 
 class BlockEvaluator
 {
@@ -16,9 +13,7 @@ class BlockEvaluator
     public const HOLD_GREEN  = 3; // Concluído
     public const HOLD_RED    = 4; // Obra Já Informada
 
-
     private const CONSTRUCTION_NSTATS = [51, 52, 53];
-
 
     public function evaluate(Note $note)
     {
@@ -62,7 +57,6 @@ class BlockEvaluator
             return $this->res(self::HOLD_BLUE, false, $reason, $ps, null, $production);
         }
 
-
         if (!$this->noteStatusBlocksSuspended()) {
             // // 3) Obra fora de status de construção
             if ($note->type_note == 2 && !$this->isConstructionNstats($note->nstats)) {
@@ -99,13 +93,14 @@ class BlockEvaluator
         }
 
         $normalized = mb_strtoupper(trim($centerjob));
+
         // PHP 8+: testa se NÃO inicia com 'CONS'
         return !str_starts_with($normalized, 'CONS');
     }
 
     private function noteStatusBlocksSuspended(): bool
     {
-        return (bool) config('features.suspend_work_report_note_status_blocks', true);
+        return !SicodeRules::workReportBlocksByNoteStatus();
     }
 
     private function res(int $block, bool $command, string $reason, ?Partial $partial = null, ?WorkReport $work = null, ?Production $production = null): object
