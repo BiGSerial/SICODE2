@@ -36,6 +36,11 @@ class DispatchContextResolver
 
             $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
             $context['block_reason'] = $eval['reason'] ?? null;
+        } elseif ($serviceKey === 'desenho') {
+            $eval = app(\App\Services\Design\BlockEvaluator::class)->evaluate($note, $service);
+
+            $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
+            $context['block_reason'] = $eval['reason'] ?? null;
         }
 
         return $context;

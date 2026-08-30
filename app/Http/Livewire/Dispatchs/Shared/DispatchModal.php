@@ -7,6 +7,7 @@ use App\Models\Note;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\Dispatch\DispatchContextResolver;
 use App\Services\Dispatch\DispatchException;
 use App\Services\Dispatch\DispatchWorkflowService;
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
@@ -28,6 +29,8 @@ class DispatchModal extends Component
     public array $finalScopeOptions = [];
     public array $finalScopeSelections = [];
     public bool $contractMode = false;
+    public bool $requiresDd = false;
+    public bool $requiresFinalScope = false;
 
     protected $listeners = [
         'openForNotes' => 'openForNotes',
@@ -64,10 +67,15 @@ class DispatchModal extends Component
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
         $this->additionalData = [];
+        $contextResolver = app(DispatchContextResolver::class);
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
             $this->prepareFinalScopeSelection($note);
+
+            $context = $contextResolver->for($note, $this->service);
+            $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
+            $this->requiresFinalScope = $this->requiresFinalScope || count($this->finalScopeOptions[$note->id] ?? []) > 0;
         }
 
         $this->dispatchBrowserEvent('showModal', [
@@ -349,6 +357,8 @@ class DispatchModal extends Component
         $this->finalScopeOptions = [];
         $this->finalScopeSelections = [];
         $this->contractMode = (bool) auth()->user()?->contract;
+        $this->requiresDd = false;
+        $this->requiresFinalScope = false;
     }
 
     private function applyContractModeDefaults(): void

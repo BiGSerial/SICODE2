@@ -368,7 +368,9 @@
 
                     <div class="dispatch-modal__summary">
                         <div class="dispatch-modal__count">Itens para despacho</div>
-                        <div class="dispatch-modal__hint">DD deve ser preenchida quando a regra da atividade exigir.</div>
+                        <div class="dispatch-modal__hint">
+                            {{ $requiresDd ? 'Informe a DD exigida para esta atividade.' : 'Esta atividade nao utiliza DD no despacho.' }}
+                        </div>
                     </div>
 
                     <div class="dispatch-modal__table-wrap">
@@ -378,8 +380,12 @@
                                     <th scope="col" class="text-center" style="width:52px;">#</th>
                                     <th scope="col">Nota/OV</th>
                                     <th scope="col">Descricao</th>
-                                    <th scope="col">Escopo</th>
-                                    <th scope="col">DD</th>
+                                    @if ($requiresFinalScope)
+                                        <th scope="col">Escopo</th>
+                                    @endif
+                                    @if ($requiresDd)
+                                        <th scope="col">DD</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
@@ -388,30 +394,34 @@
                                         <td class="text-center fw-bold">{{ $index + 1 }}</td>
                                         <td class="dispatch-modal__note">{{ $note->note }}</td>
                                         <td class="dispatch-modal__material">{{ $note->material }}</td>
-                                        <td class="dispatch-modal__scope">
-                                            @php($scopeOptions = $finalScopeOptions[$note->id] ?? [])
-                                            @if (count($scopeOptions) > 1)
-                                                <div class="dispatch-modal__scope-options">
-                                                    @foreach ($scopeOptions as $scopeOption)
-                                                        <label class="form-check">
-                                                            <input class="form-check-input" type="checkbox"
-                                                                wire:model.defer="finalScopeSelections.{{ $note->id }}.{{ $scopeOption['scope'] }}">
-                                                            <span class="form-check-label">{{ $scopeOption['label'] }}</span>
-                                                        </label>
-                                                    @endforeach
-                                                </div>
-                                                <div class="dispatch-modal__scope-warning">Marque o escopo exato desta fiscalizacao.</div>
-                                            @elseif (count($scopeOptions) === 1)
-                                                <span class="badge text-bg-primary fs-6">{{ $scopeOptions[0]['label'] }}</span>
-                                            @else
-                                                <span class="badge text-bg-warning">Sem escopo</span>
-                                            @endif
-                                        </td>
-                                        <td class="dispatch-modal__dd">
-                                            <input wire:model.defer="additionalData.{{ $index }}"
-                                                class="form-control form-control-sm" type="text"
-                                                placeholder="DD, se aplicavel">
-                                        </td>
+                                        @if ($requiresFinalScope)
+                                            <td class="dispatch-modal__scope">
+                                                @php($scopeOptions = $finalScopeOptions[$note->id] ?? [])
+                                                @if (count($scopeOptions) > 1)
+                                                    <div class="dispatch-modal__scope-options">
+                                                        @foreach ($scopeOptions as $scopeOption)
+                                                            <label class="form-check">
+                                                                <input class="form-check-input" type="checkbox"
+                                                                    wire:model.defer="finalScopeSelections.{{ $note->id }}.{{ $scopeOption['scope'] }}">
+                                                                <span class="form-check-label">{{ $scopeOption['label'] }}</span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                    <div class="dispatch-modal__scope-warning">Marque o escopo exato desta fiscalizacao.</div>
+                                                @elseif (count($scopeOptions) === 1)
+                                                    <span class="badge text-bg-primary fs-6">{{ $scopeOptions[0]['label'] }}</span>
+                                                @else
+                                                    <span class="badge text-bg-secondary">Nao aplicavel</span>
+                                                @endif
+                                            </td>
+                                        @endif
+                                        @if ($requiresDd)
+                                            <td class="dispatch-modal__dd">
+                                                <input wire:model.defer="additionalData.{{ $index }}"
+                                                    class="form-control form-control-sm" type="text"
+                                                    placeholder="Informe a DD">
+                                            </td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>
