@@ -437,6 +437,7 @@
                             <th class="align-middle text-center">Tipo</th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
+                            <th class="align-middle text-center">Escopo</th>
                             <th class="align-middle text-center">MOA</th>
                             <th class="align-middle text-center">Emp SAP</th>
                             <th class="align-middle text-center">Emp Info</th>
@@ -550,6 +551,17 @@
                                         @endforeach
                                     @endif
 
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if ($list->Note->WorkForm)
+                                        @foreach ($list->Note->WorkForm->finalScopeBadges() as $scopeBadge)
+                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                        @endforeach
+                                    @elseif ($partial)
+                                        <span class="badge text-bg-secondary">Parcial</span>
+                                    @else
+                                        <span class="badge text-bg-secondary">Geral</span>
+                                    @endif
                                 </td>
                                 <td class="text-center align-middle fw-bold">
                                     @if ($list->Note->WorkForm && $list->Note->WorkForm->Orders->count())
@@ -853,6 +865,7 @@
                                         <th scope="col">#</th>
                                         <th scope="col">Note</th>
                                         <th scope="col">Desc</th>
+                                        <th scope="col">Escopo</th>
                                         {{-- <th scope="col">DD</th> --}}
                                     </tr>
                                 </thead>
@@ -862,6 +875,25 @@
                                             <td scope="col" class="fw-bold">{{ $index + 1 }}</td>
                                             <td>{{ $note->note }}</td>
                                             <td>{{ $note->material }}</td>
+                                            <td>
+                                                @php($scopeOptions = $finalScopeOptions[$note->id] ?? [])
+                                                @if (count($scopeOptions) > 1)
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        @foreach ($scopeOptions as $scopeOption)
+                                                            <label class="form-check m-0 border border-warning rounded px-2 py-1 bg-warning-subtle">
+                                                                <input class="form-check-input" type="checkbox"
+                                                                    wire:model.defer="finalScopeSelections.{{ $note->id }}.{{ $scopeOption['scope'] }}">
+                                                                <span class="form-check-label fw-bold">{{ $scopeOption['label'] }}</span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                    <div class="small text-danger fw-bold mt-1">Selecione o escopo exato da medicao.</div>
+                                                @elseif (count($scopeOptions) === 1)
+                                                    <span class="badge text-bg-primary fs-6">{{ $scopeOptions[0]['label'] }}</span>
+                                                @else
+                                                    <span class="badge text-bg-warning">Sem escopo</span>
+                                                @endif
+                                            </td>
                                             {{-- <td>
 
                                                 <input wire:model.defer="additionalData.{{ $index }}"

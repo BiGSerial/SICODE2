@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\Dispatch\DispatchException;
 use App\Services\Dispatch\DispatchWorkflowService;
+use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -24,6 +25,8 @@ class DispatchModal extends Component
     public string $type = '1';
     public string $search_user = '';
     public array $additionalData = [];
+    public array $finalScopeOptions = [];
+    public array $finalScopeSelections = [];
     public bool $contractMode = false;
 
     protected $listeners = [
@@ -56,7 +59,7 @@ class DispatchModal extends Component
         }
 
         $this->resetModalState();
-        $this->notes = Note::with(['Wpas', 'Productions'])->find($noteIds);
+        $this->notes = Note::with(['Wpas', 'Productions', 'WorkForm.Orders'])->find($noteIds);
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
@@ -64,6 +67,7 @@ class DispatchModal extends Component
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
+            $this->prepareFinalScopeSelection($note);
         }
 
         $this->dispatchBrowserEvent('showModal', [
@@ -201,18 +205,36 @@ class DispatchModal extends Component
 
         try {
             $workflow = app(DispatchWorkflowService::class);
+            $scopeOptions = app(WorkReportFinalScopeOptions::class);
             $company = Company::findOrFail($this->company_s);
             $targetUser = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
             $actor = auth()->user();
 
+            foreach ($this->notes as $note) {
+                $available = $scopeOptions->forNote($note);
+                $selected = $this->selectedFinalScopesForNote($note);
+
+                if (count($available) > 1 && empty($selected)) {
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon' => 'warning',
+                        'title' => "Selecione o escopo fiscalizado para a nota {$note->note}.",
+                        'timer' => 6000,
+                    ]);
+
+                    return;
+                }
+            }
+
             DB::transaction(function () use ($workflow, $company, $targetUser, $actor) {
                 foreach ($this->notes as $key => $note) {
                     $dd = $this->additionalData[$key] ?? null;
+                    $finalScopes = $this->selectedFinalScopesForNote($note);
 
                     if ($targetUser) {
-                        $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd);
+                        $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes);
                     } else {
-                        $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd);
+                        $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes);
                     }
                 }
             });
@@ -324,6 +346,8 @@ class DispatchModal extends Component
         $this->type = '1';
         $this->search_user = '';
         $this->additionalData = [];
+        $this->finalScopeOptions = [];
+        $this->finalScopeSelections = [];
         $this->contractMode = (bool) auth()->user()?->contract;
     }
 
@@ -335,5 +359,27 @@ class DispatchModal extends Component
 
         $this->type = '2';
         $this->loadDispatchUsers();
+    }
+
+    private function prepareFinalScopeSelection(Note $note): void
+    {
+        $options = app(WorkReportFinalScopeOptions::class)->forNote($note);
+        $this->finalScopeOptions[$note->id] = $options;
+        $this->finalScopeSelections[$note->id] = [];
+
+        if (count($options) === 1) {
+            $this->finalScopeSelections[$note->id][$options[0]['scope']] = true;
+        }
+    }
+
+    private function selectedFinalScopesForNote(Note $note): array
+    {
+        $selected = collect($this->finalScopeSelections[$note->id] ?? [])
+            ->filter(fn ($enabled) => (bool) $enabled)
+            ->keys()
+            ->all();
+
+        return app(WorkReportFinalScopeOptions::class)
+            ->validScopesForNote($note, $selected);
     }
 }

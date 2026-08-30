@@ -182,6 +182,7 @@
                             <th class="text-center">Status</th>
                             <th class="text-center">Nota/OV</th>
                             <th class="text-center">Ordens</th>
+                            <th class="text-center">Escopo</th>
                             <th class="text-center">Rubrica</th>
                             <th class="text-center">Arquivos</th>
                             <th class="text-center">Equip.</th>
@@ -221,6 +222,11 @@
                                     @empty
                                         <span class="text-muted">-</span>
                                     @endforelse
+                                </td>
+                                <td class="text-center">
+                                    @foreach ($list->finalScopeBadges() as $scopeBadge)
+                                        <span class="badge {{ $scopeBadge['class'] }} mb-1">{{ $scopeBadge['label'] }}</span>
+                                    @endforeach
                                 </td>
                                 <td class="text-center">{{ $list->Note->rubrica }}</td>
                                 <td class="text-center">

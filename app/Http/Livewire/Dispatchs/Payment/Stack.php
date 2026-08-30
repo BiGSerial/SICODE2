@@ -8,6 +8,7 @@ use App\Models\Edp_depc\City;
 use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,8 @@ class Stack extends Component
     public $type = '2';
 
     public $additionalData = [];
+    public array $finalScopeOptions = [];
+    public array $finalScopeSelections = [];
 
     // Filtros Municípios
     public $region_l;
@@ -301,9 +304,13 @@ class Stack extends Component
 
         $this->productions = Production::find($this->selected);
 
-        $this->notes = Note::whereHas('Productions', function ($query) {
+        $this->notes = Note::with('WorkForm.Orders')->whereHas('Productions', function ($query) {
             return $query->whereIn('id', $this->selected);
         })->get();
+
+        foreach ($this->notes as $note) {
+            $this->prepareFinalScopeSelection($note);
+        }
 
         if ($this->notes->count()) {
             $this->dispatchBrowserEvent('showModal', [
@@ -462,6 +469,19 @@ class Stack extends Component
             $para = (Company::find($this->company_s))->name;
         }
 
+        foreach ($this->notes as $note) {
+            if (!$this->hasValidFinalScopeSelection($note)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => "Selecione o escopo medido para a nota {$note->note}.",
+                    'timer'    => 6000,
+                ]);
+
+                return;
+            }
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title'         => 'Confirmar Atribuir',
             'msg'           => "Você está prestes a Atribuir {$this->notes->count()} nota(s) para {$para}",
@@ -531,7 +551,11 @@ class Stack extends Component
                             'productionId' => $production->id,
                         ]);
 
-                        app(WorkReportFlowProductionLinker::class)->linkPayment($production, 'dispatch_payment_stack');
+                        app(WorkReportFlowProductionLinker::class)->linkPaymentForScopes(
+                            $production,
+                            $this->selectedFinalScopesForNote($note),
+                            'dispatch_payment_stack'
+                        );
 
                         // Wpa::create([
                         //     'production_id' => $production->id,
@@ -935,6 +959,35 @@ class Stack extends Component
         }
     }
 
+    private function prepareFinalScopeSelection(Note $note): void
+    {
+        $options = app(WorkReportFinalScopeOptions::class)->forNote($note);
+        $this->finalScopeOptions[$note->id] = $options;
+        $this->finalScopeSelections[$note->id] = [];
+
+        if (count($options) === 1) {
+            $this->finalScopeSelections[$note->id][$options[0]['scope']] = true;
+        }
+    }
+
+    private function selectedFinalScopesForNote(Note $note): array
+    {
+        $selected = collect($this->finalScopeSelections[$note->id] ?? [])
+            ->filter(fn ($enabled) => (bool) $enabled)
+            ->keys()
+            ->all();
+
+        return app(WorkReportFinalScopeOptions::class)
+            ->validScopesForNote($note, $selected);
+    }
+
+    private function hasValidFinalScopeSelection(Note $note): bool
+    {
+        $available = app(WorkReportFinalScopeOptions::class)->forNote($note);
+
+        return count($available) <= 1 || !empty($this->selectedFinalScopesForNote($note));
+    }
+
     public function closeall()
     {
         $this->dispatchBrowserEvent('hideModal');
@@ -944,6 +997,8 @@ class Stack extends Component
         $this->user_s         = '';
         $this->type           = '';
         $this->additionalData = [];
+        $this->finalScopeOptions = [];
+        $this->finalScopeSelections = [];
         $this->advanceSearch  = '';
         $this->gotoPage(1);
 
@@ -958,6 +1013,8 @@ class Stack extends Component
         $this->user_s         = '';
         $this->type           = '';
         $this->additionalData = [];
+        $this->finalScopeOptions = [];
+        $this->finalScopeSelections = [];
         $this->multiSearch    = [];
     }
 

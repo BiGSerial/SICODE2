@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use App\Services\WorkReports\WorkReportStatusResolver;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -160,8 +161,13 @@ class SyncNoteInformFlows extends Command
                     'order_number' => $row->order_number,
                     'informed_at' => $row->created_at,
                     'inform_type' => 'partial',
+                    'final_scope' => WorkReportFinalScopeResolver::SCOPE_GENERAL,
+                    'final_scope_resolution' => 'legacy_general',
+                    'final_scope_orders' => null,
                     'is_validated_by_publication' => false,
                     'publication_validated_at' => null,
+                    'publication_required' => false,
+                    'publication_policy' => 'not_applicable_partial',
                     'has_ads' => true,
                     'ads_form_id' => $ads->id ?? null,
                     'ads_sent_at' => $row->created_at,
@@ -242,6 +248,7 @@ class SyncNoteInformFlows extends Command
                 'wr.informed_at',
                 'wr.acceptance_accepted',
                 'wr.acceptance_at',
+                'wr.selected_final_scopes',
                 'wr.created_at',
                 'wr.updated_at',
                 'af.id as ads_form_id',
@@ -256,6 +263,7 @@ class SyncNoteInformFlows extends Command
                 'fn.is_archived as five_note_archived',
                 'n.note as note_number',
                 'n.numPedido as ovi',
+                'n.type_note',
                 'o.id as order_id',
                 'o.ordem as order_number',
             ])
@@ -282,22 +290,33 @@ class SyncNoteInformFlows extends Command
             $nextCycleEnd = $this->loadNextFinalInformedAtByWorkReport($noteIds);
             [$linkedFiscalByWorkReport, $linkedPaymentByWorkReport] = $this->loadLinkedProductionsForFinals($workReportIds, $noteIds);
             [$legacyFiscalByWorkReport, $legacyPaymentByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds);
+            $ordersByWorkReport = $this->loadOrdersByWorkReport($workReportIds);
             $d5States = $this->loadD5ProductionStates($rows->pluck('five_note_id')->filter()->unique()->values()->all());
             $sapByWorkReport = $this->loadSapOperationStatusByWorkReportsFromNotes($rows);
+            $scopeResolver = app(WorkReportFinalScopeResolver::class);
             $statusResolver = app(WorkReportStatusResolver::class);
             $upserts = [];
+            $expectedFinalFlowKeys = [];
 
             foreach ($rows as $row) {
                 $context = $noteContexts[$row->note_id] ?? ['service_id' => null];
-                $linkedFiscalProd = $this->eligibleLinkedProduction($linkedFiscalByWorkReport[$row->id] ?? null, $row, $nextCycleEnd);
-                $linkedPaymentProd = $this->eligibleLinkedProduction($linkedPaymentByWorkReport[$row->id] ?? null, $row, $nextCycleEnd);
-                $fiscalProd = $linkedFiscalProd ?? $legacyFiscalByWorkReport[$row->id] ?? null;
-                $paymentProd = $linkedPaymentProd ?? $legacyPaymentByWorkReport[$row->id] ?? null;
+                $scopePayloads = $this->filterScopePayloadsByPartnerSelection(
+                    $scopeResolver->resolve((int) $row->type_note, $ordersByWorkReport[$row->id] ?? collect()),
+                    $row->selected_final_scopes ?? null
+                );
+
+                foreach ($scopePayloads as $scopePayload) {
+                $scope = $scopePayload['scope'];
+                $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
+                $linkedFiscalProd = $this->eligibleLinkedProduction($linkedFiscalByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
+                $linkedPaymentProd = $this->eligibleLinkedProduction($linkedPaymentByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
+                $fiscalProd = $linkedFiscalProd ?? ($useLegacyInference ? ($legacyFiscalByWorkReport[$row->id] ?? null) : null);
+                $paymentProd = $linkedPaymentProd ?? ($useLegacyInference ? ($legacyPaymentByWorkReport[$row->id] ?? null) : null);
                 $d5State = $d5States[$row->five_note_id] ?? [];
                 $normalFiscalProd = $this->isD5ProductionRow($fiscalProd, $d5State) ? null : $fiscalProd;
                 $normalPaymentProd = $this->isD5ProductionRow($paymentProd, $d5State) ? null : $paymentProd;
                 $resolvedStatus = $statusResolver->resolveState([
-                    'has_ads' => $row->ads_form_id !== null,
+                    'has_ads' => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
                     'normal_fiscal_associated' => $normalFiscalProd !== null,
                     'normal_fiscal_finished' => (bool) ($normalFiscalProd->completed ?? false),
                     'normal_payment_associated' => $normalPaymentProd !== null,
@@ -322,28 +341,37 @@ class SyncNoteInformFlows extends Command
                     'op50_text' => 'Nao',
                 ];
                 $informedAt = $row->informed_at ?? $row->created_at;
+                $flowKey = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL
+                    ? "work_report:{$row->id}"
+                    : "work_report:{$row->id}:{$scope}";
+                $expectedFinalFlowKeys[] = $flowKey;
 
                 $upserts[] = [
                     'note_id' => $row->note_id,
                     'flow_type' => 'final',
                     'partial_id' => null,
                     'work_report_id' => $row->id,
-                    'flow_key' => "work_report:{$row->id}",
+                    'flow_key' => $flowKey,
                     'company_id' => $row->company_id,
                     'service_id' => $context['service_id'],
                     'note_number' => $row->note_number,
                     'ovi' => $row->ovi,
-                    'order_id' => $row->order_id,
-                    'order_number' => $row->order_number,
+                    'order_id' => $scopePayload['order_id'] ?? $row->order_id,
+                    'order_number' => $scopePayload['order_number'] ?? $row->order_number,
                     'informed_at' => $informedAt,
                     'inform_type' => 'final',
-                    'is_validated_by_publication' => (bool) $row->acceptance_accepted,
-                    'publication_validated_at' => $row->acceptance_at,
-                    'has_ads' => $row->ads_form_id !== null,
-                    'ads_form_id' => $row->ads_form_id,
-                    'ads_sent_at' => $row->tacit_delivered_at ?? $row->ads_created_at,
-                    'ads_type' => $row->ads_form_id ? ($row->tacit ? 'tacit' : 'manual') : 'not_sent',
-                    'ads_is_tacit' => (bool) $row->tacit,
+                    'final_scope' => $scope,
+                    'final_scope_resolution' => $scopePayload['resolution'],
+                    'final_scope_orders' => json_encode($scopePayload['orders']),
+                    'is_validated_by_publication' => (bool) $row->acceptance_accepted && $scopeResolver->publicationRequired($scope),
+                    'publication_validated_at' => $scopeResolver->publicationRequired($scope) ? $row->acceptance_at : null,
+                    'publication_required' => $scopeResolver->publicationRequired($scope),
+                    'publication_policy' => $scopeResolver->publicationPolicy($scope),
+                    'has_ads' => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
+                    'ads_form_id' => $scopeResolver->publicationRequired($scope) ? $row->ads_form_id : null,
+                    'ads_sent_at' => $scopeResolver->publicationRequired($scope) ? ($row->tacit_delivered_at ?? $row->ads_created_at) : null,
+                    'ads_type' => $scopeResolver->publicationRequired($scope) ? ($row->ads_form_id ? ($row->tacit ? 'tacit' : 'manual') : 'not_sent') : 'not_applicable',
+                    'ads_is_tacit' => $scopeResolver->publicationRequired($scope) && (bool) $row->tacit,
                     'fiscalization_entered_at' => $fiscalProd->att_at ?? null,
                     'fiscalization_type' => 'final',
                     'fiscal_assigned_at' => $fiscalProd->att_at ?? null,
@@ -364,7 +392,7 @@ class SyncNoteInformFlows extends Command
                     'measurement_completed_at' => $paymentProd->completed_at ?? ($sap['op50_all_conf'] ? $sap['op50_done_at'] : null),
                     'measurement_exited_at' => $paymentProd->confirmed_at ?? ($sap['op50_all_conf'] ? $sap['op50_done_at'] : null),
                     'baixa_measurement_status' => $sap['op50_text'],
-                    'ads_production_id' => $paymentProd->id ?? null,
+                    'ads_production_id' => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
                     'fiscalization_production_id' => $fiscalProd->id ?? null,
                     'measurement_production_id' => $paymentProd->id ?? null,
                     'final_cycle_started_at' => $informedAt,
@@ -377,7 +405,10 @@ class SyncNoteInformFlows extends Command
                     'calculated_at' => $now,
                     'resolver_payload' => json_encode([
                         'source' => 'work_reports',
-                        'rule_version' => 3,
+                        'rule_version' => 4,
+                        'final_scope' => $scope,
+                        'final_scope_resolution' => $scopePayload['resolution'],
+                        'publication_policy' => $scopeResolver->publicationPolicy($scope),
                         'status_resolver' => [
                             'key' => $resolvedStatus['key'],
                             'label' => $resolvedStatus['label'],
@@ -392,6 +423,7 @@ class SyncNoteInformFlows extends Command
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
+                }
             }
 
             if (!$dryRun && !empty($upserts)) {
@@ -400,6 +432,8 @@ class SyncNoteInformFlows extends Command
                     ['flow_key'],
                     $this->upsertColumns()
                 );
+
+                $this->deactivateUnexpectedFinalFlows($workReportIds, $expectedFinalFlowKeys);
             }
 
             $processed += count($upserts);
@@ -420,6 +454,62 @@ class SyncNoteInformFlows extends Command
         }
 
         return empty($nextCycleEnd[$workReport->id]) ? $production : null;
+    }
+
+    private function filterScopePayloadsByPartnerSelection(array $payloads, mixed $selectedFinalScopes): array
+    {
+        $selected = $this->normalizeSelectedFinalScopes($selectedFinalScopes);
+
+        if (empty($selected)) {
+            return $payloads;
+        }
+
+        $filtered = collect($payloads)
+            ->filter(fn (array $payload) => in_array($payload['scope'] ?? null, $selected, true))
+            ->values()
+            ->all();
+
+        return empty($filtered) ? $payloads : $filtered;
+    }
+
+    private function normalizeSelectedFinalScopes(mixed $selectedFinalScopes): array
+    {
+        if (is_string($selectedFinalScopes)) {
+            $decoded = json_decode($selectedFinalScopes, true);
+            $selectedFinalScopes = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($selectedFinalScopes)) {
+            return [];
+        }
+
+        return collect($selectedFinalScopes)
+            ->map(fn ($scope) => (string) $scope)
+            ->intersect([
+                WorkReportFinalScopeResolver::SCOPE_NETWORK,
+                WorkReportFinalScopeResolver::SCOPE_CONNECTION,
+            ])
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function deactivateUnexpectedFinalFlows(array $workReportIds, array $expectedFlowKeys): void
+    {
+        if (empty($workReportIds) || empty($expectedFlowKeys)) {
+            return;
+        }
+
+        DB::table('note_inform_flows')
+            ->where('flow_type', 'final')
+            ->whereIn('work_report_id', $workReportIds)
+            ->where('active', true)
+            ->whereNotIn('flow_key', array_values(array_unique($expectedFlowKeys)))
+            ->update([
+                'active' => false,
+                'calculated_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     private function incrementalSince(): Carbon
@@ -707,6 +797,7 @@ class SyncNoteInformFlows extends Command
                 'wrfp.work_report_id as linked_work_report_id',
                 'wr.note_id',
                 'wrfp.stage',
+                DB::raw("COALESCE(wrfp.final_scope, 'general') as final_scope"),
                 'wrfp.linked_at',
                 'prod.id',
                 'srv.service',
@@ -738,19 +829,40 @@ class SyncNoteInformFlows extends Command
         }
 
         $exact = $links->groupBy('linked_work_report_id')
-            ->map(fn (Collection $items) => $items->first());
+            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->first()));
         $latestByNote = $links->groupBy('note_id')
-            ->map(fn (Collection $items) => $items->first());
+            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->first()));
 
         $resolved = [];
         foreach ($targetWorkReports as $workReportId => $workReport) {
-            $linked = $exact->get($workReportId) ?? $latestByNote->get($workReport->note_id);
-            if ($linked) {
-                $resolved[$workReportId] = $linked;
+            $linkedByScope = $exact->get($workReportId) ?? $latestByNote->get($workReport->note_id);
+            if ($linkedByScope) {
+                $resolved[$workReportId] = $linkedByScope->all();
             }
         }
 
         return $resolved;
+    }
+
+    private function loadOrdersByWorkReport(array $workReportIds): array
+    {
+        if (empty($workReportIds)) {
+            return [];
+        }
+
+        return DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
+            ->whereIn('owr.work_report_id', $workReportIds)
+            ->select([
+                'owr.work_report_id',
+                'o.id as order_id',
+                'o.ordem as order_number',
+            ])
+            ->orderBy('owr.work_report_id')
+            ->orderBy('o.ordem')
+            ->get()
+            ->groupBy('work_report_id')
+            ->all();
     }
 
     private function loadD5ProductionStates(array $fiveNoteIds): array
@@ -926,8 +1038,13 @@ class SyncNoteInformFlows extends Command
             'order_number',
             'informed_at',
             'inform_type',
+            'final_scope',
+            'final_scope_resolution',
+            'final_scope_orders',
             'is_validated_by_publication',
             'publication_validated_at',
+            'publication_required',
+            'publication_policy',
             'has_ads',
             'ads_form_id',
             'ads_sent_at',

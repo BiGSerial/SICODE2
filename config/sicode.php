@@ -39,6 +39,11 @@ return [
                 'dd_mode'               => 'required',
                 'requires_files'        => true,
                 'blocks_by_note_status' => true,
+                'split_btzero_ep_final_flows' => false,
+                'final_scope_order_prefixes'  => [
+                    'network'    => ['150', '170', '190'],
+                    'connection' => [],
+                ],
             ],
         ],
 
@@ -64,6 +69,11 @@ return [
                 'dd_mode'               => 'required',
                 'requires_files'        => false,
                 'blocks_by_note_status' => false,
+                'split_btzero_ep_final_flows' => true,
+                'final_scope_order_prefixes'  => [
+                    'network'    => ['150', '170', '190'],
+                    'connection' => [],
+                ],
             ],
         ],
     ],

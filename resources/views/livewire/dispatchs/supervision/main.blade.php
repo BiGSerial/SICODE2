@@ -250,6 +250,79 @@
             justify-content: flex-end;
         }
 
+        .association-modal {
+            border: 0;
+            border-radius: 0.95rem;
+            overflow: hidden;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+        }
+
+        .association-modal .modal-header,
+        .association-modal .modal-footer {
+            background: #0f3f43;
+            color: #f8fafc;
+            border: 0;
+        }
+
+        .association-modal .modal-header {
+            padding: 1rem 1.25rem;
+        }
+
+        .association-modal .modal-body {
+            background: #f8fafc;
+            padding: 1.25rem;
+        }
+
+        .association-modal .modal-title {
+            color: #22c55e;
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+        }
+
+        .association-help {
+            background: #ffffff;
+            border: 1px solid #dbe3ef;
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            color: #334155;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+        }
+
+        .association-help strong {
+            color: #0f172a;
+        }
+
+        .association-example {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            border-radius: 999px;
+            color: #075985;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 0.22rem 0.55rem;
+        }
+
+        .association-textarea {
+            min-height: 240px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.92rem;
+            line-height: 1.6;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.75rem;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+        }
+
+        .association-textarea:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
+        }
+
         @media (min-width: 992px) {
             .control-grid {
                 grid-template-columns: 1fr 1fr 1fr 1.25fr;
@@ -733,27 +806,49 @@
     </div>
 
 
-    <div wire:ignore.self class="modal fade" id="add_mass_dds" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade" id="add_mass_dds" tabindex="-1" aria-labelledby="addMassDdsModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Atribuir DD em {{ $service->service }}
-                    </h1>
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content association-modal">
+                <div class="modal-header">
+                    <div>
+                        <h1 class="modal-title" id="addMassDdsModalLabel">Associar Nota/OV e DD em {{ $service->service }}</h1>
+                        <div class="small text-white-50 mt-1">Uma associação por linha. Use somente números.</div>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
                         wire:click.prevent="closeall"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                            MASSA:</label>
-                        <textarea class="form-control" id="exampleFormControlTextarea1" rows="10" style="resize: none;"
-                            placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
+                    <div class="association-help mb-3">
+                        <div class="fw-semibold mb-2">Formato aceito</div>
+                        <div class="small mb-2">
+                            Informe <strong>Nota/OV</strong> e <strong>DD</strong> na mesma linha. Separadores aceitos:
+                            espaço, TAB, ponto e vírgula ou vírgula.
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="association-example">4001123232 14034330</span>
+                            <span class="association-example">4001123232;14034330</span>
+                            <span class="association-example">4001123232,14034330</span>
+                        </div>
+                        <div class="small text-secondary mt-2">
+                            A associação informada aqui é soberana: se a DD já estiver em outra Nota/OV, o sistema move a DD para a Nota/OV informada.
+                            Se já estiver na própria Nota/OV, o vínculo é mantido.
+                        </div>
                     </div>
+
+                    <label for="supervisionMassDdInput" class="form-label fw-semibold">Notas/OVs e DDs</label>
+                    <textarea class="form-control association-textarea" id="supervisionMassDdInput" rows="10"
+                        placeholder="4001123232 14034330&#10;4001123233 14034331&#10;4001123234 14034332"
+                        wire:model.defer="enter_dd"></textarea>
                 </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="mass_modal">Atribuir</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" wire:click.prevent="$set('enter_dd', '')">
+                        Limpar
+                    </button>
+                    <button type="button" class="btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
+                    <button type="button" class="btn btn-primary" wire:click.prevent="mass_modal">
+                        Associar DD
+                    </button>
                 </div>
             </div>
         </div>

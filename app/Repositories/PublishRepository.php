@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Note;
+use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 
 class PublishRepository
@@ -37,6 +38,24 @@ class PublishRepository
                        });
                 });
             });
+        }
+
+        if (SicodeRules::workReportSplitsBtzeroEpFinalFlows()) {
+            $networkPrefixes = SicodeRules::workReportFinalScopeOrderPrefixes('network');
+
+            if (!empty($networkPrefixes)) {
+                $query->where(function (Builder $scopeQuery) use ($networkPrefixes) {
+                    $scopeQuery->where('type_note', '<>', 1)
+                        ->orWhereNull('type_note')
+                        ->orWhereHas('WorkForm.Orders', function (Builder $orderQuery) use ($networkPrefixes) {
+                            $orderQuery->where(function (Builder $prefixQuery) use ($networkPrefixes) {
+                                foreach ($networkPrefixes as $prefix) {
+                                    $prefixQuery->orWhere('ordem', 'like', "{$prefix}%");
+                                }
+                            });
+                        });
+                });
+            }
         }
 
         return $query;

@@ -56,6 +56,7 @@ class WorkReportFlowProductionLinkerTest extends TestCase
         $this->assertSame($latest->id, $link->work_report_id);
         $this->assertSame($production->id, $link->production_id);
         $this->assertSame(WorkReportFlowProduction::STAGE_FISCALIZATION, $link->stage);
+        $this->assertSame(WorkReportFlowProduction::SCOPE_GENERAL, $link->final_scope);
         $this->assertDatabaseMissing('work_report_flow_productions', [
             'work_report_id' => $older->id,
             'production_id' => $production->id,

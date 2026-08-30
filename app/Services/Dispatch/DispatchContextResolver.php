@@ -31,6 +31,11 @@ class DispatchContextResolver
                 && $note->FiveNote->is_completed
                 && !$note->FiveNote->is_supervisioned
             );
+        } elseif ($serviceKey === 'survey') {
+            $eval = app(\App\Services\Design\BlockEvaluator::class)->evaluate($note, $service);
+
+            $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
+            $context['block_reason'] = $eval['reason'] ?? null;
         }
 
         return $context;

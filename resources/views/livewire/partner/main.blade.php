@@ -720,7 +720,9 @@
                     <div class="card-body text-center text-muted">Sem entregas de ADS vencendo no horizonte atual.</div>
                 @endif
 
-                @php($dashboardLegalNotices = app(\App\Services\Partner\DashboardLegalNotices::class))
+                @php
+                    $dashboardLegalNotices = app(\App\Services\Partner\DashboardLegalNotices::class);
+                @endphp
                 <div class="pd-legal-note">
                     <div class="pd-legal-note-title">Base contratual</div>
                     {!! $dashboardLegalNotices->adsDueText() !!}

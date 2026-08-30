@@ -59,6 +59,27 @@ class SicodeRules
         return self::boolRule('work_report.blocks_by_note_status', false);
     }
 
+    public static function workReportSplitsBtzeroEpFinalFlows(): bool
+    {
+        return self::boolRule('work_report.split_btzero_ep_final_flows', false);
+    }
+
+    public static function workReportFinalScopeOrderPrefixes(string $scope): array
+    {
+        $prefixes = config('sicode.rules.' . self::ruleset() . ".work_report.final_scope_order_prefixes.{$scope}", []);
+
+        if (!is_array($prefixes)) {
+            return [];
+        }
+
+        return collect($prefixes)
+            ->map(fn ($prefix) => preg_replace('/\D+/', '', (string) $prefix))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public static function visibleCompanyIdsFor(User $user): array
     {
         return self::visibleCompanyIdsCollectionFor($user)->all();

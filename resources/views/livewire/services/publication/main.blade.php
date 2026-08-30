@@ -101,6 +101,7 @@
                         <tr>
                             <th class="align-middle text-center">Note</th>
                             <th class="align-middle text-center">Inf Digitacao</th>
+                            <th class="align-middle text-center">Escopo</th>
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Data Execução</th>
@@ -160,6 +161,21 @@
                                         <i class="ri-alert-line text-danger align-middle fs-4"></i>
                                     @endif
 
+                                </td>
+
+                                <td class="fw-bold {{ $rowClass }}">
+                                    @if ($list->WorkForm)
+                                        @foreach ($list->WorkForm->finalScopeBadges() as $scopeBadge)
+                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">
+                                                {{ $scopeBadge['label'] }}
+                                                @if ($scopeBadge['scope'] === 'network')
+                                                    <span class="ms-1">Publicavel</span>
+                                                @endif
+                                            </span>
+                                        @endforeach
+                                    @else
+                                        <span class="badge text-bg-secondary">Geral</span>
+                                    @endif
                                 </td>
 
                                 <td class="fw-light {{ $rowClass }}">

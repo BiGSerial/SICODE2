@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Partner\Forms;
 use App\Models\{Company, Note, Order, User, WorkReport};
 use App\Services\Partner\BlockEvaluator;
 use App\Services\WorkReports\WorkReportAcceptanceSignature;
+use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -85,6 +86,8 @@ class Workreports extends Component
     ];
 
     public $temp_orders = [];
+
+    public string $selectedFinalScopeMode = '';
 
     public $temp_equipment = [];
 
@@ -297,6 +300,12 @@ class Workreports extends Component
             return;
         }
 
+        if (!$this->hasValidFinalScopeSelection()) {
+            $this->showFinalScopeSelectionRequiredFeedback();
+
+            return;
+        }
+
         if ($this->requireFilesForSubmit && !$this->hasEvidenceFile) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -402,6 +411,7 @@ class Workreports extends Component
         $this->form['informed_at']     = date('Y-m-d H:i:s');
         $this->form['acceptance_at']   = date('Y-m-d H:i:s');
         $this->form['acceptance_meta'] = $this->buildAcceptanceMeta();
+        $this->form['selected_final_scopes'] = $this->selectedFinalScopesForSave();
 
         if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
             $this->dispatchBrowserEvent('swal', [
@@ -569,6 +579,8 @@ class Workreports extends Component
     {
         if ($order = Order::find($this->s_order)) {
             $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
+            $this->syncFinalScopeModeWithDetectedScopes();
+            $this->syncOrdersWithSelectedFinalScopeMode();
         }
     }
 
@@ -577,6 +589,11 @@ class Workreports extends Component
         if (isset($this->temp_orders[$index])) {
             unset($this->temp_orders[$index]);
         }
+    }
+
+    public function updatedSelectedFinalScopeMode(): void
+    {
+        $this->syncOrdersWithSelectedFinalScopeMode();
     }
 
     public function addEquipment()
@@ -672,6 +689,8 @@ class Workreports extends Component
                 $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
             }
         }
+
+        $this->syncFinalScopeModeWithDetectedScopes();
 
         // if ($this->note->type_note == 2 && $this->note->Orders->count() > 1) {
 
@@ -810,6 +829,7 @@ class Workreports extends Component
         $this->hasEvidenceFile            = false;
         $this->showAsbuiltMissingFeedback = false;
         $this->temp_orders                = [];
+        $this->selectedFinalScopeMode     = '';
         $this->temp_equipment             = [];
 
         if (!SicodeRules::workReportFieldEnabled('meeters')) {
@@ -904,6 +924,218 @@ class Workreports extends Component
     public function getAcceptanceContractTextProperty(): string
     {
         return app(WorkReportAcceptanceSignature::class)->contractText();
+    }
+
+    public function getFinalScopePreviewProperty(): array
+    {
+        if (!$this->note) {
+            return [];
+        }
+
+        $orders = collect($this->temp_orders)
+            ->map(fn (array $order) => (object) [
+                'order_id' => $order['id'] ?? null,
+                'order_number' => $order['ordem'] ?? null,
+            ]);
+
+        return collect(app(WorkReportFinalScopeResolver::class)->resolve($this->note->type_note, $orders))
+            ->map(fn (array $payload) => [
+                'scope' => $payload['scope'],
+                'label' => $this->finalScopeLabel($payload['scope']),
+                'class' => $this->finalScopeBadgeClass($payload['scope']),
+                'orders' => collect($payload['orders'] ?? [])
+                    ->pluck('number')
+                    ->filter()
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function getDetectedFinalScopesProperty(): array
+    {
+        return collect($this->finalScopePreview)
+            ->pluck('scope')
+            ->values()
+            ->all();
+    }
+
+    public function getAvailableFinalScopePreviewProperty(): array
+    {
+        if (!$this->note) {
+            return [];
+        }
+
+        return collect(app(WorkReportFinalScopeResolver::class)->resolve($this->note->type_note, $this->selectableOrdersForCurrentNote()))
+            ->map(fn (array $payload) => [
+                'scope' => $payload['scope'],
+                'label' => $this->finalScopeLabel($payload['scope']),
+                'class' => $this->finalScopeBadgeClass($payload['scope']),
+                'orders' => collect($payload['orders'] ?? [])
+                    ->pluck('number')
+                    ->filter()
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function getAvailableDetectedFinalScopesProperty(): array
+    {
+        return collect($this->availableFinalScopePreview)
+            ->pluck('scope')
+            ->values()
+            ->all();
+    }
+
+    public function getHasMultipleDetectedFinalScopesProperty(): bool
+    {
+        return count($this->availableDetectedFinalScopes) > 1;
+    }
+
+    public function finalScopeBadgesForNote(Note $note): array
+    {
+        $orders = $note->relationLoaded('Orders') ? $note->Orders : $note->Orders()->get();
+
+        return collect(app(WorkReportFinalScopeResolver::class)->resolve($note->type_note, $orders))
+            ->map(fn (array $payload) => [
+                'scope' => $payload['scope'],
+                'label' => $this->finalScopeLabel($payload['scope']),
+                'class' => $this->finalScopeBadgeClass($payload['scope']),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function finalScopeLabel(string $scope): string
+    {
+        return match ($scope) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligacao',
+            default => 'Geral',
+        };
+    }
+
+    private function finalScopeBadgeClass(string $scope): string
+    {
+        return match ($scope) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'text-bg-primary',
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'text-bg-warning',
+            default => 'text-bg-secondary',
+        };
+    }
+
+    protected function syncFinalScopeModeWithDetectedScopes(): void
+    {
+        $detected = $this->availableDetectedFinalScopes;
+
+        if (count($detected) === 1) {
+            $this->selectedFinalScopeMode = $detected[0];
+
+            return;
+        }
+
+        if (count($detected) === 0 || !in_array($this->selectedFinalScopeMode, ['network', 'connection', 'both'], true)) {
+            $this->selectedFinalScopeMode = '';
+        }
+    }
+
+    protected function hasValidFinalScopeSelection(): bool
+    {
+        $detected = $this->availableDetectedFinalScopes;
+
+        if (count($detected) <= 1) {
+            $this->syncFinalScopeModeWithDetectedScopes();
+            $this->syncOrdersWithSelectedFinalScopeMode();
+
+            return true;
+        }
+
+        $selected = $this->selectedFinalScopesForSave();
+
+        $valid = !empty($selected)
+            && empty(array_diff($selected, $detected));
+
+        if ($valid) {
+            $this->syncOrdersWithSelectedFinalScopeMode();
+        }
+
+        return $valid;
+    }
+
+    protected function selectedFinalScopesForSave(): ?array
+    {
+        $detected = $this->availableDetectedFinalScopes;
+
+        if (count($detected) === 0) {
+            return null;
+        }
+
+        if (count($detected) === 1) {
+            return $detected;
+        }
+
+        return match ($this->selectedFinalScopeMode) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK => [WorkReportFinalScopeResolver::SCOPE_NETWORK],
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => [WorkReportFinalScopeResolver::SCOPE_CONNECTION],
+            'both' => [
+                WorkReportFinalScopeResolver::SCOPE_NETWORK,
+                WorkReportFinalScopeResolver::SCOPE_CONNECTION,
+            ],
+            default => null,
+        };
+    }
+
+    protected function showFinalScopeSelectionRequiredFeedback(): void
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Escopo do informe obrigatório',
+            'html'     => 'Foram detectados escopos de Rede e Ligação. Selecione se este informe final encerra Rede, Ligação ou Ambos.',
+        ]);
+    }
+
+    protected function syncOrdersWithSelectedFinalScopeMode(): void
+    {
+        if (!$this->note || !in_array($this->selectedFinalScopeMode, ['network', 'connection', 'both'], true)) {
+            return;
+        }
+
+        $orders = $this->selectableOrdersForCurrentNote();
+
+        if ($this->selectedFinalScopeMode !== 'both') {
+            $orders = $orders
+                ->filter(fn ($order) => $this->scopeForOrder($order) === $this->selectedFinalScopeMode)
+                ->values();
+        }
+
+        $this->temp_orders = $orders
+            ->mapWithKeys(fn ($order) => [$order->id => ['id' => $order->id, 'ordem' => $order->ordem]])
+            ->all();
+    }
+
+    protected function selectableOrdersForCurrentNote()
+    {
+        if (!$this->note) {
+            return collect();
+        }
+
+        $orders = $this->note->relationLoaded('Orders') ? $this->note->Orders : $this->note->Orders()->get();
+
+        return $orders
+            ->filter(fn ($order) => !(strpos((string) $order->statusSist, 'ENT') === 0 || strpos((string) $order->statusSist, 'ENC') === 0))
+            ->values();
+    }
+
+    private function scopeForOrder(object $order): string
+    {
+        $payload = app(WorkReportFinalScopeResolver::class)
+            ->resolve($this->note?->type_note, collect([$order]))[0] ?? null;
+
+        return $payload['scope'] ?? WorkReportFinalScopeResolver::SCOPE_GENERAL;
     }
 
     public function render()

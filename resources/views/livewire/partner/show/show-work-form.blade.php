@@ -87,6 +87,14 @@
                                 <strong>{{ date('d/m/Y', strToTime($form->date)) }}</strong>
                             </div>
                             <div class="work-summary-item">
+                                <span>ESCOPO</span>
+                                <strong>
+                                    @foreach ($form->finalScopeBadges() as $scopeBadge)
+                                        <span class="badge {{ $scopeBadge['class'] }} mb-1">{{ $scopeBadge['label'] }}</span>
+                                    @endforeach
+                                </strong>
+                            </div>
+                            <div class="work-summary-item">
                                 <span>ARQUIVOS</span>
                                 <strong>{{ $files->count() }}</strong>
                             </div>
@@ -167,6 +175,7 @@
                                             <thead>
                                                 <tr>
                                                     <th class="text-center">Etapa</th>
+                                                    <th class="text-center">Escopo</th>
                                                     <th class="text-center">Produção</th>
                                                     <th class="text-center">Serviço</th>
                                                     <th class="text-center">Responsável</th>
@@ -198,6 +207,11 @@
                                                         <td class="text-center">
                                                             <span class="badge {{ $flowProduction->stage === \App\Models\WorkReportFlowProduction::STAGE_PAYMENT ? 'text-bg-primary' : 'text-bg-success' }}">
                                                                 {{ $stageLabel }}
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="badge {{ $form->finalScopeBadgeClass($flowProduction->final_scope ?? 'general') }}">
+                                                                {{ $form->finalScopeLabel($flowProduction->final_scope ?? 'general') }}
                                                             </span>
                                                         </td>
                                                         <td class="text-center">

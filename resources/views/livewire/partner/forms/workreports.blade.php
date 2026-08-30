@@ -35,6 +35,7 @@
                                     <tr class="table-light">
                                         <th>Nota</th>
                                         <th>Ordens</th>
+                                        <th>Escopo</th>
                                         <th>Viabilidade</th>
                                         <th>Status</th>
                                     </tr>
@@ -55,6 +56,11 @@
                                                             class="badge bg-light text-dark mb-1">{{ $order->ordem }}</span>
                                                     @endforeach
                                                 @endif
+                                            </td>
+                                            <td class="align-middle">
+                                                @foreach ($this->finalScopeBadgesForNote($note) as $scopeBadge)
+                                                    <span class="badge {{ $scopeBadge['class'] }} mb-1">{{ $scopeBadge['label'] }}</span>
+                                                @endforeach
                                             </td>
                                             <td class="align-middle">
                                                 @if ($note->Viabilities->count())
@@ -193,6 +199,77 @@
                                         </div>
 
                                         @if (!empty($temp_orders))
+                                            <div class="border rounded-3 p-3 mb-3 {{ $this->hasMultipleDetectedFinalScopes ? 'border-warning bg-warning-subtle' : 'border-primary bg-primary-subtle' }}">
+                                                <div class="d-flex flex-column flex-xl-row justify-content-between gap-3">
+                                                    <div>
+                                                        <div class="fw-bold fs-5">Escopo do informe final</div>
+                                                        <div class="small text-muted">
+                                                            Detectado automaticamente pelas ordens selecionadas.
+                                                            @if ($this->hasMultipleDetectedFinalScopes)
+                                                                Selecione exatamente o que esta entrega encerra; as ordens abaixo serao ajustadas pela escolha.
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex flex-wrap gap-2 align-items-start">
+                                                        @foreach ($this->availableFinalScopePreview as $scopeBadge)
+                                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 px-3 py-2">
+                                                                {{ $scopeBadge['label'] }}
+                                                                @if (!empty($scopeBadge['orders']))
+                                                                    <span class="ms-1">({{ implode(', ', $scopeBadge['orders']) }})</span>
+                                                                @endif
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+
+                                                @if ($this->hasMultipleDetectedFinalScopes)
+                                                    <div class="row g-2 mt-3">
+                                                        <div class="col-12 col-md-4">
+                                                            <input type="radio" class="btn-check" id="finalScopeNetwork"
+                                                                value="network" wire:model="selectedFinalScopeMode">
+                                                            <label class="btn btn-outline-primary w-100 fw-bold py-3" for="finalScopeNetwork">
+                                                                Rede
+                                                            </label>
+                                                        </div>
+                                                        <div class="col-12 col-md-4">
+                                                            <input type="radio" class="btn-check" id="finalScopeConnection"
+                                                                value="connection" wire:model="selectedFinalScopeMode">
+                                                            <label class="btn btn-outline-warning w-100 fw-bold py-3" for="finalScopeConnection">
+                                                                Ligacao
+                                                            </label>
+                                                        </div>
+                                                        <div class="col-12 col-md-4">
+                                                            <input type="radio" class="btn-check" id="finalScopeBoth"
+                                                                value="both" wire:model="selectedFinalScopeMode">
+                                                            <label class="btn btn-outline-dark w-100 fw-bold py-3" for="finalScopeBoth">
+                                                                Ambos
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    @if (!$selectedFinalScopeMode)
+                                                        <div class="text-danger fw-bold small mt-2">
+                                                            Selecao obrigatoria para informes com Rede e Ligacao.
+                                                        </div>
+                                                    @else
+                                                        <div class="small fw-bold text-dark mt-2">
+                                                            Ordens consideradas neste envio:
+                                                            @foreach ($this->finalScopePreview as $scopeBadge)
+                                                                <span class="badge {{ $scopeBadge['class'] }} ms-1">
+                                                                    {{ $scopeBadge['label'] }}
+                                                                    @if (!empty($scopeBadge['orders']))
+                                                                        ({{ implode(', ', $scopeBadge['orders']) }})
+                                                                    @endif
+                                                                </span>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+                                                @else
+                                                    <div class="small fw-bold text-primary mt-2">
+                                                        Escopo unico selecionado automaticamente.
+                                                    </div>
+                                                @endif
+                                            </div>
                                             <div class="table-responsive mt-3">
                                                 <table class="table table-sm table-hover">
                                                     <thead>
@@ -524,6 +601,14 @@
                                         Evidencias de Obras</h5>
                                 </div>
                                 <div class="card-body">
+                                    <div class="alert alert-warning d-flex align-items-start border border-warning" role="alert">
+                                        <i class="ri-alert-line me-2 fs-5"></i>
+                                        <div>
+                                            <strong>Entrega de ADS:</strong> nao anexe ADS neste campo. A entrega de ADS deve ser feita pelo canal exclusivo
+                                            <strong>Entregar ADS</strong>.
+                                        </div>
+                                    </div>
+
                                     @if ($requireFilesForSubmit)
                                         <div class="alert alert-info d-flex align-items-start" role="alert">
                                             <i class="ri-information-line me-2 fs-5"></i>
