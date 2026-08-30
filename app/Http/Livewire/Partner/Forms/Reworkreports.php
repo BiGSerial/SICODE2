@@ -136,6 +136,11 @@ class Reworkreports extends Workreports
                 return;
             }
 
+            if (!$this->hasValidFinalScopeSelection()) {
+                $this->showFinalScopeSelectionRequiredFeedback();
+                return;
+            }
+
             if ($this->meeters == true && empty($this->temp_meeters)) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -219,6 +224,7 @@ class Reworkreports extends Workreports
             $this->form['acceptance_accepted'] = true;
             $this->form['acceptance_at'] = $informedAt;
             $this->form['acceptance_meta'] = $this->mergeAcceptanceMeta();
+            $this->form['selected_final_scopes'] = $this->selectedFinalScopesForSave();
 
             $this->workReport->fill($this->form);
             $this->workReport->save();
@@ -320,6 +326,9 @@ class Reworkreports extends Workreports
             ->mapWithKeys(fn ($order) => [$order->id => ['id' => $order->id, 'ordem' => $order->ordem]])
             ->all();
 
+        $this->selectedFinalScopeMode = $this->selectedFinalScopeModeFromExistingSelection();
+        $this->syncFinalScopeModeWithDetectedScopes();
+
         $this->temp_equipment = $this->workReport->Equipment
             ->map(fn ($equipment) => [
                 'type' => $equipment->type,
@@ -384,6 +393,29 @@ class Reworkreports extends Workreports
         }
 
         return [$meta];
+    }
+
+    private function selectedFinalScopeModeFromExistingSelection(): string
+    {
+        $selected = collect($this->workReport->selected_final_scopes ?? [])
+            ->map(fn ($scope) => (string) $scope)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (in_array('network', $selected, true) && in_array('connection', $selected, true)) {
+            return 'both';
+        }
+
+        if (in_array('network', $selected, true)) {
+            return 'network';
+        }
+
+        if (in_array('connection', $selected, true)) {
+            return 'connection';
+        }
+
+        return '';
     }
 
     protected function syncAdsAfterReinform(Carbon $informedAt): void

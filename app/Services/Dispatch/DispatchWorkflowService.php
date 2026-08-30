@@ -8,9 +8,11 @@ use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
+use App\Models\WorkReportFlowProduction;
 use App\Models\Wpa;
 use App\Services\D5\D5WorkflowService;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
+use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 
@@ -20,7 +22,7 @@ class DispatchWorkflowService
     {
     }
 
-    public function dispatchToCompanyStack(Note $note, Service $service, Company $company, User $actor, ?string $dd = null): Production
+    public function dispatchToCompanyStack(Note $note, Service $service, Company $company, User $actor, ?string $dd = null, array $finalScopes = []): Production
     {
         if ($actor->contract) {
             throw new DispatchException('Usuario com contrato deve atribuir a atividade, nao enviar para pilha.');
@@ -30,12 +32,12 @@ class DispatchWorkflowService
             throw new DispatchException('O envio para pilha da empresa nao esta habilitado para este ambiente.');
         }
 
-        return $this->dispatch($note, $service, $company, null, $actor, $dd);
+        return $this->dispatch($note, $service, $company, null, $actor, $dd, $finalScopes);
     }
 
-    public function dispatchToUser(Note $note, Service $service, Company $company, User $targetUser, User $actor, ?string $dd = null): Production
+    public function dispatchToUser(Note $note, Service $service, Company $company, User $targetUser, User $actor, ?string $dd = null, array $finalScopes = []): Production
     {
-        return $this->dispatch($note, $service, $company, $targetUser, $actor, $dd);
+        return $this->dispatch($note, $service, $company, $targetUser, $actor, $dd, $finalScopes);
     }
 
     public function claimFromCompanyStack(Production $production, User $user): Production
@@ -152,9 +154,9 @@ class DispatchWorkflowService
         });
     }
 
-    private function dispatch(Note $note, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd): Production
+    private function dispatch(Note $note, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd, array $finalScopes): Production
     {
-        return DB::transaction(function () use ($note, $service, $company, $targetUser, $actor, $dd) {
+        return DB::transaction(function () use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes) {
             $note = Note::whereKey($note->id)->lockForUpdate()->firstOrFail();
             $note->loadMissing(['FiveNote', 'Partials', 'WorkForm', 'Productions']);
 
@@ -214,7 +216,7 @@ class DispatchWorkflowService
                 $this->attachDd($note, $production, $dd);
             }
 
-            $this->linkWorkReportFlow($production, $context['service_key']);
+            $this->linkWorkReportFlow($production, $context['service_key'], $finalScopes);
 
             if ($targetUser) {
                 $this->afterAssigned($production, $actor, null);
@@ -320,10 +322,26 @@ class DispatchWorkflowService
         ]);
     }
 
-    private function linkWorkReportFlow(Production $production, string $serviceKey): void
+    private function linkWorkReportFlow(Production $production, string $serviceKey, array $finalScopes = []): void
     {
         if ($serviceKey === 'supervision') {
-            app(WorkReportFlowProductionLinker::class)->linkFiscalization($production, 'dispatch_workflow');
+            if (empty($finalScopes)) {
+                $production->loadMissing('Note');
+                $availableScopes = $production->Note
+                    ? app(WorkReportFinalScopeOptions::class)->forNote($production->Note)
+                    : [];
+                if (count($availableScopes) > 1) {
+                    return;
+                }
+
+                $finalScopes = count($availableScopes) === 1
+                    ? [$availableScopes[0]['scope']]
+                    : [WorkReportFlowProduction::SCOPE_GENERAL];
+            }
+
+            foreach ($finalScopes as $finalScope) {
+                app(WorkReportFlowProductionLinker::class)->linkFiscalization($production, 'dispatch_workflow', [], $finalScope);
+            }
         }
     }
 

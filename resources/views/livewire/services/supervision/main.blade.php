@@ -206,6 +206,7 @@
                             <thead class="table-dark">
                                 <tr class="text-center align-middle">
                                     <th>Tipo</th>
+                                    <th>Escopo</th>
                                     <th>Note</th>
                                     <th>Ordens</th>
                                     <th>DD</th>
@@ -268,6 +269,18 @@
 
                                         <td class="{{ $colorCell }} fw-bold">
                                             {{ $list->partial ? 'Parcial' : 'Final' }}
+                                        </td>
+
+                                        <td class="fw-bold">
+                                            @if ($workForm)
+                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                                    <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                                @endforeach
+                                            @elseif ($list->partial)
+                                                <span class="badge text-bg-secondary">Parcial</span>
+                                            @else
+                                                <span class="badge text-bg-secondary">Geral</span>
+                                            @endif
                                         </td>
 
                                         <td class="@if ($list->priority) text-danger fw-bold @endif">

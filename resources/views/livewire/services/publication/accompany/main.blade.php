@@ -147,6 +147,7 @@
                                     <th scope="col" class="fw-bold text-center">Note</th>
                                     <th scope="col" class="fw-bold text-center">Files</th>
                                     <th scope="col" class="fw-bold text-center">Ordens</th>
+                                    <th scope="col" class="fw-bold text-center">Escopo</th>
                                     <th scope="col" class="fw-bold text-center">Qtd Equipamentos</th>
                                     <th scope="col" class="fw-bold text-center">Empreiteira</th>
                                     <th scope="col" class="fw-bold text-center">Municipio</th>
@@ -239,6 +240,22 @@
                                                 @foreach ($list->Note->RamalForm->Orders as $order)
                                                     <p class="my-0 py-0">{{ $order->ordem }}</p>
                                                 @endforeach
+                                            @endif
+                                        </td>
+                                        <td class="fw-bold text-center align-middle {{ $class }}">
+                                            @if ($list->Note->WorkForm)
+                                                @foreach ($list->Note->WorkForm->finalScopeBadges() as $scopeBadge)
+                                                    <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">
+                                                        {{ $scopeBadge['label'] }}
+                                                        @if ($scopeBadge['scope'] === 'network')
+                                                            <span class="ms-1">Publicavel</span>
+                                                        @endif
+                                                    </span>
+                                                @endforeach
+                                            @elseif ($list->Note->RamalForm)
+                                                <span class="badge text-bg-secondary">Ligacao</span>
+                                            @else
+                                                <span class="badge text-bg-secondary">Geral</span>
                                             @endif
                                         </td>
                                         <td class="fw-light text-center align-middle {{ $class }}">

@@ -8,6 +8,7 @@ use App\Services\Payment\NoteFilter;
 use App\Helpers\TextFormatter;
 use App\Services\Payment\BlockEvaluator;
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -207,6 +208,19 @@ class Main extends Component
             return;
         }
 
+        $finalScopes = app(WorkReportFinalScopeOptions::class)->forNote($this->note);
+        if (count($finalScopes) > 1) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione a medicao pela tela de despacho.',
+                'html'     => 'Esta nota possui mais de um informe final aberto. Use a tela de despacho de pagamento para selecionar Rede, Ligacao ou ambos.',
+                'timer'    => 7000,
+            ]);
+
+            return;
+        }
+
 
 
         // 3. Buscar usuário e criar produção normalmente
@@ -239,7 +253,7 @@ class Main extends Component
             ], $data);
 
         if ($production) {
-            app(WorkReportFlowProductionLinker::class)->linkPayment($production, 'services_payment_self_assign');
+            app(WorkReportFlowProductionLinker::class)->linkPaymentForSingleAvailableScope($production, 'services_payment_self_assign');
 
             Notetimeline::create([
                 'note_id'      => $this->note->id,

@@ -78,6 +78,22 @@
 
                                     <div class="col-md-3">
                                         <div class="d-flex align-items-center gap-2">
+                                            <i class="ri-focus-3-line text-primary fs-5"></i>
+                                            <div>
+                                                <div class="text-muted small">Escopo fiscalizado</div>
+                                                <div class="fw-semibold">
+                                                    @forelse ($production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION) as $scopeBadge)
+                                                        <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                                    @empty
+                                                        <span class="badge text-bg-secondary">Geral</span>
+                                                    @endforelse
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <div class="d-flex align-items-center gap-2">
                                             <i class="ri-calendar-event-line text-primary fs-5"></i>
                                             <div>
                                                 <div class="text-muted small">Data SICODE</div>

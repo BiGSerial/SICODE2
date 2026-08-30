@@ -209,6 +209,7 @@
                         <tr>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Tipo</th>
+                            <th class="align-middle text-center">Escopo</th>
 
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
@@ -330,6 +331,18 @@
                                 <td
                                     class="fw-light fw-bold text-center {{ $partial ? 'text-bg-warning' : 'text-bg-success' }}">
                                     {{ $partial ? 'PARCIAL' : 'TOTAL' }}
+                                </td>
+
+                                <td class="fw-light fw-bold text-center {{ $rowClass }}">
+                                    @if ($wf)
+                                        @foreach ($wf->finalScopeBadges() as $scopeBadge)
+                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                        @endforeach
+                                    @elseif ($partial)
+                                        <span class="badge text-bg-secondary">Parcial</span>
+                                    @else
+                                        <span class="badge text-bg-secondary">Geral</span>
+                                    @endif
                                 </td>
 
                                 {{-- Ordem --}}

@@ -10,6 +10,7 @@ use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, U
 use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\BlockEvaluator;
 use App\Services\Payment\NoteFilter;
+use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -47,6 +48,8 @@ class Main extends Component
 
     public $type;
     public $additionalData = [];
+    public array $finalScopeOptions = [];
+    public array $finalScopeSelections = [];
     public $notes;
     public $enter_dd;
 
@@ -390,7 +393,11 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::find($this->selected);
+        $this->notes = Note::with('WorkForm.Orders')->find($this->selected);
+
+        foreach ($this->notes as $note) {
+            $this->prepareFinalScopeSelection($note);
+        }
 
         if ($this->notes->count()) {
             $this->dispatchBrowserEvent('showModal', ['id' => 'add_mass_notes']);
@@ -431,6 +438,21 @@ class Main extends Component
                     'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),
                 ]);
                 continue;
+            }
+
+            if (!$this->hasValidFinalScopeSelection($note)) {
+                $errors->push([
+                    'note' => $note->note,
+                    'when' => 'selecione Rede, Ligacao ou ambos para medicao',
+                ]);
+                continue;
+            }
+
+            if (!$this->hasValidFinalScopeSelection($note)) {
+                $errors->push([
+                    'note' => $note->note,
+                    'when' => 'selecione Rede, Ligacao ou ambos para medicao',
+                ]);
             }
         }
 
@@ -610,7 +632,11 @@ class Main extends Component
 
 
             if ($production) {
-                app(WorkReportFlowProductionLinker::class)->linkPayment($production, 'dispatch_payment_main');
+                app(WorkReportFlowProductionLinker::class)->linkPaymentForScopes(
+                    $production,
+                    $this->selectedFinalScopesForNote($note),
+                    'dispatch_payment_main'
+                );
 
                 Notetimeline::create([
                     'note_id'      => $production->id, // (verifique se aqui não deveria ser $note->id)
@@ -687,6 +713,35 @@ class Main extends Component
         return $company->name ?? 'Desconhecido';
     }
 
+    private function prepareFinalScopeSelection(Note $note): void
+    {
+        $options = app(WorkReportFinalScopeOptions::class)->forNote($note);
+        $this->finalScopeOptions[$note->id] = $options;
+        $this->finalScopeSelections[$note->id] = [];
+
+        if (count($options) === 1) {
+            $this->finalScopeSelections[$note->id][$options[0]['scope']] = true;
+        }
+    }
+
+    private function selectedFinalScopesForNote(Note $note): array
+    {
+        $selected = collect($this->finalScopeSelections[$note->id] ?? [])
+            ->filter(fn ($enabled) => (bool) $enabled)
+            ->keys()
+            ->all();
+
+        return app(WorkReportFinalScopeOptions::class)
+            ->validScopesForNote($note, $selected);
+    }
+
+    private function hasValidFinalScopeSelection(Note $note): bool
+    {
+        $available = app(WorkReportFinalScopeOptions::class)->forNote($note);
+
+        return count($available) <= 1 || !empty($this->selectedFinalScopesForNote($note));
+    }
+
     public function closeall()
     {
         $this->dispatchBrowserEvent('hideModal');
@@ -696,6 +751,8 @@ class Main extends Component
         $this->user_s         = '';
         $this->type           = '';
         $this->additionalData = [];
+        $this->finalScopeOptions = [];
+        $this->finalScopeSelections = [];
         $this->advanceSearch  = '';
         $this->search         = '';
         $this->gotoPage(1);

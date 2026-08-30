@@ -161,6 +161,23 @@
                                             <div class="info-item-value">{{ $production->Note->lexp }}</div>
                                         </div>
                                         <div class="info-item">
+                                            <div class="info-item-label">Escopo</div>
+                                            <div class="info-item-value">
+                                                @if ($production->Note->WorkForm)
+                                                    @foreach ($production->Note->WorkForm->finalScopeBadges() as $scopeBadge)
+                                                        <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">
+                                                            {{ $scopeBadge['label'] }}
+                                                            @if ($scopeBadge['scope'] === 'network')
+                                                                <span class="ms-1">Publicavel</span>
+                                                            @endif
+                                                        </span>
+                                                    @endforeach
+                                                @else
+                                                    <span class="badge text-bg-secondary">Geral</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="info-item">
                                             <div class="info-item-label">Mudança no projeto</div>
                                             <div class="info-item-value">
                                                 @if (isset($production->Note->WorkForm))

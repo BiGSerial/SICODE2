@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
+use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -197,6 +198,63 @@ class Production extends Model
     public function WorkReportFlowProductions()
     {
         return $this->hasMany(WorkReportFlowProduction::class);
+    }
+
+    public function currentWorkReportFlowScopeBadges(?string $stage = null): array
+    {
+        $query = $this->WorkReportFlowProductions()
+            ->where('is_current', true);
+
+        if ($stage) {
+            $query->where('stage', $stage);
+        }
+
+        return $query
+            ->orderByRaw("CASE final_scope WHEN 'network' THEN 1 WHEN 'connection' THEN 2 ELSE 3 END")
+            ->get(['final_scope'])
+            ->pluck('final_scope')
+            ->unique()
+            ->map(fn (string $scope) => [
+                'scope' => $scope,
+                'label' => $this->workReportFinalScopeLabel($scope),
+                'class' => $this->workReportFinalScopeBadgeClass($scope),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function inferredWorkReportScopeBadges(): array
+    {
+        if (!$this->Note?->WorkForm) {
+            return [];
+        }
+
+        return $this->Note->WorkForm->finalScopeBadges();
+    }
+
+    public function visibleWorkReportScopeBadges(?string $stage = null): array
+    {
+        $linked = $this->currentWorkReportFlowScopeBadges($stage);
+
+        return !empty($linked) ? $linked : $this->inferredWorkReportScopeBadges();
+    }
+
+    public function workReportFinalScopeLabel(string $scope): string
+    {
+        return match ($scope) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligacao',
+            default => 'Geral',
+        };
+    }
+
+    public function workReportFinalScopeBadgeClass(string $scope): string
+    {
+        return match ($scope) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'text-bg-primary',
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'text-bg-warning',
+            default => 'text-bg-secondary',
+        };
     }
 
 

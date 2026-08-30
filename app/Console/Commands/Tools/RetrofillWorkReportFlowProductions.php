@@ -203,6 +203,7 @@ class RetrofillWorkReportFlowProductions extends Command
                     DB::table('work_report_flow_productions')
                         ->where('work_report_id', $workReportId)
                         ->where('stage', $stage)
+                        ->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)
                         ->where('source', 'retrofill_inference')
                         ->delete();
                 }
@@ -210,6 +211,7 @@ class RetrofillWorkReportFlowProductions extends Command
                 DB::table('work_report_flow_productions')
                     ->where('work_report_id', $workReportId)
                     ->where('stage', $stage)
+                    ->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)
                     ->where('source', 'retrofill_inference')
                     ->update(['is_current' => false, 'updated_at' => now()]);
 
@@ -221,6 +223,7 @@ class RetrofillWorkReportFlowProductions extends Command
                             'work_report_id' => (int) $item['work_report']->id,
                             'production_id' => (int) $item['production']->id,
                             'stage' => $item['stage'],
+                            'final_scope' => WorkReportFlowProduction::SCOPE_GENERAL,
                         ],
                         [
                             'is_current' => $index === $lastIndex,
@@ -290,6 +293,7 @@ class RetrofillWorkReportFlowProductions extends Command
         return DB::table('work_report_flow_productions')
             ->where('work_report_id', $workReportId)
             ->where('stage', $stage)
+            ->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)
             ->where('source', '<>', 'retrofill_inference')
             ->exists();
     }

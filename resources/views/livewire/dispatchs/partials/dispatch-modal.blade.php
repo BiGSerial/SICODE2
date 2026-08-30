@@ -178,6 +178,39 @@
                 min-width: 170px;
             }
 
+            .dispatch-modal__scope {
+                min-width: 170px;
+            }
+
+            .dispatch-modal__scope-options {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+            }
+
+            .dispatch-modal__scope-options .form-check {
+                align-items: center;
+                background: #fff7ed;
+                border: 1px solid #f59e0b;
+                border-radius: 6px;
+                display: inline-flex;
+                gap: 0.25rem;
+                margin: 0;
+                padding: 0.25rem 0.55rem 0.25rem 1.85rem;
+                font-weight: 800;
+            }
+
+            .dispatch-modal__scope-warning {
+                background: #fef3c7;
+                border: 1px solid #f59e0b;
+                border-radius: 6px;
+                color: #92400e;
+                font-size: 0.76rem;
+                font-weight: 800;
+                margin-top: 0.35rem;
+                padding: 0.3rem 0.45rem;
+            }
+
             .dispatch-modal__empty {
                 background: #ffffff;
                 border: 1px dashed #cbd5e1;
@@ -345,6 +378,7 @@
                                     <th scope="col" class="text-center" style="width:52px;">#</th>
                                     <th scope="col">Nota/OV</th>
                                     <th scope="col">Descricao</th>
+                                    <th scope="col">Escopo</th>
                                     <th scope="col">DD</th>
                                 </tr>
                             </thead>
@@ -354,6 +388,25 @@
                                         <td class="text-center fw-bold">{{ $index + 1 }}</td>
                                         <td class="dispatch-modal__note">{{ $note->note }}</td>
                                         <td class="dispatch-modal__material">{{ $note->material }}</td>
+                                        <td class="dispatch-modal__scope">
+                                            @php($scopeOptions = $finalScopeOptions[$note->id] ?? [])
+                                            @if (count($scopeOptions) > 1)
+                                                <div class="dispatch-modal__scope-options">
+                                                    @foreach ($scopeOptions as $scopeOption)
+                                                        <label class="form-check">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                wire:model.defer="finalScopeSelections.{{ $note->id }}.{{ $scopeOption['scope'] }}">
+                                                            <span class="form-check-label">{{ $scopeOption['label'] }}</span>
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                                <div class="dispatch-modal__scope-warning">Marque o escopo exato desta fiscalizacao.</div>
+                                            @elseif (count($scopeOptions) === 1)
+                                                <span class="badge text-bg-primary fs-6">{{ $scopeOptions[0]['label'] }}</span>
+                                            @else
+                                                <span class="badge text-bg-warning">Sem escopo</span>
+                                            @endif
+                                        </td>
                                         <td class="dispatch-modal__dd">
                                             <input wire:model.defer="additionalData.{{ $index }}"
                                                 class="form-control form-control-sm" type="text"
