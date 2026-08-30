@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\Wpa;
 use App\Services\Dispatch\DispatchException;
 use App\Services\Dispatch\DispatchWorkflowService;
+use App\Services\Design\BlockEvaluator;
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -156,6 +157,20 @@ class Main extends Component
         return (new SurveyListExport($this->getListsProperty()->find($this->selected), $this->service->uuid))->download(date('YmdHis-') . 'exportSelectedSurvey.xlsx');
 
 
+    }
+
+    public function needBlock(Note $note): array
+    {
+        return app(BlockEvaluator::class)->evaluate($note, $this->service);
+    }
+
+    private function canDispatchNote(Note $note): bool
+    {
+        $eval = $this->needBlock($note);
+
+        return !$eval['block']
+            || (bool) ($eval['command'] ?? false)
+            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
     }
 
     public function updatedCompanyS()
@@ -563,7 +578,7 @@ class Main extends Component
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'warning',
-                'title' => 'Nenhum entrada para atribuição',
+                'title' => 'Nenhuma entrada para atribuição.',
                 'timer' => 5000,
             ]);
 
@@ -572,228 +587,144 @@ class Main extends Component
 
         $additionalData = [];
         $additionalDataUpd = [];
-
-        $linhas = explode("\n", trim($this->enter_dd));
-
-        if ($linhas && count($linhas)) {
-            $count = 0;
-            $ok = 0;
-
-            foreach ($linhas as $linha) {
-
-                if ($linha) {
-                    $coluna = explode("\t", $linha);
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(";", $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(" ", $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $coluna = explode(",", $linha);
-                    }
-
-                    if (!(count($coluna) > 1)) {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => "Gentileza separar os valores com alguma forma válida: ' ', ';', ','.",
-
-                        ]);
-
-                        return;
-                    }
-
-
-
-                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
-
-                        $dd = Wpa::Where('dd', trim($coluna[1]))->first();
-
-                        if ($dd && !$dd->production_id) {
-
-                            $note = Note::find($dd->note_id);
-
-                            if ($note->note != trim($coluna[0])) {
-                                $this->dispatchBrowserEvent('swal', [
-                                    'position' => 'center',
-                                    'icon' => 'warning',
-                                    'title' => "A DD {$dd->dd} já foi atribuída a Nota: {$note->note}. (Nenhuma Nota foi associada. Verifique novamente.)",
-
-                                ]);
-
-                                return;
-                            }
-                        } elseif ($dd && $dd->production_id) {
-
-                            $production = Production::with('Note', 'User')->find($dd->production_id);
-
-                            if ($production) {
-
-                                $name_user = isset($production->User) ? $production->User->name : 'Desconhecido';
-
-                                $this->dispatchBrowserEvent('swal', [
-                                    'position' => 'center',
-                                    'icon' => 'warning',
-                                    'title' => "A DD {$dd->dd} já foi atribuída para a nota {$production->Note->note} despachada para {$name_user}",
-
-                                ]);
-
-                            } else {
-                                $this->dispatchBrowserEvent('swal', [
-                                    'position' => 'center',
-                                    'icon' => 'error',
-                                    'title' => "A DD {$dd->dd} parece que ja foi despachada anteriormente, porém não encontrei relação de produção. Informe ao ADM.",
-
-                                ]);
-                            }
-
-                            return;
-                        }
-
-                        $dd = Wpa::WhereRelation('Note', 'note', trim($coluna[0]))->whereNull('production_id')->first();
-                        $note = Note::where('note', trim($coluna[0]))->first();
-
-                        if (!$dd && $note) {
-
-
-
-                            if (count($additionalData)) {
-                                $dd_encontrada = array_search(trim($coluna[1]), array_column($additionalData, 'dd'));
-
-                                if ($dd_encontrada !== false) {
-
-                                    $this->dispatchBrowserEvent('swal', [
-                                        'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada. <br> Revise novamente as DDs a serem cadastradas.<br> Nenhuma DD foi associada.",
-
-                                    ]);
-
-                                    return;
-
-                                }
-                            }
-
-                            if (count($additionalDataUpd)) {
-                                $dd_encontrada = array_search(trim($coluna[1]), array_column($additionalDataUpd, 'dd'));
-
-                                if ($dd_encontrada !== false) {
-
-                                    $this->dispatchBrowserEvent('swal', [
-                                        'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
-
-                                    ]);
-
-                                    return;
-
-                                }
-                            }
-
-
-
-
-                            $additionalData[] = [
-                                'note_id' => $note->id,
-                                'dd' => trim($coluna[1]),
-                            ];
-
-                            $ok++;
-
-
-                        }
-
-                        if (($dd && $note) && ($dd->dd != trim($coluna[1]))) {
-
-                            if (count($additionalData)) {
-                                $dd_encontrada = array_search(trim($coluna[1]), array_column($additionalData, 'dd'));
-
-                                if ($dd_encontrada !== false) {
-
-                                    $this->dispatchBrowserEvent('swal', [
-                                        'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
-
-                                    ]);
-
-                                    return;
-
-                                }
-                            }
-
-                            if (count($additionalDataUpd)) {
-                                $dd_encontrada = array_search(trim($coluna[1]), array_column($additionalDataUpd, 'dd'));
-
-                                if ($dd_encontrada !== false) {
-
-                                    $this->dispatchBrowserEvent('swal', [
-                                        'position' => 'center',
-                                        'icon' => 'warning',
-                                        'title' => "DD Duplicada",
-                                        'html' => "Você está inserindo a <strong>DD: {$coluna[1]}</strong> duplicada.  <br> Revise novamente as DDs a serem cadastradas.<br> <p><strong>Nenhuma DD foi associada.</strong></p>",
-
-                                    ]);
-
-                                    return;
-
-                                }
-                            }
-
-                            $additionalDataUpd[] = [
-                                'id' => $dd->id,
-                                'dd' => $coluna[1],
-                            ];
-
-                            $ok++;
-                        }
-
-
-                    } else {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => "Existem Notas/OV ou DD com caracteres inválidos (SOMENTE NÚMEROS SÃO PERMITIDOS). Confira novamente.",
-
-                        ]);
-
-                        return;
-                    }
-
-                }
-
-
+        $seenDds = [];
+        $unchanged = 0;
+        $moved = 0;
+
+        foreach (preg_split('/\r\n|\r|\n/', trim($this->enter_dd)) as $lineNumber => $linha) {
+            $linha = trim($linha);
+
+            if ($linha === '') {
+                continue;
             }
 
-            if (count($additionalData) || count($additionalDataUpd)) {
+            $coluna = preg_split('/[\s;,]+/', $linha, -1, PREG_SPLIT_NO_EMPTY);
 
-                $count = count($additionalData) + count($additionalDataUpd);
-
-                $this->additionalData = $additionalData;
-                $this->additionalDataUpd = $additionalDataUpd;
-
-                $this->dispatchBrowserEvent('alertar', [
-                    'title' =>  'Confirmar Atribuir DD?',
-                    'msg' => "Você está prestes a atribuir {$count} de {$ok} notas DD, Deseja Continuar?",
-                    'icon' => 'info',
-                    'btnOktxt' => 'Sim, Continue!',
-                    'btnCanceltxt' => 'Não, Cancele',
-                    'action' => "confirm_mass_dd",
-                    'cancel_titulo' => 'Cancelado!',
-                    'cancel_msg' => 'Nenhuma Nota Atribuída.',
-
+            if (count($coluna) !== 2) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Linha ' . ($lineNumber + 1) . ' inválida.',
+                    'html' => 'Informe exatamente dois valores por linha: <strong>Nota/OV</strong> e <strong>DD</strong>.',
                 ]);
+
+                return;
+            }
+
+            [$noteNumber, $ddNumber] = array_map('trim', $coluna);
+
+            if (!preg_match('/^[0-9]+$/', $noteNumber) || !preg_match('/^[0-9]+$/', $ddNumber)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Linha ' . ($lineNumber + 1) . ' contém caracteres inválidos.',
+                    'html' => 'Nota/OV e DD devem conter somente números.',
+                ]);
+
+                return;
+            }
+
+            if (isset($seenDds[$ddNumber])) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'DD duplicada no lote.',
+                    'html' => "A DD <strong>{$ddNumber}</strong> apareceu mais de uma vez. Revise o lote antes de continuar.",
+                ]);
+
+                return;
+            }
+            $seenDds[$ddNumber] = $noteNumber;
+
+            $note = Note::where('note', $noteNumber)->first();
+
+            if (!$note) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Nota/OV não encontrada.',
+                    'html' => "A Nota/OV <strong>{$noteNumber}</strong> da linha " . ($lineNumber + 1) . ' não foi encontrada.',
+                ]);
+
+                return;
+            }
+
+            $existingByDd = Wpa::where('dd', $ddNumber)->with('Note', 'Production.User')->first();
+
+            if ($existingByDd && (string) $existingByDd->note_id !== (string) $note->id) {
+                $additionalDataUpd[] = [
+                    'id' => $existingByDd->id,
+                    'note_id' => $note->id,
+                    'service_id' => $this->service->uuid,
+                    'production_id' => null,
+                    'dd' => $ddNumber,
+                ];
+                $moved++;
+                continue;
+            }
+
+            if ($existingByDd) {
+                $unchanged++;
+                continue;
+            }
+
+            $existingForNote = Wpa::where('note_id', $note->id)->whereNull('production_id')->first();
+
+            if ($existingForNote) {
+                $additionalDataUpd[] = [
+                    'id' => $existingForNote->id,
+                    'note_id' => $note->id,
+                    'service_id' => $this->service->uuid,
+                    'production_id' => null,
+                    'dd' => $ddNumber,
+                ];
+            } else {
+                $additionalData[] = [
+                    'note_id' => $note->id,
+                    'service_id' => $this->service->uuid,
+                    'dd' => $ddNumber,
+                ];
             }
 
         }
+
+        if (!count($additionalData) && !count($additionalDataUpd)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'info',
+                'title' => 'Nenhuma alteração necessária.',
+                'html' => $unchanged
+                    ? "{$unchanged} vínculo(s) informado(s) já existiam para a própria Nota/OV."
+                    : 'Nenhuma associação nova foi identificada.',
+            ]);
+
+            return;
+        }
+
+        $count = count($additionalData) + count($additionalDataUpd);
+
+        $this->additionalData = $additionalData;
+        $this->additionalDataUpd = $additionalDataUpd;
+
+        $summary = "Você está prestes a associar {$count} Nota(s)/OV(s) e DD(s).";
+        if ($moved) {
+            $summary .= " {$moved} DD(s) serão movidas de outra Nota/OV para a Nota/OV informada.";
+        }
+        if ($unchanged) {
+            $summary .= " {$unchanged} vínculo(s) já existiam e serão mantidos.";
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' =>  'Confirmar Associação de DD?',
+            'msg' => $summary,
+            'icon' => 'info',
+            'btnOktxt' => 'Sim, associar',
+            'btnCanceltxt' => 'Não, cancelar',
+            'action' => "confirm_mass_dd",
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg' => 'Nenhuma Nota/OV foi associada.',
+
+        ]);
     }
 
     public function confirmed_mass_dd()
@@ -1017,16 +948,8 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
-            if (Auth()->User()?->contract) {
-                return SicodeRules::hasCompanyDispatchProductionFor($list, Auth()->User(), $this->service->uuid);
-            }
-
-            return !$list->Productions
-                    ->where('status_note', $list->nstats)
-                    ->where('dt_note', $list->dt_status)
-                    ->first();
-        });
+        $this->filteredLists = $this->lists->paginate($this->perPage)
+            ->filter(fn ($list) => $this->canDispatchNote($list));
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
             $this->selectall = true;

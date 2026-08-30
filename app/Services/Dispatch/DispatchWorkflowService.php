@@ -301,10 +301,6 @@ class DispatchWorkflowService
             throw new DispatchException("DD {$dd} ja foi associada a outra Nota/OV.");
         }
 
-        if ($existing && $existing->production_id && (string) $existing->production_id !== (string) $production->id) {
-            throw new DispatchException("DD {$dd} ja foi associada a outra producao.");
-        }
-
         if ($existing) {
             $existing->update([
                 'production_id' => $production->id,
