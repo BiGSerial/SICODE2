@@ -118,16 +118,21 @@ class UserRegistrationWorkbookService
 
             if ($contract) {
                 $primaryService = $this->findContractServiceByName($contract, $userRow['primary_service'] ?? null);
+                $shouldPreserveServices = $this->shouldPreserveExistingServices($user);
+                $employeePayload = [
+                    'contract_id' => $contract->id,
+                ];
+
+                if (!$shouldPreserveServices) {
+                    $employeePayload['service_id'] = $primaryService?->uuid;
+                }
 
                 $user->Employee()->updateOrCreate(
                     ['user_id' => $user->id],
-                    [
-                        'contract_id' => $contract->id,
-                        'service_id' => $primaryService?->uuid,
-                    ]
+                    $employeePayload
                 );
 
-                if ($primaryService) {
+                if ($primaryService && !$shouldPreserveServices) {
                     $this->ensurePrimaryServiceAccess($user, $primaryService->uuid);
                 }
             }
@@ -150,6 +155,11 @@ class UserRegistrationWorkbookService
             'service' => $canExecute,
             'dispatch' => $canDispatch,
         ]);
+    }
+
+    private function shouldPreserveExistingServices(User $user): bool
+    {
+        return $user->ToServices()->exists();
     }
 
     private function validateUnits(array $rows, Company $root, Collection $units): array

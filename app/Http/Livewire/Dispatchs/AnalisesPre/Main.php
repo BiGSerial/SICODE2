@@ -557,7 +557,7 @@ class Main extends Component
 
         $query->with(['Productions.User', 'Productions.Company'])
             ->orderBy('type_note', 'DESC')
-            ->orderBy('days_left');
+            ->orderBy('dt_created');
 
         return $query;
 

@@ -2,6 +2,14 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     $contractCompanyName = \App\Support\SicodeRules::primaryCompanyNameFor(Auth()->User());
+
+    $prazoRealFromDtCreated = function ($note) {
+        if (!$note?->dt_created) {
+            return null;
+        }
+
+        return Carbon::parse($note->dt_created)->startOfDay()->diffInDays(Carbon::now()->startOfDay());
+    };
 @endphp
 <div class="survey-main-page">
 
@@ -303,12 +311,16 @@ $production = $stackProductionAvailable;
                                     <td class="fw-light text-center">{{ $list->centerjob }} <span class="text-danger"
                                             style="font-size: 8px;">{{ $list->nstats }}</span></td>
                                 @endif
+                                @php
+                                    $prazoReal = $prazoRealFromDtCreated($list);
+                                    $prazoRestante = $prazoReal === null ? null : 30 - $prazoReal;
+                                @endphp
                                 <td scope="col"
                                     class="text-center
-                                    @if ($list->days_left < 0) text-bg-secondary
-                                    @elseif($list->days_left >= 0 && $list->days_left < 6)
+                                    @if ($prazoRestante === null || $prazoRestante < 0) text-bg-secondary
+                                    @elseif($prazoRestante >= 0 && $prazoRestante < 6)
                                     table-danger
-                                    @elseif($list->days_left >= 6 && $list->days_left < 10)
+                                    @elseif($prazoRestante >= 6 && $prazoRestante < 10)
                                         table-warning
                                     @else
                                         table-success @endif
@@ -316,13 +328,13 @@ $production = $stackProductionAvailable;
                                     tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="top" data-bs-title="Prazo Real"
                                     data-bs-content="
-                                    <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
+                                    <p>Prazo real contado em dias corridos desde a criação da Nota/OV.</p>
                                     <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                                     <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                                     <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                                     <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                                     ">
-                                    {{ 30 - $list->days_left }}
+                                    {{ $prazoReal ?? '--' }}
                                 </td>
 
 

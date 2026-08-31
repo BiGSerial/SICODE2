@@ -4,7 +4,6 @@ namespace App\Http\Livewire\Construction\Hiring\Actions;
 
 use App\Models\Company;
 use App\Models\File;
-use App\Models\Production;
 use App\Models\User;
 use App\Models\Viability;
 use Illuminate\Support\Facades\DB;
@@ -104,8 +103,19 @@ class Edit extends Component
         $newCompany = optional(Company::find($this->companyS))->name ?? '---';
 
         $title = $this->isBulk
-            ? "ALTERAR VIABILIDADE EM MASSA (" . count($this->ids) . " itens)"
-            : "ALTERAR VIABILIDADE";
+            ? ($this->newsend
+                ? "RECONTRATAÇÃO EM MASSA (" . count($this->ids) . " itens)"
+                : "ALTERAR VIABILIDADE EM MASSA (" . count($this->ids) . " itens)")
+            : ($this->newsend ? "RECONTRATAR VIABILIDADE" : "ALTERAR VIABILIDADE");
+
+        $intro = $this->newsend
+            ? "Deseja criar uma recontratação para a(s) viabilidade(s) selecionada(s), mantendo o histórico anterior sem alterações?"
+            : "Deseja aplicar as alterações de destino da(s) viabilidade(s)?";
+
+        $confirmButton = $this->newsend ? 'Sim, recontratar' : 'Sim, alterar';
+        $cancelMessage = $this->newsend
+            ? 'Nenhuma viabilidade foi recontratada!'
+            : 'Nenhuma obra teve a Viabilidade Alterada!';
 
         $rowsCompany = $this->isBulk
             ? "<td class='text-center align-middle'>—</td><td class='text-center align-middle'> => </td><td class='text-center align-middle'>{$newCompany}</td>"
@@ -118,7 +128,7 @@ class Edit extends Component
         $this->dispatchBrowserEvent('alertar', [
             'title' => $title,
             'msg'   => "
-                <p>Deseja aplicar as alterações de destino da(s) viabilidade(s)?</p>
+                <p>{$intro}</p>
                 <div class='card'>
                     <table class='table table-sm'>
                         <thead>
@@ -139,11 +149,11 @@ class Edit extends Component
                 </div>
             ",
             'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Envie!',
+            'btnOktxt'      => $confirmButton,
             'btnCanceltxt'  => 'Não, Cancele',
             'action'        => 'alter_viability',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma obra teve a Viabilidade Alterada!',
+            'cancel_msg'    => $cancelMessage,
         ]);
     }
 
@@ -165,16 +175,17 @@ class Edit extends Component
         if ($this->newsend) {
             DB::beginTransaction();
             try {
-                $this->viability->update($this->payloadNewSend());
-                $this->viability->days()->delete();
-                $this->reopenLatestCompletedProduction($this->viability);
+                $newViability = $this->createNewViabilityFrom($this->viability);
 
                 // auditoria (dentro da transação)
-                LogRehiring::handle($before, $this->viability->fresh(), [
+                LogRehiring::handle($before, $newViability->fresh(), [
                     'was_newsend'     => true,
                     'was_rehiring'    => (bool)$this->rehiring,
                     'new_engineer_id' => $this->user_s,
                     'new_company_id'  => $this->companyS,
+                    'meta'            => [
+                        'source_viability_id' => $before->id,
+                    ],
                 ]);
 
                 DB::commit();
@@ -233,15 +244,16 @@ class Edit extends Component
                 $before = $viab->fresh();
 
                 if ($this->newsend) {
-                    $viab->update($this->payloadNewSend());
-                    $viab->days()->delete();
-                    $this->reopenLatestCompletedProduction($viab);
+                    $newViability = $this->createNewViabilityFrom($viab);
 
-                    LogRehiring::handle($before, $viab->fresh(), [
+                    LogRehiring::handle($before, $newViability->fresh(), [
                         'was_newsend'     => true,
                         'was_rehiring'    => (bool)$this->rehiring,
                         'new_engineer_id' => $this->user_s,
                         'new_company_id'  => $this->companyS,
+                        'meta'            => [
+                            'source_viability_id' => $before->id,
+                        ],
                     ]);
                     continue;
                 }
@@ -276,51 +288,57 @@ class Edit extends Component
         }
     }
 
-    protected function payloadNewSend(): array
+    protected function createNewViabilityFrom(Viability $source): Viability
+    {
+        $newViability = Viability::create($this->payloadNewSend($source));
+
+        $orderIds = $source->Orders()->pluck('orders.id')->all();
+        if (empty($orderIds) && $source->order_id) {
+            $orderIds = [$source->order_id];
+        }
+
+        if (!empty($orderIds)) {
+            $newViability->Orders()->sync($orderIds);
+        }
+
+        $fileIds = $source->Files()->pluck('files.id')->all();
+        if (!empty($fileIds)) {
+            $newViability->Files()->sync($fileIds);
+        }
+
+        return $newViability;
+    }
+
+    protected function payloadNewSend(Viability $source): array
     {
         return [
+            'order_id'      => $source->order_id,
+            'note_id'       => $source->note_id,
+            'user_id'       => auth()->id(),
             'engineer_id'   => $this->user_s,
             'company_id'    => $this->companyS,
             'rehired'       => $this->rehiring,
             'sended_at'     => now(),
+            'hired'         => true,
+            'hired_at'      => now(),
             'tacit'         => false,
             'approved'      => false,
             'rejected'      => false,
             'completed'     => false,
+            'canceled'      => false,
+            'engineer'      => false,
             'status'        => 1,
+            'init_at'       => null,
             'tacit_at'      => null,
             'completed_at'  => null,
+            'engineer_at'   => null,
             'replica'       => false,
             'treplica'      => false,
             'inActivity'    => false,
             'returned_at'   => null,
+            'visible_partner' => false,
+            'value'         => $source->value,
         ];
-    }
-
-    protected function reopenLatestCompletedProduction(Viability $viability): void
-    {
-        if (!$viability->note_id) {
-            return;
-        }
-
-        $production = Production::query()
-            ->where('note_id', $viability->note_id)
-            ->where(function ($query) {
-                $query->where('completed', true)
-                    ->orWhereNotNull('completed_at');
-            })
-            ->orderByDesc('completed_at')
-            ->orderByDesc('id')
-            ->first();
-
-        if (!$production) {
-            return;
-        }
-
-        $production->update([
-            'completed' => false,
-            'completed_at' => null,
-        ]);
     }
 
     public function downloadFile($id)

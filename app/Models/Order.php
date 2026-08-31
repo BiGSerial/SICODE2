@@ -73,4 +73,9 @@ class Order extends Model
     {
         return $this->belongsToMany(CancellationRequest::class, 'cancellation_request_orders')->withTimestamps();
     }
+
+    public function UncancellationRequests()
+    {
+        return $this->belongsToMany(UncancellationRequest::class, 'uncancellation_request_orders')->withTimestamps();
+    }
 }

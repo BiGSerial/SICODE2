@@ -321,7 +321,7 @@ class Main extends Component
         $query->whereNotIn('num_material', [21, 78, 79]);
 
         $query->with('Productions.User')
-            ->orderBy('days_left', 'ASC');
+            ->orderBy('dt_created', 'ASC');
 
         return $query;
 

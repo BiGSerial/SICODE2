@@ -1,7 +1,14 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
-    use App\Helpers\DaysLeft;
+
+    $prazoRealFromDtCreated = function ($note) {
+        if (!$note?->dt_created) {
+            return null;
+        }
+
+        return Carbon::parse($note->dt_created)->startOfDay()->diffInDays(Carbon::now()->startOfDay());
+    };
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}
@@ -507,14 +514,15 @@
                                     {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
                                 </td>
                                 @php
-                                    $daysleft = new DaysLeft($list->note);
+                                    $prazoReal = $prazoRealFromDtCreated($list->Note);
+                                    $prazoRestante = $prazoReal === null ? null : 30 - $prazoReal;
                                 @endphp
                                 <td scope="col"
                                     class="text-center
-                                    @if ($daysleft->getDaysLeft() < 0) text-bg-secondary
-                                    @elseif($daysleft->getDaysLeft() >= 0 && $daysleft->getDaysLeft() < 6)
+                                    @if ($prazoRestante === null || $prazoRestante < 0) text-bg-secondary
+                                    @elseif($prazoRestante >= 0 && $prazoRestante < 6)
                                     table-danger
-                                    @elseif($daysleft->getDaysLeft() >= 6 && $daysleft->getDaysLeft() < 10)
+                                    @elseif($prazoRestante >= 6 && $prazoRestante < 10)
                                         table-warning
                                     @else
                                         table-success @endif
@@ -522,13 +530,13 @@
                                     tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
                                     data-bs-placement="top" data-bs-title="Prazo Real"
                                     data-bs-content="
-                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
+                            <p>Prazo real contado em dias corridos desde a criação da Nota/OV.</p>
                             <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
                             <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
                             <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
                             <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
                             ">
-                                    {{ 30 - $daysleft->getDaysLeft() }}
+                                    {{ $prazoReal ?? '--' }}
                                 </td>
                                 {{-- <td class="fw-light text-center">
                                         <span

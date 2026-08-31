@@ -178,6 +178,72 @@ class ServicesController extends Controller
         ]);
     }
 
+    public function uncancellation_create(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.uncancellation-create', [
+            'service' => $service,
+        ]);
+    }
+
+    public function uncancellation_exec_queue(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.uncancellation-exec-queue', [
+            'service' => $service,
+        ]);
+    }
+
+    public function uncancellation_exec_ongoing(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.uncancellation-exec-ongoing', [
+            'service' => $service,
+        ]);
+    }
+
+    public function uncancellation_exec_show(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.uncancellation-exec-show', [
+            'service' => $service,
+            'request' => $request->route('request'),
+        ]);
+    }
+
+    public function uncancellation_exec_history(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (!$service || $service->folder !== 'pagamento') {
+            abort(403, 'Recurso não implementado.');
+        }
+
+        return view('services.pagamento.uncancellation-exec-history', [
+            'service' => $service,
+        ]);
+    }
+
 
     // Reclamações
     public function protests_list(Request $request)
