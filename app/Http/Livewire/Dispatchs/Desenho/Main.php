@@ -7,6 +7,7 @@ use App\Exports\DispatchDesenhoMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\Design\BlockEvaluator;
+use App\Support\SicodeRules;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -89,8 +90,13 @@ class Main extends Component
     // TODO: 27 Dias Status Temporário - Remover no Futuro
     public $only_27 = false;
 
+    private $filter_group = 'desenho';
+
+    private $filters = [];
+
     protected $listeners = [
         'refresh_dispatch'  => '$refresh',
+        'refresh_list'      => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
         'confirm_dispatch'  => 'confirmed_att',
@@ -150,13 +156,17 @@ class Main extends Component
 
     public function export_excel()
     {
-        if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
-        } else {
-            $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
+        $query = $this->lists;
 
-            return (new DispatchDesenhoMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+        if (count($this->selected)) {
+            $query->whereIn('id', $this->selected);
         }
+
+        $notes = $query->get()
+            ->filter(fn ($note) => $this->canDispatchNote($note))
+            ->values();
+
+        return (new DispatchDesenhoMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
     }
 
     public function check_mmgd(Note $note)
@@ -259,6 +269,12 @@ class Main extends Component
             unset($_SESSION['filtro']['desenho']);
         }
 
+        session()->forget('filter.' . $this->filter_group);
+
+        if (isset($_SESSION['filter'][$this->filter_group])) {
+            unset($_SESSION['filter'][$this->filter_group]);
+        }
+
         $this->emit('refresh_service');
     }
 
@@ -285,13 +301,7 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::find($this->selected);
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
     }
 
     public function confirm_att()
@@ -561,14 +571,24 @@ class Main extends Component
 
     public function getListsProperty()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $this->filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
+
         $query = Note::query()->excludeCanceledFullDone();
+
+        SicodeRules::applyContractDispatchMainVisibility(
+            $query,
+            Auth()->User(),
+            $this->service->uuid,
+            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
+        );
 
         if (count($this->multiSearch)) {
             $query->whereIn('note', $this->multiSearch);
         } else {
-
-            RuleBuilder::applyRules($query, $this->service->Status);
-
             if ($this->not_assigned) {
                 $query->where(function ($q) {
                     $q->doesntHave('Productions')
@@ -578,6 +598,12 @@ class Main extends Component
                         });
                 });
             }
+
+            $group1 = $this->filters['group1'] ?? $this->group1_s;
+            $group2 = $this->filters['group2'] ?? $this->group2_s;
+            $group5 = $this->filters['group5'] ?? $this->group5_s;
+            $rubricas = $this->filters['rubrica'] ?? $this->rubrica_s;
+            $base = $this->municipioFilterValues();
 
             $query->when($this->search, function ($q, $s) {
                 $this->gotoPage(1);
@@ -589,9 +615,9 @@ class Main extends Component
                         ->orWhere('group4', 'like', '%' . $s . '%')
                         ->orWhere('group5', 'like', '%' . $s . '%');
                 });
-            })->when($this->rubrica_s, function ($q) {
-                return $q->where(function ($query) {
-                    $query->whereIn('rubrica', $this->rubrica_s)
+            })->when($rubricas, function ($q) use ($rubricas) {
+                return $q->where(function ($query) use ($rubricas) {
+                    $query->whereIn('rubrica', $rubricas)
                         ->orWhereNull('rubrica');
                 });
             })
@@ -601,30 +627,30 @@ class Main extends Component
                             ->orWhereNull('type_note');
                     });
                 })
-                ->when($this->group1_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group1', $this->group1_s)
+                ->when($group1, function ($q) use ($group1) {
+                    return $q->where(function ($query) use ($group1) {
+                        return $query->whereIn('group1', $group1)
                             ->orWhere('group1', '')
                             ->orWhere('group1', null);
                     });
                 })
-                ->when($this->group2_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group2', $this->group2_s)
+                ->when($group2, function ($q) use ($group2) {
+                    return $q->where(function ($query) use ($group2) {
+                        return $query->whereIn('group2', $group2)
                             ->orWhere('group2', '')
                             ->orWhere('group2', null);
                     });
                 })
-                ->when($this->group5_s, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('group5', $this->group5_s)
+                ->when($group5, function ($q) use ($group5) {
+                    return $q->where(function ($query) use ($group5) {
+                        return $query->whereIn('group5', $group5)
                             ->orWhere('group5', '')
                             ->orWhere('group5', null);
                     });
                 })
-                ->when($this->base, function ($q) {
-                    return $q->where(function ($query) {
-                        return $query->whereIn('nexp', $this->base)
+                ->when($base, function ($q) use ($base) {
+                    return $q->where(function ($query) use ($base) {
+                        return $query->whereIn('nexp', $base)
                             ->orWhere('nexp', '')
                             ->orWhere('nexp', null);
                     });
@@ -642,7 +668,7 @@ class Main extends Component
                 });
         }
 
-        $query->with('Productions.User')
+        $query->with(['Productions.User', 'Productions.Company'])
             ->orderBy('is45', 'DESC')
             ->orderBy('type_note', 'DESC')
             ->orderBy('days_left', 'ASC')
@@ -652,11 +678,51 @@ class Main extends Component
 
     }
 
+    private function municipioFilterValues(): array
+    {
+        $cities = $this->filters['city'] ?? [];
+        $regions = $this->filters['region'] ?? [];
+        $districts = $this->filters['regional'] ?? ($this->filters['district'] ?? []);
+
+        if (empty($cities) && empty($regions) && empty($districts)) {
+            return [];
+        }
+
+        $query = City::query();
+
+        if (!empty($cities)) {
+            $query->whereIn('rdMunicipio', $cities);
+        }
+
+        if (!empty($regions)) {
+            $query->whereIn('regiao', $regions);
+        }
+
+        if (!empty($districts)) {
+            $query->whereIn('baseConstrucao', $districts);
+        }
+
+        return $query->pluck('rdMunicipio')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public function needBlock(Note $note): array
     {
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
         // retorna estrutura pra view usar diretamente
         return $eval;
+    }
+
+    private function canDispatchNote(Note $note): bool
+    {
+        $eval = $this->needBlock($note);
+
+        return !$eval['block']
+            || (bool) ($eval['command'] ?? false)
+            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
     }
 
     public function getBaseProperty()
@@ -728,11 +794,7 @@ class Main extends Component
     public function render()
     {
         $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
-
-            return !$list->Productions
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
+            return $this->canDispatchNote($list);
         });
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {

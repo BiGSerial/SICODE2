@@ -6,6 +6,8 @@ use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\Design\BlockEvaluator;
+use App\Support\SicodeRules;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -86,7 +88,7 @@ class Main extends Component
     public $not_assigned = false;
 
     // Filters
-    private $filter_group = 'analises';
+    private $filter_group = 'analises_pre';
 
     private $filter;
 
@@ -113,13 +115,13 @@ class Main extends Component
 
     public function export_excel()
     {
-        if (!count($this->selected)) {
-            return (new DispatchDesenhoMain($this->lists->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
-        } else {
-            $notes = Note::WhereIn('id', $this->selected)->orderBy('days_left')->get();
+        $query = $this->lists;
 
-            return (new DispatchDesenhoMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+        if (count($this->selected)) {
+            $query->whereIn('id', $this->selected);
         }
+
+        return (new DispatchDesenhoMain($query->get(), $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
     }
 
     public function updatedCompanyS()
@@ -187,13 +189,7 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::find($this->selected);
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
     }
 
     public function confirm_att()
@@ -474,7 +470,12 @@ class Main extends Component
 
         $query = Note::query()->excludeCanceledFullDone();
 
-        RuleBuilder::applyRules($query, $this->service->Status);
+        SicodeRules::applyContractDispatchMainVisibility(
+            $query,
+            Auth()->User(),
+            $this->service->uuid,
+            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
+        );
 
         if (count($this->multiSearch)) {
             $query->whereIn('note', $this->multiSearch);
@@ -512,12 +513,16 @@ class Main extends Component
             ->filter(fn ($v) => filled($v))
             ->map(fn ($v) => trim((string) $v))
             ->values();
+        $regionalValues = collect((array) ($activeFilters['regional'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
         $cityValues = collect((array) ($activeFilters['city'] ?? []))
             ->filter(fn ($v) => filled($v))
             ->map(fn ($v) => trim((string) $v))
             ->values();
 
-        if ($regionValues->isNotEmpty() || $cityValues->isNotEmpty()) {
+        if ($regionValues->isNotEmpty() || $regionalValues->isNotEmpty() || $cityValues->isNotEmpty()) {
             $nexpCodes = collect();
             $nexpCodes = $nexpCodes->merge(
                 $cityValues->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)->values()
@@ -529,6 +534,9 @@ class Main extends Component
                     $sq->whereIn('regiao', $regionValues->all())
                         ->orWhereIn('baseConstrucao', $regionValues->all());
                 });
+            }
+            if ($regionalValues->isNotEmpty()) {
+                $mappedQuery->whereIn('baseConstrucao', $regionalValues->all());
             }
             if ($cityValues->isNotEmpty()) {
                 $mappedQuery->where(function ($sq) use ($cityValues) {
@@ -547,12 +555,26 @@ class Main extends Component
         }
 
 
-        $query->with('Productions.User')
+        $query->with(['Productions.User', 'Productions.Company'])
             ->orderBy('type_note', 'DESC')
             ->orderBy('days_left');
 
         return $query;
 
+    }
+
+    public function needBlock(Note $note): array
+    {
+        return app(BlockEvaluator::class)->evaluate($note, $this->service);
+    }
+
+    private function canDispatchNote(Note $note): bool
+    {
+        $eval = $this->needBlock($note);
+
+        return !$eval['block']
+            || (bool) ($eval['command'] ?? false)
+            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
     }
 
     public function getBaseProperty()
@@ -623,13 +645,7 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
-
-            return !$list->Productions
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
+        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(fn ($list) => $this->canDispatchNote($list));
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
             $this->selectall = true;

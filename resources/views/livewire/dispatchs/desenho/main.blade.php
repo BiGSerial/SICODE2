@@ -1,37 +1,202 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    $contractCompanyName = \App\Support\SicodeRules::primaryCompanyNameFor(Auth()->User());
 @endphp
-<div>
+<div class="survey-main-page">
 
-    @push('css')
-        <style>
-            @keyframes flame {
-                0% {
-                    transform: scaleX(1) scaleY(1);
-                }
-
-                25% {
-                    transform: scaleX(1) scaleY(0.8);
-                }
-
-                50% {
-                    transform: scaleX(-1) scaleY(0.8);
-                }
-
-                75% {
-                    transform: scaleX(-1) scaleY(1);
-                }
+    <style>
+        @keyframes flame {
+            0% {
+                transform: scaleX(1) scaleY(1);
             }
-        </style>
-    @endpush
+
+            25% {
+                transform: scaleX(1) scaleY(0.8);
+            }
+
+            50% {
+                transform: scaleX(-1) scaleY(0.8);
+            }
+
+            75% {
+                transform: scaleX(-1) scaleY(1);
+            }
+        }
+
+        .survey-main-page {
+            --sp-bg: #f6f7fb;
+            --sp-surface: #ffffff;
+            --sp-ink: #1f2933;
+            --sp-muted: #6b7280;
+            --sp-border: #e5e7eb;
+            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
+                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
+                var(--sp-bg);
+            padding: 1.5rem 0;
+        }
+
+        .survey-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
+            color: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .survey-header h2 {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .survey-meta {
+            color: rgba(248, 250, 252, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .survey-main-page .filter-shell,
+        .survey-main-page .summary-bar,
+        .survey-main-page .table-card {
+            background: var(--sp-surface);
+            border: 1px solid var(--sp-border);
+            border-radius: 0.9rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .survey-main-page .summary-bar {
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .survey-main-page .summary-item {
+            color: var(--sp-muted);
+            font-size: 0.92rem;
+        }
+
+        .survey-main-page .summary-item strong {
+            color: var(--sp-ink);
+        }
+
+        .survey-main-page .table-card {
+            overflow: hidden;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        .survey-main-page .table-card .card-header {
+            padding: 0.9rem 1.25rem;
+        }
+
+        .survey-main-page .table-card .table thead th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+
+        .survey-main-page .table-card .main-table {
+            border-collapse: separate;
+            border-spacing: 0 0.45rem;
+            margin: 0;
+        }
+
+        .survey-main-page .table-card .main-table thead th {
+            border: 0;
+            background: #1f2937;
+            color: #f8fafc;
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .survey-main-page .table-card .main-table tbody tr {
+            transition: transform .15s ease, box-shadow .15s ease;
+        }
+
+        .survey-main-page .table-card .main-table tbody tr:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        }
+
+        .survey-main-page .table-card .main-table tbody td {
+            font-size: 0.9rem;
+            vertical-align: middle;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            padding-top: 0.6rem;
+            padding-bottom: 0.6rem;
+        }
+
+        .survey-main-page .table-card .main-table tbody td.table-primary,
+        .survey-main-page .table-card .main-table tbody td.table-warning,
+        .survey-main-page .table-card .main-table tbody td.table-success,
+        .survey-main-page .table-card .main-table tbody td.table-danger,
+        .survey-main-page .table-card .main-table tbody td.table-secondary {
+            border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .survey-main-page .table-card .main-table tbody td:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger):not(.table-secondary):not(.text-bg-secondary) {
+            background: #f8fafc;
+        }
+
+        .survey-main-page .table-card .main-table tbody td:first-child {
+            border-left: 1px solid #e2e8f0;
+            border-top-left-radius: 0.7rem;
+            border-bottom-left-radius: 0.7rem;
+        }
+
+        .survey-main-page .table-card .main-table tbody td:last-child {
+            border-right: 1px solid #e2e8f0;
+            border-top-right-radius: 0.7rem;
+            border-bottom-right-radius: 0.7rem;
+        }
+
+        .survey-main-page .filter-shell .form-label {
+            color: var(--sp-muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .survey-main-page .filter-shell .btn,
+        .survey-main-page .filter-shell .form-select,
+        .survey-main-page .filter-shell .form-control {
+            border-radius: 0.65rem;
+        }
+    </style>
 
     <x-show-loading />
 
     <x-showselected :count="$selected" />
 
-    <div class="row">
-        <div class="col-1">
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="survey-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>LISTA PARA {{ mb_strtoupper($service->service) }}
+                    @if ($contractCompanyName)
+                        - {{ mb_strtoupper($contractCompanyName) }}
+                    @endif
+                </h2>
+                <div class="survey-meta">
+                    @if ($service->Status->count())
+                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                            ({{ $sts->value }})
+                        @endforeach
+                    @endif
+                </div>
+            </div>
+            <div class="text-lg-end">
+                @if ($update)
+                    <div class="survey-meta">Última Atualização</div>
+                    <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
+                @endif
+            </div>
+        </div>
+
+        <div class="filter-shell mb-3">
+            <div class="card-body p-3 p-lg-4">
+                <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-2 col-xl-1">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
                 <option value="25">25</option>
@@ -41,16 +206,16 @@
                 <option value="500">500</option>
             </select>
         </div>
-        <div class="mb-3 col-md-2">
+        <div class="col-12 col-md-4 col-xl-2">
             <label for="search" class="form-label">Buscar</label>
             <div class="input-group">
-                <input wire:model.bounce.2s="search" type="email"
+                <input wire:model.bounce.2s="search" type="text"
                     class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
                 <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
                         class="ri-checkbox-multiple-blank-line"></i></button>
             </div>
         </div>
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
+        <div class="col-12 col-xl-9 d-flex flex-wrap align-items-center justify-content-xl-end gap-2">
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
                 <label class="form-check-label" for="inlineRadio1">Nota</label>
@@ -64,226 +229,19 @@
                 <label class="form-check-label" for="inlineRadio1">Ambos</label>
             </div>
 
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Grupo1
-                    @if (count($group1_s))
-                        <span class="badge text-bg-light">{{ count($group1_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($group1_l) && $group1_l && $group1_l->count() > 0)
-                            @foreach ($group1_l as $group)
-                                @if (trim($group))
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="group1_s"
-                                            wire:key="{{ $group }}" value="{{ $group }}">
-                                        <label for="opcao1">{{ $group }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
+            <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
+            @livewire('components.filter.filter', ['myKey' => 'group1', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'group1', 'filter' => 'Grupo1', 'group_filter' => 'desenho', 'values' => 'group1', 'direction' => 'ASC', 'query' => ''], key('desenho-group1'))
+            @livewire('components.filter.filter', ['myKey' => 'group2', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'group2', 'filter' => 'Grupo2', 'group_filter' => 'desenho', 'values' => 'group2', 'direction' => 'ASC', 'query' => ''], key('desenho-group2'))
+            @livewire('components.filter.filter', ['myKey' => 'group5', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'group5', 'filter' => 'Grupo5', 'group_filter' => 'desenho', 'values' => 'group5', 'direction' => 'ASC', 'query' => ''], key('desenho-group5'))
+            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'desenho', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('desenho-rubrica'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'desenho', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('desenho-region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'desenho', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('desenho-regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'desenho', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('desenho-city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'desenho'], key('desenho-removeAll'))
 
 
-                    </form>
                 </div>
-            </div>
-
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Grupo2
-                    @if (count($group2_s))
-                        <span class="badge text-bg-light">{{ count($group2_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($group2_l) && $group2_l && $group2_l->count() > 0)
-                            @foreach ($group2_l as $group)
-                                @if (trim($group))
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="group2_s"
-                                            wire:key="{{ $group }}" value="{{ $group }}">
-                                        <label for="opcao1">{{ $group }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Grupo5
-                    @if (count($group5_s))
-                        <span class="badge text-bg-light">{{ count($group5_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($group5_l) && $group5_l->count() > 0)
-                            @foreach ($group5_l as $group)
-                                @if (trim($group))
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="group5_s"
-                                            wire:key="{{ $group }}" value="{{ $group }}">
-                                        <label for="opcao1">{{ $group }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Região
-                    @if (count($region_s))
-                        <span class="badge text-bg-light">{{ count($region_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($region_l) && $region_l && $region_l->count() > 0)
-                            @foreach ($region_l as $region)
-                                @if ($region->regiao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="region_s"
-                                            wire:key="{{ $region->regiao }}" value="{{ $region->regiao }}">
-                                        <label for="opcao1">{{ $region->regiao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Regional
-                    @if (count($district_s))
-                        <span class="badge text-bg-light">{{ count($district_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($district_l) && $district_l && $district_l->count() > 0)
-                            @foreach ($district_l as $district)
-                                @if ($district->baseConstrucao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="district_s"
-                                            wire:key="{{ $district->baseConstrucao }}"
-                                            value="{{ $district->baseConstrucao }}">
-                                        <label for="opcao1">{{ $district->baseConstrucao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-                        @endif
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Município
-                    @if (count($city_s))
-                        <span class="badge text-bg-light">{{ count($city_s) }}</span>
-                    @endif
-
-                </button>
-                {{-- @dump($city_l) --}}
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($city_l) && $city_l && $city_l->count() > 0)
-                            @foreach ($city_l as $city)
-                                @if ($city->cidade)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="city_s"
-                                            wire:key="{{ $city->rdMunicipio }}" value="{{ $city->cidade }}">
-                                        <label for="opcao1">{{ $city->municipio }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-
-            <div class="mx-1 ">
-                <button class="btn btn-primary" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                </button>
-            </div>
-            <div class="mx-1 "><button class="btn btn-primary" wire:click.prevent="filter_clean"><i
-                        class="ri-filter-off-fill"></i>
-                </button></div>
-
-
-        </div>
-        <div class="mb-3">
+                <div class="mt-3">
             <div class="btn-group" role="group" aria-label="Basic example" tabindex="0"
                 data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
                 data-bs-title="Exibir Apenas Notas Nao Atribuidas"
@@ -312,33 +270,27 @@
 
             </div>
         </div>
-    </div>
-
-    <div class="row">
-
-        @if (!$lists->count())
-            {{-- <div class="col-6">
-                @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div> --}}
-        @elseif ($lists->count())
-            <div class="col-6">
-                {{ $lists->links() }}
             </div>
-        @endif
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
-                @if ($update)
-                    Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
-                @endif
-            </span>
         </div>
 
+        <div class="summary-bar">
+        <div class="row align-items-center g-2">
+            <div class="col-12 col-lg-6">
+                @if ($lists->count())
+                    {{ $lists->links() }}
+                @endif
+            </div>
+            <div class="col-12 col-lg-6 text-lg-end">
+                <div class="summary-item">
+                    Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                    <strong>{{ $lists->lastItem() }}</strong> de
+                    <strong>{{ $lists->total() }}</strong> registros.
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
+    <div class="table-card">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -350,10 +302,13 @@
                 </h4>
             </div>
         @else
-            <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
+            <div class="card-header fw-bold text-bg-secondary">
                 <div class="row">
                     <div class="col">
                         <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
+                            @if ($contractCompanyName)
+                                - {{ mb_strtoupper($contractCompanyName) }}
+                            @endif
                             @if ($service->Status->count())
                                 @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                                     ({{ $sts->value }})
@@ -371,7 +326,7 @@
             </div>
 
             <div class="table-responsive" wire:ignore.self>
-                <table class="table table-sm table-striped table-condensed">
+                <table class="table table-sm table-condensed table-hover mb-0 main-table">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -452,8 +407,18 @@
                                 $command = $e['command'];
                                 $production = $e['production'];
                                 $reason = $e['reason'];
+                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+                                $canDispatch = !$block || $command || $stackProductionAvailable;
 
-                                $user = $production?->user;
+                                if ($stackProductionAvailable) {
+                                    $rowClass = '';
+                                    $production = $stackProductionAvailable;
+                                    $reason = 'Disponivel na pilha da empresa para atribuicao individual.';
+                                }
+
+                                $user = $production?->User;
+                                $company = $production?->Company;
+                                $assignee = $user?->name ?: ($company?->name ?: 'Desconhecido');
 
                             @endphp
 
@@ -465,7 +430,7 @@
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
-                                        @disabled($block && !$command)>
+                                        @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
@@ -593,16 +558,16 @@
 
                                 <td class="fw-bold text-center {{ $rowClass }}" data-bs-toggle="tooltip"
                                     data-bs-placement="top" data-bs-title="{{ $e['reason'] }}">
-                                    @if ($command)
+                                    @if ($canDispatch)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="get_single_note({{ $list->id }})"
+                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
-                                            data-bs-title="Despachar nota"></i>
+                                            data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar nota' }}"></i>
                                     @else
                                         <span style="font-size: 11px" data-bs-toggle="tooltip"
                                             data-bs-placement="top"
-                                            data-bs-title="Empresa responsável">{{ reduceName($user?->company?->name) }}</span>
+                                            data-bs-title="Responsavel atual">{{ reduceName($assignee) }}</span>
                                     @endif
 
                                 </td>
@@ -614,18 +579,22 @@
 
         @endif
     </div>
-    <div class="row">
-        <div class="col-6">
-            {{ $lists->links() }}
-        </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
+    <div class="summary-bar mt-3">
+        <div class="row align-items-center g-2">
+            <div class="col-12 col-lg-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-12 col-lg-6 text-lg-end">
+                <div class="summary-item">
+                    Exibindo <strong>{{ $lists->firstItem() }}</strong> até
+                    <strong>{{ $lists->lastItem() }}</strong> de
+                    <strong>{{ $lists->total() }}</strong> registros.
+                </div>
+            </div>
         </div>
     </div>
 
+    </div>
 
     {{-- MODALS --}}
 
@@ -653,150 +622,7 @@
 
     </div>
 
-    <div wire:ignore.self class="modal fade" id="add_mass_notes" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Despachar {{ $service->service }}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                        wire:click.prevent="closeall"></button>
-                </div>
-                <div class="modal-body">
-                    @if ($notes && $notes->count())
-                        <div class="row">
-                            <div class="mb-3">
-                                <label for="exampleFormControlInput1" class="form-label">Tipo de Despacho</label>
-                                <select class="form-select form-select-sm" aria-label="Small select example"
-                                    wire:model="type">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Pilha</option>
-                                    <option value="2">Individual</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3 ">
-                                <label for="exampleFormControlInput1" class="form-label">Empresa:</label>
-
-                                <select class="form-select form-select-sm" aria-label="" wire:model="company_s">
-                                    <option selected>Selecione</option>
-
-                                    @if ($company_l && $company_l->count())
-
-                                        @foreach ($company_l as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-                                </select>
-                            </div>
-
-                            @if ($type === '2')
-
-                                <div class="row mb-3">
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Buscar
-                                            Usuario:</label>
-                                        <input wire:model.bounce.500ms="search_user"
-                                            class="form-control form-control-sm" type="text"
-                                            placeholder="Digite um nome" aria-label="">
-                                    </div>
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                        <select class="form-select form-select-sm" aria-label=""
-                                            wire:model="user_s">
-
-                                            @if ($user_l && $user_l->count())
-
-                                                <option value="" selected>Selecione um Usuário</option>
-                                                @foreach ($user_l->sortBy('name', SORT_LOCALE_STRING) as $user)
-                                                    <option wire:key='{{ $user->id }}'
-                                                        value="{{ $user->id }}">{{ $user->name }}
-                                                    </option>
-                                                @endforeach
-                                            @else
-                                                <option selected>Escolha uma Empresa Primeiro</option>
-                                            @endif
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {{-- <div class="mb-3 ">
-                                    <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                    <select class="form-select form-select-sm" aria-label="" wire:model="user_s">
-
-                                        @if ($user_l && $user_l->count())
-                                            <option value="" selected>Selecione um Usuário</option>
-                                            @foreach ($user_l as $user)
-                                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                            @endforeach
-                                        @else
-                                            <option selected>Escolha uma Empresa Primeiro</option>
-                                        @endif
-                                    </select>
-                                </div> --}}
-
-
-                                {{-- <div class="mb-2 ">
-                                    <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                                        MASSA:</label>
-                                    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"
-                                        placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <button class="btn-sm btn btn-primary" wire:click.prevent="add_dd">DD em
-                                        MASSA</button>
-                                </div> --}}
-                            @endif
-
-                            <div class="col-12 fw-bold">
-                                DESPACHANDO {{ $notes->count() }} OV/NOTA(S)
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-condensed table-striped">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">#</th>
-                                        <th scope="col">Note</th>
-                                        <th scope="col">Desc</th>
-                                        {{-- <th scope="col">DD</th> --}}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($notes as $index => $note)
-                                        <tr>
-                                            <td scope="col" class="fw-bold">{{ $index + 1 }}</td>
-                                            <td>{{ $note->note }}</td>
-                                            <td>{{ $note->material }}</td>
-                                            {{-- <td>
-                                                @if ($this->type === '2')
-                                                    <input wire:model.defer="additionalData.{{ $index }}"
-                                                        class="form-control form-control-sm" type="text"
-                                                        placeholder="Informe a DD" aria-label="">
-                                                @endif
-
-                                            </td> --}}
-
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                    @endif
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
-                        wire:loading.attr="disabled">
-                        Despachar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-'.$service->uuid))
 
 
     {{-- END MODALS --}}

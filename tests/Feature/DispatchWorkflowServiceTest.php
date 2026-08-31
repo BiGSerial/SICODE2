@@ -95,4 +95,70 @@ class DispatchWorkflowServiceTest extends TestCase
             '170000002'
         );
     }
+
+    public function test_design_dispatch_does_not_require_dd(): void
+    {
+        $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
+        $actor = User::factory()->create(['contract' => false]);
+        $targetUser = User::factory()->create(['contract' => false, 'company_id' => $company->id]);
+        $service = Service::create(['service' => 'Desenho', 'folder' => 'desenho']);
+        $note = Note::create([
+            'note' => '4000000005',
+            'dt_status' => '2026-08-30 08:00:00',
+            'nstats' => 'NEW',
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $targetUser,
+            $actor
+        );
+
+        $this->assertDatabaseHas('productions', [
+            'id' => $production->id,
+            'note_id' => $note->id,
+            'service_id' => $service->uuid,
+            'user_id' => $targetUser->id,
+            'company_id' => $company->id,
+            'status' => 2,
+        ]);
+        $this->assertDatabaseCount('wpas', 0);
+    }
+
+    public function test_design_dispatch_uses_design_block_evaluator(): void
+    {
+        $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
+        $actor = User::factory()->create(['contract' => false]);
+        $targetUser = User::factory()->create(['contract' => false, 'company_id' => $company->id]);
+        $service = Service::create(['service' => 'Desenho', 'folder' => 'desenho']);
+        $note = Note::create([
+            'note' => '4000000006',
+            'dt_status' => '2026-08-30 08:00:00',
+            'nstats' => 'NEW',
+        ]);
+
+        Production::create([
+            'note_id' => $note->id,
+            'service_id' => $service->uuid,
+            'company_id' => $company->id,
+            'user_id' => $targetUser->id,
+            'dt_note' => '2026-08-30 08:00:00',
+            'status_note' => 'NEW',
+            'completed' => true,
+            'confirmed' => false,
+            'status' => 5,
+        ]);
+
+        $this->expectException(DispatchException::class);
+
+        app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $targetUser,
+            $actor
+        );
+    }
 }

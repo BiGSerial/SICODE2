@@ -60,7 +60,9 @@ class ExportDispatchPaymentJob implements ShouldQueue
             $_SESSION['filter']['payments'] = [
                 'company' => $this->params['company_ids'] ?? null,
                 'rubrica' => $this->params['rubricas']    ?? null,
-                'city'    => $this->params['cities']      ?? null,
+                'region' => $this->params['regions'] ?? null,
+                'regional' => $this->params['regionals'] ?? null,
+                'city' => $this->params['cities'] ?? null,
             ];
 
             /** @var NoteFilter $noteFilter */
@@ -209,6 +211,10 @@ class ExportDispatchPaymentJob implements ShouldQueue
 
             if (!empty($this->params['typeNote'])) {
                 $base->where('notes.type_note', $this->params['typeNote']);
+            }
+
+            if (!empty($this->params['selected_ids'])) {
+                $base->whereIn('notes.id', array_values(array_filter((array) $this->params['selected_ids'])));
             }
 
             // exibir apenas quem tem D5 (se solicitado)

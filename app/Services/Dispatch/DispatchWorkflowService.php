@@ -338,6 +338,16 @@ class DispatchWorkflowService
             foreach ($finalScopes as $finalScope) {
                 app(WorkReportFlowProductionLinker::class)->linkFiscalization($production, 'dispatch_workflow', [], $finalScope);
             }
+
+            return;
+        }
+
+        if ($serviceKey === 'payment') {
+            app(WorkReportFlowProductionLinker::class)->linkPaymentForScopes(
+                $production,
+                $finalScopes,
+                'dispatch_workflow'
+            );
         }
     }
 

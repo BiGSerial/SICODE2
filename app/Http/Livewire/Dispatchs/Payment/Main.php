@@ -12,6 +12,7 @@ use App\Services\Payment\BlockEvaluator;
 use App\Services\Payment\NoteFilter;
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -139,17 +140,24 @@ class Main extends Component
      */
     public function export_excel()
     {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
+
         $params = [
         'service_uuid' => $this->service->uuid,
         'search'       => $this->search,
         'multiSearch'  => $this->multiSearch,
+        'selected_ids' => $this->selected,
         'typeNote'     => $this->typeNote,
         'not_assigned' => $this->not_assigned,
-        // se você usar filtros de sessão via NoteFilter, mande-os aqui:
-        'company_ids'  => $this->company_s ? [$this->company_s] : null,
-        'rubricas'     => $this->rubrica_s ?: null,
-        'cities'       => $this->city_s ?: null,
-        // opcional: filtrar por D5
+        'company_ids'  => $filters['company'] ?? null,
+        'rubricas'     => $filters['rubrica'] ?? null,
+        'regions'      => $filters['region'] ?? null,
+        'regionals'    => $filters['regional'] ?? null,
+        'cities'       => $filters['city'] ?? null,
         'filter_d5'    => property_exists($this, 'filter_d5') ? (bool)$this->filter_d5 : false,
     ];
 
@@ -203,6 +211,15 @@ class Main extends Component
         return $eval;
     }
 
+    private function canDispatchNote(Note $note): bool
+    {
+        $eval = $this->needBlock($note);
+
+        return !$eval['block']
+            || (bool) ($eval['command'] ?? false)
+            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
+    }
+
     /**
      * Selecionar todos os itens visíveis na página atual, desde que NÃO tenham produção aberta
      */
@@ -216,8 +233,6 @@ class Main extends Component
 
         $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
 
-        $evaluator = app(BlockEvaluator::class);
-
         if ($this->selectall) {
 
             foreach ($visibleItems as $note) {
@@ -228,13 +243,7 @@ class Main extends Component
                     continue;
                 }
 
-                $eval = $evaluator->evaluate($note, $this->service);
-
-                if (
-                    ($eval['block'] === BlockEvaluator::FREE)
-                    // ||
-                    // (!empty($eval['command']) && $eval['command'] === true)
-                ) {
+                if ($this->canDispatchNote($note)) {
                     $selectedSet[$id] = true;
                 }
             }
@@ -253,16 +262,10 @@ class Main extends Component
      */
     public function checkAllSelect($items)
     {
-        $evaluator    = app(BlockEvaluator::class);
         $eligiblePage = [];
 
         foreach ($items as $note) {
-            $eval = $evaluator->evaluate($note, $this->service);
-            if (
-                ($eval['block'] === BlockEvaluator::FREE)
-                // ||
-                // (!empty($eval['command']) && $eval['command'] === true)
-            ) {
+            if ($this->canDispatchNote($note)) {
                 $eligiblePage[] = (int) $note->id;
             }
         }
@@ -282,12 +285,10 @@ class Main extends Component
 
     protected function recomputeSelectAllFor(array $items): void
     {
-        $evaluator    = app(BlockEvaluator::class);
         $eligiblePage = [];
 
         foreach ($items as $note) {
-            $eval = $evaluator->evaluate($note, $this->service);
-            if ($eval['block'] === BlockEvaluator::FREE || ($eval['command'] ?? false)) {
+            if ($this->canDispatchNote($note)) {
                 $eligiblePage[] = (int) $note->id;
             }
         }
@@ -393,15 +394,7 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::with('WorkForm.Orders')->find($this->selected);
-
-        foreach ($this->notes as $note) {
-            $this->prepareFinalScopeSelection($note);
-        }
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', ['id' => 'add_mass_notes']);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
     }
 
     public function confirm_att()
@@ -807,8 +800,16 @@ class Main extends Component
 
         $base = ($useAnySituationFromMassSearch
             ? Note::query()
-            : $this->noteFilter->filter($this->search, $this->filter_group))
-            ->select([
+            : $this->noteFilter->filter($this->search, $this->filter_group));
+
+        SicodeRules::applyContractDispatchMainVisibility(
+            $base,
+            Auth()->User(),
+            $this->service->uuid,
+            fn ($statusQuery) => null
+        );
+
+        $base = $base->select([
                 'notes.id',
                 'notes.note',
                 'notes.lexp',

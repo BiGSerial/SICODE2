@@ -2,6 +2,7 @@
 
 namespace App\Services\Payment;
 
+use App\Models\Edp_depc\City;
 use App\Models\Note;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -36,7 +37,7 @@ class NoteFilter
 
         $companyIds = $this->filters['company'] ?? null;
         $rubricas   = $this->filters['rubrica'] ?? null;
-        $cities     = $this->filters['city']    ?? null;
+        $cityCodes   = $this->municipioFilterValues();
 
         $query = Note::query();
 
@@ -122,9 +123,10 @@ class NoteFilter
             });
         });
 
-        $query->when($cities, function (Builder $q) use ($cities) {
-            $q->where(function (Builder $qq) use ($cities) {
-                $qq->whereIn('lexp', (array) $cities)
+        $query->when($cityCodes, function (Builder $q) use ($cityCodes) {
+            $q->where(function (Builder $qq) use ($cityCodes) {
+                $qq->whereIn('nexp', $cityCodes)
+                   ->orWhereIn('lexp', $cityCodes)
                    ->orWhereNull('lexp');
             });
         });
@@ -140,5 +142,36 @@ class NoteFilter
         ]);
 
         return $query;
+    }
+
+    private function municipioFilterValues(): array
+    {
+        $cities = $this->filters['city'] ?? [];
+        $regions = $this->filters['region'] ?? [];
+        $regionals = $this->filters['regional'] ?? [];
+
+        if (empty($cities) && empty($regions) && empty($regionals)) {
+            return [];
+        }
+
+        $query = City::query();
+
+        if (!empty($cities)) {
+            $query->whereIn('rdMunicipio', (array) $cities);
+        }
+
+        if (!empty($regions)) {
+            $query->whereIn('regiao', (array) $regions);
+        }
+
+        if (!empty($regionals)) {
+            $query->whereIn('baseConstrucao', (array) $regionals);
+        }
+
+        return $query->pluck('rdMunicipio')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }
