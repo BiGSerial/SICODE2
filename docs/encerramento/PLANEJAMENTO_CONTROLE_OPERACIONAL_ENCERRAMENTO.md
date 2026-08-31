@@ -677,6 +677,14 @@ OPEN ──solicitar──▶ WAITING_PARTNER ⇄ (via rejeição) AWAITING_VALI
    ```
 4. **Idempotência:** rodar o comando 2x no mesmo mês não deve duplicar nada — a unicidade de `closure_targets.order_id` garante isso por constraint de banco, não só por lógica de aplicação.
 
+### 14.1 Backlog histórico (achado durante a implementação da Fase 1)
+
+Como o congelamento mensal só olha o mês imediatamente anterior à competência, Ordens elegíveis mais antigas — que existiam antes do módulo entrar em operação — nunca entrariam em nenhuma meta rodando só o comando mensal. Validado com dados reais: ~210 Ordens espalhadas entre jun/2024 e jul/2026, fora da competência corrente. Decisão do usuário: criar um **comando de backfill separado** (`closure:backfill-targets`), de uso único no dia em que o módulo entra em operação, que descobre todos os meses históricos com Ordens pendentes e congela uma competência retroativa para cada um — preservando a **mensalização correta** (fimReal no mês M entra na meta do mês M+1 daquela época, não tudo jogado na competência atual). Implementado em `App\Console\Commands\Closure\BackfillTargets`, reaproveitando o mesmo `App\Services\Closure\ClosureTargetFreezer` do comando mensal.
+
+### 14.2 Recomendação de agendamento — rodar no dia 2, não no dia 1
+
+Decisão do usuário, a aplicar quando o congelamento mensal for automatizado (Fase 6): rodar `closure:freeze-target` no **dia 2** do mês, não no dia 1. Motivo: o sync do SAP (`sicode:upd_baseOrder`/`upd_baseOperation`) pode levar até 1 dia para refletir uma Ordem que atingiu a regra de entrada (LIB + OP20 CONF + fimReal) no último dia do mês anterior — congelar exatamente na virada arriscaria deixar essas Ordens de fora da competência correta.
+
 ---
 
 ## 15. Wireframes textuais das telas

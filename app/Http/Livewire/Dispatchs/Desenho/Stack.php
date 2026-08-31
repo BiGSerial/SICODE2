@@ -3,8 +3,8 @@
 namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Exports\DispatchDesenhoStack;
-use App\Models\Edp_depc\City;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use App\Models\Edp_depc\City;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component
@@ -29,8 +29,6 @@ class Stack extends Component
     public $advanceSearch;
 
     public $multiSearch = [];
-
-    public bool $bulkSearchAnyStatus = false;
 
     public $note;
 
@@ -116,15 +114,17 @@ class Stack extends Component
     public function filterUser($user_id)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $userId = (string) $user_id;
 
         $this->gotoPage(1);
-        $this->selected = [];
+        $this->selected  = [];
         $this->selectAll = false;
-        $this->user_fs = [$userId];
+        $this->user_fs   = [$userId];
 
         $_SESSION['filter'][$this->filter_group]['user'] = [$userId];
         session(['filter.' . $this->filter_group . '.user' => [$userId]]);
@@ -211,7 +211,9 @@ class Stack extends Component
 
         // session()->put('filtro', $this->rubrica_s);
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
         $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
         $_SESSION['filtro']['city']     = $this->city_s;
@@ -235,10 +237,11 @@ class Stack extends Component
         $this->user_fs    = [];
 
         $this->multiSearch = [];
-        $this->bulkSearchAnyStatus = false;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filtro'])) {
@@ -674,7 +677,7 @@ class Stack extends Component
                     return $query->whereIn('note', $this->multiSearch);
                 });
             })
-            ->when($this->status_s && !$this->shouldBypassStatusFilterForBulkSearch(), function ($q) {
+            ->when($this->status_s, function ($q) {
                 return $q->whereIn('productions.status', $this->status_s);
             })
             ->when($this->note_type, function ($q) {
@@ -739,7 +742,7 @@ class Stack extends Component
                     return $query->whereIn('note', $this->multiSearch);
                 });
             })
-            ->when($this->status_s && !$this->shouldBypassStatusFilterForBulkSearch(), function ($q) {
+            ->when($this->status_s, function ($q) {
                 return $q->whereIn('productions.status', $this->status_s);
             })
             ->when($this->note_type, function ($q) {
@@ -807,14 +810,13 @@ class Stack extends Component
             ->select('productions.id', 'productions.status');
     }
 
-
     public function filterStatus($status)
     {
         if (!in_array($status, $this->status_s)) {
             $this->status_s   = [];
             $this->status_s[] = (int)$status;
         } else {
-            $this->status_s   = [];
+            $this->status_s = [];
         }
     }
 
@@ -878,7 +880,6 @@ class Stack extends Component
         $this->type           = '';
         $this->additionalData = [];
         $this->multiSearch    = [];
-        $this->bulkSearchAnyStatus = false;
     }
 
     public function buscarMulti()
@@ -889,22 +890,26 @@ class Stack extends Component
             $this->search = '';
             $this->gotoPage(1);
 
-            $this->multiSearch = collect(preg_split('/[\s,;\n\r\t]+/', (string) $this->advanceSearch))
-                ->map(fn ($term) => trim((string) $term))
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
+            $this->multiSearch = explode("\n", $this->advanceSearch);
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
+            }
+
+            $this->multiSearch = array_map('trim', $this->multiSearch);
         }
 
         if (count($this->multiSearch)) {
             $this->closeall();
         }
-    }
-
-    private function shouldBypassStatusFilterForBulkSearch(): bool
-    {
-        return $this->bulkSearchAnyStatus && count($this->multiSearch) > 0;
     }
 
     public function render()

@@ -2,15 +2,12 @@
 
 namespace App\Console\Commands\Closure;
 
-use App\Models\{ClosureCycle, ClosureTarget, Operation, Order};
-use Carbon\Carbon;
+use App\Models\Order;
+use App\Services\Closure\ClosureTargetFreezer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 class FreezeTarget extends Command
 {
-    protected const ENTRY_RULE = 'lib_op20_conf_fimreal_v1';
-
     /**
      * The name and signature of the console command.
      *
@@ -26,28 +23,29 @@ class FreezeTarget extends Command
      *
      * @var string
      */
-    protected $description = 'Congela a meta de encerramento de uma competência (dry-run por padrão; use --freeze para gravar).';
+    protected $description = 'Congela a meta de encerramento de UMA competência específica (uso mensal recorrente; '
+        . 'para o backlog histórico na entrada em operação, usar closure:backfill-targets).';
 
-    public function handle(): int
+    public function handle(ClosureTargetFreezer $freezer): int
     {
         [$year, $month] = $this->resolveCompetencia();
 
-        $referenceStart = Carbon::create($year, $month, 1)->subMonthNoOverflow()->startOfMonth();
-        $referenceEnd   = (clone $referenceStart)->endOfMonth();
+        $result = $freezer->freeze($year, $month, (bool) $this->option('freeze'), $this->option('by'));
 
-        $label = sprintf('%04d-%02d', $year, $month);
+        $this->info(sprintf(
+            'Competência alvo: %s (referência de fimReal: %s a %s)',
+            $result['label'],
+            $result['reference_start']->format('Y-m-d'),
+            $result['reference_end']->format('Y-m-d')
+        ));
 
-        $this->info("Competência alvo: {$label} (referência de fimReal: {$referenceStart->format('Y-m-d')} a {$referenceEnd->format('Y-m-d')})");
-
-        $eligibleOrders = $this->eligibleOrdersQuery($referenceStart, $referenceEnd)->get();
-
-        $this->info('Ordens elegíveis encontradas: ' . $eligibleOrders->count());
+        $this->info('Ordens elegíveis encontradas: ' . $result['orders']->count());
 
         if (!$this->option('freeze')) {
             $this->warn('Modo dry-run (nenhum dado foi gravado). Use --freeze para congelar de verdade.');
             $this->table(
                 ['order_id', 'ordem', 'note_id', 'statusSist'],
-                $eligibleOrders->take(20)->map(fn (Order $order) => [
+                $result['orders']->take(20)->map(fn (Order $order) => [
                     $order->id,
                     $order->ordem,
                     $order->note_id,
@@ -55,55 +53,20 @@ class FreezeTarget extends Command
                 ])
             );
 
-            if ($eligibleOrders->count() > 20) {
+            if ($result['orders']->count() > 20) {
                 $this->line('(mostrando as 20 primeiras — total acima)');
             }
 
             return self::SUCCESS;
         }
 
-        $cycle = ClosureCycle::firstOrCreate(
-            ['year' => $year, 'month' => $month],
-            ['label' => $label, 'status' => ClosureCycle::STATUS_OPEN]
-        );
-
-        if ($cycle->status === ClosureCycle::STATUS_FROZEN) {
-            $this->error("A competência {$label} já está congelada (frozen_at: {$cycle->frozen_at}). Nada foi alterado.");
+        if ($result['already_frozen']) {
+            $this->error("A competência {$result['label']} já está congelada (frozen_at: {$result['cycle']->frozen_at}). Nada foi alterado.");
 
             return self::FAILURE;
         }
 
-        $created = 0;
-
-        DB::transaction(function () use ($eligibleOrders, $cycle, $referenceStart, $referenceEnd, &$created) {
-            foreach ($eligibleOrders as $order) {
-                $operation = $this->matchingOperation($order, $referenceStart, $referenceEnd);
-
-                ClosureTarget::create([
-                    'closure_cycle_id' => $cycle->id,
-                    'order_id'         => $order->id,
-                    'note_id'          => $order->note_id,
-                    'entry_rule'       => self::ENTRY_RULE,
-                    'entry_reference'  => [
-                        'operation_id'     => $operation?->id,
-                        'fim_real'         => $operation?->fimReal?->toDateString(),
-                        'operation_status' => $operation?->status,
-                    ],
-                    'snapshot_status_sist' => $order->statusSist,
-                    'frozen_at'            => now(),
-                ]);
-
-                $created++;
-            }
-
-            $cycle->update([
-                'status'    => ClosureCycle::STATUS_FROZEN,
-                'frozen_at' => now(),
-                'frozen_by' => $this->option('by'),
-            ]);
-        });
-
-        $this->info("Congelamento concluído: {$created} Ordens registradas na meta {$label}.");
+        $this->info("Congelamento concluído: {$result['created']} Ordens registradas na meta {$result['label']}.");
 
         return self::SUCCESS;
     }
@@ -119,33 +82,5 @@ class FreezeTarget extends Command
         [$year, $month] = explode('-', $competencia);
 
         return [(int) $year, (int) $month];
-    }
-
-    private function eligibleOrdersQuery(Carbon $referenceStart, Carbon $referenceEnd)
-    {
-        return Order::query()
-            ->where('statusSist', 'like', 'LIB%')
-            ->where('canceled', false)
-            ->whereDoesntHave('ClosureTarget')
-            ->whereHas('Note', function ($query) {
-                $query->excludeCanceledFullDone();
-            })
-            ->whereHas('Operations', function ($query) use ($referenceStart, $referenceEnd) {
-                $query->where('operacao', '0020')
-                    ->where('status', 'like', 'CONF%')
-                    ->whereNotNull('fimReal')
-                    ->whereBetween('fimReal', [$referenceStart->toDateString(), $referenceEnd->toDateString()]);
-            });
-    }
-
-    private function matchingOperation(Order $order, Carbon $referenceStart, Carbon $referenceEnd): ?Operation
-    {
-        return Operation::query()
-            ->where('order_id', $order->id)
-            ->where('operacao', '0020')
-            ->where('status', 'like', 'CONF%')
-            ->whereNotNull('fimReal')
-            ->whereBetween('fimReal', [$referenceStart->toDateString(), $referenceEnd->toDateString()])
-            ->first();
     }
 }
