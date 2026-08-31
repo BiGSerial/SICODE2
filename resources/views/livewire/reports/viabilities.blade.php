@@ -132,15 +132,21 @@
                     </thead>
                     <tbody>
                         @forelse ($lists as $list)
+                            @php
+                                $contractCompany = $list->User?->Employee?->Contract?->Company?->name
+                                    ?? $list->User?->Company?->name
+                                    ?? '---';
+                                $statusMeta = Viabilitiesstatus::status($list->status);
+                            @endphp
                             <tr>
-                                <td>{{ $list->User->name }}</td>
-                                <td>{{ $list->User->Employee->Contract->Company->name }}</td>
+                                <td>{{ $list->User?->name ?? '---' }}</td>
+                                <td>{{ $contractCompany }}</td>
                                 <td>
                                     @if ($list->Orders->count())
                                         @foreach ($list->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
-                                    @elseif ($list->Note->Orders->isNotEmpty())
+                                    @elseif ($list->Note?->Orders?->isNotEmpty())
                                         @foreach ($list->Note->Orders->filter(function ($order) {
                                             return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
                                         }) as $order)
@@ -148,17 +154,17 @@
                                         @endforeach
                                     @endif
                                 </td>
-                                <td>{{ $list->Note->note }}</td>
+                                <td>{{ $list->Note?->note ?? '---' }}</td>
                                 <td>{{ $list->hired ? 'SIM' : 'NÃO' }}</td>
-                                <td>{{ $list->sended_at ? date('d/m/Y', strToTime($list->sended_at)) : '---' }}</td>
-                                <td>{{ $list->hired_at ? date('d/m/Y', strToTime($list->hired_at)) : '---' }}</td>
-                                <td>{{ $list->returned_at ? date('d/m/Y', strToTime($list->returned_at)) : '---' }}</td>
-                                <td>{{ $list->completed_at ? date('d/m/Y', strToTime($list->completed_at)) : '---' }}</td>
-                                <td>{{ $list->Engineer->name }}</td>
-                                <td>{{ $list->Company->name }}</td>
+                                <td>{{ $list->sended_at?->format('d/m/Y') ?? '---' }}</td>
+                                <td>{{ $list->hired_at?->format('d/m/Y') ?? '---' }}</td>
+                                <td>{{ $list->returned_at?->format('d/m/Y') ?? '---' }}</td>
+                                <td>{{ $list->completed_at?->format('d/m/Y') ?? '---' }}</td>
+                                <td>{{ $list->Engineer?->name ?? '---' }}</td>
+                                <td>{{ $list->Company?->name ?? '---' }}</td>
                                 <td>
-                                    <span class="badge {{ Viabilitiesstatus::status($list->status)->colorbg }}">
-                                        {{ Viabilitiesstatus::status($list->status)->status }}
+                                    <span class="badge {{ $statusMeta->colorbg }}">
+                                        {{ $statusMeta->status }}
                                     </span>
                                 </td>
                             </tr>

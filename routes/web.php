@@ -511,6 +511,18 @@ Route::post('juridico/tag/update', [\App\Http\Controllers\Legal\DemandTagControl
     ->middleware(['auth'])
     ->name('legal.tag.update');
 
+Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closure.manager'])
+    ->controller(\App\Http\Controllers\ClosureController::class)->group(function () {
+        Route::get('/', 'overview')->name('overview');
+        Route::get('/meta', 'meta')->name('meta');
+        Route::get('/passivo', 'passive')->name('passive');
+    });
+
+Route::get('/encerramento/ordem/{order}', [\App\Http\Controllers\ClosureController::class, 'orderDetail'])
+    ->whereNumber('order')
+    ->middleware(['auth', 'can:closure.view'])
+    ->name('closure.order.detail');
+
 Route::prefix('juridico/externo')->name('legal.external.')->controller(\App\Http\Controllers\LegalController::class)->group(function () {
     Route::get('/tarefa/{assignment_id}', 'fieldResponseExternal')
         ->middleware(['signed', 'throttle:30,1'])

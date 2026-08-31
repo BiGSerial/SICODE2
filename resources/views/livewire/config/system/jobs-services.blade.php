@@ -83,6 +83,10 @@
         .jobs-monitor .jobs-table-wrap table {
             min-width: 700px;
         }
+
+        .jobs-monitor .worker-table table {
+            min-width: 760px;
+        }
     </style>
 
     @php
@@ -121,6 +125,63 @@
         <div class="table-card">
             <div class="card-body">
             <div id="jobs-restart-alert" class="alert d-none mb-3"></div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <strong>Workers do Supervisor</strong>
+                        <div class="small text-muted">Processos detectados e reinicio individual</div>
+                    </div>
+                    <span class="badge text-bg-secondary">{{ count($supervisorWorkers) }}</span>
+                </div>
+                <div class="jobs-table-wrap worker-table">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Worker</th>
+                                <th>Status</th>
+                                <th>PID</th>
+                                <th>Uptime</th>
+                                <th>Detalhe</th>
+                                <th class="text-end">Acoes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($supervisorWorkers as $worker)
+                                <tr wire:key="supervisor-worker-{{ md5($worker['name']) }}">
+                                    <td class="fw-semibold">{{ $worker['name'] }}</td>
+                                    <td>
+                                        <span class="badge {{ $worker['running'] ? 'text-bg-success' : 'text-bg-danger' }}">
+                                            {{ $worker['status'] }}
+                                        </span>
+                                    </td>
+                                    <td>{{ $worker['pid'] ?? '-' }}</td>
+                                    <td>{{ $worker['uptime'] ?? '-' }}</td>
+                                    <td class="small text-muted jobs-truncate-2" title="{{ $worker['description'] }}">
+                                        {{ $worker['description'] ?: '-' }}
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-warning"
+                                            wire:click="restartWorker(@js($worker['name']))"
+                                            wire:loading.attr="disabled"
+                                            wire:target="restartWorker">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                            Reiniciar
+                                        </button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        Nenhum worker retornado pelo supervisorctl.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             {{-- KPIs por fila (grid fluido, sem conflito com specs) --}}
             <div class="jobs-auto-grid">
                 @forelse($queueCounts as $q)

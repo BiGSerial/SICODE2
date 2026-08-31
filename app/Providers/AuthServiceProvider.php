@@ -61,8 +61,8 @@ class AuthServiceProvider extends ServiceProvider
         // Módulo Jurídico — mapeamento coerente com flags existentes em users:
         // legal_controller, legal_field, legal_manager (+ admin/superadm).
         $isController = fn (User $u) => $u->legal_controller || $u->superadm || $u->admin;
-        $isField = fn (User $u) => $u->legal_field || $u->superadm || $u->admin;
-        $isManager = fn (User $u) => $u->legal_manager || $u->superadm || $u->admin;
+        $isField      = fn (User $u) => $u->legal_field || $u->superadm || $u->admin;
+        $isManager    = fn (User $u) => $u->legal_manager || $u->superadm || $u->admin;
 
         // Controladoria
         Gate::define('legal.demands.triage', $isController);
@@ -85,5 +85,13 @@ class AuthServiceProvider extends ServiceProvider
         // Gestão / relatórios
         Gate::define('legal.manager', $isManager);
         Gate::define('legal.reports', $isManager);
+
+        // Módulo Controle Operacional de Encerramento — mesmo padrão do Jurídico,
+        // flags: closure_operator, closure_manager (+ admin/superadm).
+        $isClosureOperator = fn (User $u) => $u->closure_operator || $u->superadm || $u->admin;
+        $isClosureManager  = fn (User $u) => $u->closure_manager || $u->superadm || $u->admin;
+
+        Gate::define('closure.manager', $isClosureManager);
+        Gate::define('closure.view', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u));
     }
 }

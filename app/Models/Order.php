@@ -34,8 +34,8 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'canceled' => 'boolean',
-        'canceled_at' => 'datetime',
+        'canceled'     => 'boolean',
+        'canceled_at'  => 'datetime',
         'service_cost' => 'decimal:2',
     ];
 
@@ -77,5 +77,10 @@ class Order extends Model
     public function UncancellationRequests()
     {
         return $this->belongsToMany(UncancellationRequest::class, 'uncancellation_request_orders')->withTimestamps();
+    }
+
+    public function ClosureTarget()
+    {
+        return $this->hasOne(ClosureTarget::class);
     }
 }

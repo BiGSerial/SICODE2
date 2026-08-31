@@ -3,8 +3,8 @@
 namespace App\Exports\Reports;
 
 use App\Custom\Viabilitiesstatus;
-use App\Models\Viability;
-use App\Models\YourModel; // Substitua pelo seu modelo
+use Carbon\Carbon;
+use DateTimeInterface;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -14,7 +14,6 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Carbon\Carbon;
 
 class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
@@ -29,7 +28,7 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
 
     public function query()
     {
-        return $this->exports; // Substitua pelo seu modelo e ajuste a consulta conforme necessário
+        return $this->exports;
     }
 
     public function headings(): array
@@ -98,31 +97,39 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
 
     public function map($row): array
     {
-        $orders = "";
-        if ($row->Orders) {
-            foreach ($row->Orders as $order) {
-                $orders .= $order->ordem . "\n";
+        $orders = $row->Orders
+            ? $row->Orders->pluck('ordem')->filter()->implode("\n")
+            : '';
 
-            }
-        }
-        $orders = rtrim($orders, "\n"); // Remove the last newline character
+        $contractCompany = $row->User?->Employee?->Contract?->Company?->name
+            ?? $row->User?->Company?->name
+            ?? '---';
 
         return [
-            $row->User->name,
-            $row->User->Company->name ?? '---',
+            $row->User?->name ?? '---',
+            $contractCompany,
             $orders ?? '---',
-            $row->Note->note ?? '---',
-            $row->Engineer->name ?? '---',
+            $row->Note?->note ?? '---',
+            $row->Engineer?->name ?? '---',
             $row->hired ? 'SIM' : 'NÃO',
             $row->tacit ? 'SIM' : 'NÃO',
-            $row->sended_at ? Carbon::parse($row->sended_at)->format('d/m/Y') : '---',
-            $row->hired_at ? Carbon::parse($row->hired_at)->format('d/m/Y') : '---',
-            $row->tacit_at ? Carbon::parse($row->tacit_at)->format('d/m/Y') : '---',
-            $row->Company->name ?? '---',
-            $row->returned_at ? Carbon::parse($row->returned_at)->format('d/m/Y') : '---',
-            $row->completed_at ? Carbon::parse($row->completed_at)->format('d/m/Y') : '---',
+            $this->formatDate($row->sended_at),
+            $this->formatDate($row->hired_at),
+            $this->formatDate($row->tacit_at),
+            $row->Company?->name ?? '---',
+            $this->formatDate($row->returned_at),
+            $this->formatDate($row->completed_at),
             Viabilitiesstatus::status($row->status)->status,
         ];
+    }
+
+    private function formatDate($date): string
+    {
+        if (!$date) {
+            return '---';
+        }
+
+        return ($date instanceof DateTimeInterface ? $date : Carbon::parse($date))->format('d/m/Y');
     }
 
     public function properties(): array

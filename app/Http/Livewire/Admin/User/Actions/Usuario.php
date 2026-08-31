@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Admin\User\Actions;
 
 use App\Models\{City, Company, Contract, Service, ServiceUser, User};
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\{Hash, Schema};
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
@@ -25,6 +25,8 @@ class Usuario extends Component
         'legal_controller',
         'legal_field',
         'legal_manager',
+        'closure_operator',
+        'closure_manager',
     ];
 
     public $user;
@@ -92,6 +94,8 @@ class Usuario extends Component
             'user.legal_controller'                  => ['nullable', 'boolean'],
             'user.legal_field'                       => ['nullable', 'boolean'],
             'user.legal_manager'                     => ['nullable', 'boolean'],
+            'user.closure_operator'                  => ['nullable', 'boolean'],
+            'user.closure_manager'                   => ['nullable', 'boolean'],
             'user.permission_locks'                  => ['nullable', 'array'],
             'user.permission_locks.superadm'         => ['nullable', 'boolean'],
             'user.permission_locks.admin'            => ['nullable', 'boolean'],
@@ -108,6 +112,8 @@ class Usuario extends Component
             'user.permission_locks.legal_controller' => ['nullable', 'boolean'],
             'user.permission_locks.legal_field'      => ['nullable', 'boolean'],
             'user.permission_locks.legal_manager'    => ['nullable', 'boolean'],
+            'user.permission_locks.closure_operator' => ['nullable', 'boolean'],
+            'user.permission_locks.closure_manager'  => ['nullable', 'boolean'],
         ];
     }
 
@@ -358,9 +364,9 @@ class Usuario extends Component
 
     public function Save()
     {
-        $this->user->name = trim((string) $this->user->name);
+        $this->user->name         = trim((string) $this->user->name);
         $this->user->Registration = trim((string) $this->user->Registration) ?: null;
-        $this->user->email = mb_strtolower(trim((string) $this->user->email));
+        $this->user->email        = mb_strtolower(trim((string) $this->user->email));
 
         $this->validate();
 
@@ -372,9 +378,9 @@ class Usuario extends Component
         if ($this->user?->id) {
             $originalUser = User::withTrashed()->find($this->user->id);
         }
-        $existingLocks  = $this->normalizePermissionLocks((array) ($originalUser?->permission_locks ?? []));
-        $incomingLocks  = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
-        $effectiveLocks = $isSuperAdm ? $incomingLocks : $existingLocks;
+        $existingLocks    = $this->normalizePermissionLocks((array) ($originalUser?->permission_locks ?? []));
+        $incomingLocks    = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
+        $effectiveLocks   = $isSuperAdm ? $incomingLocks : $existingLocks;
         $primaryServiceId = $this->resolvePrimaryServiceId();
 
         if ($this->selectedContractHasServices() && !$primaryServiceId) {
@@ -389,7 +395,7 @@ class Usuario extends Component
         }
 
         if (!$isSuperAdm) {
-            foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+            foreach ($this->persistablePermissions() as $permission) {
                 if (!empty($actorLocks[$permission])) {
                     if ($originalUser) {
                         $this->user->{$permission} = (bool) $originalUser->{$permission};
@@ -400,11 +406,12 @@ class Usuario extends Component
             }
         }
 
-        foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+        foreach ($this->persistablePermissions() as $permission) {
             $this->user->{$permission} = (bool) ($this->user->{$permission} ?? false);
         }
 
         $this->user->permission_locks = $effectiveLocks;
+        $this->discardNonPersistablePermissionAttributes();
 
         if ($this->temporaryFirstPass) {
             $this->user->password   = $this->temporaryPassword;
@@ -454,10 +461,28 @@ class Usuario extends Component
         return $normalized;
     }
 
+    private function persistablePermissions(): array
+    {
+        return array_values(array_filter(
+            self::LOCKABLE_PERMISSIONS,
+            fn (string $permission) => Schema::hasColumn('users', $permission)
+        ));
+    }
+
+    private function discardNonPersistablePermissionAttributes(): void
+    {
+        foreach (self::LOCKABLE_PERMISSIONS as $permission) {
+            if (!Schema::hasColumn('users', $permission)) {
+                unset($this->user->{$permission});
+            }
+        }
+    }
+
     private function resolvePrimaryServiceId(): ?string
     {
-        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+        $contract          = $this->contract ? Contract::with('services')->find($this->contract) : null;
         $contractServiceId = $contract?->services?->first()?->uuid;
+
         if ($contractServiceId) {
             return $contractServiceId;
         }
@@ -482,18 +507,19 @@ class Usuario extends Component
 
     private function syncSelectedContractServices(): void
     {
-        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
+        $contract   = $this->contract ? Contract::with('services')->find($this->contract) : null;
         $serviceIds = $contract
             ? $contract->services->pluck('uuid')->filter()->values()->all()
             : collect($this->temporaryServices)->pluck('service_id')->filter()->values()->all();
 
         if (!$serviceIds) {
             $this->user->ToServices()->delete();
+
             return;
         }
 
         $this->user->ToServices()->whereNotIn('service_id', $serviceIds)->delete();
-        $canDispatch = $this->profileCanDispatch();
+        $canDispatch      = $this->profileCanDispatch();
         $existingServices = $this->user->ToServices()
             ->whereIn('service_id', $serviceIds)
             ->get()
@@ -501,7 +527,7 @@ class Usuario extends Component
         $temporaryServices = collect($this->temporaryServices)->keyBy('service_id');
 
         foreach ($serviceIds as $serviceId) {
-            $existingService = $existingServices->get($serviceId);
+            $existingService  = $existingServices->get($serviceId);
             $temporaryService = $temporaryServices->get($serviceId);
 
             $this->user->ToServices()->updateOrCreate(
@@ -525,7 +551,7 @@ class Usuario extends Component
 
     private function contractsForCompany($companyId)
     {
-        $company = $companyId ? Company::with('parent')->find($companyId) : null;
+        $company    = $companyId ? Company::with('parent')->find($companyId) : null;
         $companyIds = collect([$company?->id, $company?->parent_id])->filter()->values();
 
         return Contract::with('services', 'company')

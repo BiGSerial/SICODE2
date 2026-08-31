@@ -471,12 +471,19 @@
             ];
 
             $noteCancel = $cancellationRequests
-                ->filter(function ($req) use ($validStatuses) {
+                ->filter(function ($req) use ($validStatuses, $lists) {
                     $status = $req->status?->value ?? $req->status;
                     $isValid = in_array($status, $validStatuses, true);
                     $isNoteScope = ($req->scope?->value ?? $req->scope) === \App\Enum\CancellationRequestScope::NOTE_FULL->value;
                     $noOrders = $req->Orders->isEmpty();
-                    return $isValid && ($isNoteScope || $noOrders);
+                    $isCurrentDone = $status === \App\Enum\CancellationRequestStatus::DONE->value && (bool) $lists->canceled;
+                    $isOpen = in_array($status, [
+                        \App\Enum\CancellationRequestStatus::SUBMITTED->value,
+                        \App\Enum\CancellationRequestStatus::ASSIGNED->value,
+                        \App\Enum\CancellationRequestStatus::PAUSED->value,
+                    ], true);
+
+                    return $isValid && ($isOpen || $isCurrentDone) && ($isNoteScope || $noOrders);
                 })
                 ->sortByDesc('created_at')
                 ->first();
@@ -651,7 +658,17 @@
                                 @php
                                     $orderCancellation = $lists->CancellationRequests
                                         ->filter(fn($req) => $req->Orders->contains('id', $order->id))
-                                        ->filter(fn($req) => in_array($req->status?->value ?? $req->status, $validStatuses, true))
+                                        ->filter(function ($req) use ($order, $validStatuses) {
+                                            $status = $req->status?->value ?? $req->status;
+                                            $isCurrentDone = $status === \App\Enum\CancellationRequestStatus::DONE->value && (bool) $order->canceled;
+                                            $isOpen = in_array($status, [
+                                                \App\Enum\CancellationRequestStatus::SUBMITTED->value,
+                                                \App\Enum\CancellationRequestStatus::ASSIGNED->value,
+                                                \App\Enum\CancellationRequestStatus::PAUSED->value,
+                                            ], true);
+
+                                            return in_array($status, $validStatuses, true) && ($isOpen || $isCurrentDone);
+                                        })
                                         ->sortByDesc('created_at')
                                         ->first();
 
