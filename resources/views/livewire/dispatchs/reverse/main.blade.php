@@ -1,14 +1,43 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+    $contractCompanyName = \App\Support\SicodeRules::primaryCompanyNameFor(Auth()->User());
 @endphp
-<div>
+<div class="survey-main-page">
+
+    @include('livewire.dispatchs.partials.list-shell-style')
 
     <x-show-loading />
 
     <x-showselected :count="$selected" />
 
-    <div class="row mb-3 justify-content-end">
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="survey-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>LISTA PARA {{ mb_strtoupper($service->service) }}
+                    @if ($contractCompanyName)
+                        - {{ mb_strtoupper($contractCompanyName) }}
+                    @endif
+                </h2>
+                <div class="survey-meta">
+                    @if ($service->Status->count())
+                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                            ({{ $sts->value }})
+                        @endforeach
+                    @endif
+                </div>
+            </div>
+            <div class="text-lg-end">
+                @if ($update)
+                    <div class="survey-meta">Última Atualização</div>
+                    <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
+                @endif
+            </div>
+        </div>
+
+    <div class="filter-shell mb-3">
+            <div class="card-body p-3 p-lg-4">
+                <div class="row g-3 align-items-end">
         <div class="col-2">
             <label for="" class="form-label">Por Página</label>
             <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
@@ -34,12 +63,12 @@
         <div class="col-md-6 d-flex mb-3 justify-content-end py-4">
             <label for="search" class="form-label"> </label>
 
-            @livewire('components.filter.filter', ['myKey' => 'material', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'material', 'filter' => 'Material', 'group_filter' => 'analises', 'values' => 'material', 'direction' => 'ASC', 'query' => ''], key('material'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
+            @livewire('components.filter.filter', ['myKey' => 'material', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'material', 'filter' => 'Material', 'group_filter' => 'reverse', 'values' => 'material', 'direction' => 'ASC', 'query' => ''], key('reverse-material'))
+            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'reverse', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('reverse-rubrica'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'reverse', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('reverse-region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'reverse', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('reverse-regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'reverse', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('reverse-city'))
+            @livewire('components.filter.remove-all', ['group_filter' => 'reverse'], key('reverse-removeAll'))
         </div>
 
         <div class="mb-3">
@@ -69,7 +98,9 @@
 
     </div>
 
-    <div class="row">
+    <div class="filter-shell mb-3">
+            <div class="card-body p-3 p-lg-4">
+                <div class="row g-3 align-items-end">
 
         @if (!$lists->count())
             <div class="col-6">
@@ -92,8 +123,10 @@
         </div>
 
     </div>
+        </div>
+    </div>
 
-    <div class="card">
+    <div class="table-card">
 
         @if (!$lists->count())
             <div class="card-body">
@@ -105,7 +138,7 @@
                 </h4>
             </div>
         @else
-            <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
+            <div class="card-header fw-bold text-bg-secondary">
                 <div class="row">
                     <div class="col">
                         <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
@@ -126,7 +159,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-condensed">
+                <table class="table table-sm table-condensed table-hover mb-0 main-table">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -200,21 +233,37 @@
                                 }
                             @endphp
 
+                            @php
+                                $e = $this->needBlock($list);
+                                $rowClass = $e['color'];
+                                $block = $e['block'];
+                                $command = (bool) ($e['command'] ?? false);
+                                $production = $e['production'] ?? null;
+                                $reason = $e['reason'] ?? null;
+                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+                                $canDispatch = !$block || $command || $stackProductionAvailable;
 
-                            <tr
-                                class="align-middle
-                                    @if ($block == 1 && $user['lastUser'] != 'Desconhecido') table-primary
-                                    @elseif($block == 1 && $user['lastUser'] == 'Desconhecido')
-                                        table-warning
-                                    @elseif($block == 2)
-                                        table-success
-                                    @elseif($block == 3)
-                                        table-danger @endif
-                                    ">
+                                if ($stackProductionAvailable) {
+                                    $rowClass = '';
+$production = $stackProductionAvailable;
+                                    $reason = 'Disponivel na pilha da empresa para atribuicao individual.';
+                                }
+
+                                $assignee = $production?->User?->name ?: ($production?->Company?->name ?: 'Desconhecido');
+                                $nameParts = explode(' ', $assignee);
+                                $assigneeShort = count($nameParts) > 1 ? $nameParts[0] . ' ' . end($nameParts) : $nameParts[0];
+                                $user = [
+                                    'lastUser' => $assigneeShort,
+                                    'countProd' => $e['count'] ?? 0,
+                                    'company' => $assigneeShort,
+                                ];
+                            @endphp
+
+                            <tr class="align-middle {{ $rowClass }}">
                                 <td>
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected"
-                                        @disabled($block)>
+                                        @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
                                         <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
@@ -290,12 +339,15 @@
 
 
                                 <td class="fw-bold text-center">
-                                    @if (!$block)
+                                    @if ($canDispatch)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
+                                            data-bs-toggle="tooltip" data-bs-placement="top"
+                                            data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar nota' }}"></i>
                                     @else
-                                        <span style="font-size: 11px">{{ $user['company'] }}</span>
+                                        <span style="font-size: 11px" data-bs-toggle="tooltip"
+                                            data-bs-placement="top" data-bs-title="{{ $reason }}">{{ $assigneeShort }}</span>
                                     @endif
 
                                 </td>
@@ -319,6 +371,7 @@
         </div>
     </div>
 
+    </div>
 
     {{-- MODALS --}}
 
@@ -346,149 +399,8 @@
 
     </div>
 
-    <div wire:ignore.self class="modal fade" id="add_mass_notes" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Despachar {{ $service->service }}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                        wire:click.prevent="closeall"></button>
-                </div>
-                <div class="modal-body">
-                    @if ($notes && $notes->count())
-                        <div class="row">
-                            <div class="mb-3">
-                                <label for="exampleFormControlInput1" class="form-label">Tipo de Despacho</label>
-                                <select class="form-select form-select-sm" aria-label="Small select example"
-                                    wire:model="type">
-                                    <option selected>Selecione</option>
-                                    <option value="1">Pilha</option>
-                                    <option value="2">Individual</option>
-                                </select>
-                            </div>
 
-                            <div class="mb-3 ">
-                                <label for="exampleFormControlInput1" class="form-label">Empresa:</label>
-
-                                <select class="form-select form-select-sm" aria-label="" wire:model="company_s">
-                                    <option selected>Selecione</option>
-
-                                    @if ($company_l && $company_l->count())
-
-                                        @foreach ($company_l as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-                                </select>
-                            </div>
-
-                            @if ($type === '2')
-
-                                <div class="row mb-3">
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Buscar
-                                            Usuario:</label>
-                                        <input wire:model.bounce.500ms="search_user"
-                                            class="form-control form-control-sm" type="text"
-                                            placeholder="Digite um nome" aria-label="">
-                                    </div>
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                        <select class="form-select form-select-sm" aria-label=""
-                                            wire:model="user_s">
-
-                                            @if ($user_l && $user_l->count())
-
-                                                <option value="" selected>Selecione um Usuário</option>
-                                                @foreach ($user_l->sortBy('name', SORT_LOCALE_STRING) as $user)
-                                                    <option value="{{ $user->id }}">{{ $user->name }}
-                                                    </option>
-                                                @endforeach
-                                            @else
-                                                <option selected>Escolha uma Empresa Primeiro</option>
-                                            @endif
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {{-- <div class="mb-3 ">
-                                    <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                    <select class="form-select form-select-sm" aria-label="" wire:model="user_s">
-
-                                        @if ($user_l && $user_l->count())
-                                            <option value="" selected>Selecione um Usuário</option>
-                                            @foreach ($user_l as $user)
-                                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                            @endforeach
-                                        @else
-                                            <option selected>Escolha uma Empresa Primeiro</option>
-                                        @endif
-                                    </select>
-                                </div> --}}
-
-
-                                {{-- <div class="mb-2 ">
-                                    <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                                        MASSA:</label>
-                                    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"
-                                        placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <button class="btn-sm btn btn-primary" wire:click.prevent="add_dd">DD em
-                                        MASSA</button>
-                                </div> --}}
-                            @endif
-
-                            <div class="col-12 fw-bold">
-                                DESPACHANDO {{ $notes->count() }} OV/NOTA(S)
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-condensed table-striped">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">#</th>
-                                        <th scope="col">Note</th>
-                                        <th scope="col">Desc</th>
-                                        {{-- <th scope="col">DD</th> --}}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($notes as $index => $note)
-                                        <tr>
-                                            <td scope="col" class="fw-bold">{{ $index + 1 }}</td>
-                                            <td>{{ $note->note }}</td>
-                                            <td>{{ $note->material }}</td>
-                                            {{-- <td>
-                                                @if ($this->type === '2')
-                                                    <input wire:model.defer="additionalData.{{ $index }}"
-                                                        class="form-control form-control-sm" type="text"
-                                                        placeholder="Informe a DD" aria-label="">
-                                                @endif
-
-                                            </td> --}}
-
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                    @endif
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
-                        wire:loading.attr="disabled" wire:target="confirm_att">
-                        Despachar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-'.$service->uuid))
 
 
     {{-- END MODALS --}}

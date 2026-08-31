@@ -68,6 +68,7 @@ class DispatchModal extends Component
         $this->applyContractModeDefaults();
         $this->additionalData = [];
         $contextResolver = app(DispatchContextResolver::class);
+        $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
@@ -75,7 +76,10 @@ class DispatchModal extends Component
 
             $context = $contextResolver->for($note, $this->service);
             $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
-            $this->requiresFinalScope = $this->requiresFinalScope || count($this->finalScopeOptions[$note->id] ?? []) > 0;
+            $this->requiresFinalScope = $this->requiresFinalScope || (
+                $scopeAwareService
+                && count($this->finalScopeOptions[$note->id] ?? []) > 0
+            );
         }
 
         $this->dispatchBrowserEvent('showModal', [
@@ -214,23 +218,27 @@ class DispatchModal extends Component
         try {
             $workflow = app(DispatchWorkflowService::class);
             $scopeOptions = app(WorkReportFinalScopeOptions::class);
+            $contextResolver = app(DispatchContextResolver::class);
+            $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
             $company = Company::findOrFail($this->company_s);
             $targetUser = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
             $actor = auth()->user();
 
-            foreach ($this->notes as $note) {
-                $available = $scopeOptions->forNote($note);
-                $selected = $this->selectedFinalScopesForNote($note);
+            if ($scopeAwareService) {
+                foreach ($this->notes as $note) {
+                    $available = $scopeOptions->forNote($note);
+                    $selected = $this->selectedFinalScopesForNote($note);
 
-                if (count($available) > 1 && empty($selected)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon' => 'warning',
-                        'title' => "Selecione o escopo fiscalizado para a nota {$note->note}.",
-                        'timer' => 6000,
-                    ]);
+                    if (count($available) > 1 && empty($selected)) {
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon' => 'warning',
+                            'title' => "Selecione o escopo fiscalizado para a nota {$note->note}.",
+                            'timer' => 6000,
+                        ]);
 
-                    return;
+                        return;
+                    }
                 }
             }
 

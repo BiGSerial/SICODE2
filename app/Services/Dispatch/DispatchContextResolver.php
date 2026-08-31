@@ -41,6 +41,18 @@ class DispatchContextResolver
 
             $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
             $context['block_reason'] = $eval['reason'] ?? null;
+        } elseif (in_array($serviceKey, ['analises', 'analises-pre', 'analises_pre', 'reverse'], true)) {
+            $eval = app(\App\Services\Design\BlockEvaluator::class)->evaluate($note, $service);
+
+            $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
+            $context['block_reason'] = $eval['reason'] ?? null;
+        } elseif ($serviceKey === 'payment') {
+            $eval = app(\App\Services\Payment\BlockEvaluator::class)->evaluate($note, $service);
+
+            $context['is_partial'] = (bool) ($eval['isPartial'] ?? false);
+            $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
+            $context['block_reason'] = $eval['reason'] ?? null;
+            $context['is_d5_fiscalization'] = (bool) $note->FiveNote;
         }
 
         return $context;
@@ -51,6 +63,7 @@ class DispatchContextResolver
         return match ($service->folder) {
             'levantamento' => 'survey',
             'fiscalizacao' => 'supervision',
+            'pagamento' => 'payment',
             default => (string) $service->folder,
         };
     }
