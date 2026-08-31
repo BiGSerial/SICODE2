@@ -11,6 +11,11 @@ class CancellationController extends Controller
         return view('cancellations.create');
     }
 
+    public function uncancellation(Request $request)
+    {
+        return view('cancellations.uncancellation');
+    }
+
     public function history(Request $request)
     {
         return view('cancellations.my');

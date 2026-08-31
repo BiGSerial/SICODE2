@@ -150,6 +150,14 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
         Route::get('/history', 'cancellation_exec_history')->name('history');
     });
 
+    Route::prefix('/uncancellations')->name('uncancellations.')->group(function () {
+        Route::get('/create', 'uncancellation_create')->name('create');
+        Route::get('/queue', 'uncancellation_exec_queue')->name('queue');
+        Route::get('/ongoing', 'uncancellation_exec_ongoing')->name('ongoing');
+        Route::get('/ongoing/{request}', 'uncancellation_exec_show')->whereNumber('request')->name('ongoing.show');
+        Route::get('/history', 'uncancellation_exec_history')->name('history');
+    });
+
     Route::prefix('/externo')->name('oexterno.')->group(function () {
         Route::get('/obras_liberadas', 'oexterno_released_works')->name('released_works');
         Route::get('/undefined', 'oexterno_undefined')->name('undefined');
@@ -280,6 +288,7 @@ Route::middleware('auth')->group(function () {
 
 Route::prefix('/cancelamentos')->controller(CancellationController::class)->middleware('auth')->name('cancellations.')->group(function () {
     Route::get('/', 'index')->name('index');
+    Route::get('/descancelamento', 'uncancellation')->name('uncancellation');
     Route::get('/historico', 'history')->name('history');
     Route::get('/{request}', 'show')->whereNumber('request')->name('show');
 });

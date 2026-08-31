@@ -9,7 +9,13 @@
                     <li>
                         <a href="{{ route('cancellations.index') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-x-circle fs-5 edp-text-verde-dark fw-normal"></i>
-                            <span>SOLICITAÇÃO</span>
+                            <span>SOLICITAR CANCELAMENTO</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('cancellations.uncancellation') }}" class="nav-item text-white fw-normal">
+                            <i class="ri-arrow-go-back-line fs-5 edp-text-verde-dark fw-normal"></i>
+                            <span>SOLICITAR DESCANCELAMENTO</span>
                         </a>
                     </li>
                     <li>

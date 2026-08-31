@@ -156,7 +156,7 @@ class Stack extends Component
         if (!count($this->selected)) {
             return (new DispatchDesenhoStack($this->exports->get()))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         } else {
-            $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.days_left');
+            $notes = Production::WhereIn('id', $this->selected)->With('Note', 'User', 'Company')->get()->sortBy('Note.dt_created');
 
             return (new DispatchDesenhoStack($notes))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
         }
@@ -663,7 +663,7 @@ class Stack extends Component
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
+            ->orderBy('notes.dt_created', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created')
             ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
@@ -725,7 +725,7 @@ class Stack extends Component
             })
             ->orderBy('priority', 'DESC')
             ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
+            ->orderBy('notes.dt_created', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }
@@ -786,7 +786,7 @@ class Stack extends Component
             })
 
             ->orderBy('notes.type_note', 'DESC')
-            ->orderBy('notes.days_left', 'asc')
+            ->orderBy('notes.dt_created', 'asc')
             ->select('productions.*', 'notes.dt_created as note_dt_created'); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
 
     }

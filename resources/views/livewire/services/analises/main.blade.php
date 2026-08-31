@@ -1,6 +1,14 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
+
+    $prazoRealFromDtCreated = function ($note) {
+        if (!$note?->dt_created) {
+            return null;
+        }
+
+        return Carbon::parse($note->dt_created)->startOfDay()->diffInDays(Carbon::now()->startOfDay());
+    };
 @endphp
 <div class="oexterno-page">
     <x-show-loading />
@@ -273,12 +281,16 @@
                                     @endcan
                                     <td class="fw-light">{{ $list->nstats }}</td>
                                     <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}</td>
+                                    @php
+                                        $prazoReal = $prazoRealFromDtCreated($list);
+                                        $prazoRestante = $prazoReal === null ? null : 30 - $prazoReal;
+                                    @endphp
                                     <td class="text-center
-                                        @if ($list->days_left < 0) text-bg-secondary
-                                        @elseif($list->days_left >= 0 && $list->days_left < 6) table-danger
-                                        @elseif($list->days_left >= 6 && $list->days_left < 10) table-warning
+                                        @if ($prazoRestante === null || $prazoRestante < 0) text-bg-secondary
+                                        @elseif($prazoRestante >= 0 && $prazoRestante < 6) table-danger
+                                        @elseif($prazoRestante >= 6 && $prazoRestante < 10) table-warning
                                         @else table-success @endif">
-                                        {{ 30 - $list->days_left }}
+                                        {{ $prazoReal ?? '--' }}
                                     </td>
                                     <td class="fw-light">
                                         @if ($list->pze_parecer === 'Vencido')

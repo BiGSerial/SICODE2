@@ -69,6 +69,34 @@
                 </div>
             </ul>
         </li>
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#descancelamentos-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-menu-button-wide"></i><span>DESCANCELAMENTO</span><i
+                    class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="descancelamentos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+                <div class="border-start border-3 mb-1 py-0">
+                    <li>
+                        <a href="{{ route('services.uncancellations.queue', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-inbox-archive-line fs-5 edp-text-verde-dark fw-normal"></i><span>LISTA PARA DESCANCELAMENTO</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('services.uncancellations.ongoing', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-eye-line fs-5 edp-text-verde-dark fw-normal"></i><span>EM ANDAMENTO</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('services.uncancellations.history', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-history-line fs-5 edp-text-verde-dark fw-normal"></i><span>HISTÓRICO</span>
+                        </a>
+                    </li>
+                </div>
+            </ul>
+        </li>
     </ul>
 
 

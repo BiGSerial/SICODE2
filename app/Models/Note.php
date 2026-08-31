@@ -115,6 +115,11 @@ class Note extends Model
         return $this->hasMany(CancellationRequest::class);
     }
 
+    public function UncancellationRequests()
+    {
+        return $this->hasMany(UncancellationRequest::class);
+    }
+
     public function Files()
     {
         return $this->hasMany(File::class);
