@@ -709,6 +709,25 @@
                     <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
                         wire:model.defer="advanceSearch"></textarea>
                 </div>
+                <div class="px-3 pt-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="bulkSearchAnyStatus"
+                            wire:model="bulkSearchAnyStatus">
+                        <label class="form-check-label fw-semibold" for="bulkSearchAnyStatus">
+                            Buscar em qualquer Status
+                        </label>
+                    </div>
+
+                    @if ($bulkSearchAnyStatus)
+                        <div class="alert alert-warning mt-3 mb-0" role="alert">
+                            <div class="fw-bold text-uppercase">Warning</div>
+                            <div>
+                                Esta busca ignora o filtro de status atual e pode trazer notas fora da lista visível.
+                                Tenha certeza do que está fazendo antes de aplicar ações em massa.
+                            </div>
+                        </div>
+                    @endif
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
                 </div>

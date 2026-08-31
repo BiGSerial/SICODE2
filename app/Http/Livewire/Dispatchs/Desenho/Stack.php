@@ -30,6 +30,8 @@ class Stack extends Component
 
     public $multiSearch = [];
 
+    public bool $bulkSearchAnyStatus = false;
+
     public $note;
 
     public $notes;
@@ -233,6 +235,7 @@ class Stack extends Component
         $this->user_fs    = [];
 
         $this->multiSearch = [];
+        $this->bulkSearchAnyStatus = false;
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             if (!session()->isStarted()) { session()->start(); }
@@ -671,7 +674,7 @@ class Stack extends Component
                     return $query->whereIn('note', $this->multiSearch);
                 });
             })
-            ->when($this->status_s, function ($q) {
+            ->when($this->status_s && !$this->shouldBypassStatusFilterForBulkSearch(), function ($q) {
                 return $q->whereIn('productions.status', $this->status_s);
             })
             ->when($this->note_type, function ($q) {
@@ -736,7 +739,7 @@ class Stack extends Component
                     return $query->whereIn('note', $this->multiSearch);
                 });
             })
-            ->when($this->status_s, function ($q) {
+            ->when($this->status_s && !$this->shouldBypassStatusFilterForBulkSearch(), function ($q) {
                 return $q->whereIn('productions.status', $this->status_s);
             })
             ->when($this->note_type, function ($q) {
@@ -875,6 +878,7 @@ class Stack extends Component
         $this->type           = '';
         $this->additionalData = [];
         $this->multiSearch    = [];
+        $this->bulkSearchAnyStatus = false;
     }
 
     public function buscarMulti()
@@ -885,26 +889,22 @@ class Stack extends Component
             $this->search = '';
             $this->gotoPage(1);
 
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
+            $this->multiSearch = collect(preg_split('/[\s,;\n\r\t]+/', (string) $this->advanceSearch))
+                ->map(fn ($term) => trim((string) $term))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
         }
 
         if (count($this->multiSearch)) {
             $this->closeall();
         }
+    }
+
+    private function shouldBypassStatusFilterForBulkSearch(): bool
+    {
+        return $this->bulkSearchAnyStatus && count($this->multiSearch) > 0;
     }
 
     public function render()
