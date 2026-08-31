@@ -49,6 +49,8 @@ Este documento propõe um módulo novo — **Controle Operacional de Encerrament
 
 A boa notícia: o SICODE2 já tem, no módulo de **Cancelamento de Ordens** (`CancellationRequest` + `CancellationRequestEvent`) e no módulo **Jurídico** (`legal_demands`), precedentes arquiteturais muito próximos do que este módulo precisa. A recomendação central deste plano é **espelhar esses dois padrões já validados em produção**, em vez de inventar uma arquitetura nova.
 
+> **Objetivo principal reafirmado pelo usuário (2026-08-30):** o valor mais importante do módulo é o **controle dos registros pelos responsáveis** e a **facilidade de responder, a qualquer momento, qualquer pergunta sobre a situação do encerramento** ("onde está, há quanto tempo, com quem, por quê"). Isso é tratado como norte de design em todo este plano: cada fase entrega, desde o início, uma superfície de consulta útil (não só mecanismos de workflow) — ver o ajuste de prioridade nas §21/§22.
+
 ---
 
 ## 2. Diagnóstico do modelo atual
@@ -75,23 +77,22 @@ Campos relevantes (migration `2024_02_20_111845_create_orders_table.php` + incre
 - `order_id` (FK), `operacao` (string, código zero-padded de 4 dígitos, ex.: `'0010'`, `'0020'`, `'0030'`), `status` (texto livre vindo do SAP, ex.: `CONF...`, `LIB...`, `CNPA...`, `JBFI LIB...`), `inicioPlanejado`/`fimPlanejado`/`inicioReal`/`fimReal`.
 - **"Data Fim Real" = `operations.fimReal` da linha onde `operacao = '0020'`.** Confirmado em `app/Models/WorkReport.php:143-161` (`getEarliestFimRealAttribute()`), que faz `MIN(o.fimReal)` filtrando `o.operacao = '0020'`.
 
-### 2.4 Tipos de Ordem (150/170/180/190/200)
+### 2.4 Tipos de Ordem (150/170/180/190/200) — **confirmado com dados reais do banco de DEV**
 
-Não existe uma coluna ou enum formal de "tipo de ordem" no banco. O único lugar onde prefixos de `ordem` são declarados como constante de negócio é `config/sicode.php`:
+Não existe uma coluna ou enum formal de "tipo de ordem" no banco — o tipo é sempre o prefixo textual do campo `orders.ordem` (string numérica, ex.: `200000052991`). O único lugar do código que declara prefixos como constante é `config/sicode.php` (`work_report.final_scope_order_prefixes.network => ['150','170','190']`), usado só para o escopo do Informe de Obra em EP.
 
-```php
-'final_scope_order_prefixes' => [
-    'network'    => ['150', '170', '190'],
-    'connection' => [],
-],
-```
+Consulta real (`LEFT(ordem,3)` cruzado com `notes.type_note`, 75.932 Ordens) confirma o mapa oficial:
 
-usado por `App\Services\WorkReports\WorkReportFinalScopeResolver` para decidir o "escopo final" (rede vs. ligação) do Informe de Obra em notas EP. Isso **confirma parcialmente** o exemplo do enunciado (150/170/190 como Ordens de nota EP), mas:
+| Prefixo | Ordens | `type_note` | Nota |
+|---|---|---|---|
+| `200` | 45.919 | 2 (OV) | praticamente 100% — só 10 linhas com `type_note` nulo (Nota ausente/órfã) |
+| `190` | 14.672 | 1 (EP) | |
+| `170` | 14.605 | 1 (EP) | |
+| `150` | 736 | 1 (EP) | bem menos frequente que 170/190, mas existe |
 
-- **180 e 200 não aparecem em nenhum lugar do código atual** como constantes/prefixos declarados — só aparecem no enunciado desta tarefa.
-- `200` como "a Ordem típica de OV" é uma afirmação do domínio de negócio, não algo que o código valide hoje.
+**`180` não aparece nenhuma vez em toda a tabela `orders`** — não é um prefixo em uso hoje, apesar de citado no enunciado original da tarefa como exemplo. Não presumir a existência de "Ordem 180" na implementação; se o negócio confirmar que esse prefixo existe em outro cenário (ex.: tipo raro, ou só usado historicamente), tratar como uma quinta categoria só quando aparecer de fato.
 
-➡️ **PENDENTE DE VALIDAÇÃO**: mapa oficial e completo dos tipos de Ordem (prefixo → significado) por `type_note`. Não presumir 180/200 além do que o usuário descreveu; confirmar com a área de negócio ou com a tabela de origem no SAP.
+➡️ Pendência **resolvida**: o mapa é `200→OV`, `150/170/190→EP`, sem `180` observado. Esta é a base real para a §14 (agrupamento por NOTE nas telas) e para qualquer taxonomia de tipo de Ordem que o módulo venha a expor na UI.
 
 ### 2.5 Sincronização de `statusSist` e das Operações
 
@@ -128,23 +129,28 @@ A checagem `str_starts_with($order->statusSist, 'ENT')` / `'ENC'` já aparece, d
 
 Ou seja: **a técnica de `str_starts_with(...,'ENT')`/`'ENC'` já usada no projeto funciona porque `ENT`/`ENC` são prefixos literais dos códigos reais `ENTE`/`ENCE`** — não é uma comparação solta, é resultado de como o SAP nomeia esses status. Confirmado também que `ORDER::where('statusSist','Not Like','ENT%')->where(...,'Not Like','ENC%')` (usado em `BaseOperation.php`) e a regra deste módulo (`statusSist` não é nem `ENT` nem `ENC`) são a mesma coisa, exatamente como o usuário confirmou.
 
-**⚠️ Achado novo, não previsto no levantamento original — caso de borda real e quantificado:** existem **2.091 Ordens** cujo `statusSist` começa com `BLOQ` mas contém `ENTE` ou `ENCE` **em algum token seguinte** (ex.: `BLOQ ENTE CAOI CAPC CCOP ERRD JBFI MatC`, 674 ocorrências; `BLOQ ENCE CONF CAOI CAPC CCOP JBFI MATF*`, 34 ocorrências). Sob a regra de **primeiro token** (a que o código atual usa e a que o usuário confirmou nesta conversa), essas 2.091 Ordens contam como **abertas** (não encerradas), porque começam com `BLOQ`. Sob uma regra alternativa de **"contém o token em qualquer posição"**, elas contariam como **encerradas**. A diferença não é cosmética: das Ordens que hoje já se qualificariam para a carteira de meta pela regra combinada da §2.7 (não-encerrada + OP20 com `status LIKE 'CONF%'` e `fimReal` preenchido — total de **1.630** Ordens), **412 (25%)** têm `ENTE`/`ENCE` escondido atrás de um `BLOQ` inicial.
+**Achado quantificado e RESOLVIDO nesta conversa (decisão de negócio do usuário):** existem **2.091 Ordens** cujo `statusSist` começa com `BLOQ` mas contém `ENTE` ou `ENCE` **em algum token seguinte** (ex.: `BLOQ ENTE CAOI CAPC CCOP ERRD JBFI MatC`, 674 ocorrências). O usuário decidiu: **`BLOQ` não entra na meta** — o raciocínio é que, se o `ENTE` já aparece ali (mesmo atrás de um bloqueio), a Ordem **"já é possivelmente encerrada"**, então não faz sentido tratá-la como um item novo de backlog a perseguir. Isso foi validado com dados reais de forma exata: entre as 1.630 Ordens que a regra anterior (§2.7, antes da correção abaixo) considerava candidatas, a quebra por primeiro token é `LIB=1.216`, `BLOQ=412`, `ABER=2` — ou seja, **as 412 Ordens `BLOQ` desse grupo são exatamente as mesmas 412 que têm `ENTE`/`ENCE` escondido** (confirmação empírica 100% consistente com o raciocínio do usuário).
 
-➡️ **Decisão de negócio necessária, não uma dúvida técnica:** uma Ordem `BLOQ ENTE ...` deve contar como encerrada (o SAP já processou o encerramento, só está com um bloqueio administrativo por cima) ou como ainda aberta (o bloqueio impede considerá-la encerrada de fato)? A regra confirmada pelo usuário nesta conversa ("statusSist ENT ou ENC significa que a Ordem foi encerrada") **não menciona `BLOQ`**, então por ora este plano assume a interpretação de **primeiro token** (consistente com o padrão já usado em 9+ arquivos do projeto) — mas isso deve ser confirmado explicitamente antes da Fase 6 (automação do fechamento), porque afeta ~23% do universo de Ordens candidatas à meta observado hoje.
+➡️ **Consequência prática, incorporada na regra de entrada da meta (§2.7 abaixo)**: a regra de entrada não é mais "qualquer Ordem que não seja ENTE/ENCE", e sim especificamente **`statusSist LIKE 'LIB%'`** — isso já exclui `BLOQ` e `ABER` automaticamente, sem precisar de uma regra especial só para `BLOQ`. Resta uma nuance menor, não resolvida explicitamente pelo usuário mas coerente com o raciocínio dado: se uma Ordem **já dentro da carteira/meta** (que entrou como `LIB`) mudar depois para `BLOQ ENTE...`, o job de detecção do §13 deveria tratá-la como encerrada (pelo mesmo raciocínio de "já é possivelmente encerrada")? Recomendação deste plano: sim, mas vale uma confirmação explícita de 1 frase antes da Fase 6 — é uma extensão do raciocínio já dado, não uma decisão nova do zero.
 
 ### 2.7 Regra de entrada (OP20 + Data Fim Real) — **confirmada e simplificada pelo usuário, validada com dados reais**
 
-> O usuário confirmou nesta conversa a regra definitiva, em duas etapas: **`statusSist` não é `ENT` nem `ENC`** (Ordem ainda aberta) **E** existe `Operation` com **`operacao = '0020'`** **cujo `status` seja obrigatoriamente `CONF%`** (não `LIB%/CNPA%/JBFI LIB%`, que é regra de outro consumidor — ver §2.7-bis) **e** cuja **`fimReal`** está preenchida — a data de `fimReal` é a que define em qual mês a Ordem entra na meta (mês seguinte ao de `fimReal`). **As duas condições da Operation são obrigatórias juntas**: `status LIKE 'CONF%'` **E** `fimReal IS NOT NULL`, não uma ou outra isoladamente.
+> **Regra definitiva final, confirmada pelo usuário em duas rodadas nesta conversa:** uma Ordem entra na meta quando, **simultaneamente**:
+> 1. `orders.statusSist` começa com **`LIB`** (não basta "não ser ENTE/ENCE" — `ABER` e `BLOQ` também ficam de fora, ver §2.6);
+> 2. existe `Operation(order_id=Order.id, operacao='0020')` com **`status LIKE 'CONF%'`** **e** **`fimReal` preenchida** — as duas condições da Operation são obrigatórias juntas, não uma ou outra isoladamente.
+>
+> A data de `fimReal` define em qual mês a Ordem entra na meta (mês seguinte ao de `fimReal`).
 
-Isso **resolve** a pendência original desta seção (existiam duas regras diferentes já em uso no código — `Publication/NoteFilter.php`/`PublishRepository.php` usando `status LIKE 'LIB%'/'CNPA%'/'JBFI LIB%'`, ambas para outro propósito, o fluxo de Publicação/Informe Final — e o usuário confirmou que **não são** a regra a usar aqui).
+Isso **resolve** a pendência original desta seção (existiam duas regras diferentes já em uso no código — `Publication/NoteFilter.php`/`PublishRepository.php` usando `status LIKE 'LIB%'/'CNPA%'/'JBFI LIB%'` para `operacao='0020'`, ambas para outro propósito, o fluxo de Publicação/Informe Final — o usuário confirmou que **não são** a regra a usar aqui, embora coincidentemente `LIB` apareça nos dois contextos, agora como condição do `statusSist` da própria Ordem, não do `status` da Operation).
 
-Validação com dados reais do banco de DEV, cruzando `operations.status` (para `operacao='0020'`) com `fimReal`:
+Validação com dados reais do banco de DEV, cruzando `orders.statusSist`, `operations.status` (para `operacao='0020'`) e `fimReal`:
 
-- Quando `fimReal` **está preenchido** (31.000 linhas de `operations` com `operacao='0020'`): o status começa com `CONF` em **30.840** delas (`CONF BAIX ENTE JBFI NOAP` — 9.013 ocorrências; `CONF BAIX ENTE JBFI` — 6.023; `CONF ENTE JBFI NOAP` — 5.076; `CONF JBFI LIB` — 635; etc.). **Mas existem 160 linhas com `fimReal` preenchido e status começando com `CNPA`, não `CONF`** (`CNPA LIB` — 99; `CNPA LIB  NOAP` — 16; `CNPA BLOQ LIB` — 15; `CNPA JBFI LIB` — 10; `CNPA ENTE JBFI NOAP` — 9). Isso confirma que **checar só `fimReal IS NOT NULL` não é suficiente** — como o usuário corrigiu nesta conversa, `status LIKE 'CONF%'` é uma condição obrigatória e independente, não uma consequência automática de `fimReal` estar preenchido.
+- Quando `fimReal` **está preenchido** (31.000 linhas de `operations` com `operacao='0020'`): o status começa com `CONF` em **30.840** delas. **Mas existem 160 linhas com `fimReal` preenchido e status começando com `CNPA`, não `CONF`** — confirma que `status LIKE 'CONF%'` é condição obrigatória e independente de `fimReal` estar preenchido.
 - Quando `fimReal` **está nulo**: o status é predominantemente `ABER` (8.734), `LIB`/`LIB NOAP` (11.363), `ENTE`/`ENTE JBFI` sem `CONF` (2.724) — condizente com operação ainda não confirmada.
-- **Hoje, em produção, com a regra correta (`status LIKE 'CONF%'` E `fimReal IS NOT NULL`), há 1.630 Ordens** que já satisfazem a regra completa (statusSist ainda aberta + OP20 confirmada com `fimReal` preenchido) — este é o tamanho inicial esperado da carteira/meta caso o módulo entrasse em operação agora. (Checar só `fimReal IS NOT NULL`, sem exigir `CONF%`, daria 1.760 — **130 Ordens a mais, incorretamente incluídas**, todas com OP20 em status `CNPA...`.)
+- Das Ordens com OP20 `CONF%`+`fimReal` preenchido e ainda não `ENTE%`/`ENCE%` (1.630 no total), a quebra pelo primeiro token de `statusSist` é **exatamente** `LIB=1.216`, `BLOQ=412`, `ABER=2`.
+- **Hoje, em produção, com a regra completa e final (`statusSist LIKE 'LIB%'` E OP20 `status LIKE 'CONF%'` E `fimReal` preenchido), há 1.216 Ordens** que já satisfazem todas as condições — este é o tamanho real esperado da carteira/meta inicial caso o módulo entrasse em operação hoje.
 
-➡️ Esta seção deixa de ter pendência de validação quanto à regra em si (resolvida pelo usuário + dados). A única pendência remanescente é a do §2.6 acima (tratamento de `BLOQ`).
+➡️ Esta seção não tem mais pendência de validação — regra e números confirmados com dados reais e decisão explícita do usuário (§2.6).
 
 ### 2.7-bis (histórico) Regra de entrada — o que já existe hoje é uma regra *parecida*, não a mesma
 
@@ -191,6 +197,52 @@ e no `NoteFilter.php` há uma segunda observação: `// NOTE: Alteração no fil
 - Nenhum job/listener reagindo a mudança de `statusSist`.
 - Nenhum conceito de "responsável operacional da Ordem" separado do responsável da Nota/Produção — `Production` é por Nota+Serviço, não por Ordem.
 - Nenhuma tabela de "meta mensal" ou "competência" no domínio de encerramento (existe `closure_cycles` **apenas como nome proposto**, não implementado).
+
+### 2.10 Sistema de "atividades"/permissões já existente — **como liberar acesso ao módulo, confirmado com o usuário**
+
+O usuário pediu para verificar como o SICODE2 já libera "atividades" (funcionalidades) para colaboradores e para parceiras. Existem **dois mecanismos distintos, um para cada lado**, e nenhum dos dois precisa de tabela nova:
+
+**Lado colaborador interno — colunas booleanas em `users` + `Gate::define`:**
+Não existe uma tabela de "papéis"/"atividades" para usuários internos — cada nova atividade de um módulo vira uma **coluna boolean em `users`**, seguindo exatamente o padrão usado para o módulo Jurídico (`database/migrations/2026_05_20_100000_add_legal_permissions_to_users_table.php`): `legal_controller`, `legal_field`, `legal_manager`. Essas colunas são:
+- editadas por administrador na tela `app/Http/Livewire/Admin/User/Actions/Usuario.php` (checkboxes simples, listadas em `$fillable`/`$rules` daquela classe);
+- protegidas por um mecanismo de "trava" — `users.permission_locks` (JSON) — que impede um admin comum de alterar certas flags sensíveis de outro usuário sem permissão elevada (não aprofundado aqui, mas existe e segue o mesmo padrão para toda flag nova);
+- conectadas a `Gate::define(...)` em `app/Providers/AuthServiceProvider.php::boot()`, no mesmo formato usado para o Jurídico:
+  ```php
+  $isController = fn (User $u) => $u->legal_controller || $u->superadm || $u->admin;
+  Gate::define('legal.demands.triage', $isController);
+  ```
+
+➡️ **Para o módulo de encerramento**, o caminho é idêntico: adicionar colunas como `closure_operator` (assume/trata Ordens) e `closure_manager` (vê indicadores/gerencia competência) em `users` via migration, e registrar `Gate::define('closure.orders.claim', ...)`, `Gate::define('closure.manager', ...)`, etc., em `AuthServiceProvider`, seguindo 100% o padrão já validado pelo Jurídico. Nomes exatos das flags/gates ficam para a Fase 2 (quando a assunção é implementada).
+
+**Lado Parceira — catálogo de permissões em 3 camadas, já pronto para receber um grupo novo:**
+`app/Services/PartnerAccess/PartnerPermissionCatalog.php` define **grupos** de atividades (`viability`, `conclusion_reports`, `partial_reports`, `complaints`, `d5_notes`, `admin`), cada um com itens (`permission_key => label`, ex.: `viability.respond => 'Responder'`). A resolução de acesso (`PartnerAccessGate::allows($user, $permissionKey)`) já suporta 3 camadas sem precisar de código novo por atividade:
+1. `PartnerCompanyPermissionGrant` — default por empresa (parceira inteira);
+2. `PartnerRole` + `PartnerRolePermission` — papéis dentro da empresa parceira;
+3. `PartnerUserPermissionException` — exceção pontual por usuário.
+
+➡️ **Para a resposta da Parceira às pendências de encerramento** (decisão do usuário: parceira responde com usuário próprio, em tela dedicada — ver §2.11), basta **adicionar um grupo novo ao catálogo**, ex.:
+```php
+public const GROUP_CLOSURE = 'closure';
+// dentro de groups():
+self::GROUP_CLOSURE => [
+    'label' => 'Encerramento',
+    'items' => [
+        'closure.issues.list'    => 'Pendências de encerramento',
+        'closure.issues.respond' => 'Responder pendência',
+        'closure.issues.history' => 'Meu histórico',
+    ],
+],
+```
+e os mapeamentos correspondentes em `routePermissionMap()`. **Nenhuma migration nova é necessária neste lado** — as três tabelas de permissão já são genéricas por `permission_key`. É exatamente o "lembrar de incluir no rol de permissões das atividades no partner" que o usuário pediu — mapeado e pronto para a Fase 4.
+
+### 2.11 Canal de resposta da Parceira — **decidido pelo usuário**
+
+A Parceira responde a uma pendência de encerramento **com usuário próprio, em tela dedicada do Partner** (mesmo padrão de acesso já usado em Levantamento/Fiscalização/Viabilidade — ver `resources/views/livewire/partner/*`). Isso confirma o desenho do fluxo §8 tal como planejado (sem necessidade de canal externo/manual) e ativa diretamente o mecanismo do §2.10 (novo grupo `closure` no `PartnerPermissionCatalog`, checado via `PartnerAccessGate::allows()`), sem exigir nenhuma estrutura de dados nova.
+
+### 2.12 Cancelamento de Ordem e SLA de pendências — **decidido pelo usuário**
+
+- **Ordem cancelada** (`orders.canceled = true`, mecanismo já existente e independente deste módulo): a Ordem **sai** das telas de Meta/Passivo/Carteira ativa, mas o **histórico permanece consultável** no Detalhe da Ordem. Modelado como um estado terminal `CANCELLED` em `closure_order_states.status`, paralelo a `CLOSED` (ver §11) — nunca apagar `closure_order_events` correspondentes.
+- **SLA de pendências**: **não existe** uma política formal de prazo por tipo de pendência hoje, e este plano não propõe criar uma. Em vez de um campo de prazo/SLA, `closure_issues` ganha um campo de **lembrete pessoal** (`remind_at`) que o próprio colaborador que abre a pendência define opcionalmente — dispara uma notificação (`SystemNotification`/`UserNotificationData`, Fase 6) quando vence, mas não é uma trava contratual nem gera métrica de "SLA estourado". Se no futuro o negócio quiser formalizar prazos por tipo, isso vira uma tabela de parametrização à parte (fora do escopo confirmado agora).
 
 ---
 
@@ -256,7 +308,9 @@ Antes disso, o ciclo de vida operacional de uma Ordem dentro do módulo:
 
 ```
 Dia a dia:
-  Order.statusSist ainda NÃO começa com ENTE/ENCE (Ordem ainda aberta)
+  Order.statusSist começa com LIB (não basta "não ser ENTE/ENCE" — ABER e BLOQ
+  também ficam de fora da meta, ver §2.6: BLOQ costuma esconder ENTE/ENCE atrás,
+  ou seja, já "possivelmente encerrada", não é backlog novo)
        │
        ▼
   Operation(order_id = Order.id, operacao='0020').status LIKE 'CONF%'
@@ -270,7 +324,7 @@ Dia a dia:
   Ordem elegível para entrar na meta do MÊS SEGUINTE ao mês de fimReal
 ```
 
-Números reais do banco de DEV nesta sessão: 75.932 Ordens no total, 23.040 ainda abertas (não `ENTE%`/`ENCE%`), das quais **1.630** já têm OP20 com `status LIKE 'CONF%'` e `fimReal` preenchido — esse seria o tamanho inicial da carteira/meta se o módulo entrasse em operação hoje. (Checar só `fimReal IS NOT NULL` sem exigir `CONF%` daria 1.760 — 130 Ordens a mais, incorretamente incluídas.) Dessas 1.630, **412 (25%)** têm `ENTE`/`ENCE` escondido atrás de um `BLOQ` no primeiro token (ver §2.6) — pendência de decisão de negócio antes de confiar no número final.
+Números reais do banco de DEV nesta sessão: 75.932 Ordens no total. Das que têm OP20 com `status LIKE 'CONF%'` e `fimReal` preenchido (1.630), a quebra por primeiro token de `statusSist` é `LIB=1.216`, `BLOQ=412`, `ABER=2` — confirmando que os 412 `BLOQ` são exatamente os que têm `ENTE`/`ENCE` escondido (ver §2.6). Com a regra final e completa (`statusSist LIKE 'LIB%'` + OP20 `CONF%` + `fimReal`), **1.216 Ordens** é o tamanho real esperado da carteira/meta inicial hoje.
 
 ```
 No congelamento da competência (ex.: virada para SET/2026):
@@ -414,13 +468,14 @@ Unique: `order_id` (uma Ordem nunca tem mais de uma linha de meta — é assim q
 |---|---|---|
 | id | bigint pk | |
 | order_id | FK orders, **unique** | 1:1 com Order |
-| status | string/enum | `AVAILABLE, ASSIGNED, IN_PROGRESS, WAITING, READY, CLOSED` |
+| status | string/enum | `AVAILABLE, ASSIGNED, IN_PROGRESS, WAITING, READY, CLOSED, CANCELLED` (`CANCELLED` confirmado pelo usuário — ver §2.12: Ordem cancelada sai da meta/passivo ativo mas mantém histórico) |
 | assigned_user_id | FK users nullable | responsável operacional (separado da pendência!) |
 | assigned_at | timestamp nullable | |
 | current_location_type | string/enum nullable | `INTERNAL_TEAM, PARTNER, EXTERNAL_AREA` |
 | current_location_company_id | FK companies nullable | preenchido quando `PARTNER` |
 | closed_at | timestamp nullable | quando `statusSist` transicionou para ENT/ENC |
 | closure_cycle_id_on_close | FK closure_cycles nullable | competência de **conclusão** (para calcular "meta original X, conclusão Y") |
+| cancelled_at / cancelled_reason | nullable | preenchidos quando `status=CANCELLED`, refletindo `orders.canceled_at`/`orders.canceled_by` |
 | last_status_sist_seen | string nullable | cache só para o job de detecção comparar sem reprocessar tudo |
 | last_status_sist_checked_at | timestamp nullable | |
 | created_at/updated_at | | |
@@ -449,7 +504,7 @@ Unique: `order_id` (uma Ordem nunca tem mais de uma linha de meta — é assim q
 | opened_by | FK users | |
 | opened_at | timestamp | |
 | requested_at | timestamp nullable | |
-| due_at | timestamp nullable | prazo/SLA |
+| remind_at | timestamp nullable | **não é SLA formal** (confirmado pelo usuário — ver §2.12: não existe política de prazo por tipo hoje) — é um lembrete opcional que o próprio colaborador que abre a pendência define, para reaparecer/notificar quando vencer. Substitui o antigo `due_at` genérico por um campo com semântica explícita de lembrete pessoal, não de prazo contratual. |
 | description | text nullable | |
 | rework_count | unsigned int default 0 | incrementado a cada rejeição/devolução |
 | resolved_at / resolved_by | nullable | |
@@ -528,12 +583,15 @@ AVAILABLE ──assumir──▶ ASSIGNED ──iniciar tratamento──▶ IN_P
                                      statusSist transiciona para ENT/ENC (job §13, nunca manual)
                                                             ▼
                                                          CLOSED  (terminal)
+
+(qualquer estado não-terminal) ──Order.canceled=true (fora do módulo)──▶ CANCELLED  (terminal)
 ```
 
 Regras:
 - `CLOSED` **só** é setado pelo job de detecção de `statusSist`, nunca por ação manual de usuário.
+- `CANCELLED` é setado quando `orders.canceled` vira `true` (evento já existente no domínio, fora deste módulo) — confirmado pelo usuário: a Ordem sai das telas de Meta/Passivo/Carteira ativa, mas o histórico de `closure_order_events` continua consultável no Detalhe da Ordem (ver §2.12).
 - `WAITING` não se subdivide por motivo (ex.: nada de `WAITING_PARTNER_MATERIAL`) — o motivo vive em `closure_issues.type`/`reason`, conforme §12 do enunciado.
-- Transferência de responsável (`assigned_user_id`) é permitida em qualquer estado não-`CLOSED`, e gera evento `TRANSFERRED`, sem mudar `status`.
+- Transferência de responsável (`assigned_user_id`) é permitida em qualquer estado não-terminal, e gera evento `TRANSFERRED`, sem mudar `status`.
 
 ### Estado da pendência (`closure_issues.status`)
 
@@ -600,7 +658,9 @@ OPEN ──solicitar──▶ WAITING_PARTNER ⇄ (via rejeição) AWAITING_VALI
    ```
    1. Criar (ou obter) closure_cycles do mês alvo, status=OPEN
    2. Buscar Ordens elegíveis:
-        - Order.statusSist ainda não começa com ENTE/ENCE (ainda aberta)
+        - Order.statusSist LIKE 'LIB%' (exclui ABER e BLOQ automaticamente —
+          BLOQ, em especial, costuma esconder ENTE/ENCE atrás, ver §2.6,
+          decisão do usuário: essas Ordens não entram na meta)
         - existe Operation(order_id=Order.id, operacao='0020') com
           status LIKE 'CONF%' E fimReal PREENCHIDO — as duas condições juntas,
           obrigatoriamente (regra confirmada pelo usuário nesta conversa; dados
@@ -610,9 +670,6 @@ OPEN ──solicitar──▶ WAITING_PARTNER ⇄ (via rejeição) AWAITING_VALI
         - Order.canceled = false
         - Nota não totalmente cancelada (reaproveitar scopeExcludeCanceledFullDone)
         - Order ainda SEM linha em closure_targets (nunca duplicar)
-        - PENDENTE DE VALIDAÇÃO: decisão sobre Ordens `BLOQ ENTE.../BLOQ ENCE...`
-          (ver §2.6) — hoje tratadas como "ainda abertas" (primeiro token), afeta
-          ~23% das Ordens candidatas observadas em DEV
    3. Para cada Ordem elegível: criar closure_targets (1 linha, snapshot)
                                  criar closure_order_states (status=AVAILABLE) se não existir
                                  gravar closure_order_events(ENTERED_TARGET)
@@ -765,61 +822,73 @@ Todos derivados de `closure_targets` + `closure_order_states` + `closure_order_e
 
 ## 18. Riscos técnicos
 
-1. ~~Formato real de `statusSist` desconhecido~~ — **resolvido nesta sessão** com consulta real ao banco de DEV (ver §2.6): string composta por tokens separados por espaço, primeiro token só assume `ENCE/ENTE/LIB/ABER/BLOQ`. Risco residual: **2.091 Ordens (412 delas já candidatas à meta) têm `ENTE`/`ENCE` atrás de um `BLOQ`** — decisão de negócio pendente sobre se contam como encerradas (ver §2.6).
-2. ~~Regra de "OP20 confirmada" ambígua~~ — **resolvida nesta sessão**: o usuário confirmou que a regra é `Operation(operacao='0020')` com **`status LIKE 'CONF%'` E `fimReal IS NOT NULL`, as duas condições obrigatórias juntas** — não basta `fimReal` preenchido isoladamente (dados reais mostram 160 linhas com `fimReal` preenchido mas status `CNPA...`, que ficam de fora). Não reaproveitar `PublishRepository`/`NoteFilter` (regra de outro consumidor — `LIB%/CNPA%/JBFI LIB%` — já mudou de definição 2x no histórico do código, e não é igual a esta).
-3. **Ausência de coluna de "tipo de Ordem".** O prefixo de `ordem` (150/170/180/190/200) não é uma constante de sistema hoje, só uma convenção observada em `config/sicode.php` (parcial: só 150/170/190, e só para "network scope"). Depender de parsing de string é frágil; se o SAP mudar a nomenclatura, quebra silenciosamente.
-4. **Volume**: o job de detecção de transição roda a cada sync (7x/dia); se o número de Ordens ativas no módulo crescer muito, medir o custo da consulta antes de liberar em produção (índice em `closure_order_states.status` obrigatório).
-5. **Cancelamento de Ordem/Nota já existe e precisa ser cruzado** (`orders.canceled`, `CancellationRequest`) para não computar Ordem cancelada como passivo eterno.
-6. **Multi-região (ES/SP)**: cada deployment é banco separado (ver [[project_region_deployment_model]]); regra de entrada na meta e eventuais nomes/mapas de tipo de Ordem podem divergir por região — seguir o padrão `SicodeRules`/`config/sicode.php` (documentar só a exceção por ruleset), não hardcode.
-7. **Reaproveitamento incorreto do `Notetimeline`**: por ser amplamente usado e "parecido", há risco de alguém tentar usá-lo como histórico do módulo novo. Ele é por Nota, não por Ordem — não atende à regra de ouro do enunciado. Deixar isso explícito no time.
+1. ~~Formato real de `statusSist` desconhecido~~ — **resolvido nesta sessão** com consulta real ao banco de DEV (ver §2.6): string composta por tokens separados por espaço, primeiro token só assume `ENCE/ENTE/LIB/ABER/BLOQ`.
+2. ~~Regra de "OP20 confirmada" ambígua~~ — **resolvida nesta sessão**: `statusSist LIKE 'LIB%'` (na própria Ordem) **E** `Operation(operacao='0020')` com `status LIKE 'CONF%'` **E** `fimReal IS NOT NULL`, todas as três condições obrigatórias juntas. Não reaproveitar `PublishRepository`/`NoteFilter` (regra de outro consumidor — `LIB%/CNPA%/JBFI LIB%` no `status` da Operation, não no `statusSist` da Ordem — já mudou de definição 2x no histórico do código, e não é igual a esta).
+3. ~~Ambiguidade de `BLOQ`~~ — **resolvida nesta sessão**: `BLOQ` não entra na meta (decisão do usuário, ver §2.6), coberta naturalmente pela exigência de `statusSist LIKE 'LIB%'` acima. Risco residual mínimo, não bloqueante: o mesmo raciocínio ("BLOQ+ENTE já é possivelmente encerrada") ainda não foi confirmado explicitamente para o job de detecção do §13 (Ordem que já estava na carteira como `LIB` e depois vira `BLOQ ENTE...`) — recomendação do plano é tratar como encerrada por analogia, mas vale 1 frase de confirmação antes da Fase 6.
+4. **Ausência de coluna de "tipo de Ordem".** O prefixo de `ordem` (150/170/190/200 confirmados; `180` não existe na base hoje, ver §2.4) não é uma constante de sistema, só um padrão observado nos dados. Depender de parsing de string é frágil; se o SAP mudar a nomenclatura, quebra silenciosamente.
+5. **Volume**: o job de detecção de transição roda a cada sync (7x/dia); se o número de Ordens ativas no módulo crescer muito, medir o custo da consulta antes de liberar em produção (índice em `closure_order_states.status` obrigatório).
+6. **Cancelamento de Ordem/Nota já existe e precisa ser cruzado** (`orders.canceled`, `CancellationRequest`) para não computar Ordem cancelada como passivo eterno.
+7. **Multi-região (ES/SP)**: cada deployment é banco separado (ver [[project_region_deployment_model]]); regra de entrada na meta e eventuais nomes/mapas de tipo de Ordem podem divergir por região — seguir o padrão `SicodeRules`/`config/sicode.php` (documentar só a exceção por ruleset), não hardcode.
+8. **Reaproveitamento incorreto do `Notetimeline`**: por ser amplamente usado e "parecido", há risco de alguém tentar usá-lo como histórico do módulo novo. Ele é por Nota, não por Ordem — não atende à regra de ouro do enunciado. Deixar isso explícito no time.
 
 ---
 
 ## 19. Regras ainda não conhecidas
 
-- Quem pode abrir pendência, solicitar à Parceira, validar/rejeitar — mapeamento de papéis (colaborador interno? qualquer usuário da hierarquia? gestor?).
-- Existe SLA formal por tipo de pendência, ou é sempre livre (`due_at` opcional)?
-- A "Parceira" responde pelo próprio sistema (login de usuário da empresa contratada, já existe em `PartnerUserBranch`) ou por canal externo (e-mail, planilha) com lançamento manual pelo colaborador?
-- Cancelamento de uma Ordem que já está em `closure_targets`/`closure_order_states` — o que acontece ao registro de meta e ao histórico? (provavelmente mantém o histórico e marca um estado terminal alternativo, mas isso não foi coberto pelo enunciado).
-- Reabertura de Ordem já `CLOSED` (se o SAP reverter `statusSist`) — cenário existe no domínio?
+- ~~Quem pode abrir pendência, solicitar à Parceira, validar/rejeitar~~ — **resolvida**: nova "atividade" (colunas boolean em `users` + `Gate::define`, mesmo padrão do Jurídico) — ver §2.10.
+- ~~SLA formal por tipo de pendência~~ — **resolvida**: não existe, fica como lembrete pessoal opcional (`remind_at`) — ver §2.12.
+- ~~Canal de resposta da Parceira~~ — **resolvida**: usuário próprio, tela dedicada do Partner — ver §2.11.
+- ~~Cancelamento de Ordem já em meta/carteira~~ — **resolvida**: sai da meta/passivo ativo, mantém histórico, estado terminal `CANCELLED` — ver §2.12/§11.
+- Reabertura de Ordem já `CLOSED` (se o SAP reverter `statusSist`) — cenário ainda não perguntado ao usuário; item de menor prioridade, não bloqueia Fases 1-4.
 
 ---
 
 ## 20. Lista de PENDÊNCIAS DE VALIDAÇÃO
 
 1. ~~Formato real de `statusSist`~~ — **RESOLVIDA** (§2.6, consulta real ao banco de DEV).
-2. ~~Regra exata de "OP20 confirmada"~~ — **RESOLVIDA** (§2.7, confirmada pelo usuário: `status LIKE 'CONF%'` **E** `fimReal IS NOT NULL`, as duas condições obrigatórias juntas — validado com dados reais).
-3. **Ordens `BLOQ ENTE.../BLOQ ENCE...` contam como encerradas ou como ainda abertas?** — **nova pendência, quantificada**: 2.091 Ordens no total, **412 delas já candidatas à meta hoje** (25% do universo de 1.630 candidatas observado em DEV, com a regra correta de `CONF%`+`fimReal`). A regra confirmada pelo usuário nesta conversa não menciona `BLOQ`; este plano assume por ora a interpretação de primeiro token (Ordem "ainda aberta"), consistente com o padrão já usado em 9+ arquivos do projeto — mas isso precisa de confirmação explícita antes da Fase 6 (automação do fechamento).
-4. **Mapa oficial de tipos de Ordem por prefixo** (150/170/180/190/200 e quaisquer outros) e sua relação com `type_note` — hoje só parcialmente declarado em `config/sicode.php` (150/170/190, só para EP/"network"). Ainda não verificado com dados reais nesta sessão (não fazia parte do que o usuário pediu para validar agora).
-5. **Papéis e permissões** de quem pode assumir, transferir, abrir/validar pendência, e se isso difere de ES para SP.
-6. **Canal de resposta da Parceira** (login próprio vs. lançamento manual pelo colaborador).
-7. **Tratamento de Ordem cancelada** que já estava em meta/carteira ativa.
-8. **Possibilidade de reabertura** de Ordem `CLOSED` (statusSist revertido pelo SAP).
-9. **SLA/prazos formais** por tipo de pendência (existe política definida ou fica livre por agora?).
+2. ~~Regra exata de "OP20 confirmada"~~ — **RESOLVIDA** (§2.7: `statusSist LIKE 'LIB%'` **E** OP20 `status LIKE 'CONF%'` **E** `fimReal IS NOT NULL` — validado com dados reais).
+3. ~~Ordens `BLOQ ENTE.../BLOQ ENCE...`~~ — **RESOLVIDA** (§2.6: não entram na meta — decisão do usuário, já coberta pela exigência de `statusSist LIKE 'LIB%'`). Resíduo não-bloqueante: confirmar o mesmo raciocínio para o job de detecção do §13 antes da Fase 6.
+4. ~~Mapa oficial de tipos de Ordem por prefixo~~ — **RESOLVIDA** (§2.4, dados reais): `200→OV`, `150/170/190→EP`. `180` não existe em nenhuma Ordem da base hoje — não presumir sua existência na implementação.
+5. ~~Papéis e permissões~~ — **RESOLVIDA** (§2.10): mesma arquitetura do módulo Jurídico — colunas boolean em `users` (ex.: `closure_operator`, `closure_manager`) + `Gate::define` em `AuthServiceProvider`; nomes exatos das flags definidos na Fase 2. Diferença ES/SP não mencionada pelo usuário — assumir mesma regra nas duas regiões até indicação contrária.
+6. ~~Canal de resposta da Parceira~~ — **RESOLVIDA** (§2.11): usuário próprio da Parceira, tela dedicada do Partner, novo grupo `closure` no `PartnerPermissionCatalog`.
+7. ~~Tratamento de Ordem cancelada~~ — **RESOLVIDA** (§2.12): sai de meta/passivo/carteira ativa, mantém histórico, estado terminal `CANCELLED`.
+8. **Possibilidade de reabertura** de Ordem `CLOSED` (statusSist revertido pelo SAP) — única pendência de negócio ainda em aberto; baixa prioridade, não bloqueia Fases 1-4.
+9. ~~SLA/prazos formais~~ — **RESOLVIDA** (§2.12): não existe SLA formal; `closure_issues.remind_at` como lembrete pessoal opcional, sem trava contratual.
 
 ---
 
 ## 21. Plano de implementação em fases
 
-O faseamento sugerido no enunciado é adequado; mantido com pequenos ajustes de nome/escopo.
+O faseamento sugerido no enunciado é adequado; mantido, com um ajuste de ênfase: como o objetivo principal confirmado pelo usuário é **controle dos registros pelos responsáveis** e **fácil acesso para responder qualquer pergunta sobre a situação do encerramento**, a tela **Detalhe da Ordem** (§15.6) deixa de ser "só uma entrega da Fase 3" e passa a ser **uma superfície viva, que nasce simples na Fase 1 e ganha campos a cada fase seguinte** — em vez de o usuário esperar até a Fase 3 para ter qualquer resposta sobre uma Ordem específica.
 
-### Fase 0 — Levantamento e validação do domínio
-Resolver as pendências da §20 com a área de negócio (principalmente #1 e #2, que bloqueiam qualquer regra automática confiável). Rodar consultas read-only em ambiente real para amostrar valores de `statusSist` e `operations.status` (operacao=0020). Sem código de produção.
+### Fase 0 — Levantamento e validação do domínio — **CONCLUÍDA em 2026-08-30**
+Todas as pendências da §20 foram resolvidas nesta conversa, com validação real de dados (banco de DEV) e decisões explícitas do usuário (ver §2.4 a §2.12 para o detalhe de cada uma):
+- ✅ #1 Formato de `statusSist`.
+- ✅ #2 Regra de "OP20 confirmada": `statusSist LIKE 'LIB%'` **E** OP20 `status LIKE 'CONF%'` **E** `fimReal IS NOT NULL`.
+- ✅ #3 Tratamento de `BLOQ ENTE/ENCE`: não entra na meta, coberto pela exigência de `LIB%` acima.
+- ✅ #4 Mapa de tipos de Ordem por prefixo: `200→OV`, `150/170/190→EP`, `180` não existe na base hoje.
+- ✅ #5 Papéis/permissões: nova "atividade" via colunas boolean em `users` + `Gate::define` (padrão do Jurídico).
+- ✅ #6 Canal de resposta da Parceira: usuário próprio, tela dedicada do Partner, novo grupo no `PartnerPermissionCatalog`.
+- ✅ #7 Cancelamento de Ordem: sai de meta/passivo ativo, mantém histórico, estado terminal `CANCELLED`.
+- ✅ #9 SLA de pendências: não existe formal, vira lembrete pessoal opcional (`remind_at`).
+- ⏳ #8 Reabertura de Ordem `CLOSED` — único item ainda em aberto, baixa prioridade, não bloqueia Fases 1-4.
 
-### Fase 1 — Competência + meta congelada + passivo
-`closure_cycles`, `closure_targets`, comando de congelamento (§14), telas somente-leitura de Meta e Passivo (§15.2/15.3). Sem assunção ainda — só visibilidade.
+### Fase 1 — Competência + meta congelada + passivo + Detalhe da Ordem (v1, só leitura) — **EM ANDAMENTO**
+`closure_cycles`, `closure_targets`, comando de congelamento (§14), telas somente-leitura de Meta e Passivo (§15.2/15.3). **Incluir já aqui uma primeira versão do Detalhe da Ordem (§15.6)** mostrando o que já é possível responder só com dados existentes + `closure_targets`: `statusSist` atual, se é meta ou passivo, competência original, aging desde `frozen_at`. Sem assunção/responsável/localização ainda (isso é Fase 2/3) — mas já é uma resposta parcial e útil à pergunta "qual a situação desta Ordem".
+
+➡️ Checklist detalhado de execução: [FASE_1_CHECKLIST.md](FASE_1_CHECKLIST.md).
 
 ### Fase 2 — Fila + assunção de Ordens + Minha Carteira
-`closure_order_states` (sem pendências ainda, só `AVAILABLE/ASSIGNED/IN_PROGRESS/CLOSED`), `closure_order_events`, telas Ordens Disponíveis / Minha Carteira (§15.4/15.5), serviço de assunção com lock (§7/§17).
+`closure_order_states` (sem pendências ainda, só `AVAILABLE/ASSIGNED/IN_PROGRESS/CLOSED`), `closure_order_events`, telas Ordens Disponíveis / Minha Carteira (§15.4/15.5), serviço de assunção com lock (§7/§17). **Detalhe da Ordem ganha "responsável operacional" e "assumida em".**
 
 ### Fase 3 — Controle operacional da Ordem
-Estados `WAITING`/`READY`, localização (`current_location_*`), Detalhe da Ordem e da Nota como agregador (§15.6/15.7).
+Estados `WAITING`/`READY`, localização (`current_location_*`), Detalhe da NOTE como agregador (§15.7). **Detalhe da Ordem ganha "onde está"/"motivo".**
 
 ### Fase 4 — Pendências e interação com Parceiras/áreas
-`closure_issues`, `closure_issue_events`, reaproveitamento de `EvidenceFile`/`Comment`, tela de Pendências (§15.8), fluxo colaborador↔parceira completo (§8).
+`closure_issues`, `closure_issue_events`, reaproveitamento de `EvidenceFile`/`Comment`, tela de Pendências (§15.8), fluxo colaborador↔parceira completo (§8). **Detalhe da Ordem ganha a lista de pendências e o ciclo completo de solicitação/resposta/validação** — é aqui que a pergunta "com quem e por quê" fica 100% respondida.
 
 ### Fase 5 — Histórico e indicadores
-Timeline consolidada por Ordem, Visão da Equipe e Gargalos (§15.9/15.10), indicadores da §16.
+Timeline consolidada por Ordem, Visão da Equipe e Gargalos (§15.9/15.10), indicadores da §16. **Detalhe da Ordem ganha a timeline completa (§15.6 já ilustra o resultado final).**
 
 ### Fase 6 — Automações e integrações adicionais
 Job de detecção de `statusSist` automatizado no cron (§13) — recomendado **não** automatizar antes da Fase 5, para validar manualmente por 1-2 competências que a detecção está correta antes de confiar nela para fechar Ordens sozinha. Depois: notificações (`SystemNotification`/`UserNotificationData`), exportações gerenciais, cron do congelamento de meta.
@@ -861,15 +930,17 @@ Nenhum arquivo alterado — apenas consultas read-only e conversas de validaçã
 - Novo: Livewire `App\Http\Livewire\Closure\Cycles\{Overview,Passive}` (nomes provisórios) + rotas + gate `closure.manager` em `app/Providers/AuthServiceProvider.php`.
 
 ### Fase 2
-- Novo: migrations `create_closure_order_states_table`, `create_closure_order_events_table`.
+- Novo: migrations `create_closure_order_states_table`, `create_closure_order_events_table`, `add_closure_permissions_to_users_table` (colunas boolean, ex.: `closure_operator`, `closure_manager` — mesmo padrão de `add_legal_permissions_to_users_table`).
 - Novo: `App\Models\ClosureOrderState`, `App\Models\ClosureOrderEvent`.
 - Novo: `App\Services\Closure\ClosureAssignmentService` (espelha `DispatchWorkflowService` — transação + `lockForUpdate()`).
 - Novo: Livewire `Closure\Orders\{Stack,MyPortfolio}` (espelha `app/Http/Livewire/Dispatchs/Survey/Stack.php`).
 - Alteração pequena: `App\Models\Order` (adicionar relações `ClosureState()`, `ClosureEvents()`).
-- Gates novos: `closure.orders.claim`, `closure.orders.view_portfolio`.
+- Alteração: `app/Providers/AuthServiceProvider.php` (gates novos `closure.orders.claim`, `closure.manager`, seguindo o bloco `$isController`/`$isField`/`$isManager` já usado para `legal.*`).
+- Alteração: `app/Http/Livewire/Admin/User/Actions/Usuario.php` (+ blade correspondente) — adicionar os novos checkboxes de atividade, mesmo padrão de `legal_controller/legal_field/legal_manager`.
 
 ### Fase 3
-- Alteração: `ClosureOrderState` (novas colunas de localização), `ClosureAssignmentService` (transferência).
+- Alteração: `ClosureOrderState` (novas colunas de localização + estado terminal `CANCELLED`), `ClosureAssignmentService` (transferência).
+- Novo: listener/observer simples ligando `orders.canceled` a `ClosureOrderState.status = CANCELLED` (Ordem cancelada sai de meta/passivo, mantém histórico — §2.12).
 - Novo: Livewire `Closure\Orders\Detail`, `Closure\Notes\Detail` (agregador — usa `Note::Orders()` já existente).
 
 ### Fase 4
@@ -877,8 +948,8 @@ Nenhum arquivo alterado — apenas consultas read-only e conversas de validaçã
 - Novo: `App\Models\ClosureIssue`, `App\Models\ClosureIssueEvent`.
 - Reuso sem alteração de schema: `App\Models\EvidenceFile`, `App\Models\Comment` (relações morph já existentes — só adicionar `evidenciable`/`commentable` do lado de `ClosureIssue`).
 - Novo: `App\Services\Closure\ClosureIssueWorkflowService` (espelha o sub-workflow de aprovação do `CancellationRequest`).
-- Novo: Livewire `Closure\Issues\{Inbox,Detail}`.
-- Possível integração: `App\Models\PartnerUserBranch` / `PartnerCompanyPermissionGrant` se a Parceira responder via login próprio (PENDENTE DE VALIDAÇÃO #5).
+- Novo: Livewire `Closure\Issues\{Inbox,Detail}` (colaborador) e Livewire dedicado no Partner (`resources/views/livewire/partner/closure/*`, a definir) para a Parceira responder com usuário próprio (§2.11).
+- Alteração: `app/Services/PartnerAccess/PartnerPermissionCatalog.php` (novo grupo `GROUP_CLOSURE` com `closure.issues.list/respond/history`) e seu `routePermissionMap()` — nenhuma migration nova aqui, `PartnerCompanyPermissionGrant`/`PartnerRole`/`PartnerUserPermissionException` já são genéricas por `permission_key` (§2.10).
 
 ### Fase 5
 - Sem tabelas novas. Novo: `App\Services\Closure\ClosureIndicatorsService` (consultas agregadas), Livewire `Closure\Team\Overview`, `Closure\Bottlenecks\Overview`.
@@ -907,4 +978,4 @@ Nenhum arquivo alterado — apenas consultas read-only e conversas de validaçã
 | Contexto/obra | NOTE | `notes.*` (já existe) |
 | Agrupamento visual | NOTE | `Note::Orders()` (já existe) |
 
-**Regra definitiva, repetida para não ser esquecida:** `orders.statusSist LIKE 'ENT%' OR orders.statusSist LIKE 'ENC%'` (na prática, os códigos reais do SAP são `ENTE`/`ENCE`, confirmado com dados do banco de DEV nesta sessão) é a única confirmação de que uma Ordem está encerrada — já é assim que o próprio SICODE2 se comporta hoje em 9+ pontos do código, e o módulo novo deve apenas centralizar essa leitura, nunca reinterpretá-la. Única ressalva pendente: ~2.7% das Ordens (`BLOQ ENTE...`/`BLOQ ENCE...`) escapam dessa checagem por terem `BLOQ` como primeiro token — ver §2.6 para a decisão de negócio ainda em aberto.
+**Regra definitiva, repetida para não ser esquecida:** `orders.statusSist LIKE 'ENT%' OR orders.statusSist LIKE 'ENC%'` (na prática, os códigos reais do SAP são `ENTE`/`ENCE`, confirmado com dados do banco de DEV nesta sessão) é a única confirmação de que uma Ordem está encerrada — já é assim que o próprio SICODE2 se comporta hoje em 9+ pontos do código, e o módulo novo deve apenas centralizar essa leitura, nunca reinterpretá-la. Para **entrada na meta**, a regra é mais restrita: `statusSist LIKE 'LIB%'` — `BLOQ` (mesmo com `ENTE`/`ENCE` escondido atrás) e `ABER` ficam de fora, por decisão do usuário (§2.6).

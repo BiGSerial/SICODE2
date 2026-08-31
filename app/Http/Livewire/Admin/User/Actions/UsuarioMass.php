@@ -227,18 +227,22 @@ class UsuarioMass extends Component
         if ($this->users->count()) {
 
             foreach ($this->users as $user) {
+                $shouldPreserveServices = $this->shouldPreserveExistingServices($user);
+                $employeePayload = [
+                    'contract_id' => $this->contract,
+                ];
+
+                if (!$shouldPreserveServices) {
+                    $employeePayload['service_id'] = $primaryServiceId;
+                }
 
                 if ($user->Employee) {
                     // Atualiza o Employee existente
-                    $user->Employee()->update([
-                        'contract_id' => $this->contract,
-                        'service_id'  => $primaryServiceId,
-                    ]);
+                    $user->Employee()->update($employeePayload);
                 } else {
                     // Cria um novo Employee
-                    $user->Employee()->create([
-                        'contract_id' => $this->contract,
-                        'service_id'  => $primaryServiceId,
+                    $user->Employee()->create($employeePayload + [
+                        'service_id' => $primaryServiceId,
                     ]);
                 }
 
@@ -269,7 +273,7 @@ class UsuarioMass extends Component
 
 
                 $user->save();
-                $this->syncUserServices($user);
+                $this->syncUserServices($user, $shouldPreserveServices);
 
             }
 
@@ -424,8 +428,12 @@ class UsuarioMass extends Component
             ->exists();
     }
 
-    private function syncUserServices(User $user): void
+    private function syncUserServices(User $user, bool $preserveExistingServices = false): void
     {
+        if ($preserveExistingServices) {
+            return;
+        }
+
         $serviceId = $this->resolvePrimaryServiceId();
 
         if (!$serviceId || $user->ToServices()->where('service_id', $serviceId)->exists()) {
@@ -440,6 +448,11 @@ class UsuarioMass extends Component
             'service' => $canExecute,
             'dispatch' => $canDispatch,
         ]);
+    }
+
+    private function shouldPreserveExistingServices(User $user): bool
+    {
+        return $user->ToServices()->exists();
     }
 
     private function profileCanDispatch(): bool
