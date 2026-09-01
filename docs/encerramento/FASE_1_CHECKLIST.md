@@ -71,9 +71,11 @@
 - [x] `App\Http\Controllers\ClosureController` (overview/meta/passive/orderDetail).
 - [x] Rotas em `routes/web.php`, prefixo `/encerramento`, gates `closure.manager`/`closure.view` no middleware.
 
-## 7. Menu — ✅ CONCLUÍDO (2026-09-01)
+## 7. Menu — ✅ CONCLUÍDO, com correção de posicionamento (2026-09-01)
 
-- [x] Adicionado bloco "ENCERRAMENTO" em `resources/views/layouts/menu_itens.blade.php` (mesmo padrão do bloco Jurídico), gated por `can('closure.manager')` — 3 itens: Visão Geral, Meta, Passivo. Validado renderizando a página completa via tinker com usuário superadm real, sem erro.
+- [x] ~~Bloco "ENCERRAMENTO" avulso em `menu_itens.blade.php`~~ — **removido a pedido do usuário**: o acesso não deve ser um dropdown próprio no topbar, e sim viver dentro do dropdown **ATIVIDADES**.
+- [x] Item **"ENCERRAMENTO"** adicionado em `resources/views/components/menu/activities-dropdown.blade.php`, logo abaixo de **"ANÁLISE PROJETO"** (mesmo nível, `kind => 'item'`, sem subitens — a navegação Visão Geral/Meta/Passivo já é coberta pelo sidebar `closure.closure-menu` uma vez dentro do módulo). Gate: `$showClosureShortcut = auth()->user()->can('closure.manager')`, incluído na condição `@if` que decide se o dropdown ATIVIDADES aparece.
+- [x] Validado: `php artisan view:cache` compila sem erro; renderização real de `/home` via tinker com usuário `superadm` autenticado retorna 200 e contém exatamente **1** ocorrência de "ENCERRAMENTO" e 1 link para `/encerramento` (sem duplicação do bloco antigo removido).
 
 ## 8. Testes (Pest) — ✅ CONCLUÍDO (2026-09-01)
 

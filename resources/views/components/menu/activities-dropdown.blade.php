@@ -25,6 +25,7 @@
     $showProjeto = $projectDispatchItems->isNotEmpty() || $projectServiceItems->isNotEmpty();
     $showConstrucao = $constructionDispatchItems->isNotEmpty() || $constructionServiceItems->isNotEmpty();
     $showProjectReviewShortcut = auth()->user()->can('analyst');
+    $showClosureShortcut = auth()->user()->can('closure.manager');
 
     $buildDispatchItems = fn($items) => $items
         ->map(fn($service) => [
@@ -57,6 +58,14 @@
                 'label' => 'ANÁLISE PROJETO',
                 'route' => 'project_review.list',
                 'icon' => 'ri-file-search-line',
+            ]
+            : null,
+        $showClosureShortcut
+            ? [
+                'kind' => 'item',
+                'label' => 'ENCERRAMENTO',
+                'route' => 'closure.overview',
+                'icon' => 'ri-checkbox-circle-line',
             ]
             : null,
         $showProjeto
@@ -115,7 +124,7 @@
         ->all();
 @endphp
 
-@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut)
+@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut || $showClosureShortcut)
     <x-menu.dynamic-dropdown
         title="ATIVIDADES"
         :nodes="$nodes"
