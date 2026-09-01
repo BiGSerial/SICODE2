@@ -52,10 +52,20 @@ class ClosureTargetFreezer
     }
 
     /**
-     * Congela (ou simula, quando $commit=false) a meta de uma competência (year/month),
+     * Grava (ou simula, quando $commit=false) um snapshot da meta de uma competência (year/month),
      * a partir das Ordens elegíveis cujo fimReal caiu no mês de referência (mês anterior).
+     *
+     * Pode ser chamado várias vezes enquanto a competência estiver OPEN: cada execução só insere
+     * as Ordens elegíveis que ainda não têm closure_target (idempotente por natureza, via
+     * whereDoesntHave('ClosureTarget')) — é assim que se cobre o fluxo combinado com o usuário:
+     * rodar no dia 1 (primeiro snapshot) e de novo às 0:00 do dia 2 (injeta Ordens que só
+     * sincronizaram depois, por causa do lag do sync do SAP), antes de travar de vez com $lock=true.
+     *
+     * @param bool $lock Quando true, trava a competência (status=FROZEN) após inserir — não aceita
+     *                    mais nenhuma Ordem depois disso. Quando false, a competência fica OPEN,
+     *                    pronta para uma nova chamada (injeção) mais tarde.
      */
-    public function freeze(int $year, int $month, bool $commit, ?string $frozenBy = null): array
+    public function freeze(int $year, int $month, bool $commit, ?string $frozenBy = null, bool $lock = false): array
     {
         [$referenceStart, $referenceEnd] = self::referenceRangeFor($year, $month);
 
@@ -70,6 +80,7 @@ class ClosureTargetFreezer
             'created'         => 0,
             'cycle'           => null,
             'already_frozen'  => false,
+            'locked_now'      => false,
         ];
 
         if (!$commit) {
@@ -91,7 +102,7 @@ class ClosureTargetFreezer
 
         $created = 0;
 
-        DB::transaction(function () use ($eligibleOrders, $cycle, $referenceStart, $referenceEnd, $frozenBy, &$created) {
+        DB::transaction(function () use ($eligibleOrders, $cycle, $referenceStart, $referenceEnd, $frozenBy, $lock, &$created) {
             foreach ($eligibleOrders as $order) {
                 $operation = $this->matchingOperation($order, $referenceStart, $referenceEnd);
 
@@ -112,14 +123,17 @@ class ClosureTargetFreezer
                 $created++;
             }
 
-            $cycle->update([
-                'status'    => ClosureCycle::STATUS_FROZEN,
-                'frozen_at' => now(),
-                'frozen_by' => $frozenBy,
-            ]);
+            if ($lock) {
+                $cycle->update([
+                    'status'    => ClosureCycle::STATUS_FROZEN,
+                    'frozen_at' => now(),
+                    'frozen_by' => $frozenBy,
+                ]);
+            }
         });
 
-        $result['created'] = $created;
+        $result['created']    = $created;
+        $result['locked_now'] = $lock;
 
         return $result;
     }

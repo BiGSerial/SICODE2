@@ -27,7 +27,12 @@
                                 $closed = str_starts_with($status, 'ENTE') || str_starts_with($status, 'ENCE');
                             @endphp
                             <tr>
-                                <td class="ps-3">Ordem {{ $target->Order->ordem ?? '—' }}</td>
+                                <td class="ps-3">
+                                    Ordem {{ $target->Order->ordem ?? '—' }}
+                                    @if ($target->is_exception)
+                                        <span class="badge bg-warning text-dark ms-1" title="{{ $target->exception_reason }}">EXCEÇÃO</span>
+                                    @endif
+                                </td>
                                 <td>
                                     <span class="badge {{ $closed ? 'bg-success' : 'bg-warning text-dark' }}">
                                         {{ $closed ? 'ENCERRADA' : 'EM ABERTO' }}

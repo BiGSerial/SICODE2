@@ -455,13 +455,18 @@ Unique: `(year, month)`.
 | closure_cycle_id | FK closure_cycles | competência **original** — nunca muda |
 | order_id | FK orders | unique junto com closure_cycle_id (na prática, unique isolado em order_id: uma Ordem só entra em UMA meta, para sempre) |
 | note_id | FK notes | denormalizado — mesmo padrão já usado em `orders.note_id` (Nota só para contexto/consulta, nunca para regra) |
-| entry_rule | string | ex.: `'op20_confirmed_fim_real'` — versionar a regra usada, útil se a regra mudar no futuro (ver §2.7) |
+| entry_rule | string | `'lib_op20_conf_fimreal_v1'` (fluxo automático) ou `'atypical_manual_exception'` (ver §14.3) — versionar a regra usada, útil se a regra mudar no futuro (ver §2.7) |
 | entry_reference | json | snapshot do fato gerador: operation_id da OP20, valor de `fimReal`, etc. |
 | snapshot_status_sist | string | `statusSist` no momento do congelamento |
 | frozen_at | timestamp | quando esta linha foi criada (= data de entrada) |
+| is_exception | boolean, default false | marca entrada por exceção manual (caso atípico), fora do fluxo automático — ver §14.3 |
+| exception_reason | text nullable | justificativa obrigatória quando `is_exception=true` |
+| requested_by | FK users nullable | quem solicitou a exceção (opcional) |
+| authorized_by | FK users nullable | quem autorizou (superior) — obrigatório quando `is_exception=true` |
+| authorized_at | timestamp nullable | quando a exceção foi autorizada |
 | created_at/updated_at | | |
 
-Unique: `order_id` (uma Ordem nunca tem mais de uma linha de meta — é assim que se evita recriar o "Closure" a cada mês, conforme §7 do enunciado).
+Unique: `order_id` (uma Ordem nunca tem mais de uma linha de meta — é assim que se evita recriar o "Closure" a cada mês, conforme §7 do enunciado). As colunas de exceção (`is_exception` em diante) foram adicionadas em migration separada durante a implementação da Fase 1, não estavam na proposta original de schema.
 
 ### `closure_order_states` (o processo único por Ordem)
 | Coluna | Tipo | Observação |
@@ -681,9 +686,29 @@ OPEN ──solicitar──▶ WAITING_PARTNER ⇄ (via rejeição) AWAITING_VALI
 
 Como o congelamento mensal só olha o mês imediatamente anterior à competência, Ordens elegíveis mais antigas — que existiam antes do módulo entrar em operação — nunca entrariam em nenhuma meta rodando só o comando mensal. Validado com dados reais: ~210 Ordens espalhadas entre jun/2024 e jul/2026, fora da competência corrente. Decisão do usuário: criar um **comando de backfill separado** (`closure:backfill-targets`), de uso único no dia em que o módulo entra em operação, que descobre todos os meses históricos com Ordens pendentes e congela uma competência retroativa para cada um — preservando a **mensalização correta** (fimReal no mês M entra na meta do mês M+1 daquela época, não tudo jogado na competência atual). Implementado em `App\Console\Commands\Closure\BackfillTargets`, reaproveitando o mesmo `App\Services\Closure\ClosureTargetFreezer` do comando mensal.
 
-### 14.2 Recomendação de agendamento — rodar no dia 2, não no dia 1
+### 14.2 Recomendação de agendamento — fluxo em dois passos (snapshot dia 1 + injeção/trava dia 2 00:00)
 
-Decisão do usuário, a aplicar quando o congelamento mensal for automatizado (Fase 6): rodar `closure:freeze-target` no **dia 2** do mês, não no dia 1. Motivo: o sync do SAP (`sicode:upd_baseOrder`/`upd_baseOperation`) pode levar até 1 dia para refletir uma Ordem que atingiu a regra de entrada (LIB + OP20 CONF + fimReal) no último dia do mês anterior — congelar exatamente na virada arriscaria deixar essas Ordens de fora da competência correta.
+**Correção do usuário** sobre a recomendação inicial (que sugeria só adiar tudo para o dia 2): na verdade o congelamento deve rodar **nos dois momentos**, com papéis diferentes, porque o sync do SAP (`sicode:upd_baseOrder`/`upd_baseOperation`) pode levar até 1 dia para refletir uma Ordem que atingiu a regra de entrada (LIB + OP20 CONF + fimReal) no último dia do mês anterior:
+
+1. **Dia 1 (qualquer horário):** rodar `closure:freeze-target {competencia} --freeze` **sem** `--lock`. Isso cria a competência (se ainda não existir) e grava um primeiro snapshot com as Ordens já elegíveis até aquele momento. A competência fica `OPEN`.
+2. **Dia 2, 00:00:** rodar o **mesmo comando de novo**, ainda sem `--lock` (ou já com `--lock`, se não houver necessidade de uma terceira rodada). Como a query de elegibilidade já exclui Ordens que já têm `closure_target` (`whereDoesntHave('ClosureTarget')`), essa segunda execução **injeta só as Ordens novas** que sincronizaram com atraso (fechamentos do último dia do mês que só chegaram no dia seguinte) — sem duplicar nada do snapshot do dia 1.
+3. **Travamento definitivo:** quando não houver mais necessidade de injetar (normalmente já na própria rodada do dia 2), passar `--lock` — a competência vira `FROZEN` e não aceita mais nenhuma Ordem depois disso.
+
+Implementado em `App\Services\Closure\ClosureTargetFreezer::freeze()` com o parâmetro `$lock` (default `false`) e no comando `closure:freeze-target` com a flag `--lock`. Validado em DEV: rodar sem `--lock` mantém `status=OPEN`; rodar com `--lock` muda para `FROZEN`; rodar de novo depois de `FROZEN` é recusado sem alterar nada.
+
+O comando de backfill histórico (`closure:backfill-targets`) sempre trava (`lock=true`) na mesma passada — não existe "dia 2" para injetar Ordens de uma competência de meses/anos atrás, então não há motivo para deixá-la `OPEN`.
+
+### 14.3 Caminho de exceção — casos atípicos (decisão do usuário, 2026-08-31)
+
+Mesmo depois de uma competência estar `FROZEN`, o usuário confirmou que precisa existir uma **condição paralela de exceção**: uma Ordem pode ser inserida numa meta já fechada como **caso atípico**, mas **não de forma automática** — é uma entrada por **solicitação superior, sob justificativa obrigatória**.
+
+- **Não faz parte do fluxo automático** (`ClosureTargetFreezer`/`closure:freeze-target`/`closure:backfill-targets`) — é um caminho separado, deliberadamente manual.
+- Implementado em `App\Services\Closure\ClosureExceptionService::registerException()` e no comando `closure:add-exception {order} {--cycle=} {--reason=} {--authorized-by=} {--requested-by=}`.
+- Bypassa a trava normal: **funciona mesmo com a competência `FROZEN`** — não altera o status da competência, só insere mais uma linha em `closure_targets` nela.
+- Validações obrigatórias antes de gravar: Ordem não pode estar cancelada; Ordem não pode já ter um `closure_target` (unicidade preservada); justificativa (`exception_reason`) não pode ser vazia; `authorized_by` é obrigatório (representa a "solicitação superior").
+- Marcado com `entry_rule = 'atypical_manual_exception'` e `is_exception = true`, para não se confundir com uma entrada do fluxo automático em nenhuma consulta/relatório futuro.
+- Nas telas de Meta, Passivo e Detalhe da Ordem, uma entrada de exceção aparece com um selo **"EXCEÇÃO"** (com a justificativa em tooltip no selo, e o detalhe completo — justificativa, quem autorizou, quem solicitou, quando — na tela de Detalhe).
+- Validado em DEV: recusa sem `--cycle`/`--reason`/`--authorized-by`; recusa Ordem que já tem meta; aceita e grava mesmo contra uma competência `FROZEN` (testado contra 2026-09, registro de teste removido em seguida).
 
 ---
 

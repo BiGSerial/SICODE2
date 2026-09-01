@@ -28,6 +28,22 @@
                 </div>
             </div>
 
+            @if ($target?->is_exception)
+                <div class="alert alert-warning mt-3 mb-0 small">
+                    <strong><i class="bi bi-exclamation-triangle-fill"></i> Caso atípico — entrada por exceção.</strong>
+                    Esta Ordem entrou na competência {{ $target->Cycle?->label }} fora do fluxo automático,
+                    por solicitação superior sob justificativa.
+                    <div class="mt-1">
+                        <strong>Justificativa:</strong> {{ $target->exception_reason }}<br>
+                        <strong>Autorizado por:</strong> {{ $target->AuthorizedBy?->name ?? '—' }}
+                        @if ($target->RequestedBy)
+                            &middot; <strong>Solicitado por:</strong> {{ $target->RequestedBy->name }}
+                        @endif
+                        &middot; {{ $target->authorized_at?->format('d/m/Y H:i') }}
+                    </div>
+                </div>
+            @endif
+
             <div class="alert alert-secondary mt-3 mb-0 small">
                 Responsável operacional, localização e pendências ainda não estão disponíveis nesta fase do módulo
                 (Fases 2, 3 e 4). Esta é a versão inicial (Fase 1) do Detalhe da Ordem.

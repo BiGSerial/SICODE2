@@ -15,7 +15,8 @@ class FreezeTarget extends Command
      */
     protected $signature = 'closure:freeze-target
         {competencia? : Competência alvo no formato AAAA-MM (padrão: mês corrente)}
-        {--freeze : Congela de fato (cria closure_cycle/closure_targets). Sem esta flag, roda em modo dry-run.}
+        {--freeze : Grava o snapshot de fato (cria closure_cycle/closure_targets). Sem esta flag, roda em modo dry-run.}
+        {--lock : Junto com --freeze, trava a competência (status=FROZEN) após gravar. Sem --lock, a competência fica OPEN e aceita rodar de novo depois (ex.: injeção às 0:00 do dia seguinte).}
         {--by= : ID do usuário responsável pelo congelamento (opcional)}';
 
     /**
@@ -23,14 +24,16 @@ class FreezeTarget extends Command
      *
      * @var string
      */
-    protected $description = 'Congela a meta de encerramento de UMA competência específica (uso mensal recorrente; '
-        . 'para o backlog histórico na entrada em operação, usar closure:backfill-targets).';
+    protected $description = 'Grava/atualiza o snapshot da meta de UMA competência (uso mensal recorrente). Fluxo '
+        . 'combinado: rodar no dia 1 sem --lock (primeiro snapshot), rodar de novo às 0:00 do dia 2 sem --lock '
+        . '(injeta Ordens sincronizadas com atraso) e só então rodar com --lock (trava de vez). Para o backlog '
+        . 'histórico na entrada em operação, usar closure:backfill-targets.';
 
     public function handle(ClosureTargetFreezer $freezer): int
     {
         [$year, $month] = $this->resolveCompetencia();
 
-        $result = $freezer->freeze($year, $month, (bool) $this->option('freeze'), $this->option('by'));
+        $result = $freezer->freeze($year, $month, (bool) $this->option('freeze'), $this->option('by'), (bool) $this->option('lock'));
 
         $this->info(sprintf(
             'Competência alvo: %s (referência de fimReal: %s a %s)',
@@ -39,10 +42,10 @@ class FreezeTarget extends Command
             $result['reference_end']->format('Y-m-d')
         ));
 
-        $this->info('Ordens elegíveis encontradas: ' . $result['orders']->count());
+        $this->info('Ordens elegíveis (ainda sem closure_target) encontradas: ' . $result['orders']->count());
 
         if (!$this->option('freeze')) {
-            $this->warn('Modo dry-run (nenhum dado foi gravado). Use --freeze para congelar de verdade.');
+            $this->warn('Modo dry-run (nenhum dado foi gravado). Use --freeze para gravar o snapshot de verdade.');
             $this->table(
                 ['order_id', 'ordem', 'note_id', 'statusSist'],
                 $result['orders']->take(20)->map(fn (Order $order) => [
@@ -61,12 +64,18 @@ class FreezeTarget extends Command
         }
 
         if ($result['already_frozen']) {
-            $this->error("A competência {$result['label']} já está congelada (frozen_at: {$result['cycle']->frozen_at}). Nada foi alterado.");
+            $this->error("A competência {$result['label']} já está travada (frozen_at: {$result['cycle']->frozen_at}). Nada foi alterado.");
 
             return self::FAILURE;
         }
 
-        $this->info("Congelamento concluído: {$result['created']} Ordens registradas na meta {$result['label']}.");
+        $this->info("Snapshot gravado: {$result['created']} Ordens novas registradas na meta {$result['label']}.");
+
+        if ($result['locked_now']) {
+            $this->info("Competência {$result['label']} travada (FROZEN) — não aceita mais novas Ordens.");
+        } else {
+            $this->line("Competência {$result['label']} continua OPEN — pode rodar este comando de novo para injetar novas Ordens, ou com --lock para travar.");
+        }
 
         return self::SUCCESS;
     }

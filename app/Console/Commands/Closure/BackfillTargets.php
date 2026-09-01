@@ -52,7 +52,10 @@ class BackfillTargets extends Command
         foreach ($referenceMonths as $referenceMonth) {
             $target = $referenceMonth->copy()->addMonthNoOverflow();
 
-            $result = $freezer->freeze($target->year, $target->month, (bool) $this->option('freeze'), $this->option('by'));
+            // Competências históricas são travadas (lock) na mesma passada — diferente da competência
+            // corrente (closure:freeze-target), não existe "dia 2" para injetar Ordens de um mês já
+            // encerrado há muito tempo.
+            $result = $freezer->freeze($target->year, $target->month, (bool) $this->option('freeze'), $this->option('by'), true);
 
             $count = $result['orders']->count();
 

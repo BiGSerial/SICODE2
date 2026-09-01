@@ -18,7 +18,7 @@ class Detail extends Component
 
     public function render()
     {
-        $order = Order::with(['Note', 'ClosureTarget.Cycle'])->findOrFail($this->orderId);
+        $order = Order::with(['Note', 'ClosureTarget.Cycle', 'ClosureTarget.AuthorizedBy', 'ClosureTarget.RequestedBy'])->findOrFail($this->orderId);
 
         $status   = (string) ($order->statusSist ?? '');
         $isClosed = str_starts_with($status, 'ENTE') || str_starts_with($status, 'ENCE');

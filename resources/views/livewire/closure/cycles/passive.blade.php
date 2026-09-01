@@ -22,7 +22,12 @@
                 <tbody>
                     @forelse ($targets as $target)
                         <tr>
-                            <td class="ps-3">{{ $target->Order->ordem ?? '—' }}</td>
+                            <td class="ps-3">
+                                {{ $target->Order->ordem ?? '—' }}
+                                @if ($target->is_exception)
+                                    <span class="badge bg-warning text-dark ms-1" title="{{ $target->exception_reason }}">EXCEÇÃO</span>
+                                @endif
+                            </td>
                             <td>{{ $target->Note->note ?? '—' }}</td>
                             <td>{{ $target->Cycle->label ?? '—' }}</td>
                             <td>{{ $target->frozen_at?->diffInDays(now()) }} dias</td>
