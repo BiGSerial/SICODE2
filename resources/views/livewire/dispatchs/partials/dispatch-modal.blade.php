@@ -41,14 +41,21 @@
 
             .dispatch-modal__controls {
                 display: grid;
-                grid-template-columns: minmax(180px, 0.75fr) minmax(220px, 1fr);
+                grid-template-columns: 1fr;
                 gap: 0.75rem;
-                align-items: end;
+            }
+
+            .dispatch-modal__control-card {
+                background: #ffffff;
+                border: 1px solid #dbe3ef;
+                border-radius: 8px;
+                padding: 0.85rem;
+                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
             }
 
             .dispatch-modal__user-controls {
                 display: grid;
-                grid-template-columns: minmax(180px, 0.75fr) minmax(220px, 1fr);
+                grid-template-columns: 1fr;
                 gap: 0.75rem;
                 grid-column: 1 / -1;
             }
@@ -114,6 +121,19 @@
                 color: #0f172a;
                 font-weight: 800;
                 letter-spacing: 0.01em;
+            }
+
+            .dispatch-modal__count-badge {
+                align-items: center;
+                background: #0f766e;
+                border-radius: 999px;
+                color: #ffffff;
+                display: inline-flex;
+                font-size: 0.78rem;
+                font-weight: 800;
+                justify-content: center;
+                min-width: 34px;
+                padding: 0.22rem 0.55rem;
             }
 
             .dispatch-modal__hint {
@@ -190,14 +210,28 @@
 
             .dispatch-modal__scope-options .form-check {
                 align-items: center;
-                background: #fff7ed;
-                border: 1px solid #f59e0b;
+                background: #ffffff;
+                border: 1px solid #dbe3ef;
                 border-radius: 6px;
                 display: inline-flex;
                 gap: 0.25rem;
                 margin: 0;
-                padding: 0.25rem 0.55rem 0.25rem 1.85rem;
+                min-height: 34px;
+                min-width: 86px;
+                padding: 0.3rem 0.65rem 0.3rem 1.85rem;
                 font-weight: 800;
+            }
+
+            .dispatch-modal__scope-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 86px;
+                min-height: 28px;
+                font-size: 0.76rem;
+                font-weight: 800;
+                line-height: 1;
+                padding: 0.35rem 0.6rem;
             }
 
             .dispatch-modal__scope-warning {
@@ -238,11 +272,6 @@
             }
 
             @media (max-width: 767.98px) {
-                .dispatch-modal__controls,
-                .dispatch-modal__user-controls {
-                    grid-template-columns: 1fr;
-                }
-
                 .dispatch-modal__footer {
                     align-items: stretch;
                     flex-direction: column-reverse;
@@ -250,6 +279,16 @@
 
                 .dispatch-modal__footer .btn {
                     width: 100%;
+                }
+            }
+
+            @media (min-width: 768px) {
+                .dispatch-modal__controls {
+                    grid-template-columns: minmax(190px, 0.75fr) minmax(260px, 1fr);
+                }
+
+                .dispatch-modal__user-controls {
+                    grid-template-columns: minmax(240px, 0.85fr) minmax(280px, 1fr);
                 }
             }
         </style>
@@ -275,7 +314,7 @@
             <div class="dispatch-modal__body">
                 @if ($notes && $notes->count())
                     <div class="dispatch-modal__controls">
-                        <div>
+                        <div class="dispatch-modal__control-card">
                             <label class="form-label">Destino</label>
                             <div class="dispatch-modal__type-group {{ $contractMode ? 'is-single' : '' }}">
                                 @unless ($contractMode)
@@ -308,7 +347,7 @@
                             </div>
                         </div>
 
-                        <div>
+                        <div class="dispatch-modal__control-card">
                             <label class="form-label">Empresa</label>
                             <select class="form-select" wire:model.defer="company_s"
                                 wire:change="dispatchCompanyChanged($event.target.value)">
@@ -323,7 +362,7 @@
 
                         @if ($type === '2')
                             <div class="dispatch-modal__user-controls">
-                                <div>
+                                <div class="dispatch-modal__control-card">
                                     <label class="form-label">Buscar Usuario</label>
                                     <div class="input-group">
                                         <input wire:model.defer="search_user" wire:keydown.enter.prevent="loadDispatchUsers"
@@ -335,7 +374,7 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div>
+                                <div class="dispatch-modal__control-card">
                                     <div class="d-flex align-items-center justify-content-between gap-2">
                                         <label class="form-label">Usuario</label>
                                         <span class="dispatch-modal__loading" wire:loading
@@ -367,7 +406,10 @@
                     </div>
 
                     <div class="dispatch-modal__summary">
-                        <div class="dispatch-modal__count">Itens para despacho</div>
+                        <div class="dispatch-modal__count">
+                            Itens para despacho
+                            <span class="dispatch-modal__count-badge">{{ $notes->count() }}</span>
+                        </div>
                         <div class="dispatch-modal__hint">
                             {{ $requiresDd ? 'Informe a DD exigida para esta atividade.' : 'Esta atividade nao utiliza DD no despacho.' }}
                         </div>
@@ -409,9 +451,9 @@
                                                     </div>
                                                     <div class="dispatch-modal__scope-warning">Marque o escopo exato desta fiscalizacao.</div>
                                                 @elseif (count($scopeOptions) === 1)
-                                                    <span class="badge text-bg-primary fs-6">{{ $scopeOptions[0]['label'] }}</span>
+                                                    <span class="badge dispatch-modal__scope-badge text-bg-primary">{{ $scopeOptions[0]['label'] }}</span>
                                                 @else
-                                                    <span class="badge text-bg-secondary">Nao aplicavel</span>
+                                                    <span class="badge dispatch-modal__scope-badge text-bg-secondary">Nao aplicavel</span>
                                                 @endif
                                             </td>
                                         @endif
@@ -435,7 +477,8 @@
             <div class="dispatch-modal__footer">
                 <button class="btn btn-outline-secondary" wire:click.prevent="closeAll">Cancelar</button>
                 <button class="btn btn-primary" wire:click.prevent="confirmAtt" wire:loading.attr="disabled"
-                    wire:target="confirmAtt" @disabled(!$notes || !$notes->count())>
+                    wire:target="confirmAtt"
+                    @disabled(!$notes || !$notes->count())>
                     <span wire:loading.remove wire:target="confirmAtt">Despachar</span>
                     <span wire:loading wire:target="confirmAtt">Enviando...</span>
                 </button>

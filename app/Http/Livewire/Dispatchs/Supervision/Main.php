@@ -95,6 +95,8 @@ class Main extends Component
 
     public $filter_d5 = false;
 
+    public bool $bulkSearchAnyStatus = false;
+
     // Filters
     private $filter_group = 'supervision';
 
@@ -677,6 +679,7 @@ class Main extends Component
         $this->user_l    = collect();
         // $this->type = "";
         $this->additionalData = [];
+        $this->bulkSearchAnyStatus = false;
 
         $this->emit('refresh_dispatch');
     }
@@ -691,6 +694,10 @@ class Main extends Component
         $this->user_l      = collect();
         // $this->type = "";
         $this->additionalData = [];
+        $this->multiSearch = [];
+        $this->bulkSearchAnyStatus = false;
+        $this->advanceSearch = "";
+        $this->search = "";
     }
 
     public function buscarMulti()
@@ -957,7 +964,9 @@ class Main extends Component
             $query,
             Auth()->User(),
             $this->service->uuid,
-            fn ($statusQuery) => $this->supervisionRepository->applyBaseRules($statusQuery)
+            fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
+                ? null
+                : $this->supervisionRepository->applyBaseRules($statusQuery)
         );
 
         if (strlen($this->search)) {

@@ -33,6 +33,104 @@
         .remover {
             animation: fadeOut 0.5s forwards;
         }
+
+        .payment-service-controls {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.9rem;
+        }
+
+        .payment-service-control-card {
+            background: linear-gradient(160deg, #ffffff, #f8fafc);
+            border: 1px solid #dbe3ef;
+            border-radius: 0.9rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+            padding: 0.85rem;
+        }
+
+        .payment-service-control-card h6 {
+            color: var(--activity-muted, #6b7280);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.65rem;
+            text-transform: uppercase;
+        }
+
+        .payment-service-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .payment-service-actions .btn {
+            font-weight: 700;
+            min-height: 42px;
+        }
+
+        .payment-service-filters-row {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 0.8rem;
+            padding: 0.75rem;
+        }
+
+        .payment-service-scope-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 64px;
+            min-height: 24px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            line-height: 1;
+            margin: 0.08rem;
+            padding: 0.35rem 0.5rem;
+        }
+
+        .user-activity-page .bulk-search-modal .modal-content {
+            border: 0;
+            border-radius: 0.75rem;
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+            overflow: hidden;
+        }
+
+        .user-activity-page .bulk-search-modal .modal-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 75%);
+            color: #f8fafc;
+            border: 0;
+            padding: 1rem 1.25rem;
+        }
+
+        .user-activity-page .bulk-search-modal .modal-title {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .user-activity-page .bulk-search-modal textarea {
+            min-height: 12rem;
+            resize: vertical;
+            border-color: #cbd5e1;
+        }
+
+        .user-activity-page .bulk-search-warning {
+            border: 1px solid #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+            border-radius: 0.5rem;
+            padding: 0.75rem 0.9rem;
+            font-size: 0.88rem;
+        }
+
+        @media (min-width: 992px) {
+            .payment-service-controls {
+                grid-template-columns: minmax(180px, 0.9fr) minmax(260px, 1fr) minmax(280px, 1fr) minmax(320px, 1.25fr);
+            }
+
+            .payment-service-actions {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+        }
     </style>
 
     {{-- Carrega o Loading da página --}}
@@ -45,107 +143,89 @@
         'accent' => '#475569',
     ])
 
-    <div class="row g-3 activity-filter-card mb-3 justify-content-end">
-        <div class="col-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
-        </div>
+    <div class="activity-filter-card mb-3">
+        <div class="payment-service-controls">
+            <div class="payment-service-control-card">
+                <h6>Paginacao</h6>
+                <div class="form-floating">
+                    <select wire:model="perPage" class="form-select border border-secondary" id="servicePaymentPerPage">
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="250">250</option>
+                        <option value="500">500</option>
+                    </select>
+                    <label for="servicePaymentPerPage">Registros por pagina</label>
+                </div>
+            </div>
 
-        <div class="col-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="text"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
+            <div class="payment-service-control-card">
+                <h6>Busca</h6>
+                <div class="position-relative">
+                    <input wire:model.bounce.2s="search" type="text"
+                        class="form-control border border-secondary pe-5" id="servicePaymentSearch" placeholder="Buscar">
+                    <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                        data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                        <i class="ri-checkbox-multiple-blank-line"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="payment-service-control-card">
+                <h6>Tipo de Nota</h6>
+                <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
+                    <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="1" id="servicePaymentTypeNote1">
+                    <label class="btn btn-outline-primary" for="servicePaymentTypeNote1">Nota</label>
+                    <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="2" id="servicePaymentTypeNote2">
+                    <label class="btn btn-outline-primary" for="servicePaymentTypeNote2">OV</label>
+                    <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="" id="servicePaymentTypeNote3">
+                    <label class="btn btn-outline-primary" for="servicePaymentTypeNote3">Ambos</label>
+                </div>
+            </div>
+
+            <div class="payment-service-control-card">
+                <h6>Acoes Rapidas</h6>
+                <div class="payment-service-actions">
+                    <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
+                        {{ Notestatus::status(1)->status }}
+                        @if ($not_assigned)
+                            <span class="badge text-bg-success">ON</span>
+                        @else
+                            <span class="badge text-bg-danger">OFF</span>
+                        @endif
+                    </button>
+
+                    <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
+                        Somente D5
+                        @if ($filter_d5)
+                            <span class="badge text-bg-success">ON</span>
+                        @else
+                            <span class="badge text-bg-danger">OFF</span>
+                        @endif
+                    </button>
+
+                    <button class="btn btn-primary" wire:click.prevent="export_excel"
+                        wire:loading.attr="disabled" wire:target="export_excel">
+                        <span wire:loading.remove wire:target="export_excel">
+                            <i class="ri-file-excel-2-line"></i> Exportar
+                        </span>
+                        <span wire:loading wire:target="export_excel">Exportando...</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <label for="search" class="form-label"> </label>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
-
-            @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'payments', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
-        </div>
-
-
-
-    </div>
-
-
-    <div class="btn-group">
-        <div class="mb-3 mx-1">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <p> A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus()">
-                    {{ Notestatus::status(1)->status }}
-                    @if ($not_assigned)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
+        <div class="payment-service-filters-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
+            <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
+            <div class="d-flex flex-wrap justify-content-end gap-2">
+                @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'payments', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
             </div>
         </div>
-
-
-        <div class="mb-3 mx-1">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas D5"
-                data-bs-content="<p>Ao clicar, apenas as notas que possuem D5 estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-warning" wire:click.prevent="filterD5()">
-                    Apenas D5
-                    @if ($filter_d5)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
-            </div>
-        </div>
-
-
-        {{-- <div class="mb-3 mx-1">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas MMGD"
-                data-bs-content="<p>Ao clicar, Apenas as notas de MMGD estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterMMGD()">
-                    Somente MMGD
-                    @if ($assigned_mmgd)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
-
-            </div>
-        </div> --}}
     </div>
 
     {{-- <ul class="nav nav-tabs mb-3 border-bottom border-light" wire:poll.60s='count'>
@@ -195,13 +275,15 @@
                 <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }}</h4>
             </div>
         @else
-            <h4 class="user-activity-table-header user-activity-table-title text-bg-secondary">LISTA PARA {{ mb_strtoupper($service->service) }}
-                @if ($service->Status->count())
-                    @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                        ({{ $sts->value }})
-                    @endforeach
-                @endif
-            </h4>
+            <div class="user-activity-table-header text-bg-secondary">
+                <h4 class="user-activity-table-title my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
+                    @if ($service->Status->count())
+                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                            ({{ $sts->value }})
+                        @endforeach
+                    @endif
+                </h4>
+            </div>
 
             <div class="table-responsive exiobir">
                 <table class="table table-sm table-striped">
@@ -310,6 +392,14 @@
                                     $match = $ops->firstWhere('operacao', $op);
                                     return $match && isset($match->status) ? explode(' ', $match->status)[0] : '---';
                                 };
+
+                                $finalOp20 = $orders
+                                    ->flatMap(fn ($order) => $order->Operations ?? collect())
+                                    ->where('operacao', '0020')
+                                    ->pluck('fimReal')
+                                    ->filter()
+                                    ->sort()
+                                    ->first();
                             @endphp
 
                             <tr class="align-middle text-center">
@@ -336,12 +426,12 @@
                                 <td class="fw-light fw-bold text-center {{ $rowClass }}">
                                     @if ($wf)
                                         @foreach ($wf->finalScopeBadges() as $scopeBadge)
-                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                            <span class="badge payment-service-scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
                                         @endforeach
                                     @elseif ($partial)
-                                        <span class="badge text-bg-secondary">Parcial</span>
+                                        <span class="badge payment-service-scope-badge text-bg-secondary">Parcial</span>
                                     @else
-                                        <span class="badge text-bg-secondary">Geral</span>
+                                        <span class="badge payment-service-scope-badge text-bg-secondary">Geral</span>
                                     @endif
                                 </td>
 
@@ -415,7 +505,7 @@
 
                                 {{-- Final OP20 --}}
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $wf?->earliest_fim_real?->format('d/m/Y') ?? '---' }}
+                                    {{ $finalOp20 ? Carbon::parse($finalOp20)->format('d/m/Y') : '---' }}
                                 </td>
 
                                 @php
@@ -492,10 +582,10 @@
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="to_accompany({{ $list->id }})"
+                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
-                                            data-bs-title="Enviar para Acompanhamento"></i>
+                                            data-bs-title="Despachar/atribuir esta Nota/OV"></i>
                                     @else
                                         @php
                                             if (isset($production?->User?->name)) {
@@ -516,22 +606,9 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
-                            <td></td>
-                            <td></td>
-                            <td class="text-end">Total:</td>
+                            <td colspan="4" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td colspan="12"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -551,30 +628,47 @@
         </div>
     </div>
 
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('services-payment-dispatch-modal-'.$service->uuid))
+
 
 
     {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="serviceBuscarMultiLabel"
         aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="serviceBuscarMultiLabel">Buscar em massa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold" for="serviceAdvanceSearch">Notas</label>
+                    <textarea class="form-control" name="advanceSearch" id="serviceAdvanceSearch"
+                        wire:model.defer="advanceSearch" placeholder="Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula."></textarea>
+
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="bulkSearchAnyStatusServicePayment"
+                            wire:model="bulkSearchAnyStatus">
+                        <label class="form-check-label fw-semibold" for="bulkSearchAnyStatusServicePayment">
+                            Buscar em qualquer Status
+                        </label>
+                    </div>
+
+                    @if ($bulkSearchAnyStatus)
+                        <div class="bulk-search-warning mt-3">
+                            Confirme que deseja ignorar o filtro de Status da lista. A busca continuará respeitando as regras de contrato e acesso.
+                        </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-danger" wire:click="clean">Limpar</button>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">
+                        <i class="ri-search-line"></i> Aplicar busca
+                    </button>
                 </div>
             </div>
-
         </div>
-
     </div>
 
 

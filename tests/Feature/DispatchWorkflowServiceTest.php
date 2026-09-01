@@ -127,6 +127,49 @@ class DispatchWorkflowServiceTest extends TestCase
         $this->assertDatabaseCount('wpas', 0);
     }
 
+    public function test_payment_contract_user_can_self_assign_without_company_stack(): void
+    {
+        $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
+        $contract = new \App\Models\Contract();
+        $contract->company_id = $company->id;
+        $contract->number = 'PAY-001';
+        $contract->service = true;
+        $contract->construction = false;
+        $contract->date_end = now()->addYear()->toDateString();
+        $contract->save();
+        $actor = User::factory()->create([
+            'contract' => true,
+            'company_id' => $company->id,
+        ]);
+        $actor->Employee()->create([
+            'contract_id' => $contract->id,
+            'service_id' => null,
+        ]);
+        $service = Service::create(['service' => 'Pagamento', 'folder' => 'pagamento']);
+        $note = Note::create([
+            'note' => '4000000007',
+            'dt_status' => '2026-08-30 08:00:00',
+            'nstats' => 'NEW',
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor
+        );
+
+        $this->assertDatabaseHas('productions', [
+            'id' => $production->id,
+            'note_id' => $note->id,
+            'service_id' => $service->uuid,
+            'user_id' => $actor->id,
+            'company_id' => $company->id,
+            'status' => 2,
+        ]);
+    }
+
     public function test_design_dispatch_uses_design_block_evaluator(): void
     {
         $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);

@@ -31,9 +31,11 @@ class DispatchModal extends Component
     public bool $contractMode = false;
     public bool $requiresDd = false;
     public bool $requiresFinalScope = false;
+    public array $sourceProductionIdsByNote = [];
 
     protected $listeners = [
         'openForNotes' => 'openForNotes',
+        'openForProductions' => 'openForProductions',
         'confirm_dispatch_modal' => 'confirmedAtt',
     ];
 
@@ -62,11 +64,76 @@ class DispatchModal extends Component
         }
 
         $this->resetModalState();
-        $this->notes = Note::with(['Wpas', 'Productions', 'WorkForm.Orders'])->find($noteIds);
+        $this->notes = Note::with($this->modalNoteRelations())->find($noteIds);
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
         $this->additionalData = [];
+        $contextResolver = app(DispatchContextResolver::class);
+        $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
+
+        foreach ($this->notes as $index => $note) {
+            $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
+            $this->prepareFinalScopeSelection($note);
+
+            $context = $contextResolver->for($note, $this->service);
+            $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
+            $this->requiresFinalScope = $this->requiresFinalScope || (
+                $scopeAwareService
+                && count($this->finalScopeOptions[$note->id] ?? []) > 0
+            );
+        }
+
+        $this->dispatchBrowserEvent('showModal', [
+            'id' => 'add_mass_notes',
+        ]);
+    }
+
+    public function openForProductions(array $productionIds): void
+    {
+        $productionIds = collect($productionIds)->filter()->unique()->values();
+
+        if (!$productionIds->count()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Nenhuma atividade foi selecionada para despacho!',
+                'timer' => 2500,
+            ]);
+
+            return;
+        }
+
+        $this->resetModalState();
+
+        $productions = Production::with($this->modalProductionRelations())
+            ->whereIn('id', $productionIds)
+            ->where('service_id', $this->service->uuid)
+            ->where('completed', false)
+            ->where('confirmed', false)
+            ->get();
+
+        $this->notes = $productions->pluck('Note')->filter()->values();
+        $this->sourceProductionIdsByNote = $productions
+            ->filter(fn ($production) => $production->Note)
+            ->mapWithKeys(fn ($production) => [(string) $production->note_id => (int) $production->id])
+            ->all();
+
+        if (!$this->notes->count()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Nenhuma atividade aberta foi encontrada para despacho!',
+                'timer' => 2500,
+            ]);
+
+            return;
+        }
+
+        $this->loadDispatchCompanies();
+        $this->preselectContractDispatchCompany();
+        $this->applyContractModeDefaults();
+
         $contextResolver = app(DispatchContextResolver::class);
         $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
 
@@ -180,6 +247,7 @@ class DispatchModal extends Component
             : $company?->name;
 
         $this->dispatchBrowserEvent('alertar', [
+            'target' => 'dispatchs.shared.dispatch-modal',
             'title' => 'Confirmar Despachar',
             'msg' => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
             'icon' => 'warning',
@@ -246,6 +314,19 @@ class DispatchModal extends Component
                 foreach ($this->notes as $key => $note) {
                     $dd = $this->additionalData[$key] ?? null;
                     $finalScopes = $this->selectedFinalScopesForNote($note);
+                    $sourceProductionId = $this->sourceProductionIdsByNote[(string) $note->id] ?? null;
+
+                    if ($sourceProductionId) {
+                        $production = Production::findOrFail($sourceProductionId);
+
+                        if ($targetUser) {
+                            $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes);
+                        } else {
+                            $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes);
+                        }
+
+                        continue;
+                    }
 
                     if ($targetUser) {
                         $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes);
@@ -285,6 +366,7 @@ class DispatchModal extends Component
 
         $this->closeAll();
         $this->emitUp('refresh_dispatch');
+        $this->emitUp('refresh_list');
     }
 
     public function closeAll(): void
@@ -309,6 +391,10 @@ class DispatchModal extends Component
                 ->where('confirmed', false)
                 ->distinct()
                 ->pluck('company_id');
+
+            if (!$companyIds->count()) {
+                $companyIds = collect(SicodeRules::visibleCompanyIdsFor(auth()->user()));
+            }
 
             $this->company_l = Company::whereIn('id', $companyIds)
                 ->orderBy('name', 'ASC')
@@ -367,6 +453,7 @@ class DispatchModal extends Component
         $this->contractMode = (bool) auth()->user()?->contract;
         $this->requiresDd = false;
         $this->requiresFinalScope = false;
+        $this->sourceProductionIdsByNote = [];
     }
 
     private function applyContractModeDefaults(): void
@@ -377,6 +464,10 @@ class DispatchModal extends Component
 
         $this->type = '2';
         $this->loadDispatchUsers();
+
+        if ($this->user_l->contains('id', auth()->id())) {
+            $this->user_s = (string) auth()->id();
+        }
     }
 
     private function prepareFinalScopeSelection(Note $note): void
@@ -399,5 +490,71 @@ class DispatchModal extends Component
 
         return app(WorkReportFinalScopeOptions::class)
             ->validScopesForNote($note, $selected);
+    }
+
+    private function modalNoteRelations(): array
+    {
+        return [
+            'Wpas:id,note_id,production_id,service_id,dd',
+            'Productions' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'service_id',
+                'user_id',
+                'company_id',
+                'completed',
+                'confirmed',
+                'status',
+                'partial',
+                'dfive',
+                'created_at',
+                'completed_at',
+                'dt_note',
+                'status_note',
+            ])->where('service_id', $this->service->uuid)->orderByDesc('created_at'),
+            'WorkForm' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'informed_at',
+                'created_at',
+                'rejected',
+                'selected_final_scopes',
+            ]),
+            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem']),
+            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
+            'Partials' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'allow',
+                'deny',
+                'payment',
+                'supervision',
+                'supervision_at',
+                'created_at',
+            ])
+                ->where('allow', true)
+                ->where('deny', false)
+                ->where('supervision', true)
+                ->where('payment', false)
+                ->orderByDesc('created_at'),
+        ];
+    }
+
+    private function modalProductionRelations(): array
+    {
+        $relations = [];
+
+        foreach ($this->modalNoteRelations() as $relation => $constraint) {
+            if (is_int($relation)) {
+                $relations[] = 'Note.' . $constraint;
+                continue;
+            }
+
+            $relations['Note.' . $relation] = $constraint;
+        }
+
+        return $relations;
     }
 }

@@ -89,6 +89,8 @@ class Stack extends Component
 
     public $productions;
 
+    private $filter_group = 'default';
+
     protected $listeners = [
         'refresh_list'       => '$refresh',
         'confirm_remove_att' => 'remove_att',
@@ -106,7 +108,22 @@ class Stack extends Component
 
     public function filterUser($user_id)
     {
-        $this->user_fs = [$user_id];
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
+        }
+
+        $userId = (string) $user_id;
+
+        $this->gotoPage(1);
+        $this->selected = [];
+        $this->selectAll = false;
+        $this->user_fs = [$userId];
+
+        $_SESSION['filter'][$this->filter_group]['user'] = [$userId];
+        session(['filter.' . $this->filter_group . '.user' => [$userId]]);
+
+        $this->emit('toUpdate', 'user');
+        $this->emitSelf('refresh_list');
     }
 
     public function updatedSelectall($val)

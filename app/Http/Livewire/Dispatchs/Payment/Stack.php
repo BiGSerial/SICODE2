@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Payment;
 
 use App\Exports\DispatchDesenhoStack;
 use App\Exports\Dispatchs\DispatchPaymentStack;
+use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
 use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
@@ -17,6 +18,7 @@ use Livewire\{Component, WithPagination};
 class Stack extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -302,21 +304,7 @@ class Stack extends Component
             return;
         }
 
-        $this->productions = Production::find($this->selected);
-
-        $this->notes = Note::with('WorkForm.Orders')->whereHas('Productions', function ($query) {
-            return $query->whereIn('id', $this->selected);
-        })->get();
-
-        foreach ($this->notes as $note) {
-            $this->prepareFinalScopeSelection($note);
-        }
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForProductions', array_values($this->selected));
     }
 
     public function go_des_att_mass()
@@ -1020,31 +1008,18 @@ class Stack extends Component
 
     public function buscarMulti()
     {
-
         if ($this->advanceSearch) {
-
             $this->search = '';
             $this->gotoPage(1);
-
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
+            $this->multiSearch = array_values($this->formatTextToArray($this->advanceSearch));
+        } else {
+            $this->multiSearch = [];
         }
 
         if (count($this->multiSearch)) {
-            $this->closeall();
+            $this->selected = [];
+            $this->selectAll = false;
+            $this->dispatchBrowserEvent('hideModal');
         }
     }
 

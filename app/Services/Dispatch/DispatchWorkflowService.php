@@ -77,9 +77,9 @@ class DispatchWorkflowService
         });
     }
 
-    public function assignProduction(Production $production, Company $company, User $targetUser, User $actor, bool $d5Return = false): Production
+    public function assignProduction(Production $production, Company $company, User $targetUser, User $actor, bool $d5Return = false, array $finalScopes = []): Production
     {
-        return DB::transaction(function () use ($production, $company, $targetUser, $actor, $d5Return) {
+        return DB::transaction(function () use ($production, $company, $targetUser, $actor, $d5Return, $finalScopes) {
             $production = Production::whereKey($production->id)->lockForUpdate()->firstOrFail();
 
             if ($production->completed) {
@@ -112,7 +112,56 @@ class DispatchWorkflowService
             ]);
 
             $this->afterAssigned($production, $actor, $previousUserId);
+            $this->linkWorkReportFlow($production, $this->contextResolver->serviceKey($production->Service), $finalScopes);
             $this->timeline($production, $actor, 'Atribuiu a NOTA/OV para: ' . $targetUser->name, 2);
+
+            return $production;
+        });
+    }
+
+    public function moveProductionToCompanyStack(Production $production, Company $company, User $actor, array $finalScopes = []): Production
+    {
+        return DB::transaction(function () use ($production, $company, $actor, $finalScopes) {
+            $production = Production::whereKey($production->id)->lockForUpdate()->firstOrFail();
+
+            if ($production->completed) {
+                throw new DispatchException('Esta atividade ja foi encerrada.');
+            }
+
+            if (!SicodeRules::userCanAccessCompany($actor, $production->company_id)) {
+                throw new DispatchException('Usuario sem permissao para mover atividade desta empresa.');
+            }
+
+            if (!SicodeRules::userCanAccessCompany($actor, $company->id)) {
+                throw new DispatchException('Usuario sem permissao para mover atividade para esta empresa.');
+            }
+
+            $previousUserId = $production->user_id;
+
+            $production->update([
+                'user_id' => null,
+                'company_id' => $company->id,
+                'att_by' => null,
+                'att_at' => null,
+                'completed_at' => null,
+                'completed' => false,
+                'status' => 1,
+            ]);
+
+            if ($previousUserId) {
+                $five = $production->note?->FiveNote;
+                if ($five) {
+                    app(D5WorkflowService::class)->onProductionUnassigned(
+                        $five,
+                        $production,
+                        $actor->id,
+                        $previousUserId
+                    );
+                }
+            }
+
+            $this->linkWorkReportFlow($production, $this->contextResolver->serviceKey($production->Service), $finalScopes);
+            $this->timeline($production, $actor, 'Moveu a NOTA/OV para a pilha da empresa: ' . $company->name, 1);
 
             return $production;
         });
@@ -182,11 +231,13 @@ class DispatchWorkflowService
 
                 $stackProduction = $this->openCompanyStackProduction($note, $service, $company);
 
-                if (!$stackProduction) {
+                if (!$stackProduction && !($context['service_key'] === 'payment' && (string) $targetUser->id === (string) $actor->id)) {
                     throw new DispatchException('Nao existe atividade aberta na pilha desta empresa para atribuir.');
                 }
 
-                return $this->dispatchFromExistingCompanyStack($stackProduction, $note, $targetUser, $actor, $dd);
+                if ($stackProduction) {
+                    return $this->dispatchFromExistingCompanyStack($stackProduction, $note, $targetUser, $actor, $dd);
+                }
             }
 
             if (!$context['can_dispatch']) {

@@ -19,7 +19,11 @@ window.addEventListener('swalcustom', function(e) {
     }).then((result) => {
         if (result.isConfirmed) {
 
-            Livewire.emitTo(e.target, e.detail.action);
+            if (e.detail.target) {
+                Livewire.emitTo(e.detail.target, e.detail.action, e.detail.chave);
+            } else {
+                Livewire.emit(e.detail.action, e.detail.chave);
+            }
 
         } else if (
             /* Read more about handling dismissals below */
