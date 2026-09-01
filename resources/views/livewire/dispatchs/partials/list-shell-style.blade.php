@@ -120,6 +120,11 @@
         padding-bottom: 0.6rem;
     }
 
+    .survey-main-page .table-card .main-table tbody tr.table-primary td,
+    .survey-main-page .table-card .main-table tbody tr.table-warning td,
+    .survey-main-page .table-card .main-table tbody tr.table-success td,
+    .survey-main-page .table-card .main-table tbody tr.table-danger td,
+    .survey-main-page .table-card .main-table tbody tr.table-secondary td,
     .survey-main-page .table-card .main-table tbody td.table-primary,
     .survey-main-page .table-card .main-table tbody td.table-warning,
     .survey-main-page .table-card .main-table tbody td.table-success,
@@ -128,7 +133,7 @@
         border-color: rgba(15, 23, 42, 0.08);
     }
 
-    .survey-main-page .table-card .main-table tbody td:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger):not(.table-secondary):not(.text-bg-secondary):not(.text-bg-success):not(.text-bg-warning):not(.text-bg-danger):not(.text-bg-info) {
+    .survey-main-page .table-card .main-table tbody tr:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger):not(.table-secondary) td:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger):not(.table-secondary):not(.text-bg-secondary):not(.text-bg-success):not(.text-bg-warning):not(.text-bg-danger):not(.text-bg-info) {
         background: #f8fafc;
     }
 
