@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Admin\User\Actions;
 
 use App\Models\{City, Company, Contract, Service, ServiceUser, User};
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class Usuario extends Component
@@ -68,45 +69,58 @@ class Usuario extends Component
         'closeAll'    => 'closeAll',
     ];
 
-    protected $rules = [
-        'user.email'                             => 'required|email',
-        'user.name'                              => 'required|string|max:255',
-        'user.Registration'                      => 'string|max:80',
-        'company'                                => 'required|exists:companies,id',
-        'contract'                               => 'required|exists:contracts,id',
-        'user.company_id'                        => 'required|string|max:255',
-        'user.superadm'                          => 'boolean',
-        'user.admin'                             => 'boolean',
-        'user.management'                        => 'boolean',
-        'user.engineer'                          => 'boolean',
-        'user.operator'                          => 'boolean',
-        'user.user'                              => 'boolean',
-        'user.onlyparner'                        => 'boolean',
-        'user.contract'                          => 'boolean',
-        'user.responsible'                       => 'boolean',
-        'user.btzero'                            => 'boolean',
-        'user.can_dispatch'                      => 'boolean',
-        'user.analyst'                           => 'boolean',
-        'user.legal_controller'                  => 'boolean',
-        'user.legal_field'                       => 'boolean',
-        'user.legal_manager'                     => 'boolean',
-        'user.permission_locks'                  => 'nullable|array',
-        'user.permission_locks.superadm'         => 'boolean',
-        'user.permission_locks.admin'            => 'boolean',
-        'user.permission_locks.management'       => 'boolean',
-        'user.permission_locks.engineer'         => 'boolean',
-        'user.permission_locks.responsible'      => 'boolean',
-        'user.permission_locks.operator'         => 'boolean',
-        'user.permission_locks.user'             => 'boolean',
-        'user.permission_locks.btzero'           => 'boolean',
-        'user.permission_locks.onlyparner'       => 'boolean',
-        'user.permission_locks.can_dispatch'     => 'boolean',
-        'user.permission_locks.analyst'          => 'boolean',
-        'user.permission_locks.contract'         => 'boolean',
-        'user.permission_locks.legal_controller' => 'boolean',
-        'user.permission_locks.legal_field'      => 'boolean',
-        'user.permission_locks.legal_manager'    => 'boolean',
-        'regiaoControle'                         => 'string|in:norte,centroNorte,centroSul,sul',
+    protected function rules(): array
+    {
+        return [
+            'user.name'                              => ['required', 'string', 'max:255'],
+            'user.Registration'                      => ['nullable', 'string', 'max:80'],
+            'user.email'                             => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email')->ignore($this->user?->id)],
+            'contract'                               => ['required', 'exists:contracts,id'],
+            'user.company_id'                        => ['required', 'exists:companies,id'],
+            'user.superadm'                          => ['nullable', 'boolean'],
+            'user.admin'                             => ['nullable', 'boolean'],
+            'user.management'                        => ['nullable', 'boolean'],
+            'user.engineer'                          => ['nullable', 'boolean'],
+            'user.operator'                          => ['nullable', 'boolean'],
+            'user.user'                              => ['nullable', 'boolean'],
+            'user.onlyparner'                        => ['nullable', 'boolean'],
+            'user.contract'                          => ['nullable', 'boolean'],
+            'user.responsible'                       => ['nullable', 'boolean'],
+            'user.btzero'                            => ['nullable', 'boolean'],
+            'user.can_dispatch'                      => ['nullable', 'boolean'],
+            'user.analyst'                           => ['nullable', 'boolean'],
+            'user.legal_controller'                  => ['nullable', 'boolean'],
+            'user.legal_field'                       => ['nullable', 'boolean'],
+            'user.legal_manager'                     => ['nullable', 'boolean'],
+            'user.permission_locks'                  => ['nullable', 'array'],
+            'user.permission_locks.superadm'         => ['nullable', 'boolean'],
+            'user.permission_locks.admin'            => ['nullable', 'boolean'],
+            'user.permission_locks.management'       => ['nullable', 'boolean'],
+            'user.permission_locks.engineer'         => ['nullable', 'boolean'],
+            'user.permission_locks.responsible'      => ['nullable', 'boolean'],
+            'user.permission_locks.operator'         => ['nullable', 'boolean'],
+            'user.permission_locks.user'             => ['nullable', 'boolean'],
+            'user.permission_locks.btzero'           => ['nullable', 'boolean'],
+            'user.permission_locks.onlyparner'       => ['nullable', 'boolean'],
+            'user.permission_locks.can_dispatch'     => ['nullable', 'boolean'],
+            'user.permission_locks.analyst'          => ['nullable', 'boolean'],
+            'user.permission_locks.contract'         => ['nullable', 'boolean'],
+            'user.permission_locks.legal_controller' => ['nullable', 'boolean'],
+            'user.permission_locks.legal_field'      => ['nullable', 'boolean'],
+            'user.permission_locks.legal_manager'    => ['nullable', 'boolean'],
+        ];
+    }
+
+    protected $messages = [
+        'user.name.required'       => 'Informe o primeiro nome do usuário.',
+        'user.email.required'      => 'Informe o e-mail do usuário.',
+        'user.email.email'         => 'Informe um e-mail válido.',
+        'user.email.unique'        => 'Este e-mail já está cadastrado para outro usuário.',
+        'user.Registration.max'    => 'A matrícula deve ter no máximo 80 caracteres.',
+        'user.company_id.required' => 'Selecione a empresa do usuário.',
+        'user.company_id.exists'   => 'A empresa selecionada não foi encontrada.',
+        'contract.required'        => 'Selecione o contrato do usuário.',
+        'contract.exists'          => 'O contrato selecionado não foi encontrado.',
     ];
 
     protected $casts = [
@@ -139,6 +153,7 @@ class Usuario extends Component
 
     public function openUser($user)
     {
+        $this->resetValidation();
         $this->user = User::findOrFail($user['id']);
 
         if ($this->user) {
@@ -201,6 +216,7 @@ class Usuario extends Component
 
     public function newUser()
     {
+        $this->resetValidation();
 
         $this->user                   = new User();
         $this->user->permission_locks = $this->normalizePermissionLocks([]);
@@ -342,6 +358,12 @@ class Usuario extends Component
 
     public function Save()
     {
+        $this->user->name = trim((string) $this->user->name);
+        $this->user->Registration = trim((string) $this->user->Registration) ?: null;
+        $this->user->email = mb_strtolower(trim((string) $this->user->email));
+
+        $this->validate();
+
         $actor        = auth()->user();
         $isSuperAdm   = (bool) ($actor?->superadm);
         $actorLocks   = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
@@ -560,6 +582,7 @@ class Usuario extends Component
 
     public function closeAll()
     {
+        $this->resetValidation();
 
         $this->temporaryServices = [];
 

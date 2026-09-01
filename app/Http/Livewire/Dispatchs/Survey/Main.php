@@ -77,6 +77,8 @@ class Main extends Component
     //Botão de exibição de nao atribuído
     public $not_assigned = false;
 
+    public bool $bulkSearchAnyStatus = false;
+
 
     protected $listeners = [
         'refresh_dispatch' => '$refresh',
@@ -515,6 +517,10 @@ class Main extends Component
         $this->user_l = collect();
         // $this->type = "";
         $this->additionalData = [];
+        $this->multiSearch = [];
+        $this->bulkSearchAnyStatus = false;
+        $this->advanceSearch = "";
+        $this->search = "";
 
         $this->emit('refresh_dispatch');
     }
@@ -529,6 +535,10 @@ class Main extends Component
         $this->user_l = collect();
         // $this->type = "";
         $this->additionalData = [];
+        $this->multiSearch = [];
+        $this->bulkSearchAnyStatus = false;
+        $this->advanceSearch = "";
+        $this->search = "";
     }
 
     public function buscarMulti()
@@ -540,25 +550,13 @@ class Main extends Component
 
             $this->search = "";
 
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(" ", $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(",", $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(";", $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
+            $this->multiSearch = preg_split('/[\s,;]+/', $this->advanceSearch, -1, PREG_SPLIT_NO_EMPTY);
+            $this->multiSearch = array_values(array_unique(array_map('trim', $this->multiSearch)));
         }
 
         if (count($this->multiSearch)) {
-            $this->closeall();
+            $this->advanceSearch = "";
+            $this->dispatchBrowserEvent('hideModal');
         }
     }
 
@@ -833,7 +831,9 @@ class Main extends Component
             $query,
             Auth()->User(),
             $this->service->uuid,
-            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
+            fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
+                ? null
+                : RuleBuilder::applyRules($statusQuery, $this->service->Status)
         );
 
 

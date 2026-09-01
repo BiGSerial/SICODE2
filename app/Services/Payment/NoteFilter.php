@@ -22,8 +22,7 @@ class NoteFilter
      *  - busca simples ($search)
      *  - rubrica / city (vindos de $_SESSION['filter'][$filterGroup])
      *
-     * Eager loads úteis para a view/avaliador:
-     *  - Productions.User, WorkForm, Partials (ordenadas), FiveNote, Orders.Operations
+     * As relações são carregadas pelos componentes após a paginação para manter a lista leve.
      */
     public function filter(?string $search, string $filterGroup): Builder
     {
@@ -130,16 +129,6 @@ class NoteFilter
                    ->orWhereNull('lexp');
             });
         });
-
-        // ======== EAGER LOADS ÚTEIS (evita N+1 na view/BlockEvaluator) ========
-        $query->with([
-            // Productions do note (o Main pode filtrar por service_id ao carregar a tela)
-            'Productions.User',
-            'WorkForm',
-            'FiveNote',
-            'Partials' => fn ($p) => $p->orderByDesc('created_at'),
-            'Orders.Operations',
-        ]);
 
         return $query;
     }

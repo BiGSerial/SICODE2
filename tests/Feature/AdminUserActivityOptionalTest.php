@@ -76,6 +76,23 @@ it('allows creating a user without selecting an activity when the contract has n
         ->and($user->ToServices()->count())->toBe(0);
 });
 
+it('validates required user identity fields before creating a user', function () {
+    $actor = User::factory()->create(['superadm' => true, 'admin' => true]);
+    $company = optionalActivityCompany();
+    $contract = optionalActivityContract($company);
+
+    Livewire::actingAs($actor)
+        ->test(Usuario::class)
+        ->call('newUser')
+        ->set('user.name', 'Usuario Sem Email')
+        ->set('user.company_id', $company->id)
+        ->set('contract', $contract->id)
+        ->call('Save')
+        ->assertHasErrors(['user.email' => 'required']);
+
+    expect(User::query()->where('name', 'Usuario Sem Email')->exists())->toBeFalse();
+});
+
 it('allows mass updating users without selecting an activity when the contract has no activities', function () {
     $actor = User::factory()->create(['superadm' => true, 'admin' => true]);
     $company = optionalActivityCompany();

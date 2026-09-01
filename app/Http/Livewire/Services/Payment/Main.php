@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Services\Payment;
 
+use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
 use Livewire\{Component, WithPagination};
 use App\Services\Payment\NoteFilter;
@@ -51,6 +52,9 @@ class Main extends Component
 
     public $filter_d5 = false;
 
+    public $multi_search_any_situation = false;
+    public bool $bulkSearchAnyStatus = false;
+
     public $assigned_mmgd = false;
 
     public $count = [
@@ -83,7 +87,7 @@ class Main extends Component
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = optional(Note::orderByDesc('dt_status')->first())->dt_status;
 
 
     }
@@ -91,6 +95,7 @@ class Main extends Component
     public function filterD5()
     {
         $this->filter_d5 = !$this->filter_d5;
+        $this->gotoPage(1);
     }
 
     public function copy($msg)
@@ -104,11 +109,95 @@ class Main extends Component
     public function buscarMulti()
     {
         if ($this->advanceSearch) {
-            $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
+            $this->search = '';
+            $this->gotoPage(1);
+            $this->multiSearch = array_values($this->formatTextToArray($this->advanceSearch));
             $this->dispatchBrowserEvent('hideModal');
         } else {
             $this->multiSearch = [];
+            $this->multi_search_any_situation = false;
+            $this->bulkSearchAnyStatus = false;
         }
+    }
+
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->gotoPage(1);
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function updatedTypeNote()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function updatedMultiSearchAnySituation($value)
+    {
+        if ((bool) $value && !empty($this->advanceSearch)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Modo de risco ativado',
+                'html'     => 'Você habilitou a busca em qualquer situação. Isso pode exibir notas fora do fluxo padrão e aumentar risco operacional. Use apenas com conferência manual.',
+                'timer'    => 5000,
+            ]);
+        }
+    }
+
+    public function updatedBulkSearchAnyStatus($value)
+    {
+        $this->multi_search_any_situation = (bool) $value;
+        $this->updatedMultiSearchAnySituation($value);
+    }
+
+    public function clean()
+    {
+        $this->advanceSearch = '';
+        $this->multiSearch = [];
+        $this->multi_search_any_situation = false;
+        $this->bulkSearchAnyStatus = false;
+        $this->search = '';
+        $this->gotoPage(1);
+    }
+
+    public function export_excel()
+    {
+        if (\PHP_SESSION_ACTIVE !== session_status() && !session()->isStarted()) {
+            session()->start();
+        }
+
+        $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
+
+        ExportDispatchPaymentJob::dispatch([
+            'source' => 'service',
+            'service_uuid' => $this->service->uuid,
+            'search' => $this->search,
+            'multiSearch' => $this->multiSearch,
+            'multi_search_any_situation' => (bool) $this->multi_search_any_situation,
+            'bulkSearchAnyStatus' => (bool) $this->bulkSearchAnyStatus,
+            'selected_ids' => [],
+            'typeNote' => $this->typeNote,
+            'not_assigned' => $this->not_assigned,
+            'company_ids' => $filters['company'] ?? null,
+            'rubricas' => $filters['rubrica'] ?? null,
+            'regions' => $filters['region'] ?? null,
+            'regionals' => $filters['regional'] ?? null,
+            'cities' => $filters['city'] ?? null,
+            'filter_d5' => (bool) $this->filter_d5,
+        ], (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'info',
+            'title' => 'Estamos gerando seu relatório!',
+            'html' => 'Você será notificado quando o arquivo estiver pronto para download.',
+            'timer' => 3000,
+        ]);
     }
 
     public function filterMMGD()
@@ -323,14 +412,21 @@ class Main extends Component
         } else {
             $this->not_assigned = true;
         }
+
+        $this->gotoPage(1);
     }
 
 
 
 
-    public function getListsProperty()
+    private function baseQuery()
     {
-        $base = $this->noteFilter->filter($this->search, $this->filter_group)
+        $useAnySituationFromMassSearch = ($this->bulkSearchAnyStatus || $this->multi_search_any_situation)
+            && !empty($this->multiSearch);
+
+        $base = ($useAnySituationFromMassSearch
+            ? Note::query()
+            : $this->noteFilter->filter(null, $this->filter_group))
             ->select([
                 'notes.id',
                 'notes.note',
@@ -466,7 +562,7 @@ class Main extends Component
                          ->from('orders')
                          ->whereColumn('orders.note_id', 'notes.id')
                          ->whereIn('orders.ordem', $ms);
-                  });
+                });
             });
         } elseif (!empty($this->search)) {
             $s = '%' . $this->search . '%';
@@ -496,20 +592,68 @@ class Main extends Component
              ->orderBy('fimLancado', 'ASC')
              ->orderBy('notes.id', 'ASC');
 
-        // Paginar e carregar relações só dos itens da página
-        $page = $base->paginate($this->perPage);
+        return $base;
+    }
+
+    public function getListsProperty()
+    {
+        $page = $this->baseQuery()->paginate($this->perPage);
 
         $page->load([
-            'WorkForm.Company',
-            'WorkForm.Orders.Operations',
-            // apenas a ÚLTIMA parcial válida
-            'Partials',
-            'Partials.Company',
-            'Partials.Orders.Operations',
-            'FiveNote',
+            'WorkForm' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'informed_at',
+                'created_at',
+                'rejected',
+                'selected_final_scopes',
+            ]),
+            'WorkForm.Note:id,type_note',
+            'WorkForm.Company:id,name,deleted_at',
+            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'WorkForm.Adsform:id,work_report_id,created_at',
+            'Partials' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'allow',
+                'deny',
+                'payment',
+                'supervision',
+                'supervision_at',
+                'created_at',
+                'value',
+            ])
+                ->where('allow', true)
+                ->where('deny', false)
+                ->where('supervision', true)
+                ->where('payment', false)
+                ->orderByDesc('created_at'),
+            'Partials.Company:id,name,deleted_at',
+            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
-                                        ->with('User')
-                                        ->orderByDesc('created_at'),
+                ->select([
+                    'id',
+                    'note_id',
+                    'service_id',
+                    'user_id',
+                    'company_id',
+                    'completed',
+                    'confirmed',
+                    'status',
+                    'partial',
+                    'dfive',
+                    'created_at',
+                    'completed_at',
+                    'dt_note',
+                    'status_note',
+                ])
+                ->with('User')
+                ->orderByDesc('created_at'),
         ]);
 
         return $page;
@@ -537,10 +681,10 @@ class Main extends Component
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $lists = $this->lists;
 
         return view('livewire.services.payment.main', [
-            'lists'  => $this->lists,
+            'lists'  => $lists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }

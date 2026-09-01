@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\Payment\NoteFilter;
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -69,8 +70,14 @@ class ExportDispatchPaymentJob implements ShouldQueue
             $noteFilter = app(NoteFilter::class);
 
             // === Base da consulta (espelha seu baseQuery()) ===
-            $base = $noteFilter
-                ->filter($this->params['search'] ?? null, 'payments')
+            $useAnySituationFromMassSearch = (
+                !empty($this->params['bulkSearchAnyStatus'])
+                || !empty($this->params['multi_search_any_situation'])
+            ) && !empty($this->params['multiSearch']);
+
+            $base = ($useAnySituationFromMassSearch
+                ? Note::query()
+                : $noteFilter->filter(null, 'payments'))
                 ->select([
                     'notes.id',
                     'notes.note',
@@ -82,6 +89,15 @@ class ExportDispatchPaymentJob implements ShouldQueue
                     'notes.dt_status',
                     DB::raw('(SELECT COALESCE(SUM(o.moaberto),0) FROM orders o WHERE o.note_id = notes.id) AS total_moaberto'),
                 ]);
+
+            if (($this->params['source'] ?? null) === 'dispatch' && $user) {
+                SicodeRules::applyContractDispatchMainVisibility(
+                    $base,
+                    $user,
+                    $service->uuid,
+                    fn ($statusQuery) => null
+                );
+            }
 
             // latest_ops
             $latestOps = DB::table('operation_resps')

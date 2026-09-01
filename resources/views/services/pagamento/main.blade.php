@@ -43,7 +43,11 @@
             }).then((result) => {
                 if (result.isConfirmed) {
 
-                    Livewire.emit(e.detail.action)
+                    if (e.detail.target) {
+                        Livewire.emitTo(e.detail.target, e.detail.action)
+                    } else {
+                        Livewire.emit(e.detail.action)
+                    }
 
                 } else if (
                     /* Read more about handling dismissals below */

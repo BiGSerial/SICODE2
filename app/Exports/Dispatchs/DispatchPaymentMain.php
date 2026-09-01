@@ -32,8 +32,10 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
         return $this->queryBuilder->with([
             'WorkForm.Orders.Operations',
             'WorkForm.Company',
+            'WorkForm.Adsform',
             'WorkFormAny.Orders.Operations',
             'WorkFormAny.Company',
+            'WorkFormAny.Adsform',
             'Partials.Orders',
             'Partials.Company',
             'Productions' => fn ($q) => $q->with(['User','Company']),
@@ -89,7 +91,15 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             }
         }
 
-        $ops = $order?->first()->Operations ?? collect();
+        $orders = $order ?? collect();
+        $ops = $orders->first()?->Operations ?? collect();
+        $executionDate = $orders
+            ->flatMap(fn ($item) => $item->Operations ?? collect())
+            ->where('operacao', '0020')
+            ->pluck('fimReal')
+            ->filter()
+            ->sort()
+            ->first();
 
         // --- Colunas de D5 ---
         $fn        = $list->FiveNote;
@@ -121,7 +131,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             $ops->where('operacao', '0010')->first()?->cenTrab ?? '---',
             $company ? $company.($workFormCanceled ? ' (CANCELADO)' : '') : $company,
             $list->lexp,
-            optional($workForm)->earliest_fim_real?->format('d/m/Y') ?? '---',
+            $executionDate ? Carbon::parse($executionDate)->format('d/m/Y') : '---',
             $date_info ? Carbon::parse($date_info)->format('d/m/Y') : '---',
             $dt_ads ? Carbon::parse($dt_ads)->format('d/m/Y') : '---',
             $list->type_note == 2 ? $list->nstats : ($list->centerjob ?? '---'),

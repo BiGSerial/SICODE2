@@ -34,21 +34,34 @@
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" class="form-control" wire:model.defer="user.email" required>
+                                    <div class="col-12 col-lg-5">
+                                        <label class="form-label">Primeiro nome</label>
+                                        <input type="text" class="form-control @error('user.name') is-invalid @enderror"
+                                            wire:model.defer="user.name" autocomplete="name" required>
+                                        @error('user.name')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-12 col-md-4 col-lg-2">
                                         <label class="form-label">Matrícula</label>
-                                        <input type="text" class="form-control" wire:model.defer="user.Registration">
+                                        <input type="text" class="form-control @error('user.Registration') is-invalid @enderror"
+                                            wire:model.defer="user.Registration" autocomplete="off">
+                                        @error('user.Registration')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Nome</label>
-                                        <input type="text" class="form-control" wire:model.defer="user.name" required>
+                                    <div class="col-12 col-md-8 col-lg-5">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control @error('user.email') is-invalid @enderror"
+                                            wire:model.defer="user.email" autocomplete="email" required>
+                                        @error('user.email')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-lg-6">
                                         <label class="form-label">Empresa</label>
-                                        <select class="form-select" wire:model="user.company_id" required>
+                                        <select class="form-select @error('user.company_id') is-invalid @enderror"
+                                            wire:model="user.company_id" required>
                                             <option value="">Selecione a empresa</option>
                                             @if ($companyList)
                                                 @foreach ($companyList as $cList)
@@ -56,10 +69,14 @@
                                                 @endforeach
                                             @endif
                                         </select>
+                                        @error('user.company_id')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-12 col-md-8 col-lg-4">
                                         <label class="form-label">Contrato</label>
-                                        <select class="form-select" wire:model="contract" required>
+                                        <select class="form-select @error('contract') is-invalid @enderror"
+                                            wire:model="contract" required>
                                                     <option value="">Selecione o contrato</option>
                                                     @if ($contractList)
                                                         @foreach ($contractList as $cList)
@@ -67,8 +84,11 @@
                                                         @endforeach
                                                     @endif
                                                 </select>
+                                                @error('contract')
+                                                    <div class="invalid-feedback">{{ $message }}</div>
+                                                @enderror
                                             </div>
-                                            <div class="col-md-2 d-grid align-items-end">
+                                            <div class="col-12 col-md-4 col-lg-2 d-grid align-items-end">
                                                 <button type="button" class="btn btn-outline-primary" wire:click="applyContractServices" @disabled(!$contract)>
                                                     <i class="ri-magic-line"></i> Aplicar
                                                 </button>

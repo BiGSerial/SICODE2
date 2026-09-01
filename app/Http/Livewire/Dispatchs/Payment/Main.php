@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Payment;
 
 use App\Custom\RuleBuilder;
 use App\Exports\Dispatchs\DispatchPaymentMain;
+use App\Helpers\TextFormatter;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
@@ -21,6 +22,7 @@ use Livewire\{Component, WithPagination};
 class Main extends Component
 {
     use WithPagination;
+    use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -81,6 +83,7 @@ class Main extends Component
 
     public $filter_d5 = false;
     public $multi_search_any_situation = false;
+    public bool $bulkSearchAnyStatus = false;
 
     // Grupo de filtro (usado pelo NoteFilter)
     private $filter_group = 'payments';
@@ -127,6 +130,16 @@ class Main extends Component
         $this->gotoPage(1);
     }
 
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function updatedTypeNote()
+    {
+        $this->gotoPage(1);
+    }
+
     public function updatedCompanyS()
     {
         $this->user_s = '';
@@ -147,19 +160,22 @@ class Main extends Component
         $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
 
         $params = [
-        'service_uuid' => $this->service->uuid,
-        'search'       => $this->search,
-        'multiSearch'  => $this->multiSearch,
-        'selected_ids' => $this->selected,
-        'typeNote'     => $this->typeNote,
-        'not_assigned' => $this->not_assigned,
-        'company_ids'  => $filters['company'] ?? null,
-        'rubricas'     => $filters['rubrica'] ?? null,
-        'regions'      => $filters['region'] ?? null,
-        'regionals'    => $filters['regional'] ?? null,
-        'cities'       => $filters['city'] ?? null,
-        'filter_d5'    => property_exists($this, 'filter_d5') ? (bool)$this->filter_d5 : false,
-    ];
+            'source'                     => 'dispatch',
+            'service_uuid'               => $this->service->uuid,
+            'search'                     => $this->search,
+            'multiSearch'                => $this->multiSearch,
+            'multi_search_any_situation' => (bool) $this->multi_search_any_situation,
+            'bulkSearchAnyStatus'        => (bool) $this->bulkSearchAnyStatus,
+            'selected_ids'               => $this->selected,
+            'typeNote'                   => $this->typeNote,
+            'not_assigned'               => $this->not_assigned,
+            'company_ids'                => $filters['company'] ?? null,
+            'rubricas'                   => $filters['rubrica'] ?? null,
+            'regions'                    => $filters['region'] ?? null,
+            'regionals'                  => $filters['regional'] ?? null,
+            'cities'                     => $filters['city'] ?? null,
+            'filter_d5'                  => property_exists($this, 'filter_d5') ? (bool) $this->filter_d5 : false,
+        ];
 
         ExportDispatchPaymentJob::dispatch($params, (string)auth()->id());
 
@@ -175,6 +191,7 @@ class Main extends Component
     public function filterD5()
     {
         $this->filter_d5 = !$this->filter_d5;
+        $this->gotoPage(1);
     }
 
     public function updatedMultiSearchAnySituation($value)
@@ -188,6 +205,12 @@ class Main extends Component
                 'timer'    => 5000,
             ]);
         }
+    }
+
+    public function updatedBulkSearchAnyStatus($value)
+    {
+        $this->multi_search_any_situation = (bool) $value;
+        $this->updatedMultiSearchAnySituation($value);
     }
 
     /**
@@ -748,6 +771,8 @@ class Main extends Component
         $this->finalScopeSelections = [];
         $this->advanceSearch  = '';
         $this->search         = '';
+        $this->multi_search_any_situation = false;
+        $this->bulkSearchAnyStatus = false;
         $this->gotoPage(1);
 
         $this->emit('refresh_dispatch');
@@ -762,6 +787,7 @@ class Main extends Component
         $this->additionalData = [];
         $this->multiSearch    = [];
         $this->multi_search_any_situation = false;
+        $this->bulkSearchAnyStatus = false;
         $this->advanceSearch  = '';
         $this->search         = '';
     }
@@ -772,23 +798,25 @@ class Main extends Component
             $this->gotoPage(1);
             $this->search = '';
 
-            $multi = preg_split("/[\n,; ]+/", $this->advanceSearch);
-            $multi = array_filter(array_map('trim', $multi));
-            $this->multiSearch = array_values($multi);
+            $this->multiSearch = array_values($this->formatTextToArray($this->advanceSearch));
         } else {
             $this->multiSearch = [];
             $this->multi_search_any_situation = false;
+            $this->bulkSearchAnyStatus = false;
         }
 
         if (count($this->multiSearch)) {
             $this->gotoPage(1);
-            $this->closeall();
+            $this->selected = [];
+            $this->selectall = false;
+            $this->dispatchBrowserEvent('hideModal');
         }
     }
 
     public function filterStatus()
     {
         $this->not_assigned = !$this->not_assigned;
+        $this->gotoPage(1);
     }
 
     /**
@@ -796,11 +824,12 @@ class Main extends Component
      */
     private function baseQuery()
     {
-        $useAnySituationFromMassSearch = $this->multi_search_any_situation && !empty($this->multiSearch);
+        $useAnySituationFromMassSearch = ($this->bulkSearchAnyStatus || $this->multi_search_any_situation)
+            && !empty($this->multiSearch);
 
         $base = ($useAnySituationFromMassSearch
             ? Note::query()
-            : $this->noteFilter->filter($this->search, $this->filter_group));
+            : $this->noteFilter->filter(null, $this->filter_group));
 
         SicodeRules::applyContractDispatchMainVisibility(
             $base,
@@ -974,15 +1003,59 @@ class Main extends Component
     {
         $page = $this->baseQuery()->paginate($this->perPage);
 
-        // Carrega relações necessárias na página resultante
         $page->load([
-            'WorkForm.Company',
-            'WorkForm.Orders.Operations',
-            'Partials',
-            'Partials.Company',
-            'Partials.Orders.Operations',
-            'FiveNote',
+            'WorkForm' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'informed_at',
+                'created_at',
+                'rejected',
+                'selected_final_scopes',
+            ]),
+            'WorkForm.Note:id,type_note',
+            'WorkForm.Company:id,name,deleted_at',
+            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'WorkForm.Adsform:id,work_report_id,created_at',
+            'Partials' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'allow',
+                'deny',
+                'payment',
+                'supervision',
+                'supervision_at',
+                'created_at',
+                'value',
+            ])
+                ->where('allow', true)
+                ->where('deny', false)
+                ->where('supervision', true)
+                ->where('payment', false)
+                ->orderByDesc('created_at'),
+            'Partials.Company:id,name,deleted_at',
+            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
+                                          ->select([
+                                              'id',
+                                              'note_id',
+                                              'service_id',
+                                              'user_id',
+                                              'company_id',
+                                              'completed',
+                                              'confirmed',
+                                              'status',
+                                              'partial',
+                                              'dfive',
+                                              'created_at',
+                                              'completed_at',
+                                              'dt_note',
+                                              'status_note',
+                                          ])
                                           ->with('User')
                                           ->orderByDesc('created_at'),
         ]);
@@ -1108,13 +1181,10 @@ class Main extends Component
         // }
 
         $lists = $this->lists;
-
-
-
         $this->recomputeSelectAllFor($lists?->items() ?? []);
 
         return view('livewire.dispatchs.payment.main', [
-            'lists'  => $this->lists, // chama getListsProperty()
+            'lists'  => $lists,
             'update' => Bancoupdate::orderByDesc('created_at')->first(),
         ]);
     }

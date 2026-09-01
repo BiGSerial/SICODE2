@@ -4,9 +4,109 @@
     use App\Helpers\DaysLeft;
     $contractCompanyName = \App\Support\SicodeRules::primaryCompanyNameFor(Auth()->User());
 @endphp
-<div class="survey-main-page">
+<div class="survey-main-page payment-dispatch-page">
 
     @include('livewire.dispatchs.partials.list-shell-style')
+
+    <style>
+        .payment-dispatch-page .control-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.9rem;
+        }
+
+        .payment-dispatch-page .control-card {
+            background: linear-gradient(160deg, #ffffff, #f8fafc);
+            border: 1px solid #dbe3ef;
+            border-radius: 0.9rem;
+            padding: 0.85rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .payment-dispatch-page .control-card h6 {
+            color: var(--sp-muted);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.65rem;
+            text-transform: uppercase;
+        }
+
+        .payment-dispatch-page .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .payment-dispatch-page .quick-actions .btn {
+            min-height: 42px;
+            font-weight: 700;
+        }
+
+        .payment-dispatch-page .filters-row {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 0.8rem;
+            padding: 0.75rem;
+        }
+
+        .payment-dispatch-page .scope-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 64px;
+            min-height: 24px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            line-height: 1;
+            margin: 0.08rem;
+            padding: 0.35rem 0.5rem;
+        }
+
+        .payment-dispatch-page .bulk-search-modal .modal-content {
+            border: 0;
+            border-radius: 0.75rem;
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+            overflow: hidden;
+        }
+
+        .payment-dispatch-page .bulk-search-modal .modal-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 75%);
+            color: #f8fafc;
+            border: 0;
+            padding: 1rem 1.25rem;
+        }
+
+        .payment-dispatch-page .bulk-search-modal .modal-title {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .payment-dispatch-page .bulk-search-modal textarea {
+            min-height: 12rem;
+            resize: vertical;
+            border-color: #cbd5e1;
+        }
+
+        .payment-dispatch-page .bulk-search-warning {
+            border: 1px solid #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+            border-radius: 0.5rem;
+            padding: 0.75rem 0.9rem;
+            font-size: 0.88rem;
+        }
+
+        @media (min-width: 992px) {
+            .payment-dispatch-page .control-grid {
+                grid-template-columns: minmax(180px, 0.9fr) minmax(260px, 1fr) minmax(280px, 1fr) minmax(320px, 1.25fr);
+            }
+
+            .payment-dispatch-page .quick-actions {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+        }
+    </style>
 
     <x-show-loading />
 
@@ -36,93 +136,92 @@
             </div>
         </div>
 
-    <div class="filter-shell mb-3">
+        <div class="filter-shell mb-3">
             <div class="card-body p-3 p-lg-4">
-                <div class="row g-3 align-items-end">
-        <div class="col-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
-        </div>
-        <div class="mb-3 col-md-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <label for="search" class="form-label"> </label>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
+                <div class="control-grid">
+                    <div class="control-card">
+                        <h6>Paginacao</h6>
+                        <div class="form-floating">
+                            <select wire:model="perPage" class="form-select border border-secondary" id="paymentPerPage">
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                            </select>
+                            <label for="paymentPerPage">Registros por pagina</label>
+                        </div>
+                    </div>
 
-            @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'payments', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
-        </div>
+                    <div class="control-card">
+                        <h6>Busca</h6>
+                        <div class="position-relative">
+                            <input wire:model.bounce.2s="search" type="text"
+                                class="form-control border border-secondary pe-5" id="paymentSearch"
+                                placeholder="Buscar">
+                            <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                                data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                                <i class="ri-checkbox-multiple-blank-line"></i>
+                            </button>
+                        </div>
+                    </div>
 
-        <div class="btn-group">
-            <div class="mb-3">
-                <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                    data-bs-trigger="hover focus" data-bs-placement="right"
-                    data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                    data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                    <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                        wire:click.prevent="filterStatus()">
-                        {{ Notestatus::status(1)->status }}
-                        @if ($not_assigned)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
+                    <div class="control-card">
+                        <h6>Tipo de Nota</h6>
+                        <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
+                            <input type="radio" class="btn-check" name="paymentTypeNote" wire:model="typeNote" value="1" id="paymentTypeNote1">
+                            <label class="btn btn-outline-primary" for="paymentTypeNote1">Nota</label>
+                            <input type="radio" class="btn-check" name="paymentTypeNote" wire:model="typeNote" value="2" id="paymentTypeNote2">
+                            <label class="btn btn-outline-primary" for="paymentTypeNote2">OV</label>
+                            <input type="radio" class="btn-check" name="paymentTypeNote" wire:model="typeNote" value="" id="paymentTypeNote3">
+                            <label class="btn btn-outline-primary" for="paymentTypeNote3">Ambos</label>
+                        </div>
+                    </div>
 
+                    <div class="control-card">
+                        <h6>Acoes Rapidas</h6>
+                        <div class="quick-actions">
+                            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
+                                {{ Notestatus::status(1)->status }}
+                                @if ($not_assigned)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
+                                Somente D5
+                                @if ($filter_d5)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button class="btn btn-primary" wire:click.prevent='go_att_mass'>
+                                <i class="ri-checkbox-multiple-fill"></i> Atribuir
+                            </button>
+                            <button class="btn btn-primary" wire:click.prevent='export_excel'>
+                                <i class="ri-file-excel-2-line"></i> Exportar
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-
-            </div>
-
-            <div class="mb-3 mx-1">
-                <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                    data-bs-trigger="hover focus" data-bs-placement="right" data-bs-title="Exibir Apenas Notas D5"
-                    data-bs-content="<p>Ao clicar, apenas as notas que possuem D5 estarão visíveis. </p> <p>A palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                    <button type="button" class="btn btn-warning" wire:click.prevent="filterD5()">
-                        Apenas D5
-                        @if ($filter_d5)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
+                <div class="filters-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
+                    <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                        @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                        @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'payments', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                        @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
+                    </div>
                 </div>
             </div>
-
         </div>
-    </div>
-
-            </div>
-        </div>
-    </div>
 
     <div class="summary-bar">
         <div class="row align-items-center g-2">
@@ -173,12 +272,6 @@
                                 @endforeach
                             @endif
                         </h4>
-                    </div>
-                    <div class="col-3 d-flex justify-content-end">
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'><i
-                                class="ri-checkbox-multiple-fill"></i> Atribuir</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line"></i> Exportar</button>
                     </div>
                 </div>
             </div>
@@ -234,13 +327,13 @@
                                     $reason = 'Disponivel na pilha da empresa para atribuicao individual.';
                                 }
 
-                                if ($partial = $list->Partials && !$list->WorkForm ? $list->Partials->last() : null) {
-                                    if (!($partial->allow && $partial->supervision && !$partial->payment)) {
-                                        $partial = null;
-                                    }
-                                } else {
-                                    $partial = null;
-                                }
+                                $wf = $list->WorkForm;
+                                $partial = !$wf ? $list->Partials->first() ?? null : null;
+                                $orders = $wf
+                                    ? $wf->Orders ?? collect()
+                                    : ($partial
+                                        ? $partial->Orders ?? collect()
+                                        : collect());
 
                                 $five = $list->FiveNote;
                                 $hasD5 = (bool) $five;
@@ -263,14 +356,25 @@
                                 }
 
                                 $date = $list->fimLancado;
+                                $dateC = $date ? Carbon::parse($date) : null;
 
-                                $daysLeft = Carbon::now()
-                                    ->startOfDay()
-                                    ->diffInDays(Carbon::parse($date)->startOfDay(), true);
+                                $statusFor = function ($order, $op) {
+                                    $match = ($order->Operations ?? collect())->firstWhere('operacao', $op);
+                                    return $match && isset($match->status) ? explode(' ', $match->status)[0] : '---';
+                                };
 
-                                if (Carbon::parse($date)->startOfDay() < Carbon::now()->startOfDay()) {
-                                    $daysLeft = -$daysLeft;
-                                }
+                                $centerFor = function ($order) {
+                                    $match = ($order->Operations ?? collect())->firstWhere('operacao', '0010');
+                                    return $match && isset($match->cenTrab) ? explode(' ', $match->cenTrab)[0] : '---';
+                                };
+
+                                $finalOp20 = $orders
+                                    ->flatMap(fn ($order) => $order->Operations ?? collect())
+                                    ->where('operacao', '0020')
+                                    ->pluck('fimReal')
+                                    ->filter()
+                                    ->sort()
+                                    ->first();
 
                             @endphp
                             {{-- @dump($list->Productions) --}}
@@ -301,34 +405,26 @@
                                     {{ $partial ? 'PARCIAL' : 'TOTAL' }} </td>
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial)
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @endif
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        @foreach ($list->WorkForm->finalScopeBadges() as $scopeBadge)
-                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                    @if ($wf)
+                                        @foreach ($wf->finalScopeBadges() as $scopeBadge)
+                                            <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
                                         @endforeach
                                     @elseif ($partial)
-                                        <span class="badge text-bg-secondary">Parcial</span>
+                                        <span class="badge scope-badge text-bg-secondary">Parcial</span>
                                     @else
-                                        <span class="badge text-bg-secondary">Geral</span>
+                                        <span class="badge scope-badge text-bg-secondary">Geral</span>
                                     @endif
                                 </td>
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty() && !$partial)
+                                    @if ($wf && $orders->isNotEmpty() && !$partial)
                                         {{-- @foreach ($list->WorkForm->Orders as $order)
                                             @php
                                                 $soma += $order->moaberto;
@@ -365,86 +461,54 @@
                                 </td> --}}
 
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $statusFor($order, '0030') }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $statusFor($order, '0040') }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $statusFor($order, '0050') }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
 
                                 </td>
                                 <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($list->WorkForm && $list->WorkForm->Orders->isNotEmpty())
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($partial && $partial->Orders->isNotEmpty())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->Operations->isNotEmpty() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                            </p>
-                                        @endforeach
-                                    @endif
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $centerFor($order) }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
 
                                 </td>
 
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        {{ $list->WorkForm->Company ? $list->WorkForm->Company->name : '---' }}
+                                    @if ($wf)
+                                        {{ $wf->Company ? $wf->Company->name : '---' }}
                                     @elseif ($partial)
-                                        {{ $list->Partials->last()->Company ? $list->Partials->last()->Company->name : '---' }}
+                                        {{ $partial->Company ? $partial->Company->name : '---' }}
                                     @endif
                                 </td>
 
                                 <td class="fw-light text-center {{ $rowClass }}">{{ $list->lexp }}</td>
 
                                 <td class="fw-light text-center {{ $rowClass }}">
-                                    {{ $list->WorkForm ? $list->WorkForm->earliest_fim_real?->format('d/m/Y') : '---' }}
+                                    {{ $finalOp20 ? Carbon::parse($finalOp20)->format('d/m/Y') : '---' }}
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
-                                    @if ($list->WorkForm)
-                                        {{ $list->WorkForm && $list->WorkForm->informed_at ? $list->WorkForm->informed_at->format('d/m/Y H:i:s') : $list->WorkForm->created_at->format('d/m/Y H:i:s') }}
+                                    @if ($wf)
+                                        {{ $wf->informed_at ? $wf->informed_at->format('d/m/Y H:i:s') : $wf->created_at->format('d/m/Y H:i:s') }}
                                     @elseif ($partial)
                                         {{ $partial->created_at?->format('d/m/Y H:i:s') }}
                                     @endif
@@ -453,9 +517,9 @@
 
 
                                 @php
-                                    if ($list->WorkForm?->Adsform) {
-                                        $daysLeft = $list->WorkForm?->Adsform
-                                            ? $list->WorkForm?->Adsform->created_at->diffInDays(Carbon::now(), true)
+                                    if ($wf?->Adsform) {
+                                        $daysLeft = $wf?->Adsform
+                                            ? $wf?->Adsform->created_at->diffInDays(Carbon::now(), true)
                                             : null;
                                     } elseif ($partial) {
                                         $daysLeft = $partial
@@ -489,9 +553,9 @@
                             <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
                             <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                            ">
-                                    @if ($list->WorkForm?->Adsform)
-                                        {{ $list->WorkForm->Adsform->created_at?->format('d/m/Y H:i:s') }}
+                                    ">
+                                    @if ($wf?->Adsform)
+                                        {{ $wf->Adsform->created_at?->format('d/m/Y H:i:s') }}
                                     @else
                                         ----
                                     @endif
@@ -512,7 +576,7 @@
                             <span class='fs-4 text-danger'>&#9632;</span> VENCIDO <br>
                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                             ">
-                                    {{ $date ? Carbon::parse($date)->format('d/m/Y') : '---' }}
+                                    {{ $dateC ? $dateC->format('d/m/Y') : '---' }}
                                 </td>
 
                                 @php
@@ -559,23 +623,9 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td class="text-end">Total:</td>
+                            <td colspan="5" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td colspan="12"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -598,41 +648,42 @@
     </div>
 
     {{-- MODALS --}}
-
-    {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel"
         aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="buscarMultiLabel">Buscar em massa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
-                </div>
-                <div class="px-3 pt-3">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="multiSearchAnySituation"
-                            wire:model="multi_search_any_situation">
-                        <label class="form-check-label text-danger" for="multiSearchAnySituation">
-                            Buscar notas em qualquer situação (modo de risco)
+                <div class="modal-body">
+                    <label class="form-label fw-semibold" for="advanceSearch">Notas</label>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch"
+                        wire:model.defer="advanceSearch" placeholder="Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula."></textarea>
+
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="bulkSearchAnyStatusPayment"
+                            wire:model="bulkSearchAnyStatus">
+                        <label class="form-check-label fw-semibold" for="bulkSearchAnyStatusPayment">
+                            Buscar em qualquer Status
                         </label>
                     </div>
-                    <small class="text-muted d-block mt-1">
-                        Use apenas quando necessário. Este modo pode exibir notas fora do fluxo padrão e exige conferência manual antes do despacho.
-                    </small>
+
+                    @if ($bulkSearchAnyStatus)
+                        <div class="bulk-search-warning mt-3">
+                            Confirme que deseja ignorar o filtro de Status da lista. A busca continuará respeitando as regras de contrato e acesso.
+                        </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-danger" wire:click="clean">Limpar</button>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">
+                        <i class="ri-search-line"></i> Aplicar busca
+                    </button>
                 </div>
             </div>
-
         </div>
-
     </div>
 
 
