@@ -22,7 +22,10 @@ class ClosureTargetFreezer
             ->where('statusSist', 'like', 'LIB%')
             ->where('canceled', false)
             ->whereDoesntHave('ClosureTarget')
-            ->whereHas('Note', fn ($query) => $query->excludeCanceledFullDone())
+            ->whereHas('Note', fn ($query) => $query->excludeCanceledFullDone()
+                ->whereNotNull('note')
+                ->where('note', '!=', '')
+                ->where('note', '!=', '0'))
             ->whereHas('Operations', function ($query) use ($referenceStart, $referenceEnd) {
                 $query->where('operacao', '0020')
                     ->where('status', 'like', 'CONF%')

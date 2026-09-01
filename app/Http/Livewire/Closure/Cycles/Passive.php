@@ -19,7 +19,7 @@ class Passive extends Component
             ->orderByDesc('month')
             ->first();
 
-        $targets = collect();
+        $groups = collect();
 
         if ($currentCycle) {
             $targets = ClosureTarget::query()
@@ -28,10 +28,23 @@ class Passive extends Component
                     $q->where('statusSist', 'like', 'ENTE%')->orWhere('statusSist', 'like', 'ENCE%');
                 })
                 ->with(['Order', 'Note', 'Cycle'])
-                ->get()
-                ->sortByDesc(fn (ClosureTarget $target) => $target->frozen_at);
+                ->get();
+
+            $groups = $targets
+                ->groupBy('closure_cycle_id')
+                ->map(fn ($group) => [
+                    'cycle'   => $group->first()->Cycle,
+                    'targets' => $group->sortBy(fn (ClosureTarget $target) => $target->Order->ordem ?? '')->values(),
+                ])
+                ->sortBy(fn ($row) => $row['cycle']->periodKey())
+                ->values();
         }
 
-        return view('livewire.closure.cycles.passive', compact('targets', 'currentCycle'));
+        $totalCount = $groups->sum(fn ($row) => $row['targets']->count());
+        $oldestDays = $groups->isNotEmpty()
+            ? (int) $groups->first()['cycle']->startDate()->diffInDays(now())
+            : 0;
+
+        return view('livewire.closure.cycles.passive', compact('groups', 'currentCycle', 'totalCount', 'oldestDays'));
     }
 }

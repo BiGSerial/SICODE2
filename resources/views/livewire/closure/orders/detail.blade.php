@@ -24,7 +24,7 @@
                 </div>
                 <div class="col-md-4">
                     <div class="text-muted small">Aging desde a entrada na meta</div>
-                    <div>{{ $target?->frozen_at ? $target->frozen_at->diffInDays(now()) . ' dias' : '—' }}</div>
+                    <div>{{ $target?->Cycle ? $target->Cycle->startDate()->diffInDays(now()) . ' dias' : '—' }}</div>
                 </div>
             </div>
 

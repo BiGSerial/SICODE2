@@ -246,4 +246,20 @@
 <x-menu.dynamic-dropdown title="JURÍDICO" :sections="$juridico_sections" id-prefix="juridico" layout="inline" />
 @endif
 
+@if(Auth::check() && Auth()->user()->can('closure.manager'))
+@php
+    $encerramento_sections = [
+        [
+            'label' => 'Encerramento',
+            'items' => [
+                ['label' => 'VISÃO GERAL', 'route' => 'closure.overview', 'icon' => 'bi-speedometer2'],
+                ['label' => 'META',        'route' => 'closure.meta',     'icon' => 'bi-bullseye'],
+                ['label' => 'PASSIVO',     'route' => 'closure.passive',  'icon' => 'bi-hourglass-split'],
+            ],
+        ],
+    ];
+@endphp
+<x-menu.dynamic-dropdown title="ENCERRAMENTO" :sections="$encerramento_sections" id-prefix="encerramento" layout="inline" />
+@endif
+
 <x-menu.dynamic-dropdown title="BUSCAR" :sections="$search_sections" id-prefix="buscar" layout="inline" />

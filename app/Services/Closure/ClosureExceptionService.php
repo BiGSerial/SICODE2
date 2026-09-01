@@ -32,6 +32,22 @@ class ClosureExceptionService
             ]);
         }
 
+        $noteNumber = trim((string) ($order->Note?->note ?? ''));
+
+        if ($noteNumber === '' || $noteNumber === '0') {
+            throw ValidationException::withMessages([
+                'order' => "Ordem {$order->ordem} não possui Nota agregadora válida — não pode entrar na meta.",
+            ]);
+        }
+
+        $status = (string) $order->statusSist;
+
+        if (str_starts_with($status, 'ENTE') || str_starts_with($status, 'ENCE')) {
+            throw ValidationException::withMessages([
+                'order' => "Ordem {$order->ordem} já está encerrada no SAP (statusSist={$status}) — não faz sentido entrar na meta.",
+            ]);
+        }
+
         if (trim($reason) === '') {
             throw ValidationException::withMessages([
                 'reason' => 'Justificativa é obrigatória para registrar uma exceção.',

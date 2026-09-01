@@ -71,27 +71,19 @@
 - [x] `App\Http\Controllers\ClosureController` (overview/meta/passive/orderDetail).
 - [x] Rotas em `routes/web.php`, prefixo `/encerramento`, gates `closure.manager`/`closure.view` no middleware.
 
-## 7. Menu — ⏳ PENDENTE (decisão não bloqueante)
+## 7. Menu — ✅ CONCLUÍDO (2026-09-01)
 
-- [ ] Ainda não alterado `resources/views/layouts/menu_itens.blade.php`. Aguardando confirmação explícita do usuário antes de mexer (arquivo compartilhado por todo o sistema) — por ora as telas só são acessíveis por URL direta (`/encerramento`).
+- [x] Adicionado bloco "ENCERRAMENTO" em `resources/views/layouts/menu_itens.blade.php` (mesmo padrão do bloco Jurídico), gated por `can('closure.manager')` — 3 itens: Visão Geral, Meta, Passivo. Validado renderizando a página completa via tinker com usuário superadm real, sem erro.
 
-## 8. Testes (Pest) — ⏳ PENDENTE
+## 8. Testes (Pest) — ✅ CONCLUÍDO (2026-09-01)
 
-- [ ] `tests/Feature/Closure/ClosureTargetFreezerTest.php` (testar o serviço diretamente, não só via comando):
-  - Ordem elegível (LIB + OP20 CONF + fimReal no mês) entra na meta.
-  - Ordem com `statusSist` `ABER%`/`BLOQ%` **não** entra.
-  - Ordem com OP20 `fimReal` preenchido mas status `CNPA%` (não `CONF%`) **não** entra.
-  - Rodar `freeze()` 2x na mesma competência sem `$lock` injeta só as Ordens novas (não duplica as já existentes) e mantém `status=OPEN`.
-  - Rodar `freeze()` com `$lock=true` muda `status` para `FROZEN`; uma chamada seguinte retorna `already_frozen=true` e não altera nada.
-  - Ordem cancelada (`orders.canceled=true`) ou de Nota totalmente cancelada não entra.
-- [ ] `tests/Feature/Closure/BackfillTargetsCommandTest.php` — descobre corretamente os meses pendentes, não reprocessa Ordens já com `ClosureTarget`, e sempre trava (`FROZEN`) cada competência processada.
-- [ ] `tests/Feature/Closure/ClosureExceptionServiceTest.php`:
-  - Registra a exceção com sucesso mesmo com a competência `FROZEN` (não altera o status da competência).
-  - Recusa sem justificativa (`exception_reason` vazio).
-  - Recusa sem `authorized_by`.
-  - Recusa Ordem cancelada.
-  - Recusa Ordem que já possui `closure_target` (de qualquer origem, automática ou exceção).
-- [ ] Teste de gate: usuário sem `closure_manager`/`closure_operator`/`admin`/`superadm` recebe 403 nas rotas do módulo.
+- [x] `tests/Feature/Closure/ClosureTargetFreezerTest.php` (9 testes) — Ordem elegível entra; `ABER%`/`BLOQ%` não entram; OP20 `fimReal` preenchido mas status não-`CONF%` não entra; `freeze()` 2x sem `$lock` injeta só as novas e mantém `OPEN`; `freeze()` com `$lock=true` trava e a chamada seguinte é noop (`already_frozen`); Ordem cancelada não entra; Ordem de Nota totalmente cancelada (via `CancellationRequest` DONE/NOTE_FULL) não entra; Ordem sem Nota válida (`note` nulo/vazio/`"0"`) não entra.
+- [x] `tests/Feature/Closure/BackfillTargetsCommandTest.php` (3 testes) — descobre meses pendentes e mensaliza corretamente (fimReal mês M → meta M+1), respeita `--until`, não reprocessa Ordem que já tem `ClosureTarget`, sempre trava (`FROZEN`) cada competência processada, dry-run não grava nada.
+- [x] `tests/Feature/Closure/ClosureExceptionServiceTest.php` (7 testes) — registra com sucesso mesmo com competência `FROZEN`; recusa sem justificativa; recusa sem `authorized_by`; recusa Ordem cancelada; recusa Ordem que já tem `closure_target`; recusa Ordem sem Nota válida; recusa Ordem já `ENTE%`/`ENCE%` (as duas últimas são regras novas, adicionadas nesta mesma sessão — ver §12).
+- [x] `tests/Feature/Closure/ClosureGatesTest.php` (4 testes) — usuário sem nenhuma permissão recebe 403 nas 4 rotas HTTP (via middleware, sem depender do layout); guest é redirecionado ao login; `closure_operator` sozinho é 403 no gate `closure.manager` mas passa no `closure.view` (testado via `Livewire::test()` direto no componente, não via rota HTTP completa — ver nota abaixo); `closure_manager` passa nos 4 gates.
+  - **Achado**: testar as rotas HTTP completas (`get(route(...))`) para o caso "permitido" quebra com 500 — não é bug do módulo, é `App\Http\Livewire\Engineers\Counts\CountParcial.php:32` (`Auth()->user()->Company->id`), um contador da topbar compartilhada que assume que todo usuário tem `Company`, o que um `User::factory()->create()` de teste não tem. Contornado testando o componente Livewire isoladamente (`Livewire::test(Overview::class)`) em vez da rota completa — cobre o mesmo `abort_unless()` sem depender da topbar. **Não corrigido** (fora do escopo do módulo de Encerramento, mas fica registrado como bug pré-existente caso alguém precise testar rotas HTTP completas de qualquer módulo no futuro).
+- [x] **Achado durante os testes, corrigido**: `closure_operator`/`closure_manager` nunca tinham sido adicionados ao `$fillable`/`$casts`/`BOOLEAN_PERMISSIONS` do model `User` (diferente de `legal_controller`/`legal_field`/`legal_manager`, que seguem o padrão certo) — mass-assignment (`create()`/`update()`) dessas duas colunas era silenciosamente ignorado. Corrigido em `app/Models/User.php`.
+- Suite completa: **23 testes, 57 assertions, todos passando** (rodar com `docker exec -e HOME=/tmp sicode2-app ./vendor/bin/pest tests/Feature/Closure`).
 
 ## 9. Critérios de aceite (validado contra o banco de DEV em 2026-08-31)
 
@@ -102,7 +94,11 @@
 - [x] Após `--freeze` real: `closure_targets` tem exatamente **1.103** linhas, `closure_cycles` tem **17** linhas (todas `FROZEN`), nenhuma Ordem `ABER%`/`BLOQ%` aparece (`count=0` confirmado via tinker).
 - [x] Rodar `closure:freeze-target 2026-09 --freeze` duas vezes seguidas não altera a contagem na segunda execução (retorna "já está congelada", confirmado).
 - [x] Lógica das telas (Overview/Meta/Passive/Detail) validada via `tinker` reproduzindo as mesmas queries: `metaTotal=893`, `metaClosed=0`, `passiveTotal=210`, agrupamento por Nota funciona (765 grupos), `Detail` classifica corretamente uma Ordem de 2024-06 como `PASSIVO`.
-- [ ] **Ainda não testado visualmente em navegador** (sem credenciais de login disponíveis neste ambiente) — as queries e a lógica de negócio estão confirmadas corretas via tinker, mas o layout/blade em si (CSS, interação do `wire:model` no dropdown de competência, etc.) precisa de uma verificação visual antes de considerar a Fase 1 100% pronta para uso real.
+- [x] **Testado visualmente em navegador pelo usuário e aprovado em 2026-09-01**, após 3 rodadas de ajuste visual (ver §12). Número de referência mudou de 1.103 para **1.099** nesta sessão (purga de 4 Ordens sem Nota agregadora válida — ver §12).
+
+## 12. Retrabalho pós-teste visual (2026-09-01) — ver [[project_closure_module_plan]] para o detalhamento completo
+
+Resumo (detalhes completos na memória do projeto, não duplicados aqui): sidebar padrão adicionada às 4 telas; visual modernizado no padrão do Dashboard de Despacho (`_styles.blade.php`, gráficos Chart.js, cards coloridos); Meta e Passivo viraram tabela única contínua com `colgroup` fixo em vez de 1 tabela por grupo; bug de aging "0 dias" corrigido (base trocada de `frozen_at` para `ClosureCycle::startDate()`); purga de 4 `closure_targets` sem Nota agregadora válida (nota "0") + exclusão permanente dessa regra em `ClosureTargetFreezer` e em `ClosureExceptionService`; bloqueio de Ordem já `ENTE%`/`ENCE%` também adicionado em `ClosureExceptionService` (o caminho automático já bloqueava estruturalmente); dropdown de competência da Meta agora só lista competências com Ordem ainda ativa; bug de alinhamento dos cards de métrica corrigido (coluna Bootstrap inconsistente + falta de `h-100`).
 
 ## 10. Achados durante a implementação (não previstos no checklist original)
 
@@ -119,9 +115,6 @@
 
 ---
 
-## Ordem de execução restante
+## Status final
 
-1. ~~Migrations~~ → ~~Models~~ → ~~Serviço + comandos (dry-run)~~ → ~~Gates + admin UI~~ → ~~Telas Livewire~~ → ~~Rotas/controller~~ (tudo já feito)
-2. **Confirmar com o usuário e rodar `--freeze` de verdade** (backfill primeiro, depois a competência corrente) — próximo passo.
-3. Testes automatizados (§8).
-4. Menu (§7, só com confirmação).
+**Fase 1 100% concluída em 2026-09-01** — migrations, models, serviço + comandos, gates + admin UI, telas Livewire, rotas/controller, `--freeze` real em DEV, teste visual aprovado, testes automatizados (23/23) e menu, todos feitos. Próximo passo: Fase 2 (fila + assunção de Ordens), quando o usuário pedir para avançar.

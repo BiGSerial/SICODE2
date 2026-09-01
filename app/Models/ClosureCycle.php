@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -39,6 +40,16 @@ class ClosureCycle extends Model
     public function periodKey(): int
     {
         return ($this->year * 100) + $this->month;
+    }
+
+    /**
+     * Primeiro dia da competência — usado como referência de "aging" do passivo,
+     * já que `frozen_at` marca quando o snapshot foi gravado, não quando a Ordem
+     * ficou pendente (o backfill grava várias competências históricas no mesmo instante).
+     */
+    public function startDate(): Carbon
+    {
+        return Carbon::create($this->year, $this->month, 1)->startOfDay();
     }
 
     public static function currentPeriodKey(): int

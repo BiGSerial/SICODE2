@@ -42,6 +42,8 @@ class User extends Authenticatable
         'legal_controller',
         'legal_field',
         'legal_manager',
+        'closure_operator',
+        'closure_manager',
     ];
 
     /**
@@ -74,6 +76,8 @@ class User extends Authenticatable
         'legal_controller',
         'legal_field',
         'legal_manager',
+        'closure_operator',
+        'closure_manager',
         'permission_locks',
         'last_login_at',
         'last_seen_at',
@@ -116,6 +120,8 @@ class User extends Authenticatable
         'legal_controller' => 'boolean',
         'legal_field'      => 'boolean',
         'legal_manager'    => 'boolean',
+        'closure_operator' => 'boolean',
+        'closure_manager'  => 'boolean',
         'permission_locks' => 'array',
         'last_login_at'    => 'datetime',
         'last_seen_at'     => 'datetime',
