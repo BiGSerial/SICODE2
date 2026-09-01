@@ -2,11 +2,11 @@
 
 namespace App\Http\Livewire\Dispatchs\Desenho;
 
-use App\Custom\RuleBuilder;
-use App\Exports\DispatchDesenhoMain;
+use App\Jobs\Dispatchs\ExportDispatchDrawingMainJob;
 use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\Design\BlockEvaluator;
+use App\Services\Dispatchs\DesignDispatchMainQueryService;
 use App\Support\SicodeRules;
 use Livewire\{Component, WithPagination};
 
@@ -90,6 +90,8 @@ class Main extends Component
     // TODO: 27 Dias Status Temporário - Remover no Futuro
     public $only_27 = false;
 
+    public bool $bulkSearchAnyStatus = false;
+
     private $filter_group = 'desenho';
 
     private $filters = [];
@@ -156,17 +158,21 @@ class Main extends Component
 
     public function export_excel()
     {
-        $query = $this->lists;
+        ExportDispatchDrawingMainJob::dispatch(
+            array_merge($this->listQueryParams(), [
+                'service_uuid' => $this->service->uuid,
+                'selected' => array_values($this->selected),
+            ]),
+            Auth()->User()->id
+        );
 
-        if (count($this->selected)) {
-            $query->whereIn('id', $this->selected);
-        }
-
-        $notes = $query->get()
-            ->filter(fn ($note) => $this->canDispatchNote($note))
-            ->values();
-
-        return (new DispatchDesenhoMain($notes, $this->service->uuid))->download(date('YmdHis-') . 'exportNotesDesenho.xlsx');
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Exportação enviada para a fila.',
+            'msg'      => 'Você será notificado quando o arquivo estiver pronto.',
+            'timer'    => 3500,
+        ]);
     }
 
     public function check_mmgd(Note $note)
@@ -260,6 +266,7 @@ class Main extends Component
         $this->group5_s   = [];
 
         $this->multiSearch = [];
+        $this->bulkSearchAnyStatus = false;
 
         if (!isset($_SESSION)) {
             if (!session()->isStarted()) { session()->start(); }
@@ -524,6 +531,7 @@ class Main extends Component
         $this->type           = '';
         $this->additionalData = [];
         $this->multiSearch    = [];
+        $this->bulkSearchAnyStatus = false;
         $this->advanceSearch  = '';
         $this->search         = '';
     }
@@ -537,25 +545,12 @@ class Main extends Component
 
             $this->search = '';
 
-            $this->multiSearch = explode("\n", $this->advanceSearch);
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(' ', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(',', $this->advanceSearch);
-            }
-
-            if (!count($this->multiSearch)) {
-                $this->multiSearch = explode(';', $this->advanceSearch);
-            }
-
-            $this->multiSearch = array_map('trim', $this->multiSearch);
+            $this->multiSearch = preg_split('/[\s,;]+/', $this->advanceSearch, -1, PREG_SPLIT_NO_EMPTY);
+            $this->multiSearch = array_values(array_unique(array_map('trim', $this->multiSearch)));
         }
 
         if (count($this->multiSearch)) {
-            $this->closeall();
+            $this->dispatchBrowserEvent('hideModal');
         }
     }
 
@@ -575,107 +570,40 @@ class Main extends Component
             if (!session()->isStarted()) { session()->start(); }
         }
 
-        $this->filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
+        $this->filters = $this->activeFilters();
 
-        $query = Note::query()->excludeCanceledFullDone();
+        return app(DesignDispatchMainQueryService::class)
+            ->build($this->service, Auth()->User(), $this->listQueryParams());
 
-        SicodeRules::applyContractDispatchMainVisibility(
-            $query,
-            Auth()->User(),
-            $this->service->uuid,
-            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
-        );
+    }
 
-        if (count($this->multiSearch)) {
-            $query->whereIn('note', $this->multiSearch);
-        } else {
-            if ($this->not_assigned) {
-                $query->where(function ($q) {
-                    $q->doesntHave('Productions')
-                        ->orWhereDoesntHave('Productions', function ($subquery) {
-                            $subquery->where('service_id', $this->service->uuid)
-                                ->where('confirmed', false);
-                        });
-                });
-            }
+    private function listQueryParams(): array
+    {
+        return [
+            'search' => $this->search,
+            'multiSearch' => $this->multiSearch,
+            'note_type' => $this->note_type,
+            'not_assigned' => $this->not_assigned,
+            'only_27' => $this->only_27,
+            'bulkSearchAnyStatus' => $this->bulkSearchAnyStatus,
+            'filters' => $this->activeFilters(),
+            'rubrica_s' => $this->rubrica_s,
+            'city_s' => $this->city_s,
+            'district_s' => $this->district_s,
+            'region_s' => $this->region_s,
+            'group1_s' => $this->group1_s,
+            'group2_s' => $this->group2_s,
+            'group5_s' => $this->group5_s,
+        ];
+    }
 
-            $group1 = $this->filters['group1'] ?? $this->group1_s;
-            $group2 = $this->filters['group2'] ?? $this->group2_s;
-            $group5 = $this->filters['group5'] ?? $this->group5_s;
-            $rubricas = $this->filters['rubrica'] ?? $this->rubrica_s;
-            $base = $this->municipioFilterValues();
-
-            $query->when($this->search, function ($q, $s) {
-                $this->gotoPage(1);
-
-                return $q->where(function ($query) use ($s) {
-                    $query->where('note', 'like', '%' . $s . '%')
-                        ->orWhere('material', 'like', '%' . $s . '%')
-                        ->orWhere('numPedido', 'like', '%' . $s . '%')
-                        ->orWhere('group4', 'like', '%' . $s . '%')
-                        ->orWhere('group5', 'like', '%' . $s . '%');
-                });
-            })->when($rubricas, function ($q) use ($rubricas) {
-                return $q->where(function ($query) use ($rubricas) {
-                    $query->whereIn('rubrica', $rubricas)
-                        ->orWhereNull('rubrica');
-                });
-            })
-                ->when($this->note_type, function ($q) {
-                    return $q->where(function ($query) {
-                        $query->where('type_note', $this->note_type)
-                            ->orWhereNull('type_note');
-                    });
-                })
-                ->when($group1, function ($q) use ($group1) {
-                    return $q->where(function ($query) use ($group1) {
-                        return $query->whereIn('group1', $group1)
-                            ->orWhere('group1', '')
-                            ->orWhere('group1', null);
-                    });
-                })
-                ->when($group2, function ($q) use ($group2) {
-                    return $q->where(function ($query) use ($group2) {
-                        return $query->whereIn('group2', $group2)
-                            ->orWhere('group2', '')
-                            ->orWhere('group2', null);
-                    });
-                })
-                ->when($group5, function ($q) use ($group5) {
-                    return $q->where(function ($query) use ($group5) {
-                        return $query->whereIn('group5', $group5)
-                            ->orWhere('group5', '')
-                            ->orWhere('group5', null);
-                    });
-                })
-                ->when($base, function ($q) use ($base) {
-                    return $q->where(function ($query) use ($base) {
-                        return $query->whereIn('nexp', $base)
-                            ->orWhere('nexp', '')
-                            ->orWhere('nexp', null);
-                    });
-                })
-                // NOTE: Remover no futuro.
-                ->when($this->only_27, function ($q) {
-                    $q->where('days_left', '<=', 3)
-                      // exige que a ÚLTIMA production (da relação acima) seja desse serviço e confirmada
-                    ->whereHas(
-                        'lastProduction',
-                        fn ($r) =>
-                        $r->where('service_id', $this->service->uuid)
-                            ->where('confirmed', true)
-                    );
-                });
+    private function activeFilters(): array
+    {
+        if (!(session_status() == PHP_SESSION_ACTIVE)) {
+            if (!session()->isStarted()) { session()->start(); }
         }
 
-        $query->with(['Productions.User', 'Productions.Company'])
-            ->orderBy('is45', 'DESC')
-            ->orderBy('type_note', 'DESC')
-            ->orderBy('days_left', 'ASC')
-            ->orderBy('dt_status');
-
-        return $query;
-
+        return $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
     }
 
     private function municipioFilterValues(): array

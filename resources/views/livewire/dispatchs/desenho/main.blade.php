@@ -139,6 +139,40 @@
             background: #f8fafc;
         }
 
+        .survey-main-page .bulk-search-modal .modal-content {
+            border: 0;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+        }
+
+        .survey-main-page .bulk-search-modal .modal-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 75%);
+            color: #f8fafc;
+            border: 0;
+            padding: 1rem 1.25rem;
+        }
+
+        .survey-main-page .bulk-search-modal .modal-title {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .survey-main-page .bulk-search-modal textarea {
+            min-height: 12rem;
+            resize: vertical;
+            border-color: #cbd5e1;
+        }
+
+        .survey-main-page .bulk-search-warning {
+            border: 1px solid #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+            border-radius: 0.5rem;
+            padding: 0.75rem 0.9rem;
+            font-size: 0.88rem;
+        }
+
         .survey-main-page .table-card .main-table tbody td:first-child {
             border-left: 1px solid #e2e8f0;
             border-top-left-radius: 0.7rem;
@@ -599,27 +633,42 @@
     {{-- MODALS --}}
 
     {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel"
         aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="buscarMultiLabel">Buscar em massa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold" for="advanceSearch">Notas</label>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch"
+                        wire:model.defer="advanceSearch" placeholder="Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula."></textarea>
+
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="bulkSearchAnyStatus"
+                            wire:model="bulkSearchAnyStatus">
+                        <label class="form-check-label fw-semibold" for="bulkSearchAnyStatus">
+                            Buscar em qualquer Status
+                        </label>
+                    </div>
+
+                    @if ($bulkSearchAnyStatus)
+                        <div class="bulk-search-warning mt-3">
+                            Confirme que deseja ignorar o filtro de Status da lista. A busca continuará respeitando as regras de contrato e acesso.
+                        </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-danger" wire:click="clean">Limpar</button>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">
+                        <i class="ri-search-line"></i> Aplicar busca
+                    </button>
                 </div>
             </div>
-
         </div>
-
     </div>
 
     @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-'.$service->uuid))

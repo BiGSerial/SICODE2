@@ -13,18 +13,22 @@ class DispatchDesenhoMain implements FromView, WithEvents, WithProperties
 
     public $data;
     public $service;
+    private ?string $creatorName;
 
-    public function __construct($data, $service)
+    public function __construct($data, $service, ?string $creatorName = null)
     {
         $this->data = $data;
         $this->service = $service;
+        $this->creatorName = $creatorName;
     }
 
     public function properties(): array
     {
+        $creator = $this->creatorName ?? Auth()->User()?->name ?? 'Sicode';
+
         return [
-            'creator'        => Auth()->User()->name,
-            'lastModifiedBy' => Auth()->User()->name,
+            'creator'        => $creator,
+            'lastModifiedBy' => $creator,
             'title'          => 'Relatorio Automatico Sicode',
             'description'    => 'Arquivo gerado automaticamente via SICODE',
             'subject'        => 'Relatorios',
