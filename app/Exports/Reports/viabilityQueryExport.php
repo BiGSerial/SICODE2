@@ -5,17 +5,11 @@ namespace App\Exports\Reports;
 use App\Custom\Viabilitiesstatus;
 use Carbon\Carbon;
 use DateTimeInterface;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, WithChunkReading, WithColumnWidths, WithEvents, WithHeadings, WithMapping, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
+class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping, WithColumnWidths
 {
     use Exportable;
 
@@ -47,7 +41,7 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
             'EMPREITERA',
             'VIABILIZADO EM',
             'COMPLETADO EM',
-            'STATUS'
+            'STATUS',
         ];
     }
 
@@ -79,9 +73,6 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
                 $event->sheet->getStyle('L')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $event->sheet->getStyle('M')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
-                // Define o tamanho automático para as colunas
-                $event->sheet->autoSize();
-
                 // Define o alinhamento horizontal e vertical para todas as células
                 $event->sheet->getStyle('A1:N' . $event->sheet->getHighestRow())->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $event->sheet->getStyle('A1:N' . $event->sheet->getHighestRow())->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
@@ -92,16 +83,36 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
 
     public function chunkSize(): int
     {
-        return 1000;
+        return 2000;
+    }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 28,
+            'B' => 22,
+            'C' => 18,
+            'D' => 16,
+            'E' => 28,
+            'F' => 14,
+            'G' => 12,
+            'H' => 14,
+            'I' => 14,
+            'J' => 14,
+            'K' => 22,
+            'L' => 14,
+            'M' => 14,
+            'N' => 18,
+        ];
     }
 
     public function map($row): array
     {
-        $orders = $row->Orders
+        $orders = $row->Orders?->isNotEmpty()
             ? $row->Orders->pluck('ordem')->filter()->implode("\n")
-            : '';
+            : ($row->Order?->ordem ?? '');
 
-        $contractCompany = $row->User?->Employee?->Contract?->Company?->name
+        $contractCompany = $row->User?->Employee?->Contract?->company?->name
             ?? $row->User?->Company?->name
             ?? '---';
 

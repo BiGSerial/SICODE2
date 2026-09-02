@@ -52,8 +52,12 @@
                 <h4 class="mb-1">Relatório de Viabilidade</h4>
                 <div class="small text-white-50">Consulta com filtros de período, busca rápida e busca em massa.</div>
             </div>
-            <button class="btn btn-light btn-sm" wire:click.prevent="Export">
-                <i class="ri-file-excel-2-line me-1"></i> Exportar
+            <button class="btn btn-light btn-sm" wire:click.prevent="Export" wire:loading.attr="disabled"
+                wire:target="Export">
+                <span wire:loading.remove wire:target="Export">
+                    <i class="ri-file-excel-2-line me-1"></i> Exportar
+                </span>
+                <span wire:loading wire:target="Export">Enfileirando...</span>
             </button>
         </div>
 
@@ -105,7 +109,7 @@
         <div class="panel p-3">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                 <div class="small text-muted">
-                    Exibindo {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} registros.
+                    Exibindo {{ $lists->firstItem() ?? 0 }} até {{ $lists->lastItem() ?? 0 }} registros nesta página.
                 </div>
                 <div>
                     {{ $lists->links() }}
@@ -133,7 +137,7 @@
                     <tbody>
                         @forelse ($lists as $list)
                             @php
-                                $contractCompany = $list->User?->Employee?->Contract?->Company?->name
+                                $contractCompany = $list->User?->Employee?->Contract?->company?->name
                                     ?? $list->User?->Company?->name
                                     ?? '---';
                                 $statusMeta = Viabilitiesstatus::status($list->status);
@@ -146,12 +150,8 @@
                                         @foreach ($list->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
                                         @endforeach
-                                    @elseif ($list->Note?->Orders?->isNotEmpty())
-                                        @foreach ($list->Note->Orders->filter(function ($order) {
-                                            return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-                                        }) as $order)
-                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                        @endforeach
+                                    @elseif ($list->Order)
+                                        <p class="my-0 py-0">{{ $list->Order->ordem }}</p>
                                     @endif
                                 </td>
                                 <td>{{ $list->Note?->note ?? '---' }}</td>

@@ -9,10 +9,8 @@ use App\Services\Reports\ViabilityReportQueryService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{Log, Storage};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -24,10 +22,13 @@ class ExportViabilityReportJob implements ShouldQueue
     use SerializesModels;
 
     public array $params;
+
     public string $userId;
 
     public $tries = 2;
+
     public $backoff = [30, 120];
+
     public int $timeout = 1200;
 
     public function __construct(array $params, string $userId)
@@ -39,15 +40,15 @@ class ExportViabilityReportJob implements ShouldQueue
 
     public function handle(ViabilityReportQueryService $queryService): void
     {
-        $user = User::find($this->userId);
+        $user     = User::find($this->userId);
         $filePath = null;
-        $disk = Storage::disk('local');
+        $disk     = Storage::disk('local');
 
         try {
             $params = $queryService->normalizeParams($this->params);
-            $query = $queryService->query($params);
+            $query  = $queryService->exportQuery($params);
 
-            $stamp = now()->format('YmdHis');
+            $stamp    = now()->format('YmdHis');
             $filePath = "exports/viability_report_{$stamp}.xlsx";
             $disk->makeDirectory('exports');
 
@@ -68,11 +69,11 @@ class ExportViabilityReportJob implements ShouldQueue
             }
         } catch (Throwable $exception) {
             Log::error('ExportViabilityReportJob falhou', [
-                'user_id' => $this->userId,
-                'params' => $this->params,
-                'attempt' => $this->attempts(),
+                'user_id'       => $this->userId,
+                'params'        => $this->params,
+                'attempt'       => $this->attempts(),
                 'error_message' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString(),
+                'trace'         => $exception->getTraceAsString(),
             ]);
 
             if ($filePath && $disk->exists($filePath)) {

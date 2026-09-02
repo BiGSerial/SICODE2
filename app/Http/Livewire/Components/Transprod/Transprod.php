@@ -2,8 +2,9 @@
 
 namespace App\Http\Livewire\Components\Transprod;
 
-use App\Models\{Notify, Prodtransfer, Production, User};
+use App\Models\{Company, Notify, Prodtransfer, Production, User};
 use App\Notifications\SystemNotification;
+use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -12,6 +13,8 @@ class Transprod extends Component
     public $production;
 
     public $search;
+
+    public $company_transfer_id;
 
     public $transfer_view = false;
 
@@ -39,6 +42,7 @@ class Transprod extends Component
                 'html'     => 'Produção em tratativa de análise de projeto. Conclua o fluxo antes de transferir.',
                 'timer'    => 4000,
             ]);
+
             return;
         }
 
@@ -53,17 +57,69 @@ class Transprod extends Component
 
     public function getUserlistProperty()
     {
-        return User::whereRelation('ToServices', function ($q) {
-            $q->when($this->production, function ($q) {
-                return $q->where('service_id', $this->production->service_id)
-                ->where('service', true);
-            });
-        })
-        ->When($this->search, function ($q, $s) {
-            return $q->where('name', 'like', '%' . $s . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
+        return $this->eligibleUsersQuery()
+            ->when($this->company_transfer_id, fn ($q, $companyId) => $this->applyCompanyFilter($q, $companyId))
+            ->when($this->search, function ($q, $s) {
+                return $q->where('name', 'like', '%' . $s . '%');
+            })
+            ->orderBy('name', 'ASC')->get();
+    }
 
+    public function getCompanylistProperty()
+    {
+        $companyIds = $this->eligibleUsersQuery()
+            ->get()
+            ->flatMap(fn ($user) => $this->companyIdsForUser($user))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return Company::whereIn('id', $companyIds)
+            ->orderBy('name', 'ASC')
+            ->get();
+    }
+
+    public function updatedCompanyTransferId()
+    {
+        $this->user_transfer_id = null;
+    }
+
+    private function eligibleUsersQuery()
+    {
+        return User::with('Company', 'Employee.Contract.company', 'Companies')
+            ->whereRelation('ToServices', function ($q) {
+                $q->when($this->production, function ($q) {
+                    return $q->where('service_id', $this->production->service_id)
+                        ->where('service', true);
+                }, fn ($q) => $q->whereRaw('0 = 1'));
+            })
+            ->where('id', '!=', auth()->id())
+            ->when(auth()->user()?->contract, function ($q) {
+                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+
+                return count($companyIds)
+                    ? $q->where(function ($users) use ($companyIds) {
+                        $users->whereIn('company_id', $companyIds)
+                            ->orWhereHas('Employee.Contract', fn ($contract) => $contract->whereIn('company_id', $companyIds));
+                    })
+                    : $q->whereRaw('0 = 1');
+            });
+    }
+
+    private function applyCompanyFilter($query, string $companyId)
+    {
+        return $query->where(function ($users) use ($companyId) {
+            $users->where('company_id', $companyId)
+                ->orWhereHas('Employee.Contract', fn ($contract) => $contract->where('company_id', $companyId));
+        });
+    }
+
+    private function companyIdsForUser(User $user)
+    {
+        return collect([$user->Employee?->Contract?->company_id ?: $user->company_id])
+            ->filter()
+            ->unique()
+            ->values();
     }
 
     public function transfer_prod()
@@ -80,6 +136,7 @@ class Transprod extends Component
                 'html'     => 'Produção em tratativa de análise de projeto. Conclua o fluxo antes de transferir.',
                 'timer'    => 4000,
             ]);
+
             return;
         }
 
@@ -109,6 +166,22 @@ class Transprod extends Component
             return;
         }
 
+        $user = $this->eligibleUsersQuery()
+            ->when($this->company_transfer_id, fn ($q, $companyId) => $this->applyCompanyFilter($q, $companyId))
+            ->where('id', $this->user_transfer_id)
+            ->first();
+
+        if (!$user) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Usuário não habilitado para esta atividade.',
+                'timer'    => 3000,
+            ]);
+
+            return;
+        }
+
         DB::beginTransaction();
 
         try {
@@ -123,9 +196,6 @@ class Transprod extends Component
                 'status'        => 19,
             ]);
 
-
-
-
             $this->production->update([
                 'block'  => true,
                 'status' => 19,
@@ -139,16 +209,11 @@ class Transprod extends Component
             //     'link'    => $url,
             // ]);
 
-
-
             // UUID do destinatário
 
-            $user = User::find($this->user_transfer_id);
-            $note = $this->production->Note->note;
+            $note       = $this->production->Note->note;
             $dispatcher = $this->production->Dispatcher;
-            $link = route('services.main', ['service' => $this->production->service_id]);
-
-
+            $link       = route('services.main', ['service' => $this->production->service_id]);
 
             if ($user) {
                 $user->notify(new SystemNotification(
@@ -200,11 +265,12 @@ class Transprod extends Component
     public function close()
     {
 
-        $this->production         = null;
-        $this->search             = '';
-        $this->transfer_view      = false;
-        $this->user_transfer_id   = null;
-        $this->user_transfer_info = null;
+        $this->production          = null;
+        $this->search              = '';
+        $this->company_transfer_id = null;
+        $this->transfer_view       = false;
+        $this->user_transfer_id    = null;
+        $this->user_transfer_info  = null;
 
         $this->dispatchBrowserEvent('hideModal');
         $this->emit('refresh_accomany');
@@ -213,7 +279,8 @@ class Transprod extends Component
     public function render()
     {
         return view('livewire.components.transprod.transprod', [
-            'user_list' => $this->Userlist,
+            'user_list'    => $this->Userlist,
+            'company_list' => $this->Companylist,
         ]);
     }
 }

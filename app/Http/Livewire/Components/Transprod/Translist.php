@@ -18,6 +18,7 @@ class Translist extends Component
         'refresh_translist'   => '$refresh',
         'confirm_prod_accept' => 'accept',
         'confirm_prod_reject' => 'reject',
+        'confirm_prod_cancel' => 'cancel',
     ];
 
     public function mount(Service $service)
@@ -39,8 +40,8 @@ class Translist extends Component
         if ($transfers) {
             $transfers->each(function ($transfer) {
                 $transfer->update([
-                    'status' => 22,
-                    'read_to' => true,
+                    'status'    => 22,
+                    'read_to'   => true,
                     'read_from' => true,
                 ]);
             });
@@ -124,10 +125,9 @@ class Translist extends Component
                 //     'link'    => $url,
                 // ]);
 
-
-                $user = User::find($this->transfer_prod->from);
+                $user     = User::find($this->transfer_prod->from);
                 $userName = auth()->User()->name;
-                $link = route('services.accompany', ['service' => $this->transfer_prod->service_id]);
+                $link     = route('services.accompany', ['service' => $this->transfer_prod->service_id]);
 
                 if ($user) {
 
@@ -190,6 +190,128 @@ class Translist extends Component
         }
     }
 
+    public function to_cancel(Prodtransfer $transfer)
+    {
+        $this->transfer_prod = $transfer->load('Production.Note', 'To');
+
+        if (
+            !$this->transfer_prod
+            || (int) $this->transfer_prod->status !== 19
+            || $this->transfer_prod->from !== auth()->id()
+        ) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Transferência indisponível para cancelamento.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'CANCELAR TRANSFERÊNCIA',
+            'msg'           => "Você deseja cancelar a transferência da NOTA/OV {$this->transfer_prod->Production->Note->note} para {$this->transfer_prod->To->name}?",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, cancelar',
+            'btnCanceltxt'  => 'Não, manter',
+            'action'        => 'confirm_prod_cancel',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'A transferência foi mantida.',
+        ]);
+    }
+
+    public function cancel()
+    {
+        if (
+            !$this->transfer_prod
+            || (int) $this->transfer_prod->status !== 19
+            || $this->transfer_prod->from !== auth()->id()
+        ) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Transferência indisponível para cancelamento.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $production = Production::with('Note', 'Service')->find($this->transfer_prod->production_id);
+
+        if (!$production) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Produção não encontrada para cancelar a transferência.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $production->update([
+                'status'      => 2,
+                'transferred' => false,
+                'block'       => false,
+                'block_wpa'   => false,
+            ]);
+
+            $this->transfer_prod->update([
+                'read_to'   => false,
+                'read_from' => true,
+                'status'    => 29,
+            ]);
+
+            Notetimeline::create([
+                'note_id'    => $production->note_id,
+                'service_id' => $production->service_id,
+                'user_id'    => auth()->id(),
+                'info'       => 'Usuário ' . auth()->user()->name . ' cancelou a solicitação de transferência de produção',
+                'status'     => 29,
+            ]);
+
+            $user = User::find($this->transfer_prod->to);
+            $link = route('services.accompany', ['service' => $this->transfer_prod->service_id]);
+
+            if ($user) {
+                $user->notify(new SystemNotification(
+                    titulo: 'Transferência cancelada',
+                    mensagem: "A transferência de produção <strong>{$production->Note->note}</strong> em <strong>{$production->Service->service}</strong> foi cancelada por <strong>" . auth()->user()->name . '</strong>.',
+                    link: $link,
+                    status: 0,
+                    extras: []
+                ));
+            }
+
+            DB::commit();
+
+            $this->transfer_prod = null;
+            $this->emit('refresh_translist');
+            $this->emit('refresh_accomany');
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Transferência cancelada com sucesso.',
+                'timer'    => 2500,
+            ]);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OOOPS, Não foi possível cancelar a transferência',
+                'timer'    => 2500,
+            ]);
+        }
+    }
+
     public function reject()
     {
         $production = Production::with('Note')->find($this->transfer_prod->production_id);
@@ -231,9 +353,8 @@ class Translist extends Component
                 //     'link'    => $url,
                 // ]);
 
-                $user = User::find($this->transfer_prod->from);
+                $user     = User::find($this->transfer_prod->from);
                 $userName = auth()->User()->name;
-
 
                 $link = route('services.accompany', ['service' => $this->transfer_prod->service_id]);
 
@@ -273,7 +394,13 @@ class Translist extends Component
     public function to_ok(Prodtransfer $transfer)
     {
         try {
-            $transfer->update(['read_from' => true]);
+            if ($transfer->from === auth()->id()) {
+                $transfer->update(['read_from' => true]);
+            }
+
+            if ($transfer->to === auth()->id()) {
+                $transfer->update(['read_to' => true]);
+            }
 
             $this->emit('refresh_translist');
 

@@ -15,9 +15,20 @@ class ViabilityReportQueryService
 
     public function query(array $params = []): Builder
     {
+        return $this->baseQuery($params);
+    }
+
+    public function exportQuery(array $params = []): Builder
+    {
+        return $this->baseQuery($params);
+    }
+
+    private function baseQuery(array $params = []): Builder
+    {
         $query = Viability::query()
             ->select([
                 'id',
+                'order_id',
                 'note_id',
                 'company_id',
                 'user_id',
@@ -36,17 +47,17 @@ class ViabilityReportQueryService
                 'User.Company:id,name',
                 'User.Employee:id,user_id,contract_id',
                 'User.Employee.Contract:id,company_id',
-                'User.Employee.Contract.Company:id,name',
+                'User.Employee.Contract.company:id,name',
                 'Engineer:id,name',
                 'Company:id,name',
                 'Note:id,note,material',
-                'Note.Orders:id,note_id,ordem,statusSist',
+                'Order:id,note_id,ordem,statusSist',
                 'Orders:id,note_id,ordem,statusSist',
             ]);
 
         $column = $this->dateColumn($params['column'] ?? null);
         $dtInit = $params['dt_init'] ?? null;
-        $dtEnd = $params['dt_end'] ?? null;
+        $dtEnd  = $params['dt_end'] ?? null;
 
         if ($column && ($dtInit || $dtEnd)) {
             if ($dtInit) {
@@ -58,20 +69,15 @@ class ViabilityReportQueryService
             }
         }
 
-        $searchTerms = $this->searchTerms($params['search'] ?? '', $params['multi_search_terms'] ?? []);
+        $multiSearchTerms = $this->searchTerms('', $params['multi_search_terms'] ?? []);
+        $searchTerms      = !empty($multiSearchTerms)
+            ? $multiSearchTerms
+            : $this->searchTerms($params['search'] ?? '', []);
 
         if (!empty($searchTerms)) {
-            $query->where(function ($q) use ($searchTerms) {
-                foreach ($searchTerms as $term) {
-                    $like = '%' . $term . '%';
-                    $q->orWhereHas('Note', function ($note) use ($like) {
-                        $note->where('note', 'like', $like)
-                            ->orWhere('material', 'like', $like);
-                    })->orWhereHas('Orders', function ($order) use ($like) {
-                        $order->where('ordem', 'like', $like);
-                    });
-                }
-            });
+            $query->where(fn ($q) => !empty($multiSearchTerms)
+                ? $this->applyExactSearch($q, $searchTerms)
+                : $this->applyLikeSearch($q, $searchTerms));
         }
 
         return $query
@@ -79,14 +85,42 @@ class ViabilityReportQueryService
             ->orderBy('id');
     }
 
+    private function applyExactSearch($query, array $terms): void
+    {
+        $query->whereHas('Note', function ($note) use ($terms) {
+            $note->whereIn('note', $terms)
+                ->orWhereIn('material', $terms);
+        })->orWhereHas('Orders', function ($order) use ($terms) {
+            $order->whereIn('ordem', $terms);
+        })->orWhereHas('Order', function ($order) use ($terms) {
+            $order->whereIn('ordem', $terms);
+        });
+    }
+
+    private function applyLikeSearch($query, array $terms): void
+    {
+        foreach ($terms as $term) {
+            $like = '%' . $term . '%';
+
+            $query->orWhereHas('Note', function ($note) use ($like) {
+                $note->where('note', 'like', $like)
+                    ->orWhere('material', 'like', $like);
+            })->orWhereHas('Orders', function ($order) use ($like) {
+                $order->where('ordem', 'like', $like);
+            })->orWhereHas('Order', function ($order) use ($like) {
+                $order->where('ordem', 'like', $like);
+            });
+        }
+    }
+
     public function normalizeParams(array $params): array
     {
         return [
-            'search' => trim((string) ($params['search'] ?? '')),
+            'search'             => trim((string) ($params['search'] ?? '')),
             'multi_search_terms' => $this->searchTerms('', $params['multi_search_terms'] ?? []),
-            'column' => $this->dateColumn($params['column'] ?? null),
-            'dt_init' => $params['dt_init'] ?? null,
-            'dt_end' => $params['dt_end'] ?? null,
+            'column'             => $this->dateColumn($params['column'] ?? null),
+            'dt_init'            => $params['dt_init'] ?? null,
+            'dt_end'             => $params['dt_end'] ?? null,
         ];
     }
 

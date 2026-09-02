@@ -645,8 +645,6 @@
         </div>
     </div>
 
-    </div>
-
     {{-- MODALS --}}
     <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel"
         aria-hidden="true">
