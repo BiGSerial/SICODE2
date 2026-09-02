@@ -3,8 +3,8 @@
 namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Jobs\Dispatchs\ExportDispatchDrawingMainJob;
-use App\Models\Edp_depc\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Models\Edp_depc\City;
 use App\Services\Design\BlockEvaluator;
 use App\Services\Dispatchs\DesignDispatchMainQueryService;
 use App\Support\SicodeRules;
@@ -33,6 +33,8 @@ class Main extends Component
     public $advanceSearch;
 
     public $multiSearch = [];
+
+    public bool $bulkSearchAnyStatus = false;
 
     public $selectall;
 
@@ -90,8 +92,6 @@ class Main extends Component
     // TODO: 27 Dias Status Temporário - Remover no Futuro
     public $only_27 = false;
 
-    public bool $bulkSearchAnyStatus = false;
-
     private $filter_group = 'desenho';
 
     private $filters = [];
@@ -105,10 +105,9 @@ class Main extends Component
     ];
 
     protected $queryString = [
-        'search'         => ['except' => '', 'as' => 'busca'],
+        'search' => ['except' => '', 'as' => 'busca'],
 
-        'note_type'      => ['except' => '', 'as' => 'tipo'],
-
+        'note_type' => ['except' => '', 'as' => 'tipo'],
 
         'multiSearch',
     ];
@@ -123,7 +122,9 @@ class Main extends Component
         $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
         $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
 
-        if (!session()->isStarted()) { session()->start(); }
+        if (!session()->isStarted()) {
+            session()->start();
+        }
 
         if (isset($_SESSION['filtro']['desenho']) && $_SESSION['filtro']['desenho']) {
             if (isset($_SESSION['filtro']['desenho']['rubrica'])) {
@@ -161,7 +162,7 @@ class Main extends Component
         ExportDispatchDrawingMainJob::dispatch(
             array_merge($this->listQueryParams(), [
                 'service_uuid' => $this->service->uuid,
-                'selected' => array_values($this->selected),
+                'selected'     => array_values($this->selected),
             ]),
             Auth()->User()->id
         );
@@ -190,8 +191,6 @@ class Main extends Component
 
         // $this->emitSelf('refresh_dispatch');
     }
-
-
 
     public function updatedCompanyS()
     {
@@ -238,7 +237,9 @@ class Main extends Component
         $this->gotoPage(1);
 
         if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
         $_SESSION['filtro']['desenho']['rubrica']  = $this->rubrica_s;
         $_SESSION['filtro']['desenho']['city']     = $this->city_s;
@@ -265,11 +266,13 @@ class Main extends Component
         $this->group2_s   = [];
         $this->group5_s   = [];
 
-        $this->multiSearch = [];
+        $this->multiSearch         = [];
         $this->bulkSearchAnyStatus = false;
 
         if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filtro']['desenho'])) {
@@ -525,15 +528,15 @@ class Main extends Component
     public function clean()
     {
 
-        $this->company_s      = '';
-        $this->enter_dd       = '';
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->multiSearch    = [];
+        $this->company_s           = '';
+        $this->enter_dd            = '';
+        $this->user_s              = '';
+        $this->type                = '';
+        $this->additionalData      = [];
+        $this->multiSearch         = [];
         $this->bulkSearchAnyStatus = false;
-        $this->advanceSearch  = '';
-        $this->search         = '';
+        $this->advanceSearch       = '';
+        $this->search              = '';
     }
 
     public function buscarMulti()
@@ -545,8 +548,12 @@ class Main extends Component
 
             $this->search = '';
 
-            $this->multiSearch = preg_split('/[\s,;]+/', $this->advanceSearch, -1, PREG_SPLIT_NO_EMPTY);
-            $this->multiSearch = array_values(array_unique(array_map('trim', $this->multiSearch)));
+            $this->multiSearch = collect(preg_split('/[\s,;\n\r\t]+/', (string) $this->advanceSearch))
+                ->map(fn ($term) => trim((string) $term))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
         }
 
         if (count($this->multiSearch)) {
@@ -567,7 +574,9 @@ class Main extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $this->filters = $this->activeFilters();
@@ -580,27 +589,29 @@ class Main extends Component
     private function listQueryParams(): array
     {
         return [
-            'search' => $this->search,
-            'multiSearch' => $this->multiSearch,
-            'note_type' => $this->note_type,
-            'not_assigned' => $this->not_assigned,
-            'only_27' => $this->only_27,
+            'search'              => $this->search,
+            'multiSearch'         => $this->multiSearch,
+            'note_type'           => $this->note_type,
+            'not_assigned'        => $this->not_assigned,
+            'only_27'             => $this->only_27,
             'bulkSearchAnyStatus' => $this->bulkSearchAnyStatus,
-            'filters' => $this->activeFilters(),
-            'rubrica_s' => $this->rubrica_s,
-            'city_s' => $this->city_s,
-            'district_s' => $this->district_s,
-            'region_s' => $this->region_s,
-            'group1_s' => $this->group1_s,
-            'group2_s' => $this->group2_s,
-            'group5_s' => $this->group5_s,
+            'filters'             => $this->activeFilters(),
+            'rubrica_s'           => $this->rubrica_s,
+            'city_s'              => $this->city_s,
+            'district_s'          => $this->district_s,
+            'region_s'            => $this->region_s,
+            'group1_s'            => $this->group1_s,
+            'group2_s'            => $this->group2_s,
+            'group5_s'            => $this->group5_s,
         ];
     }
 
     private function activeFilters(): array
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         return $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
@@ -608,8 +619,8 @@ class Main extends Component
 
     private function municipioFilterValues(): array
     {
-        $cities = $this->filters['city'] ?? [];
-        $regions = $this->filters['region'] ?? [];
+        $cities    = $this->filters['city'] ?? [];
+        $regions   = $this->filters['region'] ?? [];
         $districts = $this->filters['regional'] ?? ($this->filters['district'] ?? []);
 
         if (empty($cities) && empty($regions) && empty($districts)) {
@@ -640,6 +651,7 @@ class Main extends Component
     public function needBlock(Note $note): array
     {
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
         // retorna estrutura pra view usar diretamente
         return $eval;
     }
@@ -656,7 +668,7 @@ class Main extends Component
     public function getBaseProperty()
     {
         try {
-            $query  = City::query();
+            $query          = City::query();
             $filtersApplied = false;
 
             if (!empty($this->region_s)) {

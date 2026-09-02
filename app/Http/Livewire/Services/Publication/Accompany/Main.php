@@ -42,6 +42,7 @@ class Main extends Component
 
     // Filters
     private $filter_group = 'publication_acc';
+
     public $filters;
 
     protected $listeners = [
@@ -49,7 +50,7 @@ class Main extends Component
         'refresh_list'       => '$refresh',
         'getCopy'            => 'copy',
         'confirm_getAnalise' => 'go_to_analise',
-        'checkOpen'
+        'checkOpen',
     ];
 
     public function mount($service)
@@ -57,20 +58,23 @@ class Main extends Component
         $this->service = Service::where('uuid', $service)->first();
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
             $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
         }
 
-
     }
 
     public function blockWaiting($status)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['waitingForm']) && $status != 27) {
@@ -83,9 +87,9 @@ class Main extends Component
     public function showForm(Production $production)
     {
         if ($production->Note->RamalForm) {
-            $this->emitTo('btzero.view.compare-form', 'showCompareForm', $production->Note);
+            $this->emitTo('btzero.view.compare-form', 'showCompareForm', $production->Note->id);
         } elseif ($production->Note->WorkForm) {
-            $this->emitTo('partner.show.show-work-form', 'show_form', $production->Note->WorkForm);
+            $this->emitTo('partner.show.show-work-form', 'show_form', $production->Note->WorkForm->id);
         }
     }
 
@@ -116,7 +120,7 @@ class Main extends Component
             //     'id' => 'analise_form',
             // ]);
 
-            $this->emitTo('services.publication.forms.jobform', 'showProduction', $check);
+            $this->emitTo('services.publication.forms.jobform', 'showProduction', $check->id);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -205,7 +209,9 @@ class Main extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -268,7 +274,9 @@ class Main extends Component
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -322,7 +330,6 @@ class Main extends Component
         ->orderBy('d5', 'desc')
         ->orderBy('forms', 'desc')
 
-
         ->paginate($this->perPage);
 
     }
@@ -331,29 +338,26 @@ class Main extends Component
     {
         $formattedData = $this->lists->map(function ($list) {
             return [
-            $list->Note->note,
-            $list->Note->orders->pluck('ordem')->toArray(),
+                $list->Note->note,
+                $list->Note->orders->pluck('ordem')->toArray(),
             ];
         });
 
-
-
         $this->dispatchBrowserEvent('copyToExcel', [
-            'lists' => $formattedData
+            'lists' => $formattedData,
         ]);
     }
 
     public function render()
     {
 
-
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-        $lists = $this->lists;
+        $lists           = $this->lists;
 
         return view('livewire.services.publication.accompany.main', [
-            'lists' => $lists,
+            'lists'             => $lists,
             'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
-            'waitings' => $this->waitings,
+            'waitings'          => $this->waitings,
         ]);
     }
 }

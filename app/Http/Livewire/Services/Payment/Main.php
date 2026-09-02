@@ -2,23 +2,22 @@
 
 namespace App\Http\Livewire\Services\Payment;
 
+use App\Helpers\TextFormatter;
+use App\Http\Livewire\Concerns\Services\BulkSelfAssignable;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
-use Livewire\{Component, WithPagination};
-use App\Services\Payment\NoteFilter;
-use App\Helpers\TextFormatter;
-use App\Services\Payment\BlockEvaluator;
 use App\Services\D5\D5WorkflowService;
-use App\Services\WorkReports\WorkReportFinalScopeOptions;
-use App\Services\WorkReports\WorkReportFlowProductionLinker;
+use App\Services\Payment\{BlockEvaluator, NoteFilter};
+use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{Auth, DB};
+use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
     use TextFormatter;
+    use BulkSelfAssignable;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -43,6 +42,7 @@ class Main extends Component
     public $typeNote;
 
     public $partial = false;
+
     public $partials;
 
     public $partialDate;
@@ -53,6 +53,7 @@ class Main extends Component
     public $filter_d5 = false;
 
     public $multi_search_any_situation = false;
+
     public bool $bulkSearchAnyStatus = false;
 
     public $assigned_mmgd = false;
@@ -61,18 +62,20 @@ class Main extends Component
         'total'    => 0,
         'partials' => 0,
     ];
+
     // Filters
     private $filter_group = 'payments';
 
     protected $listeners = [
-        'refresh_service'   => '$refresh',
-        'refresh_list'      => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
+        'refresh_service'        => '$refresh',
+        'refresh_list'           => '$refresh',
+        'getCopy'                => 'copy',
+        'confirm_accompany'      => 'add_to_accompany',
+        'confirm_accompany_mass' => 'add_to_accompany_mass',
     ];
 
     protected $queryString = [
-        'search' => ['except' => '', 'as' => 'buscar'],
+        'search'   => ['except' => '', 'as' => 'buscar'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
         'partials' => ['except' => false, 'as' => 'parciais'],
     ];
@@ -88,7 +91,6 @@ class Main extends Component
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = optional(Note::orderByDesc('dt_status')->first())->dt_status;
-
 
     }
 
@@ -114,15 +116,17 @@ class Main extends Component
             $this->multiSearch = array_values($this->formatTextToArray($this->advanceSearch));
             $this->dispatchBrowserEvent('hideModal');
         } else {
-            $this->multiSearch = [];
+            $this->multiSearch                = [];
             $this->multi_search_any_situation = false;
-            $this->bulkSearchAnyStatus = false;
+            $this->bulkSearchAnyStatus        = false;
         }
     }
 
     public function updatedSearch()
     {
         $this->multiSearch = [];
+        $this->selected    = [];
+        $this->selectAll   = false;
         $this->gotoPage(1);
     }
 
@@ -133,6 +137,8 @@ class Main extends Component
 
     public function updatedTypeNote()
     {
+        $this->selected  = [];
+        $this->selectAll = false;
         $this->gotoPage(1);
     }
 
@@ -157,11 +163,11 @@ class Main extends Component
 
     public function clean()
     {
-        $this->advanceSearch = '';
-        $this->multiSearch = [];
+        $this->advanceSearch              = '';
+        $this->multiSearch                = [];
         $this->multi_search_any_situation = false;
-        $this->bulkSearchAnyStatus = false;
-        $this->search = '';
+        $this->bulkSearchAnyStatus        = false;
+        $this->search                     = '';
         $this->gotoPage(1);
     }
 
@@ -174,29 +180,29 @@ class Main extends Component
         $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
 
         ExportDispatchPaymentJob::dispatch([
-            'source' => 'service',
-            'service_uuid' => $this->service->uuid,
-            'search' => $this->search,
-            'multiSearch' => $this->multiSearch,
+            'source'                     => 'service',
+            'service_uuid'               => $this->service->uuid,
+            'search'                     => $this->search,
+            'multiSearch'                => $this->multiSearch,
             'multi_search_any_situation' => (bool) $this->multi_search_any_situation,
-            'bulkSearchAnyStatus' => (bool) $this->bulkSearchAnyStatus,
-            'selected_ids' => [],
-            'typeNote' => $this->typeNote,
-            'not_assigned' => $this->not_assigned,
-            'company_ids' => $filters['company'] ?? null,
-            'rubricas' => $filters['rubrica'] ?? null,
-            'regions' => $filters['region'] ?? null,
-            'regionals' => $filters['regional'] ?? null,
-            'cities' => $filters['city'] ?? null,
-            'filter_d5' => (bool) $this->filter_d5,
+            'bulkSearchAnyStatus'        => (bool) $this->bulkSearchAnyStatus,
+            'selected_ids'               => [],
+            'typeNote'                   => $this->typeNote,
+            'not_assigned'               => $this->not_assigned,
+            'company_ids'                => $filters['company'] ?? null,
+            'rubricas'                   => $filters['rubrica'] ?? null,
+            'regions'                    => $filters['region'] ?? null,
+            'regionals'                  => $filters['regional'] ?? null,
+            'cities'                     => $filters['city'] ?? null,
+            'filter_d5'                  => (bool) $this->filter_d5,
         ], (string) auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'info',
-            'title' => 'Estamos gerando seu relatório!',
-            'html' => 'Você será notificado quando o arquivo estiver pronto para download.',
-            'timer' => 3000,
+            'icon'     => 'info',
+            'title'    => 'Estamos gerando seu relatório!',
+            'html'     => 'Você será notificado quando o arquivo estiver pronto para download.',
+            'timer'    => 3000,
         ]);
     }
 
@@ -223,14 +229,14 @@ class Main extends Component
         $latestPartial = $note->partials?->sortByDesc('created_at')->first();
 
         // 2. Verificar se esta parcial atende aos critérios
-        $this->partial = false;
+        $this->partial     = false;
         $this->partialDate = null;
 
         if (!$this->note->WorkForm) {
             if ($latestPartial
             && $latestPartial->allow
             && $latestPartial->supervision
-            && ! $latestPartial->payment
+            && !$latestPartial->payment
             ) {
                 $this->partial     = true;
                 $this->partialDate = $latestPartial->created_at;
@@ -239,8 +245,8 @@ class Main extends Component
 
         // 3. Disparar o alerta (texto praticamente idêntico aos dois casos)
         $this->dispatchBrowserEvent('alertar', [
-            'title'          => 'Atribuir Tarefa',
-            'msg'            => "
+            'title' => 'Atribuir Tarefa',
+            'msg'   => "
             Você deseja atribuir a NOTA/OV "
                 . ($this->partial ? "(PARCIAL) " : "")
                 . "para você?</br></br>
@@ -251,27 +257,46 @@ class Main extends Component
               </div>
             </div>
         ",
-            'icon'           => 'warning',
-            'btnOktxt'       => 'Sim, Atribua!',
-            'btnCanceltxt'   => 'Não, Cancele!',
-            'action'         => 'confirm_accompany',
-            'cancel_titulo'  => 'Cancelado!',
-            'cancel_msg'     => 'Nenhum serviço foi atribuído.',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Atribua!',
+            'btnCanceltxt'  => 'Não, Cancele!',
+            'action'        => 'confirm_accompany',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhum serviço foi atribuído.',
         ]);
     }
 
     public function add_to_accompany()
     {
-        // 1. Defina o "dt" que vamos usar: parcial ou data original da nota
-        $dt = $this->partial
-            ? $this->partialDate     // data de criação da parcial
-            : $this->note->dt_status; // data padrão da nota
+        $result = $this->assignNoteToSelf($this->note);
 
+        if (!$result['ok']) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OOOOPS! NOTA/OV JÁ ATRIBUÍDA',
+                'html'     => "<strong>{$result['note']}</strong> {$result['reason']}",
+            ]);
 
-        $fiveNote = $this->note->FiveNote ? true : false;
+            return;
+        }
 
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "{$result['note']} foi atribuído a você com sucesso.",
+            'timer'    => 2500,
+        ]);
+    }
 
-        $this->note->loadMissing([
+    /**
+     * Executa a atribuição de fato (individual ou dentro do laço de atribuição em massa).
+     * Autocontido: recalcula parcial/dt a partir da própria Nota, sem depender de estado
+     * de instância — assim serve tanto para o fluxo de 1 item quanto para o de N itens.
+     */
+    public function assignNoteToSelf(Note $note): array
+    {
+        $note->loadMissing([
             'WorkForm',
             'FiveNote',
             'Partials',
@@ -279,105 +304,98 @@ class Main extends Component
                                         ->orderByDesc('created_at'),
         ]);
 
-        $eval = app(BlockEvaluator::class)->evaluate($this->note, $this->service);
+        $latestPartial = $note->Partials?->sortByDesc('created_at')->first();
+        $isPartial     = false;
+        $partialDate   = null;
 
-        // $exists = Production::where('note_id', $this->note->id)
-        //     ->where('service_id', $this->service->uuid)
-        //     ->where('dhstats', $dt)
-        //     ->exists();
+        if (!$note->WorkForm) {
+            if ($latestPartial
+                && $latestPartial->allow
+                && $latestPartial->supervision
+                && !$latestPartial->payment
+            ) {
+                $isPartial   = true;
+                $partialDate = $latestPartial->created_at;
+            }
+        }
+
+        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
         if (!$eval['command']) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'OOOOPS! NOTA/OV JÁ ATRIBUÍDA',
-                'html'     => "<strong>{$this->note->note}</strong> já foi atribuída em "
-                               . \Carbon\Carbon::parse($dt)->format('d/m/Y H:i') . " <br> <p>Motivo: {$eval['reason']}</p>",
-            ]);
-            return;
+            $when = $eval['production']?->dt_note ? Carbon::parse($eval['production']->dt_note)->format('d/m/Y H:i') : '---';
+
+            return [
+                'ok'     => false,
+                'note'   => $note->note,
+                'reason' => "já foi atribuída em {$when} — {$eval['reason']}",
+            ];
         }
 
-        $finalScopes = app(WorkReportFinalScopeOptions::class)->forNote($this->note);
+        $finalScopes = app(WorkReportFinalScopeOptions::class)->forNote($note);
+
         if (count($finalScopes) > 1) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Selecione a medicao pela tela de despacho.',
-                'html'     => 'Esta nota possui mais de um informe final aberto. Use a tela de despacho de pagamento para selecionar Rede, Ligacao ou ambos.',
-                'timer'    => 7000,
-            ]);
-
-            return;
+            return [
+                'ok'     => false,
+                'note'   => $note->note,
+                'reason' => 'possui mais de um informe final aberto — use a tela de despacho para selecionar Rede, Ligação ou ambos',
+            ];
         }
 
-
-
-        // 3. Buscar usuário e criar produção normalmente
-        $user = User::with('Employee.Contract')
-                    ->find(Auth::id());
-
+        $dt       = $isPartial ? $partialDate : $note->dt_status;
+        $fiveNote = (bool) $note->FiveNote;
+        $user     = User::with('Employee.Contract')->find(Auth::id());
 
         $data = [
-            'note_id'     => $this->note->id,
+            'note_id'     => $note->id,
             'service_id'  => $this->service->uuid,
             'user_id'     => $user->id,
             'company_id'  => $user->company_id,
             'dispatch_by' => $user->id,
             'att_by'      => $user->id,
             'dt_note'     => $dt,
-            'status_note' => $this->note->nstats,
+            'status_note' => $note->nstats,
             'dispatch_at' => now(),
             'att_at'      => now(),
             'status'      => 2,
             'dhstats'     => $dt,
-            'partial'     => (bool) $this->partial,
+            'partial'     => $isPartial,
             'dfive'       => $fiveNote,
         ];
 
         $production = Production::firstOrCreate([
-                'note_id'    => $this->note->id,
-                'service_id' => $this->service->uuid,
-                'user_id'    => $user->id,
-                'completed'  => false,
-            ], $data);
+            'note_id'    => $note->id,
+            'service_id' => $this->service->uuid,
+            'user_id'    => $user->id,
+            'completed'  => false,
+        ], $data);
 
-        if ($production) {
-            app(WorkReportFlowProductionLinker::class)->linkPaymentForSingleAvailableScope($production, 'services_payment_self_assign');
-
-            Notetimeline::create([
-                'note_id'      => $this->note->id,
-                'service_id'   => $production->service_id,
-                'user_id'      => $user->id,
-                'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-                'status'       => 2,
-                'productionId' => $production->id,
-            ]);
-
-            if ($this->note->FiveNote) {
-                $this->note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
-
-                app(D5WorkflowService::class)->onProductionAssigned(
-                    $this->note->FiveNote,
-                    $production,
-                    auth()->id(),
-                    null
-                );
-            }
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => "{$this->note->note} foi atribuído a você com sucesso.",
-                'timer'    => 2500,
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => "Erro ao tentar atribuir {$this->note->note}.",
-                'timer'    => 2500,
-            ]);
+        if (!$production) {
+            return ['ok' => false, 'note' => $note->note, 'reason' => 'erro ao tentar atribuir'];
         }
+
+        app(WorkReportFlowProductionLinker::class)->linkPaymentForSingleAvailableScope($production, 'services_payment_self_assign');
+
+        Notetimeline::create([
+            'note_id'       => $note->id,
+            'service_id'    => $production->service_id,
+            'user_id'       => $user->id,
+            'info'          => "Usuário {$user->name} atribuiu a Nota/OV.",
+            'status'        => 2,
+            'production_id' => $production->id,
+        ]);
+
+        if ($note->FiveNote) {
+            $note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
+
+            app(D5WorkflowService::class)->onProductionAssigned(
+                $note->FiveNote,
+                $production,
+                auth()->id(),
+                null
+            );
+        }
+
+        return ['ok' => true, 'note' => $note->note, 'reason' => null];
     }
 
     /**
@@ -400,10 +418,10 @@ class Main extends Component
     public function needBlock(Note $note): array
     {
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
         // retorna estrutura pra view usar diretamente
         return $eval;
     }
-
 
     public function filterStatus()
     {
@@ -415,9 +433,6 @@ class Main extends Component
 
         $this->gotoPage(1);
     }
-
-
-
 
     private function baseQuery()
     {
@@ -562,7 +577,7 @@ class Main extends Component
                          ->from('orders')
                          ->whereColumn('orders.note_id', 'notes.id')
                          ->whereIn('orders.ordem', $ms);
-                });
+                  });
             });
         } elseif (!empty($this->search)) {
             $s = '%' . $this->search . '%';
@@ -611,7 +626,7 @@ class Main extends Component
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
-            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
             'Partials' => fn ($q) => $q->select([
@@ -632,7 +647,7 @@ class Main extends Component
                 ->where('payment', false)
                 ->orderByDesc('created_at'),
             'Partials.Company:id,name,deleted_at',
-            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
@@ -659,14 +674,10 @@ class Main extends Component
         return $page;
     }
 
-
-
-
-
     // Rules Days Left
     public function deadline(Note $note)
     {
-        $days = 10;
+        $days       = 10;
         $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {

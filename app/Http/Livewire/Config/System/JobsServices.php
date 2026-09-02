@@ -2,10 +2,13 @@
 
 namespace App\Http\Livewire\Config\System;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
-use Carbon\Carbon;
+use Symfony\Component\Process\Process;
+use Throwable;
 
 class JobsServices extends Component
 {
@@ -19,6 +22,7 @@ class JobsServices extends Component
     // Resumos
     public bool $workerActive = false;
     public string $workerSource = 'desconhecido';
+    public array $supervisorWorkers = [];
     public array $queueCounts = []; // por fila
 
     // Limites
@@ -112,7 +116,8 @@ class JobsServices extends Component
             $this->succeeded = collect();
         }
 
-        // Status do worker
+        // Status dos workers
+        $this->supervisorWorkers = $this->detectSupervisorWorkers();
         [$this->workerActive, $this->workerSource] = $this->detectWorkerStatus();
 
         // Contagem por fila
@@ -166,6 +171,41 @@ class JobsServices extends Component
             DB::table('failed_jobs')->where('id', $job->id)->delete();
         }
         session()->flash('message', "Reenfileirados ".count($failed)." jobs falhados.");
+        $this->refreshData();
+    }
+
+    public function restartWorker(string $name): void
+    {
+        abort_unless(Gate::allows('superadm'), 403);
+
+        $workers = collect($this->detectSupervisorWorkers());
+        $worker = $workers->firstWhere('name', $name);
+
+        if (!$worker) {
+            session()->flash('error', 'Worker nao encontrado no supervisorctl status.');
+            $this->refreshData();
+            return;
+        }
+
+        $process = new Process(['supervisorctl', 'restart', $name]);
+        $process->setTimeout(20);
+
+        try {
+            $process->run();
+        } catch (Throwable $e) {
+            session()->flash('error', 'Falha ao executar supervisorctl: ' . $e->getMessage());
+            $this->refreshData();
+            return;
+        }
+
+        $output = trim($process->getOutput() . "\n" . $process->getErrorOutput());
+
+        if ($process->isSuccessful()) {
+            session()->flash('message', "Restart enviado para {$name}. " . ($output ?: ''));
+        } else {
+            session()->flash('error', "Falha ao reiniciar {$name}. " . ($output ?: 'Sem retorno do supervisorctl.'));
+        }
+
         $this->refreshData();
     }
 
@@ -235,12 +275,8 @@ class JobsServices extends Component
     private function detectWorkerStatus(): array
     {
         // 1) supervisorctl
-        $which = @shell_exec('command -v supervisorctl 2>/dev/null');
-        if ($which) {
-            $out = @shell_exec('supervisorctl status 2>/dev/null');
-            if ($out && preg_match('/RUNNING/i', $out)) {
-                return [true, 'supervisorctl'];
-            }
+        if (collect($this->supervisorWorkers)->contains(fn ($worker) => $worker['running'])) {
+            return [true, 'supervisorctl'];
         }
 
         // 2) pgrep
@@ -256,5 +292,53 @@ class JobsServices extends Component
             ->exists();
 
         return [$recentReserved, 'heurística'];
+    }
+
+    private function detectSupervisorWorkers(): array
+    {
+        return collect($this->supervisorStatusLines())
+            ->map(fn (string $line) => $this->parseSupervisorStatusLine($line))
+            ->filter()
+            ->filter(fn (array $row) => str_contains(strtolower($row['name']), 'worker'))
+            ->values()
+            ->all();
+    }
+
+    private function supervisorStatusLines(): array
+    {
+        $process = new Process(['supervisorctl', 'status']);
+        $process->setTimeout(5);
+
+        try {
+            $process->run();
+        } catch (Throwable) {
+            return [];
+        }
+
+        if (!$process->isSuccessful()) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode("\n", $process->getOutput()))));
+    }
+
+    private function parseSupervisorStatusLine(string $line): ?array
+    {
+        if (!preg_match('/^(\S+)\s+([A-Z]+)\s*(.*)$/', trim($line), $matches)) {
+            return null;
+        }
+
+        $description = trim($matches[3] ?? '');
+        preg_match('/\bpid\s+(\d+)/i', $description, $pidMatch);
+        preg_match('/\buptime\s+(.+)$/i', $description, $uptimeMatch);
+
+        return [
+            'name' => $matches[1],
+            'status' => $matches[2],
+            'description' => $description,
+            'pid' => $pidMatch[1] ?? null,
+            'uptime' => $uptimeMatch[1] ?? null,
+            'running' => strtoupper($matches[2]) === 'RUNNING',
+        ];
     }
 }

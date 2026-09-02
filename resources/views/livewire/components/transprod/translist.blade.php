@@ -190,6 +190,8 @@
                             @php
                                 $fromCurrentUser = $list->from === Auth()->User()->id;
                                 $toCurrentUser = $list->to === Auth()->User()->id;
+                                $isPending = (int) $list->status === 19;
+                                $hasUnreadOutcome = ($fromCurrentUser && !$list->read_from) || ($toCurrentUser && !$list->read_to);
                             @endphp
                             <tr wire:key="production-transfer-{{ $list->id }}">
                                 <td>
@@ -231,7 +233,7 @@
                                 </td>
                                 <td>
                                     <div class="transfer-actions">
-                                        @if ($toCurrentUser && !$list->read_to)
+                                        @if ($toCurrentUser && !$list->read_to && $isPending)
                                             <button type="button" class="btn btn-sm btn-outline-success"
                                                 title="Aceitar transferência"
                                                 wire:click.prevent="to_accept({{ $list->id }})">
@@ -242,7 +244,13 @@
                                                 wire:click.prevent="to_rejectt({{ $list->id }})">
                                                 <i class="ri-close-circle-line"></i>
                                             </button>
-                                        @elseif ($fromCurrentUser && !$list->read_from)
+                                        @elseif ($fromCurrentUser && $isPending)
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                title="Cancelar transferência"
+                                                wire:click.prevent="to_cancel({{ $list->id }})">
+                                                <i class="ri-close-circle-line me-1"></i>Cancelar
+                                            </button>
+                                        @elseif ($hasUnreadOutcome)
                                             <button type="button" class="btn btn-sm btn-outline-primary"
                                                 title="Confirmar ciência"
                                                 wire:click.prevent="to_ok({{ $list->id }})">

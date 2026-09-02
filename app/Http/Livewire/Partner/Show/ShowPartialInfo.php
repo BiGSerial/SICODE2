@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Partner\Show;
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 use App\Models\Partial;
 use App\Models\File;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
@@ -20,11 +21,13 @@ class ShowPartialInfo extends Component
 
     public function show_form(Partial $form)
     {
-        $this->authorizePartnerAccess('partial_reports.show');
-
         $query = Partial::query()->whereKey($form->id);
-        $this->applyPartnerCompanyScope($query);
-        $this->applyPartnerBranchScopeToNoteRelation($query);
+
+        if (!$this->userCanInspectInternalReports()) {
+            $this->authorizePartnerAccess('partial_reports.show');
+            $this->applyPartnerCompanyScope($query);
+            $this->applyPartnerBranchScopeToNoteRelation($query);
+        }
 
         $this->form = $query->firstOrFail()->load(['Note.Orders', 'Orders', 'Company', 'User', 'Engineer', 'Supervisor', 'Payer', 'Files.Service']);
 
@@ -50,5 +53,15 @@ class ShowPartialInfo extends Component
     public function render()
     {
         return view('livewire.partner.show.show-partial-info');
+    }
+
+    private function userCanInspectInternalReports(): bool
+    {
+        $user = auth()->user();
+
+        return ($user && !$user->onlyparner)
+            || Gate::allows('management')
+            || Gate::allows('admin')
+            || Gate::allows('superadm');
     }
 }

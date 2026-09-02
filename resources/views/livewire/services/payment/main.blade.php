@@ -4,52 +4,27 @@
     use App\Helpers\DaysLeft;
 @endphp
 
-<div class="user-activity-page">
+<div class="survey-main-page payment-services-page">
+
+    @include('livewire.dispatchs.partials.list-shell-style')
+
     <style>
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes fadeOut {
-            from {
-                opacity: 1;
-            }
-
-            to {
-                opacity: 0;
-            }
-        }
-
-        .exibir {
-            animation: fadeIn 0.5s forwards;
-        }
-
-        .remover {
-            animation: fadeOut 0.5s forwards;
-        }
-
-        .payment-service-controls {
+        .payment-services-page .control-grid {
             display: grid;
             grid-template-columns: 1fr;
             gap: 0.9rem;
         }
 
-        .payment-service-control-card {
+        .payment-services-page .control-card {
             background: linear-gradient(160deg, #ffffff, #f8fafc);
             border: 1px solid #dbe3ef;
             border-radius: 0.9rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
             padding: 0.85rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
         }
 
-        .payment-service-control-card h6 {
-            color: var(--activity-muted, #6b7280);
+        .payment-services-page .control-card h6 {
+            color: var(--sp-muted);
             font-size: 0.75rem;
             font-weight: 700;
             letter-spacing: 0.08em;
@@ -57,25 +32,25 @@
             text-transform: uppercase;
         }
 
-        .payment-service-actions {
+        .payment-services-page .quick-actions {
             display: grid;
             grid-template-columns: 1fr;
             gap: 0.5rem;
         }
 
-        .payment-service-actions .btn {
-            font-weight: 700;
+        .payment-services-page .quick-actions .btn {
             min-height: 42px;
+            font-weight: 700;
         }
 
-        .payment-service-filters-row {
+        .payment-services-page .filters-row {
             background: #f8fafc;
             border: 1px dashed #cbd5e1;
             border-radius: 0.8rem;
             padding: 0.75rem;
         }
 
-        .payment-service-scope-badge {
+        .payment-services-page .scope-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -88,32 +63,32 @@
             padding: 0.35rem 0.5rem;
         }
 
-        .user-activity-page .bulk-search-modal .modal-content {
+        .payment-services-page .bulk-search-modal .modal-content {
             border: 0;
             border-radius: 0.75rem;
             box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
             overflow: hidden;
         }
 
-        .user-activity-page .bulk-search-modal .modal-header {
+        .payment-services-page .bulk-search-modal .modal-header {
             background: linear-gradient(120deg, #0f172a, #0f766e 75%);
             color: #f8fafc;
             border: 0;
             padding: 1rem 1.25rem;
         }
 
-        .user-activity-page .bulk-search-modal .modal-title {
+        .payment-services-page .bulk-search-modal .modal-title {
             font-size: 1rem;
             font-weight: 700;
         }
 
-        .user-activity-page .bulk-search-modal textarea {
+        .payment-services-page .bulk-search-modal textarea {
             min-height: 12rem;
             resize: vertical;
             border-color: #cbd5e1;
         }
 
-        .user-activity-page .bulk-search-warning {
+        .payment-services-page .bulk-search-warning {
             border: 1px solid #f59e0b;
             background: #fffbeb;
             color: #92400e;
@@ -123,172 +98,183 @@
         }
 
         @media (min-width: 992px) {
-            .payment-service-controls {
+            .payment-services-page .control-grid {
                 grid-template-columns: minmax(180px, 0.9fr) minmax(260px, 1fr) minmax(280px, 1fr) minmax(320px, 1.25fr);
             }
 
-            .payment-service-actions {
+            .payment-services-page .quick-actions {
                 grid-template-columns: repeat(2, minmax(130px, 1fr));
             }
         }
     </style>
 
-    {{-- Carrega o Loading da página --}}
     <x-show-loading />
-    @include('livewire.services.partials.user-activity-list-style')
-    @include('livewire.services.partials.user-activity-hero', [
-        'context' => 'Fila de distribuição',
-        'subtitle' => 'Gestão das atividades disponíveis para pagamento',
-        'total' => $lists->total(),
-        'accent' => '#475569',
-    ])
 
-    <div class="activity-filter-card mb-3">
-        <div class="payment-service-controls">
-            <div class="payment-service-control-card">
-                <h6>Paginacao</h6>
-                <div class="form-floating">
-                    <select wire:model="perPage" class="form-select border border-secondary" id="servicePaymentPerPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="250">250</option>
-                        <option value="500">500</option>
-                    </select>
-                    <label for="servicePaymentPerPage">Registros por pagina</label>
+    <x-showselected :count="count($selected)" />
+
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="survey-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>LISTA PARA {{ mb_strtoupper($service->service) }}</h2>
+                <div class="survey-meta">
+                    @if ($service->Status->count())
+                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                            ({{ $sts->value }})
+                        @endforeach
+                    @endif
                 </div>
             </div>
-
-            <div class="payment-service-control-card">
-                <h6>Busca</h6>
-                <div class="position-relative">
-                    <input wire:model.bounce.2s="search" type="text"
-                        class="form-control border border-secondary pe-5" id="servicePaymentSearch" placeholder="Buscar">
-                    <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                        data-bs-toggle="modal" data-bs-target="#buscar_multi">
-                        <i class="ri-checkbox-multiple-blank-line"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="payment-service-control-card">
-                <h6>Tipo de Nota</h6>
-                <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
-                    <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="1" id="servicePaymentTypeNote1">
-                    <label class="btn btn-outline-primary" for="servicePaymentTypeNote1">Nota</label>
-                    <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="2" id="servicePaymentTypeNote2">
-                    <label class="btn btn-outline-primary" for="servicePaymentTypeNote2">OV</label>
-                    <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="" id="servicePaymentTypeNote3">
-                    <label class="btn btn-outline-primary" for="servicePaymentTypeNote3">Ambos</label>
-                </div>
-            </div>
-
-            <div class="payment-service-control-card">
-                <h6>Acoes Rapidas</h6>
-                <div class="payment-service-actions">
-                    <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
-                        {{ Notestatus::status(1)->status }}
-                        @if ($not_assigned)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
-
-                    <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
-                        Somente D5
-                        @if ($filter_d5)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
-
-                    <button class="btn btn-primary" wire:click.prevent="export_excel"
-                        wire:loading.attr="disabled" wire:target="export_excel">
-                        <span wire:loading.remove wire:target="export_excel">
-                            <i class="ri-file-excel-2-line"></i> Exportar
-                        </span>
-                        <span wire:loading wire:target="export_excel">Exportando...</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="payment-service-filters-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
-            <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
-            <div class="d-flex flex-wrap justify-content-end gap-2">
-                @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
-                @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'payments', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-                @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
-            </div>
-        </div>
-    </div>
-
-    {{-- <ul class="nav nav-tabs mb-3 border-bottom border-light" wire:poll.60s='count'>
-        <li class="nav-item">
-            <a class="nav-link @if (!$partials) active @endif" aria-current="page" href="#"
-                wire:click="$set('partials', false)">TOTAL @if ($count['total'])
-                    <span class="badge text-bg-danger">{{ $count['total'] }}</span>
-                @endif
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @if ($partials) active @endif" href="#"
-                wire:click="$set('partials', true)">PARCIAL @if ($count['partials'])
-                    <span class="badge text-bg-danger">{{ $count['partials'] }}</span>
-                @endif
-            </a>
-        </li>
-
-    </ul> --}}
-
-    <div class="row user-activity-summary my-3 align-items-center">
-
-        @if (!$lists->count())
-            <div class="col-6">
-                {{-- @livewire('components.manualnote.manualnote', ['service' => $service->uuid]) --}}
-            </div>
-        @elseif ($lists->count())
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-        @endif
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
+            <div class="text-lg-end">
                 @if ($update)
-                    Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
+                    <div class="survey-meta">Última Atualização</div>
+                    <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
                 @endif
-            </span>
+            </div>
+        </div>
+
+        <div class="filter-shell mb-3">
+            <div class="card-body p-3 p-lg-4">
+                <div class="control-grid">
+                    <div class="control-card">
+                        <h6>Paginacao</h6>
+                        <div class="form-floating">
+                            <select wire:model="perPage" class="form-select border border-secondary" id="servicePaymentPerPage">
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                            </select>
+                            <label for="servicePaymentPerPage">Registros por pagina</label>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h6>Busca</h6>
+                        <div class="position-relative">
+                            <input wire:model.bounce.2s="search" type="text"
+                                class="form-control border border-secondary pe-5" id="servicePaymentSearch" placeholder="Buscar">
+                            <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                                data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                                <i class="ri-checkbox-multiple-blank-line"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h6>Tipo de Nota</h6>
+                        <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
+                            <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="1" id="servicePaymentTypeNote1">
+                            <label class="btn btn-outline-primary" for="servicePaymentTypeNote1">Nota</label>
+                            <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="2" id="servicePaymentTypeNote2">
+                            <label class="btn btn-outline-primary" for="servicePaymentTypeNote2">OV</label>
+                            <input type="radio" class="btn-check" name="servicePaymentTypeNote" wire:model="typeNote" value="" id="servicePaymentTypeNote3">
+                            <label class="btn btn-outline-primary" for="servicePaymentTypeNote3">Ambos</label>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h6>Acoes Rapidas</h6>
+                        <div class="quick-actions">
+                            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
+                                {{ Notestatus::status(1)->status }}
+                                @if ($not_assigned)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button type="button" class="btn btn-secondary" wire:click.prevent="filterD5()">
+                                Somente D5
+                                @if ($filter_d5)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button class="btn btn-outline-success" wire:click.prevent="go_att_mass" @disabled(!count($selected))>
+                                <i class="ri-user-add-line"></i> Atribuir Selecionadas ({{ count($selected) }})
+                            </button>
+
+                            <button class="btn btn-primary" wire:click.prevent="export_excel"
+                                wire:loading.attr="disabled" wire:target="export_excel">
+                                <span wire:loading.remove wire:target="export_excel">
+                                    <i class="ri-file-excel-2-line"></i> Exportar
+                                </span>
+                                <span wire:loading wire:target="export_excel">Exportando...</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filters-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
+                    <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                        @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                        @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'payments', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'payments', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                        @livewire('components.filter.remove-all', ['group_filter' => 'payments'], key('removeAll'))
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-bar">
+            <div class="row align-items-center g-2">
+                @if (!$lists->count())
+                    <div class="col-6"></div>
+                @elseif ($lists->count())
+                    <div class="col-6">
+                        {{ $lists->links() }}
+                    </div>
+                @endif
+                <div class="col-6 d-flex justify-content-end align-middle">
+                    <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                        {{ $lists->lastItem() }}
+                        de {{ $lists->total() }}
+                        registros.
+                        @if ($update)
+                            Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
+                        @endif
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="user-activity-table-card">
+
+    <div class="table-card">
 
         @if (!$lists->count())
             <div class="card-body">
                 <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }}</h4>
             </div>
         @else
-            <div class="user-activity-table-header text-bg-secondary">
-                <h4 class="user-activity-table-title my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
-                    @if ($service->Status->count())
-                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                            ({{ $sts->value }})
-                        @endforeach
-                    @endif
-                </h4>
+            <div class="card-header fw-bold text-bg-secondary">
+                <div class="row">
+                    <div class="col">
+                        <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
+                            @if ($service->Status->count())
+                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                                    ({{ $sts->value }})
+                                @endforeach
+                            @endif
+                        </h4>
+                    </div>
+                </div>
             </div>
 
-            <div class="table-responsive exiobir">
-                <table class="table table-sm table-striped">
+            <div class="table-responsive">
+                <table class="table table-sm table-condensed table-hover mb-0 main-table">
                     <thead class="table-dark">
                         <tr>
+                            <th>
+                                <input class="form-check-input" type="checkbox" wire:model="selectAll"
+                                    wire:click="setSelectAllFiltered" @checked($this->checkAllSelect())>
+                            </th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Tipo</th>
                             <th class="align-middle text-center">Escopo</th>
@@ -402,7 +388,12 @@
                                     ->first();
                             @endphp
 
-                            <tr class="align-middle text-center">
+                            <tr class="align-middle text-center" wire:key="service-payment-note-{{ $list->id }}">
+                                <td class="{{ $rowClass }}">
+                                    <input class="form-check-input border border-1 border-primary" type="checkbox"
+                                        value="{{ $list->id }}" wire:model.defer="selected">
+                                </td>
+
                                 {{-- Nota + D5 badge --}}
                                 <td class="fw-light fw-bold text-center {{ $rowClass }}">
                                     @if ($hasD5)
@@ -426,12 +417,12 @@
                                 <td class="fw-light fw-bold text-center {{ $rowClass }}">
                                     @if ($wf)
                                         @foreach ($wf->finalScopeBadges() as $scopeBadge)
-                                            <span class="badge payment-service-scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
+                                            <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
                                         @endforeach
                                     @elseif ($partial)
-                                        <span class="badge payment-service-scope-badge text-bg-secondary">Parcial</span>
+                                        <span class="badge scope-badge text-bg-secondary">Parcial</span>
                                     @else
-                                        <span class="badge payment-service-scope-badge text-bg-secondary">Geral</span>
+                                        <span class="badge scope-badge text-bg-secondary">Geral</span>
                                     @endif
                                 </td>
 
@@ -575,17 +566,17 @@
                                     {{ $dl->getLastDate() }}
                                 </td>
 
-                                {{-- Ação (play/ocupado) --}}
+                                {{-- Ação (auto atribuição — sweetalert2 de confirmação, sem modal) --}}
                                 <td class="fw-bold text-center {{ $rowClass }}" tabindex="0"
                                     data-bs-toggle="tooltip" data-bs-placement="top"
                                     data-bs-custom-class="custom-tooltip" data-bs-title="{{ $eval['reason'] }}">
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
+                                            wire:click.prevent="to_accompany({{ $list->id }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
-                                            data-bs-title="Despachar/atribuir esta Nota/OV"></i>
+                                            data-bs-title="Atribuir esta Nota/OV para você"></i>
                                     @else
                                         @php
                                             if (isset($production?->User?->name)) {
@@ -606,7 +597,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
-                            <td colspan="4" class="text-end">Total:</td>
+                            <td colspan="5" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
                             <td colspan="12"></td>
                         </tr>
@@ -616,21 +607,19 @@
 
         @endif
     </div>
-        <div class="row user-activity-summary my-3 align-items-center">
-        <div class="col-6">
-            {{ $lists->links() }}
-        </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="row my-3 align-items-center">
+            <div class="col-6">
+                {{ $lists->links() }}
+            </div>
+            <div class="col-6 d-flex justify-content-end align-middle">
+                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                    {{ $lists->lastItem() }}
+                    de {{ $lists->total() }}
+                    registros.</span>
+            </div>
         </div>
     </div>
-
-    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('services-payment-dispatch-modal-'.$service->uuid))
-
-
 
     {{-- MODALS --}}
     <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="serviceBuscarMultiLabel"
@@ -670,11 +659,6 @@
             </div>
         </div>
     </div>
-
-
-
-
-
 
     @push('script')
         <script>

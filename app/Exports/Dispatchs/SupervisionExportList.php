@@ -12,6 +12,7 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithProperties;
 use Maatwebsite\Excel\Events\AfterSheet;
+use DateTimeInterface;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class SupervisionExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
@@ -199,10 +200,10 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $ads ? 'SIM' : 'NÃO',
             $ads_origin,
             $adsType ?? '---',
-            $ads ? $ads->format('d/m/Y') : '---',
-            $tacitDeliveredAt ? Carbon::parse($tacitDeliveredAt)->format('d/m/Y') : '---',
-            $prazoAds ? $prazoAds->format('d/m/Y') : '---',
-            $row->work_dt_informed ? Carbon::parse($row->work_dt_informed)->format('d/m/Y') : '---',
+            $this->formatDate($ads, 'd/m/Y'),
+            $this->formatDate($tacitDeliveredAt, 'd/m/Y'),
+            $this->formatDate($prazoAds, 'd/m/Y'),
+            $this->formatDate($row->work_dt_informed, 'd/m/Y'),
             $inPrazo,
             $userInform,
             $partner,
@@ -215,14 +216,14 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->type_note == 2 ? $row->nstats : $row->centerjob,
             $diasInforme,
             $diasD5,
-            $notaD5 ? ($notaD5->created_at ? $notaD5->created_at->format('d/m/Y H:i:s') : '---') : '---',
-            $notaD5 ? ($notaD5->dispatch_at ? $notaD5->dispatch_at->format('d/m/Y H:i:s') : '---') : '---',
-            $notaD5 ? ($notaD5->completed_at ? $notaD5->completed_at->format('d/m/Y H:i:s') : '---') : '---',
+            $this->formatDate($notaD5?->created_at, 'd/m/Y H:i:s'),
+            $this->formatDate($notaD5?->dispatch_at, 'd/m/Y H:i:s'),
+            $this->formatDate($notaD5?->completed_at, 'd/m/Y H:i:s'),
             $notaD5 ? ($notaD5->name ? $notaD5->name : '---') : '---',
             $notaD5 && $notaD5->company ? $notaD5->company->name : '---',
             $status,
-            $production?->dispatch_at->format('d/m/Y H:i:s'),
-            $production?->att_at->format('d/m/Y H:i:s'),
+            $this->formatDate($production?->dispatch_at, 'd/m/Y H:i:s'),
+            $this->formatDate($production?->att_at, 'd/m/Y H:i:s'),
             $empresa,
             $usuario,
         ];
@@ -231,6 +232,15 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
     private function adsDate($adsForm): ?Carbon
     {
         return $adsForm->created_at ? Carbon::parse($adsForm->created_at) : null;
+    }
+
+    private function formatDate($date, string $format): string
+    {
+        if (!$date) {
+            return '---';
+        }
+
+        return ($date instanceof DateTimeInterface ? $date : Carbon::parse($date))->format($format);
     }
 
     public function properties(): array

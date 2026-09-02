@@ -118,6 +118,60 @@
             box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
         }
 
+        .survey-main-page .bulk-search-modal .modal-content {
+            border: 1px solid #dbe4ef;
+            border-radius: .9rem;
+            overflow: hidden;
+            box-shadow: 0 22px 55px rgba(15, 23, 42, .28);
+        }
+
+        .survey-main-page .bulk-search-modal .modal-header {
+            background: linear-gradient(120deg, #0f172a, #0f766e 78%);
+            color: #f8fafc;
+            border-bottom: 0;
+            padding: 1rem 1.25rem;
+        }
+
+        .survey-main-page .bulk-search-modal .modal-title {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: .02em;
+        }
+
+        .survey-main-page .bulk-search-modal .modal-body {
+            background: #f8fafc;
+            padding: 1.15rem 1.25rem;
+        }
+
+        .survey-main-page .bulk-search-modal .modal-footer {
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            padding: .9rem 1.25rem;
+        }
+
+        .survey-main-page .bulk-search-modal textarea {
+            min-height: 220px;
+            resize: vertical;
+            border-color: #cbd5e1;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: .9rem;
+        }
+
+        .survey-main-page .bulk-search-option {
+            background: #ffffff;
+            border: 1px solid #dbe4ef;
+            border-radius: .7rem;
+            padding: .85rem .95rem;
+        }
+
+        .survey-main-page .bulk-search-warning {
+            border: 1px solid #f59e0b;
+            border-left: 5px solid #f59e0b;
+            background: #fffbeb;
+            color: #78350f;
+            border-radius: .65rem;
+        }
+
         .survey-main-page .table-card .main-table tbody td {
             font-size: 0.9rem;
             vertical-align: middle;
@@ -137,40 +191,6 @@
 
         .survey-main-page .table-card .main-table tbody td:not(.table-primary):not(.table-warning):not(.table-success):not(.table-danger):not(.table-secondary):not(.text-bg-secondary) {
             background: #f8fafc;
-        }
-
-        .survey-main-page .bulk-search-modal .modal-content {
-            border: 0;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
-        }
-
-        .survey-main-page .bulk-search-modal .modal-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 75%);
-            color: #f8fafc;
-            border: 0;
-            padding: 1rem 1.25rem;
-        }
-
-        .survey-main-page .bulk-search-modal .modal-title {
-            font-size: 1rem;
-            font-weight: 700;
-        }
-
-        .survey-main-page .bulk-search-modal textarea {
-            min-height: 12rem;
-            resize: vertical;
-            border-color: #cbd5e1;
-        }
-
-        .survey-main-page .bulk-search-warning {
-            border: 1px solid #f59e0b;
-            background: #fffbeb;
-            color: #92400e;
-            border-radius: 0.5rem;
-            padding: 0.75rem 0.9rem;
-            font-size: 0.88rem;
         }
 
         .survey-main-page .table-card .main-table tbody td:first-child {
@@ -633,38 +653,59 @@
     {{-- MODALS --}}
 
     {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel"
+    <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="bulkSearchModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="buscarMultiLabel">Buscar em massa</h5>
+                <div class="modal-header align-items-start">
+                    <div>
+                        <h5 class="modal-title" id="bulkSearchModalLabel">
+                            <i class="ri-checkbox-multiple-blank-line me-1"></i>
+                            Buscar em massa
+                        </h5>
+                        <div class="small text-white-50 mt-1">Informe notas separadas por linha, espaço, vírgula ou ponto e vírgula.</div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div class="modal-body">
-                    <label class="form-label fw-semibold" for="advanceSearch">Notas</label>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch"
-                        wire:model.defer="advanceSearch" placeholder="Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula."></textarea>
 
-                    <div class="form-check form-switch mt-3">
-                        <input class="form-check-input" type="checkbox" role="switch" id="bulkSearchAnyStatus"
-                            wire:model="bulkSearchAnyStatus">
-                        <label class="form-check-label fw-semibold" for="bulkSearchAnyStatus">
-                            Buscar em qualquer Status
-                        </label>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="advanceSearch">Notas</label>
+                        <textarea class="form-control" name="advanceSearch" id="advanceSearch"
+                            wire:model.defer="advanceSearch"
+                            placeholder="Ex:&#10;400123456&#10;400123457&#10;400123458"></textarea>
+                    </div>
+
+                    <div class="bulk-search-option">
+                        <div class="form-check m-0">
+                            <input class="form-check-input" type="checkbox" id="bulkSearchAnyStatus"
+                                wire:model="bulkSearchAnyStatus">
+                            <label class="form-check-label fw-semibold" for="bulkSearchAnyStatus">
+                                Buscar em qualquer Status
+                            </label>
+                        </div>
                     </div>
 
                     @if ($bulkSearchAnyStatus)
-                        <div class="bulk-search-warning mt-3">
-                            Confirme que deseja ignorar o filtro de Status da lista. A busca continuará respeitando as regras de contrato e acesso.
+                        <div class="bulk-search-warning mt-3 p-3" role="alert">
+                            <div class="fw-bold text-uppercase mb-1">
+                                <i class="ri-error-warning-line me-1"></i>
+                                Warning
+                            </div>
+                            <div>
+                                Esta busca ignora o filtro de status atual e pode trazer notas fora da lista visível.
+                                Tenha certeza do que está fazendo antes de aplicar ações em massa.
+                            </div>
                         </div>
                     @endif
                 </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-outline-danger" wire:click="clean">Limpar</button>
                     <button type="button" class="btn btn-primary" wire:click="buscarMulti">
-                        <i class="ri-search-line"></i> Aplicar busca
+                        <i class="ri-search-line me-1"></i>
+                        Aplicar busca
                     </button>
                 </div>
             </div>

@@ -2,11 +2,9 @@
 
 namespace App\Models;
 
-use App\Http\Livewire\Construction\Hiring\Actions\Hiring;
+use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
 use App\Models\Edp_cipqa\TempAdsInfo;
 use App\Models\Legal\LegalCase;
-use App\Enum\CancellationRequestStatus;
-use App\Enum\CancellationRequestScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -62,15 +60,13 @@ class Note extends Model
         'canceled_by',
     ];
 
-
-
     protected $casts = [
-        'dt_created' => 'datetime',
-        'dt_status' => 'datetime',
-        'mmgd' => 'boolean',
-        'doe' => 'boolean',
-        'is45' => 'boolean',
-        'canceled' => 'boolean',
+        'dt_created'  => 'datetime',
+        'dt_status'   => 'datetime',
+        'mmgd'        => 'boolean',
+        'doe'         => 'boolean',
+        'is45'        => 'boolean',
+        'canceled'    => 'boolean',
         'canceled_at' => 'datetime',
 
     ];
@@ -186,7 +182,6 @@ class Note extends Model
         return $this->hasMany(OldAdsInform::class);
     }
 
-
     public function Protests()
     {
         return $this->morphedByMany(Protest::class, 'noteable');
@@ -206,10 +201,6 @@ class Note extends Model
     {
         return $this->belongsTo(City::class, 'nexp', 'rdMunicipio');
     }
-
-
-
-
 
     // Parcial
     public function currentPartial()
@@ -259,8 +250,6 @@ class Note extends Model
         });
     }
 
-
-
     // Relação temporária
     public function TempAdsInfos()
     {
@@ -274,6 +263,10 @@ class Note extends Model
             ->withTimestamps();
     }
 
+    public function ClosureTargets()
+    {
+        return $this->hasMany(ClosureTarget::class);
+    }
 
     // Note Resources
 
@@ -291,9 +284,11 @@ class Note extends Model
     public function isLateDue()
     {
         $dueDate = $this->dueDate();
+
         if ($dueDate) {
             return now()->greaterThan($dueDate);
         }
+
         return false;
     }
 }
