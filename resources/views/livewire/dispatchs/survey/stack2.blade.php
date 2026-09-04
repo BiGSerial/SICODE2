@@ -114,7 +114,9 @@
                                             value="{{ $list->id }}" wire:model.defer="selected"></td>
                                     <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                         @if ($list->d5)
-                                            <span class="badge text-bg-primary fs-6">{{ $list->Note->note }} (RI)</span>
+                                            <span class="badge text-bg-primary fs-6"
+                                                wire:click.prevent="$emitTo('dispatchs.common.reclaim-info', 'getInfoByProduction', {{ $list->id }})"
+                                                style="cursor: pointer;">{{ $list->Note->note }} (RI)</span>
                                         @else
                                             {{ $list->Note->note }}
                                             <span class="copy-text" data-value="{{ $list->Note->note }}"

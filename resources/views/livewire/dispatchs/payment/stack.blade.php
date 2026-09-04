@@ -511,7 +511,9 @@
                                             <span class="fw-bold">D5</span> {{ $list->note->note }}
                                         </span>
                                     @elseif ($list->d5)
-                                        <span class="badge text-bg-primary fs-6">RI {{ $list->Note->note }}
+                                        <span class="badge text-bg-primary fs-6"
+                                            wire:click.prevent="$emitTo('dispatchs.common.reclaim-info', 'getInfoByProduction', {{ $list->id }})"
+                                            style="cursor: pointer;">RI {{ $list->Note->note }}
 
                                         </span>
                                     @else
@@ -524,7 +526,7 @@
 
                                     @if ($list->priority)
                                         <i class="ri-alert-fill text-danger align-middle"
-                                            wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
+                                            wire:click.prevent="$emitTo('components.modal.priority', 'infoPriority', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     @endif
                                     @if ($isTacitAds)
@@ -798,6 +800,7 @@
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('components.d5.d5details', key('view_d5_note_details'))
+    @livewire('dispatchs.common.reclaim-info', key('reclaim-info-payment-stack'))
 </div>
 
 @push('script')

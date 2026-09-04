@@ -21,6 +21,7 @@ class ReclaimInfo extends Component
 
     protected $listeners = [
         'getInfoResponse',
+        'getInfoByProduction',
         'refreshDays' => '$refresh',
         'refreshComponent' => '$refresh',
     ];
@@ -28,14 +29,74 @@ class ReclaimInfo extends Component
     public function getInfoResponse(Reclaim $reclaim)
     {
         $this->reclaim = $reclaim;
-
-
+        $this->loadReclaimDetails();
 
         if ($this->reclaim) {
-            $this->dispatchBrowserEvent('showModal', [
+            $this->dispatchBrowserEvent('reclaimInfoLoaded', [
                 'id' => 'responserInfo',
             ]);
         }
+    }
+
+    public function getInfoByProduction($productionId): void
+    {
+        $production = Production::query()
+            ->select(['id', 'note_id', 'service_id'])
+            ->find($productionId);
+
+        if (!$production) {
+            $this->warnMissingReclaim();
+            return;
+        }
+
+        $this->reclaim = Reclaim::query()
+            ->where('production_id', $production->id)
+            ->latest('id')
+            ->first();
+
+        if (!$this->reclaim) {
+            $this->reclaim = Reclaim::query()
+                ->where('note_id', $production->note_id)
+                ->where('service_id', $production->service_id)
+                ->latest('id')
+                ->first();
+        }
+
+        $this->loadReclaimDetails();
+
+        if ($this->reclaim) {
+            $this->dispatchBrowserEvent('reclaimInfoLoaded', [
+                'id' => 'responserInfo',
+            ]);
+            return;
+        }
+
+        $this->warnMissingReclaim();
+    }
+
+    private function loadReclaimDetails(): void
+    {
+        $this->reclaim?->loadMissing([
+            'Note.Orders',
+            'Note.Viabilities.Orders',
+            'Note.Files.Service',
+            'Viabilities.Form',
+            'Comments.User',
+            'Subcategory.Category',
+            'Waiting',
+            'Approvals',
+            'Externals',
+        ]);
+    }
+
+    private function warnMissingReclaim(): void
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Não encontramos retorno interno para esta produção.',
+            'timer'    => 2500,
+        ]);
     }
 
     public function addComment()
@@ -100,7 +161,7 @@ class ReclaimInfo extends Component
 
 
             if ($files) {
-                $zipFile = 'Arquivos-' . $this->note->note . "-" . hash('crc32', time()) . '.zip';
+                $zipFile = 'Arquivos-' . $this->reclaim->Note->note . "-" . hash('crc32', time()) . '.zip';
                 $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 

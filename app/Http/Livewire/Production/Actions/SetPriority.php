@@ -2,9 +2,9 @@
 
 namespace App\Http\Livewire\Production\Actions;
 
-use App\Models\Priority;
 use App\Models\Production;
 use App\Notifications\SystemNotification;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class SetPriority extends Component
@@ -21,17 +21,15 @@ class SetPriority extends Component
 
     public function setPriority(?Production $production)
     {
-
         $this->production = $production;
+        $this->priority_reason = null;
+        $this->resetValidation();
 
         if ($this->production) {
+            $this->production->loadMissing(['Note', 'Service', 'User']);
             $action = $this->production->priority ? 'REMOVER' : 'DEFINIR';
 
-
             if (!$this->production->priority) {
-
-
-
                 $this->dispatchBrowserEvent('showModal', [
                     'id' => 'set_priority',
                 ]);
@@ -58,6 +56,11 @@ class SetPriority extends Component
 
     public function executeSetPriority()
     {
+        if (!$this->production) {
+            return;
+        }
+
+        $this->production->loadMissing(['Note', 'Service', 'User']);
 
         if (!$this->production->priority) {
             $this->validate([
@@ -66,29 +69,36 @@ class SetPriority extends Component
         }
 
         try {
-            $this->production->update([
-                'priority' => !$this->production->priority,
-            ]);
+            $newPriorityState = !$this->production->priority;
 
-            if ($this->production->priority) {
-                // Cria e associa a prioridade via relacionamento "many-to-many"
-                $this->production->priorities()->create([
-                    'note_id'    => $this->production->note_id,
-                    'user_id'    => auth()->id(),
-                    'service_id' => $this->production->service_id,
-                    'prioridade' => $this->priority_reason,
-                    'global'     => false,
+            DB::transaction(function () use ($newPriorityState) {
+                $this->production->update([
+                    'priority' => $newPriorityState,
                 ]);
-            }
 
-            $this->production->User->notify(new SystemNotification(
-                $this->production->priority ? 'PRIORIDADE DEFINIDA' : 'PRIORIDADE REMOVIDA',
-                'O usuário ' . auth()->user()->name .
-                ($this->production->priority ? ' definiu prioridade para a nota/ov ' : ' removeu prioridade da nota/ov <strong>') . $this->production->Note->note .
-                '</strong> em <strong>' . $this->production->Service->service . '</strong>.<br> <strong> Motivo: </strong> ' . $this->priority_reason,
-                route('services.accompany', ['service' => $this->production->service_id]),
-                2 // status
-            ));
+                if ($newPriorityState) {
+                    $this->production->priorities()->create([
+                        'note_id'    => $this->production->note_id,
+                        'user_id'    => auth()->id(),
+                        'service_id' => $this->production->service_id,
+                        'prioridade' => $this->priority_reason,
+                        'global'     => false,
+                    ]);
+                }
+            });
+
+            $this->production->refresh()->loadMissing(['Note', 'Service', 'User']);
+
+            if ($this->production->User) {
+                $this->production->User->notify(new SystemNotification(
+                    $newPriorityState ? 'PRIORIDADE DEFINIDA' : 'PRIORIDADE REMOVIDA',
+                    'O usuário ' . auth()->user()->name .
+                    ($newPriorityState ? ' definiu prioridade para a nota/ov <strong>' : ' removeu prioridade da nota/ov <strong>') . $this->production->Note->note .
+                    '</strong> em <strong>' . $this->production->Service->service . '</strong>.<br> <strong> Motivo: </strong> ' . $this->priority_reason,
+                    route('services.accompany', ['service' => $this->production->service_id]),
+                    2
+                ));
+            }
 
             $this->emitUp('refresh_list');
 
@@ -96,7 +106,7 @@ class SetPriority extends Component
                 'position' => 'center',
                 'icon'     => 'success',
                 'title'    => 'Sucesso',
-                'text'     => 'Prioridade definida com sucesso.',
+                'text'     => $newPriorityState ? 'Prioridade definida com sucesso.' : 'Prioridade removida com sucesso.',
                 'timer'    => 2500,
             ]);
 

@@ -455,7 +455,9 @@
                                 <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
                                     @if ($list->d5)
-                                        <span class="badge text-bg-primary fs-6">{{ $list->Note->note }}
+                                        <span class="badge text-bg-primary fs-6"
+                                            wire:click.prevent="$emitTo('dispatchs.common.reclaim-info', 'getInfoByProduction', {{ $list->id }})"
+                                            style="cursor: pointer;">{{ $list->Note->note }}
                                             (RI)
                                         </span>
                                     @else
@@ -468,7 +470,7 @@
 
                                     @if ($list->priority)
                                         <i class="ri-alert-fill text-danger align-middle"
-                                            wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
+                                            wire:click.prevent="$emitTo('components.modal.priority', 'infoPriority', {{ $list->id }})"
                                             style="cursor: pointer;"></i>
                                     @endif
                                 </td>
@@ -765,6 +767,7 @@
     {{-- END MODALS --}}
     @livewire('audits.info')
     @livewire('components.status.show-status', key('show_status'))
+    @livewire('dispatchs.common.reclaim-info', key('reclaim-info-analises-stack'))
 
 </div>
 

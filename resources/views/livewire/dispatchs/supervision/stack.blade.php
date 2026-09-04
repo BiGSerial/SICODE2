@@ -343,7 +343,8 @@
                                 <span class="badge {{ $type['color'] }}" data-bs-toggle="tooltip"
                                     title="{{ $type['info'] }}">{{ $type['init'] }}</span>
                                 <span class="badge {{ $status['color'] }}" data-bs-toggle="tooltip"
-                                    title="{{ $status['info'] }}">{{ $status['init'] }}</span>
+                                    title="{{ $status['info'] }}"
+                                    @if ($item->d5) wire:click.prevent="$emitTo('dispatchs.common.reclaim-info', 'getInfoByProduction', {{ $item->id }})" style="cursor: pointer;" @endif>{{ $status['init'] }}</span>
 
                             </td>
 

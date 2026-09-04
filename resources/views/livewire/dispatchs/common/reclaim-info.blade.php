@@ -1,393 +1,483 @@
 @php
     use App\Helpers\FileIcon;
 @endphp
+
+@once
+    <style>
+        .reclaim-info-modal .modal-dialog {
+            max-width: min(1120px, calc(100vw - 1.5rem));
+        }
+
+        .reclaim-info-modal .modal-content {
+            border: 0;
+            border-radius: 8px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26);
+            max-height: calc(100vh - 1.5rem);
+            overflow: hidden;
+        }
+
+        .reclaim-info-modal__header {
+            align-items: center;
+            background: #123f43;
+            color: #ffffff;
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+        }
+
+        .reclaim-info-modal__title {
+            color: #28ff52;
+            font-size: 1rem;
+            font-weight: 800;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        .reclaim-info-modal__body {
+            background: #eef4f5;
+            overflow: auto;
+            padding: 1rem;
+            scrollbar-color: #0f766e #dbe6e8;
+            scrollbar-width: thin;
+        }
+
+        .reclaim-info-modal__body::-webkit-scrollbar,
+        .reclaim-info-modal__scroll::-webkit-scrollbar {
+            height: 10px;
+            width: 10px;
+        }
+
+        .reclaim-info-modal__body::-webkit-scrollbar-track,
+        .reclaim-info-modal__scroll::-webkit-scrollbar-track {
+            background: #dbe6e8;
+            border-radius: 999px;
+        }
+
+        .reclaim-info-modal__body::-webkit-scrollbar-thumb,
+        .reclaim-info-modal__scroll::-webkit-scrollbar-thumb {
+            background: #0f766e;
+            border: 2px solid #dbe6e8;
+            border-radius: 999px;
+        }
+
+        .reclaim-info-modal__grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .reclaim-info-modal__panel {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .reclaim-info-modal__panel-title {
+            align-items: center;
+            background: #1f555b;
+            color: #28ff52;
+            display: flex;
+            font-size: 0.9rem;
+            font-weight: 800;
+            gap: 0.45rem;
+            margin: 0;
+            padding: 0.55rem 0.75rem;
+        }
+
+        .reclaim-info-modal__table {
+            margin: 0;
+        }
+
+        .reclaim-info-modal__table th {
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.78rem;
+            text-align: right;
+            vertical-align: middle;
+            white-space: nowrap;
+            width: 132px;
+        }
+
+        .reclaim-info-modal__table td {
+            color: #1f2937;
+            font-size: 0.82rem;
+            vertical-align: middle;
+        }
+
+        .reclaim-info-modal__table thead th {
+            text-align: center;
+        }
+
+        .reclaim-info-modal__note {
+            font-weight: 800;
+        }
+
+        .reclaim-info-modal__scroll {
+            max-height: min(36vh, 340px);
+            overflow: auto;
+        }
+
+        .reclaim-info-modal__comment {
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+
+        .reclaim-info-modal__comment-head {
+            background: #1f555b;
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 800;
+            padding: 0.4rem 0.65rem;
+        }
+
+        .reclaim-info-modal__comment-head.is-own {
+            background: #2563eb;
+        }
+
+        .reclaim-info-modal__comment-body {
+            color: #1f2937;
+            font-size: 0.84rem;
+            padding: 0.65rem;
+        }
+
+        .reclaim-info-modal__comment-time {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            color: #475569;
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0.4rem 0.65rem;
+        }
+
+        .reclaim-info-modal__footer {
+            align-items: center;
+            background: #ffffff;
+            border-top: 1px solid #dbe3ef;
+            display: flex;
+            justify-content: flex-end;
+            padding: 0.85rem 1rem;
+        }
+
+        .reclaim-info-modal__footer .btn {
+            border-radius: 6px;
+            font-weight: 700;
+            min-width: 104px;
+        }
+
+        .reclaim-info-modal textarea,
+        .reclaim-info-modal .form-control {
+            border-color: #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.86rem;
+        }
+
+        @media (min-width: 992px) {
+            .reclaim-info-modal__grid {
+                grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+            }
+        }
+    </style>
+@endonce
+
 <div>
     <x-show-loading />
-    <div wire:ignore.self class="modal fade" id="responserInfo" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content  edp-bg-stategrey-50">
-                @if ($reclaim)
-                    <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                        <h4 class="modal-title fs-5">Informação de {{ $reclaim->Note->note }}</h4>
-                    </div>
-                    <div class="container-fluid my-3">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                                        <h4 class="fs-5 my-0 py-0">Dados da Nota</h4>
-                                    </div>
 
+    <div wire:ignore.self class="modal fade reclaim-info-modal" id="responserInfo" tabindex="-1"
+        aria-labelledby="reclaimInfoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                @if ($reclaim)
+                    @php
+                        if ($reclaim->Viabilities->isNotEmpty()) {
+                            $origin = 'VIABILIDADE';
+                        } elseif ($reclaim->Waiting) {
+                            $origin = 'CONTRATACAO';
+                        } elseif ($reclaim->Approvals->isNotEmpty()) {
+                            $origin = 'VALIDACAO DE PROJETOS';
+                        } elseif ($reclaim->Externals->isNotEmpty()) {
+                            $origin = 'ENTIDADE EXTERNA';
+                        } else {
+                            $origin = 'DESCONHECIDO';
+                        }
+                    @endphp
+
+                    <div class="reclaim-info-modal__header">
+                        <h1 class="reclaim-info-modal__title" id="reclaimInfoModalLabel">
+                            Informacao de {{ $reclaim->Note->note }}
+                        </h1>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="reclaim-info-modal__body">
+                        <div class="reclaim-info-modal__grid">
+                            <div class="d-grid gap-3">
+                                <section class="reclaim-info-modal__panel">
+                                    <h2 class="reclaim-info-modal__panel-title">
+                                        <i class="ri-file-list-3-line"></i>
+                                        Dados da Nota
+                                    </h2>
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-striped-columns">
+                                        <table class="table table-sm table-striped-columns reclaim-info-modal__table">
                                             <tbody>
                                                 <tr>
-                                                    <td class="col-2 fw-bold align-middle text-end">Nota/OV:</td>
-                                                    <td class="col  align-middle">{{ $reclaim->Note->note }}</td>
+                                                    <th scope="row">Nota/OV</th>
+                                                    <td class="reclaim-info-modal__note">{{ $reclaim->Note->note }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="col-2 fw-bold align-middle text-end">Ordens:</td>
-                                                    <td class="col align-middle">
+                                                    <th scope="row">Ordens</th>
+                                                    <td>
                                                         @if ($reclaim->Note->Viabilities->isNotEmpty())
-                                                            @foreach ($reclaim->Note->Viabilities as $viab)
-                                                                @if ($viab->Orders->isNotEmpty())
-                                                                    @foreach ($viab->Orders as $order)
-                                                                        <p class="my-1 py-0">{{ $order->ordem }}</p>
-                                                                    @endforeach
-                                                                @endif
+                                                            @foreach ($reclaim->Note->Viabilities as $viability)
+                                                                @foreach ($viability->Orders as $order)
+                                                                    <div>{{ $order->ordem }}</div>
+                                                                @endforeach
                                                             @endforeach
                                                         @elseif ($reclaim->Note->Orders->isNotEmpty())
                                                             @foreach ($reclaim->Note->Orders as $order)
-                                                                <p class="my-1 py-0">{{ $order->ordem }}</p>
+                                                                <div>{{ $order->ordem }}</div>
                                                             @endforeach
+                                                        @else
+                                                            <span class="text-muted">---</span>
                                                         @endif
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="col-2 fw-bold  align-middle text-end">Status:</td>
-                                                    <td class="col  align-middle">{{ $reclaim->Note->nstats }}
-                                                    </td>
+                                                    <th scope="row">Status</th>
+                                                    <td>{{ $reclaim->Note->nstats }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="col-2 fw-bold align-middle text-end">Situação:</td>
-                                                    <td class="col align-middle align-middle">
-                                                        {{ $reclaim->Note->status }}
-                                                    </td>
+                                                    <th scope="row">Situacao</th>
+                                                    <td>{{ $reclaim->Note->status }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="col-2 fw-bold align-middle text-end">Municipio:</td>
-                                                    <td class="col align-middle">{{ $reclaim->Note->lexp }}</td>
+                                                    <th scope="row">Municipio</th>
+                                                    <td>{{ $reclaim->Note->lexp }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="col-2 fw-bold align-middle text-end">Rubrica:</td>
-                                                    <td class="col align-middle">{{ $reclaim->Note->rubrica }}
-                                                    </td>
+                                                    <th scope="row">Rubrica</th>
+                                                    <td>{{ $reclaim->Note->rubrica }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="col-2 fw-bold align-middle text-end">Material:</td>
-                                                    <td class="col align-middle">{{ $reclaim->Note->material }}
-                                                    </td>
+                                                    <th scope="row">Material</th>
+                                                    <td>{{ $reclaim->Note->material }}</td>
                                                 </tr>
-                                                {{-- @if ($reclaim->Note->Viabilities->count())
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Viabilidade:
-                                                        </td>
-                                                        <td class="col align-middle align-middle">
-                                                            @if ($reclaim->Note->Viabilities->last()->tacit && $reclaim->Note->Viabilities->last()->approved)
-                                                                <span class="text-warning fw-bold">Aprovado
-                                                                    Tácitamente</span>
-                                                            @elseif ($reclaim->Note->Viabilities->last()->approved && !$reclaim->Note->Viabilities->last()->rejected)
-                                                                <span class="text-success fw-bold">Aprovado</span>
-                                                            @elseif(!$reclaim->Note->Viabilities->last()->approved && $reclaim->Note->Viabilities->last()->rejected)
-                                                                <span class="text-danger fw-bold">Rejeitado</span>
-                                                            @elseif(
-                                                                !$reclaim->Note->Viabilities->last()->approved &&
-                                                                    !$reclaim->Note->Viabilities->last()->rejected &&
-                                                                    !$reclaim->Note->Viabilities->last()->completed)
-                                                                <span class="text-primary fw-bold">Viabilidade</span>
-                                                            @else
-                                                                <span class="text-secondary fw-bold">Desconhecido</span>
-                                                            @endif
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Contratação:
-                                                        </td>
-                                                        <td class="col align-middle align-middle">
-                                                            @if ($reclaim->Note->Viabilities->last()->hired)
-                                                                <span class="text-success fw-bold">Obra
-                                                                    Contratada</span>
-                                                            @else
-                                                                <span class="text-secondary fw-bold">Obra NÃO
-                                                                    Contratada</span>
-                                                            @endif
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">DtContratação:
-                                                        </td>
-                                                        <td class="col align-middle align-middle">
-                                                            {{ $reclaim->Note->Viabilities->last()->hired ? date('d/m/Y H:i:s', strToTime($reclaim->Note->Viabilities->last()->hired_at)) : '---' }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Contratante:
-                                                        </td>
-                                                        <td class="col align-middle align-middle">
-                                                            @if ($reclaim->Note->Viabilities->last()->User)
-                                                                <span
-                                                                    class="text-success fw-bold">{{ $reclaim->Note->Viabilities->last()->User->name }}</span>
-                                                            @else
-                                                                <span class="text-secondary fw-bold">----</span>
-                                                            @endif
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">StS OP010:</td>
-                                                        <td class="col align-middle fw-bold">
-                                                            {{ $reclaim->Note->Viabilities->last()->Order->Operations->count() ? $reclaim->Note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->status : '---' }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Dt OP010:</td>
-                                                        <td class="col align-middle fw-bold">
-                                                            {{ isset($reclaim->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->fimReal) ? date('d/m/Y H:i:s', strToTime($reclaim->Note->Viabilities->last()->Order->Operations->Where('operacao', '0010')->last()->fimReal)) : '---' }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">centroTrabalho:
-                                                        </td>
-                                                        <td class="col align-middle fw-bold">
-                                                            {{ isset($reclaim->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab) ? $reclaim->Note->Viabilities->last()->Order->Operations->where('operacao', '0010')->last()->cenTrab : '---' }}
-                                                        </td>
-                                                    </tr>
-                                                @endif --}}
                                             </tbody>
                                         </table>
                                     </div>
+                                </section>
 
-                                </div>
-
-
-                                <div class="card">
-                                    <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                                        <h4 class="fs-5 my-0 py-0">Arquivos</h4>
-                                    </div>
-                                    <div class="card-body py-1 my-0">
-                                        @if ($reclaim->Note->Files->count())
-                                            <table class="table table-sm table-condensed table-striped table-hover">
-                                                <thead class="">
-                                                    <th class="text-center">
-                                                        {{-- <input class="form-check-input border border-1 border-secondary"
-                                                            type="checkbox"></td> --}}
-                                                    </th>
-                                                    <th class="text-center col-1">Serviço</th>
-                                                    <th class="text-center">Tipo</th>
-                                                    <th class="text-center">Arquivo</th>
+                                <section class="reclaim-info-modal__panel">
+                                    <h2 class="reclaim-info-modal__panel-title">
+                                        <i class="ri-attachment-2"></i>
+                                        Arquivos
+                                    </h2>
+                                    @if ($reclaim->Note->Files->count())
+                                        <div class="table-responsive reclaim-info-modal__scroll">
+                                            <table class="table table-sm table-hover reclaim-info-modal__table">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col" style="width: 48px;"></th>
+                                                        <th scope="col">Servico</th>
+                                                        <th scope="col">Tipo</th>
+                                                        <th scope="col">Arquivo</th>
+                                                    </tr>
                                                 </thead>
                                                 <tbody>
                                                     @foreach ($reclaim->Note->Files->sortBy('file_name') as $file)
-                                                        {{-- @dump($file->ext) --}}
                                                         <tr>
-                                                            <td class="text-center align-middle"><input
-                                                                    class="form-check-input border border-1 border-secondary"
+                                                            <td class="text-center">
+                                                                <input class="form-check-input border border-1 border-secondary"
                                                                     type="checkbox" value="{{ $file->id }}"
-                                                                    wire:model.defer="selectedFiles"></td>
-                                                            <td class="text-center align-middle">
-                                                                {{ isset($file->Service->service) ? $file->Service->service : '' }}
+                                                                    wire:model.defer="selectedFiles">
                                                             </td>
-                                                            <td class="text-center align-middle"><i
-                                                                    class="{{ FileIcon::getIcon($file->ext)->icon }} fs-4 align-middle"></i>
+                                                            <td>{{ $file->Service->service ?? '' }}</td>
+                                                            <td class="text-center">
+                                                                <i class="{{ FileIcon::getIcon($file->ext)->icon }} fs-5 align-middle"></i>
                                                             </td>
-                                                            <td class="text-center align-middle"><span
-                                                                    wire:click.prenvet="downloadFile({{ $file->id }})"
-                                                                    style="cursor: pointer;">{{ $file->file_name }}</span>
+                                                            <td>
+                                                                <button class="btn btn-link btn-sm p-0 text-start"
+                                                                    wire:click.prevent="downloadFile({{ $file->id }})">
+                                                                    {{ $file->file_name }}
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     @endforeach
                                                 </tbody>
-
                                             </table>
-                                            <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles"><i
-                                                    class="bx bxs-cloud-download"></i> Baixar
-                                                Selecionados</button>
-                                        @else
-                                            <div class="card">
-                                                <div class="card-body">
-                                                    <h4 class="text-center">SEM ARQUIVOS</h4>
-                                                </div>
-                                            </div>
-                                        @endif
-
-
-                                    </div>
-                                </div>
+                                        </div>
+                                        <div class="p-2 border-top">
+                                            <button class="btn btn-sm btn-primary" wire:click.prevent="zipFiles">
+                                                <i class="ri-download-cloud-2-line align-middle"></i>
+                                                Baixar selecionados
+                                            </button>
+                                        </div>
+                                    @else
+                                        <div class="p-3 text-center text-muted fw-bold">Sem arquivos</div>
+                                    @endif
+                                </section>
                             </div>
-                            <div class="col-md-6">
 
+                            <div class="d-grid gap-3">
                                 @if ($reclaim->Viabilities->count() && $reclaim->Viabilities->last()->Form)
-                                    @php
-                                        $form = $reclaim->Viabilities->last()->Form;
-                                    @endphp
-                                    <div class="card">
-                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">RETORNO
-                                            VIABILIDADE</h5>
+                                    @php($form = $reclaim->Viabilities->last()->Form)
+                                    <section class="reclaim-info-modal__panel">
+                                        <h2 class="reclaim-info-modal__panel-title">
+                                            <i class="ri-git-pull-request-line"></i>
+                                            Retorno Viabilidade
+                                        </h2>
                                         <div class="table-responsive">
-                                            <table class="table table-sm table-condensed table-striped-columns">
+                                            <table class="table table-sm table-striped-columns reclaim-info-modal__table">
                                                 <tbody>
                                                     <tr>
-                                                        <td class="fw-bold col-2 align-middle">MOTIVO:</td>
-                                                        <td class="align-middle fw-bold">{{ $form->reason }}</td>
+                                                        <th scope="row">Motivo</th>
+                                                        <td class="fw-bold">{{ $form->reason }}</td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="fw-bold col-2 align-middle">IMPACTO:</td>
-                                                        <td class="align-middle">
-                                                            {{ $form->changes * 10 }}%
-                                                        </td>
+                                                        <th scope="row">Impacto</th>
+                                                        <td>{{ $form->changes * 10 }}%</td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="fw-bold col-2 align-middle">RESPONSÁVEL:</td>
-                                                        <td class="align-middle text-uppercase">
-                                                            {{ $form->responsible }}</td>
+                                                        <th scope="row">Responsavel</th>
+                                                        <td class="text-uppercase">{{ $form->responsible }}</td>
                                                     </tr>
                                                     <tr>
-                                                        <td class="fw-bold col-2 align-middle">DESCRIÇÃO:</td>
-                                                        <td class="align-middle">{{ $form->description }}</td>
+                                                        <th scope="row">Descricao</th>
+                                                        <td>{{ $form->description }}</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
                                         </div>
-                                    </div>
+                                    </section>
                                 @endif
 
-                                {{-- @if ($reclaim->Note->Viabilities->count() && $reclaim->Note->Viabilities->last()->Comments->count())
+                                <section class="reclaim-info-modal__panel">
+                                    <h2 class="reclaim-info-modal__panel-title">
+                                        <i class="ri-loop-left-line"></i>
+                                        Retorno Interno
+                                    </h2>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped-columns reclaim-info-modal__table">
+                                            <tbody>
+                                                <tr>
+                                                    <th scope="row">Origem</th>
+                                                    <td class="fw-bold">{{ $origin }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Categoria</th>
+                                                    <td>{{ $reclaim->Subcategory?->Category?->name ?? '' }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">Motivo</th>
+                                                    <td>{{ $reclaim->Subcategory?->name ?? $reclaim->category }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
 
-                                    <div class="card">
-                                        <h5 class="card-header py-1 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                            COMENTÁRIOS</h5>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-condensed table-striped-columns">
-                                                <tbody>
+                                <section class="reclaim-info-modal__panel">
+                                    <h2 class="reclaim-info-modal__panel-title">
+                                        <i class="ri-chat-3-line"></i>
+                                        Comentarios
+                                    </h2>
+                                    <div class="p-2">
+                                        <div class="reclaim-info-modal__scroll">
+                                            @forelse ($reclaim->Comments as $index => $comment)
+                                                <article class="reclaim-info-modal__comment">
+                                                    <div
+                                                        class="reclaim-info-modal__comment-head {{ $comment->User?->id == auth()->id() ? 'is-own' : '' }}">
+                                                        #{{ $index + 1 }} -
+                                                        {{ $comment->User?->id == auth()->id() ? 'Voce' : $comment->User?->name ?? 'Usuario desconhecido' }}
+                                                        @if ($comment->User?->id != auth()->id() && $comment->User?->email)
+                                                            <span class="fw-normal">({{ $comment->User->email }})</span>
+                                                        @endif
+                                                    </div>
+                                                    <div class="reclaim-info-modal__comment-body">
+                                                        {{ $comment->message }}
+                                                    </div>
+                                                    <div class="reclaim-info-modal__comment-time">
+                                                        <i class="ri-time-line align-middle"></i>
+                                                        {{ $comment->created_at->format('d/m/Y - H:i:s') }}
+                                                    </div>
+                                                </article>
+                                            @empty
+                                                <div class="alert alert-light border mb-0">Sem comentarios registrados.</div>
+                                            @endforelse
+                                        </div>
 
-                                                    @foreach ($reclaim->Note->Viabilities->last()->Comments as $comment)
-                                                        <tr>
-                                                            <td class="col-2">
-                                                                {{ date('d/m/Y H:i', strToTime($comment->created_at)) }}
-                                                            </td>
-                                                            <td class="fw-bold col-2">{{ $comment->User->name }}
-                                                            </td>
-                                                            <td class="col">{{ $comment->message }}
-                                                            </td>
-                                                        </tr>
-                                                    @endforeach
-
-
-                                                </tbody>
-                                            </table>
+                                        <div class="mt-3">
+                                            <textarea class="form-control" wire:model.defer="newComment" rows="2"
+                                                placeholder="Digite seu comentario..."></textarea>
+                                            <button class="btn btn-primary btn-sm mt-2" wire:click="addComment"
+                                                wire:loading.attr="disabled" wire:target="addComment">
+                                                <span wire:loading.remove wire:target="addComment">
+                                                    <i class="ri-send-plane-2-line align-middle"></i>
+                                                    Enviar
+                                                </span>
+                                                <span wire:loading wire:target="addComment">Enviando...</span>
+                                            </button>
                                         </div>
                                     </div>
-
-                                @endif --}}
-
-
-
-                                @if ($reclaim->Comments->count())
-                                    <div class="card">
-                                        <div class="card-header py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                                            <h4 class="fs-5 my-0 py-0">Retorno Interno</h4>
-                                        </div>
-
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-striped-columns my-0 py-0">
-                                                <tbody>
-                                                    @php
-                                                        if ($reclaim->Viabilities->isNotEmpty()) {
-                                                            $origem = 'VIABILIDADE';
-                                                        } elseif ($reclaim->Waiting) {
-                                                            $origem = 'CONTRATAÇÃO';
-                                                        } elseif ($reclaim->Approvals->isNotEmpty()) {
-                                                            $origem = 'VALIDAÇÃO DE PROJETOS';
-                                                        } elseif ($reclaim->Externals->isNotEmpty()) {
-                                                            $origem = 'ENTIDADE EXTERNA';
-                                                        } else {
-                                                            $origem = 'DESCONHECIDO';
-                                                        }
-                                                    @endphp
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Origem:</td>
-                                                        <td class="col  align-middle fw-bold">
-                                                            {{ $origem }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Categoria:</td>
-                                                        <td class="col  align-middle">
-                                                            {{ $reclaim->Subcategory ? $reclaim->Subcategory->Category->name : '' }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td class="col-2 fw-bold align-middle text-end">Motivo:</td>
-                                                        <td class="col  align-middle">
-                                                            {{ $reclaim->Subcategory ? $reclaim->Subcategory->name : $reclaim->category }}
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-
-                                            <h4 class="card-header fs-5 my-2 py-1 edp-bg-sprucegreen-70 text-edp-verde">
-                                                Comentários</h4>
-                                            <div class="card-body">
-                                                <div style="max-height: 300px; overflow-y: auto;">
-                                                    @foreach ($reclaim->Comments as $index => $comment)
-                                                        <div class="card">
-                                                            <h6
-                                                                class="card-header my-0 py-1 @if ($comment->User->id == auth()->user()->id) text-bg-primary
-                                                                @else
-                                                                edp-bg-sprucegreen-50 text-white @endif">
-                                                                # {{ $index + 1 }} -
-                                                                {{ $comment->User->id == auth()->user()->id ? 'Você' : $comment->User->name }}
-                                                                <span
-                                                                    class="fs-6">{{ !($comment->User->id == auth()->user()->id) ? "({$comment->User->email})" : '' }}</span>
-                                                            </h6>
-                                                            <table class="table table-sm table-striped-columns">
-                                                                <tbody>
-                                                                    <tr>
-
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td class="col-2 fw-bold align-middle text-end">
-                                                                            Commentario:
-                                                                        </td>
-                                                                        <td class="col align-middle align-middle">
-                                                                            {{ $comment->message }}
-                                                                        </td>
-                                                                    </tr>
-
-                                                                </tbody>
-                                                            </table>
-                                                            <div class="card-footer py-1">
-                                                                <i class="bx bx-time-five"></i>
-                                                                {{ $comment->created_at->format('d/m/Y - H:i:s') }}
-                                                            </div>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                            <div class="mt-3 p-2 card-footer">
-                                                <div class="form-group">
-                                                    <textarea class="form-control" wire:model.defer="newComment" rows="2" placeholder="Digite seu comentário..."></textarea>
-                                                </div>
-                                                <div class="mt-2">
-                                                    <button class="btn btn-primary btn-sm" wire:click="addComment">
-                                                        <i class="bx bx-send align-middle"></i> Enviar
-                                                    </button>
-                                                </div>
-                                            </div>
-
-
-                                        </div>
-
-                                    </div>
-                                @endif
-
+                                </section>
                             </div>
-
                         </div>
-
-
                     </div>
                 @endif
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Fechar</button>
-
+                <div class="reclaim-info-modal__footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="ri-close-line align-middle"></i>
+                        Fechar
+                    </button>
                 </div>
-
             </div>
-
         </div>
     </div>
-
-
 </div>
+
+@once
+    <script>
+        (function() {
+            let pendingReclaimInfoModal = null;
+
+            function openReclaimInfoModal() {
+                if (!pendingReclaimInfoModal) {
+                    return;
+                }
+
+                const modalEl = document.getElementById(pendingReclaimInfoModal);
+
+                if (!modalEl || !modalEl.querySelector('.reclaim-info-modal__header')) {
+                    return;
+                }
+
+                pendingReclaimInfoModal = null;
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+
+            window.addEventListener('reclaimInfoLoaded', function(e) {
+                pendingReclaimInfoModal = e.detail.id;
+
+                window.requestAnimationFrame(openReclaimInfoModal);
+                window.setTimeout(openReclaimInfoModal, 75);
+                window.setTimeout(openReclaimInfoModal, 200);
+            });
+
+            function registerLivewireHook() {
+                if (!window.Livewire || !window.Livewire.hook) {
+                    return;
+                }
+
+                window.Livewire.hook('message.processed', openReclaimInfoModal);
+            }
+
+            registerLivewireHook();
+            document.addEventListener('livewire:load', registerLivewireHook);
+        })();
+    </script>
+@endonce
