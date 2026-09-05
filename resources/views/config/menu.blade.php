@@ -34,6 +34,11 @@
                                 <i class="bi bi-circle"></i> <span>SQL SERVER HEALTH</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('config.analysis_closure_rules') }}" class="nav-item text-white fw-normal">
+                                <i class="bi bi-circle"></i> <span>ENCERRAMENTO ANÁLISE</span>
+                            </a>
+                        </li>
                     @endcan
                     <li>
                         <a href="{{ route('config.wall.index') }}" class="nav-item text-white fw-normal">

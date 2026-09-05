@@ -36,9 +36,11 @@ class FinishD5 extends Component
 
     public function getInfoResponse(FiveNote $five)
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         $this->resetState();
         $this->evidenceKey++;
-        $this->five = $five;
+        $this->five = $this->scopedFiveNote($five->id);
 
         if ($this->five) {
             $this->dispatchBrowserEvent('showModal', [
@@ -135,6 +137,10 @@ class FinishD5 extends Component
 
     public function finish()
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
+        $this->five = $this->scopedFiveNote($this->five->id);
+
         DB::beginTransaction();
 
         try {
@@ -177,9 +183,13 @@ class FinishD5 extends Component
 
     public function savePassiveDetails(): void
     {
+        $this->authorizePartnerAccess('d5_notes.finish');
+
         if (!$this->five || !$this->five->isPassive) {
             return;
         }
+
+        $this->five = $this->scopedFiveNote($this->five->id);
 
         $this->validate([
             'five.description' => 'nullable|string|max:2000',
@@ -214,6 +224,16 @@ class FinishD5 extends Component
         $this->resetErrorBag();
         $this->resetValidation();
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
+    }
+
+    private function scopedFiveNote(int $id): FiveNote
+    {
+        $query = FiveNote::query()->whereKey($id);
+
+        $this->applyPartnerCompanyScope($query);
+        $this->applyPartnerBranchScopeToFiveNotes($query);
+
+        return $query->firstOrFail();
     }
 
     public function startEditDescription(): void

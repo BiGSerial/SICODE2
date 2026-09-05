@@ -1,5 +1,14 @@
+@php
+    use App\Support\SicodeRules;
+@endphp
+
 @push('css')
     <style>
+        .analysis-close-form {
+            background: #eef4f5;
+            padding: 1rem 0 1.25rem;
+        }
+
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -22,6 +31,192 @@
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
+        .analysis-close-form .card {
+            background: #ffffff;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .analysis-close-form .card-header {
+            align-items: center;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            color: #0f172a;
+            display: flex;
+            font-size: 0.96rem;
+            font-weight: 800;
+            gap: 0.45rem;
+            margin: 0;
+            padding: 0.85rem 1rem;
+        }
+
+        .analysis-close-form .card-header::before {
+            color: #0f766e;
+            content: "\ea5c";
+            font-family: remixicon;
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        .analysis-close-form .card-body {
+            padding: 1rem;
+        }
+
+        .analysis-close-form .note-summary-card {
+            border-left: 5px solid #0f766e;
+        }
+
+        .analysis-close-form dt,
+        .analysis-close-form .form-floating > label {
+            color: #334155;
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .analysis-close-form dd {
+            color: #0f172a;
+            font-size: 0.9rem;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .analysis-close-form .form-control,
+        .analysis-close-form .form-select {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px;
+            min-height: 40px;
+        }
+
+        .analysis-close-form .form-control:focus,
+        .analysis-close-form .form-select:focus {
+            border-color: #0f766e !important;
+            box-shadow: 0 0 0 0.18rem rgba(15, 118, 110, 0.14);
+        }
+
+        .analysis-close-form textarea.form-control {
+            min-height: 112px;
+        }
+
+        .analysis-close-form .analysis-sequence {
+            display: grid;
+            gap: 0.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            margin-bottom: 1rem;
+        }
+
+        .analysis-close-form .analysis-sequence__item {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            display: flex;
+            gap: 0.6rem;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .analysis-close-form .analysis-sequence__number {
+            align-items: center;
+            background: #0f766e;
+            border-radius: 7px;
+            color: #ffffff;
+            display: inline-flex;
+            flex: 0 0 28px;
+            font-size: 0.78rem;
+            font-weight: 900;
+            height: 28px;
+            justify-content: center;
+            width: 28px;
+        }
+
+        .analysis-close-form .analysis-sequence__text {
+            color: #0f172a;
+            font-size: 0.78rem;
+            font-weight: 900;
+            line-height: 1.15;
+            text-transform: uppercase;
+        }
+
+        .analysis-close-form .closure-parameters-grid {
+            align-items: start;
+        }
+
+        .analysis-close-form .closure-parameters-grid > [class*="col-"] {
+            min-width: 0;
+        }
+
+        .analysis-close-form .analysis-action-bar {
+            background: #ffffff;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            bottom: 0;
+            box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.10);
+            margin-top: 1rem;
+            padding: 0.75rem 0.9rem;
+            position: sticky;
+            z-index: 3;
+        }
+
+        .analysis-close-form .analysis-step {
+            align-items: center;
+            display: flex;
+            gap: 0.55rem;
+            min-width: min(100%, 280px);
+        }
+
+        .analysis-close-form .analysis-step__icon {
+            align-items: center;
+            background: #0f766e;
+            border-radius: 7px;
+            color: #ffffff;
+            display: inline-flex;
+            flex: 0 0 34px;
+            font-size: 1rem;
+            height: 34px;
+            justify-content: center;
+            width: 34px;
+        }
+
+        .analysis-close-form .analysis-step__eyebrow {
+            color: #0f766e;
+            font-size: 0.64rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .analysis-close-form .analysis-step__text {
+            color: #0f172a;
+            font-size: 0.86rem;
+            font-weight: 900;
+            line-height: 1.2;
+        }
+
+        .analysis-close-form .analysis-action-bar .btn {
+            align-items: center;
+            border-radius: 6px;
+            display: inline-flex;
+            font-weight: 800;
+            gap: 0.35rem;
+            justify-content: center;
+            min-height: 36px;
+            min-width: 104px;
+        }
+
+        @media (max-width: 767.98px) {
+            .analysis-close-form .analysis-action-bar {
+                position: static;
+            }
+
+            .analysis-close-form .analysis-action-bar .btn {
+                width: 100%;
+            }
+        }
     </style>
 @endpush
 
@@ -30,9 +225,10 @@
     <x-show-loading />
 
     @if ($view_form)
+        <div class="analysis-close-form">
         <div class="container">
             {{-- ======= Card: Informações da Nota ======= --}}
-            <div class="card mb-4">
+            <div class="card note-summary-card mb-4">
                 <h4 class="card-header">Informações da Nota</h4>
                 <div class="card-body">
                     <div class="row">
@@ -177,9 +373,24 @@
 
             {{-- ======= Card: Resultado Análise ======= --}}
             <div class="card mb-4">
-                <h4 class="card-header">Resultado Análise</h4>
+                <h4 class="card-header">Parâmetros de Encerramento</h4>
                 <div class="card-body">
-                    <div class="row g-3">
+                    <div class="analysis-sequence">
+                        <div class="analysis-sequence__item">
+                            <span class="analysis-sequence__number">1</span>
+                            <span class="analysis-sequence__text">Classificação</span>
+                        </div>
+                        <div class="analysis-sequence__item">
+                            <span class="analysis-sequence__number">2</span>
+                            <span class="analysis-sequence__text">Resultado e parecer</span>
+                        </div>
+                        <div class="analysis-sequence__item">
+                            <span class="analysis-sequence__number">3</span>
+                            <span class="analysis-sequence__text">Confirmação</span>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 closure-parameters-grid">
                         {{-- Restrições --}}
                         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
@@ -197,7 +408,7 @@
                         </div>
 
                         {{-- Motivo --}}
-                        @if ($restriction)
+                        @if ($restriction && !(SicodeRules::analysisEnvironmentWithoutReason() && $restriction === 'AMBIENTE'))
                             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                 <div class="form-floating">
                                     <select class="form-select" id="motivo" wire:model="motivo"
@@ -365,14 +576,11 @@
                         {{-- Conclusão --}}
                         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                             <div class="form-floating">
-                                <select class="form-select" id="conclusion" wire:model.defer="conclusion">
+                                <select class="form-select" id="conclusion" wire:model="conclusion">
                                     <option value="0" selected>Selecione</option>
-                                    <option value="ISR - LIBERADO">ISR - LIBERADO</option>
-                                    <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
-                                    <option value="ENVIADO AO DESENHO">ENVIADO AO DESENHO</option>
-                                    <option value="ENVIADO CARTA AO CLIENTE">ENVIADO CARTA AO CLIENTE</option>
-                                    <option value="ENVIADO RESPOSTA EMPRESA">ENVIADO RESPOSTA EMPRESA</option>
-                                    <option value="ENVIADO PARA O STATUS 21">ENVIADO PARA O STATUS 21</option>
+                                    @foreach (SicodeRules::analysisConclusionOptions() as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
                                 </select>
                                 <label for="conclusion">Conclusão</label>
                             </div>
@@ -405,14 +613,28 @@
             </div>
 
             {{-- ======= Botões de Ação ======= --}}
-            <div class="d-flex justify-content-end gap-2 mb-4">
-                <button class="btn btn-primary" wire:click.prevent="save_info">SALVAR</button>
-                <button class="btn btn-warning" wire:click.prevent="to_pause">PAUSAR</button>
-                <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">
-                    ENCERRAR
-                </button>
+            <div class="analysis-action-bar d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+                <div class="analysis-step">
+                    <span class="analysis-step__icon"><i class="ri-checkbox-circle-line"></i></span>
+                    <div>
+                        <div class="analysis-step__eyebrow">Encerramento</div>
+                        <div class="analysis-step__text">Revise os parâmetros antes de finalizar a análise.</div>
+                    </div>
+                </div>
+                <div class="d-flex flex-column flex-sm-row justify-content-end gap-2">
+                    <button class="btn btn-primary" wire:click.prevent="save_info">
+                        <i class="ri-save-3-line"></i> SALVAR
+                    </button>
+                    <button class="btn btn-warning" wire:click.prevent="to_pause">
+                        <i class="ri-pause-circle-line"></i> PAUSAR
+                    </button>
+                    <button class="btn btn-success" wire:click.prevent="to_finish({{ $analise->production_id }})">
+                        <i class="ri-check-double-line"></i> ENCERRAR
+                    </button>
+                </div>
             </div>
         </div> {{-- fim container --}}
+        </div>
     @else
         <div class="loading-overlay">
             <div class="loading-message">

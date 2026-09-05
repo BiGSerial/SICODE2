@@ -9,15 +9,21 @@
         <x-show-loading />
         @if ($production)
             <div class="prod-files-wrap">
-                <div class="card border-0 shadow-sm overflow-hidden">
-                    <div class="card-header bg-primary text-white py-3">
-                        <h4 class="fs-6 fw-bold mb-0">Arquivos do Encerramento</h4>
-                        <div class="small opacity-75 mt-1">
-                            {{ $production->Note->note }} • {{ $production->Service->service }}
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0 py-3 d-flex align-items-center justify-content-between gap-2">
+                        <div>
+                            <h4 class="fs-6 fw-bold mb-1 d-flex align-items-center gap-2">
+                                <i class="ri-upload-cloud-2-line text-primary"></i>
+                                Enviar arquivos do encerramento
+                            </h4>
+                            <div class="small text-muted">
+                                {{ $production->Note->note }} · {{ $production->Service->service }}
+                            </div>
                         </div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            {{ count($tempFiles) }} na fila
+                        </span>
                     </div>
-                </div>
-                <div class="card border-0 shadow-sm mt-3">
                     <div class="card-body">
                         <div class="row g-3 align-items-start">
                             <div class="col-12 col-lg-5">
@@ -53,8 +59,11 @@
                             </div>
                         </div>
 
-                        <div class="mt-3 p-3 rounded border border-2 border-secondary border-opacity-25 bg-light">
-                            <label for="files" class="form-label fw-semibold mb-1">Selecionar Arquivos</label>
+                        <div class="mt-3 p-3 rounded border border-2 border-primary border-opacity-25 bg-light">
+                            <label for="files" class="form-label fw-semibold mb-1 d-flex align-items-center gap-2">
+                                <i class="ri-add-circle-line text-primary"></i>
+                                Selecionar arquivos
+                            </label>
                             <div class="small text-muted mb-2">
                                 Formatos permitidos: imagem, PDF, Office e CAD. Tamanho máximo por arquivo: 40MB.
                             </div>
@@ -85,7 +94,7 @@
                         </div>
 
                         @if (count($tempFiles))
-                            <div class="table-responsive mt-3">
+                            <div class="table-responsive mt-3 dispatch-scroll-area">
                                 <table class="table table-sm table-hover align-middle mb-0">
                                     <thead class="table-light">
                                         <tr>

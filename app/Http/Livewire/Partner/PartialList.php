@@ -59,16 +59,17 @@ class PartialList extends Component
     {
         $query = Partial::query();
 
-        if (!auth()->user()->superadm) {
-            $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-            ->orWhere('company_id', Auth()->user()->Company->id);
-        }
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 
         if ($this->search) {
-            $query->whereRelation('Note', 'note', 'like', '%' . trim($this->search) . '%')
-                    ->orWhereRelation('Note.Orders', 'ordem', 'like', '%' . trim($this->search) . '%');
+            $search = '%' . trim($this->search) . '%';
+
+            $query->where(function ($q) use ($search) {
+                $q->whereRelation('Note', 'note', 'like', $search)
+                    ->orWhereRelation('Note.Orders', 'ordem', 'like', $search);
+            });
         }
 
 

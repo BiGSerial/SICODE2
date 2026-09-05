@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Analises_pre\Forms;
 
 use App\Custom\GeradorCartas;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Livewire\Component;
 
@@ -117,6 +118,7 @@ class Analise extends Component
             $this->area          = $this->analise->area + 0.00;
             $this->endereco      = $this->analise->endereco;
             $this->documento     = $this->analise->documento;
+            $this->normalizeRuleFields();
         } else {
             $this->clean_form();
             $this->production->Analise()->create();
@@ -162,6 +164,11 @@ class Analise extends Component
 
     public function updatedConclusion($value)
     {
+        if ($value && !SicodeRules::isValidPreAnalysisConclusion($value)) {
+            $this->conclusion = '';
+
+            return;
+        }
 
         $this->save_info();
 
@@ -221,6 +228,8 @@ __________________________________________________
 
     public function save_info()
     {
+        $this->normalizeRuleFields();
+
         $chk = $this->analise->update([
             'ninst'         => $this->ninst ? $this->ninst : null,
             'nMedidor'      => $this->nmedidor ? $this->nmedidor : null,
@@ -245,6 +254,14 @@ __________________________________________________
             'endereco'      => $this->endereco,
             'documento'     => $this->documento,
         ]);
+    }
+
+    public function updatedRestriction()
+    {
+        $this->motivo = '';
+        $this->card = '';
+        $this->reserva = '';
+        $this->normalizeRuleFields();
     }
 
     public function to_pause()
@@ -290,6 +307,17 @@ __________________________________________________
                 'title'    => 'CONCLUSÃO NÃO DEFINIDA',
                 'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
                 ',
+            ]);
+
+            return;
+        }
+
+        if (!SicodeRules::isValidPreAnalysisConclusion($this->conclusion)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO INVÁLIDA',
+                'html'     => 'A conclusão selecionada não está liberada para esta configuração do SICODE.',
             ]);
 
             return;
@@ -345,8 +373,28 @@ __________________________________________________
 
     public function gerarCarta()
     {
+        if (SicodeRules::analysisEnvironmentWithoutReason() && $this->restriction === 'AMBIENTE') {
+            $this->motivo = '';
+            $this->card = '';
+
+            return;
+        }
+
         $this->card = (new GeradorCartas($this->restriction, $this->motivo, $this->comprador ?? null, $this->note->client ?? null, null, $this->lat ?? null, $this->lon ?? null, $this->municipio ?? $this->note->lexp ?? null, null, $this->reserva ?? null))->carta();
 
+    }
+
+    private function normalizeRuleFields(): void
+    {
+        if (SicodeRules::analysisEnvironmentWithoutReason() && $this->restriction === 'AMBIENTE') {
+            $this->motivo = '';
+            $this->card = '';
+            $this->reserva = '';
+        }
+
+        if ($this->conclusion && !SicodeRules::isValidPreAnalysisConclusion($this->conclusion)) {
+            $this->conclusion = '';
+        }
     }
 
     // public function gerarCarta($res, $sub)

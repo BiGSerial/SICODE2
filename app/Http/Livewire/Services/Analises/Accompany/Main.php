@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Analises\Accompany;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Helpers\TextFormatter;
 use App\Models\{Note, Notetimeline, Production, Service, User};
+use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -239,6 +240,17 @@ class Main extends Component
             return;
         }
 
+        if (!SicodeRules::isValidAnalysisConclusion($this->bulkConclusion)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO INVÁLIDA',
+                'html'     => 'A conclusão selecionada não está liberada para esta configuração do SICODE.',
+            ]);
+
+            return;
+        }
+
         if (!$this->bulkMmgd) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -269,6 +281,17 @@ class Main extends Component
 
     public function finishBulk()
     {
+        if (!SicodeRules::isValidAnalysisConclusion($this->bulkConclusion)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO INVÁLIDA',
+                'html'     => 'A conclusão selecionada não está liberada para esta configuração do SICODE.',
+            ]);
+
+            return;
+        }
+
         $mmgd = false;
 
         if ($this->bulkMmgd === 'SIM') {

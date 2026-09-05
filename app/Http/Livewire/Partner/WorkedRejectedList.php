@@ -63,13 +63,9 @@ class WorkedRejectedList extends Component
 
     public function openRejectDetails(int $workReportId, ?int $startIndex = null)
     {
-        $query = WorkReport::query()
-            ->when(!Auth()->User()->superadm, function ($q) {
-                $q->where(function ($subQuery) {
-                    $subQuery->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                        ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            });
+        $query = WorkReport::query();
+
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 
@@ -136,13 +132,9 @@ class WorkedRejectedList extends Component
 
     public function getListsProperty()
     {
-        $query = WorkReport::query()
-            ->when(!Auth()->User()->superadm, function ($q) {
-                $q->where(function ($subQuery) {
-                    $subQuery->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                        ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            });
+        $query = WorkReport::query();
+
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 
@@ -195,12 +187,9 @@ class WorkedRejectedList extends Component
 
     public function reinform(int $workReportId)
     {
-        $query = WorkReport::query()->when(!Auth()->User()->superadm, function ($q) {
-            $q->where(function ($query) {
-                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-            });
-        });
+        $query = WorkReport::query();
+
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 

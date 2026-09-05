@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Services\Analises\Forms;
 use App\Custom\GeradorCartas;
 use App\Models\Edp_depc\City;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -124,6 +125,7 @@ class Analise extends Component
             $this->conclusion    = $this->analise->conclusion;
             $this->info          = $this->analise->info;
             $this->card          = $this->analise->card;
+            $this->normalizeRuleFields();
         }
 
         if ($this->production && $this->note) {
@@ -165,6 +167,7 @@ class Analise extends Component
 
     public function save_info()
     {
+        $this->normalizeRuleFields();
 
         $chk = $this->analise->update([
             'ninst'         => $this->ninst ? $this->ninst : null,
@@ -185,6 +188,21 @@ class Analise extends Component
             'card'          => $this->card,
 
         ]);
+    }
+
+    public function updatedRestriction()
+    {
+        $this->motivo = '';
+        $this->card = '';
+        $this->reserva = '';
+        $this->normalizeRuleFields();
+    }
+
+    public function updatedConclusion()
+    {
+        if ($this->conclusion && !SicodeRules::isValidAnalysisConclusion($this->conclusion)) {
+            $this->conclusion = '';
+        }
     }
 
     public function to_pause()
@@ -230,6 +248,17 @@ class Analise extends Component
                 'title'    => 'CONCLUSÃO NÃO DEFINIDA',
                 'html'     => 'Você não definiu uma conclusão para a nota/ov em questão. Gentileza concluir a análise da mesma.
                 ',
+            ]);
+
+            return;
+        }
+
+        if (!SicodeRules::isValidAnalysisConclusion($this->conclusion)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'CONCLUSÃO INVÁLIDA',
+                'html'     => 'A conclusão selecionada não está liberada para esta configuração do SICODE.',
             ]);
 
             return;
@@ -346,8 +375,28 @@ class Analise extends Component
 
     public function gerarCarta()
     {
+        if (SicodeRules::analysisEnvironmentWithoutReason() && $this->restriction === 'AMBIENTE') {
+            $this->motivo = '';
+            $this->card = '';
+
+            return;
+        }
+
         $this->card = (new GeradorCartas($this->restriction, $this->motivo, $this->comprador ?? null, $this->note->client ?? null, null, $this->lat ?? null, $this->lon ?? null, $this->municipio ?? $this->note->lexp ?? null, null, $this->reserva ?? null))->carta();
 
+    }
+
+    private function normalizeRuleFields(): void
+    {
+        if (SicodeRules::analysisEnvironmentWithoutReason() && $this->restriction === 'AMBIENTE') {
+            $this->motivo = '';
+            $this->card = '';
+            $this->reserva = '';
+        }
+
+        if ($this->conclusion && !SicodeRules::isValidAnalysisConclusion($this->conclusion)) {
+            $this->conclusion = '';
+        }
     }
 
     // public function gerarCarta($res, $sub)

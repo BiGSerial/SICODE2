@@ -6,6 +6,12 @@ return [
     'display_name' => env('SICODE_DISPLAY_NAME', env('APP_NAME', 'sicode')),
 
     // Cada valor lido via SicodeRules já tem um default (o comportamento padrão/histórico).
+    // Overrides persistidos em system_settings têm prioridade sobre este arquivo.
+    // Formato da chave: sicode.rules.{ruleset}.{caminho_da_regra}
+    // Exemplos:
+    // - sicode.rules.sp.analysis.environment_without_reason = true
+    // - sicode.rules.sp.analysis.conclusions = {"ISR - LIBERADO":"ISR - LIBERADO","ENVIADO PARA O STATUS 3":"ENVIADO PARA O STATUS 3"}
+    //
     // Só é preciso declarar aqui a regra de uma região quando ela foge desse padrão —
     // cada região roda em seu próprio banco/deployment, então não existe "es vs sp" a
     // resolver em runtime, é só documentar a exceção daquele deployment específico.
@@ -45,6 +51,27 @@ return [
                     'connection' => [],
                 ],
             ],
+
+            'analysis' => [
+                'environment_without_reason' => false,
+                'conclusions' => [
+                    'ISR - LIBERADO' => 'ISR - LIBERADO',
+                    'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+                    'ENVIADO AO DESENHO' => 'ENVIADO AO DESENHO',
+                    'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
+                    'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
+                    'ENVIADO PARA O STATUS 21' => 'ENVIADO PARA O STATUS 21',
+                ],
+                'pre_analysis_conclusions' => [
+                    'ISR - LIBERADO' => 'ISR - LIBERADO',
+                    'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+                    'ENVIADO AO DESENHO/ORÇAMENTO' => 'ENVIADO AO DESENHO/ORÇAMENTO',
+                    'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
+                    'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
+                    'ENVIADO PARA CONSTRUÇÃO' => 'ENVIADO PARA CONSTRUÇÃO',
+                    'ARQUIVADO' => 'ARQUIVADO',
+                ],
+            ],
         ],
 
         'sp' => [
@@ -73,6 +100,30 @@ return [
                 'final_scope_order_prefixes'  => [
                     'network'    => ['150', '170', '190'],
                     'connection' => [],
+                ],
+            ],
+
+            'analysis' => [
+                'environment_without_reason' => true,
+                'conclusions' => [
+                    'ISR - LIBERADO' => 'ISR - LIBERADO',
+                    'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+                    'ENVIADO AO DESENHO' => 'ENVIADO AO DESENHO',
+                    'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
+                    'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
+                    'ENVIADO PARA O STATUS 3' => 'ENVIADO PARA O STATUS 3',
+                    'ENVIADO PARA O STATUS 4' => 'ENVIADO PARA O STATUS 4',
+                ],
+                'pre_analysis_conclusions' => [
+                    'ISR - LIBERADO' => 'ISR - LIBERADO',
+                    'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+                    'ENVIADO AO DESENHO/ORÇAMENTO' => 'ENVIADO AO DESENHO/ORÇAMENTO',
+                    'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
+                    'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
+                    'ENVIADO PARA CONSTRUÇÃO' => 'ENVIADO PARA CONSTRUÇÃO',
+                    'ARQUIVADO' => 'ARQUIVADO',
+                    'ENVIADO PARA O STATUS 3' => 'ENVIADO PARA O STATUS 3',
+                    'ENVIADO PARA O STATUS 4' => 'ENVIADO PARA O STATUS 4',
                 ],
             ],
         ],
