@@ -43,7 +43,7 @@
         $submenuId  = 'submenu-inline-' . $menuUid . '-' . str_replace('.', '-', $path);
         $chevronIcon = $openMode === 'down' ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-fill';
     @endphp
-    <div class="sd-group sd-group--{{ $openMode }}{{ $openMode === 'side' ? ' position-relative' : '' }}">
+    <div class="sd-group sd-group--{{ $openMode }}{{ $openMode === 'side' ? ' position-relative' : '' }}{{ !empty($node['accent']) ? ' sd-group--accent-' . $node['accent'] : '' }}">
         <button
             class="sd-group-toggle js-submenu-toggle"
             data-target="#{{ $submenuId }}"

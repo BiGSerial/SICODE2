@@ -46,21 +46,66 @@
                         ],
                     ],
                     [
-                        'label' => 'GERENCIAMENTO',
+                        'label' => 'OPERAÇÃO DO SISTEMA',
                         'open' => 'side',
-                        'items' => [
-                            ['label' => 'AUDITORIA NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
-                            ['label' => 'CONTROLE DE DADOS', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
-                            ['label' => 'GERENCIAMENTO ADS', 'route' => 'admin.control.ads_requests', 'icon' => 'ri-survey-line', 'can' => 'superadm'],
-                            ['label' => 'TERMO DE ACEITE - INFORME', 'route' => 'config.acceptance_terms', 'icon' => 'ri-file-text-line', 'can' => 'superadm'],
-                            ['label' => 'AVISOS LEGAIS - PAINEL PARCEIRO', 'route' => 'config.partner_dashboard_legal_notes', 'icon' => 'ri-file-text-line', 'can' => 'superadm'],
-                            ['label' => 'GERENCIAMENTO DE ARQUIVOS', 'route' => 'files.main', 'icon' => 'ri-folder-2-line'],
-                            ['label' => 'MONITOR ATIVIDADE', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
-                            ['label' => 'PAINEL CONFIGURAÇÕES', 'route' => 'config.main', 'icon' => 'ri-home-gear-fill'],
-                            ['label' => 'STATUS SERVER', 'route' => 'config.system.status', 'icon' => 'ri-server-line'],
-                            ['label' => 'LOG LOG', 'route' => 'config.system.history', 'icon' => 'ri-file-list-3-line'],
-                            ['label' => 'SCHEDULE', 'route' => 'config.system.schedule', 'icon' => 'ri-calendar-schedule-line', 'can' => 'superadm'],
-                            ['label' => 'SQLSRV HEALTH', 'route' => 'config.system.sqlsrv_health', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
+                        'children' => [
+                            [
+                                'label' => 'AUDITORIA',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'AUDITORIA DE NOTAS', 'route' => 'admin.audits.notes', 'icon' => 'ri-file-search-line'],
+                                ],
+                            ],
+                            [
+                                'label' => 'CADASTROS',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'CONTROLE DE DADOS (D5)', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
+                                ],
+                            ],
+                            [
+                                'label' => 'INTEGRAÇÕES',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'MONITOR DE REQUISIÇÕES ADS', 'route' => 'admin.control.ads_requests', 'icon' => 'ri-survey-line', 'can' => 'superadm'],
+                                ],
+                            ],
+                            [
+                                'label' => 'GESTÃO',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'MONITOR DE PRODUÇÃO', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
+                                ],
+                            ],
+                            [
+                                'label' => 'ARQUIVOS',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'GERENCIAMENTO DE ARQUIVOS', 'route' => 'files.main', 'icon' => 'ri-folder-2-line'],
+                                ],
+                            ],
+                            [
+                                'label' => 'CONFIGURAÇÕES',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'CONFIGURAR SERVIÇOS', 'route' => 'config.services', 'icon' => 'ri-settings-3-line'],
+                                    ['label' => 'TERMO DE ACEITE - INFORME', 'route' => 'config.acceptance_terms', 'icon' => 'ri-file-text-line', 'can' => 'superadm'],
+                                    ['label' => 'AVISOS LEGAIS - PAINEL PARCEIRO', 'route' => 'config.partner_dashboard_legal_notes', 'icon' => 'ri-file-text-line', 'can' => 'superadm'],
+                                    ['label' => 'ENCERRAMENTO DE ANÁLISE', 'route' => 'config.analysis_closure_rules', 'icon' => 'ri-checkbox-circle-line', 'can' => 'superadm'],
+                                    ['label' => 'WALL DE PRODUÇÃO', 'route' => 'config.wall.index', 'icon' => 'ri-tv-2-line', 'can' => 'superadm'],
+                                ],
+                            ],
+                            [
+                                'label' => 'SISTEMA',
+                                'open' => 'side',
+                                'items' => [
+                                    ['label' => 'STATUS DO SERVIDOR', 'route' => 'config.system.status', 'icon' => 'ri-server-line'],
+                                    ['label' => 'HISTÓRICO DE EXECUÇÕES', 'route' => 'config.system.history', 'icon' => 'ri-file-list-3-line'],
+                                    ['label' => 'SCHEDULER', 'route' => 'config.system.schedule', 'icon' => 'ri-calendar-schedule-line', 'can' => 'superadm'],
+                                    ['label' => 'SAÚDE SQL SERVER', 'route' => 'config.system.sqlsrv_health', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
+                                    ['label' => 'JOBS', 'route' => 'config.system.jobs_view', 'icon' => 'ri-list-check-2'],
+                                ],
+                            ],
                         ],
                     ],
                 ],
@@ -76,6 +121,7 @@
             'kind' => 'group',
             'label' => 'DESPACHO',
             'open' => 'side',
+            'accent' => 'danger',
             'can' => 'can_dispatch',
             'nodes' => [
                 ['label' => 'RECLAMAÇÕES', 'route' => 'protests.dispatch.lists', 'icon' => 'ri-account-pin-box-fill', 'iconClass' => 'text-danger'],
@@ -136,7 +182,7 @@
             ],
         ];
     @endphp
-    <x-menu.dynamic-dropdown title="SMC" :sections="$smc_sections" width="300px" id-prefix="smc" layout="inline" />
+    <x-menu.dynamic-dropdown title="SMC" :sections="$smc_sections" id-prefix="smc" layout="inline" />
 @endcan
 
 

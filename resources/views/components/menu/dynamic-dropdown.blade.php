@@ -35,7 +35,8 @@
         return $item;
     };
 
-    $buildChild = function (array $child) use ($isVisible, $buildItem): ?array {
+    // &$buildChild is required for self-recursion (group-within-group, e.g. OPERAÇÃO DO SISTEMA) — PHP closures don't capture themselves by default.
+    $buildChild = function (array $child) use ($isVisible, $buildItem, &$buildChild): ?array {
         if (!$isVisible($child)) {
             return null;
         }

@@ -13,7 +13,7 @@
 @endsection
 
 @section('menu')
-    @include('config.menu')
+    @include('config.settings-menu')
 @endsection
 
 @section('content')

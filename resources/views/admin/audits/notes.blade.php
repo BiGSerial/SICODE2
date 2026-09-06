@@ -12,6 +12,10 @@
     </nav>
 @endsection
 
+@section('menu')
+    @include('admin.audits.menu')
+@endsection
+
 @section('content')
     @livewire('admin.audits.note-audit')
 @endsection
