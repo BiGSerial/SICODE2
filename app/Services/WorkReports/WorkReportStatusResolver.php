@@ -9,16 +9,16 @@ use Illuminate\Support\Str;
 class WorkReportStatusResolver
 {
     public const FINALIZED = 'Finalizado';
-    public const INCONSISTENT_PAYMENT = 'Pagamento Inconsistente';
+    public const INCONSISTENT_PAYMENT = 'Medição Inconsistente';
     public const INFORM = 'Informe';
     public const WAITING_FISCALIZATION = 'Aguardando Fiscalização';
     public const FISCALIZATION = 'Em Fiscalização';
-    public const WAITING_PAYMENT = 'Aguardando Pagamento';
+    public const WAITING_PAYMENT = 'Aguardando Medição';
     public const WAITING_D5_DISPATCH = 'Aguardando Despacho D5';
     public const WAITING_D5_RESOLUTION = 'Aguardando Resolução D5';
     public const WAITING_D5_FISCALIZATION = 'Aguardando Fiscalização D5';
     public const D5_FISCALIZATION = 'Fiscalização D5';
-    public const WAITING_D5_PAYMENT = 'Aguardando Pagamento D5';
+    public const WAITING_D5_PAYMENT = 'Aguardando Medição D5';
     public const RELEASING_LETTER = 'Liberando Carta';
 
     public function resolve(WorkReport $workReport): array
@@ -104,11 +104,11 @@ class WorkReportStatusResolver
         }
 
         if ($normalPaymentAssociated && !$normalPaymentFinished) {
-            return $this->status('payment', 'Em Pagamento', 'text-bg-primary');
+            return $this->status('payment', 'Em Medição', 'text-bg-primary');
         }
 
         if ($normalPaymentFinished) {
-            return $this->status('payment_finished', 'Pagamento Finalizado', 'text-bg-success');
+            return $this->status('payment_finished', 'Medição Finalizada', 'text-bg-success');
         }
 
         return $this->status('inform', self::INFORM, 'text-bg-info');

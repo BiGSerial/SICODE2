@@ -135,7 +135,7 @@ class DispatchPaymentStack implements
             'Data de Despacho',
             'Data de Atribuicao',
             'Data do Informe',
-            'Prazo Pagamento',
+            'Prazo Medição',
             'Status',
             'Info Status',
         ];

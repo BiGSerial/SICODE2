@@ -86,7 +86,7 @@ class PartialHistoryService
         }
 
         if ($partial->supervision && !$partial->payment) {
-            return 'EM PAGAMENTO';
+            return 'EM MEDIÇÃO';
         }
 
         if ($partial->allow && !$partial->supervision) {

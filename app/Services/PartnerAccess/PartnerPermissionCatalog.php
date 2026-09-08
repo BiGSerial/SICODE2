@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 class PartnerPermissionCatalog
 {
     public const GROUP_VIABILITY = 'viability';
+    public const GROUP_PORTAL = 'portal';
     public const GROUP_CONCLUSION_REPORTS = 'conclusion_reports';
     public const GROUP_PARTIAL_REPORTS = 'partial_reports';
     public const GROUP_COMPLAINTS = 'complaints';
@@ -16,11 +17,16 @@ class PartnerPermissionCatalog
     public static function groups(): array
     {
         return [
+            self::GROUP_PORTAL => [
+                'label' => 'Portal',
+                'items' => [
+                    'portal.dashboard' => 'Principal',
+                    'portal.search_notes' => 'Buscar notas',
+                ],
+            ],
             self::GROUP_VIABILITY => [
                 'label' => 'Viabilidade',
                 'items' => [
-                    'viability.dashboard' => 'Principal',
-                    'viability.search_notes' => 'Pesquisar notas',
                     'viability.list' => 'Listar pendentes',
                     'viability.history' => 'Histórico',
                     'viability.rejected' => 'Tratativas',
@@ -144,8 +150,8 @@ class PartnerPermissionCatalog
     {
         return [
             'partner.main.viability' => 'portal.access',
-            'partner.search.notes' => 'viability.search_notes',
-            'partner.search.notes.legacy' => 'viability.search_notes',
+            'partner.search.notes' => 'portal.search_notes',
+            'partner.search.notes.legacy' => 'portal.search_notes',
             'partner.todo.viability' => 'viability.list',
             'partner.hist.viability' => 'viability.history',
             'partner.rejected.viability' => 'viability.rejected',

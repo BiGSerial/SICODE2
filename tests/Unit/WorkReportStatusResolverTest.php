@@ -38,7 +38,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_fiscalization_finished_without_payment(): void
     {
-        $this->assertStatus('Aguardando Pagamento', [
+        $this->assertStatus('Aguardando Medição', [
             'has_ads' => true,
             'normal_fiscal_associated' => true,
             'normal_fiscal_finished' => true,
@@ -47,7 +47,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_waiting_payment_without_fiscalization_is_inconsistent(): void
     {
-        $this->assertStatus('Pagamento Inconsistente', [
+        $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
             'normal_payment_finished' => false,
         ]);
@@ -55,7 +55,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_payment_in_progress_without_fiscalization_is_inconsistent(): void
     {
-        $this->assertStatus('Pagamento Inconsistente', [
+        $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
             'normal_payment_finished' => false,
         ]);
@@ -63,7 +63,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_payment_finished_without_fiscalization_is_inconsistent(): void
     {
-        $this->assertStatus('Pagamento Inconsistente', [
+        $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
             'normal_payment_finished' => true,
             'd5_completed' => true,
@@ -102,7 +102,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_d5_fiscalization_finished_without_payment(): void
     {
-        $this->assertStatus('Aguardando Pagamento D5', [
+        $this->assertStatus('Aguardando Medição D5', [
             'd5_associated_to_note' => true,
             'd5_associated_to_production' => true,
             'd5_fiscal_associated' => true,
@@ -189,7 +189,7 @@ class WorkReportStatusResolverTest extends TestCase
         $workReport->setRelation('Note', $note);
         $workReport->setRelation('Adsform', null);
 
-        $this->assertSame('Aguardando Pagamento D5', $this->resolver->resolve($workReport)['label']);
+        $this->assertSame('Aguardando Medição D5', $this->resolver->resolve($workReport)['label']);
     }
 
     public function test_payment_finished_with_completed_d5_and_finished_fiscalizations(): void

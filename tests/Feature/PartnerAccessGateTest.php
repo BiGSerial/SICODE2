@@ -310,6 +310,34 @@ it('returns forbidden for direct partner urls when the route permission is block
         ->assertForbidden();
 });
 
+it('allows partner search notes through portal permission without viability grants', function () {
+    $company = partnerAccessCompany();
+    $user = partnerAccessUser($company);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    partnerAccessGrantWithPermissions($company, ['portal', 'portal.dashboard', 'portal.search_notes']);
+
+    expect(PartnerAccessGate::allows($user, 'portal.search_notes'))->toBeTrue()
+        ->and(PartnerAccessGate::allows($user, 'viability'))->toBeFalse();
+
+    $this->actingAs($user)
+        ->get(route('partner.search.notes'))
+        ->assertOk();
+});
+
+it('blocks partner search notes when the contractor disables the portal search permission', function () {
+    $company = partnerAccessCompany();
+    $user = partnerAccessUser($company);
+
+    partnerAccessGrantWithPermissions($company, ['portal', 'portal.dashboard']);
+
+    expect(PartnerAccessGate::allows($user, 'portal.search_notes'))->toBeFalse();
+
+    $this->actingAs($user)
+        ->get(route('partner.search.notes'))
+        ->assertForbidden();
+});
+
 it('keeps the partner portal entry available when viability is disabled but another module is granted', function () {
     $company = partnerAccessCompany();
     $user = partnerAccessUser($company);

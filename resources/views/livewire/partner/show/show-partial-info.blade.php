@@ -35,7 +35,7 @@
                                 $status = 'PAGO';
                                 $statusClass = 'text-bg-success';
                             } elseif ($form->supervision && !$form->payment) {
-                                $status = 'EM PAGAMENTO';
+                                $status = 'EM MEDIÇÃO';
                                 $statusClass = 'text-bg-info';
                             } elseif ($form->allow && !$form->supervision) {
                                 $status = 'EM FISCALIZAÇÃO';
@@ -142,8 +142,8 @@
                                         <div class="partial-info-step {{ $form->payment ? 'done' : '' }}">
                                             <div class="partial-info-step-icon"><i class="ri-money-dollar-circle-line"></i></div>
                                             <div>
-                                                <span>Pagamento</span>
-                                                <strong>{{ $form->payment_at ? $form->payment_at->format('d/m/Y H:i:s') : 'EM PAGAMENTO' }}</strong>
+                                                <span>Medição</span>
+                                                <strong>{{ $form->payment_at ? $form->payment_at->format('d/m/Y H:i:s') : 'EM MEDIÇÃO' }}</strong>
                                                 <small>{{ $form->Payer?->name ?? '---' }}</small>
                                             </div>
                                         </div>

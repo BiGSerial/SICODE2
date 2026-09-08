@@ -10,6 +10,7 @@ use App\Models\FiveNote;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportScopedProductionSplitter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +30,7 @@ class Jobform extends Component
     public array $productionFileGroups = [];
     public int $productionFilesCount = 0;
     public bool $hasExistingProductionFiles = false;
+    public array $closeFinalScopeSelections = [];
 
 
     public $d5 = 2;
@@ -319,6 +321,8 @@ class Jobform extends Component
 
 
         if ($this->production) {
+            $this->syncCloseFinalScopeSelections();
+
             $this->lastReturnwork = $this->production->Note->WorkForm?->LatestReturnwork;
 
             $this->return['loc_install'] = $this->production->Note->WorkForm?->Orders?->sortBy('ordem')->first()?->loc_install ?? '';
@@ -540,6 +544,17 @@ class Jobform extends Component
 
     public function to_finish()
     {
+        if (!$this->hasValidCloseFinalScopeSelection()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Escopo do encerramento obrigatório',
+                'html'     => '<div class="card"><div class="card-body text-start">Selecione ao menos um escopo para encerrar nesta fiscalização.</div></div>',
+            ]);
+
+            return;
+        }
+
         if (!in_array((string) $this->supervisionByPartnerPhotos, ['0', '1'], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -720,6 +735,12 @@ class Jobform extends Component
 
         try {
             $user = Auth()->User()->name;
+
+            app(WorkReportScopedProductionSplitter::class)->splitRemainingScopes(
+                $this->production,
+                \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION,
+                $this->selectedCloseFinalScopes()
+            );
 
             $chk = $this->production->update([
                 'status'       => 5,
@@ -945,6 +966,7 @@ class Jobform extends Component
         $this->productionFileGroups = [];
         $this->productionFilesCount = 0;
         $this->hasExistingProductionFiles = false;
+        $this->closeFinalScopeSelections = [];
         $this->return = [
             'reason' => '',
             'description' => '',
@@ -961,5 +983,48 @@ class Jobform extends Component
     public function render()
     {
         return view('livewire.services.supervision.forms.jobform');
+    }
+
+    public function closeFinalScopeOptions(): array
+    {
+        if (!$this->production) {
+            return [];
+        }
+
+        return app(WorkReportScopedProductionSplitter::class)
+            ->currentScopeOptions($this->production, \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
+    }
+
+    public function hasMultipleCloseFinalScopes(): bool
+    {
+        return count($this->closeFinalScopeOptions()) > 1;
+    }
+
+    protected function selectedCloseFinalScopes(): array
+    {
+        $options = collect($this->closeFinalScopeOptions())->pluck('scope')->all();
+
+        if (count($options) <= 1) {
+            return $options;
+        }
+
+        return collect($this->closeFinalScopeSelections)
+            ->filter(fn ($enabled) => (bool) $enabled)
+            ->keys()
+            ->intersect($options)
+            ->values()
+            ->all();
+    }
+
+    protected function hasValidCloseFinalScopeSelection(): bool
+    {
+        return !$this->hasMultipleCloseFinalScopes() || !empty($this->selectedCloseFinalScopes());
+    }
+
+    protected function syncCloseFinalScopeSelections(): void
+    {
+        $this->closeFinalScopeSelections = collect($this->closeFinalScopeOptions())
+            ->mapWithKeys(fn (array $option) => [$option['scope'] => true])
+            ->all();
     }
 }

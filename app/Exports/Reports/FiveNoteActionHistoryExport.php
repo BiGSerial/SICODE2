@@ -210,7 +210,7 @@ class FiveNoteActionHistoryExport implements FromQuery, WithHeadings, WithMappin
     {
         return match ($stage) {
             'created' => 'Criada',
-            'payment_review' => 'Em pagamento',
+            'payment_review' => 'Em medição',
             'released_to_partner' => 'Com empreiteira',
             'partner_done' => 'Concluida pela empreiteira',
             'supervision_queue' => 'Fila fiscalizacao',

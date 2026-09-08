@@ -448,7 +448,7 @@
                             <th scope="col" class="fw-bold text-center">Usuário</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                            <th scope="col" class="fw-bold text-center">Prazo Pagamento</th>
+                            <th scope="col" class="fw-bold text-center">Prazo Medição</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
@@ -653,7 +653,7 @@
                              "
                                     style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
-                                    data-bs-title="Prazo Pagamento"
+                                    data-bs-title="Prazo Medição"
                                     data-bs-content="
                          <p>A Data Corresponde 40 Parcial</p>
                          <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>

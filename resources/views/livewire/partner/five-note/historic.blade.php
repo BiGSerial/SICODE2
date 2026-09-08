@@ -219,7 +219,7 @@
                                                 $status = 'Finalizada';
                                                 $statusClass = 'bg-success';
                                             } elseif ($five->is_supervisioned) {
-                                                $status = 'Aguardando Liberação Pagamento';
+                                                $status = 'Aguardando Liberação Medição';
                                                 $statusClass = 'bg-warning text-dark';
                                             } elseif ($five->is_completed) {
                                                 $status = 'Aguardando Fiscalização';
@@ -229,7 +229,7 @@
                                                 $statusClass = 'bg-primary';
                                             }
                                         } else {
-                                            $status = 'Aguardando Despacho Pagamento';
+                                            $status = 'Aguardando Despacho Medição';
                                             $statusClass = 'bg-primary';
                                         }
                                     @endphp

@@ -388,7 +388,7 @@ Route::prefix('/partner/admin')
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->middleware('partner.permission:portal.access')->name('main.viability');
-    Route::get('/search-notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes');
+    Route::get('/search-notes', 'searchNotes')->middleware('partner.permission:portal.search_notes')->name('search.notes');
     Route::get('/todo-viability', 'viability')->middleware('partner.permission:viability.list')->name('todo.viability');
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
     Route::get('/historic-viability', 'historic_viab')->middleware('partner.permission:viability.history')->name('hist.viability');
@@ -403,7 +403,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/partialreportlist', 'partialreportlist')->middleware('partner.permission:partial_reports.list')->name('report.partiallist');
     Route::get('/send_ads_form', 'sendAdsForm')->middleware('partner.permission:conclusion_reports.ads_delivery')->name('report.sendAdsForm');
     Route::get('/ads_requests', 'adsRequests')->middleware('partner.permission:conclusion_reports.ads_requests')->name('ads.requests');
-    Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes.legacy');
+    Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:portal.search_notes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
         Route::get('/list', 'partner_d5_list')->middleware('partner.permission:d5_notes.list')->name('list');

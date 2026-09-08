@@ -64,7 +64,7 @@ class CheckPartial extends Component
             Você deseja dar seguimento da obra {$this->form->note->note} parcialmente?</br></br>
             <div class='card card-light'>
             <div class='card-body'>
-            <p>A obra será liberada para Fiscalização e posteriormente para Pagamento.</p>
+            <p>A obra será liberada para Fiscalização e posteriormente para Medição.</p>
             </div>
             </div>
             ",

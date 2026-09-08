@@ -191,15 +191,15 @@
                                                         $production = $flowProduction->Production;
                                                         $stageLabel = match ($flowProduction->stage) {
                                                             \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION => 'Fiscalização',
-                                                            \App\Models\WorkReportFlowProduction::STAGE_PAYMENT => 'Pagamento',
+                                                            \App\Models\WorkReportFlowProduction::STAGE_PAYMENT => 'Medição',
                                                             default => mb_strtoupper($flowProduction->stage ?? '-'),
                                                         };
                                                         $sourceLabel = match ($flowProduction->source) {
                                                             'retrofill_inference' => 'Retrofill',
                                                             'dispatch_supervision_main' => 'Despacho Fiscalização',
-                                                            'dispatch_payment_main' => 'Despacho Pagamento',
-                                                            'dispatch_payment_stack' => 'Pilha Pagamento',
-                                                            'services_payment_self_assign' => 'Autoatribuição Pagamento',
+                                                            'dispatch_payment_main' => 'Despacho Medição',
+                                                            'dispatch_payment_stack' => 'Pilha Medição',
+                                                            'services_payment_self_assign' => 'Autoatribuição Medição',
                                                             default => $flowProduction->source ?: '-',
                                                         };
                                                     @endphp

@@ -259,7 +259,7 @@
 
                                 <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
                                     value="aguardando_pagamento" id="statusPagamento">
-                                <label class="btn btn-outline-secondary" for="statusPagamento">Pagamento</label>
+                                <label class="btn btn-outline-secondary" for="statusPagamento">Medição</label>
 
                                 <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
                                     value="finalizado" id="statusFinalizado">
@@ -352,7 +352,7 @@
                                     $badgeClass = 'bg-success';
                                     $badgeText = 'No prazo';
                                     $phaseLabel = match ($activity['key'] ?? '') {
-                                        'aguardando_geracao_d5', 'aguardando_pagamento' => 'Pagamento',
+                                        'aguardando_geracao_d5', 'aguardando_pagamento' => 'Medição',
                                         'aguardando_fiscalizacao' => 'Fiscalizacao',
                                         'aguardando_fornecedor' => 'Fornecedor',
                                         'finalizado' => 'Finalizado',

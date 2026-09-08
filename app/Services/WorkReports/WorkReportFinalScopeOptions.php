@@ -20,20 +20,24 @@ class WorkReportFinalScopeOptions
             ]];
         }
 
-        $workReport = $this->currentWorkReport($note);
-        if (!$workReport) {
+        $workReports = $this->currentWorkReports($note);
+        if ($workReports->isEmpty()) {
             return [];
         }
 
-        $materialized = $this->materializedScopes((int) $workReport->id, $publicationOnly);
+        $materialized = $workReports
+            ->flatMap(fn (WorkReport $workReport) => $this->materializedScopes((int) $workReport->id, $publicationOnly))
+            ->unique('scope')
+            ->values()
+            ->all();
+
         if (!empty($materialized)) {
             return $materialized;
         }
 
-        $resolved = app(WorkReportFinalScopeResolver::class)
-            ->resolve((int) $note->type_note, $this->ordersFor($workReport));
-
-        return collect($resolved)
+        return $workReports
+            ->flatMap(fn (WorkReport $workReport) => app(WorkReportFinalScopeResolver::class)
+                ->resolve((int) $note->type_note, $this->ordersFor($workReport)))
             ->filter(function (array $item) use ($publicationOnly) {
                 return !$publicationOnly
                     || app(WorkReportFinalScopeResolver::class)->publicationRequired($item['scope']);
@@ -43,6 +47,7 @@ class WorkReportFinalScopeOptions
                 'label' => $this->label($item['scope']),
                 'publication_required' => app(WorkReportFinalScopeResolver::class)->publicationRequired($item['scope']),
             ])
+            ->unique('scope')
             ->values()
             ->all();
     }
@@ -68,18 +73,14 @@ class WorkReportFinalScopeOptions
         };
     }
 
-    private function currentWorkReport(Note $note): ?WorkReport
+    private function currentWorkReports(Note $note): Collection
     {
-        if ($note->relationLoaded('WorkForm') && $note->WorkForm) {
-            return $note->WorkForm;
-        }
-
         return WorkReport::query()
             ->where('note_id', $note->id)
             ->where('canceled', false)
             ->orderByRaw('COALESCE(informed_at, created_at) DESC')
             ->orderByDesc('id')
-            ->first();
+            ->get();
     }
 
     private function materializedScopes(int $workReportId, bool $publicationOnly): array

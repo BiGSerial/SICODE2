@@ -6,7 +6,7 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Serviços</li>
-                <li class="breadcrumb-item">Pagamento</li>
+                <li class="breadcrumb-item">Medição</li>
                 <li class="breadcrumb-item active" aria-current="page">Execução Descancelamento</li>
             </ol>
         </ol>

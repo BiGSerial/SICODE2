@@ -413,6 +413,23 @@ class Workreports extends Component
         $this->form['acceptance_meta'] = $this->buildAcceptanceMeta();
         $this->form['selected_final_scopes'] = $this->selectedFinalScopesForSave();
 
+        $existingWorkReport = $this->activeWorkReportWithAnySelectedFinalScope($this->form['selected_final_scopes']);
+
+        if ($existingWorkReport) {
+            $scopeLabels = collect($this->form['selected_final_scopes'])
+                ->map(fn (string $scope) => $this->finalScopeLabel($scope))
+                ->implode(', ');
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Informe já existente',
+                'html'     => "Já existe um informe final ativo para este tipo ({$scopeLabels}). Cancele ou reenvie o informe existente antes de criar outro do mesmo tipo.",
+            ]);
+
+            return;
+        }
+
         if ($this->form['equipment'] == true && empty($this->temp_equipment)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -491,10 +508,7 @@ class Workreports extends Component
 
         try {
 
-            $form = WorkReport::updateOrCreate(
-                ['note_id' => $this->form['note_id'], 'canceled' => false],
-                $this->form
-            );
+            $form = WorkReport::create($this->form);
 
             if ($form) {
 
@@ -717,7 +731,7 @@ class Workreports extends Component
             }
 
             if ($partialOpen->supervision) {
-                return 'EM PAGAMENTO';
+                return 'EM MEDIÇÃO';
             }
 
             if ($partialOpen->deny) {
@@ -1009,6 +1023,50 @@ class Workreports extends Component
             ->all();
     }
 
+    public function workReportStatusBadgeForNote(Note $note): array
+    {
+        $detectedScopes = collect(app(WorkReportFinalScopeResolver::class)->resolve($note->type_note, $this->selectableOrdersForNote($note)))
+            ->pluck('scope')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $activeScopes = WorkReport::query()
+            ->with(['Note', 'Orders'])
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->get()
+            ->flatMap(fn (WorkReport $workReport) => collect($workReport->finalScopePayloads())->pluck('scope'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($activeScopes->isEmpty()) {
+            return [
+                'class' => 'bg-info text-dark',
+                'label' => 'NAO INFORMADA',
+                'title' => 'Clique para informar esta obra',
+                'row_class' => 'cursor-pointer hover-highlight',
+            ];
+        }
+
+        if ($detectedScopes->diff($activeScopes)->isNotEmpty()) {
+            return [
+                'class' => 'bg-warning text-dark',
+                'label' => 'TIPO PENDENTE',
+                'title' => 'Esta obra possui informe ativo, mas ainda ha tipo pendente',
+                'row_class' => 'cursor-pointer hover-highlight',
+            ];
+        }
+
+        return [
+            'class' => 'bg-success',
+            'label' => 'INFORMADA',
+            'title' => 'Esta obra ja possui informe ativo para todos os tipos detectados',
+            'row_class' => 'text-muted',
+        ];
+    }
+
     private function finalScopeLabel(string $scope): string
     {
         return match ($scope) {
@@ -1088,6 +1146,37 @@ class Workreports extends Component
         };
     }
 
+    protected function activeWorkReportWithAnySelectedFinalScope(?array $selectedScopes): ?WorkReport
+    {
+        if (!$this->note) {
+            return null;
+        }
+
+        $selectedScopes = collect($selectedScopes)
+            ->map(fn ($scope) => (string) $scope)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($selectedScopes->isEmpty()) {
+            $selectedScopes = collect([WorkReportFinalScopeResolver::SCOPE_GENERAL]);
+        }
+
+        return WorkReport::query()
+            ->with(['Note', 'Orders'])
+            ->where('note_id', $this->note->id)
+            ->where('canceled', false)
+            ->get()
+            ->first(function (WorkReport $workReport) use ($selectedScopes) {
+                $activeScopes = collect($workReport->finalScopePayloads())
+                    ->pluck('scope')
+                    ->filter()
+                    ->unique();
+
+                return $activeScopes->intersect($selectedScopes)->isNotEmpty();
+            });
+    }
+
     protected function showFinalScopeSelectionRequiredFeedback(): void
     {
         $this->dispatchBrowserEvent('swal', [
@@ -1123,7 +1212,12 @@ class Workreports extends Component
             return collect();
         }
 
-        $orders = $this->note->relationLoaded('Orders') ? $this->note->Orders : $this->note->Orders()->get();
+        return $this->selectableOrdersForNote($this->note);
+    }
+
+    protected function selectableOrdersForNote(Note $note)
+    {
+        $orders = $note->relationLoaded('Orders') ? $note->Orders : $note->Orders()->get();
 
         return $orders
             ->filter(fn ($order) => !(strpos((string) $order->statusSist, 'ENT') === 0 || strpos((string) $order->statusSist, 'ENC') === 0))

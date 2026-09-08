@@ -104,7 +104,7 @@ class PartialList extends Component
                 ];
             } elseif ($partial->supervision && !$partial->payment) {
                 $status = [
-                    'status' => 'EM PAGAMENTO',
+                    'status' => 'EM MEDIÇÃO',
                     'color' => 'text-bg-info',
                 ];
             } elseif ($partial->allow && !$partial->supervision) {

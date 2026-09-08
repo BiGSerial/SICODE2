@@ -289,7 +289,7 @@
                             <th scope="col">Envio</th>
                             <th scope="col">Aprovação</th>
                             <th scope="col">Fiscalização</th>
-                            <th scope="col">Pagamento</th>
+                            <th scope="col">Medição</th>
                             <th scope="col">Valor ADS</th>
                             <th scope="col">Status</th>
                             <th scope="col">Finalizado</th>

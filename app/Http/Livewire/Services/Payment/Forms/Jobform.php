@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Services\D5\D5WorkflowService;
+use App\Services\WorkReports\WorkReportScopedProductionSplitter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -17,6 +18,7 @@ class Jobform extends Component
     public ?Analise $analise = null;
     public $companies;
     public $five;
+    public array $closeFinalScopeSelections = [];
 
     protected $listeners = [
         'refresh' => '$refresh',
@@ -69,6 +71,7 @@ class Jobform extends Component
         $this->production = $production;
 
         if ($this->production) {
+            $this->syncCloseFinalScopeSelections();
 
             if ($this->production->note->FiveNote?->exists()) {
                 $this->five = $this->production->note->FiveNote;
@@ -204,12 +207,23 @@ class Jobform extends Component
 
     public function to_finish()
     {
+        if (!$this->hasValidCloseFinalScopeSelection()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Escopo do encerramento obrigatório',
+                'html'     => '<div class="card"><div class="card-body text-start">Selecione ao menos um escopo para encerrar nesta medição.</div></div>',
+            ]);
+
+            return;
+        }
+
         $this->validate(['analise.conclusion' => 'required|min:1']);
 
         if ($this->production->partial) {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENCERRAMENTO DE SERVIÇO PARCIAL',
-                'msg'   => "Você está prestes encerrar o pagamento Parcial de <strong>{$this->production->Note->note}</strong>.
+                'msg'   => "Você está prestes encerrar a medição parcial de <strong>{$this->production->Note->note}</strong>.
                 <div class='card'>
                     <div class='card-body'>
                         Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
@@ -229,7 +243,7 @@ class Jobform extends Component
         } else {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENCERRAMENTO DE SERVIÇO',
-                'msg'   => "Você está prestes encerrar o pagamento de <strong>{$this->production->Note->note}</strong>.
+                'msg'   => "Você está prestes encerrar a medição de <strong>{$this->production->Note->note}</strong>.
                     <div class='card'>
                         <div class='card-body'>
                             Ao encerrar, entendemos que você seguiu todos os procedimentos em relação as transações no SAP.\n
@@ -258,6 +272,12 @@ class Jobform extends Component
         DB::beginTransaction();
 
         try {
+            app(WorkReportScopedProductionSplitter::class)->splitRemainingScopes(
+                $this->production,
+                \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
+                $this->selectedCloseFinalScopes()
+            );
+
             $chk = $this->production->update([
                 'status'       => 5,
                 'completed_at' => date('Y-m-d H:i:s'),
@@ -368,6 +388,7 @@ class Jobform extends Component
         $this->production = null;
         $this->analise = null;
         $this->five = null;
+        $this->closeFinalScopeSelections = [];
         $this->emitUp('refresh_list');
         $this->dispatchBrowserEvent('hideModal');
     }
@@ -375,5 +396,48 @@ class Jobform extends Component
     public function render()
     {
         return view('livewire.services.payment.forms.jobform');
+    }
+
+    public function closeFinalScopeOptions(): array
+    {
+        if (!$this->production) {
+            return [];
+        }
+
+        return app(WorkReportScopedProductionSplitter::class)
+            ->currentScopeOptions($this->production, \App\Models\WorkReportFlowProduction::STAGE_PAYMENT);
+    }
+
+    public function hasMultipleCloseFinalScopes(): bool
+    {
+        return count($this->closeFinalScopeOptions()) > 1;
+    }
+
+    protected function selectedCloseFinalScopes(): array
+    {
+        $options = collect($this->closeFinalScopeOptions())->pluck('scope')->all();
+
+        if (count($options) <= 1) {
+            return $options;
+        }
+
+        return collect($this->closeFinalScopeSelections)
+            ->filter(fn ($enabled) => (bool) $enabled)
+            ->keys()
+            ->intersect($options)
+            ->values()
+            ->all();
+    }
+
+    protected function hasValidCloseFinalScopeSelection(): bool
+    {
+        return !$this->hasMultipleCloseFinalScopes() || !empty($this->selectedCloseFinalScopes());
+    }
+
+    protected function syncCloseFinalScopeSelections(): void
+    {
+        $this->closeFinalScopeSelections = collect($this->closeFinalScopeOptions())
+            ->mapWithKeys(fn (array $option) => [$option['scope'] => true])
+            ->all();
     }
 }
