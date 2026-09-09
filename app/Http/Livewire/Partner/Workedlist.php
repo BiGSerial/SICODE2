@@ -6,6 +6,7 @@ use App\Exports\Partner\WorkInformsExport;
 use App\Models\{Company, File, WorkReport};
 use App\Models\Edp_depc\City;
 use App\Services\Files\FileStorageService;
+use App\Services\WorkReports\WorkReportStatusResolver;
 use Carbon\Carbon;
 use Livewire\{Component, WithPagination};
 
@@ -30,6 +31,10 @@ class Workedlist extends Component
 
     public $companyOptions = [];
 
+    public $currentStatus = '';
+
+    public $currentStatusOptions = [];
+
     // search by date
     public $month;
 
@@ -49,6 +54,7 @@ class Workedlist extends Component
         'perPage'   => ['as' => 'pp'],
         'month'     => ['except' => '', 'as' => 'mes_referencia'],
         'companyId' => ['except' => '', 'as' => 'empreiteira'],
+        'currentStatus' => ['except' => '', 'as' => 'status_atual'],
     ];
 
     protected $listeners = [
@@ -60,6 +66,7 @@ class Workedlist extends Component
     {
         $this->cities         = City::orderBy('cidade')->get();
         $this->companyOptions = $this->loadCompanyOptions();
+        $this->currentStatusOptions = $this->loadCurrentStatusOptions();
         // $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
         // $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
         // $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
@@ -91,6 +98,7 @@ class Workedlist extends Component
         $this->date_out    = '';
         $this->month       = '';
         $this->companyId   = '';
+        $this->currentStatus = '';
     }
 
     public function applyMultiSearch()
@@ -112,6 +120,11 @@ class Workedlist extends Component
     }
 
     public function updatedCompanyId()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedCurrentStatus()
     {
         $this->resetPage();
     }
@@ -215,9 +228,20 @@ class Workedlist extends Component
             });
         }
 
-        $query->with(['Note.Files', 'Note.OldAds' => function ($q) {
-            $q->orderBy('date', 'asc');
-        }, 'Orders', 'Equipment', 'Company', 'Adsform']);
+        if ($this->currentStatus !== '') {
+            $query->where('current_status_key', $this->currentStatus);
+        }
+
+        $query->with([
+            'Note.Files',
+            'Note.OldAds' => function ($q) {
+                $q->orderBy('date', 'asc');
+            },
+            'Orders',
+            'Equipment',
+            'Company',
+            'Adsform',
+        ]);
 
         $query->orderByRaw('COALESCE(informed_at, created_at) DESC')
             ->orderByDesc('id');
@@ -285,6 +309,26 @@ class Workedlist extends Component
         return $query
             ->orderByRaw('LOWER(name)')
             ->get(['id', 'name']);
+    }
+
+    private function loadCurrentStatusOptions()
+    {
+        return collect([
+            ['key' => 'inform', 'label' => WorkReportStatusResolver::INFORM],
+            ['key' => 'waiting_fiscalization', 'label' => WorkReportStatusResolver::WAITING_FISCALIZATION],
+            ['key' => 'fiscalization', 'label' => WorkReportStatusResolver::FISCALIZATION],
+            ['key' => 'waiting_payment', 'label' => WorkReportStatusResolver::WAITING_PAYMENT],
+            ['key' => 'payment', 'label' => 'Em Medição'],
+            ['key' => 'payment_finished', 'label' => 'Medição Finalizada'],
+            ['key' => 'finalized', 'label' => WorkReportStatusResolver::FINALIZED],
+            ['key' => 'inconsistent_payment', 'label' => WorkReportStatusResolver::INCONSISTENT_PAYMENT],
+            ['key' => 'waiting_d5_dispatch', 'label' => WorkReportStatusResolver::WAITING_D5_DISPATCH],
+            ['key' => 'waiting_d5_resolution', 'label' => WorkReportStatusResolver::WAITING_D5_RESOLUTION],
+            ['key' => 'waiting_d5_fiscalization', 'label' => WorkReportStatusResolver::WAITING_D5_FISCALIZATION],
+            ['key' => 'd5_fiscalization', 'label' => WorkReportStatusResolver::D5_FISCALIZATION],
+            ['key' => 'waiting_d5_payment', 'label' => WorkReportStatusResolver::WAITING_D5_PAYMENT],
+            ['key' => 'releasing_letter', 'label' => WorkReportStatusResolver::RELEASING_LETTER],
+        ]);
     }
 
     private function visibleCompanyIds()

@@ -65,7 +65,7 @@ class WorkReportFlowProductionLinker
                 ->where('production_id', '!=', $production->id)
                 ->update(['is_current' => false]);
 
-            return WorkReportFlowProduction::query()->updateOrCreate(
+            $link = WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,
                     'production_id' => $production->id,
@@ -86,6 +86,10 @@ class WorkReportFlowProductionLinker
                     ], fn ($value) => $value !== null),
                 ]
             );
+
+            app(WorkReportCurrentStatusRefresher::class)->refresh($workReport->id);
+
+            return $link;
         });
     }
 

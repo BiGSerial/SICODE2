@@ -42,6 +42,7 @@ class WorkReportStatusResolver
         $d5PaymentFinished = (bool) ($state['d5_payment_finished'] ?? false);
         $letterReleased = (bool) ($state['letter_released'] ?? false);
         $hasAds = (bool) ($state['has_ads'] ?? false);
+        $sapOperationStatus = $state['sap_operation_status'] ?? null;
 
         $anyFiscalAssociated = $normalFiscalAssociated || $d5FiscalAssociated;
         $anyPaymentAssociated = $normalPaymentAssociated || $d5PaymentAssociated;
@@ -85,6 +86,14 @@ class WorkReportStatusResolver
 
         if ($d5FiscalFinished && $d5PaymentAssociated && (!$d5PaymentFinished || !$letterReleased)) {
             return $this->status('releasing_letter', self::RELEASING_LETTER, 'text-bg-primary');
+        }
+
+        if (!$normalFiscalAssociated && !$normalPaymentAssociated && is_array($sapOperationStatus)) {
+            return $this->status(
+                $sapOperationStatus['key'],
+                $sapOperationStatus['label'],
+                $sapOperationStatus['class']
+            );
         }
 
         if (!$normalFiscalAssociated && !$normalPaymentAssociated) {
@@ -144,7 +153,104 @@ class WorkReportStatusResolver
             'd5_payment_associated' => $effectiveD5PaymentProductions->isNotEmpty(),
             'd5_payment_finished' => $this->anyPaymentFinished($effectiveD5PaymentProductions) || (bool) ($fiveNote?->is_archived ?? false),
             'letter_released' => (bool) ($fiveNote?->is_payed ?? false) || (bool) ($fiveNote?->is_archived ?? false),
+            'sap_operation_status' => $this->sapOperationStatus($workReport),
         ];
+    }
+
+    private function sapOperationStatus(WorkReport $workReport): ?array
+    {
+        $operations = $this->workReportOperations($workReport);
+
+        $operation30 = $this->operationByCode($operations, '0030');
+        $operation50 = $this->operationByCode($operations, '0050');
+        $operation60 = $this->operationByCode($operations, '0060');
+
+        if ($operation60 && $this->operationFinished($operation60)) {
+            return $this->status('finalized', self::FINALIZED, 'text-bg-success');
+        }
+
+        if ($operation50 && $this->operationFinished($operation50)) {
+            return $this->status('payment_finished', 'Medição Finalizada', 'text-bg-success');
+        }
+
+        if (($operation50 && !$this->operationFinished($operation50)) || ($operation30 && $this->operationFinished($operation30))) {
+            return $this->status('waiting_payment', self::WAITING_PAYMENT, 'text-bg-warning');
+        }
+
+        if ($operation30) {
+            if ($operation30->inicioReal && !$this->operationFinished($operation30)) {
+                return $this->status('fiscalization', self::FISCALIZATION, 'text-bg-primary');
+            }
+
+            return $this->status('waiting_fiscalization', self::WAITING_FISCALIZATION, 'text-bg-secondary');
+        }
+
+        return null;
+    }
+
+    private function workReportOperations(WorkReport $workReport): Collection
+    {
+        $orders = $workReport->relationLoaded('Orders')
+            ? $workReport->Orders
+            : $workReport->Orders()->with('Operations')->get();
+
+        $mainOrder = $this->mainValidOrder($orders);
+
+        if (!$mainOrder) {
+            return collect();
+        }
+
+        return $mainOrder->relationLoaded('Operations')
+            ? $mainOrder->Operations->filter()
+            : $mainOrder->Operations()->get()->filter();
+    }
+
+    private function mainValidOrder(Collection $orders): ?object
+    {
+        $orders200 = $this->ordersByPrefix($orders, '200');
+
+        if ($orders200->isNotEmpty()) {
+            return $orders200->first();
+        }
+
+        $orders170 = $this->ordersByPrefix($orders, '170');
+
+        if ($orders170->isNotEmpty()) {
+            return $orders170->first();
+        }
+
+        $orders180 = $this->ordersByPrefix($orders, '180');
+
+        if ($orders180->isNotEmpty()) {
+            return $orders180->first();
+        }
+
+        if ($orders->count() === 1 && str_starts_with((string) $orders->first()->ordem, '190')) {
+            return $orders->first();
+        }
+
+        return null;
+    }
+
+    private function ordersByPrefix(Collection $orders, string $prefix): Collection
+    {
+        return $orders
+            ->filter(fn ($order) => str_starts_with((string) $order->ordem, $prefix))
+            ->sortByDesc(fn ($order) => $order->updated_at ?? $order->created_at ?? $order->id ?? $order->ordem)
+            ->values();
+    }
+
+    private function operationByCode(Collection $operations, string $code): ?object
+    {
+        return $operations
+            ->filter(fn ($operation) => str_pad((string) $operation->operacao, 4, '0', STR_PAD_LEFT) === $code)
+            ->sortByDesc(fn ($operation) => $operation->fimReal ?? $operation->inicioReal ?? $operation->updated_at ?? $operation->id)
+            ->first();
+    }
+
+    private function operationFinished(object $operation): bool
+    {
+        return filled($operation->fimReal ?? null);
     }
 
     private function productionsByService(Collection $productions, string $service): Collection

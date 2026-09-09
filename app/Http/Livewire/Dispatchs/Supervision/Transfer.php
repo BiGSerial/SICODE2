@@ -33,13 +33,30 @@ class Transfer extends Component
 
     public function verify_transfer(Production $production)
     {
-        $this->transfer   = Wpa::where('production_id', $production->id)->first();
+        $this->transfer   = Wpa::where('production_id', $production->id)->orderByDesc('id')->first();
         $this->production = $production;
+        $currentDd = $this->transfer?->dd;
+        $informedDd = trim((string) ($this->dd[$production->id] ?? ''));
 
-        if ($this->dd[$production->id] == $production->load('Wpas')->Wpas->last()->dd) {
+        if ($informedDd === '') {
             $this->dispatchBrowserEvent('alertar', [
                 'title'         => 'Confirmar Transferência',
-                'msg'           => "Você deseja manter o mesmo número DD: <strong>{$production->load('Wpas')->Wpas->last()->dd}</strong> para a Nota <strong>{$production->load('Note')->Note->note}</strong>?",
+                'msg'           => "Você deseja transferir a Nota <strong>{$production->load('Note')->Note->note}</strong> sem número DD?",
+                'icon'          => 'question',
+                'btnOktxt'      => 'Sim, Transferir!',
+                'btnCanceltxt'  => 'Não, Cancele',
+                'action'        => 'to_complete_transfer',
+                'cancel_titulo' => 'Cancelado!',
+                'cancel_msg'    => 'Nenhuma nenhuma Nota/OV foi transferida.',
+            ]);
+
+            return;
+        }
+
+        if ($informedDd === (string) $currentDd) {
+            $this->dispatchBrowserEvent('alertar', [
+                'title'         => 'Confirmar Transferência',
+                'msg'           => "Você deseja manter o mesmo número DD: <strong>{$currentDd}</strong> para a Nota <strong>{$production->load('Note')->Note->note}</strong>?",
                 'icon'          => 'question',
                 'btnOktxt'      => 'Sim, Mantenha o mesmo número!',
                 'btnCanceltxt'  => 'Não, Cancele',
@@ -49,7 +66,7 @@ class Transfer extends Component
             ]);
         } else {
 
-            $wpas = Wpa::where('dd', $this->dd[$production->id])->first();
+            $wpas = Wpa::where('dd', $informedDd)->first();
 
             if ($wpas) {
 
@@ -61,7 +78,7 @@ class Transfer extends Component
                         'position' => 'center',
                         'icon'     => 'warning',
                         'title'    => 'ERRO DE ASSOCIAÇÃO',
-                        'msg'      => "A DD <strong>{$this->dd[$production->id]}</strong>, está relacionada NOTA/OV: {$note} atribuído à <strong>{$user}</strong>. Não foi possíve prosseguir com a associoação.",
+                        'msg'      => "A DD <strong>{$informedDd}</strong>, está relacionada NOTA/OV: {$note} atribuído à <strong>{$user}</strong>. Não foi possíve prosseguir com a associoação.",
                     ]);
 
                     return;
@@ -75,7 +92,7 @@ class Transfer extends Component
                         'position' => 'center',
                         'icon'     => 'warning',
                         'title'    => 'ERRO DE ASSOCIAÇÃO',
-                        'msg'      => "A DD <strong>{$this->dd[$production->id]}</strong>, está relacionada NOTA/OV: {$note}, ainda não despachada. Verifique novamente, ou altere a DD da nota associada.",
+                        'msg'      => "A DD <strong>{$informedDd}</strong>, está relacionada NOTA/OV: {$note}, ainda não despachada. Verifique novamente, ou altere a DD da nota associada.",
                     ]);
 
                     return;
@@ -83,7 +100,7 @@ class Transfer extends Component
             } else {
                 $this->dispatchBrowserEvent('alertar', [
                     'title'         => 'Confirmar Transferência',
-                    'msg'           => "Você deseja usar número DD: <strong>{$this->dd[$production->id]}</strong> para a Nota <strong>{$production->load('Note')->Note->note}</strong>?",
+                    'msg'           => "Você deseja usar número DD: <strong>{$informedDd}</strong> para a Nota <strong>{$production->load('Note')->Note->note}</strong>?",
                     'icon'          => 'question',
                     'btnOktxt'      => 'Sim, Alterar a DD!',
                     'btnCanceltxt'  => 'Não, Cancele',
@@ -98,9 +115,21 @@ class Transfer extends Component
 
     public function go_complete_transfer()
     {
-        if ($this->transfer) {
-            if ($this->transfer->update(['dd' => $this->dd[$this->production->id]])) {
-                $this->production->update(['block_wpa' => false]);
+        if ($this->production) {
+            $dd = trim((string) ($this->dd[$this->production->id] ?? ''));
+
+            if ($this->transfer) {
+                $this->transfer->update(['dd' => $dd !== '' ? $dd : null]);
+            } elseif ($dd !== '') {
+                Wpa::create([
+                    'note_id'       => $this->production->note_id,
+                    'production_id' => $this->production->id,
+                    'service_id'    => $this->production->service_id,
+                    'dd'            => $dd,
+                ]);
+            }
+
+            if ($this->production->update(['block_wpa' => false])) {
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -130,7 +159,7 @@ class Transfer extends Component
         $lists = $this->lists;
 
         foreach ($lists as $prod) {
-            $this->dd[$prod->id] = $prod->Wpas->last()->dd;
+            $this->dd[$prod->id] = $prod->Wpas->last()?->dd ?? '';
         }
 
     }

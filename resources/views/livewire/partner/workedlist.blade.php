@@ -105,7 +105,7 @@
                     </select>
                 </div>
 
-                <div class="col-12 col-sm-8 col-lg-3">
+                <div class="col-12 col-sm-8 col-lg-2">
                     <label for="search" class="form-label mb-1">Buscar</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="search"
@@ -124,6 +124,16 @@
                         <option value="">Todas</option>
                         @foreach ($companyOptions as $company)
                             <option value="{{ $company->id }}">{{ $company->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-12 col-sm-6 col-lg-2">
+                    <label for="currentStatus" class="form-label mb-1">Status atual</label>
+                    <select id="currentStatus" class="form-select" wire:model="currentStatus">
+                        <option value="">Todos</option>
+                        @foreach ($currentStatusOptions as $statusOption)
+                            <option value="{{ $statusOption['key'] }}">{{ $statusOption['label'] }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -180,6 +190,7 @@
                     <thead>
                         <tr>
                             <th class="text-center">Status</th>
+                            <th class="text-center">Status atual</th>
                             <th class="text-center">Nota/OV</th>
                             <th class="text-center">Ordens</th>
                             <th class="text-center">Escopo</th>
@@ -214,6 +225,15 @@
                                 wire:key="work-report-{{ $list->id }}" class="{{ $rowClass }}">
                                 <td class="text-center">
                                     <span class="status-badge {{ $statusClass }}">{{ $statusLabel }}</span>
+                                </td>
+                                <td class="text-center">
+                                    @if ($list->current_status_label)
+                                        <span class="status-badge {{ $list->current_status_class }}">
+                                            {{ $list->current_status_label }}
+                                        </span>
+                                    @else
+                                        <span class="text-muted">Atualizando</span>
+                                    @endif
                                 </td>
                                 <td class="text-center fw-bold">{{ $list->Note->note }}</td>
                                 <td class="text-center">

@@ -27,12 +27,18 @@ class WorkReportFlowProductionReversalService
                 $query->where('stage', $stage);
             }
 
-            return $query->update([
+            $updated = $query->update([
                 'is_current' => false,
                 'reversed_at' => now(),
                 'reversed_by' => $actorId,
                 'reverse_reason' => $reason,
             ]);
+
+            if ($updated > 0) {
+                app(WorkReportCurrentStatusRefresher::class)->refresh($workReportId);
+            }
+
+            return $updated;
         });
     }
 
@@ -55,12 +61,20 @@ class WorkReportFlowProductionReversalService
                 $query->where('stage', $stage);
             }
 
-            return $query->update([
+            $workReportIds = (clone $query)->pluck('work_report_id')->unique()->values();
+
+            $updated = $query->update([
                 'is_current' => false,
                 'reversed_at' => now(),
                 'reversed_by' => $actorId,
                 'reverse_reason' => $reason,
             ]);
+
+            foreach ($workReportIds as $workReportId) {
+                app(WorkReportCurrentStatusRefresher::class)->refresh((int) $workReportId);
+            }
+
+            return $updated;
         });
     }
 }

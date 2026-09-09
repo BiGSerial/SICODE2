@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Http\Livewire\Dispatchs\Survey\Main as SurveyDispatchMain;
+use App\Http\Livewire\Dispatchs\Survey\Transfer as SurveyTransfer;
 use App\Http\Livewire\Dispatchs\Supervision\Main as SupervisionDispatchMain;
 use App\Models\Company;
 use App\Models\Note;
+use App\Models\Prodtransfer;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
@@ -96,5 +98,52 @@ class SurveyMassDdAssociationTest extends TestCase
             'service_id' => $service->uuid,
             'dd' => '170000002',
         ]);
+    }
+
+    public function test_survey_transfer_accepts_production_without_dd(): void
+    {
+        $from = User::factory()->create(['contract' => false]);
+        $to = User::factory()->create(['contract' => false]);
+        $this->actingAs($from);
+
+        $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
+        $service = Service::create(['service' => 'Levantamento', 'folder' => 'levantamento']);
+        $note = Note::create(['note' => '4000000005', 'dt_status' => now(), 'nstats' => 'NEW']);
+        $production = Production::create([
+            'note_id' => $note->id,
+            'service_id' => $service->uuid,
+            'company_id' => $company->id,
+            'user_id' => $from->id,
+            'dt_note' => now(),
+            'status_note' => 'NEW',
+            'block_wpa' => true,
+            'block' => true,
+            'status' => 3,
+        ]);
+
+        Prodtransfer::create([
+            'production_id' => $production->id,
+            'service_id' => $service->uuid,
+            'from' => $from->id,
+            'to' => $to->id,
+            'info' => 'Transferencia sem DD',
+            'status' => 1,
+        ]);
+
+        Livewire::test(SurveyTransfer::class, ['service' => $service->uuid])
+            ->assertSet("dd.{$production->id}", '')
+            ->call('verify_transfer', $production)
+            ->assertDispatchedBrowserEvent('alertar', function (string $event, array $data) {
+                return str_contains($data['msg'] ?? '', 'sem número DD');
+            })
+            ->call('go_complete_transfer');
+
+        $this->assertDatabaseHas('productions', [
+            'id' => $production->id,
+            'block_wpa' => false,
+            'block' => false,
+            'status' => 2,
+        ]);
+        $this->assertDatabaseCount('wpas', 0);
     }
 }
