@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Models\File;
 use App\Models\Note;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -22,10 +22,12 @@ class Returned extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
 
 
-                return Storage::download($file->path, $file->file_name);
+                return $storage->download($file, $file->file_name);
 
             }
         }

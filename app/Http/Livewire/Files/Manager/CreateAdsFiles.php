@@ -2,12 +2,10 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Models\File;
-use App\Models\Note;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Note};
+use Illuminate\Support\Facades\{DB};
+use Livewire\{Component, WithFileUploads};
 
 /**
  * Componente Livewire para Gerenciamento de Arquivos de Generico
@@ -45,13 +43,20 @@ use Livewire\WithFileUploads;
 class CreateAdsFiles extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
     public ?Note $note = null;
+
     public bool $alertFile = false;
+
     public string $service;
+
     public $files = [];
+
     public $tempFiles = [];
+
     public $uploadType;
+
     public $services;
 
     protected $listeners = [
@@ -62,7 +67,7 @@ class CreateAdsFiles extends Component
 
     public function mount(Note $note, string $service)
     {
-        $this->note = $note;
+        $this->note    = $note;
         $this->service = $service;
     }
 
@@ -85,15 +90,15 @@ class CreateAdsFiles extends Component
 
                 if (!$exists) {
                     $this->tempFiles[] = [
-                        'note_id' => $this->note->id,
-                        'service_id' => null,
-                        'user_id' => Auth()->User()->id,
-                        'uploadType' => $this->uploadType,
-                        'ext' => $file->getClientOriginalExtension(),
+                        'note_id'       => $this->note->id,
+                        'service_id'    => null,
+                        'user_id'       => Auth()->User()->id,
+                        'uploadType'    => $this->uploadType,
+                        'ext'           => $file->getClientOriginalExtension(),
                         'original_name' => $file->getClientOriginalName(),
-                        'newName' => null,
-                        'suspicious' => false,
-                        'file' => $file,
+                        'newName'       => null,
+                        'suspicious'    => false,
+                        'file'          => $file,
                     ];
                 }
             }
@@ -107,7 +112,7 @@ class CreateAdsFiles extends Component
         if (count($this->tempFiles)) {
 
             $this->alertFile = false;
-            $hasAsbuilt = false;
+            $hasAsbuilt      = false;
 
             foreach ($this->tempFiles as &$temp_file) {
 
@@ -116,11 +121,10 @@ class CreateAdsFiles extends Component
                 }
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
-                    $this->alertFile = true;
+                    $this->alertFile         = true;
                     $temp_file['suspicious'] = true;
                 }
             }
-
 
             $this->emitUp('hasFile', true);
             $this->emitUp('hasAsbuiltFile', $hasAsbuilt);
@@ -129,8 +133,6 @@ class CreateAdsFiles extends Component
             $this->emitUp('hasAsbuiltFile', false);
         }
     }
-
-
 
     public function removeFile($index)
     {
@@ -144,7 +146,6 @@ class CreateAdsFiles extends Component
         $this->checkFilesExists();
     }
 
-
     public function closeAll()
     {
         if (count($this->tempFiles)) {
@@ -157,20 +158,17 @@ class CreateAdsFiles extends Component
 
         // $this->note = null;
         $this->uploadType = '';
-        $this->files = [];
+        $this->files      = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
 
     }
 
-
     // public function createFile(Note $note)
     // {
     //     $this->note = $note;
 
-
     //     if ($this->note) {
-
 
     //         $this->dispatchBrowserEvent('showModal', [
     //             'id' => 'modal_mass_upload',
@@ -178,11 +176,10 @@ class CreateAdsFiles extends Component
     //     }
     // }
 
-
     private function rename(array &$temps, string $type)
     {
-        $count = 0;
-        $item = 1;
+        $count  = 0;
+        $item   = 1;
         $type_s = '';
 
         usort($temps, function ($a, $b) {
@@ -195,9 +192,7 @@ class CreateAdsFiles extends Component
             return strcmp($a['original_name'], $b['original_name']);
         });
 
-
         foreach ($temps as $temp) {
-
 
             if ($temp['uploadType'] === $type) {
                 $count++;
@@ -209,19 +204,18 @@ class CreateAdsFiles extends Component
 
             if ($temp['uploadType'] !== $type_s) {
                 $type_s = $temp['uploadType'];
-                $item = 1;
+                $item   = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev   = mb_strtoupper(substr($this->service, 0, 4));
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->note->note . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
         }
 
     }
-
 
     public function saveFiles()
     {
@@ -236,30 +230,21 @@ class CreateAdsFiles extends Component
         DB::beginTransaction();
 
         foreach ($this->tempFiles as $saveFile) {
-            $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
+            $rev = File::where('file_name', 'like', $saveFile['newName'] . "%")->count();
 
-            $caminho = $saveFile['file']->storeAs('/arquivos/ADS_FINAL/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
+            try {
+                $chk = $this->persistManagedFileUpload(
+                    $saveFile,
+                    $this->note,
+                    '/arquivos/ADS_FINAL/' . $saveFile['uploadType'],
+                    $saveFile['newName'] . "_Rev" . $rev,
+                    ['service_id' => null],
+                );
 
-            if (Storage::exists($caminho)) {
-                $chk = File::create([
-                    'note_id' => $this->note->id,
-                    'user_id' => Auth()->User()->id,
-                    'service_id' => null,
-                    'file_name' => $saveFile['newName']."_Rev".$rev,
-                    'original_name' => $saveFile['original_name'],
-                    'path' => $caminho,
-                    'ext' => $saveFile['ext'],
-                    'suspicious' => $saveFile['suspicious'],
-                    'noexists' => false,
-                ]);
-
-                if ($chk) {
-                    if ($this->note->WorkForm->Adsform) {
-                        $this->note->WorkForm->Adsform->files()->attach($chk->id);
-                    }
+                if ($this->note->WorkForm->Adsform) {
+                    $this->note->WorkForm->Adsform->files()->attach($chk->id);
                 }
-
-            } else {
+            } catch (\Throwable) {
                 DB::rollback();
 
                 $this->dispatchBrowserEvent('swal', [
@@ -281,7 +266,6 @@ class CreateAdsFiles extends Component
 
         DB::commit();
 
-
         // $this->dispatchBrowserEvent('swal', [
         //     'position' => 'center',
         //     'icon'     => 'success',
@@ -295,14 +279,10 @@ class CreateAdsFiles extends Component
         $this->closeAll();
     }
 
-
-
     protected $rules = [
 
         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,zip|max:30370',
     ];
-
-
 
     public function render()
     {

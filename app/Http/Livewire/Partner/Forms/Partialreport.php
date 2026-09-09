@@ -4,7 +4,8 @@ namespace App\Http\Livewire\Partner\Forms;
 
 use App\Custom\Partial\{Ads};
 use App\Models\{File, Note, Order, Partial};
-use Illuminate\Support\Facades\{DB, Storage};
+use App\Services\Files\FileUploadService;
+use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
 
 class Partialreport extends Component
@@ -32,11 +33,28 @@ class Partialreport extends Component
 
     public $amount;
 
+    public bool $hasFiles = false;
+
+    public $theAdsPath = null;
+
     protected $theAds = null;
 
     protected $listeners = [
         'confirm_save' => 'save',
+        'hasFile',
+        'savedFiles',
     ];
+
+    public function hasFile(bool $hasFile)
+    {
+        $this->hasFiles = $hasFile;
+    }
+
+    public function savedFiles()
+    {
+        $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
+        $this->finishSaveSuccess();
+    }
 
     public function mount()
     {
@@ -44,16 +62,32 @@ class Partialreport extends Component
         $this->note   = null;
         $this->notes  = null;
         $this->file   = null;
+        $this->theAdsPath = null;
+        $this->theAds = null;
 
         $user              = Auth()->User();
         $this->responsible = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
+    }
+
+    public function hydrate()
+    {
+        if (is_null($this->theAds) && $this->theAdsPath) {
+            $this->theAds = new Ads($this->theAdsPath);
+        }
     }
 
     public function updatedFile()
     {
 
         $this->process = false;
-        $this->theAds  = null;
+
+        if ($this->file) {
+            $this->theAdsPath = $this->file->getRealPath();
+            $this->theAds = new Ads($this->theAdsPath);
+        } else {
+            $this->theAdsPath = null;
+            $this->theAds = null;
+        }
     }
 
     public function search()
@@ -62,6 +96,9 @@ class Partialreport extends Component
         $this->note  = null;
         $this->notes = null;
         $this->file  = null;
+        $this->theAdsPath = null;
+        $this->theAds = null;
+        $this->process = false;
 
         $this->notes = Note::where(function ($q) {
             $q->where('note', trim($this->search))
@@ -72,18 +109,19 @@ class Partialreport extends Component
 
     public function getNote($id)
     {
-        $this->note = Note::find($id);
+        $this->note     = Note::find($id);
+        $this->hasFiles = false;
     }
 
     public function processFile()
     {
         $this->process = false;
 
-        $path = $this->file->getRealPath();
+        if (is_null($this->theAds) && $this->theAdsPath) {
+            $this->theAds = new Ads($this->theAdsPath);
+        }
 
-        $this->theAds = new Ads($path);
-
-        if (!$this->theAds->exists()) {
+        if (!$this->theAds || !$this->theAds->exists()) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -122,7 +160,7 @@ class Partialreport extends Component
             return;
         }
 
-        $this->amount = $this->theAds->getValue();
+        $this->amount = number_format($this->theAds->getValue(), 2, ',', '.');
 
         $this->process = true;
     }
@@ -222,21 +260,18 @@ class Partialreport extends Component
                     }
                 }
 
-                $caminho = $this->file->storeAs('/arquivos/ADS/', $newName . '.' . $this->file->getClientOriginalExtension());
+                try {
+                    $file = app(FileUploadService::class)->create(
+                        $this->file,
+                        $this->note,
+                        '/arquivos/ADS/',
+                        $newName,
+                        $this->file->getClientOriginalExtension(),
+                        ['service_id' => null],
+                    );
 
-                if (Storage::exists($caminho)) {
-                    $partial->Files()->create([
-                        'note_id'       => $this->note->id,
-                        'user_id'       => Auth()->User()->id,
-                        'service_id'    => null,
-                        'file_name'     => $newName,
-                        'original_name' => $this->file->getClientOriginalName(),
-                        'path'          => $caminho,
-                        'ext'           => $this->file->getClientOriginalExtension(),
-                        'suspicious'    => false,
-                        'noexists'      => false,
-                    ]);
-                } else {
+                    $partial->Files()->syncWithoutDetaching([$file->id]);
+                } catch (\Throwable) {
                     DB::rollback();
 
                     $this->dispatchBrowserEvent('swal', [
@@ -256,15 +291,13 @@ class Partialreport extends Component
 
             DB::commit();
 
-            $this->cleanAll();
+            if ($this->hasFiles) {
+                $this->emitTo('files.manager.create-gen-files', 'saveFiles', Partial::class, $partial->id);
 
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'ENVIADO COM SUCESSO',
-                'timer'    => 2500,
+                return;
+            }
 
-            ]);
+            $this->finishSaveSuccess();
 
         } catch (\Throwable $th) {
             DB::rollback();
@@ -288,14 +321,28 @@ class Partialreport extends Component
     {
         $this->process     = false;
         $this->theAds      = null;
+        $this->theAdsPath  = null;
         $this->file        = null;
         $this->note        = null;
         $this->notes       = null;
         $this->search      = '';
         $this->observation = '';
+        $this->hasFiles    = false;
 
         $user              = Auth()->User();
         $this->responsible = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
+    }
+
+    private function finishSaveSuccess(): void
+    {
+        $this->cleanAll();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'ENVIADO COM SUCESSO',
+            'timer'    => 2500,
+        ]);
     }
 
     public function render()

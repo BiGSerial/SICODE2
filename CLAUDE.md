@@ -81,6 +81,19 @@ $user->notify(new SystemNotification(
 ```
 Não usar o construtor legado com 5 parâmetros soltos.
 
+### Armazenamento de arquivos (Storage)
+Toda operação física de storage (gravação, leitura, download/stream, delete, move, URL/preview) é centralizada em `app/Services/Files/`, para funcionar igualmente em disco local, Azure Blob e S3:
+- `FileStorageService` — camada base física; opera sobre um model (`File`, ou uma instância transitória `new File(['path' => ..., 'disk' => ...])` para arquivos fora da tabela `files`). Métodos: `exists`, `get`, `stream`, `download`, `delete`, `move`, `mimeType`, `putUploadedAs`, `temporaryLocalCopy` (copia o conteúdo para um arquivo local temporário quando uma lib externa exige caminho físico, ex. `ZipArchive::addFile`; o chamador remove o temporário depois).
+- `StorageContextResolver` — resolve disco e contexto SP/ES para novos arquivos (prefixos `sp/...` / `es/...`). Nunca hardcode esse prefixo em componentes.
+- Services de domínio usam os dois acima e cuidam de banco/modelo: `FileUploadService` (tabela `files`), `EvidenceFileService` (`EvidenceFile`, usado por protestos/cancelamentos), `App\Services\Legal\LegalDemandUploadService` (`legal_demand_files`).
+
+#### Regras obrigatórias
+- Livewire components e Controllers **nunca** chamam `Storage::store/storeAs/delete/url/exists/download/path`, `storage_path()` ou assumem caminho físico local (`file_exists`, `ZipArchive::addFile($fullPath)`) para um arquivo gerenciado (anexo, foto, evidência, documento jurídico, revisão histórica). Chame o service de domínio, que delega ao `FileStorageService`.
+- Compatibilidade legada é obrigatória: registros antigos com `disk = null` continuam resolvendo para o disco `public` (`$file->disk ?? 'public'`). Não reescreva caminhos antigos numa migration só para "padronizar".
+- Exceção: exportações/relatórios em `app/Jobs/*Export*` (ou comandos equivalentes) geram output do sistema, não upload de usuário — usar `Storage::disk('local')` ali é aceitável e não deve ser migrado para os services de arquivo.
+- Antes de criar um novo fluxo de upload (avatar, logo, planilha temporária, etc.), avalie se o arquivo deve virar um registro `File`/`EvidenceFile`/`LegalDemandFile` ou se é um caso à parte (ex.: coluna string simples tipo `users.avatar`/`companies.logo`) — nesse caso, ainda assim delegue a operação física ao `FileStorageService` (via model transitório) em vez de chamar `Storage::` direto no componente.
+- Ao adicionar/mexer em fluxo de arquivo, rode busca por `Storage::`, `storeAs(`, `storage_path(` no arquivo tocado antes de considerar terminado.
+
 ### Menu superior (topbar)
 Definido em `resources/views/layouts/menu_itens.blade.php` via arrays de nós passados ao componente `<x-menu.dynamic-dropdown />`. Para adicionar itens, editar esse arquivo seguindo o padrão `nodes`/`sections` (ver `docs/MenuSuperior.md`).
 

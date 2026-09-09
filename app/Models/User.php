@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Services\Files\EntityImageService;
 use Illuminate\Database\Eloquent\{Builder, SoftDeletes};
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\{Collection, Str};
-use Illuminate\Support\Facades\{DB, Storage};
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -376,7 +377,7 @@ class User extends Authenticatable
                 return $this->avatar;
             }
 
-            if (Storage::disk('public')->exists($this->avatar)) {
+            if (app(EntityImageService::class)->exists($this->avatar)) {
                 return asset('storage/' . $this->avatar);
             }
         }

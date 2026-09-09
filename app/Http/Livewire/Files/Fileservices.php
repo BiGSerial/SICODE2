@@ -2,37 +2,38 @@
 
 namespace App\Http\Livewire\Files;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Production;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{File, Note, Production};
+use App\Services\Files\FileUploadService;
+use Illuminate\Support\Facades\{DB};
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 
 class Fileservices extends Component
 {
     use WithFileUploads;
 
     public ?Note $note = null;
+
     public ?Production $production = null;
+
     public $notNote = false;
+
     public $needFiles;
 
     public $uploadsfiles = [];
+
     public $files = [];
 
     protected $listeners = [
-        'save_files' => 'save',
-        'cancel_files' => 'cancel'
+        'save_files'   => 'save',
+        'cancel_files' => 'cancel',
     ];
 
     public function mount($note, $production, $needFiles)
     {
-        $this->note = $note;
+        $this->note       = $note;
         $this->production = $production;
-        $this->needFiles = $needFiles;
+        $this->needFiles  = $needFiles;
     }
 
     public function updatedUploadsFiles()
@@ -110,8 +111,6 @@ class Fileservices extends Component
 
                 $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
-
-
                 if (!strpos($fileNameWithoutExtension, $this->note->note) !== false) {
 
                     $this->notNote = true;
@@ -156,7 +155,7 @@ class Fileservices extends Component
                 }
             }
 
-            $this->files = [];
+            $this->files   = [];
             $this->notNote = false;
 
         }
@@ -178,36 +177,36 @@ class Fileservices extends Component
 
                 if ($tempPath && file_exists($tempPath)) {
 
-
-
                     $folhas = count($this->files);
 
-                    $newName = "PROJETO_".$this->note->note."_F"
-                            .str_pad(++$index, 2, '0', STR_PAD_LEFT)."-"
-                            .str_pad($folhas, 2, '0', STR_PAD_LEFT);
+                    $newName = "PROJETO_" . $this->note->note . "_F"
+                            . str_pad(++$index, 2, '0', STR_PAD_LEFT) . "-"
+                            . str_pad($folhas, 2, '0', STR_PAD_LEFT);
 
-                    $version = File::where('file_name', 'like', "%".$newName."%")->count();
+                    $version = File::where('file_name', 'like', "%" . $newName . "%")->count();
 
-                    $newName = $newName."_rev".$version.".".$file->getClientOriginalExtension();
+                    $baseName = $newName . "_rev" . $version;
+                    $newName  = $baseName . "." . $file->getClientOriginalExtension();
 
                     $caminho = "";
 
                     // dd($newName);
 
-                    $caminho = $file->store('/arquivos/projeto');
+                    try {
+                        $createdFile = app(FileUploadService::class)->create(
+                            $file,
+                            $this->note,
+                            '/arquivos/projeto',
+                            $baseName,
+                            $file->getClientOriginalExtension(),
+                            [
+                                'service_id' => $this->production->service_id,
+                                'file_name'  => $newName,
+                            ],
+                        );
 
-                    if (Storage::exists($caminho)) {
-
-                        $this->production->Files()->create([
-                            'note_id'   => $this->production->note_id,
-                            'user_id'   => Auth()->User()->id,
-                            'service_id'   => $this->production->service_id,
-                            'file_name' => $newName,
-                            'path'      => $caminho,
-                            'ext'       => $file->getClientOriginalExtension(),
-                        ]);
-
-                    } else {
+                        $this->production->Files()->syncWithoutDetaching([$createdFile->id]);
+                    } catch (\Throwable) {
 
                         DB::rollBack();
 

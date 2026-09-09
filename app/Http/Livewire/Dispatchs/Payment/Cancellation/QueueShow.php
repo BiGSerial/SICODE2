@@ -2,18 +2,14 @@
 
 namespace App\Http\Livewire\Dispatchs\Payment\Cancellation;
 
-use App\Models\CancellationRequest;
 use App\Enum\CancellationRequestScope;
 use App\Jobs\Services\ExportCancellationExecutionOrdersJob;
-use App\Models\EvidenceFile;
-use App\Models\ServiceUser;
-use App\Models\User;
+use App\Models\{CancellationRequest, EvidenceFile, ServiceUser, User};
+use App\Services\Files\EvidenceFileService;
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -23,49 +19,60 @@ class QueueShow extends Component
     use WithFileUploads;
 
     protected $listeners = [
-        'confirm_cancellation_queue_claim' => 'confirmClaim',
-        'confirm_cancellation_queue_transfer' => 'confirmTransfer',
-        'confirm_cancellation_queue_abort' => 'confirmAbort',
-        'confirm_cancellation_queue_finalize' => 'confirmFinalize',
+        'confirm_cancellation_queue_claim'     => 'confirmClaim',
+        'confirm_cancellation_queue_transfer'  => 'confirmTransfer',
+        'confirm_cancellation_queue_abort'     => 'confirmAbort',
+        'confirm_cancellation_queue_finalize'  => 'confirmFinalize',
         'confirm_cancellation_queue_save_edit' => 'confirmSaveEdit',
-        'confirm_cancellation_queue_delete' => 'confirmDeleteRequest',
+        'confirm_cancellation_queue_delete'    => 'confirmDeleteRequest',
     ];
 
     public string $service;
+
     public int $requestId;
+
     public ?CancellationRequest $cancellationRequest = null;
 
     public string $action = 'DONE';
+
     public ?string $closureNote = null;
+
     public ?string $abortReason = null;
 
     public bool $editing = false;
+
     public string $editScope = CancellationRequestScope::NOTE_FULL->value;
+
     public ?int $editCategoryId = null;
+
     public ?string $editDescription = null;
+
     public array $editSelectedOrders = [];
+
     public array $editOrders = [];
+
     public array $removeEvidenceIds = [];
 
     public $files = [];
+
     public array $tempFiles = [];
 
     public ?int $transferUserId = null;
 
     public array $config = [
-        'disk' => 'public',
-        'base_path' => 'evidences/CANCELLATION_CONTROL',
-        'max_size_mb' => 10,
+        'disk'         => 'public',
+        'base_path'    => 'evidences/CANCELLATION_CONTROL',
+        'max_size_mb'  => 10,
         'allowed_exts' => [
-            'jpg','jpeg','png','gif','bmp','svg','tiff','webp',
-            'pdf','doc','docx','odt','xls','xlsx','xlsm','ods',
-            'dwg','dxf','dws','dwt','dgn','rvt','rfa','skp','txt'
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+            'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+            'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
         ],
     ];
 
     public function mount(string $service, $request): void
     {
-        $this->service = $service;
+        $this->service   = $service;
         $this->requestId = (int) $request;
         $this->loadRequest();
     }
@@ -97,9 +104,9 @@ class QueueShow extends Component
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
                 'original_name' => $file->getClientOriginalName(),
-                'extension' => strtolower($file->getClientOriginalExtension()),
-                'size' => $file->getSize(),
-                'file' => $file,
+                'extension'     => strtolower($file->getClientOriginalExtension()),
+                'size'          => $file->getSize(),
+                'file'          => $file,
             ];
         }
 
@@ -118,6 +125,7 @@ class QueueShow extends Component
     {
         if (in_array($fileId, $this->removeEvidenceIds, true)) {
             $this->removeEvidenceIds = array_values(array_diff($this->removeEvidenceIds, [$fileId]));
+
             return;
         }
 
@@ -128,16 +136,16 @@ class QueueShow extends Component
     {
         $this->authorize('edit', $this->cancellationRequest);
 
-        $this->editing = true;
-        $this->editScope = $this->cancellationRequest->scope?->value ?? CancellationRequestScope::NOTE_FULL->value;
-        $this->editCategoryId = $this->cancellationRequest->category_id;
-        $this->editDescription = $this->cancellationRequest->description;
+        $this->editing            = true;
+        $this->editScope          = $this->cancellationRequest->scope?->value ?? CancellationRequestScope::NOTE_FULL->value;
+        $this->editCategoryId     = $this->cancellationRequest->category_id;
+        $this->editDescription    = $this->cancellationRequest->description;
         $this->editSelectedOrders = $this->cancellationRequest->Orders->pluck('id')->all();
-        $this->editOrders = $this->cancellationRequest->Note->Orders->map(function ($order) {
+        $this->editOrders         = $this->cancellationRequest->Note->Orders->map(function ($order) {
             return [
-                'id' => $order->id,
-                'ordem' => $order->ordem,
-                'status' => $order->statusUser ?? $order->statusSist,
+                'id'       => $order->id,
+                'ordem'    => $order->ordem,
+                'status'   => $order->statusUser ?? $order->statusSist,
                 'canceled' => (bool) $order->canceled,
             ];
         })->toArray();
@@ -145,28 +153,28 @@ class QueueShow extends Component
 
     public function cancelEdit(): void
     {
-        $this->editing = false;
-        $this->editScope = CancellationRequestScope::NOTE_FULL->value;
-        $this->editCategoryId = null;
-        $this->editDescription = null;
+        $this->editing            = false;
+        $this->editScope          = CancellationRequestScope::NOTE_FULL->value;
+        $this->editCategoryId     = null;
+        $this->editDescription    = null;
         $this->editSelectedOrders = [];
-        $this->editOrders = [];
-        $this->removeEvidenceIds = [];
-        $this->tempFiles = [];
-        $this->files = [];
+        $this->editOrders         = [];
+        $this->removeEvidenceIds  = [];
+        $this->tempFiles          = [];
+        $this->files              = [];
     }
 
     public function saveEdit(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Salvar alterações',
-            'msg' => 'Deseja salvar as alterações desta solicitação?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, salvar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_queue_save_edit',
+            'title'         => 'Salvar alterações',
+            'msg'           => 'Deseja salvar as alterações desta solicitação?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, salvar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_queue_save_edit',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'As alterações não foram salvas.',
+            'cancel_msg'    => 'As alterações não foram salvas.',
         ]);
     }
 
@@ -180,12 +188,15 @@ class QueueShow extends Component
 
         if ($this->editScope === CancellationRequestScope::ORDERS_PARTIAL->value && empty($this->editSelectedOrders)) {
             $this->addError('editSelectedOrders', 'Selecione ao menos uma ordem.');
+
             return;
         }
 
         $category = \App\Models\CancellationCategory::find($this->editCategoryId);
+
         if (!$category) {
             $this->addError('editCategoryId', 'Categoria inválida.');
+
             return;
         }
 
@@ -213,14 +224,14 @@ class QueueShow extends Component
     public function claim(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Assumir solicitação',
-            'msg' => 'Deseja assumir esta solicitação agora?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, assumir',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_queue_claim',
+            'title'         => 'Assumir solicitação',
+            'msg'           => 'Deseja assumir esta solicitação agora?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, assumir',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_queue_claim',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação não foi assumida.',
+            'cancel_msg'    => 'A solicitação não foi assumida.',
         ]);
     }
 
@@ -240,14 +251,14 @@ class QueueShow extends Component
     public function finalize(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Finalizar solicitação',
-            'msg' => 'Deseja confirmar a finalização desta solicitação?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, finalizar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_queue_finalize',
+            'title'         => 'Finalizar solicitação',
+            'msg'           => 'Deseja confirmar a finalização desta solicitação?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, finalizar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_queue_finalize',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação não foi finalizada.',
+            'cancel_msg'    => 'A solicitação não foi finalizada.',
         ]);
     }
 
@@ -256,7 +267,7 @@ class QueueShow extends Component
         $this->authorize('finalize', $this->cancellationRequest);
 
         $this->validate([
-            'action' => 'required|in:DONE,REJECTED',
+            'action'      => 'required|in:DONE,REJECTED',
             'closureNote' => 'nullable|string|max:2000',
         ]);
 
@@ -266,6 +277,7 @@ class QueueShow extends Component
             } else {
                 if (!trim((string) $this->closureNote)) {
                     $this->addError('closureNote', 'Informe o motivo da rejeição.');
+
                     return;
                 }
                 $service->finalizeRejected($this->cancellationRequest, Auth::user(), $this->closureNote);
@@ -281,14 +293,14 @@ class QueueShow extends Component
     public function abort(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Cancelar solicitação',
-            'msg' => 'Deseja cancelar esta solicitação?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, cancelar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_queue_abort',
+            'title'         => 'Cancelar solicitação',
+            'msg'           => 'Deseja cancelar esta solicitação?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, cancelar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_queue_abort',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação não foi cancelada.',
+            'cancel_msg'    => 'A solicitação não foi cancelada.',
         ]);
     }
 
@@ -298,6 +310,7 @@ class QueueShow extends Component
 
         if (!trim((string) $this->abortReason)) {
             $this->addError('abortReason', 'Informe o motivo do cancelamento.');
+
             return;
         }
 
@@ -313,14 +326,14 @@ class QueueShow extends Component
     public function transfer(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Transferir solicitação',
-            'msg' => 'Deseja transferir esta solicitação para o executante selecionado?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, transferir',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_queue_transfer',
+            'title'         => 'Transferir solicitação',
+            'msg'           => 'Deseja transferir esta solicitação para o executante selecionado?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, transferir',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_queue_transfer',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação não foi transferida.',
+            'cancel_msg'    => 'A solicitação não foi transferida.',
         ]);
     }
 
@@ -329,8 +342,10 @@ class QueueShow extends Component
         $this->authorize('transfer', $this->cancellationRequest);
 
         $target = User::find($this->transferUserId);
+
         if (!$target) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Selecione um usuário válido.']);
+
             return;
         }
 
@@ -346,14 +361,14 @@ class QueueShow extends Component
     public function deleteRequest(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Remover solicitação',
-            'msg' => 'Deseja remover definitivamente esta solicitação?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, remover',
-            'btnCanceltxt' => 'Não, manter',
-            'action' => 'confirm_cancellation_queue_delete',
+            'title'         => 'Remover solicitação',
+            'msg'           => 'Deseja remover definitivamente esta solicitação?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, remover',
+            'btnCanceltxt'  => 'Não, manter',
+            'action'        => 'confirm_cancellation_queue_delete',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação não foi removida.',
+            'cancel_msg'    => 'A solicitação não foi removida.',
         ]);
     }
 
@@ -374,12 +389,12 @@ class QueueShow extends Component
         $this->authorize('viewQueue', CancellationRequest::class);
 
         ExportCancellationExecutionOrdersJob::dispatch([
-            'ids' => [$this->cancellationRequest->id],
+            'ids'     => [$this->cancellationRequest->id],
             'user_id' => (string) Auth::id(),
         ]);
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Exportação iniciada. Você será notificado quando concluir.',
         ]);
     }
@@ -392,7 +407,9 @@ class QueueShow extends Component
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     public function render()

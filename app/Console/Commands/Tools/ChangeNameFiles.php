@@ -3,9 +3,9 @@
 namespace App\Console\Commands\Tools;
 
 use App\Console\Commands\Concerns\ShowsProgress;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use App\Models\File;
+use App\Services\Files\FileStorageService;
+use Illuminate\Console\Command;
 
 class ChangeNameFiles extends Command
 {
@@ -37,6 +37,7 @@ class ChangeNameFiles extends Command
 
         if ($totalFiles === 0) {
             $this->info('Nenhum arquivo encontrado no banco de dados.');
+
             return Command::SUCCESS;
         }
 
@@ -46,31 +47,35 @@ class ChangeNameFiles extends Command
         // Inicializa contadores
         $ignored = 0;
         $updated = 0;
-        $errors = 0;
+        $errors  = 0;
 
         // Processa os registros em chunks
-        File::chunk(500, function ($files) use (&$ignored, &$updated, &$errors) {
-            foreach ($files as $file) {
-                $currentPath = $file->path; // Caminho completo do arquivo no disco
-                $expectedFileName = $file->file_name . '.' . $file->ext; // Nome esperado do arquivo com extensão
-                $directory = dirname($currentPath); // Diretório onde o arquivo está armazenado
-                $expectedPath = $directory . '/' . $expectedFileName; // Caminho esperado
+        $storage = app(FileStorageService::class);
 
-                // Verificar se o arquivo físico existe no caminho atual
-                if (!Storage::exists($currentPath)) {
+        File::chunk(500, function ($files) use (&$ignored, &$updated, &$errors, $storage) {
+            foreach ($files as $file) {
+                $currentPath      = $file->path; // Caminho completo do arquivo no disco
+                $expectedFileName = $file->file_name . '.' . $file->ext; // Nome esperado do arquivo com extensão
+                $directory        = dirname($currentPath); // Diretório onde o arquivo está armazenado
+                $expectedPath     = $directory . '/' . $expectedFileName; // Caminho esperado
+
+                // Verificar se o arquivo físico existe no caminho atual (no disco do próprio registro)
+                if (!$storage->exists($file)) {
                     // $this->warn("Arquivo não encontrado: $currentPath. Ignorando...");
                     $ignored++;
                     $this->progressAdvance();
+
                     continue;
                 }
 
                 // Verificar se o nome do arquivo físico está correto
                 if ($currentPath !== $expectedPath) {
                     // Renomear o arquivo físico
-                    if (!Storage::move($currentPath, $expectedPath)) {
+                    if (!$storage->move($file, $expectedPath)) {
                         $this->error("Erro ao renomear o arquivo: $currentPath");
                         $errors++;
                         $this->progressAdvance();
+
                         continue;
                     }
 

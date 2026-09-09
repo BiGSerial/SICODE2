@@ -2,14 +2,10 @@
 
 namespace App\Http\Livewire\Responsible;
 
-use App\Exports\parner\exportExcel;
 use App\Exports\Viability\HistoricReport;
-use App\Models\City;
-use App\Models\File;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{City, File, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class ViabHist extends Component
 {
@@ -27,7 +23,9 @@ class ViabHist extends Component
 
     // search by date
     public $date_in;
+
     public $date_out;
+
     public $dateBy = 'sended_at';
 
     // Filters
@@ -64,8 +62,10 @@ class ViabHist extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -79,27 +79,26 @@ class ViabHist extends Component
         }
     }
 
-
-
     public function cleanAll()
     {
-        $this->date_in = "";
+        $this->date_in  = "";
         $this->date_out = "";
-        $this->dateBy = 'sended_at';
-        $this->search = '';
+        $this->dateBy   = 'sended_at';
+        $this->search   = '';
     }
 
     public function getListsProperty()
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
-
 
         $query = Viability::Query();
         // ->where('completed', true)
@@ -117,7 +116,6 @@ class ViabHist extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
-
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -142,8 +140,6 @@ class ViabHist extends Component
                 }
             });
         }
-
-
 
         return $query->orderBy('completed_at', 'DESC');
     }

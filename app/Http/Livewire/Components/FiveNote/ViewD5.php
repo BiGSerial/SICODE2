@@ -5,9 +5,9 @@ namespace App\Http\Livewire\Components\FiveNote;
 use App\Models\EvidenceFile;
 use App\Models\FiveNote;
 use App\Models\Service;
+use App\Services\Files\EvidenceFileService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class ViewD5 extends Component
@@ -71,10 +71,10 @@ class ViewD5 extends Component
 
     public function dowloadFile(EvidenceFile $file)
     {
-        // dd(Storage::fileExists('public/'.$file->path));
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
+        if ($service->exists($file)) {
+            return $service->download($file);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',

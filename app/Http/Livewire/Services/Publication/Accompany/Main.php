@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Services\Publication\Accompany;
 
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Models\{File, Note, Production, Service, User};
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -188,8 +188,10 @@ class Main extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }

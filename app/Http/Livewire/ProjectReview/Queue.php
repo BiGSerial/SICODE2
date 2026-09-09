@@ -3,24 +3,11 @@
 namespace App\Http\Livewire\ProjectReview;
 
 use App\Jobs\Reports\ExportProjectReviewQueueListJob;
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\ProjectReviewCategory;
-use App\Models\ProjectReviewCycle;
-use App\Models\ProjectReviewItem;
-use App\Models\ProjectReviewMessage;
-use App\Models\ProjectReviewDraft;
-use App\Models\ProjectReviewSubcategory;
-use App\Models\User;
+use App\Models\{Company, File, Notetimeline, Production, ProjectReviewCategory, ProjectReviewCycle, ProjectReviewDraft, ProjectReviewItem, ProjectReviewMessage, ProjectReviewSubcategory, User};
 use App\Notifications\SystemNotification;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Services\Files\FileStorageService;
+use Illuminate\Support\Facades\{DB, Log, Schema};
+use Livewire\{Component, WithPagination};
 
 class Queue extends Component
 {
@@ -29,55 +16,89 @@ class Queue extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $search = '';
+
     public string $mass_search = '';
+
     public string $company_id = '';
+
     public string $cost_share_filter = '';
+
     public string $cost_metric = '';
+
     public string $cost_operator = '>';
+
     public ?string $cost_value = null;
+
     public string $note_type_filter = '';
+
     public string $tab = 'pending';
+
     public string $mode = 'pending';
+
     public int $perPage = 30;
+
     public bool $selectPage = false;
+
     public array $selectedProductionIds = [];
 
     public ?Production $selectedProduction = null;
+
     public ?Production $drawingProduction = null;
+
     public ?ProjectReviewCycle $selectedCycle = null;
 
     public string $analystNote = '';
+
     public string $requiresSapRelease = '';
+
     public array $findingRows = [];
+
     public string $newReply = '';
+
     public ?int $selectedCategoryId = null;
+
     public ?int $selectedSubcategoryId = null;
+
     public string $selectedPointLabel = 'P1';
+
     public string $selectedPointFilter = '';
+
     public array $pointRenameInputs = [];
+
     public string $selectedOrigin = 'PROJETO';
+
     public string $selectedActionType = 'FALTA';
+
     public string $duplicateMode = '';
+
     public string $duplicateReference = '';
+
     public string $duplicatePointLabel = '';
+
     public array $collapsedGroups = [];
+
     public array $collapsedCategories = [];
+
     public array $collapsedSubcategories = [];
+
     public array $taxonomySubcategories = [];
+
     public array $taxonomyCategories = [];
+
     public array $draftProductionIds = [];
+
     public ?string $draftSavedAt = null;
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
-        'savedFiles' => 'onFilesSaved',
+        'refresh_list'               => '$refresh',
+        'savedFiles'                 => 'onFilesSaved',
         'openReviewFromNotification' => 'openReviewFromNotification',
     ];
 
     public function mount(string $mode = 'pending'): void
     {
         $this->mode = $mode;
-        $this->tab = $mode === 'history' ? 'history' : 'pending';
+        $this->tab  = $mode === 'history' ? 'history' : 'pending';
         $this->loadTaxonomy();
     }
 
@@ -139,21 +160,22 @@ class Queue extends Component
     {
         if (!$value) {
             $this->selectedProductionIds = [];
+
             return;
         }
 
         $this->selectedProductionIds = $this->lists
             ->pluck('id')
-            ->map(fn($id) => (string) $id)
+            ->map(fn ($id) => (string) $id)
             ->values()
             ->all();
     }
 
     public function updatedSelectedProductionIds(): void
     {
-        $pageIds = $this->lists->pluck('id')->map(fn($id) => (string) $id)->values();
-        $selected = collect($this->selectedProductionIds)->map(fn($id) => (string) $id);
-        $this->selectPage = $pageIds->isNotEmpty() && $pageIds->every(fn($id) => $selected->contains($id));
+        $pageIds          = $this->lists->pluck('id')->map(fn ($id) => (string) $id)->values();
+        $selected         = collect($this->selectedProductionIds)->map(fn ($id) => (string) $id);
+        $this->selectPage = $pageIds->isNotEmpty() && $pageIds->every(fn ($id) => $selected->contains($id));
     }
 
     public function getListsProperty()
@@ -192,6 +214,7 @@ class Queue extends Component
     private function resolvePerPage(): int
     {
         $allowed = [30, 50, 100, 200];
+
         return in_array($this->perPage, $allowed, true) ? $this->perPage : 30;
     }
 
@@ -204,9 +227,9 @@ class Queue extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Exportação iniciada',
-            'html' => "<div class='card'><div class='card-body'>
+            'icon'     => 'success',
+            'title'    => 'Exportação iniciada',
+            'html'     => "<div class='card'><div class='card-body'>
                 <p>Sua lista está sendo gerada.</p>
                 <p class='mb-0'><strong>Você será notificado quando o download estiver pronto.</strong></p>
             </div></div>",
@@ -259,6 +282,7 @@ class Queue extends Component
             ->filter()
             ->unique()
             ->values();
+
         if ($massTokens->isNotEmpty()) {
             $query->where(function ($outer) use ($massTokens) {
                 $outer->whereHas('Note', function ($noteQuery) use ($massTokens) {
@@ -289,20 +313,23 @@ class Queue extends Component
         }
 
         $costFilter = $this->cost_share_filter;
+
         if (in_array($costFilter, ['client_51', 'company_51', 'both_51'], true)) {
             $this->applyLatestCycleOrdersFilter($query, function ($orderQuery) use ($costFilter) {
-                $ratioExprClient = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
+                $ratioExprClient  = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
                 $ratioExprCompany = '(project_review_orders.company_cost / NULLIF(project_review_orders.total_cost, 0))';
 
                 $orderQuery->where('project_review_orders.total_cost', '>', 0);
 
                 if ($costFilter === 'client_51') {
                     $orderQuery->whereRaw("{$ratioExprClient} >= 0.51");
+
                     return;
                 }
 
                 if ($costFilter === 'company_51') {
                     $orderQuery->whereRaw("{$ratioExprCompany} >= 0.51");
+
                     return;
                 }
 
@@ -317,9 +344,9 @@ class Queue extends Component
             && in_array($this->cost_operator, ['>', '<'], true)
             && is_numeric($this->cost_value)
         ) {
-            $metric = $this->cost_metric;
+            $metric   = $this->cost_metric;
             $operator = $this->cost_operator;
-            $value = (float) $this->cost_value;
+            $value    = (float) $this->cost_value;
 
             $this->applyLatestCycleOrdersFilter($query, function ($orderQuery) use ($metric, $operator, $value) {
                 $orderQuery->where($metric, $operator, $value);
@@ -347,15 +374,15 @@ class Queue extends Component
     private function exportFilters(): array
     {
         return [
-            'search' => $this->search,
-            'mass_search' => $this->mass_search,
-            'company_id' => $this->company_id,
+            'search'            => $this->search,
+            'mass_search'       => $this->mass_search,
+            'company_id'        => $this->company_id,
             'cost_share_filter' => $this->cost_share_filter,
-            'cost_metric' => $this->cost_metric,
-            'cost_operator' => $this->cost_operator,
-            'cost_value' => $this->cost_value,
-            'note_type_filter' => $this->note_type_filter,
-            'tab' => $this->tab,
+            'cost_metric'       => $this->cost_metric,
+            'cost_operator'     => $this->cost_operator,
+            'cost_value'        => $this->cost_value,
+            'note_type_filter'  => $this->note_type_filter,
+            'tab'               => $this->tab,
         ];
     }
 
@@ -415,6 +442,7 @@ class Queue extends Component
         }
 
         $subcategory = $this->subcategories->firstWhere('id', (int) $this->selectedSubcategoryId);
+
         if (!$subcategory) {
             return collect();
         }
@@ -430,7 +458,7 @@ class Queue extends Component
     public function getFindingsTreeProperty()
     {
         $subcategories = $this->subcategories->keyBy('id');
-        $originSort = ['LEVANTAMENTO' => 1, 'PROJETO' => 2, 'AMBOS' => 3];
+        $originSort    = ['LEVANTAMENTO' => 1, 'PROJETO' => 2, 'AMBOS' => 3];
 
         $flat = collect($this->findingRows)
             ->filter(function ($row) {
@@ -441,32 +469,33 @@ class Queue extends Component
                 return $this->normalizePointLabel($row['point_label'] ?? '') === $this->selectedPointFilter;
             })
             ->map(function ($row, $index) use ($subcategories) {
-                $subcategory = $subcategories->get((int) ($row['subcategory_id'] ?? 0));
-                $items = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
+                $subcategory  = $subcategories->get((int) ($row['subcategory_id'] ?? 0));
+                $items        = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
                 $selectedItem = collect($items)
                     ->firstWhere('id', (int) ($row['item_id'] ?? 0));
                 $categoryName = data_get($subcategory, 'Category.name', data_get($subcategory, 'category.name', 'Sem categoria'));
-                $origin = (string) ($row['origin'] ?? 'PROJETO');
+                $origin       = (string) ($row['origin'] ?? 'PROJETO');
+
                 if (!in_array($origin, ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)) {
                     $origin = 'PROJETO';
                 }
                 $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
 
                 return [
-                    'index' => $index,
-                    'point_label' => $pointLabel,
-                    'point_key' => 'point_' . md5($pointLabel),
-                    'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
+                    'index'            => $index,
+                    'point_label'      => $pointLabel,
+                    'point_key'        => 'point_' . md5($pointLabel),
+                    'subcategory_id'   => (int) ($row['subcategory_id'] ?? 0),
                     'subcategory_name' => data_get($subcategory, 'name', 'Subcategoria não encontrada'),
-                    'category_name' => $categoryName,
-                    'item_id' => $row['item_id'] ?? null,
-                    'item_name' => $row['item_name'] ?? data_get($selectedItem, 'name'),
-                    'origin' => $origin,
-                    'action_type' => $row['action_type'] ?? null,
-                    'quantity' => $row['quantity'] ?? null,
-                    'note' => $row['note'] ?? null,
-                    'category_key' => 'cat_' . md5((string) ($categoryName ?: 'sem-categoria')),
-                    'subcategory_key' => 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)),
+                    'category_name'    => $categoryName,
+                    'item_id'          => $row['item_id'] ?? null,
+                    'item_name'        => $row['item_name'] ?? data_get($selectedItem, 'name'),
+                    'origin'           => $origin,
+                    'action_type'      => $row['action_type'] ?? null,
+                    'quantity'         => $row['quantity'] ?? null,
+                    'note'             => $row['note'] ?? null,
+                    'category_key'     => 'cat_' . md5((string) ($categoryName ?: 'sem-categoria')),
+                    'subcategory_key'  => 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)),
                 ];
             })
             ->values();
@@ -476,27 +505,28 @@ class Queue extends Component
             ->map(function ($pointRows, $pointLabel) use ($originSort) {
                 return [
                     'point_label' => $pointLabel,
-                    'point_key' => 'point_' . md5((string) $pointLabel),
-                    'categories' => $pointRows
+                    'point_key'   => 'point_' . md5((string) $pointLabel),
+                    'categories'  => $pointRows
                         ->groupBy('category_name')
                         ->map(function ($categoryRows, $categoryName) use ($originSort, $pointLabel) {
                             return [
                                 'category_name' => $categoryName,
-                                'category_key' => 'cat_' . md5((string) $pointLabel . '|' . (string) $categoryName),
+                                'category_key'  => 'cat_' . md5((string) $pointLabel . '|' . (string) $categoryName),
                                 'subcategories' => $categoryRows
                                     ->groupBy('subcategory_key')
                                     ->map(function ($subRows) use ($originSort) {
                                         $first = $subRows->first();
+
                                         return [
                                             'subcategory_name' => $first['subcategory_name'],
-                                            'subcategory_key' => $first['subcategory_key'],
-                                            'origins' => collect($subRows)
+                                            'subcategory_key'  => $first['subcategory_key'],
+                                            'origins'          => collect($subRows)
                                                 ->groupBy('origin')
                                                 ->sortBy(fn ($rows, $origin) => $originSort[$origin] ?? 99)
                                                 ->map(function ($rows, $origin) {
                                                     return [
                                                         'origin' => $origin,
-                                                        'rows' => $rows->values()->all(),
+                                                        'rows'   => $rows->values()->all(),
                                                     ];
                                                 })
                                                 ->values()
@@ -516,10 +546,12 @@ class Queue extends Component
             ->all();
 
         $activeRenameKeys = [];
+
         foreach ($grouped as $group) {
-            $label = (string) ($group['point_label'] ?? '');
-            $key = 'rename_' . md5($label);
+            $label              = (string) ($group['point_label'] ?? '');
+            $key                = 'rename_' . md5($label);
             $activeRenameKeys[] = $key;
+
             if (!array_key_exists($key, $this->pointRenameInputs) || trim((string) $this->pointRenameInputs[$key]) === '') {
                 $this->pointRenameInputs[$key] = $label;
             }
@@ -584,26 +616,27 @@ class Queue extends Component
                 Log::warning('project_review.openReview.no_cycle', ['production_id' => $productionId]);
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Rodada não encontrada',
-                    'html' => 'Não encontramos rodadas de Análise de Projeto para esta produção.',
-                    'timer' => 3500,
+                    'icon'     => 'warning',
+                    'title'    => 'Rodada não encontrada',
+                    'html'     => 'Não encontramos rodadas de Análise de Projeto para esta produção.',
+                    'timer'    => 3500,
                 ]);
+
                 return;
             }
 
             if ($this->selectedCycle) {
                 $this->findingRows = $this->selectedCycle->Findings->map(function ($f) {
                     return [
-                        'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
+                        'point_label'    => $this->normalizePointLabel($f->point_label ?? ''),
                         'subcategory_id' => (int) $f->subcategory_id,
-                        'item_id' => $f->item_id ? (int) $f->item_id : null,
-                        'item_name' => optional($f->Item)->name,
-                        'origin' => (string) ($f->origin ?: 'PROJETO'),
-                        'action_type' => $f->action_type,
-                        'quantity' => $f->quantity,
-                        'note' => $f->note,
-                        'is_conform' => false,
+                        'item_id'        => $f->item_id ? (int) $f->item_id : null,
+                        'item_name'      => optional($f->Item)->name,
+                        'origin'         => (string) ($f->origin ?: 'PROJETO'),
+                        'action_type'    => $f->action_type,
+                        'quantity'       => $f->quantity,
+                        'note'           => $f->note,
+                        'is_conform'     => false,
                     ];
                 })->values()->all();
 
@@ -629,15 +662,15 @@ class Queue extends Component
                     if ($previousRejectedCycle) {
                         $this->findingRows = $previousRejectedCycle->Findings->map(function ($f) {
                             return [
-                                'point_label' => $this->normalizePointLabel($f->point_label ?? ''),
+                                'point_label'    => $this->normalizePointLabel($f->point_label ?? ''),
                                 'subcategory_id' => (int) $f->subcategory_id,
-                                'item_id' => $f->item_id ? (int) $f->item_id : null,
-                                'item_name' => optional($f->Item)->name,
-                                'origin' => (string) ($f->origin ?: 'PROJETO'),
-                                'action_type' => $f->action_type,
-                                'quantity' => $f->quantity,
-                                'note' => $f->note,
-                                'is_conform' => false,
+                                'item_id'        => $f->item_id ? (int) $f->item_id : null,
+                                'item_name'      => optional($f->Item)->name,
+                                'origin'         => (string) ($f->origin ?: 'PROJETO'),
+                                'action_type'    => $f->action_type,
+                                'quantity'       => $f->quantity,
+                                'note'           => $f->note,
+                                'is_conform'     => false,
                             ];
                         })->values()->all();
                     }
@@ -654,22 +687,22 @@ class Queue extends Component
 
             Log::info('project_review.openReview.success', [
                 'production_id' => $this->selectedProduction->id ?? null,
-                'cycle_id' => $this->selectedCycle->id ?? null,
-                'round' => $this->selectedCycle->round_number ?? null,
+                'cycle_id'      => $this->selectedCycle->id ?? null,
+                'round'         => $this->selectedCycle->round_number ?? null,
             ]);
             $this->dispatchBrowserEvent('showModal', ['id' => 'projectReviewModal']);
         } catch (\Throwable $e) {
             report($e);
             Log::error('project_review.openReview.error', [
                 'production_id' => $productionId,
-                'message' => $e->getMessage(),
+                'message'       => $e->getMessage(),
             ]);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Não foi possível abrir a análise',
-                'html' => 'A solicitação falhou ao carregar os dados da produção. Atualize a tela e tente novamente.',
-                'timer' => 4200,
+                'icon'     => 'error',
+                'title'    => 'Não foi possível abrir a análise',
+                'html'     => 'A solicitação falhou ao carregar os dados da produção. Atualize a tela e tente novamente.',
+                'timer'    => 4200,
             ]);
         }
     }
@@ -677,6 +710,7 @@ class Queue extends Component
     public function openReviewFromNotification($productionId): void
     {
         $id = (int) $productionId;
+
         if ($id <= 0) {
             return;
         }
@@ -687,6 +721,7 @@ class Queue extends Component
     public function saveDraftManually(): void
     {
         $saved = $this->persistDraft();
+
         if (!$saved) {
             return;
         }
@@ -696,9 +731,9 @@ class Queue extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Rascunho salvo',
-            'timer' => 1600,
+            'icon'     => 'success',
+            'title'    => 'Rascunho salvo',
+            'timer'    => 1600,
         ]);
     }
 
@@ -742,15 +777,15 @@ class Queue extends Component
         $pointLabel = $this->normalizePointLabel($this->selectedPointLabel);
 
         $this->findingRows[] = [
-            'point_label' => $pointLabel,
+            'point_label'    => $pointLabel,
             'subcategory_id' => (int) $this->selectedSubcategoryId,
-            'item_id' => null,
-            'item_name' => null,
-            'origin' => $this->selectedOrigin,
-            'action_type' => null,
-            'quantity' => null,
-            'note' => '',
-            'is_conform' => false,
+            'item_id'        => null,
+            'item_name'      => null,
+            'origin'         => $this->selectedOrigin,
+            'action_type'    => null,
+            'quantity'       => null,
+            'note'           => '',
+            'is_conform'     => false,
         ];
     }
 
@@ -763,6 +798,7 @@ class Queue extends Component
         $pointLabel = $this->normalizePointLabel($this->selectedPointLabel);
 
         $item = $this->availableItems->firstWhere('id', $itemId);
+
         if (!$item) {
             return;
         }
@@ -780,15 +816,15 @@ class Queue extends Component
         }
 
         $this->findingRows[] = [
-            'point_label' => $pointLabel,
+            'point_label'    => $pointLabel,
             'subcategory_id' => (int) $this->selectedSubcategoryId,
-            'item_id' => $itemId,
-            'item_name' => data_get($item, 'name'),
-            'origin' => $this->selectedOrigin,
-            'action_type' => $this->selectedActionType,
-            'quantity' => 1,
-            'note' => '',
-            'is_conform' => false,
+            'item_id'        => $itemId,
+            'item_name'      => data_get($item, 'name'),
+            'origin'         => $this->selectedOrigin,
+            'action_type'    => $this->selectedActionType,
+            'quantity'       => 1,
+            'note'           => '',
+            'is_conform'     => false,
         ];
     }
 
@@ -821,8 +857,8 @@ class Queue extends Component
             return;
         }
 
-        $this->duplicateMode = 'row';
-        $this->duplicateReference = (string) $index;
+        $this->duplicateMode       = 'row';
+        $this->duplicateReference  = (string) $index;
         $this->duplicatePointLabel = $this->normalizePointLabel($this->findingRows[$index]['point_label'] ?? '');
     }
 
@@ -830,6 +866,7 @@ class Queue extends Component
     {
         $firstRow = collect($this->findingRows)->first(function ($row) use ($subcategoryKey) {
             $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+
             return 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)) === $subcategoryKey;
         });
 
@@ -837,15 +874,15 @@ class Queue extends Component
             return;
         }
 
-        $this->duplicateMode = 'subcategory';
-        $this->duplicateReference = $subcategoryKey;
+        $this->duplicateMode       = 'subcategory';
+        $this->duplicateReference  = $subcategoryKey;
         $this->duplicatePointLabel = $this->normalizePointLabel($firstRow['point_label'] ?? '');
     }
 
     public function requestDuplicatePointGroup(string $pointLabel): void
     {
         $normalizedPointLabel = $this->normalizePointLabel($pointLabel);
-        $hasRows = collect($this->findingRows)->contains(function ($row) use ($normalizedPointLabel) {
+        $hasRows              = collect($this->findingRows)->contains(function ($row) use ($normalizedPointLabel) {
             return $this->normalizePointLabel($row['point_label'] ?? '') === $normalizedPointLabel;
         });
 
@@ -853,24 +890,25 @@ class Queue extends Component
             return;
         }
 
-        $this->duplicateMode = 'point';
-        $this->duplicateReference = $normalizedPointLabel;
+        $this->duplicateMode       = 'point';
+        $this->duplicateReference  = $normalizedPointLabel;
         $this->duplicatePointLabel = $normalizedPointLabel;
     }
 
     public function renamePointGroup(string $sourcePointLabel, string $inputKey): void
     {
         $sourceNormalized = $this->normalizePointLabel($sourcePointLabel);
-        $targetRaw = (string) ($this->pointRenameInputs[$inputKey] ?? '');
+        $targetRaw        = (string) ($this->pointRenameInputs[$inputKey] ?? '');
         $targetNormalized = $this->normalizePointLabel($targetRaw);
 
         if ($targetNormalized === '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Informe a ref:',
-                'timer' => 2200,
+                'icon'     => 'warning',
+                'title'    => 'Informe a ref:',
+                'timer'    => 2200,
             ]);
+
             return;
         }
 
@@ -879,33 +917,36 @@ class Queue extends Component
                 if ($this->normalizePointLabel($row['point_label'] ?? '') === $sourceNormalized) {
                     $row['point_label'] = $targetNormalized;
                 }
+
                 return $row;
             })
             ->values()
             ->all();
 
-        $this->selectedPointLabel = $targetNormalized;
+        $this->selectedPointLabel  = $targetNormalized;
         $this->selectedPointFilter = '';
-        $this->pointRenameInputs = [];
+        $this->pointRenameInputs   = [];
     }
 
     public function cancelDuplicate(): void
     {
-        $this->duplicateMode = '';
-        $this->duplicateReference = '';
+        $this->duplicateMode       = '';
+        $this->duplicateReference  = '';
         $this->duplicatePointLabel = '';
     }
 
     public function confirmDuplicate(): void
     {
         $targetPointLabel = $this->normalizePointLabel($this->duplicatePointLabel);
+
         if ($targetPointLabel === '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Informe o nome da ref:',
-                'timer' => 2200,
+                'icon'     => 'warning',
+                'title'    => 'Informe o nome da ref:',
+                'timer'    => 2200,
             ]);
+
             return;
         }
 
@@ -928,7 +969,7 @@ class Queue extends Component
             return;
         }
 
-        $this->selectedPointLabel = $targetPointLabel;
+        $this->selectedPointLabel  = $targetPointLabel;
         $this->selectedPointFilter = '';
         $this->cancelDuplicate();
     }
@@ -940,16 +981,16 @@ class Queue extends Component
         }
 
         $sourceRow = $this->findingRows[$index];
-        $cloneRow = [
-            'point_label' => $this->normalizePointLabel($targetPointLabel ?? ($sourceRow['point_label'] ?? '')),
+        $cloneRow  = [
+            'point_label'    => $this->normalizePointLabel($targetPointLabel ?? ($sourceRow['point_label'] ?? '')),
             'subcategory_id' => (int) ($sourceRow['subcategory_id'] ?? 0),
-            'item_id' => empty($sourceRow['item_id']) ? null : (int) $sourceRow['item_id'],
-            'item_name' => $sourceRow['item_name'] ?? null,
-            'origin' => (string) ($sourceRow['origin'] ?? 'PROJETO'),
-            'action_type' => $sourceRow['action_type'] ?? null,
-            'quantity' => empty($sourceRow['quantity']) ? null : (int) $sourceRow['quantity'],
-            'note' => (string) ($sourceRow['note'] ?? ''),
-            'is_conform' => false,
+            'item_id'        => empty($sourceRow['item_id']) ? null : (int) $sourceRow['item_id'],
+            'item_name'      => $sourceRow['item_name'] ?? null,
+            'origin'         => (string) ($sourceRow['origin'] ?? 'PROJETO'),
+            'action_type'    => $sourceRow['action_type'] ?? null,
+            'quantity'       => empty($sourceRow['quantity']) ? null : (int) $sourceRow['quantity'],
+            'note'           => (string) ($sourceRow['note'] ?? ''),
+            'is_conform'     => false,
         ];
 
         array_splice($this->findingRows, $index + 1, 0, [$cloneRow]);
@@ -961,6 +1002,7 @@ class Queue extends Component
         $this->findingRows = collect($this->findingRows)
             ->reject(function ($row) use ($subcategoryKey) {
                 $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+
                 return 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)) === $subcategoryKey;
             })
             ->values()
@@ -972,19 +1014,20 @@ class Queue extends Component
         $rowsToDuplicate = collect($this->findingRows)
             ->filter(function ($row) use ($subcategoryKey) {
                 $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
+
                 return 'sub_' . md5($pointLabel . '|' . (int) ($row['subcategory_id'] ?? 0)) === $subcategoryKey;
             })
             ->map(function ($row) use ($targetPointLabel) {
                 return [
-                    'point_label' => $this->normalizePointLabel($targetPointLabel ?? ($row['point_label'] ?? '')),
+                    'point_label'    => $this->normalizePointLabel($targetPointLabel ?? ($row['point_label'] ?? '')),
                     'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
-                    'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
-                    'item_name' => $row['item_name'] ?? null,
-                    'origin' => (string) ($row['origin'] ?? 'PROJETO'),
-                    'action_type' => $row['action_type'] ?? null,
-                    'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
-                    'note' => (string) ($row['note'] ?? ''),
-                    'is_conform' => false,
+                    'item_id'        => empty($row['item_id']) ? null : (int) $row['item_id'],
+                    'item_name'      => $row['item_name'] ?? null,
+                    'origin'         => (string) ($row['origin'] ?? 'PROJETO'),
+                    'action_type'    => $row['action_type'] ?? null,
+                    'quantity'       => empty($row['quantity']) ? null : (int) $row['quantity'],
+                    'note'           => (string) ($row['note'] ?? ''),
+                    'is_conform'     => false,
                 ];
             })
             ->values()
@@ -1008,15 +1051,15 @@ class Queue extends Component
             })
             ->map(function ($row) use ($targetNormalized) {
                 return [
-                    'point_label' => $targetNormalized,
+                    'point_label'    => $targetNormalized,
                     'subcategory_id' => (int) ($row['subcategory_id'] ?? 0),
-                    'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
-                    'item_name' => $row['item_name'] ?? null,
-                    'origin' => (string) ($row['origin'] ?? 'PROJETO'),
-                    'action_type' => $row['action_type'] ?? null,
-                    'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
-                    'note' => (string) ($row['note'] ?? ''),
-                    'is_conform' => false,
+                    'item_id'        => empty($row['item_id']) ? null : (int) $row['item_id'],
+                    'item_name'      => $row['item_name'] ?? null,
+                    'origin'         => (string) ($row['origin'] ?? 'PROJETO'),
+                    'action_type'    => $row['action_type'] ?? null,
+                    'quantity'       => empty($row['quantity']) ? null : (int) $row['quantity'],
+                    'note'           => (string) ($row['note'] ?? ''),
+                    'is_conform'     => false,
                 ];
             })
             ->values()
@@ -1035,10 +1078,11 @@ class Queue extends Component
 
         $this->findingRows = collect($this->findingRows)
             ->reject(function ($row) use ($categoryKey, $subcategoriesById) {
-                $subcategory = $subcategoriesById->get((int) ($row['subcategory_id'] ?? 0));
+                $subcategory     = $subcategoriesById->get((int) ($row['subcategory_id'] ?? 0));
                 $rowCategoryName = data_get($subcategory, 'Category.name', data_get($subcategory, 'category.name', 'sem-categoria'));
-                $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
-                $rowCategoryKey = 'cat_' . md5((string) $pointLabel . '|' . (string) $rowCategoryName);
+                $pointLabel      = $this->normalizePointLabel($row['point_label'] ?? '');
+                $rowCategoryKey  = 'cat_' . md5((string) $pointLabel . '|' . (string) $rowCategoryName);
+
                 return $rowCategoryKey === $categoryKey;
             })
             ->values()
@@ -1058,18 +1102,19 @@ class Queue extends Component
     public function approveSelected(): void
     {
         $ids = collect($this->selectedProductionIds)
-            ->map(fn($id) => (int) $id)
-            ->filter(fn($id) => $id > 0)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values();
 
         if ($ids->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione ao menos uma produção',
-                'timer' => 2200,
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma produção',
+                'timer'    => 2200,
             ]);
+
             return;
         }
 
@@ -1088,11 +1133,12 @@ class Queue extends Component
         if ($productions->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma produção pendente elegível para aprovação em massa',
-                'timer' => 2800,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma produção pendente elegível para aprovação em massa',
+                'timer'    => 2800,
             ]);
             $this->clearBulkSelection();
+
             return;
         }
 
@@ -1101,30 +1147,31 @@ class Queue extends Component
         DB::transaction(function () use ($productions, &$approvedCount) {
             foreach ($productions as $production) {
                 $cycle = $production->ProjectReviewCycles->first();
+
                 if (!$cycle) {
                     continue;
                 }
 
                 $cycle->update([
-                    'decision' => 'APPROVED',
-                    'decided_by' => auth()->id(),
-                    'decided_at' => now(),
+                    'decision'     => 'APPROVED',
+                    'decided_by'   => auth()->id(),
+                    'decided_at'   => now(),
                     'analyst_note' => null,
                 ]);
 
                 $production->update([
-                    'status' => 5,
-                    'completed' => true,
+                    'status'       => 5,
+                    'completed'    => true,
                     'completed_at' => $production->completed_at ?? now(),
                 ]);
 
                 Notetimeline::create([
-                    'note_id' => $production->note_id,
-                    'service_id' => $production->service_id,
+                    'note_id'       => $production->note_id,
+                    'service_id'    => $production->service_id,
                     'production_id' => $production->id,
-                    'user_id' => auth()->id(),
-                    'info' => 'Projeto aprovado na Análise de Projeto.',
-                    'status' => 5,
+                    'user_id'       => auth()->id(),
+                    'info'          => 'Projeto aprovado na Análise de Projeto.',
+                    'status'        => 5,
                 ]);
 
                 if ($production->User) {
@@ -1145,9 +1192,9 @@ class Queue extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => $approvedCount . ' produção(ões) aprovada(s) em massa com sucesso.',
-            'timer' => 2600,
+            'icon'     => 'success',
+            'title'    => $approvedCount . ' produção(ões) aprovada(s) em massa com sucesso.',
+            'timer'    => 2600,
         ]);
     }
 
@@ -1168,11 +1215,12 @@ class Queue extends Component
         if ($pendingRows->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma pendência para reprovar',
-                'html' => 'Todos os itens foram marcados como conformes. Para reprovar, deixe ao menos um item pendente.',
-                'timer' => 2800,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma pendência para reprovar',
+                'html'     => 'Todos os itens foram marcados como conformes. Para reprovar, deixe ao menos um item pendente.',
+                'timer'    => 2800,
             ]);
+
             return;
         }
 
@@ -1180,9 +1228,10 @@ class Queue extends Component
             'analystNote' => 'nullable|string|max:5000',
         ]);
 
-        $subcategoriesById = $this->subcategories->keyBy(fn ($subcategory) => (int) data_get($subcategory, 'id'));
+        $subcategoriesById         = $this->subcategories->keyBy(fn ($subcategory) => (int) data_get($subcategory, 'id'));
         $validItemIdsBySubcategory = $subcategoriesById->map(function ($subcategory) {
             $items = data_get($subcategory, 'Items', data_get($subcategory, 'items', []));
+
             return collect($items)->pluck('id')->map(fn ($id) => (int) $id)->flip();
         });
 
@@ -1212,9 +1261,10 @@ class Queue extends Component
             ->keyBy('id');
 
         $uniqueByPointLabel = $this->hasPointLabelColumn();
-        $seen = [];
+        $seen               = [];
+
         foreach ($pendingRows as $index => $row) {
-            $rowIndex = (int) $index;
+            $rowIndex   = (int) $index;
             $pointLabel = $this->normalizePointLabel($row['point_label'] ?? '');
 
             if ($pointLabel === '') {
@@ -1223,21 +1273,23 @@ class Queue extends Component
 
             if (empty($row['subcategory_id'])) {
                 $this->addError("findingRows.{$rowIndex}.subcategory_id", 'Subcategoria inválida.');
+
                 continue;
             }
 
-            $subcategoryId = (int) $row['subcategory_id'];
+            $subcategoryId     = (int) $row['subcategory_id'];
             $subcategoryExists = $subcategoriesById->has($subcategoryId) || $dbSubcategoryIds->has($subcategoryId);
+
             if (!$subcategoryExists) {
                 $this->addError("findingRows.{$rowIndex}.subcategory_id", 'Subcategoria não encontrada.');
             }
 
             if (!empty($row['item_id'])) {
-                $itemId = (int) $row['item_id'];
-                $allowedItems = $validItemIdsBySubcategory->get($subcategoryId);
+                $itemId                        = (int) $row['item_id'];
+                $allowedItems                  = $validItemIdsBySubcategory->get($subcategoryId);
                 $itemIsAllowedByActiveTaxonomy = $allowedItems && $allowedItems->has($itemId);
-                $dbItem = $dbItemsById->get($itemId);
-                $itemIsValidByDatabase = $dbItem && (int) $dbItem->subcategory_id === $subcategoryId;
+                $dbItem                        = $dbItemsById->get($itemId);
+                $itemIsValidByDatabase         = $dbItem && (int) $dbItem->subcategory_id === $subcategoryId;
 
                 if (!$itemIsAllowedByActiveTaxonomy && !$itemIsValidByDatabase) {
                     $this->addError("findingRows.{$rowIndex}.item_id", 'Item não encontrado para a subcategoria selecionada.');
@@ -1268,10 +1320,12 @@ class Queue extends Component
                 . ':' . (string) ($row['item_id'] ?? 'null')
                 . ':' . (string) ($row['origin'] ?? 'PROJETO')
                 . ':' . (string) ($row['action_type'] ?? '');
+
             if ($uniqueByPointLabel) {
                 // Com ponto de referência habilitado, a unicidade considera também a ref.
                 $key .= ':' . $pointLabel;
             }
+
             if (isset($seen[$key]) && !empty($row['item_id'])) {
                 $this->addError(
                     "findingRows.{$rowIndex}.item_id",
@@ -1287,11 +1341,12 @@ class Queue extends Component
             $firstError = (string) collect($this->getErrorBag()->all())->first();
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Não foi possível reprovar',
-                'html' => $firstError !== '' ? $firstError : 'Existem inconsistências na análise. Revise os itens e tente novamente.',
-                'timer' => 4200,
+                'icon'     => 'warning',
+                'title'    => 'Não foi possível reprovar',
+                'html'     => $firstError !== '' ? $firstError : 'Existem inconsistências na análise. Revise os itens e tente novamente.',
+                'timer'    => 4200,
             ]);
+
             return;
         }
 
@@ -1301,14 +1356,15 @@ class Queue extends Component
             $rowsToPersist = collect($this->normalizeFindingRows($this->findingRows, true))
                 ->reject(fn ($row) => (bool) ($row['is_conform'] ?? false))
                 ->values();
+
             foreach ($rowsToPersist as $row) {
                 $payload = [
                     'subcategory_id' => (int) $row['subcategory_id'],
-                    'item_id' => empty($row['item_id']) ? null : (int) $row['item_id'],
-                    'origin' => (string) $row['origin'],
-                    'action_type' => $row['action_type'] ?? null,
-                    'quantity' => empty($row['quantity']) ? null : (int) $row['quantity'],
-                    'note' => trim((string) ($row['note'] ?? '')) ?: null,
+                    'item_id'        => empty($row['item_id']) ? null : (int) $row['item_id'],
+                    'origin'         => (string) $row['origin'],
+                    'action_type'    => $row['action_type'] ?? null,
+                    'quantity'       => empty($row['quantity']) ? null : (int) $row['quantity'],
+                    'note'           => trim((string) ($row['note'] ?? '')) ?: null,
                 ];
 
                 if ($this->hasPointLabelColumn()) {
@@ -1319,9 +1375,9 @@ class Queue extends Component
             }
 
             $this->selectedCycle->update([
-                'decision' => 'REJECTED',
-                'decided_by' => auth()->id(),
-                'decided_at' => now(),
+                'decision'     => 'REJECTED',
+                'decided_by'   => auth()->id(),
+                'decided_at'   => now(),
                 'analyst_note' => trim($this->analystNote) ?: null,
             ]);
 
@@ -1330,12 +1386,12 @@ class Queue extends Component
             ]);
 
             Notetimeline::create([
-                'note_id' => $this->selectedProduction->note_id,
-                'service_id' => $this->selectedProduction->service_id,
+                'note_id'       => $this->selectedProduction->note_id,
+                'service_id'    => $this->selectedProduction->service_id,
                 'production_id' => $this->selectedProduction->id,
-                'user_id' => auth()->id(),
-                'info' => 'Projeto reprovado na Análise de Projeto.',
-                'status' => Production::STATUS_REJECTED_PROJECT_REVIEW,
+                'user_id'       => auth()->id(),
+                'info'          => 'Projeto reprovado na Análise de Projeto.',
+                'status'        => Production::STATUS_REJECTED_PROJECT_REVIEW,
             ]);
 
             if ($this->selectedProduction->User) {
@@ -1361,15 +1417,16 @@ class Queue extends Component
         }
 
         $message = trim($this->newReply);
+
         if ($message === '') {
             return;
         }
 
         ProjectReviewMessage::create([
             'production_id' => $this->selectedProduction->id,
-            'cycle_id' => $this->selectedCycle->id,
-            'user_id' => auth()->id(),
-            'message' => $message,
+            'cycle_id'      => $this->selectedCycle->id,
+            'user_id'       => auth()->id(),
+            'message'       => $message,
         ]);
 
         if ($this->selectedProduction->User && $this->selectedProduction->User->id !== auth()->id()) {
@@ -1434,6 +1491,7 @@ class Queue extends Component
         if ($decision === 'APPROVED_WITH_REMARKS') {
             $rules['analystNote'] = 'required|string|min:5|max:5000';
         }
+
         if (in_array($decision, ['APPROVED', 'APPROVED_WITH_REMARKS'], true)) {
             $rules['requiresSapRelease'] = 'required|in:SIM,NAO';
         }
@@ -1443,9 +1501,9 @@ class Queue extends Component
 
         DB::transaction(function () use ($decision, $requiresSapRelease) {
             $this->selectedCycle->update([
-                'decision' => $decision,
-                'decided_by' => auth()->id(),
-                'decided_at' => now(),
+                'decision'     => $decision,
+                'decided_by'   => auth()->id(),
+                'decided_at'   => now(),
                 'analyst_note' => trim($this->analystNote) ?: null,
             ]);
 
@@ -1454,18 +1512,18 @@ class Queue extends Component
             ];
 
             if (!$requiresSapRelease) {
-                $productionUpdate['completed'] = true;
+                $productionUpdate['completed']    = true;
                 $productionUpdate['completed_at'] = $this->selectedProduction->completed_at ?? now();
             }
 
             $this->selectedProduction->update($productionUpdate);
 
             Notetimeline::create([
-                'note_id' => $this->selectedProduction->note_id,
-                'service_id' => $this->selectedProduction->service_id,
+                'note_id'       => $this->selectedProduction->note_id,
+                'service_id'    => $this->selectedProduction->service_id,
                 'production_id' => $this->selectedProduction->id,
-                'user_id' => auth()->id(),
-                'info' => $requiresSapRelease
+                'user_id'       => auth()->id(),
+                'info'          => $requiresSapRelease
                     ? 'Projeto aprovado na Análise de Projeto e liberado para finalização no SAP.'
                     : ($decision === 'APPROVED_WITH_REMARKS'
                         ? 'Projeto aprovado com ressalvas na Análise de Projeto.'
@@ -1500,9 +1558,9 @@ class Queue extends Component
         $this->dispatchBrowserEvent('hideModal');
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => $message,
-            'timer' => 2500,
+            'icon'     => 'success',
+            'title'    => $message,
+            'timer'    => 2500,
         ]);
 
         $this->resetReviewForm();
@@ -1510,33 +1568,34 @@ class Queue extends Component
 
     private function resetReviewForm(): void
     {
-        $this->selectedProduction = null;
-        $this->drawingProduction = null;
-        $this->selectedCycle = null;
-        $this->analystNote = '';
-        $this->requiresSapRelease = '';
-        $this->findingRows = [];
-        $this->newReply = '';
-        $this->selectedCategoryId = null;
-        $this->selectedSubcategoryId = null;
-        $this->selectedPointLabel = 'P1';
-        $this->selectedPointFilter = '';
-        $this->pointRenameInputs = [];
-        $this->duplicateMode = '';
-        $this->duplicateReference = '';
-        $this->duplicatePointLabel = '';
-        $this->selectedOrigin = 'PROJETO';
-        $this->selectedActionType = 'FALTA';
-        $this->collapsedGroups = [];
-        $this->collapsedCategories = [];
+        $this->selectedProduction     = null;
+        $this->drawingProduction      = null;
+        $this->selectedCycle          = null;
+        $this->analystNote            = '';
+        $this->requiresSapRelease     = '';
+        $this->findingRows            = [];
+        $this->newReply               = '';
+        $this->selectedCategoryId     = null;
+        $this->selectedSubcategoryId  = null;
+        $this->selectedPointLabel     = 'P1';
+        $this->selectedPointFilter    = '';
+        $this->pointRenameInputs      = [];
+        $this->duplicateMode          = '';
+        $this->duplicateReference     = '';
+        $this->duplicatePointLabel    = '';
+        $this->selectedOrigin         = 'PROJETO';
+        $this->selectedActionType     = 'FALTA';
+        $this->collapsedGroups        = [];
+        $this->collapsedCategories    = [];
         $this->collapsedSubcategories = [];
-        $this->draftSavedAt = null;
+        $this->draftSavedAt           = null;
         $this->resetValidation();
     }
 
     private function resolveDrawingProduction(Production $production): ?Production
     {
         $serviceName = mb_strtolower((string) ($production->Service->service ?? ''));
+
         if (str_contains($serviceName, 'desenho')) {
             return $production->loadMissing('Files', 'Service', 'Note');
         }
@@ -1567,37 +1626,43 @@ class Queue extends Component
         if (!$file) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Arquivo não encontrado',
-                'html' => 'O arquivo selecionado não está disponível para esta nota.',
-                'timer' => 2600,
+                'icon'     => 'warning',
+                'title'    => 'Arquivo não encontrado',
+                'html'     => 'O arquivo selecionado não está disponível para esta nota.',
+                'timer'    => 2600,
             ]);
+
             return null;
         }
 
-        if (!$file->path || !Storage::exists($file->path)) {
+        $storage = app(FileStorageService::class);
+
+        if (!$storage->exists($file)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Arquivo indisponível',
-                'html' => 'Não foi possível localizar o arquivo no storage. Atualize a lista e tente novamente.',
-                'timer' => 3200,
+                'icon'     => 'warning',
+                'title'    => 'Arquivo indisponível',
+                'html'     => 'Não foi possível localizar o arquivo no storage. Atualize a lista e tente novamente.',
+                'timer'    => 3200,
             ]);
+
             return null;
         }
 
         $downloadName = $file->original_name ?: ($file->file_name . ($file->ext ? '.' . $file->ext : ''));
+
         try {
-            return Storage::download($file->path, $downloadName);
+            return $storage->download($file, $downloadName);
         } catch (\Throwable $e) {
             report($e);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Erro ao baixar arquivo',
-                'html' => 'O arquivo não pôde ser lido no storage.',
-                'timer' => 3200,
+                'icon'     => 'error',
+                'title'    => 'Erro ao baixar arquivo',
+                'html'     => 'O arquivo não pôde ser lido no storage.',
+                'timer'    => 3200,
             ]);
+
             return null;
         }
     }
@@ -1609,15 +1674,17 @@ class Queue extends Component
 
     private function clearBulkSelection(): void
     {
-        $this->selectPage = false;
+        $this->selectPage            = false;
         $this->selectedProductionIds = [];
     }
 
     private function syncDraftFlagsForPage($paginator): void
     {
         $userId = auth()->id();
+
         if (!$userId) {
             $this->draftProductionIds = [];
+
             return;
         }
 
@@ -1630,6 +1697,7 @@ class Queue extends Component
 
         if (empty($productionIds)) {
             $this->draftProductionIds = [];
+
             return;
         }
 
@@ -1677,23 +1745,24 @@ class Queue extends Component
             is_array($payload['findingRows'] ?? null) ? $payload['findingRows'] : $this->findingRows,
             true
         );
-        $this->analystNote = (string) ($payload['analystNote'] ?? $this->analystNote);
-        $this->collapsedGroups = is_array($payload['collapsedGroups'] ?? null) ? $payload['collapsedGroups'] : $this->collapsedGroups;
-        $this->collapsedCategories = is_array($payload['collapsedCategories'] ?? null) ? $payload['collapsedCategories'] : $this->collapsedCategories;
+        $this->analystNote            = (string) ($payload['analystNote'] ?? $this->analystNote);
+        $this->collapsedGroups        = is_array($payload['collapsedGroups'] ?? null) ? $payload['collapsedGroups'] : $this->collapsedGroups;
+        $this->collapsedCategories    = is_array($payload['collapsedCategories'] ?? null) ? $payload['collapsedCategories'] : $this->collapsedCategories;
         $this->collapsedSubcategories = is_array($payload['collapsedSubcategories'] ?? null) ? $payload['collapsedSubcategories'] : $this->collapsedSubcategories;
-        $this->selectedCategoryId = isset($payload['selectedCategoryId']) ? (int) $payload['selectedCategoryId'] : $this->selectedCategoryId;
-        $this->selectedSubcategoryId = isset($payload['selectedSubcategoryId']) ? (int) $payload['selectedSubcategoryId'] : $this->selectedSubcategoryId;
-        $this->selectedPointLabel = $this->normalizePointLabel((string) ($payload['selectedPointLabel'] ?? $this->selectedPointLabel));
-        $this->selectedPointFilter = $this->normalizePointFilter((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
+        $this->selectedCategoryId     = isset($payload['selectedCategoryId']) ? (int) $payload['selectedCategoryId'] : $this->selectedCategoryId;
+        $this->selectedSubcategoryId  = isset($payload['selectedSubcategoryId']) ? (int) $payload['selectedSubcategoryId'] : $this->selectedSubcategoryId;
+        $this->selectedPointLabel     = $this->normalizePointLabel((string) ($payload['selectedPointLabel'] ?? $this->selectedPointLabel));
+        $this->selectedPointFilter    = $this->normalizePointFilter((string) ($payload['selectedPointFilter'] ?? $this->selectedPointFilter));
+
         if (
             $this->selectedPointFilter === 'SEM PONTO'
             && !collect($this->findingRows)->contains(fn ($row) => $this->normalizePointLabel($row['point_label'] ?? '') === 'SEM PONTO')
         ) {
             $this->selectedPointFilter = '';
         }
-        $this->selectedOrigin = (string) ($payload['selectedOrigin'] ?? $this->selectedOrigin);
+        $this->selectedOrigin     = (string) ($payload['selectedOrigin'] ?? $this->selectedOrigin);
         $this->selectedActionType = (string) ($payload['selectedActionType'] ?? $this->selectedActionType);
-        $this->draftSavedAt = optional($draft->updated_at)->format('d/m/Y H:i:s');
+        $this->draftSavedAt       = optional($draft->updated_at)->format('d/m/Y H:i:s');
     }
 
     private function persistDraft(): bool
@@ -1707,24 +1776,24 @@ class Queue extends Component
         }
 
         $payload = [
-            'findingRows' => $this->normalizeFindingRows($this->findingRows, true),
-            'analystNote' => $this->analystNote,
-            'collapsedGroups' => $this->collapsedGroups,
-            'collapsedCategories' => $this->collapsedCategories,
+            'findingRows'            => $this->normalizeFindingRows($this->findingRows, true),
+            'analystNote'            => $this->analystNote,
+            'collapsedGroups'        => $this->collapsedGroups,
+            'collapsedCategories'    => $this->collapsedCategories,
             'collapsedSubcategories' => $this->collapsedSubcategories,
-            'selectedCategoryId' => $this->selectedCategoryId,
-            'selectedSubcategoryId' => $this->selectedSubcategoryId,
-            'selectedPointLabel' => $this->normalizePointLabel($this->selectedPointLabel),
-            'selectedPointFilter' => $this->normalizePointFilter($this->selectedPointFilter),
-            'selectedOrigin' => $this->selectedOrigin,
-            'selectedActionType' => $this->selectedActionType,
+            'selectedCategoryId'     => $this->selectedCategoryId,
+            'selectedSubcategoryId'  => $this->selectedSubcategoryId,
+            'selectedPointLabel'     => $this->normalizePointLabel($this->selectedPointLabel),
+            'selectedPointFilter'    => $this->normalizePointFilter($this->selectedPointFilter),
+            'selectedOrigin'         => $this->selectedOrigin,
+            'selectedActionType'     => $this->selectedActionType,
         ];
 
         ProjectReviewDraft::query()->updateOrCreate(
             [
                 'production_id' => $this->selectedProduction->id,
-                'cycle_id' => $this->selectedCycle->id,
-                'user_id' => auth()->id(),
+                'cycle_id'      => $this->selectedCycle->id,
+                'user_id'       => auth()->id(),
             ],
             [
                 'payload' => $payload,
@@ -1754,17 +1823,17 @@ class Queue extends Component
         return collect($rows)
             ->filter(fn ($row) => is_array($row))
             ->map(function (array $row) {
-                $row['point_label'] = $this->normalizePointLabel($row['point_label'] ?? '');
+                $row['point_label']    = $this->normalizePointLabel($row['point_label'] ?? '');
                 $row['subcategory_id'] = empty($row['subcategory_id']) ? null : (int) $row['subcategory_id'];
-                $row['item_id'] = empty($row['item_id']) ? null : (int) $row['item_id'];
-                $row['item_name'] = $row['item_name'] ?? null;
-                $row['origin'] = in_array((string) ($row['origin'] ?? ''), ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)
+                $row['item_id']        = empty($row['item_id']) ? null : (int) $row['item_id'];
+                $row['item_name']      = $row['item_name'] ?? null;
+                $row['origin']         = in_array((string) ($row['origin'] ?? ''), ['LEVANTAMENTO', 'PROJETO', 'AMBOS'], true)
                     ? (string) $row['origin']
                     : 'PROJETO';
                 $row['action_type'] = empty($row['action_type']) ? null : (string) $row['action_type'];
-                $row['quantity'] = empty($row['quantity']) ? null : (int) $row['quantity'];
-                $row['note'] = (string) ($row['note'] ?? '');
-                $row['is_conform'] = (bool) ($row['is_conform'] ?? false);
+                $row['quantity']    = empty($row['quantity']) ? null : (int) $row['quantity'];
+                $row['note']        = (string) ($row['note'] ?? '');
+                $row['is_conform']  = (bool) ($row['is_conform'] ?? false);
 
                 return $row;
             })
@@ -1782,19 +1851,19 @@ class Queue extends Component
 
         if ($isOwnerRecipient) {
             return route('services.production', [
-                'service' => $targetProduction->service_id,
-                'prod' => $targetProduction->id,
+                'service'             => $targetProduction->service_id,
+                'prod'                => $targetProduction->id,
                 'open_project_review' => 1,
-                'production' => $targetProduction->id,
-                'note' => $targetProduction->note_id,
-                'focus' => 'chat',
+                'production'          => $targetProduction->id,
+                'note'                => $targetProduction->note_id,
+                'focus'               => 'chat',
             ]);
         }
 
         if ($recipient->can('analyst')) {
             return route('project_review.list', [
                 'production' => $production->id,
-                'focus' => 'chat',
+                'focus'      => 'chat',
             ]);
         }
 
@@ -1827,6 +1896,7 @@ class Queue extends Component
     private function normalizePointLabel(?string $value): string
     {
         $label = trim((string) $value);
+
         if ($label === '') {
             return 'SEM PONTO';
         }
@@ -1837,6 +1907,7 @@ class Queue extends Component
     private function normalizePointFilter(?string $value): string
     {
         $filter = trim((string) $value);
+
         if ($filter === '') {
             return '';
         }
@@ -1847,6 +1918,7 @@ class Queue extends Component
     private function hasPointLabelColumn(): bool
     {
         static $hasColumn = null;
+
         if (!is_null($hasColumn)) {
             return $hasColumn;
         }
@@ -1867,13 +1939,13 @@ class Queue extends Component
         $lists = $this->lists;
 
         return view('livewire.project-review.queue', [
-            'lists' => $lists,
-            'companies' => $this->companies,
-            'categories' => $this->categories,
-            'subcategories' => $this->subcategories,
+            'lists'                  => $lists,
+            'companies'              => $this->companies,
+            'categories'             => $this->categories,
+            'subcategories'          => $this->subcategories,
             'availableSubcategories' => $this->availableSubcategories,
-            'availableItems' => $this->availableItems,
-            'findingsTree' => $this->findingsTree,
+            'availableItems'         => $this->availableItems,
+            'findingsTree'           => $this->findingsTree,
         ]);
     }
 

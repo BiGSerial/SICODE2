@@ -2,18 +2,12 @@
 
 namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
-use App\Enum\ProtestJobPriority;
-use App\Enum\ProtestJobStatus;
-use App\Models\EvidenceFile;
-use App\Models\MedProtest;
-use App\Models\ProtestJob;
-use App\Models\User;
+use App\Enum\{ProtestJobPriority, ProtestJobStatus};
+use App\Models\{EvidenceFile, MedProtest, ProtestJob, User};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
+use Livewire\{Component, TemporaryUploadedFile, WithFileUploads};
 
 class EditControlMedProtest extends Component
 {
@@ -23,18 +17,28 @@ class EditControlMedProtest extends Component
 
     // form editável
     public ?string $owner_id = null;
+
     public string $priority = '';
+
     public bool $is_advance = false;
+
     public bool $need_evidence = false;
+
     public ?string $sla_due_at = null;
+
     public string $notes = ''; // pode ser "instrução / atualização"
+
     public string $reason_close = '';
+
     public ?string $result = null;
+
     public array $resultOptions = [];
 
     // UI aux
     public string $userSearch = '';
+
     public $userList = [];
+
     public bool $showReasonClose = false;
 
     /** Uploads */
@@ -83,7 +87,7 @@ class EditControlMedProtest extends Component
         }
 
         $medProtest = $this->job?->medProtest;
-        $protest = $medProtest?->protest;
+        $protest    = $medProtest?->protest;
 
         if (!$medProtest || !$protest) {
             return null;
@@ -104,7 +108,7 @@ class EditControlMedProtest extends Component
         }
 
         $allowedHours = [0, 8, 12, 18];
-        $hour = $date->hour;
+        $hour         = $date->hour;
 
         $closestHour = collect($allowedHours)->first(function ($value) use ($hour) {
             return $value >= $hour;
@@ -112,7 +116,7 @@ class EditControlMedProtest extends Component
 
         if ($closestHour === null) {
             $closestHour = $allowedHours[array_key_first($allowedHours)];
-            $date = $date->addDay();
+            $date        = $date->addDay();
         }
 
         $date = $date->copy()->setHour($closestHour)->setMinute(0)->setSecond(0);
@@ -124,16 +128,16 @@ class EditControlMedProtest extends Component
     {
         $this->job = $job->load('owner', 'creator', 'medProtest.protest', 'medProtest.evidenceFiles', 'events');
 
-        $this->owner_id      = $this->job->owner_id;
-        $this->priority      = $this->job->priority->value;
-        $this->is_advance    = (bool)$this->job->is_advance;
-        $this->need_evidence = (bool)$this->job->need_evidence;
-        $this->sla_due_at    = $this->resolveSlaDefault();
-        $this->notes         = $this->job->notes ?? '';
-        $this->reason_close  = '';
+        $this->owner_id        = $this->job->owner_id;
+        $this->priority        = $this->job->priority->value;
+        $this->is_advance      = (bool)$this->job->is_advance;
+        $this->need_evidence   = (bool)$this->job->need_evidence;
+        $this->sla_due_at      = $this->resolveSlaDefault();
+        $this->notes           = $this->job->notes ?? '';
+        $this->reason_close    = '';
         $this->showReasonClose = false;
-        $this->result = $this->job?->medProtest?->result;
-        $this->resultOptions = MedProtest::resultOptions();
+        $this->result          = $this->job?->medProtest?->result;
+        $this->resultOptions   = MedProtest::resultOptions();
         $this->resetFileUploads();
 
         $this->dispatchBrowserEvent('showModal', [
@@ -149,8 +153,7 @@ class EditControlMedProtest extends Component
             ->whereNull('deleted_at')
             ->when(
                 $needle,
-                fn ($q) =>
-                $q->where('name', 'like', '%' . $needle . '%')
+                fn ($q) => $q->where('name', 'like', '%' . $needle . '%')
             )
             ->orderBy('name')
             ->get();
@@ -159,8 +162,8 @@ class EditControlMedProtest extends Component
     protected function validateJobEdit(): array
     {
         return $this->validate([
-            'owner_id'      => 'required|exists:users,id',
-            'priority'      => 'required|in:' .
+            'owner_id' => 'required|exists:users,id',
+            'priority' => 'required|in:' .
                 implode(',', array_map(fn ($e) => $e->value, ProtestJobPriority::cases())),
             'is_advance'    => 'boolean',
             'need_evidence' => 'boolean',
@@ -196,9 +199,9 @@ class EditControlMedProtest extends Component
             ]);
 
             $this->job->events()->create([
-                'type'        => 'updated',
-                'actor_id'    => auth()->id(),
-                'meta'        => [
+                'type'     => 'updated',
+                'actor_id' => auth()->id(),
+                'meta'     => [
                     'changes' => 'priority/flags/sla/notes updated',
                 ],
                 'occurred_at' => now(),
@@ -229,6 +232,7 @@ class EditControlMedProtest extends Component
                 'status'   => 'danger',
                 'menssage' => 'Transição inválida para REOPENED.',
             ]);
+
             return;
         }
 
@@ -255,7 +259,7 @@ class EditControlMedProtest extends Component
     public function cancelFinishReason(): void
     {
         $this->showReasonClose = false;
-        $this->reason_close = '';
+        $this->reason_close    = '';
         $this->resetErrorBag('reason_close');
     }
 
@@ -286,6 +290,7 @@ class EditControlMedProtest extends Component
                 'status'   => 'danger',
                 'menssage' => 'Não foi possível finalizar a atividade.',
             ]);
+
             return;
         }
 
@@ -343,6 +348,7 @@ class EditControlMedProtest extends Component
                 'status'   => 'danger',
                 'menssage' => 'Não foi possível cancelar.',
             ]);
+
             return;
         }
 
@@ -359,8 +365,9 @@ class EditControlMedProtest extends Component
 
     public function updatedFiles(): void
     {
-        if (! $this->job?->medProtest) {
+        if (!$this->job?->medProtest) {
             $this->reset('files');
+
             return;
         }
 
@@ -372,7 +379,7 @@ class EditControlMedProtest extends Component
             ], $this->fileValidationMessages);
 
             foreach ($this->files as $file) {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -381,6 +388,7 @@ class EditControlMedProtest extends Component
                 foreach ($this->tempFiles as $index => $existingFile) {
                     if ($existingFile->getClientOriginalName() === $fileName) {
                         unset($this->tempFiles[$index]);
+
                         break;
                     }
                 }
@@ -397,13 +405,14 @@ class EditControlMedProtest extends Component
                 'errors'  => $e->errors(),
             ]);
             $this->reset('files');
+
             throw $e;
         }
     }
 
     public function saveFiles(): void
     {
-        if (! $this->job?->medProtest) {
+        if (!$this->job?->medProtest) {
             return;
         }
 
@@ -412,6 +421,7 @@ class EditControlMedProtest extends Component
                 'type'    => 'warning',
                 'message' => 'Nenhum arquivo recebido para salvar.',
             ]);
+
             return;
         }
 
@@ -419,7 +429,7 @@ class EditControlMedProtest extends Component
 
         foreach ($this->tempFiles as $file) {
             try {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -428,24 +438,13 @@ class EditControlMedProtest extends Component
                     $medProtest->med_id . '_' .
                     uniqid() . '.' . $file->getClientOriginalExtension();
 
-                $path = $file->storeAs(
+                app(EvidenceFileService::class)->store(
+                    $medProtest,
+                    $file,
                     $this->filesConfig['path'] . '/' . $medProtest->protest->nota,
                     $filename,
-                    $this->filesConfig['disk']
+                    auth()->id()
                 );
-
-                $medProtest->EvidenceFiles()->create([
-                    'user_id'       => auth()->id(),
-                    'original_name' => $file->getClientOriginalName(),
-                    'stored_name'   => $filename,
-                    'disk'          => $this->filesConfig['disk'],
-                    'path'          => $path,
-                    'mime'          => $file->getClientMimeType(),
-                    'extension'     => $file->getClientOriginalExtension(),
-                    'size'          => $file->getSize(),
-                    'sha256'        => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_at'   => now(),
-                ]);
             } catch (\Throwable $e) {
                 logger()->error('Erro ao salvar recebidos (ediÇðo): ' . $e->getMessage(), [
                     'file' => $file instanceof TemporaryUploadedFile ? $file->getClientOriginalName() : null,
@@ -486,10 +485,10 @@ class EditControlMedProtest extends Component
 
     public function downloadFile(EvidenceFile $file)
     {
-        $disk = $file->disk ?? 'public';
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::disk($disk)->exists($file->path)) {
-            return Storage::disk($disk)->download($file->path, $file->original_name);
+        if ($service->exists($file)) {
+            return $service->download($file);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -498,12 +497,12 @@ class EditControlMedProtest extends Component
             'title'    => 'Arquivo inexistente!',
             'timer'    => 5000,
         ]);
-        return;
+
     }
 
     public function deleteFile(EvidenceFile $file): void
     {
-        if (! $this->job?->medProtest) {
+        if (!$this->job?->medProtest) {
             return;
         }
 
@@ -521,24 +520,24 @@ class EditControlMedProtest extends Component
     public function getFileIconClass(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'bg-danger text-white',
-            'doc', 'docx'        => 'bg-primary text-white',
-            'xls', 'xlsx'        => 'bg-success text-white',
+            'pdf' => 'bg-danger text-white',
+            'doc', 'docx' => 'bg-primary text-white',
+            'xls', 'xlsx' => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt'                => 'bg-secondary text-white',
-            default              => 'bg-dark text-white',
+            'txt'   => 'bg-secondary text-white',
+            default => 'bg-dark text-white',
         };
     }
 
     public function getFileIcon(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'ri-file-pdf-fill',
-            'doc', 'docx'        => 'ri-file-word-fill',
-            'xls', 'xlsx'        => 'ri-file-excel-fill',
+            'pdf' => 'ri-file-pdf-fill',
+            'doc', 'docx' => 'ri-file-word-fill',
+            'xls', 'xlsx' => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt'                => 'ri-file-text-fill',
-            default              => 'ri-file-fill',
+            'txt'   => 'ri-file-text-fill',
+            default => 'ri-file-fill',
         };
     }
 
@@ -547,15 +546,19 @@ class EditControlMedProtest extends Component
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
         }
+
         if ($bytes >= 1048576) {
             return number_format($bytes / 1048576, 2) . ' MB';
         }
+
         if ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
         }
+
         if ($bytes > 1) {
             return $bytes . ' bytes';
         }
+
         return '0 bytes';
     }
 
@@ -582,7 +585,6 @@ class EditControlMedProtest extends Component
         $this->resetEditor();
     }
 
-
     protected function closeModalAndReset(): void
     {
         $this->emit('refreshComponent');
@@ -593,9 +595,7 @@ class EditControlMedProtest extends Component
             'id' => 'editProtestJobModal',
         ]);
 
-
     }
-
 
     protected function resetEditor(): void
     {

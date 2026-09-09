@@ -7,10 +7,10 @@ use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Exports\Services\Payment\D5tolistExport;
 use App\Exports\Services\ServicePaymentStack;
 use App\Models\{File, Note, Production, Service, User};
-use Carbon\Carbon;
 use App\Helpers\TextFormatter;
+use App\Services\Files\FileStorageService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 use Maatwebsite\Excel\Concerns\Exportable;
 
@@ -206,8 +206,10 @@ class Main extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }

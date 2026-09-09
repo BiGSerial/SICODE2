@@ -2,13 +2,10 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Service;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Note, Service};
+use Illuminate\Support\Facades\{DB};
+use Livewire\{Component, WithFileUploads};
 
 /**
  * Componente Livewire para Gerenciamento de Arquivos de Generico
@@ -46,13 +43,20 @@ use Livewire\WithFileUploads;
 class CreateServFiles extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
     public ?Note $note = null;
+
     public bool $alertFile = false;
+
     public Service $service;
+
     public $files = [];
+
     public $tempFiles = [];
+
     public $uploadType;
+
     public $services;
 
     protected $listeners = [
@@ -63,9 +67,7 @@ class CreateServFiles extends Component
     public function mount(Note $note, Service $service)
     {
 
-
-
-        $this->note = $note;
+        $this->note    = $note;
         $this->service = $service;
     }
 
@@ -90,6 +92,7 @@ class CreateServFiles extends Component
                         'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -100,6 +103,7 @@ class CreateServFiles extends Component
                         'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -115,15 +119,15 @@ class CreateServFiles extends Component
 
                 if (!$exists) {
                     $this->tempFiles[] = [
-                        'note_id' => $this->note->id,
-                        'service_id' => $this->service->uuid,
-                        'user_id' => Auth()->User()->id,
-                        'uploadType' => $this->uploadType,
-                        'ext' => $file->getClientOriginalExtension(),
+                        'note_id'       => $this->note->id,
+                        'service_id'    => $this->service->uuid,
+                        'user_id'       => Auth()->User()->id,
+                        'uploadType'    => $this->uploadType,
+                        'ext'           => $file->getClientOriginalExtension(),
                         'original_name' => $file->getClientOriginalName(),
-                        'newName' => null,
-                        'suspicious' => false,
-                        'file' => $file,
+                        'newName'       => null,
+                        'suspicious'    => false,
+                        'file'          => $file,
                     ];
                 }
             }
@@ -141,19 +145,16 @@ class CreateServFiles extends Component
             foreach ($this->tempFiles as &$temp_file) {
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
-                    $this->alertFile = true;
+                    $this->alertFile         = true;
                     $temp_file['suspicious'] = true;
                 }
             }
-
 
             $this->emitUp('hasFile', true);
         } else {
             $this->emitUp('hasFile', false);
         }
     }
-
-
 
     public function removeFile($index)
     {
@@ -167,7 +168,6 @@ class CreateServFiles extends Component
         $this->checkFilesExists();
     }
 
-
     public function closeAll()
     {
         if (count($this->tempFiles)) {
@@ -180,20 +180,17 @@ class CreateServFiles extends Component
 
         // $this->note = null;
         $this->uploadType = '';
-        $this->files = [];
+        $this->files      = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
 
     }
 
-
     // public function createFile(Note $note)
     // {
     //     $this->note = $note;
 
-
     //     if ($this->note) {
-
 
     //         $this->dispatchBrowserEvent('showModal', [
     //             'id' => 'modal_mass_upload',
@@ -201,14 +198,11 @@ class CreateServFiles extends Component
     //     }
     // }
 
-
     private function rename(array &$temps, string $type)
     {
-        $count = 0;
-        $item = 1;
+        $count  = 0;
+        $item   = 1;
         $type_s = '';
-
-
 
         usort($temps, function ($a, $b) {
             $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
@@ -220,9 +214,7 @@ class CreateServFiles extends Component
             return strcmp($a['original_name'], $b['original_name']);
         });
 
-
         foreach ($temps as $temp) {
-
 
             if ($temp['uploadType'] === $type) {
                 $count++;
@@ -234,19 +226,18 @@ class CreateServFiles extends Component
 
             if ($temp['uploadType'] !== $type_s) {
                 $type_s = $temp['uploadType'];
-                $item = 1;
+                $item   = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->service->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev   = mb_strtoupper(substr($this->service->service, 0, 4));
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->note->note . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
         }
 
     }
-
 
     public function saveFiles()
     {
@@ -256,29 +247,24 @@ class CreateServFiles extends Component
             }
         } else {
             $this->emitUp('continue'); //Adicionar o Listener no componente pai para continuar o processo.
+
             return;
         }
 
         DB::beginTransaction();
 
         foreach ($this->tempFiles as $saveFile) {
-            $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
+            $rev = File::where('file_name', 'like', $saveFile['newName'] . "%")->count();
 
-            $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
-
-            if (Storage::exists($caminho)) {
-                File::create([
-                    'note_id' => $this->note->id,
-                    'user_id' => Auth()->User()->id,
-                    'service_id' => $this->service->uuid,
-                    'file_name' => $saveFile['newName']."_Rev".$rev,
-                    'original_name' => $saveFile['original_name'],
-                    'path' => $caminho,
-                    'ext' => $saveFile['ext'],
-                    'suspicious' => $saveFile['suspicious'],
-                    'noexists' => false,
-                ]);
-            } else {
+            try {
+                $this->persistManagedFileUpload(
+                    $saveFile,
+                    $this->note,
+                    '/arquivos/' . $saveFile['uploadType'],
+                    $saveFile['newName'] . "_Rev" . $rev,
+                    ['service_id' => $this->service->uuid],
+                );
+            } catch (\Throwable) {
                 DB::rollback();
 
                 $this->dispatchBrowserEvent('swal', [
@@ -300,7 +286,6 @@ class CreateServFiles extends Component
 
         DB::commit();
 
-
         // $this->dispatchBrowserEvent('swal', [
         //     'position' => 'center',
         //     'icon'     => 'success',
@@ -314,14 +299,10 @@ class CreateServFiles extends Component
         $this->closeAll();
     }
 
-
-
     protected $rules = [
 
         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:10240',
     ];
-
-
 
     public function render()
     {

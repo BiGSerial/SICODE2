@@ -1349,7 +1349,8 @@
                                         @foreach($sharedImages as $index => $file)
                                             @php
                                                 $filePath = $file->path ?? $file->file_path ?? null;
-                                                $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                                $fileUrl = $file->storageUrl();
+                                                $fileDownloadUrl = $file->storageUrl(true);
                                                 $fileDemandType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
                                                 $fileDemandLabel = match($fileDemandType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => 'Demanda' };
                                             @endphp
@@ -1369,7 +1370,7 @@
                                                         <span class="shared-doc-tag">{{ $fileDemandLabel }}</span>
                                                         <span class="shared-doc-tag shared">Compartilhado</span>
                                                     </div>
-                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                                    <a href="{{ $fileDownloadUrl ?? $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
                                                         <i class="bi bi-download me-1"></i>Baixar
                                                     </a>
                                                 </div>
@@ -1385,7 +1386,8 @@
                                         @foreach($sharedOthers as $file)
                                             @php
                                                 $filePath = $file->path ?? $file->file_path ?? null;
-                                                $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                                $fileUrl = $file->storageUrl();
+                                                $fileDownloadUrl = $file->storageUrl(true);
                                                 $name = $file->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
                                                 $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
                                                 $fileDemandType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
@@ -1411,7 +1413,7 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <a href="{{ $fileDownloadUrl ?? $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                                         <i class="bi bi-download"></i>
                                                     </a>
                                                 </div>
@@ -1608,7 +1610,8 @@
                                     @foreach($sharedImages as $index => $file)
                                         @php
                                             $filePath = $file->path ?? $file->file_path ?? null;
-                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                            $fileUrl = $file->storageUrl();
+                                            $fileDownloadUrl = $file->storageUrl(true);
                                         @endphp
                                         @if($fileUrl)
                                             <div class="carousel-item @if($index === 0) active @endif">
@@ -1619,7 +1622,7 @@
                                                 </div>
                                                 <div class="d-flex justify-content-between align-items-center mt-3">
                                                     <div class="small text-muted">{{ $file->original_name ?? basename($filePath) }}</div>
-                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-primary">
+                                                    <a href="{{ $fileDownloadUrl ?? $fileUrl }}" target="_blank" class="btn btn-sm btn-primary">
                                                         <i class="bi bi-download me-1"></i>Baixar
                                                     </a>
                                                 </div>

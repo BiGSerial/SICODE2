@@ -3,13 +3,9 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Exports\Engineers\InterReturnExport;
-use App\Models\File;
-use App\Models\Reclaim;
-use App\Models\Viability;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Reclaim, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class ReturnInternList extends Component
 {
@@ -23,13 +19,13 @@ class ReturnInternList extends Component
 
     // Filters
     private $filter_group = 'partner';
+
     private $filter;
 
     protected $listeners = [
-        'refresh' => '$refresh',
+        'refresh'      => '$refresh',
         'refresh_list' => '$refresh',
     ];
-
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -47,8 +43,10 @@ class ReturnInternList extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -64,27 +62,26 @@ class ReturnInternList extends Component
 
     public function export_excel()
     {
-        return (new InterReturnExport($this->my_lists->get()))->download(date('YmdHis').'_interReturnExport.xlsx');
+        return (new InterReturnExport($this->my_lists->get()))->download(date('YmdHis') . '_interReturnExport.xlsx');
     }
-
 
     public function getMyListsProperty()
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
 
-
-
         $query = Viability::query()
             ->when(trim((string)$this->search) !== '', function ($query) {
                 $query->where(function ($q) {
-                    $q->orwhereRelation('Note', 'note', 'like', '%'.trim($this->search).'%')
-                    ->orWhereRelation('Orders', 'ordem', 'like', '%'.trim($this->search).'%');
+                    $q->orwhereRelation('Note', 'note', 'like', '%' . trim($this->search) . '%')
+                    ->orWhereRelation('Orders', 'ordem', 'like', '%' . trim($this->search) . '%');
                 });
             })
             ->where('rejected', true)
@@ -115,20 +112,14 @@ class ReturnInternList extends Component
             'Orders',
             'Reclaims' => function ($q) {
                 $q->orderBy('id', 'desc')->limit(1);
-            }
+            },
         ]);
-
 
         return $query->orderBy('viabilities.updated_at');
     }
 
-
-
-
     public function render()
     {
-
-
 
         return view('livewire.responsible.return-intern-list', [
             'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),

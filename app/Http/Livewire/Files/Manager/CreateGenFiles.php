@@ -2,15 +2,12 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Viability as ViabilityModel;
-use App\Models\WorkReport;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Note, Viability as ViabilityModel, WorkReport};
+use App\Services\Files\FileUploadService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 
 /**
  * Componente Livewire para Gerenciamento de Arquivos de Generico
@@ -48,20 +45,34 @@ use Livewire\WithFileUploads;
 class CreateGenFiles extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
     public ?Note $note = null;
+
     public ?ViabilityModel $viability = null;
+
     public ?WorkReport $workReport = null;
+
     public ?int $viabilityId = null;
+
     public bool $alertFile = false;
+
     public string $service;
+
     public $files = [];
+
     public $tempFiles = [];
+
     public $uploadType;
+
     public $services;
+
     public bool $manageExisting = false;
+
     public array $existingFileTypes = [];
+
     public ?string $fileableType = null;
+
     public ?int $fileableId = null;
 
     protected $listeners = [
@@ -72,13 +83,13 @@ class CreateGenFiles extends Component
 
     public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null, bool $manage_existing = false, array $existing_file_types = [], ?WorkReport $work_report = null, ?string $fileable_type = null, ?int $fileable_id = null)
     {
-        $this->note = $note;
-        $this->service = $service;
-        $this->viability = $viability;
-        $this->viabilityId = $viability_id ?: ($viability?->id ? (int) $viability->id : null);
-        $this->manageExisting = $manage_existing;
+        $this->note              = $note;
+        $this->service           = $service;
+        $this->viability         = $viability;
+        $this->viabilityId       = $viability_id ?: ($viability?->id ? (int) $viability->id : null);
+        $this->manageExisting    = $manage_existing;
         $this->existingFileTypes = $existing_file_types;
-        $this->workReport = $this->persistedWorkReport($work_report);
+        $this->workReport        = $this->persistedWorkReport($work_report);
         $this->setFileable($fileable_type, $fileable_id);
     }
 
@@ -91,13 +102,13 @@ class CreateGenFiles extends Component
     {
         if ($fileableType && $fileableId) {
             $this->fileableType = $fileableType;
-            $this->fileableId = $fileableId;
+            $this->fileableId   = $fileableId;
 
             return;
         }
 
         $this->fileableType = null;
-        $this->fileableId = null;
+        $this->fileableId   = null;
     }
 
     public function updatedFiles()
@@ -112,6 +123,7 @@ class CreateGenFiles extends Component
                 'timer'    => 2200,
             ]);
             $this->files = [];
+
             return;
         }
 
@@ -132,6 +144,7 @@ class CreateGenFiles extends Component
                         'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -142,6 +155,7 @@ class CreateGenFiles extends Component
                         'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -157,15 +171,15 @@ class CreateGenFiles extends Component
 
                 if (!$exists) {
                     $this->tempFiles[] = [
-                        'note_id' => $this->note->id,
-                        'service_id' => null,
-                        'user_id' => Auth()->User()->id,
-                        'uploadType' => $this->uploadType,
-                        'ext' => $file->getClientOriginalExtension(),
+                        'note_id'       => $this->note->id,
+                        'service_id'    => null,
+                        'user_id'       => Auth()->User()->id,
+                        'uploadType'    => $this->uploadType,
+                        'ext'           => $file->getClientOriginalExtension(),
                         'original_name' => $file->getClientOriginalName(),
-                        'newName' => null,
-                        'suspicious' => false,
-                        'file' => $file,
+                        'newName'       => null,
+                        'suspicious'    => false,
+                        'file'          => $file,
                     ];
                 }
             }
@@ -178,7 +192,7 @@ class CreateGenFiles extends Component
 
     public function checkFilesExists()
     {
-        $hasExistingFiles = $this->manageExisting && $this->existingFiles()->exists();
+        $hasExistingFiles   = $this->manageExisting && $this->existingFiles()->exists();
         $hasExistingAsbuilt = $this->manageExisting && $this->existingFiles()
             ->where('file_name', 'like', 'ASBUILT%')
             ->exists();
@@ -190,34 +204,29 @@ class CreateGenFiles extends Component
 
             $this->alertFile = false;
 
-            $FVTO = 0;
-            $hasAsbuilt = $hasExistingAsbuilt;
+            $FVTO              = 0;
+            $hasAsbuilt        = $hasExistingAsbuilt;
             $hasPendingAsbuilt = false;
             $hasNonAsbuiltFile = $hasExistingNonAsbuiltFile;
 
-
-
             foreach ($this->tempFiles as &$temp_file) {
-
 
                 if ($temp_file['uploadType'] == "FTVEO") {
                     $FVTO++;
                 }
 
                 if ($temp_file['uploadType'] == "ASBUILT") {
-                    $hasAsbuilt = true;
+                    $hasAsbuilt        = true;
                     $hasPendingAsbuilt = true;
                 } else {
                     $hasNonAsbuiltFile = true;
                 }
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->note->note) === false) {
-                    $this->alertFile = true;
+                    $this->alertFile         = true;
                     $temp_file['suspicious'] = true;
                 }
             }
-
-
 
             if ($FVTO > 0) {
                 $this->emitUp('hasFVTO', true);
@@ -238,8 +247,6 @@ class CreateGenFiles extends Component
             $this->emitUp('hasPendingFile', false);
         }
     }
-
-
 
     public function removeFile($index)
     {
@@ -272,16 +279,13 @@ class CreateGenFiles extends Component
             $file->Productions()->detach();
             $file->Parcials()->detach();
 
-            if ($file->path && Storage::exists($file->path)) {
-                Storage::delete($file->path);
-            }
+            app(FileUploadService::class)->delete($file);
 
             $file->delete();
         });
 
         $this->checkFilesExists();
     }
-
 
     public function closeAll()
     {
@@ -295,20 +299,17 @@ class CreateGenFiles extends Component
 
         // $this->note = null;
         $this->uploadType = '';
-        $this->files = [];
+        $this->files      = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
 
     }
 
-
     // public function createFile(Note $note)
     // {
     //     $this->note = $note;
 
-
     //     if ($this->note) {
-
 
     //         $this->dispatchBrowserEvent('showModal', [
     //             'id' => 'modal_mass_upload',
@@ -316,14 +317,11 @@ class CreateGenFiles extends Component
     //     }
     // }
 
-
     private function rename(array &$temps, string $type)
     {
-        $count = 0;
-        $item = 1;
+        $count  = 0;
+        $item   = 1;
         $type_s = '';
-
-
 
         usort($temps, function ($a, $b) {
             $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
@@ -335,9 +333,7 @@ class CreateGenFiles extends Component
             return strcmp($a['original_name'], $b['original_name']);
         });
 
-
         foreach ($temps as $temp) {
-
 
             if ($temp['uploadType'] === $type) {
                 $count++;
@@ -349,19 +345,18 @@ class CreateGenFiles extends Component
 
             if ($temp['uploadType'] !== $type_s) {
                 $type_s = $temp['uploadType'];
-                $item = 1;
+                $item   = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev   = mb_strtoupper(substr($this->service, 0, 4));
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->note->note . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
         }
 
     }
-
 
     public function saveFiles(?string $fileableType = null, ?int $fileableId = null)
     {
@@ -380,36 +375,30 @@ class CreateGenFiles extends Component
         DB::beginTransaction();
 
         foreach ($this->tempFiles as $saveFile) {
-            $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
+            $rev = File::where('file_name', 'like', $saveFile['newName'] . "%")->count();
 
-            $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
-
-            if (Storage::exists($caminho)) {
-                $file = File::create([
-                    'note_id' => $this->note->id,
-                    'user_id' => Auth()->User()->id,
-                    'service_id' => null,
-                    'file_name' => $saveFile['newName']."_Rev".$rev,
-                    'original_name' => $saveFile['original_name'],
-                    'path' => $caminho,
-                    'ext' => $saveFile['ext'],
-                    'suspicious' => $saveFile['suspicious'],
-                    'noexists' => false,
-                ]);
+            try {
+                $file = $this->persistManagedFileUpload(
+                    $saveFile,
+                    $this->note,
+                    '/arquivos/' . $saveFile['uploadType'],
+                    $saveFile['newName'] . "_Rev" . $rev,
+                    ['service_id' => null],
+                );
 
                 $targetViabilityId = $this->viabilityId ?: ($this->viability?->id ? (int) $this->viability->id : null);
-                if ($file && $targetViabilityId) {
+
+                if ($targetViabilityId) {
                     // Garante rastreabilidade da origem para aparecer em consultas de viabilidade
                     $targetViability = ViabilityModel::find($targetViabilityId);
+
                     if ($targetViability) {
                         $targetViability->Files()->syncWithoutDetaching([$file->id]);
                     }
                 }
 
-                if ($file) {
-                    $this->associateFileToTarget($file);
-                }
-            } else {
+                $this->associateFileToTarget($file);
+            } catch (\Throwable) {
                 DB::rollback();
 
                 $this->dispatchBrowserEvent('swal', [
@@ -420,7 +409,6 @@ class CreateGenFiles extends Component
                         <p class="fw-bold">Ocorreu um erro ao salvar um dos, ou o arquivo. Aparentemente não foi concluído o upload. Remova-o(os) da lista e tente novamente. </p>
 
                         </div></div>',
-
                 ]);
 
                 $this->emitUp('filesFailed');
@@ -430,7 +418,6 @@ class CreateGenFiles extends Component
         }
 
         DB::commit();
-
 
         // $this->dispatchBrowserEvent('swal', [
         //     'position' => 'center',
@@ -510,14 +497,10 @@ class CreateGenFiles extends Component
         return $this->fileableType::find($this->fileableId);
     }
 
-
-
     protected $rules = [
 
         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp,zip|max:10240',
     ];
-
-
 
     public function render()
     {

@@ -8,7 +8,7 @@ use App\Models\ExternalPoolpayment;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Protocol;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\Component;
 
 class Main extends Component
@@ -364,9 +364,11 @@ class Main extends Component
     public function downloadFile(File $file)
     {
 
-        if ($file && Storage::exists($file->path)) {
+        $storage = app(FileStorageService::class);
 
-            return Storage::download($file->path);
+        if ($file && $storage->exists($file)) {
+
+            return $storage->download($file);
 
         } else {
             $this->dispatchBrowserEvent('swal', [

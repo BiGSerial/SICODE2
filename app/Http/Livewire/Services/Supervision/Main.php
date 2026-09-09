@@ -6,8 +6,8 @@ use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
 use App\Support\SicodeRules;
+use App\Services\Files\FileStorageService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -188,8 +188,10 @@ class Main extends Component
             return;
         }
 
-        if (Storage::disk('local')->exists($file->path)) {
-            return Storage::download($file->path, $file->file_name);
+        $storage = app(FileStorageService::class);
+
+        if ($storage->exists($file)) {
+            return $storage->download($file, $file->file_name);
         }
 
         $this->dispatchBrowserEvent('swal', [

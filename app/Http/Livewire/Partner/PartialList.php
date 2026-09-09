@@ -2,27 +2,28 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Models\File;
-use App\Models\Partial;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Partial};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class PartialList extends Component
 {
     use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
     public $search;
+
     public $perPage = 50;
 
     public $dt_in;
+
     public $dt_out;
 
     protected $queryString = [
         'search' => ['except' => ''],
-        'dt_in' => ['except' => '', 'as' => 'in'],
+        'dt_in'  => ['except' => '', 'as' => 'in'],
         'dt_out' => ['except' => '', 'as' => 'out'],
     ];
 
@@ -34,13 +35,12 @@ class PartialList extends Component
     public function downloadFile($id)
     {
 
-
         if ($file = File::find($id)) {
 
+            $storage = app(FileStorageService::class);
 
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -53,7 +53,6 @@ class PartialList extends Component
             }
         }
     }
-
 
     public function getListsProperty()
     {
@@ -72,7 +71,6 @@ class PartialList extends Component
             });
         }
 
-
         if ($this->dt_in && !$this->dt_out) {
             $query->whereDate('created_at', '>=', $this->dt_in);
         } elseif ($this->dt_out && !$this->dt_in) {
@@ -88,34 +86,34 @@ class PartialList extends Component
     {
         $status = [
             'status' => '',
-            'color' => '',
+            'color'  => '',
         ];
 
         if ($partial) {
             if ($partial->deny) {
                 $status = [
                     'status' => 'REJEITADO',
-                    'color' => 'text-bg-danger',
+                    'color'  => 'text-bg-danger',
                 ];
             } elseif ($partial->payment && $partial->allow) {
                 $status = [
                     'status' => 'PAGO',
-                    'color' => 'text-bg-success',
+                    'color'  => 'text-bg-success',
                 ];
             } elseif ($partial->supervision && !$partial->payment) {
                 $status = [
                     'status' => 'EM MEDIÇÃO',
-                    'color' => 'text-bg-info',
+                    'color'  => 'text-bg-info',
                 ];
             } elseif ($partial->allow && !$partial->supervision) {
                 $status = [
                     'status' => 'EM FISCALIZAÇÃO',
-                    'color' => 'text-bg-info',
+                    'color'  => 'text-bg-info',
                 ];
             } else {
                 $status = [
                     'status' => 'AVALIAÇÃO',
-                    'color' => 'text-bg-warning',
+                    'color'  => 'text-bg-warning',
                 ];
             }
         }
@@ -123,11 +121,10 @@ class PartialList extends Component
         return $status;
     }
 
-
     public function render()
     {
         return view('livewire.partner.partial-list', [
-            'lists' => $this->lists
+            'lists' => $this->lists,
         ]);
     }
 }

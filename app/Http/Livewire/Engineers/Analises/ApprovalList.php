@@ -4,13 +4,10 @@ namespace App\Http\Livewire\Engineers\Analises;
 
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
-use App\Models\ExternalOrganRelease;
-use App\Models\File;
-use App\Models\Note;
+use App\Models\{ExternalOrganRelease, File, Note};
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class ApprovalList extends Component
 {
@@ -20,20 +17,28 @@ class ApprovalList extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $allCenters = false;
+
     public $typeNote = '';
+
     public $search;
+
     public $advanceSearch = '';
+
     public $multinotas = [];
+
     public $selected = [];
+
     public $select_all = false;
+
     public $noAttribution = false;
 
     private $filter_group = 'analises';
+
     private $filter;
 
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
-        'search' => ['except' => '', 'as' => 'busca'],
+        'search'   => ['except' => '', 'as' => 'busca'],
     ];
 
     protected $listeners = [
@@ -52,13 +57,14 @@ class ApprovalList extends Component
 
     }
 
-
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -72,16 +78,15 @@ class ApprovalList extends Component
         }
     }
 
-
     public function setSelectAll()
     {
         $ids = $this->lists->pluck('id')->toArray();
 
         if (!$this->select_all) {
-            $this->selected = array_unique(array_merge($this->selected, $ids));
+            $this->selected   = array_unique(array_merge($this->selected, $ids));
             $this->select_all = true;
         } else {
-            $this->selected = array_diff($this->selected, $ids);
+            $this->selected   = array_diff($this->selected, $ids);
             $this->select_all = false;
         }
     }
@@ -102,8 +107,6 @@ class ApprovalList extends Component
         $this->preAtt();
     }
 
-
-
     public function preAtt()
     {
 
@@ -123,8 +126,8 @@ class ApprovalList extends Component
         $count = count($this->selected);
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmação de Atribuição',
-            'msg'           => "Você está prestes a assumir <strong>{$count}</strong> nota(s) para Analisar Projeto.
+            'title' => 'Confirmação de Atribuição',
+            'msg'   => "Você está prestes a assumir <strong>{$count}</strong> nota(s) para Analisar Projeto.
                 <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>É válido lembrar que existe um prazo para analisar os projetos e dar uma definição. Caso vença o
                 tempo sem definição, o sistema automáticamente irá aprovar e seguir para contratação.</p>
                 <p class='fw-bold'>Deseja prosseguir?</p>
@@ -138,14 +141,10 @@ class ApprovalList extends Component
 
         ]);
 
-
     }
-
 
     public function confirm_att()
     {
-
-
 
         $notes = Note::find($this->selected);
 
@@ -168,9 +167,9 @@ class ApprovalList extends Component
                 try {
                     $note->Approval()->create([
 
-                        'user_id'     => auth()->id(),
-                        'status'      => $note->nstats,
-                        'dt_status'   => $note->dt_status,
+                        'user_id'   => auth()->id(),
+                        'status'    => $note->nstats,
+                        'dt_status' => $note->dt_status,
                     ]);
 
                 } catch (\Throwable $th) {
@@ -178,7 +177,7 @@ class ApprovalList extends Component
                         'position' => 'center',
                         'icon'     => 'error',
                         'title'    => 'Erro ao assumir Notas/Ov',
-                        'html'      => 'Erro: ' . $th->getMessage(),
+                        'html'     => 'Erro: ' . $th->getMessage(),
                         // 'timer'    => 2500,
                     ]);
 
@@ -203,14 +202,12 @@ class ApprovalList extends Component
 
     }
 
-
-
     public function clearAll()
     {
-        $this->search = '';
+        $this->search        = '';
         $this->advanceSearch = '';
-        $this->multinotas = [];
-        $this->selected = [];
+        $this->multinotas    = [];
+        $this->selected      = [];
         $this->gotoPage(1);
     }
 
@@ -220,15 +217,16 @@ class ApprovalList extends Component
         $this->gotoPage(1);
     }
 
-
-
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -281,14 +279,14 @@ class ApprovalList extends Component
               ->orWhereNull('txpriority');
         })
         ->with([
-           'orders' => function ($q) {
-               $q->where('statusSist', 'not like', 'ENT%')
-                   ->where('statusSist', 'not like', 'ENC%')
-                   ->orderBy('ordem');
-           },
-           'orders.operations' => function ($q) {
-               $q->where('operacao', '0010');
-           },
+            'orders' => function ($q) {
+                $q->where('statusSist', 'not like', 'ENT%')
+                    ->where('statusSist', 'not like', 'ENC%')
+                    ->orderBy('ordem');
+            },
+            'orders.operations' => function ($q) {
+                $q->where('operacao', '0010');
+            },
         ]);
 
         if ($this->noAttribution) {
@@ -319,9 +317,8 @@ class ApprovalList extends Component
             });
         }
 
-
         $activeFilters = is_array($this->filter) ? $this->filter : [];
-        $regionValues = collect((array) ($activeFilters['region'] ?? []))
+        $regionValues  = collect((array) ($activeFilters['region'] ?? []))
             ->filter(fn ($v) => filled($v))
             ->map(fn ($v) => trim((string) $v))
             ->values();
@@ -384,7 +381,6 @@ class ApprovalList extends Component
             ->orderBy('dt_status', 'ASC')
             ->paginate(50);
     }
-
 
     public function render()
     {

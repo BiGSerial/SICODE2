@@ -4,8 +4,9 @@ namespace App\Http\Livewire\Services\Levantamento;
 
 use App\Jobs\Services\ExportLevantamentoProductionListJob;
 use App\Models\{File, Production, Service};
+use App\Services\Files\FileStorageService;
 use App\Support\SicodeRules;
-use Illuminate\Support\Facades\{Storage, Auth, DB};
+use Illuminate\Support\Facades\{Auth, DB};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -15,11 +16,17 @@ class Main extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 30;
+
     public $search;
+
     public $analise;
+
     protected $limit_pause = 50;
+
     private string $filter_group = 'survey';
+
     private array $filter = [];
 
     protected $listeners = [
@@ -46,6 +53,7 @@ class Main extends Component
         }
 
         $filters = session("filter.{$this->filter_group}", []);
+
         if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $filters = $_SESSION['filter'][$this->filter_group];
         }
@@ -170,16 +178,19 @@ class Main extends Component
     {
         $file = File::find($id);
 
-        if (!$file || !Storage::disk('local')->exists($file->path)) {
+        $storage = app(FileStorageService::class);
+
+        if (!$file || !$storage->exists($file)) {
             $this->dispatchBrowserEvent('swal', [
                 'icon'  => 'error',
                 'title' => 'Arquivo inexistente!',
                 'timer' => 4000,
             ]);
+
             return;
         }
 
-        return Storage::download($file->path, $file->file_name);
+        return $storage->download($file, $file->file_name);
     }
 
     /** =====================
@@ -269,7 +280,6 @@ class Main extends Component
             ])
             ->paginate($this->perPage);
     }
-
 
     /** =====================
      * 🔹 RENDERIZAÇÃO

@@ -2,16 +2,13 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
 use App\Enum\CancellationRequestStatus;
 use App\Jobs\Services\ExportCancellationExecutionHistoryJob;
+use App\Models\{CancellationRequest, EvidenceFile};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Illuminate\Support\Facades\{Auth, DB};
+use Livewire\{Component, WithPagination};
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExecutionHistory extends Component
@@ -22,11 +19,17 @@ class ExecutionHistory extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $service;
+
     public string $multiSearch = '';
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
     public string $visibilityMode = 'HIERARCHY';
+
     public array $requesterIds = [];
+
     public ?CancellationRequest $noteDetail = null;
 
     public function mount(string $service): void
@@ -75,17 +78,21 @@ class ExecutionHistory extends Component
     public function downloadEvidence(int $fileId): StreamedResponse
     {
         $file = EvidenceFile::findOrFail($fileId);
+
         if ($file->evidenciable_type !== CancellationRequest::class) {
             abort(403);
         }
 
-        $request = CancellationRequest::findOrFail($file->evidenciable_id);
+        $request          = CancellationRequest::findOrFail($file->evidenciable_id);
         $visibleCloserIds = $this->visibleCloserIds();
+
         if ($visibleCloserIds !== null && !in_array((string) $request->closed_by, $visibleCloserIds, true)) {
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     private function visibleCloserIds(): ?array
@@ -129,7 +136,7 @@ class ExecutionHistory extends Component
         ExportCancellationExecutionHistoryJob::dispatch($this->exportPayload(), (string) Auth::id());
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Exportação iniciada. Você será notificado quando concluir.',
         ]);
     }
@@ -137,20 +144,20 @@ class ExecutionHistory extends Component
     private function exportPayload(): array
     {
         return [
-            'service_uuid' => $this->service,
-            'multiSearch' => $this->parseMultiSearch(),
-            'dateFrom' => $this->dateFrom,
-            'dateTo' => $this->dateTo,
-            'visibilityMode' => $this->visibilityMode,
+            'service_uuid'     => $this->service,
+            'multiSearch'      => $this->parseMultiSearch(),
+            'dateFrom'         => $this->dateFrom,
+            'dateTo'           => $this->dateTo,
+            'visibilityMode'   => $this->visibilityMode,
             'visibleCloserIds' => $this->visibleCloserIds(),
-            'requesterIds' => $this->selectedRequesterIds(),
+            'requesterIds'     => $this->selectedRequesterIds(),
         ];
     }
 
     public function render()
     {
-        $multi = $this->parseMultiSearch();
-        $visibleCloserIds = $this->visibleCloserIds();
+        $multi                = $this->parseMultiSearch();
+        $visibleCloserIds     = $this->visibleCloserIds();
         $selectedRequesterIds = $this->selectedRequesterIds();
 
         $history = CancellationRequest::query()
@@ -187,8 +194,8 @@ class ExecutionHistory extends Component
             ->get();
 
         return view('livewire.services.payment.cancellation.execution-history', [
-            'history' => $history,
-            'requesterOptions' => $requesterOptions,
+            'history'           => $history,
+            'requesterOptions'  => $requesterOptions,
             'visibilityOptions' => [
                 ['value' => 'ALL', 'label' => 'Tudo'],
                 ['value' => 'HIERARCHY', 'label' => 'Minha hierarquia'],

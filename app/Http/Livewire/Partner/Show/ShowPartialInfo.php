@@ -3,10 +3,9 @@
 namespace App\Http\Livewire\Partner\Show;
 
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\Partial;
-use App\Models\File;
+use App\Models\{File, Partial};
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class ShowPartialInfo extends Component
@@ -35,8 +34,6 @@ class ShowPartialInfo extends Component
 
         if ($this->form) {
 
-
-
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'modal_partial_info',
             ]);
@@ -47,7 +44,7 @@ class ShowPartialInfo extends Component
     {
         $this->authorizePartnerAccess('partial_reports.show');
 
-        return Storage::download($file->path, $file->stored_name);
+        return app(FileStorageService::class)->download($file, $file->stored_name);
     }
 
     public function render()

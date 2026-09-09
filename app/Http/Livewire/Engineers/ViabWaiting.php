@@ -2,61 +2,65 @@
 
 namespace App\Http\Livewire\Engineers;
 
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Operation;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Viability;
-use App\Models\Note;
-use App\Models\HiringWaiting;
+use App\Models\{Company, File, Note, Operation, Service, User, Viability};
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class ViabWaiting extends Component
 {
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
-
-
-
     public $centerJobs;
+
     public $search;
+
     public $multiSearch = [];
+
     public $advanceSearch = '';
+
     public $action;
+
     public $perPage = 50;
+
     public $service;
+
     public $companies;
+
     public $engineers;
+
     public $services;
+
     public $clipboardData = [];
+
     public $cjobes;
+
     public $typeNote;
+
     public $company_id;
 
-
     public $dtStart;
+
     public $dtEnd;
 
     // Orderenação
     public $sortField = 'created_at';
+
     public $sortDirection = 'desc';
 
     // Seleção
     public $selectAll = false;
+
     public $selected = [];
 
-
     protected $listeners = [
-        'refresh_list' => '$refresh',
-        'refresh' => '$refresh',
+        'refresh_list'      => '$refresh',
+        'refresh'           => '$refresh',
         'confirm_viability' => 'confirm_viability',
-        'cleanAll' => 'closeall',
-        'giveBack' => 'giveBack',
+        'cleanAll'          => 'closeall',
+        'giveBack'          => 'giveBack',
         'deleteWaiting',
         '7c22165caa5691e6f26883cc3654c5e0' => 'confirm_sendind',
     ];
@@ -64,8 +68,6 @@ class ViabWaiting extends Component
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
-
-
 
     public function getListsProperty()
     {
@@ -91,7 +93,7 @@ class ViabWaiting extends Component
         if ($this->search) {
 
             $this->advanceSearch = '';
-            $this->multiSearch = [];
+            $this->multiSearch   = [];
 
             $query->where(function ($q) {
                 $q->whereRelation('Note', 'note', 'like', '%' . $this->search . '%')
@@ -140,7 +142,6 @@ class ViabWaiting extends Component
         $this->sortField = $field;
     }
 
-
     public function mount()
     {
         if ($this->perPage > 500) {
@@ -148,17 +149,15 @@ class ViabWaiting extends Component
         }
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
-
-
-
 
         $this->companies = Company::WhereRelation('contracts', 'construction', true)->Select('id', 'name')->orderBy('name')->get();
         $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
         $this->services  = Service::orderBy('service')->get();
     }
-
 
     public function openMultiNotas()
     {
@@ -167,16 +166,12 @@ class ViabWaiting extends Component
         ]);
     }
 
-
     public function buscarMulti()
     {
 
         if ($this->advanceSearch) {
 
-
-
             $this->gotoPage(1);
-
 
             $this->multiSearch = explode("\n", $this->advanceSearch);
 
@@ -195,12 +190,6 @@ class ViabWaiting extends Component
             $this->multiSearch = array_map('trim', $this->multiSearch);
         }
 
-
-
-
-
-
-
         if (count($this->multiSearch)) {
 
             $limpar = [];
@@ -212,17 +201,15 @@ class ViabWaiting extends Component
             }
 
             $this->multiSearch = $limpar;
-            $this->search = '';
+            $this->search      = '';
             $this->dispatchBrowserEvent('hideModal');
             $this->closeAll();
         }
     }
 
-
     // Lógica para selecionar todos os registros
     public function setSelectAll()
     {
-
 
         if ($this->selectAll) {
             // Adicionar os IDs que cumprem as regras à lista de selecionados
@@ -238,13 +225,12 @@ class ViabWaiting extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds = $this->lists->pluck('id')->toArray();
+            $visibleIds     = $this->lists->pluck('id')->toArray();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
         }
     }
-
 
     // Lógiva para verificar se todos os registros estão selecionados
     public function checkAllSelect($items)
@@ -263,8 +249,10 @@ class ViabWaiting extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         } else {
             $this->dispatchBrowserEvent('swal', [
@@ -286,7 +274,6 @@ class ViabWaiting extends Component
             ->groupBy('cenTrab')
             ->get();
     }
-
 
     public function copyClipboard()
     {
@@ -333,15 +320,15 @@ class ViabWaiting extends Component
                 'html'     => 'Nenhum registro selecionado.',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
         $count = count($this->selected);
 
-
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => "CONFIRMAR LIBERAÇÃO",
-            'msg'           => "
+            'title' => "CONFIRMAR LIBERAÇÃO",
+            'msg'   => "
                 <p>Deseja confirmar a liberação da(s) <span class='fw-bold'>{$count}</span> obra(s) para Viabilidade?</p>
 
             ",
@@ -355,7 +342,6 @@ class ViabWaiting extends Component
 
         ]);
 
-        return;
     }
 
     public function confirm_sendind()
@@ -368,6 +354,7 @@ class ViabWaiting extends Component
                 'html'     => 'Nenhum registro selecionado.',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
@@ -380,12 +367,11 @@ class ViabWaiting extends Component
             if ($viabilities) {
 
                 foreach ($viabilities as $viability) {
-                    $viability->sended_at = now();
-                    $viability->status = 1;
+                    $viability->sended_at       = now();
+                    $viability->status          = 1;
                     $viability->visible_partner = false;
                     $viability->save();
                 }
-
 
                 DB::commit();
 
@@ -428,11 +414,9 @@ class ViabWaiting extends Component
 
         $this->gotoPage(1);
 
-
         $this->selectAll = false;
-        $this->selected = [];
-        $this->cjobes = "";
-
+        $this->selected  = [];
+        $this->cjobes    = "";
 
         $this->emit('refresh_list');
     }
@@ -440,7 +424,7 @@ class ViabWaiting extends Component
     public function render()
     {
         return view('livewire.engineers.viab-waiting', [
-            'lists' => $this->lists,
+            'lists'        => $this->lists,
             'centerJobers' => $this->centroTrab,
         ]);
     }

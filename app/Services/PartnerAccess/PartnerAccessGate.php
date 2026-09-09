@@ -2,11 +2,7 @@
 
 namespace App\Services\PartnerAccess;
 
-use App\Models\Company;
-use App\Models\PartnerCompanyPermissionGrant;
-use App\Models\PartnerRole;
-use App\Models\PartnerUserPermissionException;
-use App\Models\User;
+use App\Models\{Company, PartnerCompanyPermissionGrant, PartnerRole, PartnerUserPermissionException, User};
 use Illuminate\Support\Collection;
 
 class PartnerAccessGate
@@ -73,10 +69,14 @@ class PartnerAccessGate
             return false;
         }
 
-        $permissions = $role->permissions->keyBy('permission_key');
+        $permissions     = $role->permissions->keyBy('permission_key');
         $groupPermission = $permissions->get($groupKey);
 
-        if (!$groupPermission || !$groupPermission->enabled) {
+        if (!$groupPermission) {
+            return PartnerPermissionCatalog::defaultsToEnabled($permissionKey);
+        }
+
+        if (!$groupPermission->enabled) {
             return false;
         }
 
@@ -161,18 +161,25 @@ class PartnerAccessGate
             return false;
         }
 
-        $permissions = $rows->keyBy('permission_key');
+        $permissions     = $rows->keyBy('permission_key');
         $groupPermission = $permissions->get($groupKey);
+        $itemPermission  = $permissions->get($permissionKey);
 
-        if (!$groupPermission || !$groupPermission->enabled) {
+        if (!$groupPermission) {
+            if ($itemPermission && !$itemPermission->enabled) {
+                return false;
+            }
+
+            return PartnerPermissionCatalog::defaultsToEnabled($permissionKey);
+        }
+
+        if (!$groupPermission->enabled) {
             return false;
         }
 
         if ($permissionKey === $groupKey) {
             return true;
         }
-
-        $itemPermission = $permissions->get($permissionKey);
 
         if ($itemPermission) {
             return (bool) $itemPermission->enabled;

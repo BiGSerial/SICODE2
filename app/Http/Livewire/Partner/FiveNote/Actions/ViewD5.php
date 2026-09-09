@@ -3,10 +3,9 @@
 namespace App\Http\Livewire\Partner\FiveNote\Actions;
 
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\EvidenceFile;
-use App\Models\FiveNote;
+use App\Models\{EvidenceFile, FiveNote};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class ViewD5 extends Component
@@ -14,6 +13,7 @@ class ViewD5 extends Component
     use AuthorizesPartnerAccess;
 
     public $five;
+
     public $hasEvidence = false;
 
     public $origin = 'EMPREITEIRA';
@@ -50,10 +50,10 @@ class ViewD5 extends Component
     {
         $this->authorizePartnerAccess('d5_notes.show');
 
-        // dd(Storage::fileExists('public/'.$file->path));
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
+        if ($service->exists($file)) {
+            return $service->download($file);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -92,12 +92,12 @@ class ViewD5 extends Component
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'ENCERRAR D5',
-            'msg'           => "Você tem certeza que deseja encerrar o D5 {$this->five->note_d5}?",
-            'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Continue!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'samuca158012Encerrar',
+            'title'        => 'ENCERRAR D5',
+            'msg'          => "Você tem certeza que deseja encerrar o D5 {$this->five->note_d5}?",
+            'icon'         => 'question',
+            'btnOktxt'     => 'Sim, Continue!',
+            'btnCanceltxt' => 'Não, Cancele',
+            'action'       => 'samuca158012Encerrar',
             // 'chave'         => '',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma D5 foi encerrada.',
@@ -116,7 +116,6 @@ class ViewD5 extends Component
     {
         $this->finish();
     }
-
 
     public function finish()
     {
@@ -151,12 +150,12 @@ class ViewD5 extends Component
             }
 
             $this->dispatchBrowserEvent('swal', [
-                 'position' => 'center',
-                 'icon'     => 'error',
-                 'title'    => 'OPERAÇÃO FALHOU',
-                 'html'     => 'A operação de encerramento do D5 falhou.',
-                 'timer'    => 5000,
-             ]);
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OPERAÇÃO FALHOU',
+                'html'     => 'A operação de encerramento do D5 falhou.',
+                'timer'    => 5000,
+            ]);
         }
     }
 

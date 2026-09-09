@@ -4,16 +4,12 @@ namespace App\Http\Livewire\Protests\Partner;
 
 use App\Enum\ProtestJobStatus;
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\EvidenceFile;
-use App\Models\ProtestJob;
-use App\Models\User;
+use App\Models\{EvidenceFile, ProtestJob, User};
 use App\Notifications\SystemNotification;
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
+use Livewire\{Component, TemporaryUploadedFile, WithFileUploads};
 
 class View extends Component
 {
@@ -27,8 +23,10 @@ class View extends Component
     public $medProtest = null;
 
     /** Campos de interação */
-    public string $comment     = '';
-    public string $conclusion  = '';   // parecer técnico
+    public string $comment = '';
+
+    public string $conclusion = '';   // parecer técnico
+
     public string $closeReason = '';   // motivo de encerramento (close_reason obrigatório)
 
     /** Uploads */
@@ -91,13 +89,13 @@ class View extends Component
 
         $this->job = $query->findOrFail($jobId);
 
-        if (! $this->job->medProtest) {
+        if (!$this->job->medProtest) {
             abort(404, 'Medida de Reclamação não associada a este Job.');
         }
 
         $this->medProtest = $this->job->medProtest;
 
-         if ($this->job->status === ProtestJobStatus::OPENED) {
+        if ($this->job->status === ProtestJobStatus::OPENED) {
             $this->job->accept();
         }
     }
@@ -113,7 +111,7 @@ class View extends Component
             ]);
 
             foreach ($this->files as $file) {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -123,6 +121,7 @@ class View extends Component
                 foreach ($this->tempFiles as $index => $existingFile) {
                     if ($existingFile->getClientOriginalName() === $fileName) {
                         unset($this->tempFiles[$index]);
+
                         break;
                     }
                 }
@@ -140,6 +139,7 @@ class View extends Component
                 'errors'  => $e->errors(),
             ]);
             $this->reset('files');
+
             throw $e;
         }
     }
@@ -179,7 +179,7 @@ class View extends Component
             'closeReason' => 'required|min:5',
         ]);
 
-        if ($needsEvidence && ! $hasEvidence) {
+        if ($needsEvidence && !$hasEvidence) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -187,6 +187,7 @@ class View extends Component
                 'text'     => 'Esta atividade exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
                 'timer'    => 6000,
             ]);
+
             return;
         }
 
@@ -210,7 +211,7 @@ class View extends Component
     {
         $needsEvidence = (bool) ($this->medProtest->needsEvidence ?? false);
 
-        if ($needsEvidence && ! $this->medProtest->evidenceFiles()->exists()) {
+        if ($needsEvidence && !$this->medProtest->evidenceFiles()->exists()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
@@ -218,6 +219,7 @@ class View extends Component
                 'text'     => 'Esta atividade exige anexos. Anexe pelo menos um arquivo antes de encerrar.',
                 'timer'    => 6000,
             ]);
+
             return;
         }
 
@@ -227,7 +229,7 @@ class View extends Component
         ]);
 
         // Regra de permissão ainda fica aqui (domínio de aplicação)
-        if (! (auth()->id() === $this->job->owner_id || auth()->user()?->superadm)) {
+        if (!(auth()->id() === $this->job->owner_id || auth()->user()?->superadm)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
@@ -235,6 +237,7 @@ class View extends Component
                 'text'     => 'Somente o responsável pelo Job pode encerrar a atividade.',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
@@ -253,14 +256,13 @@ class View extends Component
             ]);
             // Relatório técnico vinculado à MedProtest
 
-
             $mensagemLog = 'Atividade concluída por ' . auth()->user()->name .
                 ' | Motivo: ' . trim($this->closeReason);
 
-            $outcome =  [
-                        'med_protest_id' => $this->medProtest->id,
-                        'protest_job_id' => $this->job->id,
-                        'finished_by'    => auth()->id(),
+            $outcome = [
+                'med_protest_id' => $this->medProtest->id,
+                'protest_job_id' => $this->job->id,
+                'finished_by'    => auth()->id(),
             ];
 
             // Encerramento REAL da atividade: delegado ao método de domínio do ProtestJob
@@ -292,6 +294,7 @@ class View extends Component
                 'text'     => $th->getMessage(),
                 'timer'    => 6000,
             ]);
+
             return;
         }
 
@@ -349,7 +352,7 @@ class View extends Component
     {
         $comment = $this->medProtest->comments()->findOrFail($commentId);
 
-        if ($comment->user_id !== auth()->id() && ! auth()->user()?->admin && ! auth()->user()?->superadm) {
+        if ($comment->user_id !== auth()->id() && !auth()->user()?->admin && !auth()->user()?->superadm) {
             abort(403, 'Você não tem permissão para remover este comentário.');
         }
 
@@ -360,8 +363,10 @@ class View extends Component
 
     public function downloadFiles(EvidenceFile $file)
     {
-        if (Storage::fileExists('public/' . $file->path)) {
-            return Storage::download('public/' . $file->path);
+        $service = app(EvidenceFileService::class);
+
+        if ($service->exists($file)) {
+            return $service->download($file);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -370,7 +375,7 @@ class View extends Component
             'title'    => 'ARQUIVO INEXISTENTE!',
             'timer'    => 5000,
         ]);
-        return;
+
     }
 
     public function deleteFile(EvidenceFile $file): void
@@ -395,12 +400,13 @@ class View extends Component
                 'type'    => 'warning',
                 'message' => 'Nenhum arquivo para salvar.',
             ]);
+
             return;
         }
 
         foreach ($this->tempFiles as $file) {
             try {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -409,24 +415,13 @@ class View extends Component
                     $this->medProtest->med_id . '_' .
                     uniqid() . '.' . $file->getClientOriginalExtension();
 
-                $path = $file->storeAs(
+                app(EvidenceFileService::class)->store(
+                    $this->medProtest,
+                    $file,
                     $this->filesConfig['path'] . '/' . $this->medProtest->protest->nota,
                     $filename,
-                    'public'
+                    auth()->id()
                 );
-
-                $this->medProtest->EvidenceFiles()->create([
-                    'user_id'       => auth()->id(),
-                    'original_name' => $file->getClientOriginalName(),
-                    'stored_name'   => $filename,
-                    'disk'          => $this->filesConfig['disk'],
-                    'path'          => $path,
-                    'mime'          => $file->getClientMimeType(),
-                    'extension'     => $file->getClientOriginalExtension(),
-                    'size'          => $file->getSize(),
-                    'sha256'        => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_at'   => now(),
-                ]);
             } catch (\Exception $e) {
                 logger()->error('Error saving file: ' . $e->getMessage(), [
                     'file'         => $file instanceof TemporaryUploadedFile ? $file->getClientOriginalName() : null,
@@ -463,24 +458,24 @@ class View extends Component
     public function getFileIconClass(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'bg-danger text-white',
-            'doc', 'docx'        => 'bg-primary text-white',
-            'xls', 'xlsx'        => 'bg-success text-white',
+            'pdf' => 'bg-danger text-white',
+            'doc', 'docx' => 'bg-primary text-white',
+            'xls', 'xlsx' => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt'                => 'bg-secondary text-white',
-            default              => 'bg-dark text-white',
+            'txt'   => 'bg-secondary text-white',
+            default => 'bg-dark text-white',
         };
     }
 
     public function getFileIcon(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'ri-file-pdf-fill',
-            'doc', 'docx'        => 'ri-file-word-fill',
-            'xls', 'xlsx'        => 'ri-file-excel-fill',
+            'pdf' => 'ri-file-pdf-fill',
+            'doc', 'docx' => 'ri-file-word-fill',
+            'xls', 'xlsx' => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt'                => 'ri-file-text-fill',
-            default              => 'ri-file-fill',
+            'txt'   => 'ri-file-text-fill',
+            default => 'ri-file-fill',
         };
     }
 
@@ -489,15 +484,19 @@ class View extends Component
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
         }
+
         if ($bytes >= 1048576) {
             return number_format($bytes / 1048576, 2) . ' MB';
         }
+
         if ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
         }
+
         if ($bytes > 1) {
             return $bytes . ' bytes';
         }
+
         return '0 bytes';
     }
 

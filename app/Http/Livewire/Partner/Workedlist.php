@@ -3,14 +3,11 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\WorkInformsExport;
+use App\Models\{Company, File, WorkReport};
 use App\Models\Edp_depc\City;
-use App\Models\Company;
-use App\Models\File;
-use App\Models\WorkReport;
+use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class Workedlist extends Component
 {
@@ -35,7 +32,9 @@ class Workedlist extends Component
 
     // search by date
     public $month;
+
     public $date_in;
+
     public $date_out;
     // public $dateBy = 'sended_at';
 
@@ -45,21 +44,21 @@ class Workedlist extends Component
     private $filter;
 
     protected $queryString = [
-        'search'  => ['except' => '', 'as' => 'buscar'],
-        'page'    => ['except' => 1, 'as' => 'p'],
-        'perPage' => ['as' => 'pp'],
-        'month'   => ['except' => '', 'as' => 'mes_referencia'],
+        'search'    => ['except' => '', 'as' => 'buscar'],
+        'page'      => ['except' => 1, 'as' => 'p'],
+        'perPage'   => ['as' => 'pp'],
+        'month'     => ['except' => '', 'as' => 'mes_referencia'],
         'companyId' => ['except' => '', 'as' => 'empreiteira'],
     ];
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list'   => '$refresh',
         'refresh_filter' => 'refreshFilters',
     ];
 
     public function mount()
     {
-        $this->cities = City::orderBy('cidade')->get();
+        $this->cities         = City::orderBy('cidade')->get();
         $this->companyOptions = $this->loadCompanyOptions();
         // $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
         // $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
@@ -69,13 +68,13 @@ class Workedlist extends Component
     public function exportToExcel()
     {
         return (new WorkInformsExport($this->lists))
-            ->download(date('Ymd_his').'-ListaObrasInformadas.xlsx');
+            ->download(date('Ymd_his') . '-ListaObrasInformadas.xlsx');
     }
 
     public function updatedMonth()
     {
-        $date = Carbon::createFromFormat('Y-m', $this->month);
-        $this->date_in = $date->startOfMonth()->format('Y-m-d');
+        $date           = Carbon::createFromFormat('Y-m', $this->month);
+        $this->date_in  = $date->startOfMonth()->format('Y-m-d');
         $this->date_out = $date->endOfMonth()->format('Y-m-d');
     }
 
@@ -86,12 +85,12 @@ class Workedlist extends Component
 
     public function cleanAll()
     {
-        $this->search = '';
+        $this->search      = '';
         $this->multiSearch = '';
-        $this->date_in = '';
-        $this->date_out = '';
-        $this->month = '';
-        $this->companyId = '';
+        $this->date_in     = '';
+        $this->date_out    = '';
+        $this->month       = '';
+        $this->companyId   = '';
     }
 
     public function applyMultiSearch()
@@ -125,9 +124,10 @@ class Workedlist extends Component
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
+            $storage = app(FileStorageService::class);
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -147,9 +147,7 @@ class Workedlist extends Component
 
         $query = WorkReport::query();
 
-
         // $query->where('rejected', false);
-
 
         $visibleCompanyIds = $this->visibleCompanyIds();
 
@@ -230,10 +228,13 @@ class Workedlist extends Component
     private function loadFilters(): array
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             return $sessionFilters;
         }
@@ -262,7 +263,7 @@ class Workedlist extends Component
     public function render()
     {
         return view('livewire.partner.workedlist', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists'          => $this->lists->paginate($this->perPage),
             'companyOptions' => $this->companyOptions,
         ]);
     }

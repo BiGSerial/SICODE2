@@ -2,27 +2,27 @@
 
 namespace App\Http\Livewire\Dispatchs\Common;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Production;
-use App\Models\Reclaim;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{File, Note, Production, Reclaim};
+use App\Services\Files\FileStorageService;
 use Livewire\Component;
 use ZipArchive;
 
 class ReclaimInfo extends Component
 {
     public ?Reclaim $reclaim = null;
-    public ?Production $production = null;
-    public $selectedFiles = [];
-    public $setDays;
-    public $newComment;
 
+    public ?Production $production = null;
+
+    public $selectedFiles = [];
+
+    public $setDays;
+
+    public $newComment;
 
     protected $listeners = [
         'getInfoResponse',
         'getInfoByProduction',
-        'refreshDays' => '$refresh',
+        'refreshDays'      => '$refresh',
         'refreshComponent' => '$refresh',
     ];
 
@@ -46,6 +46,7 @@ class ReclaimInfo extends Component
 
         if (!$production) {
             $this->warnMissingReclaim();
+
             return;
         }
 
@@ -68,6 +69,7 @@ class ReclaimInfo extends Component
             $this->dispatchBrowserEvent('reclaimInfoLoaded', [
                 'id' => 'responserInfo',
             ]);
+
             return;
         }
 
@@ -121,13 +123,13 @@ class ReclaimInfo extends Component
         }
     }
 
-
     public function downloadFile(File $file)
     {
         if ($file) {
+            $storage = app(FileStorageService::class);
 
-            if (Storage::fileExists($file->path)) {
-                return Storage::download($file->path, explode('.', $file->file_name)[0] . "." . $file->ext);
+            if ($storage->exists($file)) {
+                return $storage->download($file, explode('.', $file->file_name)[0] . "." . $file->ext);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -156,21 +158,58 @@ class ReclaimInfo extends Component
 
         if (count($this->selectedFiles)) {
 
-
             $files = File::WhereIn('id', $this->selectedFiles)->get();
-
 
             if ($files) {
                 $zipFile = 'Arquivos-' . $this->reclaim->Note->note . "-" . hash('crc32', time()) . '.zip';
                 $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
+                $storage    = app(FileStorageService::class);
+                $tempCopies = [];
+
                 foreach ($files as $file) {
-                    $content = Storage::get($file->path);
-                    $zip->addFromString(explode('.', $file->file_name)[0] . '.' . $file->ext, $content);
+                    $tempCopy = $storage->temporaryLocalCopy($file);
+
+                    if (!$tempCopy) {
+                        continue;
+                    }
+
+                    if (!$storage->matchesStoredChecksum($file, $tempCopy)) {
+                        $zip->close();
+
+                        foreach (array_merge($tempCopies, [$tempCopy]) as $copy) {
+                            if (is_file($copy)) {
+                                @unlink($copy);
+                            }
+                        }
+
+                        if (file_exists($zipFile)) {
+                            @unlink($zipFile);
+                        }
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'error',
+                            'title'    => 'Checksum divergente!',
+                            'html'     => 'O arquivo ' . e($file->original_name ?: $file->file_name) . ' não confere com o hash gravado no servidor.',
+                            'timer'    => 5000,
+                        ]);
+
+                        return;
+                    }
+
+                    $zip->addFile($tempCopy, explode('.', $file->file_name)[0] . '.' . $file->ext);
+                    $tempCopies[] = $tempCopy;
                 }
 
                 $zip->close();
+
+                foreach ($tempCopies as $tempCopy) {
+                    if (is_file($tempCopy)) {
+                        @unlink($tempCopy);
+                    }
+                }
 
                 $this->selectedFiles = [];
 

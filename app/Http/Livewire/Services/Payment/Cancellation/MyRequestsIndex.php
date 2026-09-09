@@ -2,15 +2,13 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
 use App\Enum\CancellationRequestStatus;
+use App\Models\{CancellationRequest, EvidenceFile};
+use App\Services\Files\EvidenceFileService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MyRequestsIndex extends Component
@@ -21,12 +19,19 @@ class MyRequestsIndex extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $service;
+
     public ?string $status = null;
+
     public string $search = '';
+
     public string $historyPeriod = '';
+
     public ?string $historyStart = null;
+
     public ?string $historyEnd = null;
+
     public string $historyNotes = '';
+
     public ?CancellationRequest $noteDetail = null;
 
     public function mount(string $service): void
@@ -66,11 +71,12 @@ class MyRequestsIndex extends Component
         }
 
         $days = (int) $value;
+
         if ($days <= 0) {
             return;
         }
 
-        $this->historyEnd = Carbon::today()->toDateString();
+        $this->historyEnd   = Carbon::today()->toDateString();
         $this->historyStart = Carbon::today()->subDays($days - 1)->toDateString();
         $this->resetPage('historyPage');
     }
@@ -99,16 +105,20 @@ class MyRequestsIndex extends Component
         $this->authorize('create', CancellationRequest::class);
 
         $file = EvidenceFile::findOrFail($fileId);
+
         if ($file->evidenciable_type !== CancellationRequest::class) {
             abort(403);
         }
 
         $request = CancellationRequest::findOrFail($file->evidenciable_id);
+
         if ((int) $request->requested_by !== (int) Auth::id()) {
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     public function render()

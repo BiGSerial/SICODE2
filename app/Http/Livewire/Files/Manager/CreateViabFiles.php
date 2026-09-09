@@ -2,13 +2,10 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Viability;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Note, Viability};
+use Illuminate\Support\Facades\{DB};
+use Livewire\{Component, WithFileUploads};
 
 /**
  * Componente Livewire para Gerenciamento de Arquivos de Produção
@@ -46,13 +43,20 @@ use Livewire\WithFileUploads;
 class CreateViabFiles extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
     public ?Viability $viability = null;
+
     public bool $alertFile = false;
+
     public string $service;
+
     public $files = [];
+
     public $tempFiles = [];
+
     public $uploadType;
+
     public $services;
 
     protected $listeners = [
@@ -64,8 +68,8 @@ class CreateViabFiles extends Component
     {
         return [
             'uploadType' => ['nullable', 'string', 'max:50'],
-            'files' => ['nullable', 'array'],
-            'files.*' => [
+            'files'      => ['nullable', 'array'],
+            'files.*'    => [
                 'nullable',
                 'file',
                 'max:10240',
@@ -77,7 +81,7 @@ class CreateViabFiles extends Component
     public function mount(Viability $viability, string $service)
     {
         $this->viability = $viability;
-        $this->service = $service;
+        $this->service   = $service;
     }
 
     public function updatedFiles()
@@ -102,6 +106,7 @@ class CreateViabFiles extends Component
                         'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -112,6 +117,7 @@ class CreateViabFiles extends Component
                         'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -127,15 +133,15 @@ class CreateViabFiles extends Component
 
                 if (!$exists) {
                     $this->tempFiles[] = [
-                        'note_id' => $this->viability->note_id,
-                        'service_id' => null,
-                        'user_id' => Auth()->User()->id,
-                        'uploadType' => $this->uploadType,
-                        'ext' => $file->getClientOriginalExtension(),
+                        'note_id'       => $this->viability->note_id,
+                        'service_id'    => null,
+                        'user_id'       => Auth()->User()->id,
+                        'uploadType'    => $this->uploadType,
+                        'ext'           => $file->getClientOriginalExtension(),
                         'original_name' => $file->getClientOriginalName(),
-                        'newName' => null,
-                        'suspicious' => false,
-                        'file' => $file,
+                        'newName'       => null,
+                        'suspicious'    => false,
+                        'file'          => $file,
                     ];
                 }
             }
@@ -153,19 +159,16 @@ class CreateViabFiles extends Component
             foreach ($this->tempFiles as &$temp_file) {
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->viability->note->note) === false) {
-                    $this->alertFile = true;
+                    $this->alertFile         = true;
                     $temp_file['suspicious'] = true;
                 }
             }
-
 
             $this->emitUp('hasFile', true);
         } else {
             $this->emitUp('hasFile', false);
         }
     }
-
-
 
     public function removeFile($index)
     {
@@ -179,7 +182,6 @@ class CreateViabFiles extends Component
         $this->checkFilesExists();
     }
 
-
     public function closeAll()
     {
         if (count($this->tempFiles)) {
@@ -192,20 +194,17 @@ class CreateViabFiles extends Component
 
         // $this->note = null;
         $this->uploadType = '';
-        $this->files = [];
+        $this->files      = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
 
     }
 
-
     // public function createFile(Note $note)
     // {
     //     $this->note = $note;
 
-
     //     if ($this->note) {
-
 
     //         $this->dispatchBrowserEvent('showModal', [
     //             'id' => 'modal_mass_upload',
@@ -213,14 +212,11 @@ class CreateViabFiles extends Component
     //     }
     // }
 
-
     private function rename(array &$temps, string $type)
     {
-        $count = 0;
-        $item = 1;
+        $count  = 0;
+        $item   = 1;
         $type_s = '';
-
-
 
         usort($temps, function ($a, $b) {
             $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
@@ -232,9 +228,7 @@ class CreateViabFiles extends Component
             return strcmp($a['original_name'], $b['original_name']);
         });
 
-
         foreach ($temps as $temp) {
-
 
             if ($temp['uploadType'] === $type) {
                 $count++;
@@ -246,19 +240,18 @@ class CreateViabFiles extends Component
 
             if ($temp['uploadType'] !== $type_s) {
                 $type_s = $temp['uploadType'];
-                $item = 1;
+                $item   = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->viability->note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev   = mb_strtoupper(substr($this->service, 0, 4));
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->viability->note->note . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
         }
 
     }
-
 
     public function saveFiles()
     {
@@ -276,29 +269,19 @@ class CreateViabFiles extends Component
         DB::beginTransaction();
 
         foreach ($this->tempFiles as $saveFile) {
-            $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
+            $rev = File::where('file_name', 'like', $saveFile['newName'] . "%")->count();
 
-            $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
+            try {
+                $file = $this->persistManagedFileUpload(
+                    $saveFile,
+                    $this->viability->note,
+                    '/arquivos/' . $saveFile['uploadType'],
+                    $saveFile['newName'] . "_Rev" . $rev,
+                    ['service_id' => null],
+                );
 
-            if (Storage::exists($caminho)) {
-                $file = File::create([
-                    'note_id' => $this->viability->note_id,
-                    'user_id' => Auth()->User()->id,
-                    'service_id' => null,
-                    'file_name' => $saveFile['newName']."_Rev".$rev,
-                    'original_name' => $saveFile['original_name'],
-                    'path' => $caminho,
-                    'ext' => $saveFile['ext'],
-                    'suspicious' => $saveFile['suspicious'],
-                    'noexists' => false,
-                ]);
-
-                if ($file) {
-                    $this->viability->files()->attach($file->id);
-                }
-
-
-            } else {
+                $this->viability->files()->attach($file->id);
+            } catch (\Throwable) {
 
                 DB::rollback();
 
@@ -321,7 +304,6 @@ class CreateViabFiles extends Component
 
         DB::commit();
 
-
         // $this->dispatchBrowserEvent('swal', [
         //     'position' => 'center',
         //     'icon'     => 'success',
@@ -335,15 +317,10 @@ class CreateViabFiles extends Component
         $this->closeAll();
     }
 
-
-
     protected $rules = [
 
         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp,zip|max:10240',
     ];
-
-
-
 
     public function render()
     {

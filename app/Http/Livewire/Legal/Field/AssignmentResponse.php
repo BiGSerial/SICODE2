@@ -3,9 +3,9 @@
 namespace App\Http\Livewire\Legal\Field;
 
 use App\Enum\LegalDemandSubdemandStatus;
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandFile, LegalDemandSubdemand};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandSubdemand};
 use App\Notifications\SystemNotification;
-use App\Services\Legal\LegalDemandWorkflowService;
+use App\Services\Legal\{LegalDemandUploadService, LegalDemandWorkflowService};
 use App\Support\Notifications\UserNotificationData;
 use Livewire\{Component, WithFileUploads};
 
@@ -34,6 +34,7 @@ class AssignmentResponse extends Component
 
     // Upload de evidências (múltiplos)
     public $uploadFiles = [];
+
     public array $uploadNames = [];
 
     public string $fileVisibility = 'shared';
@@ -43,7 +44,9 @@ class AssignmentResponse extends Component
 
     // UI
     public bool $confirmingSend = false;
+
     public ?int $activeSubdemandId = null;
+
     public array $subdemandCommentInput = [];
 
     public function mount(string $uuid, bool $external = false): void
@@ -74,15 +77,16 @@ class AssignmentResponse extends Component
         if (!$assignment) {
             session()->flash('warning', 'A tarefa informada não está mais disponível.');
             redirect()->route($this->externalAccess ? 'legal.external.expired' : 'legal.field.queue');
+
             return;
         }
 
         $this->assignment   = $assignment;
         $this->assignmentId = $assignment->id;
 
-        $this->demand = $this->assignment->legalDemand;
+        $this->demand          = $this->assignment->legalDemand;
         $assignmentSubdemandId = (int) data_get($this->assignment->metadata ?? [], 'subdemand_id', 0);
-        $active = $assignmentSubdemandId > 0
+        $active                = $assignmentSubdemandId > 0
             ? $this->demand->subdemands->firstWhere('id', $assignmentSubdemandId)
             : $this->demand->subdemands->firstWhere('assigned_to_user_id', $this->externalAccess ? null : auth()->id());
         $this->activeSubdemandId = $active?->id;
@@ -125,9 +129,11 @@ class AssignmentResponse extends Component
         }
 
         $requiresEvidence = (bool) data_get($this->assignment->metadata ?? [], 'requires_evidence', false);
+
         if ($requiresEvidence && !$this->hasEvidenceAttached()) {
             $this->addError('evidence', 'O controlador exige ao menos um arquivo de evidência para esta tarefa.');
             $this->confirmingSend = false;
+
             return;
         }
 
@@ -178,9 +184,9 @@ class AssignmentResponse extends Component
         }
 
         $this->validate([
-            'uploadFiles' => 'required|array|min:1',
+            'uploadFiles'   => 'required|array|min:1',
             'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
-            'uploadNames' => 'array',
+            'uploadNames'   => 'array',
             'uploadNames.*' => 'nullable|string|max:190',
         ]);
 
@@ -192,7 +198,7 @@ class AssignmentResponse extends Component
         $this->demand->refresh()->load('files');
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Arquivos salvos na tarefa',
             'timer' => 1800,
         ]);
@@ -240,16 +246,19 @@ class AssignmentResponse extends Component
 
         // Notifica o controlador responsável (apenas usuários internos)
         $controller = $this->demand->controller;
+
         if ($controller && !$this->externalAccess) {
             $executorName = auth()->user()->name;
             $caseNumber   = $this->demand->source_case_number ?? $this->demand->id;
+
             try {
                 $controller->notify(new SystemNotification(new UserNotificationData(
                     title:   "Demanda #{$caseNumber} — Executante respondeu",
                     message: "{$executorName} enviou " . ($this->isImpossibility ? 'uma impossibilidade de atendimento' : 'o retorno da tarefa') . ". Verifique e decida se aprova ou devolve.",
                     status:  'info',
                 )));
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
         }
 
         session()->flash('success', 'Resposta enviada com sucesso!');
@@ -279,8 +288,6 @@ class AssignmentResponse extends Component
             ->where('removed_at', null)
             ->where('visibility', 'shared');
 
-
-
         return view('livewire.legal.field.assignment-response', [
             'sharedFiles' => $sharedFiles,
         ]);
@@ -293,6 +300,7 @@ class AssignmentResponse extends Component
         }
 
         $comment = trim((string) ($this->subdemandCommentInput[$subdemandId] ?? ''));
+
         if ($comment === '') {
             return;
         }
@@ -306,12 +314,12 @@ class AssignmentResponse extends Component
         }
 
         LegalDemandComment::create([
-            'legal_demand_id' => $this->demand->id,
-            'assignment_id' => $this->assignment->id,
+            'legal_demand_id'           => $this->demand->id,
+            'assignment_id'             => $this->assignment->id,
             'legal_demand_subdemand_id' => $subdemandId,
-            'user_id' => $this->externalAccess ? null : auth()->id(),
-            'comment' => $comment,
-            'visibility' => 'shared',
+            'user_id'                   => $this->externalAccess ? null : auth()->id(),
+            'comment'                   => $comment,
+            'visibility'                => 'shared',
         ]);
 
         $this->subdemandCommentInput[$subdemandId] = '';
@@ -336,36 +344,20 @@ class AssignmentResponse extends Component
             return 0;
         }
 
-        $count = 0;
+        $count    = 0;
+        $uploader = app(LegalDemandUploadService::class);
+
         foreach ($this->uploadFiles as $index => $file) {
-            $customName = trim((string) ($this->uploadNames[$index] ?? ''));
-            $originalName = (string) $file->getClientOriginalName();
-            if ($customName === '') {
-                $customName = $originalName;
-            }
-
-            $customName = preg_replace('/[\\\\\\/]+/', '-', $customName) ?: $originalName;
-            $extension = strtolower((string) $file->getClientOriginalExtension());
-            if ($extension !== '' && !str_ends_with(strtolower($customName), '.' . $extension)) {
-                $customName .= '.' . $extension;
-            }
-
             $folder = $this->externalAccess
                 ? "legal/demands/{$this->demand->id}/external"
                 : "legal/demands/{$this->demand->id}";
-            $path = $file->storeAs($folder, $customName, 'public');
 
-            LegalDemandFile::create([
-                'legal_demand_id' => $this->demand->id,
-                'assignment_id' => $this->assignment->id,
+            $uploader->upload($this->demand, $file, $this->externalAccess ? null : auth()->user(), [
+                'assignment_id'             => $this->assignment->id,
                 'legal_demand_subdemand_id' => $this->activeSubdemandId,
-                'uploaded_by' => $this->externalAccess ? null : auth()->id(),
-                'file_name' => basename($path),
-                'original_name' => $customName,
-                'path' => $path,
-                'mime_type' => $file->getMimeType(),
-                'size' => $file->getSize(),
-                'visibility' => 'shared',
+                'visibility'                => 'shared',
+                'directory'                 => $folder,
+                'name'                      => (string) ($this->uploadNames[$index] ?? ''),
             ]);
 
             $count++;
@@ -377,11 +369,13 @@ class AssignmentResponse extends Component
     private function activeSubdemandAcceptsInput(?int $subdemandId = null): bool
     {
         $subdemandId ??= $this->activeSubdemandId;
+
         if ($subdemandId === null) {
             return true;
         }
 
         $subdemand = LegalDemandSubdemand::query()->find($subdemandId);
+
         if (!$subdemand) {
             return true;
         }
@@ -395,9 +389,9 @@ class AssignmentResponse extends Component
         }
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'warning',
+            'icon'  => 'warning',
             'title' => 'Subdemanda encerrada',
-            'html' => 'Esta subdemanda já foi encerrada e não aceita novos comentários, arquivos ou respostas.',
+            'html'  => 'Esta subdemanda já foi encerrada e não aceita novos comentários, arquivos ou respostas.',
         ]);
 
         return false;

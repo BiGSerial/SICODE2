@@ -6,7 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\oexterno\ProtocolsList;
 use App\Helpers\TextFormatter;
 use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\{Component, WithPagination};
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Facades\Excel;
@@ -197,10 +197,10 @@ class Main extends Component
 
         if ($file = File::find($id)) {
 
+            $storage = app(FileStorageService::class);
 
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }

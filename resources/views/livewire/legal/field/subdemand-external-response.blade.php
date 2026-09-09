@@ -245,7 +245,8 @@
                                         @foreach($sharedImages as $index => $fileItem)
                                             @php
                                                 $filePath = $fileItem->path ?? $fileItem->file_path ?? null;
-                                                $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                                $fileUrl = $fileItem->storageUrl();
+                                                $fileDownloadUrl = $fileItem->storageUrl(true);
                                                 $fileType = $fileItem->legalDemand?->source_type instanceof \BackedEnum ? $fileItem->legalDemand->source_type->value : (string) ($fileItem->legalDemand?->source_type ?? $sourceTypeValue);
                                                 $fileTypeLabel = match($fileType) { 'injunction' => 'Liminar', 'sentence' => 'Sentença', 'subsidy' => 'Subsídio', default => 'Demanda' };
                                             @endphp
@@ -254,7 +255,7 @@
                                                     <img src="{{ $fileUrl }}" class="legal-evidence-thumb" alt="{{ $fileItem->original_name ?? basename($filePath) }}" data-bs-toggle="modal" data-bs-target="#legalExternalSharedFilesModal" data-carousel-slide="{{ $index }}">
                                                     <div class="small text-muted legal-evidence-name mt-2" title="{{ $fileItem->original_name ?? basename($filePath) }}">{{ $fileItem->original_name ?? basename($filePath) }}</div>
                                                     <div class="d-flex flex-wrap gap-1 justify-content-center mt-1"><span class="shared-doc-tag">{{ $fileTypeLabel }}</span><span class="shared-doc-tag shared">Compartilhado</span></div>
-                                                    <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-download me-1"></i>Baixar</a>
+                                                    <a href="{{ $fileDownloadUrl ?? $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-download me-1"></i>Baixar</a>
                                                 </div>
                                             @endif
                                         @endforeach
@@ -268,7 +269,8 @@
                                     @foreach($sharedOthers as $fileItem)
                                         @php
                                             $filePath = $fileItem->path ?? $fileItem->file_path ?? null;
-                                            $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null;
+                                            $fileUrl = $fileItem->storageUrl();
+                                            $fileDownloadUrl = $fileItem->storageUrl(true);
                                             $name = $fileItem->original_name ?? ($filePath ? basename($filePath) : 'Arquivo');
                                             $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
                                             $fileType = $fileItem->legalDemand?->source_type instanceof \BackedEnum ? $fileItem->legalDemand->source_type->value : (string) ($fileItem->legalDemand?->source_type ?? $sourceTypeValue);
@@ -284,7 +286,7 @@
                                                         <div class="d-flex flex-wrap gap-1 mt-1"><span class="shared-doc-tag">{{ $fileTypeLabel }}</span><span class="shared-doc-tag shared">{{ strtoupper($ext ?: 'ARQ') }}</span></div>
                                                     </div>
                                                 </div>
-                                                <a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i></a>
+                                                <a href="{{ $fileDownloadUrl ?? $fileUrl }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i></a>
                                             </div>
                                         @endif
                                     @endforeach
@@ -352,8 +354,8 @@
             <div class="modal fade" id="legalExternalSharedFilesModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
                 <div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Visualização de Imagens</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div id="legalExternalSharedFilesCarousel" class="carousel slide" data-bs-ride="false"><div class="carousel-inner">
                     @foreach($sharedImages as $index => $fileItem)
-                        @php $filePath = $fileItem->path ?? $fileItem->file_path ?? null; $fileUrl = $filePath ? \Illuminate\Support\Facades\Storage::url($filePath) : null; @endphp
-                        @if($fileUrl)<div class="carousel-item @if($index === 0) active @endif"><div class="text-center"><img src="{{ $fileUrl }}" class="img-fluid rounded border" alt="{{ $fileItem->original_name ?? basename($filePath) }}" style="max-height:70vh;object-fit:contain"></div><div class="d-flex justify-content-between align-items-center mt-2"><div class="small text-muted">{{ $fileItem->original_name ?? basename($filePath) }}</div><a href="{{ $fileUrl }}" target="_blank" class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Baixar</a></div></div>@endif
+                        @php $filePath = $fileItem->path ?? $fileItem->file_path ?? null; $fileUrl = $fileItem->storageUrl(); $fileDownloadUrl = $fileItem->storageUrl(true); @endphp
+                        @if($fileUrl)<div class="carousel-item @if($index === 0) active @endif"><div class="text-center"><img src="{{ $fileUrl }}" class="img-fluid rounded border" alt="{{ $fileItem->original_name ?? basename($filePath) }}" style="max-height:70vh;object-fit:contain"></div><div class="d-flex justify-content-between align-items-center mt-2"><div class="small text-muted">{{ $fileItem->original_name ?? basename($filePath) }}</div><a href="{{ $fileDownloadUrl ?? $fileUrl }}" target="_blank" class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Baixar</a></div></div>@endif
                     @endforeach
                 </div>@if($sharedImages->count() > 1)<button class="carousel-control-prev" type="button" data-bs-target="#legalExternalSharedFilesCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button><button class="carousel-control-next" type="button" data-bs-target="#legalExternalSharedFilesCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>@endif</div></div></div></div>
             </div>

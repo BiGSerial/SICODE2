@@ -3,22 +3,24 @@
 namespace App\Http\Livewire\Legal\Field;
 
 use App\Enum\LegalDemandSubdemandStatus;
-use App\Models\Legal\LegalDemandComment;
-use App\Models\Legal\LegalDemandFile;
-use App\Models\Legal\LegalDemandSubdemand;
-use App\Services\Legal\LegalDemandSubdemandWorkflowService;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Models\Legal\{LegalDemandComment, LegalDemandSubdemand};
+use App\Services\Legal\{LegalDemandSubdemandWorkflowService, LegalDemandUploadService};
+use Livewire\{Component, WithFileUploads};
 
 class SubdemandExternalResponse extends Component
 {
     use WithFileUploads;
 
     public string $token;
+
     public LegalDemandSubdemand $subdemand;
+
     public string $executorName = '';
+
     public string $comment = '';
+
     public $uploadFiles = [];
+
     public array $uploadNames = [];
 
     public function mount(string $token): void
@@ -26,8 +28,10 @@ class SubdemandExternalResponse extends Component
         $this->token = $token;
 
         $subdemand = app(LegalDemandSubdemandWorkflowService::class)->resolveExternalByToken($token);
+
         if (!$subdemand) {
             redirect()->route('legal.external.expired');
+
             return;
         }
 
@@ -74,13 +78,15 @@ class SubdemandExternalResponse extends Component
     {
         $this->validate([
             'executorName' => 'required|string|min:3|max:120',
-            'comment' => 'nullable|string|max:2000',
+            'comment'      => 'nullable|string|max:2000',
         ]);
 
-        $comment = trim($this->comment);
+        $comment  = trim($this->comment);
         $hasFiles = !empty($this->uploadFiles);
+
         if ($comment === '' && !$hasFiles) {
             $this->addError('comment', 'Envie um comentário ou anexo.');
+
             return;
         }
 
@@ -90,50 +96,34 @@ class SubdemandExternalResponse extends Component
 
         if (in_array($currentStatus, [LegalDemandSubdemandStatus::CONCLUIDA, LegalDemandSubdemandStatus::ENCERRADA_CONTROLADOR], true)) {
             $this->addError('comment', 'Esta subdemanda já foi encerrada e não aceita novos retornos.');
+
             return;
         }
 
-        $metadata = (array) ($this->subdemand->metadata ?? []);
-        $metadata['external_executor_name'] = trim($this->executorName);
+        $metadata                              = (array) ($this->subdemand->metadata ?? []);
+        $metadata['external_executor_name']    = trim($this->executorName);
         $metadata['external_last_response_at'] = now()->toDateTimeString();
-        $this->subdemand->metadata = $metadata;
+        $this->subdemand->metadata             = $metadata;
         $this->subdemand->save();
 
         if ($comment !== '') {
             LegalDemandComment::create([
-                'legal_demand_id' => $this->subdemand->legal_demand_id,
+                'legal_demand_id'           => $this->subdemand->legal_demand_id,
                 'legal_demand_subdemand_id' => $this->subdemand->id,
-                'comment' => $comment,
-                'visibility' => 'shared',
-                'user_id' => null,
+                'comment'                   => $comment,
+                'visibility'                => 'shared',
+                'user_id'                   => null,
             ]);
         }
 
+        $uploader = app(LegalDemandUploadService::class);
+
         foreach ($this->uploadFiles as $index => $file) {
-            $customName = trim((string) ($this->uploadNames[$index] ?? ''));
-            $originalName = (string) $file->getClientOriginalName();
-            if ($customName === '') {
-                $customName = $originalName;
-            }
-
-            $customName = preg_replace('/[\\\\\/]+/', '-', $customName) ?: $originalName;
-            $extension = strtolower((string) $file->getClientOriginalExtension());
-            if ($extension !== '' && !str_ends_with(strtolower($customName), '.' . $extension)) {
-                $customName .= '.' . $extension;
-            }
-
-            $path = $file->storeAs("legal/demands/{$this->subdemand->legal_demand_id}/external/subdemand-{$this->subdemand->id}", $customName, 'public');
-
-            LegalDemandFile::create([
-                'legal_demand_id' => $this->subdemand->legal_demand_id,
+            $uploader->upload($this->subdemand->demand, $file, null, [
                 'legal_demand_subdemand_id' => $this->subdemand->id,
-                'uploaded_by' => null,
-                'file_name' => basename($path),
-                'original_name' => $customName,
-                'path' => $path,
-                'mime_type' => $file->getMimeType(),
-                'size' => $file->getSize(),
-                'visibility' => 'shared',
+                'visibility'                => 'shared',
+                'directory'                 => "legal/demands/{$this->subdemand->legal_demand_id}/external/subdemand-{$this->subdemand->id}",
+                'name'                      => (string) ($this->uploadNames[$index] ?? ''),
             ]);
         }
 
@@ -169,7 +159,7 @@ class SubdemandExternalResponse extends Component
             reason: 'Acesso revogado automaticamente após retorno externo.'
         );
 
-        $this->comment = '';
+        $this->comment     = '';
         $this->uploadFiles = [];
         $this->uploadNames = [];
         $this->subdemand->refresh()->load([

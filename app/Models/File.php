@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Files\FileDerivative;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -16,15 +17,20 @@ class File extends Model
         'service_id',
         'file_name',
         'path',
+        'disk',
         'ext',
+        'mime',
+        'size',
+        'sha256',
         'noexists',
         'original_name',
         'suspicious',
     ];
 
     protected $casts = [
-        'noexists' => 'boolean',
+        'noexists'   => 'boolean',
         'suspicious' => 'boolean',
+        'size'       => 'integer',
     ];
 
     public function Note()
@@ -87,6 +93,16 @@ class File extends Model
         return $this->morphedByMany(Reclaim::class, 'fileable')->withTimestamps();
     }
 
+    public function derivatives()
+    {
+        return $this->hasMany(FileDerivative::class);
+    }
+
+    public function thumbnail()
+    {
+        return $this->hasOne(FileDerivative::class)->where('kind', 'thumbnail');
+    }
+
     public function isTacitAdsRestricted(): bool
     {
         return $this->Adsforms()
@@ -102,7 +118,7 @@ class File extends Model
 
     public function getStoredNameAttribute(): string
     {
-        $name = (string) ($this->original_name ?: $this->file_name ?: 'arquivo');
+        $name      = (string) ($this->original_name ?: $this->file_name ?: 'arquivo');
         $extension = $this->extension;
 
         if ($extension !== '' && !str_ends_with(strtolower($name), '.' . strtolower($extension))) {
@@ -114,8 +130,16 @@ class File extends Model
 
     public function getSizeAttribute(): int
     {
-        return $this->path && Storage::exists($this->path)
-            ? (int) Storage::size($this->path)
+        $storedSize = $this->attributes['size'] ?? null;
+
+        if ($storedSize !== null) {
+            return (int) $storedSize;
+        }
+
+        $disk = (string) ($this->disk ?: 'local');
+
+        return $this->path && Storage::disk($disk)->exists($this->path)
+            ? (int) Storage::disk($disk)->size($this->path)
             : 0;
     }
 }

@@ -5,8 +5,9 @@ namespace App\Http\Livewire\Construction\Hiring;
 use App\Exports\HiringAccompanyExport;
 use App\Exports\HiringListExport;
 use App\Models\{Company, ExternalOrganRelease, File, HiringWaiting, Note, Order, Production, Reclaim, Service, User, Viability};
+use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\{DB, Storage};
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithFileUploads, WithPagination};
 use ZipArchive;
 
@@ -397,8 +398,10 @@ class Main extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }

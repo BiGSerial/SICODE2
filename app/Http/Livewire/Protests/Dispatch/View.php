@@ -3,16 +3,11 @@
 namespace App\Http\Livewire\Protests\Dispatch;
 
 use App\Helpers\SelectOptions;
-use App\Models\Comment;
-use App\Models\EvidenceFile;
-use App\Models\MedProtest;
-use App\Models\Noteable;
-use App\Models\Protest;
-use App\Models\ProtestJob;
+use App\Models\{Comment, EvidenceFile, MedProtest, Noteable, Protest, ProtestJob};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -20,16 +15,21 @@ class View extends Component
 {
     /** ===== PROPRIEDADES PRINCIPAIS ===== */
     public ?Protest $protest = null;
+
     public bool $readOnly = false;
 
     // Comentários gerais do Protest
     public ?string $comment = null;
+
     public ?Comment $deleteCommentId = null;
 
     // Editar resumo da reclamação
     public ?string $resumeEdit = null;
+
     public bool $showResumeEdit = false;
+
     public ?string $typeEdit = null;
+
     public bool $showTypeEdit = false;
 
     // Estado de expansão de jobs por MedProtest
@@ -37,19 +37,22 @@ class View extends Component
 
     // Buffers de ação
     public ?MedProtest $protestTemp = null;
+
     public ?MedProtest $medProtest = null;
+
     public ?ProtestJob $jobTemp = null;
+
     public ?string $result = null;
 
     /** ===== LISTENERS ===== */
     protected $listeners = [
-        'refreshComponent'      => '$refresh',
-        'removeComment172030'   => 'removeComment',
+        'refreshComponent'       => '$refresh',
+        'removeComment172030'    => 'removeComment',
         'FinishMedProtest172030' => 'finishMedProtes',
-        'Reject172030'          => 'rejectMed',
-        'confirmJob172030'      => 'confirmJob',
-        'cancelJob172030'       => 'cancelJob',
-        'reopenJob172030'       => 'reopenJob',
+        'Reject172030'           => 'rejectMed',
+        'confirmJob172030'       => 'confirmJob',
+        'cancelJob172030'        => 'cancelJob',
+        'reopenJob172030'        => 'reopenJob',
     ];
 
     /** ===== LIFECYCLE ===== */
@@ -60,6 +63,7 @@ class View extends Component
         $routeRef = (string) $request->route('protest');
 
         $protestQuery = Protest::query();
+
         if ($routeRef !== '' && ctype_digit($routeRef)) {
             $med = MedProtest::query()
                 ->select('id', 'protest_id')
@@ -106,19 +110,20 @@ class View extends Component
     public function downloadFiles(EvidenceFile $file)
     {
         try {
-            $path = 'public/' . $file->path;
+            $service = app(EvidenceFileService::class);
 
-            if (!Storage::fileExists($path)) {
+            if (!$service->exists($file)) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'error',
                     'title'    => 'ARQUIVO INEXISTENTE!',
                     'timer'    => 5000,
                 ]);
+
                 return;
             }
 
-            return Storage::download($path);
+            return $service->download($file);
         } catch (\Throwable $e) {
             $this->toast('danger', 'Erro ao baixar arquivo: ' . $e->getMessage());
         }
@@ -154,6 +159,7 @@ class View extends Component
 
             if (!$noteRelation) {
                 $this->toast('danger', 'Associação de nota não encontrada.');
+
                 return;
             }
 
@@ -178,6 +184,7 @@ class View extends Component
 
         if (trim((string) $this->comment) === '') {
             session()->flash('error', 'O comentário não pode estar vazio.');
+
             return;
         }
 
@@ -329,26 +336,28 @@ class View extends Component
 
         if (!$this->protestTemp) {
             $this->toast('danger', 'Medida não encontrada.');
+
             return;
         }
 
         $options = [];
+
         foreach (MedProtest::resultOptions() as $opt) {
             $options[$opt] = ucfirst($opt);
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Deseja Encerrar a Medida?',
-            'msg'           => "Você está preste de encerrar a medida?",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Encerrar!',
-            'btnCanceltxt'  => 'Não, Cancele!',
-            'action'        => 'FinishMedProtest172030',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma medida encerrada.',
-            'inputType'     => 'select',
-            'inputOptions'  => $options,
-            'inputValue'    => $this->protestTemp->result,
+            'title'            => 'Deseja Encerrar a Medida?',
+            'msg'              => "Você está preste de encerrar a medida?",
+            'icon'             => 'warning',
+            'btnOktxt'         => 'Sim, Encerrar!',
+            'btnCanceltxt'     => 'Não, Cancele!',
+            'action'           => 'FinishMedProtest172030',
+            'cancel_titulo'    => 'Cancelado!',
+            'cancel_msg'       => 'Nenhuma medida encerrada.',
+            'inputType'        => 'select',
+            'inputOptions'     => $options,
+            'inputValue'       => $this->protestTemp->result,
             'inputPlaceholder' => 'Selecione o resultado',
         ]);
     }
@@ -364,8 +373,10 @@ class View extends Component
         }
 
         $selectedResult = MedProtest::normalizeResult($result);
+
         if (!$selectedResult) {
             $this->toast('danger', 'Selecione o resultado da medida: procedente ou improcedente.');
+
             return;
         }
 
@@ -398,6 +409,7 @@ class View extends Component
 
         if (!$this->medProtest) {
             $this->toast('danger', 'Medida não encontrada.');
+
             return;
         }
 
@@ -421,6 +433,7 @@ class View extends Component
 
         if (!$this->medProtest) {
             $this->toast('danger', 'Medida não encontrada.');
+
             return;
         }
 
@@ -468,30 +481,30 @@ class View extends Component
 
         if (!$this->jobTemp) {
             $this->toast('danger', 'Atividade nao encontrada.');
+
             return;
         }
 
         $options = [];
+
         foreach (MedProtest::resultOptions() as $opt) {
             $options[$opt] = ucfirst($opt);
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Deseja Confirmar a Tarefa?',
-            'msg'           => 'Voce esta prestes a confirmar a tarefa?',
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Confirme!',
-            'btnCanceltxt'  => 'Nao, Cancele!',
-            'action'        => 'confirmJob172030',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma acao realizada.',
-            'inputType'     => 'select',
-            'inputOptions'  => $options,
+            'title'            => 'Deseja Confirmar a Tarefa?',
+            'msg'              => 'Voce esta prestes a confirmar a tarefa?',
+            'icon'             => 'warning',
+            'btnOktxt'         => 'Sim, Confirme!',
+            'btnCanceltxt'     => 'Nao, Cancele!',
+            'action'           => 'confirmJob172030',
+            'cancel_titulo'    => 'Cancelado!',
+            'cancel_msg'       => 'Nenhuma acao realizada.',
+            'inputType'        => 'select',
+            'inputOptions'     => $options,
             'inputPlaceholder' => 'Selecione o resultado',
         ]);
     }
-
-    
 
     public function confirmJob(?string $result = null): void
     {
@@ -507,6 +520,7 @@ class View extends Component
             $this->validate(['jobTemp.id' => 'required']);
 
             $selectedResult = MedProtest::normalizeResult($result);
+
             if (!$selectedResult) {
                 throw ValidationException::withMessages([
                     'result' => 'Selecione o resultado da medida: procedente ou improcedente.',
@@ -524,8 +538,7 @@ class View extends Component
         }
     }
 
-    
-public function toCancelJob(ProtestJob $job): void
+    public function toCancelJob(ProtestJob $job): void
     {
         if ($this->readOnly) {
             return;
@@ -535,6 +548,7 @@ public function toCancelJob(ProtestJob $job): void
 
         if (!$this->jobTemp) {
             $this->toast('danger', 'Atividade não encontrada.');
+
             return;
         }
 
@@ -576,7 +590,6 @@ public function toCancelJob(ProtestJob $job): void
         }
     }
 
-
     public function toReopen(ProtestJob $job): void
     {
         if ($this->readOnly) {
@@ -587,6 +600,7 @@ public function toCancelJob(ProtestJob $job): void
 
         if (!$this->jobTemp) {
             $this->toast('danger', 'Atividade não encontrada.');
+
             return;
         }
 
@@ -639,6 +653,7 @@ public function toCancelJob(ProtestJob $job): void
 
             if (!$job) {
                 $this->toast('danger', 'Atividade não encontrada.');
+
                 return;
             }
 
@@ -659,7 +674,7 @@ public function toCancelJob(ProtestJob $job): void
     {
         return view('livewire.protests.dispatch.view', [
             'protestCategories' => SelectOptions::getProtestCategory(),
-            'readOnly' => $this->readOnly,
+            'readOnly'          => $this->readOnly,
             'legalTagsByNoteId' => $this->buildLegalTagsByNoteId(),
         ]);
     }
@@ -667,6 +682,7 @@ public function toCancelJob(ProtestJob $job): void
     protected function buildLegalTagsByNoteId(): array
     {
         $noteIds = $this->protest?->all_notes?->pluck('id')?->filter()?->unique()?->values()?->all() ?? [];
+
         if ($noteIds === []) {
             return [];
         }
@@ -694,23 +710,24 @@ public function toCancelJob(ProtestJob $job): void
             ->get();
 
         $tagsByNote = [];
+
         foreach ($rows as $row) {
             $tagsByNote[(int) $row->note_id][] = [
-                'id' => (int) $row->id,
+                'id'         => (int) $row->id,
                 'type_label' => match ((string) $row->source_type) {
                     'injunction' => 'Liminar',
-                    'sentence' => 'Sentenca',
-                    'subsidy' => 'Subsidio',
-                    default => (string) $row->source_type,
+                    'sentence'   => 'Sentenca',
+                    'subsidy'    => 'Subsidio',
+                    default      => (string) $row->source_type,
                 },
-                'status' => (string) ($row->source_status ?: 'Sem status'),
-                'due_at' => $row->source_due_at ? Carbon::parse($row->source_due_at)->format('d/m/Y H:i') : 'Sem prazo',
-                'is_overdue' => $row->source_due_at ? Carbon::parse($row->source_due_at)->isPast() : false,
+                'status'      => (string) ($row->source_status ?: 'Sem status'),
+                'due_at'      => $row->source_due_at ? Carbon::parse($row->source_due_at)->format('d/m/Y H:i') : 'Sem prazo',
+                'is_overdue'  => $row->source_due_at ? Carbon::parse($row->source_due_at)->isPast() : false,
                 'badge_class' => match ((string) $row->source_type) {
                     'injunction' => 'bg-danger text-white',
-                    'sentence' => 'bg-warning text-dark',
-                    'subsidy' => 'bg-info text-dark',
-                    default => 'bg-secondary text-white',
+                    'sentence'   => 'bg-warning text-dark',
+                    'subsidy'    => 'bg-info text-dark',
+                    default      => 'bg-secondary text-white',
                 },
             ];
         }

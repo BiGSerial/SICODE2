@@ -2,11 +2,10 @@
 
 namespace App\Http\Livewire\Partner\FiveNote\Actions;
 
-use App\Models\EvidenceFile;
-use App\Models\FiveNote;
+use App\Models\{EvidenceFile, FiveNote};
 use App\Services\D5\D5WorkflowService;
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class FinishD5 extends Component
@@ -14,10 +13,15 @@ class FinishD5 extends Component
     use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 
     public $five;
+
     public $hasEvidence = false;
+
     public $observations;
+
     public $editingDescription = false;
+
     public bool $isSaving = false;
+
     public int $evidenceKey = 0;
 
     public $origin = 'EMPREITEIRA';
@@ -30,7 +34,7 @@ class FinishD5 extends Component
     ];
 
     protected $rules = [
-        'five.name' => 'required|string|max:255',
+        'five.name'        => 'required|string|max:255',
         'five.description' => 'nullable|string|max:2000',
     ];
 
@@ -51,10 +55,10 @@ class FinishD5 extends Component
 
     public function dowloadFile(EvidenceFile $file)
     {
-        // dd(Storage::fileExists('public/'.$file->path));
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
+        if ($service->exists($file)) {
+            return $service->download($file);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -95,12 +99,12 @@ class FinishD5 extends Component
         $this->validate();
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'ENCERRAR D5',
-            'msg'           => "Você tem certeza que deseja encerrar o D5 {$this->five->note_d5}?",
-            'icon'          => 'question',
-            'btnOktxt'      => 'Sim, Continue!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'samuca158012Encerrar',
+            'title'        => 'ENCERRAR D5',
+            'msg'          => "Você tem certeza que deseja encerrar o D5 {$this->five->note_d5}?",
+            'icon'         => 'question',
+            'btnOktxt'     => 'Sim, Continue!',
+            'btnCanceltxt' => 'Não, Cancele',
+            'action'       => 'samuca158012Encerrar',
             // 'chave'         => '',
             'cancel_titulo' => 'Cancelado!',
             'cancel_msg'    => 'Nenhuma D5 foi encerrada.',
@@ -118,11 +122,13 @@ class FinishD5 extends Component
 
         if (!$this->five) {
             $this->isSaving = false;
+
             return;
         }
 
         if (!$this->hasEvidence) {
             $this->finish();
+
             return;
         }
 
@@ -133,7 +139,6 @@ class FinishD5 extends Component
     {
         $this->finish();
     }
-
 
     public function finish()
     {
@@ -172,12 +177,12 @@ class FinishD5 extends Component
             }
 
             $this->dispatchBrowserEvent('swal', [
-                 'position' => 'center',
-                 'icon'     => 'error',
-                 'title'    => 'OPERAÇÃO FALHOU',
-                 'html'     => 'A operação de encerramento do D5 falhou.',
-                 'timer'    => 5000,
-             ]);
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'OPERAÇÃO FALHOU',
+                'html'     => 'A operação de encerramento do D5 falhou.',
+                'timer'    => 5000,
+            ]);
         }
     }
 

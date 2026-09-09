@@ -2,37 +2,38 @@
 
 namespace App\Http\Livewire\Files;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Production;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{File, Note, Production};
+use App\Services\Files\FileUploadService;
+use Illuminate\Support\Facades\{DB};
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 
 class Filesupervision extends Component
 {
     use WithFileUploads;
 
     public ?Note $note = null;
+
     public ?Production $production = null;
+
     public $notNote = false;
+
     public $needFiles;
 
     public $uploadsfiles = [];
+
     public $files = [];
 
     protected $listeners = [
-        'save_files' => 'save',
-        'cancel_files' => 'cancel'
+        'save_files'   => 'save',
+        'cancel_files' => 'cancel',
     ];
 
     public function mount($note, $production, $needFiles = false)
     {
-        $this->note = $note;
+        $this->note       = $note;
         $this->production = $production;
-        $this->needFiles = $needFiles;
+        $this->needFiles  = $needFiles;
     }
 
     public function updatedUploadsFiles()
@@ -108,8 +109,6 @@ class Filesupervision extends Component
 
                 $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
-
-
                 if (!strpos($fileNameWithoutExtension, $this->note->note) !== false) {
 
                     $this->notNote = true;
@@ -152,7 +151,7 @@ class Filesupervision extends Component
                 }
             }
 
-            $this->files = [];
+            $this->files   = [];
             $this->notNote = false;
         }
 
@@ -162,20 +161,20 @@ class Filesupervision extends Component
     public function save()
     {
         if (count($this->files)) {
-            $pdfCount = File::where('note_id', $this->note->id)->where('ext', 'pdf')->count();
-            $xlsCount = File::where('note_id', $this->note->id)->whereIn('ext', ['xls', 'xlsx'])->count();
+            $pdfCount      = File::where('note_id', $this->note->id)->where('ext', 'pdf')->count();
+            $xlsCount      = File::where('note_id', $this->note->id)->whereIn('ext', ['xls', 'xlsx'])->count();
             $totalPdfCount = $pdfCount + count(array_filter($this->files, fn ($file) => $file->getClientOriginalExtension() == 'pdf'));
             $totalXlsCount = $xlsCount + count(array_filter($this->files, fn ($file) => in_array($file->getClientOriginalExtension(), ['xls', 'xlsx'])));
-
 
             DB::beginTransaction();
 
             foreach ($this->files as $file) {
                 $tempPath = $file->getRealPath();
+
                 if ($tempPath && file_exists($tempPath)) {
-                    $newName = "";
+                    $newName   = "";
                     $extension = $file->getClientOriginalExtension();
-                    $folhas = ($extension == 'pdf') ? $totalPdfCount : $totalXlsCount;
+                    $folhas    = ($extension == 'pdf') ? $totalPdfCount : $totalXlsCount;
 
                     if ($extension == "pdf") {
                         $newName = "ASBUILT_FISC_" . $this->note->note . "_F" . str_pad(++$pdfCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
@@ -185,20 +184,23 @@ class Filesupervision extends Component
                         $newName = strtoupper($extension) . "_FISC_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     }
 
-                    $version = File::where('file_name', 'like', "%" . $newName . "%")->count();
-                    $newName = $newName . "_rev" . $version . "." . $extension;
-                    $caminho = $file->store('/arquivos/fiscal');
+                    $version  = File::where('file_name', 'like', "%" . $newName . "%")->count();
+                    $baseName = $newName . "_rev" . $version;
+                    $newName  = $baseName . "." . $extension;
 
-                    if (Storage::exists($caminho)) {
-                        File::create([
-                            'note_id' => $this->note->id,
-                            'user_id' => auth()->user()->id,
-                            'service_id' => $this->production->service_id,
-                            'file_name' => $newName,
-                            'path' => $caminho,
-                            'ext' => $extension,
-                        ]);
-                    } else {
+                    try {
+                        app(FileUploadService::class)->create(
+                            $file,
+                            $this->note,
+                            '/arquivos/fiscal',
+                            $baseName,
+                            $extension,
+                            [
+                                'service_id' => $this->production->service_id,
+                                'file_name'  => $newName,
+                            ],
+                        );
+                    } catch (\Throwable) {
 
                         DB::rollBack();
 
@@ -221,11 +223,10 @@ class Filesupervision extends Component
             DB::commit();
 
             $this->dispatchBrowserEvent('torrada', [
-                'status' => 'success',
+                'status'   => 'success',
                 'menssage' => "Arquivos salvos com sucesso",
             ]);
         }
-
 
         $this->emitUp('clean');
         $this->emitUp('refresh_accomany');

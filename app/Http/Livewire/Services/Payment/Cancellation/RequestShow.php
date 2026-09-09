@@ -2,10 +2,9 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
+use App\Models\{CancellationRequest, EvidenceFile};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -14,12 +13,14 @@ class RequestShow extends Component
     use AuthorizesRequests;
 
     public string $service;
+
     public int $requestId;
+
     public ?CancellationRequest $cancellationRequest = null;
 
     public function mount(string $service, $request): void
     {
-        $this->service = $service;
+        $this->service   = $service;
         $this->requestId = (int) $request;
         $this->loadRequest();
     }
@@ -51,7 +52,9 @@ class RequestShow extends Component
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     public function render()

@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Components\Files;
 
 use App\Models\File;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\Component;
 
 class ShowFilesPool extends Component
@@ -27,8 +27,10 @@ class ShowFilesPool extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',

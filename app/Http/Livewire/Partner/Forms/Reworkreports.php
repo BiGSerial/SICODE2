@@ -4,19 +4,26 @@ namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\WorkReport;
 use App\Services\Ads\AdsDeadlinePolicy;
+use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class Reworkreports extends Workreports
 {
     public ?WorkReport $workReport = null;
+
     public bool $reinform = true;
+
     public bool $hasExistingAds = false;
+
     public bool $hasTacitAds = false;
+
     public bool $hasPendingFiles = false;
+
     public $keepExistingAds = null;
+
     public array $acceptanceHistory = [];
+
     public array $existingFileTypes = ['ASBUILT', 'CROQUI', 'EVIDENCIA', 'FTVEO', 'IMAGEM', 'LISTA', 'PROJETO', 'OUTROS'];
 
     protected $listeners = [
@@ -62,9 +69,9 @@ class Reworkreports extends Workreports
             ->where('rejected', true)
             ->findOrFail((int) $payload['work_report_id']);
 
-        $this->note = $this->workReport->Note;
+        $this->note           = $this->workReport->Note;
         $this->hasExistingAds = (bool) $this->workReport->Adsform;
-        $this->hasTacitAds = (bool) ($this->workReport->Adsform?->tacit ?? false);
+        $this->hasTacitAds    = (bool) ($this->workReport->Adsform?->tacit ?? false);
         $this->backfillWorkReportFiles();
         $this->hasFiles = $this->hasExistingInformeFiles();
         $this->loadExistingData();
@@ -85,6 +92,7 @@ class Reworkreports extends Workreports
                 'title'    => 'Arquivos Obrigatórios',
                 'html'     => 'Este informe precisa ter ao menos um arquivo vinculado antes do reenvio.',
             ]);
+
             return;
         }
 
@@ -95,6 +103,7 @@ class Reworkreports extends Workreports
                 'title'    => 'Informe a decisão sobre a ADS',
                 'html'     => 'Selecione se deseja manter ou remover a ADS já associada ao informe.',
             ]);
+
             return;
         }
 
@@ -108,6 +117,7 @@ class Reworkreports extends Workreports
                     'title'    => 'Erros de Validação',
                     'html'     => 'Os equipamentos instalados/desinstalados são obrigatórios.',
                 ]);
+
                 return;
             }
 
@@ -118,11 +128,13 @@ class Reworkreports extends Workreports
                     'title'    => 'Erros de Validação',
                     'html'     => 'O detalhamento dos danos causados é obrigatório.',
                 ]);
+
                 return;
             }
 
             if ($this->changesBecameTrueOnReinform() && !$this->hasPendingAsbuilt) {
                 $this->showMissingAsbuiltFeedbackForChangedProjectAnswer();
+
                 return;
             }
 
@@ -133,11 +145,13 @@ class Reworkreports extends Workreports
                     'title'    => 'Confirmação do ASBUILT obrigatória',
                     'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
                 ]);
+
                 return;
             }
 
             if (!$this->hasValidFinalScopeSelection()) {
                 $this->showFinalScopeSelectionRequiredFeedback();
+
                 return;
             }
 
@@ -148,10 +162,12 @@ class Reworkreports extends Workreports
                     'title'    => 'Erros de Validação',
                     'html'     => 'É obrigatório informar os medidores instalados.',
                 ]);
+
                 return;
             }
 
             $adsMessage = '';
+
             if ($this->hasTacitAds) {
                 $adsMessage = '<p>Este informe possui ADS tácita. O vencimento de uma ADS tácita não pode ser alterado pelo reenvio do informe.</p>';
             } elseif ($this->hasExistingAds) {
@@ -161,8 +177,8 @@ class Reworkreports extends Workreports
             }
 
             $this->dispatchBrowserEvent('alertar', [
-                'title'         => 'REENVIAR INFORME ' . $this->note->note,
-                'msg'           => '<div class="card"><div class="card-body text-start">
+                'title' => 'REENVIAR INFORME ' . $this->note->note,
+                'msg'   => '<div class="card"><div class="card-body text-start">
                     <p>Você está prestes a reenviar este informe de obra. A data de envio será atualizada para agora.</p>
                     ' . $adsMessage . '
                     <p><strong>Confirma o reenvio do informe?</strong></p>
@@ -176,6 +192,7 @@ class Reworkreports extends Workreports
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $html = '<ul>';
+
             foreach ($e->validator->errors()->all() as $error) {
                 $html .= '<li>' . $error . '</li>';
             }
@@ -198,6 +215,7 @@ class Reworkreports extends Workreports
 
         if ($this->changesBecameTrueOnReinform() && !$this->hasPendingAsbuilt) {
             $this->showMissingAsbuiltFeedbackForChangedProjectAnswer();
+
             return;
         }
 
@@ -208,6 +226,7 @@ class Reworkreports extends Workreports
                 'title'    => 'Confirmação do ASBUILT obrigatória',
                 'html'     => 'Confirme que o ASBUILT anexado corresponde à informação declarada sobre alteração ou não alteração do projeto.',
             ]);
+
             return;
         }
 
@@ -216,14 +235,14 @@ class Reworkreports extends Workreports
         DB::beginTransaction();
 
         try {
-            $this->form['note_id'] = $this->note->id;
-            $this->form['company_id'] = $this->workReport->company_id;
-            $this->form['user_id'] = auth()->id();
-            $this->form['informed_at'] = $informedAt;
-            $this->form['rejected'] = false;
-            $this->form['acceptance_accepted'] = true;
-            $this->form['acceptance_at'] = $informedAt;
-            $this->form['acceptance_meta'] = $this->mergeAcceptanceMeta();
+            $this->form['note_id']               = $this->note->id;
+            $this->form['company_id']            = $this->workReport->company_id;
+            $this->form['user_id']               = auth()->id();
+            $this->form['informed_at']           = $informedAt;
+            $this->form['rejected']              = false;
+            $this->form['acceptance_accepted']   = true;
+            $this->form['acceptance_at']         = $informedAt;
+            $this->form['acceptance_meta']       = $this->mergeAcceptanceMeta();
             $this->form['selected_final_scopes'] = $this->selectedFinalScopesForSave();
 
             $this->workReport->fill($this->form);
@@ -232,6 +251,7 @@ class Reworkreports extends Workreports
             $this->workReport->Orders()->sync(collect($this->temp_orders)->pluck('id')->all());
 
             $this->workReport->Equipment()->delete();
+
             if ($this->workReport->equipment && !empty($this->temp_equipment)) {
                 foreach ($this->temp_equipment as $equipment) {
                     $this->workReport->Equipment()->create($equipment);
@@ -239,6 +259,7 @@ class Reworkreports extends Workreports
             }
 
             $this->workReport->Meeters()->delete();
+
             if (!empty($this->temp_meeters)) {
                 foreach ($this->temp_meeters as $meeter) {
                     $this->workReport->Meeters()->create($meeter);
@@ -251,16 +272,17 @@ class Reworkreports extends Workreports
 
             if ($this->hasPendingFiles) {
                 $this->emitTo('files.manager.create-gen-files', 'saveFiles');
+
                 return;
             }
 
             $this->dispatchBrowserEvent('swal-redirect', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Informe reenviado com sucesso',
-                'timer'    => 1800,
+                'position'          => 'center',
+                'icon'              => 'success',
+                'title'             => 'Informe reenviado com sucesso',
+                'timer'             => 1800,
                 'showConfirmButton' => false,
-                'url'      => route('partner.report.rejectedWorked'),
+                'url'               => route('partner.report.rejectedWorked'),
             ]);
 
             return;
@@ -281,12 +303,12 @@ class Reworkreports extends Workreports
         $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
 
         $this->dispatchBrowserEvent('swal-redirect', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'Informe reenviado com sucesso',
-            'timer'    => 1800,
+            'position'          => 'center',
+            'icon'              => 'success',
+            'title'             => 'Informe reenviado com sucesso',
+            'timer'             => 1800,
             'showConfirmButton' => false,
-            'url'      => route('partner.report.rejectedWorked'),
+            'url'               => route('partner.report.rejectedWorked'),
         ]);
     }
 
@@ -303,22 +325,22 @@ class Reworkreports extends Workreports
     protected function loadExistingData(): void
     {
         $this->form = [
-            'note_id' => $this->workReport->note_id,
-            'company_id' => $this->workReport->company_id,
-            'user_id' => $this->workReport->user_id,
-            'date' => optional($this->workReport->date)->format('Y-m-d'),
-            'equipment' => $this->workReport->equipment,
-            'connection' => $this->workReport->connection,
-            'changes' => $this->workReport->changes,
-            'observation' => $this->workReport->observation,
-            'damage' => $this->workReport->damage,
-            'description' => $this->workReport->description,
-            'team' => $this->workReport->team,
-            'dd' => $this->workReport->dd,
-            'responsible' => $this->workReport->responsible,
-            'informer' => $this->workReport->informer,
-            'acceptance_accepted' => false,
-            'acceptance_name' => null,
+            'note_id'              => $this->workReport->note_id,
+            'company_id'           => $this->workReport->company_id,
+            'user_id'              => $this->workReport->user_id,
+            'date'                 => optional($this->workReport->date)->format('Y-m-d'),
+            'equipment'            => $this->workReport->equipment,
+            'connection'           => $this->workReport->connection,
+            'changes'              => $this->workReport->changes,
+            'observation'          => $this->workReport->observation,
+            'damage'               => $this->workReport->damage,
+            'description'          => $this->workReport->description,
+            'team'                 => $this->workReport->team,
+            'dd'                   => $this->workReport->dd,
+            'responsible'          => $this->workReport->responsible,
+            'informer'             => $this->workReport->informer,
+            'acceptance_accepted'  => false,
+            'acceptance_name'      => null,
             'asbuilt_confirmation' => false,
         ];
 
@@ -331,10 +353,10 @@ class Reworkreports extends Workreports
 
         $this->temp_equipment = $this->workReport->Equipment
             ->map(fn ($equipment) => [
-                'type' => $equipment->type,
+                'type'      => $equipment->type,
                 'patrimony' => $equipment->patrimony,
-                'fases' => $equipment->fases,
-                'pole' => $equipment->pole,
+                'fases'     => $equipment->fases,
+                'pole'      => $equipment->pole,
                 'installed' => $equipment->installed,
             ])
             ->all();
@@ -342,24 +364,24 @@ class Reworkreports extends Workreports
         $this->temp_meeters = $this->workReport->Meeters
             ->map(fn ($meeter) => [
                 'number' => $meeter->number,
-                'borne' => $meeter->borne,
-                'fases' => $meeter->fases,
+                'borne'  => $meeter->borne,
+                'fases'  => $meeter->fases,
             ])
             ->all();
 
-        $this->meeters = !empty($this->temp_meeters);
+        $this->meeters           = !empty($this->temp_meeters);
         $this->acceptanceHistory = $this->extractAcceptanceHistory();
     }
 
     protected function mergeAcceptanceMeta(): array
     {
-        $newMeta = $this->buildAcceptanceMeta();
+        $newMeta                    = $this->buildAcceptanceMeta();
         $newMeta['acceptance_name'] = $this->form['acceptance_name'];
-        $newMeta['acceptance_at'] = now()->toDateTimeString();
-        $newMeta['event'] = 'reinform';
+        $newMeta['acceptance_at']   = now()->toDateTimeString();
+        $newMeta['event']           = 'reinform';
 
         $existing = $this->workReport->acceptance_meta;
-        $history = [];
+        $history  = [];
 
         if (is_array($existing)) {
             $history = is_array($existing['history'] ?? null) ? $existing['history'] : [];
@@ -367,8 +389,8 @@ class Reworkreports extends Workreports
 
             if (!empty($current)) {
                 $current['acceptance_name'] = $this->workReport->acceptance_name;
-                $current['acceptance_at'] = optional($this->workReport->acceptance_at)->toDateTimeString();
-                $history[] = $current;
+                $current['acceptance_at']   = optional($this->workReport->acceptance_at)->toDateTimeString();
+                $history[]                  = $current;
             }
         }
 
@@ -432,8 +454,8 @@ class Reworkreports extends Workreports
 
         if ($this->asBool($this->keepExistingAds)) {
             $adsForm->forceFill([
-                'created_at' => $informedAt,
-                'updated_at' => now(),
+                'created_at'   => $informedAt,
+                'updated_at'   => now(),
                 'tacit_due_at' => app(AdsDeadlinePolicy::class)->dueAt($informedAt, null, (int) $this->workReport->id),
             ])->save();
 
@@ -444,10 +466,7 @@ class Reworkreports extends Workreports
         $adsForm->Files()->detach();
 
         foreach ($adsFiles as $file) {
-            if ($file->path && Storage::exists($file->path)) {
-                Storage::delete($file->path);
-            }
-
+            app(FileStorageService::class)->delete($file);
             $file->delete();
         }
 

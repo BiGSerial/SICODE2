@@ -2,11 +2,9 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Models\File;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class ViabRejectedList extends Component
 {
@@ -21,12 +19,12 @@ class ViabRejectedList extends Component
 
     // Filters
     private $filter_group = 'partner';
+
     private $filter;
 
     protected $listeners = [
         'refresh' => '$refresh',
     ];
-
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -43,7 +41,9 @@ class ViabRejectedList extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -63,7 +63,6 @@ class ViabRejectedList extends Component
 
         if (!auth()->user()->superadm) {
 
-
             if (Auth()->user()->Companies->isNotEmpty()) {
                 $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
             } else {
@@ -76,11 +75,12 @@ class ViabRejectedList extends Component
         return $query->orderBy('updated_at');
     }
 
-
     public function getMyListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -100,7 +100,6 @@ class ViabRejectedList extends Component
 
         if (!auth()->user()->superadm) {
 
-
             if (Auth()->user()->Companies->isNotEmpty()) {
                 $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
             } else {
@@ -117,13 +116,12 @@ class ViabRejectedList extends Component
     {
         $this->authorizePartnerAccess('viability.view_files');
 
-
         if ($file = File::find($id)) {
 
+            $storage = app(FileStorageService::class);
 
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -137,11 +135,10 @@ class ViabRejectedList extends Component
         }
     }
 
-
     public function render()
     {
         return view('livewire.partner.viab-rejected-list', [
-            'lists' => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
+            'lists'   => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
             'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),
         ]);
 

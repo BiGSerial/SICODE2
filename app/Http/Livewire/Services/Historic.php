@@ -3,8 +3,8 @@
 namespace App\Http\Livewire\Services;
 
 use App\Models\{File, Production, Service, User};
+use App\Services\Files\FileStorageService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 use Livewire\{Component, WithPagination};
 
 class Historic extends Component
@@ -111,8 +111,10 @@ class Historic extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }

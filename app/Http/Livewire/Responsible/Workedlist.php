@@ -3,11 +3,9 @@
 namespace App\Http\Livewire\Responsible;
 
 use App\Models\Edp_depc\City;
-use App\Models\File;
-use App\Models\WorkReport;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, WorkReport};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class Workedlist extends Component
 {
@@ -25,6 +23,7 @@ class Workedlist extends Component
 
     // search by date
     public $date_in;
+
     public $date_out;
     // public $dateBy = 'sended_at';
 
@@ -50,8 +49,8 @@ class Workedlist extends Component
 
     public function cleanAll()
     {
-        $this->search = '';
-        $this->date_in = '';
+        $this->search   = '';
+        $this->date_in  = '';
         $this->date_out = '';
     }
 
@@ -59,8 +58,10 @@ class Workedlist extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -77,7 +78,9 @@ class Workedlist extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -86,9 +89,7 @@ class Workedlist extends Component
 
         $query = WorkReport::query()->active();
 
-
         $query->where('rejected', false);
-
 
         if (!auth()->user()->superadm) {
 
@@ -101,7 +102,6 @@ class Workedlist extends Component
                 $query->where('company_id', Auth()->user()->Company->id);
             }
         }
-
 
         if (($this->date_in || $this->date_out)) {
 
@@ -145,7 +145,7 @@ class Workedlist extends Component
     public function render()
     {
         return view('livewire.responsible.workedlist', [
-            'lists' => $this->lists->paginate($this->perPage)
+            'lists' => $this->lists->paginate($this->perPage),
         ]);
     }
 }

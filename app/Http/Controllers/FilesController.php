@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\File;
+use App\Services\Files\{FileStorageService, FileThumbnailService};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use ZipArchive;
 
 class FilesController extends Controller
@@ -27,28 +26,50 @@ class FilesController extends Controller
         return view('files.managerfiles');
     }
 
-    public function download(File $file)
+    public function download(File $file, FileStorageService $storage)
     {
         // Autorização (ajuste Gate/policy conforme seu app)
         // abort_if(Gate::denies('view-file', $file), 403);
 
         $this->ensureTacitDownloadPermission($file);
 
-        if (!Storage::exists($file->path)) {
+        if (!$storage->exists($file)) {
             abort(404, 'Arquivo não encontrado.');
         }
 
-        $name = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
-
-        return Storage::download($file->path, $name);
+        return $storage->download($file);
     }
 
-    public function preview(File $file)
-    {
+    public function preview(
+        Request $request,
+        File $file,
+        FileStorageService $storage,
+        FileThumbnailService $thumbnails
+    ) {
         $this->ensureTacitDownloadPermission($file);
 
         $rawPath = ltrim((string) $file->path, '/');
-        $name = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
+        $name    = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
+
+        if ($request->boolean('thumbnail')) {
+            $thumbnail = $thumbnails->ensure($file);
+
+            if ($thumbnail && $storage->disk($thumbnail->disk)->exists($thumbnail->path)) {
+                return response($storage->disk($thumbnail->disk)->get($thumbnail->path), 200, [
+                    'Content-Type'        => $thumbnail->mime ?: 'image/webp',
+                    'Content-Disposition' => 'inline; filename="' . addslashes(pathinfo($name, PATHINFO_FILENAME) . '.webp') . '"',
+                    'Cache-Control'       => 'private, max-age=86400',
+                ]);
+            }
+        }
+
+        if ($storage->exists($file)) {
+            return response($storage->get($file), 200, [
+                'Content-Type'        => $storage->mimeType($file),
+                'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+                'Cache-Control'       => 'private, max-age=300',
+            ]);
+        }
 
         $storageCandidates = array_values(array_unique(array_filter([
             $rawPath,
@@ -58,19 +79,21 @@ class FilesController extends Controller
         foreach ($storageCandidates as $candidate) {
             if (Storage::exists($candidate)) {
                 $mime = Storage::mimeType($candidate) ?: 'application/octet-stream';
+
                 return response(Storage::get($candidate), 200, [
-                    'Content-Type' => $mime,
+                    'Content-Type'        => $mime,
                     'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
-                    'Cache-Control' => 'private, max-age=300',
+                    'Cache-Control'       => 'private, max-age=300',
                 ]);
             }
 
             if (Storage::disk('public')->exists($candidate)) {
                 $mime = Storage::disk('public')->mimeType($candidate) ?: 'application/octet-stream';
+
                 return response(Storage::disk('public')->get($candidate), 200, [
-                    'Content-Type' => $mime,
+                    'Content-Type'        => $mime,
                     'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
-                    'Cache-Control' => 'private, max-age=300',
+                    'Cache-Control'       => 'private, max-age=300',
                 ]);
             }
         }
@@ -85,10 +108,11 @@ class FilesController extends Controller
         foreach ($fsCandidates as $candidate) {
             if (is_file($candidate)) {
                 $mime = @mime_content_type($candidate) ?: 'application/octet-stream';
+
                 return response()->file($candidate, [
-                    'Content-Type' => $mime,
+                    'Content-Type'        => $mime,
                     'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
-                    'Cache-Control' => 'private, max-age=300',
+                    'Cache-Control'       => 'private, max-age=300',
                 ]);
             }
         }
@@ -98,18 +122,19 @@ class FilesController extends Controller
 
     public function zipSelected(Request $request)
     {
-        $ids  = collect(explode(',', (string) $request->query('ids', '')))
+        $ids = collect(explode(',', (string) $request->query('ids', '')))
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values()
             ->all();
-        $note = (string) $request->query('note', 'Arquivos');
+        $note   = (string) $request->query('note', 'Arquivos');
         $noteId = (int) $request->query('note_id', 0);
 
         if (empty($ids)) {
             return back()->with('error', 'Nenhum arquivo selecionado.');
         }
+
         if ($noteId <= 0) {
             abort(422, 'Contexto da nota inválido para gerar ZIP.');
         }
@@ -117,36 +142,62 @@ class FilesController extends Controller
         $files = File::where('note_id', $noteId)
             ->whereIn('id', $ids)
             ->get();
+
         if ($files->isEmpty()) {
             abort(404, 'Arquivos não encontrados.');
         }
 
         $user = auth()->user();
         abort_if(!$user, 403, 'Não autorizado.');
+
         if (!$user->superadm && $files->contains(fn (File $file) => $file->isTacitAdsRestricted())) {
             abort(403, 'Download ZIP bloqueado: contém ADS tácita (apenas SUPERADM).');
         }
 
         $safeNote = preg_replace('/[^A-Za-z0-9_\-]/', '_', $note) ?: 'Arquivos';
-        $zipFile = storage_path('app/tmp/Arquivos-' . $safeNote . '-' . hash('crc32', microtime(true)) . '.zip');
+        $zipFile  = storage_path('app/tmp/Arquivos-' . $safeNote . '-' . hash('crc32', microtime(true)) . '.zip');
+
         if (!Storage::exists('tmp')) {
             Storage::makeDirectory('tmp');
         }
 
         $zip = new ZipArchive();
+
         if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             abort(500, 'Não foi possível criar o arquivo ZIP.');
         }
 
         $usedNames = [];
-        $added = 0;
+        $added     = 0;
+        $storage   = app(FileStorageService::class);
+
+        $tempCopies = [];
 
         foreach ($files as $file) {
-            if (Storage::exists($file->path)) {
-                $content = Storage::get($file->path);
+            if ($storage->exists($file)) {
+                $tempCopy = $storage->temporaryLocalCopy($file);
+
+                if (!$tempCopy) {
+                    continue;
+                }
+
+                if (!$storage->matchesStoredChecksum($file, $tempCopy)) {
+                    foreach ($tempCopies as $copy) {
+                        if (is_file($copy)) {
+                            @unlink($copy);
+                        }
+                    }
+
+                    $zip->close();
+                    @unlink($zipFile);
+                    @unlink($tempCopy);
+
+                    abort(409, 'Checksum divergente para o arquivo ' . ($file->original_name ?: $file->file_name) . '.');
+                }
+
                 $baseName = pathinfo($file->file_name, PATHINFO_FILENAME);
-                $ext = $file->ext ? '.' . $file->ext : '';
-                $name = $baseName . $ext;
+                $ext      = $file->ext ? '.' . $file->ext : '';
+                $name     = $baseName . $ext;
 
                 // Evita sobrescrever arquivos com o mesmo nome dentro do ZIP.
                 if (isset($usedNames[$name])) {
@@ -156,12 +207,19 @@ class FilesController extends Controller
                     $usedNames[$name] = 1;
                 }
 
-                $zip->addFromString($name, $content);
+                $zip->addFile($tempCopy, $name);
+                $tempCopies[] = $tempCopy;
                 $added++;
             }
         }
 
         $zip->close();
+
+        foreach ($tempCopies as $tempCopy) {
+            if (is_file($tempCopy)) {
+                @unlink($tempCopy);
+            }
+        }
 
         if ($added === 0) {
             @unlink($zipFile);

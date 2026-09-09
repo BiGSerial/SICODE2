@@ -495,6 +495,7 @@ Route::prefix('juridico')->name('legal.')->middleware(['auth'])->controller(\App
     Route::get('/fila', 'queue')->name('queue');
     Route::get('/triagem', 'triage')->name('triage');
     Route::get('/demanda/{uuid}', 'demandDetail')->name('demand.detail');
+    Route::get('/arquivo/{file}', 'file')->name('file.show');
     Route::get('/subdemanda/{uuid}', 'subdemandDetail')->name('subdemand.detail');
     Route::get('/subdemandas/monitor', 'subdemandMonitor')->name('subdemand.monitor');
 
@@ -531,5 +532,8 @@ Route::prefix('juridico/externo')->name('legal.external.')->controller(\App\Http
     Route::get('/subdemanda/{token}', 'subdemandResponseExternal')
         ->middleware(['throttle:60,1'])
         ->name('subdemand.response');
+    Route::get('/arquivo/{file}', 'file')
+        ->middleware(['signed', 'throttle:60,1'])
+        ->name('file.show');
     Route::get('/expirado', 'externalExpired')->name('expired');
 });

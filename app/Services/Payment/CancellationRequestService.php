@@ -2,24 +2,15 @@
 
 namespace App\Services\Payment;
 
-use App\Enum\CancellationEngineerApprovalStatus;
-use App\Enum\CancellationRequestStatus;
-use App\Enum\CancellationRequestScope;
-use App\Models\CancellationCategory;
-use App\Models\Comment;
-use App\Models\CancellationRequest;
-use App\Models\CancellationRequestEvent;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\User;
-use App\Models\EvidenceFile;
+use App\Enum\{CancellationEngineerApprovalStatus, CancellationRequestScope, CancellationRequestStatus};
+use App\Models\{CancellationCategory, CancellationRequest, CancellationRequestEvent, Comment, EvidenceFile, Note, Order, User};
 use App\Notifications\SystemNotification;
+use App\Services\Files\EvidenceFileService;
 use App\Support\EvidenceFileUploader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class CancellationRequestService
@@ -66,12 +57,12 @@ class CancellationRequestService
             }
 
             $request = CancellationRequest::create([
-                'note_id' => $note->id,
-                'scope' => $scope,
-                'category_id' => $category->id,
+                'note_id'      => $note->id,
+                'scope'        => $scope,
+                'category_id'  => $category->id,
                 'requested_by' => $requestedBy->id,
-                'description' => $description,
-                'status' => CancellationRequestStatus::SUBMITTED,
+                'description'  => $description,
+                'status'       => CancellationRequestStatus::SUBMITTED,
                 'submitted_at' => now(),
             ]);
 
@@ -80,9 +71,9 @@ class CancellationRequestService
             $this->storeEvidenceFiles($request, $attachments, $requestedBy);
 
             $this->logEvent($request, $requestedBy, 'submitted', [
-                'scope' => $scope,
+                'scope'       => $scope,
                 'category_id' => $category->id,
-                'orders' => $ordersCollection->pluck('id')->all(),
+                'orders'      => $ordersCollection->pluck('id')->all(),
             ]);
 
             return $request;
@@ -115,22 +106,22 @@ class CancellationRequestService
             }
 
             $request = CancellationRequest::create([
-                'note_id' => $note->id,
-                'scope' => CancellationRequestScope::ORDERS_PARTIAL,
-                'category_id' => $category->id,
+                'note_id'      => $note->id,
+                'scope'        => CancellationRequestScope::ORDERS_PARTIAL,
+                'category_id'  => $category->id,
                 'requested_by' => $requestedBy->id,
-                'description' => $description,
-                'status' => CancellationRequestStatus::SUBMITTED,
+                'description'  => $description,
+                'status'       => CancellationRequestStatus::SUBMITTED,
                 'submitted_at' => now(),
             ]);
 
             $request->Orders()->sync([$order->id]);
 
             $this->logEvent($request, $requestedBy, 'submitted', [
-                'scope' => CancellationRequestScope::ORDERS_PARTIAL->value,
+                'scope'       => CancellationRequestScope::ORDERS_PARTIAL->value,
                 'category_id' => $category->id,
-                'orders' => [$order->id],
-                'bulk' => true,
+                'orders'      => [$order->id],
+                'bulk'        => true,
             ]);
 
             return $request;
@@ -145,7 +136,7 @@ class CancellationRequestService
             }
 
             $request->update([
-                'status' => CancellationRequestStatus::SUBMITTED,
+                'status'       => CancellationRequestStatus::SUBMITTED,
                 'submitted_at' => now(),
             ]);
 
@@ -164,8 +155,8 @@ class CancellationRequestService
             ->update([
                 'assigned_to' => $user->id,
                 'assigned_at' => now(),
-                'status' => CancellationRequestStatus::ASSIGNED->value,
-                'updated_at' => now(),
+                'status'      => CancellationRequestStatus::ASSIGNED->value,
+                'updated_at'  => now(),
             ]);
 
         if ($updated === 0) {
@@ -231,6 +222,7 @@ class CancellationRequestService
             }
 
             $reopenReason = trim((string) $reason);
+
             if ($reopenReason === '') {
                 throw new RuntimeException('Informe o motivo da reabertura.');
             }
@@ -279,17 +271,18 @@ class CancellationRequestService
                 if ($request->Note->canceled) {
                     throw new RuntimeException('Nota já cancelada.');
                 }
+
                 if ($request->Orders()->where('canceled', true)->exists()) {
                     throw new RuntimeException('Existem ordens já canceladas nesta nota.');
                 }
                 $request->Note->update([
-                    'canceled' => true,
+                    'canceled'    => true,
                     'canceled_at' => now(),
                     'canceled_by' => $user->id,
                 ]);
 
                 $request->Orders()->where('canceled', false)->update([
-                    'canceled' => true,
+                    'canceled'    => true,
                     'canceled_at' => now(),
                     'canceled_by' => $user->id,
                 ]);
@@ -299,6 +292,7 @@ class CancellationRequestService
                 $this->cancelWorkForm($request->Note, $user);
             } else {
                 $orders = $request->Orders()->get();
+
                 foreach ($orders as $order) {
                     if ($order->canceled) {
                         throw new RuntimeException('Existe ordem já cancelada nesta solicitação.');
@@ -306,16 +300,16 @@ class CancellationRequestService
                 }
 
                 $request->Orders()->update([
-                    'canceled' => true,
+                    'canceled'    => true,
                     'canceled_at' => now(),
                     'canceled_by' => $user->id,
                 ]);
             }
 
             $request->update([
-                'status' => CancellationRequestStatus::DONE,
-                'closed_by' => $user->id,
-                'closed_at' => now(),
+                'status'       => CancellationRequestStatus::DONE,
+                'closed_by'    => $user->id,
+                'closed_at'    => now(),
                 'closure_type' => CancellationRequest::CLOSURE_DONE,
             ]);
 
@@ -356,19 +350,19 @@ class CancellationRequestService
                 : 'engineer_approval_requested';
 
             $request->update([
-                'requires_engineer_approval' => true,
-                'engineer_approval_status' => CancellationEngineerApprovalStatus::PENDING,
+                'requires_engineer_approval'     => true,
+                'engineer_approval_status'       => CancellationEngineerApprovalStatus::PENDING,
                 'engineer_approval_requested_by' => $actor->id,
                 'engineer_approval_requested_at' => now(),
-                'engineer_approver_id' => $engineer->id,
-                'engineer_approval_decided_by' => null,
-                'engineer_approval_decided_at' => null,
-                'engineer_approval_reason' => $reason,
+                'engineer_approver_id'           => $engineer->id,
+                'engineer_approval_decided_by'   => null,
+                'engineer_approval_decided_at'   => null,
+                'engineer_approval_reason'       => $reason,
             ]);
 
             $this->logEvent($request, $actor, $eventType, [
                 'engineer_id' => $engineer->id,
-                'reason' => $reason,
+                'reason'      => $reason,
             ]);
 
             $this->notifyEngineerApprovalRequested($request, $actor, $engineer, $reason);
@@ -411,14 +405,14 @@ class CancellationRequestService
             $previousEngineerId = $request->engineer_approver_id;
 
             $request->update([
-                'engineer_approver_id' => $engineer->id,
+                'engineer_approver_id'     => $engineer->id,
                 'engineer_approval_reason' => $reason,
             ]);
 
             $this->logEvent($request, $actor, 'engineer_approval_engineer_changed', [
                 'from_engineer_id' => $previousEngineerId,
-                'to_engineer_id' => $engineer->id,
-                'reason' => $reason,
+                'to_engineer_id'   => $engineer->id,
+                'reason'           => $reason,
             ]);
 
             $this->notifyEngineerApprovalRequested($request, $actor, $engineer, $reason);
@@ -458,11 +452,11 @@ class CancellationRequestService
             }
 
             $request->update([
-                'requires_engineer_approval' => false,
-                'engineer_approval_status' => CancellationEngineerApprovalStatus::CANCELED,
+                'requires_engineer_approval'   => false,
+                'engineer_approval_status'     => CancellationEngineerApprovalStatus::CANCELED,
                 'engineer_approval_decided_by' => $actor->id,
                 'engineer_approval_decided_at' => now(),
-                'engineer_approval_reason' => $reason,
+                'engineer_approval_reason'     => $reason,
             ]);
 
             $this->logEvent($request, $actor, 'engineer_approval_canceled', [
@@ -515,17 +509,17 @@ class CancellationRequestService
                 throw new RuntimeException('Informe a justificativa da decisão.');
             }
 
-            $approved = $decision === CancellationEngineerApprovalStatus::APPROVED->value;
+            $approved       = $decision === CancellationEngineerApprovalStatus::APPROVED->value;
             $approvalStatus = $approved
                 ? CancellationEngineerApprovalStatus::APPROVED
                 : CancellationEngineerApprovalStatus::REJECTED;
 
             $request->update([
-                'requires_engineer_approval' => true,
-                'engineer_approval_status' => $approvalStatus,
+                'requires_engineer_approval'   => true,
+                'engineer_approval_status'     => $approvalStatus,
                 'engineer_approval_decided_by' => $engineer->id,
                 'engineer_approval_decided_at' => now(),
-                'engineer_approval_reason' => $reason,
+                'engineer_approval_reason'     => $reason,
             ]);
 
             $this->logEvent($request, $engineer, $approved ? 'engineer_approval_approved' : 'engineer_approval_rejected', [
@@ -553,14 +547,15 @@ class CancellationRequestService
             }
 
             $rejectedReason = trim((string) $reason);
+
             if ($rejectedReason === '') {
                 throw new RuntimeException('Informe o motivo da rejeição.');
             }
 
             $request->update([
-                'status' => CancellationRequestStatus::REJECTED,
-                'closed_by' => $user->id,
-                'closed_at' => now(),
+                'status'       => CancellationRequestStatus::REJECTED,
+                'closed_by'    => $user->id,
+                'closed_at'    => now(),
                 'closure_type' => CancellationRequest::CLOSURE_REJECTED,
                 'closure_note' => $rejectedReason,
             ]);
@@ -598,9 +593,9 @@ class CancellationRequestService
             }
 
             $request->update([
-                'status' => CancellationRequestStatus::ABORTED,
-                'closed_by' => $user->id,
-                'closed_at' => now(),
+                'status'       => CancellationRequestStatus::ABORTED,
+                'closed_by'    => $user->id,
+                'closed_at'    => now(),
                 'closure_type' => CancellationRequest::CLOSURE_ABORTED,
                 'closure_note' => $abortReason,
             ]);
@@ -627,18 +622,18 @@ class CancellationRequestService
             }
 
             $request->update([
-                'assigned_to' => $target->id,
-                'assigned_at' => now(),
-                'status' => CancellationRequestStatus::ASSIGNED,
-                'closed_by' => $request->status === CancellationRequestStatus::DONE ? null : $request->closed_by,
-                'closed_at' => $request->status === CancellationRequestStatus::DONE ? null : $request->closed_at,
+                'assigned_to'  => $target->id,
+                'assigned_at'  => now(),
+                'status'       => CancellationRequestStatus::ASSIGNED,
+                'closed_by'    => $request->status === CancellationRequestStatus::DONE ? null : $request->closed_by,
+                'closed_at'    => $request->status === CancellationRequestStatus::DONE ? null : $request->closed_at,
                 'closure_type' => $request->status === CancellationRequestStatus::DONE ? null : $request->closure_type,
                 'closure_note' => $request->status === CancellationRequestStatus::DONE ? null : $request->closure_note,
             ]);
 
             $this->logEvent($request, $actor, $request->status === CancellationRequestStatus::DONE ? 'reopened' : 'transferred', [
                 'from' => $actor->id,
-                'to' => $target->id,
+                'to'   => $target->id,
             ]);
             $this->notifyUsersByIds(
                 [$target->id],
@@ -691,14 +686,14 @@ class CancellationRequestService
 
             $existingCount = $request->EvidenceFiles()->whereNotIn('id', $removeEvidenceIds)->count();
             $incomingCount = count($attachments);
-            $totalCount = $existingCount + $incomingCount;
+            $totalCount    = $existingCount + $incomingCount;
 
             if ($category->require_evidence && $totalCount < max(1, (int) $category->min_evidence_files)) {
                 throw new RuntimeException('Quantidade mínima de evidências não atendida.');
             }
 
             $request->update([
-                'scope' => $scope,
+                'scope'       => $scope,
                 'category_id' => $category->id,
                 'description' => $description,
             ]);
@@ -712,9 +707,9 @@ class CancellationRequestService
             $this->storeEvidenceFiles($request, $attachments, $user, 'CANCELLATION_CONTROL');
 
             $this->logEvent($request, $user, 'updated', [
-                'scope' => $scope,
+                'scope'       => $scope,
                 'category_id' => $category->id,
-                'orders' => $ordersCollection->pluck('id')->all(),
+                'orders'      => $ordersCollection->pluck('id')->all(),
             ]);
 
             return $request;
@@ -768,7 +763,7 @@ class CancellationRequestService
         }
 
         $workForm->update([
-            'canceled' => true,
+            'canceled'    => true,
             'canceled_at' => now(),
             'canceled_by' => $actor->id,
         ]);
@@ -782,8 +777,8 @@ class CancellationRequestService
     public function addComment(CancellationRequest $request, User $user, string $message): Comment
     {
         $comment = $request->Comments()->create([
-            'user_id' => $user->id,
-            'message' => $message,
+            'user_id'  => $user->id,
+            'message'  => $message,
             'restrict' => false,
         ]);
 
@@ -837,8 +832,8 @@ class CancellationRequestService
                 ->whereNull('deleted_at')
                 ->count();
 
-            if ($sharedCount <= 1 && Storage::disk($file->disk)->exists($file->path)) {
-                Storage::disk($file->disk)->delete($file->path);
+            if ($sharedCount <= 1) {
+                app(EvidenceFileService::class)->deletePhysical($file);
             }
             $file->delete();
             $this->logEvent($request, $user, 'attachment_removed', [
@@ -852,9 +847,9 @@ class CancellationRequestService
     {
         CancellationRequestEvent::create([
             'cancellation_request_id' => $request->id,
-            'actor_id' => $actor->id,
-            'type' => $type,
-            'meta' => $meta ?: null,
+            'actor_id'                => $actor->id,
+            'type'                    => $type,
+            'meta'                    => $meta ?: null,
         ]);
     }
 
@@ -878,7 +873,7 @@ class CancellationRequestService
         bool $approved,
         string $reason
     ): void {
-        $title = $approved ? 'Cancelamento autorizado pelo engenheiro' : 'Cancelamento rejeitado pelo engenheiro';
+        $title   = $approved ? 'Cancelamento autorizado pelo engenheiro' : 'Cancelamento rejeitado pelo engenheiro';
         $message = $approved
             ? "O engenheiro {$engineer->name} autorizou a solicitação #{$request->id}. Justificativa: {$reason}"
             : "O engenheiro {$engineer->name} rejeitou a solicitação #{$request->id}. Motivo: {$reason}";
@@ -906,6 +901,7 @@ class CancellationRequestService
         }
 
         $requester = User::find($request->requested_by);
+
         if (!$requester) {
             return;
         }
@@ -941,6 +937,7 @@ class CancellationRequestService
         string $status = 'info'
     ): void {
         $ids = collect($userIds)->filter()->unique()->values()->all();
+
         if (empty($ids)) {
             return;
         }

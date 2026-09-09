@@ -4,14 +4,10 @@ namespace App\Http\Livewire\Files\Manager;
 
 use App\Exports\Files\FilesList;
 use App\Helpers\TextFormatter;
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Service;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{Company, File, Note, Service};
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Str;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class Filesmanager extends Component
 {
@@ -21,30 +17,43 @@ class Filesmanager extends Component
     public $search;
 
     public $perPage = 150;
+
     public $services;
+
     public $service;
+
     public $noFile = false;
+
     public $companies;
+
     public $companySelected;
+
     public $rubrics;
+
     public $rubricSelected;
+
     public $selectedFiles = [];
+
     public $fileType = '';
+
     public $partnerFinalAdsOnly = false;
+
     public $massSearch = '';
+
     public $massSearchTerms = [];
+
     public $outputNamePattern = '';
 
     private const MAX_DOWNLOAD_SELECTION = 100;
 
     public $fileTypeOptions = [
-        '' => 'Todos os tipos',
-        'ads' => 'ADS',
-        'projeto' => 'Projeto',
-        'croqui' => 'Croqui',
+        ''           => 'Todos os tipos',
+        'ads'        => 'ADS',
+        'projeto'    => 'Projeto',
+        'croqui'     => 'Croqui',
         'inventario' => 'Inventario',
-        'fotos' => 'Fotos',
-        'outros' => 'Outros',
+        'fotos'      => 'Fotos',
+        'outros'     => 'Outros',
     ];
 
     protected $paginationTheme = 'bootstrap';
@@ -54,9 +63,9 @@ class Filesmanager extends Component
     ];
 
     protected $queryString = [
-        'search'   => ['except' => '', 'as' => 'buscar'],
-        'page'     => ['except' => 1, 'as' => 'p'],
-        'perPage'  => ['as' => 'pp'],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'p'],
+        'perPage' => ['as' => 'pp'],
     ];
 
     public function mount()
@@ -64,7 +73,6 @@ class Filesmanager extends Component
         $this->services = Service::whereIn('uuid', File::pluck('service_id')->unique())->get();
 
     }
-
 
     public function selectAll()
     {
@@ -100,17 +108,17 @@ class Filesmanager extends Component
 
     public function clearExtractionFilters(): void
     {
-        $this->search = '';
-        $this->service = '';
-        $this->companySelected = '';
-        $this->rubricSelected = '';
-        $this->fileType = '';
+        $this->search              = '';
+        $this->service             = '';
+        $this->companySelected     = '';
+        $this->rubricSelected      = '';
+        $this->fileType            = '';
         $this->partnerFinalAdsOnly = false;
-        $this->massSearch = '';
-        $this->massSearchTerms = [];
-        $this->noFile = false;
-        $this->outputNamePattern = '';
-        $this->selectedFiles = [];
+        $this->massSearch          = '';
+        $this->massSearchTerms     = [];
+        $this->noFile              = false;
+        $this->outputNamePattern   = '';
+        $this->selectedFiles       = [];
         $this->resetPage();
     }
 
@@ -118,7 +126,7 @@ class Filesmanager extends Component
     {
         $allowedTokens = ['<nota>', '<ordem>', '<sequencia>'];
 
-        if (! in_array($token, $allowedTokens, true)) {
+        if (!in_array($token, $allowedTokens, true)) {
             return;
         }
 
@@ -170,12 +178,13 @@ class Filesmanager extends Component
 
         if ($selected->isEmpty()) {
             $this->selectedFiles = [];
+
             return;
         }
 
         $restrictedIds = [];
 
-        if (! $this->isSuperAdm()) {
+        if (!$this->isSuperAdm()) {
             $restrictedIds = File::whereIn('id', $selected->all())
                 ->whereHas('Adsforms', function ($q) {
                     $q->where('tacit', true)
@@ -208,7 +217,7 @@ class Filesmanager extends Component
 
     public function formatFileSize(int $bytes): string
     {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $units     = ['B', 'KB', 'MB', 'GB', 'TB'];
         $unitIndex = 0;
 
         while ($bytes >= 1024 && $unitIndex < count($units) - 1) {
@@ -219,9 +228,6 @@ class Filesmanager extends Component
         return number_format($bytes, 2, ',', '.') . ' ' . $units[$unitIndex];
     }
 
-
-
-
     public function checkFilesExists()
     {
         $this->dispatchBrowserEvent('torrada', [
@@ -230,20 +236,22 @@ class Filesmanager extends Component
         ]);
 
         $noExists = 0;
+        $storage  = app(FileStorageService::class);
 
-        File::chunk(500, function ($files) use (&$noExists) {
+        File::chunk(500, function ($files) use (&$noExists, $storage) {
             foreach ($files as $file) {
-                if (!Storage::exists($file->path) && !$file->noexists) {
+                $exists = $storage->exists($file);
+
+                if (!$exists && !$file->noexists) {
                     $file->noexists = true;
                     $file->save();
                     $noExists++;
-                } elseif (Storage::exists($file->path) && !$file->noexists) {
+                } elseif ($exists && !$file->noexists) {
                     $file->noexists = false;
                     $file->save();
                 }
             }
         });
-
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -275,8 +283,10 @@ class Filesmanager extends Component
                 return;
             }
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -290,16 +300,16 @@ class Filesmanager extends Component
         }
     }
 
-
     public function downloadZip()
     {
         if (empty($this->selectedFiles)) {
             $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'warning',
-            'title'    => 'Nenhum arquivo selecionado!',
-            'timer'    => 3000,
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhum arquivo selecionado!',
+                'timer'    => 3000,
             ]);
+
             return;
         }
 
@@ -320,11 +330,12 @@ class Filesmanager extends Component
 
         if ($files->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'error',
-            'title'    => 'Arquivos não encontrados!',
-            'timer'    => 3000,
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Arquivos não encontrados!',
+                'timer'    => 3000,
             ]);
+
             return;
         }
 
@@ -336,12 +347,13 @@ class Filesmanager extends Component
                 'html'     => 'O lote contém ADS tácita. Apenas SUPERADM pode baixar.',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
-        $zip = new \ZipArchive();
+        $zip         = new \ZipArchive();
         $zipFileName = 'arquivos_' . date('YmdHis') . '.zip';
-        $zipPath = storage_path('app/temp/' . $zipFileName);
+        $zipPath     = storage_path('app/temp/' . $zipFileName);
 
         // Criar diretório temp se não existir
         if (!file_exists(storage_path('app/temp'))) {
@@ -351,23 +363,54 @@ class Filesmanager extends Component
         if ($zip->open($zipPath, \ZipArchive::CREATE) === true) {
             $addedFiles = 0;
 
-            $usedNames = [];
+            $usedNames  = [];
+            $tempCopies = [];
+            $storage    = app(FileStorageService::class);
 
             foreach ($files as $index => $file) {
-                // Verificar se o arquivo existe no storage e localmente
-                if (Storage::exists($file->path)) {
-                    $fullPath = storage_path('app/' . $file->path);
+                // Copia o conteúdo (independente do disco: local, Blob ou S3) para um
+                // arquivo temporário, já que ZipArchive::addFile exige caminho físico.
+                $tempCopy = $storage->temporaryLocalCopy($file);
 
-                    // Verificar se o arquivo físico existe no sistema de arquivos
-                    if (file_exists($fullPath) && is_readable($fullPath)) {
-                        $fileName = $this->buildOutputFileName($file, $index + 1, $usedNames);
-                        $zip->addFile($fullPath, $fileName);
-                        $addedFiles++;
+                if ($tempCopy !== null) {
+                    if (!$storage->matchesStoredChecksum($file, $tempCopy)) {
+                        $zip->close();
+
+                        foreach (array_merge($tempCopies, [$tempCopy]) as $copy) {
+                            if (is_file($copy)) {
+                                @unlink($copy);
+                            }
+                        }
+
+                        if (file_exists($zipPath)) {
+                            @unlink($zipPath);
+                        }
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'error',
+                            'title'    => 'Checksum divergente!',
+                            'html'     => 'O arquivo ' . e($file->original_name ?: $file->file_name) . ' não confere com o hash gravado no servidor.',
+                            'timer'    => 5000,
+                        ]);
+
+                        return;
                     }
+
+                    $fileName = $this->buildOutputFileName($file, $index + 1, $usedNames);
+                    $zip->addFile($tempCopy, $fileName);
+                    $tempCopies[] = $tempCopy;
+                    $addedFiles++;
                 }
             }
 
             $zip->close();
+
+            foreach ($tempCopies as $tempCopy) {
+                if (is_file($tempCopy)) {
+                    @unlink($tempCopy);
+                }
+            }
 
             if ($addedFiles > 0) {
                 // Verificar se o ZIP foi criado com sucesso antes de fazer download
@@ -375,10 +418,10 @@ class Filesmanager extends Component
                     return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
                 } else {
                     $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'Erro ao gerar arquivo ZIP!',
-                    'timer'    => 3000,
+                        'position' => 'center',
+                        'icon'     => 'error',
+                        'title'    => 'Erro ao gerar arquivo ZIP!',
+                        'timer'    => 3000,
                     ]);
                 }
             } else {
@@ -395,15 +438,13 @@ class Filesmanager extends Component
             }
         } else {
             $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'error',
-            'title'    => 'Erro ao criar arquivo ZIP!',
-            'timer'    => 3000,
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Erro ao criar arquivo ZIP!',
+                'timer'    => 3000,
             ]);
         }
     }
-
-
 
     public function getListsProperty()
     {
@@ -419,8 +460,8 @@ class Filesmanager extends Component
         ])
         ->when($searchTerm = trim((string) $this->search), function ($q) use ($searchTerm) {
             $q->where(function ($sq) use ($searchTerm) {
-                $sq->where('file_name', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('original_name', 'like', '%'.$searchTerm.'%')
+                $sq->where('file_name', 'like', '%' . $searchTerm . '%')
+                    ->orWhere('original_name', 'like', '%' . $searchTerm . '%')
                     ->orWhereRelation('Note', 'note', $searchTerm)
                     ->orWhereHas('Note.Orders', fn ($orderQuery) => $orderQuery->where('ordem', $searchTerm));
             });
@@ -521,17 +562,17 @@ class Filesmanager extends Component
     private function fileTypePatterns(): array
     {
         return [
-            'ads' => ['ads', 'adicional'],
-            'projeto' => ['projeto', 'proj'],
-            'croqui' => ['croqui'],
+            'ads'        => ['ads', 'adicional'],
+            'projeto'    => ['projeto', 'proj'],
+            'croqui'     => ['croqui'],
             'inventario' => ['inventario', 'inventário', 'invent'],
-            'fotos' => ['foto', 'imagem', 'img'],
+            'fotos'      => ['foto', 'imagem', 'img'],
         ];
     }
 
     private function classifyFile(File $file): string
     {
-        $name = Str::lower(Str::ascii(($file->original_name ?: '') . ' ' . ($file->file_name ?: '') . ' ' . ($file->Service?->service ?: '')));
+        $name      = Str::lower(Str::ascii(($file->original_name ?: '') . ' ' . ($file->file_name ?: '') . ' ' . ($file->Service?->service ?: '')));
         $extension = Str::lower($file->ext ?: pathinfo($file->file_name ?: '', PATHINFO_EXTENSION));
 
         foreach ($this->fileTypePatterns() as $type => $patterns) {
@@ -555,12 +596,12 @@ class Filesmanager extends Component
         $extension = Str::lower($file->ext ?: pathinfo($file->file_name ?: '', PATHINFO_EXTENSION));
         $extension = $extension ? '.' . ltrim($extension, '.') : '';
 
-        if (! trim((string) $this->outputNamePattern)) {
+        if (!trim((string) $this->outputNamePattern)) {
             $candidate = $this->ensureExtension($savedName, $extension);
-            $suffix = 2;
+            $suffix    = 2;
 
             while (in_array($candidate, $usedNames, true)) {
-                $name = pathinfo($candidate, PATHINFO_FILENAME);
+                $name      = pathinfo($candidate, PATHINFO_FILENAME);
                 $candidate = $name . '-' . $suffix . $extension;
                 $suffix++;
             }
@@ -571,15 +612,15 @@ class Filesmanager extends Component
         }
 
         $replacements = [
-            '<nota>' => $file->Note?->note ?: 'sem-nota',
-            '<ordem>' => $this->resolvePreferredOrder($file->Note) ?: 'sem-ordem',
+            '<nota>'      => $file->Note?->note ?: 'sem-nota',
+            '<ordem>'     => $this->resolvePreferredOrder($file->Note) ?: 'sem-ordem',
             '<sequencia>' => str_pad((string) $sequence, 3, '0', STR_PAD_LEFT),
         ];
 
-        $name = str_replace(array_keys($replacements), array_values($replacements), $this->outputNamePattern);
-        $name = $this->sanitizeOutputName($name) ?: 'arquivo-' . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
+        $name      = str_replace(array_keys($replacements), array_values($replacements), $this->outputNamePattern);
+        $name      = $this->sanitizeOutputName($name) ?: 'arquivo-' . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
         $candidate = $name . $extension;
-        $suffix = 2;
+        $suffix    = 2;
 
         while (in_array($candidate, $usedNames, true)) {
             $candidate = $name . '-' . $suffix . $extension;
@@ -593,7 +634,7 @@ class Filesmanager extends Component
 
     private function ensureExtension(string $name, string $extension): string
     {
-        if (! $extension) {
+        if (!$extension) {
             return $this->sanitizeOutputName($name) ?: 'arquivo';
         }
 
@@ -615,11 +656,11 @@ class Filesmanager extends Component
 
     private function resolvePreferredOrder($note): string
     {
-        if (! $note) {
+        if (!$note) {
             return '';
         }
 
-        if (! $note->relationLoaded('Orders')) {
+        if (!$note->relationLoaded('Orders')) {
             $note->load('Orders');
         }
 
@@ -641,13 +682,10 @@ class Filesmanager extends Component
         return (bool) auth()->user()?->superadm;
     }
 
-
-
-
     public function render()
     {
         $this->companies = Company::whereHas('Users.Files')->orderBy('name')->get();
-        $this->rubrics = Note::select('rubrica')->whereNotNull('rubrica')
+        $this->rubrics   = Note::select('rubrica')->whereNotNull('rubrica')
             ->distinct()
             ->orderBy('rubrica')
             ->get();

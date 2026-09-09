@@ -2,31 +2,38 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use Illuminate\Support\Str;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Service;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Note, Service};
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Livewire\{Component, WithFileUploads};
 
 class GenericFileUploader extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
-    public ?Note  $note           = null;
+    public ?Note  $note = null;
+
     public $parentModel;
-    public string $relation;
-    public ?string  $serviceId      = null;
-    public array  $uploadTypes     = [];    // aqui virá sempre array de objects
-    public string $uploadColValue;
-    public array  $identifiers     = [];
 
-    public string $selectedType    = '';
-    public $files           = [];
-    public $tempFiles       = [];
-    public string $service       = '';
+    public string $relation;
+
+    public ?string  $serviceId = null;
+
+    public array  $uploadTypes = [];    // aqui virá sempre array de objects
+
+    public string $uploadColValue;
+
+    public array  $identifiers = [];
+
+    public string $selectedType = '';
+
+    public $files = [];
+
+    public $tempFiles = [];
+
+    public string $service = '';
 
     protected $listeners = [
         'saveFiles',
@@ -54,8 +61,6 @@ class GenericFileUploader extends Component
         $this->uploadColValue = $column;
         $this->identifiers    = $identifiers;
         $this->service        = mb_strtoupper(Service::where('uuid', $this->serviceId)->first()->service);
-
-
 
         // ——> Faz o cast **aqui**, uma única vez:
         $this->uploadTypes = array_map(
@@ -102,6 +107,7 @@ class GenericFileUploader extends Component
     {
         if (empty($this->tempFiles)) {
             $this->emitUp('continue');
+
             return;
         }
 
@@ -122,35 +128,24 @@ class GenericFileUploader extends Component
             $name = $this->makeFileName($temp, $i);
             $rev  = File::where('file_name', 'like', $name . '%')->count();
             $rev  = str_pad($rev + 1, 3, '0', STR_PAD_LEFT);
-            $path = $temp['file']
-                         ->storeAs("arquivos/{$this->service}/{$temp['uploadType']}", "{$name}_N{$rev}.{$temp['ext']}");
 
+            try {
+                $file = $this->persistManagedFileUpload(
+                    $temp,
+                    Note::findOrFail($note_id),
+                    "arquivos/{$this->service}/{$temp['uploadType']}",
+                    "{$name}_N{$rev}",
+                    ['service_id' => $this->serviceId],
+                );
 
-            if (Storage::exists($path)) {
-                try {
-                    $file = File::create([
-                        'note_id'       => $note_id,
-                        'file_name'     => "{$name}_N{$rev}",
-                        'original_name' => $temp['original_name'],
-                        'path'          => $path,
-                        'ext'           => $temp['ext'],
-                        'service_id'    => $this->serviceId,
-                        'suspicious'    => false,
-                        'noexists'      => false,
-                        ]);
+                $this->parentModel
+                        ->{$this->relation}()
+                        ->attach($file->id);
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                $this->emitUp('ErrorSaveFiles');
 
-                    $this->parentModel
-                            ->{$this->relation}()
-                            ->attach($file->id);
-
-                } catch (\Throwable $th) {
-
-
-                    DB::rollBack();
-                    $this->emitUp('ErrorSaveFiles');
-
-                    return;
-                }
+                return;
             }
         }
 

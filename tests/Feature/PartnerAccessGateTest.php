@@ -1,21 +1,10 @@
 <?php
 
-use App\Models\Company;
-use App\Models\Andresscompany;
-use App\Models\Bancoupdate;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\PartnerCompanyPermissionGrant;
-use App\Models\PartnerRole;
-use App\Models\PartnerUserBranch;
-use App\Models\PartnerUserPermissionException;
-use App\Models\User;
-use App\Models\Viability;
-use App\Http\Middleware\VerifyCsrfToken;
 use App\Http\Livewire\Partner\Actions\ViabResponse;
 use App\Http\Livewire\Partner\Todoviability;
-use App\Services\PartnerAccess\PartnerAccessGate;
-use App\Services\PartnerAccess\PartnerBranchScope;
+use App\Http\Middleware\VerifyCsrfToken;
+use App\Models\{Andresscompany, Bancoupdate, Company, Note, Order, PartnerCompanyPermissionGrant, PartnerRole, PartnerUserBranch, PartnerUserPermissionException, User, Viability};
+use App\Services\PartnerAccess\{PartnerAccessGate, PartnerBranchScope};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -26,7 +15,7 @@ uses(RefreshDatabase::class);
 function partnerAccessCompany(array $attributes = []): Company
 {
     return Company::query()->create(array_merge([
-        'name' => 'Parceira Teste',
+        'name'  => 'Parceira Teste',
         'email' => fake()->unique()->safeEmail(),
     ], $attributes));
 }
@@ -34,24 +23,24 @@ function partnerAccessCompany(array $attributes = []): Company
 function partnerAccessUser(Company $company, array $attributes = []): User
 {
     return User::factory()->create(array_merge([
-        'company_id' => $company->id,
-        'superadm' => false,
-        'admin' => false,
-        'management' => false,
-        'operator' => false,
-        'user' => false,
-        'contract' => false,
-        'first_pass' => false,
-        'bypassprod' => false,
-        'engineer' => false,
-        'onlyparner' => true,
-        'responsible' => false,
-        'btzero' => false,
-        'can_dispatch' => false,
-        'analyst' => false,
+        'company_id'       => $company->id,
+        'superadm'         => false,
+        'admin'            => false,
+        'management'       => false,
+        'operator'         => false,
+        'user'             => false,
+        'contract'         => false,
+        'first_pass'       => false,
+        'bypassprod'       => false,
+        'engineer'         => false,
+        'onlyparner'       => true,
+        'responsible'      => false,
+        'btzero'           => false,
+        'can_dispatch'     => false,
+        'analyst'          => false,
         'legal_controller' => false,
-        'legal_field' => false,
-        'legal_manager' => false,
+        'legal_field'      => false,
+        'legal_manager'    => false,
     ], $attributes));
 }
 
@@ -65,14 +54,14 @@ function partnerAccessViability(Company $company, User $user, string $noteNumber
 
     $order = Order::query()->create([
         'note_id' => $note->id,
-        'ordem' => 'ORDEM-'.$noteNumber,
+        'ordem'   => 'ORDEM-' . $noteNumber,
     ]);
 
     return Viability::query()->create([
-        'company_id' => $company->id,
-        'user_id' => $user->id,
-        'order_id' => $order->id,
-        'note_id' => $note->id,
+        'company_id'      => $company->id,
+        'user_id'         => $user->id,
+        'order_id'        => $order->id,
+        'note_id'         => $note->id,
         'visible_partner' => true,
     ]);
 }
@@ -84,16 +73,16 @@ function partnerAccessRoleWithPermissions(Company $company, array $enabledPermis
     foreach ($enabledPermissions as $permissionKey) {
         $role->permissions()->create([
             'permission_key' => $permissionKey,
-            'scope_type' => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
-            'enabled' => true,
+            'scope_type'     => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
+            'enabled'        => true,
         ]);
     }
 
     foreach ($disabledPermissions as $permissionKey) {
         $role->permissions()->create([
             'permission_key' => $permissionKey,
-            'scope_type' => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
-            'enabled' => false,
+            'scope_type'     => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
+            'enabled'        => false,
         ]);
     }
 
@@ -102,40 +91,40 @@ function partnerAccessRoleWithPermissions(Company $company, array $enabledPermis
 
 function partnerAccessGrantWithPermissions(Company $company, array $enabledPermissions, array $disabledPermissions = []): void
 {
-    $enabledPermissions = collect($enabledPermissions);
+    $enabledPermissions  = collect($enabledPermissions);
     $disabledPermissions = collect($disabledPermissions);
 
     foreach (\App\Services\PartnerAccess\PartnerPermissionCatalog::allPermissionKeys() as $permissionKey) {
         PartnerCompanyPermissionGrant::query()->create([
-            'company_id' => $company->id,
+            'company_id'     => $company->id,
             'permission_key' => $permissionKey,
-            'scope_type' => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
-            'enabled' => $enabledPermissions->contains($permissionKey) && !$disabledPermissions->contains($permissionKey),
+            'scope_type'     => array_key_exists($permissionKey, \App\Services\PartnerAccess\PartnerPermissionCatalog::groups()) ? 'group' : 'item',
+            'enabled'        => $enabledPermissions->contains($permissionKey) && !$disabledPermissions->contains($permissionKey),
         ]);
     }
 }
 
 it('keeps full access for a partner company without configured role permissions', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     expect(PartnerAccessGate::allows($user, 'viability.list'))->toBeTrue();
 });
 
 it('blocks all items when the configured group is disabled', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
-    $role = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
+    $user    = partnerAccessUser($company);
+    $role    = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
 
     $role->permissions()->create([
         'permission_key' => 'viability',
-        'scope_type' => 'group',
-        'enabled' => false,
+        'scope_type'     => 'group',
+        'enabled'        => false,
     ]);
     $role->permissions()->create([
         'permission_key' => 'viability.list',
-        'scope_type' => 'item',
-        'enabled' => true,
+        'scope_type'     => 'item',
+        'enabled'        => true,
     ]);
 
     expect(PartnerAccessGate::allows($user, 'viability.list'))->toBeFalse();
@@ -143,13 +132,13 @@ it('blocks all items when the configured group is disabled', function () {
 
 it('allows all group items when the group is enabled and no item override exists', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
-    $role = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
+    $user    = partnerAccessUser($company);
+    $role    = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
 
     $role->permissions()->create([
         'permission_key' => 'viability',
-        'scope_type' => 'group',
-        'enabled' => true,
+        'scope_type'     => 'group',
+        'enabled'        => true,
     ]);
 
     expect(PartnerAccessGate::allows($user, 'viability.list'))->toBeTrue();
@@ -157,18 +146,18 @@ it('allows all group items when the group is enabled and no item override exists
 
 it('blocks a disabled item inside an enabled group', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
-    $role = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
+    $user    = partnerAccessUser($company);
+    $role    = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
 
     $role->permissions()->create([
         'permission_key' => 'viability',
-        'scope_type' => 'group',
-        'enabled' => true,
+        'scope_type'     => 'group',
+        'enabled'        => true,
     ]);
     $role->permissions()->create([
         'permission_key' => 'viability.export',
-        'scope_type' => 'item',
-        'enabled' => false,
+        'scope_type'     => 'item',
+        'enabled'        => false,
     ]);
 
     expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
@@ -176,25 +165,25 @@ it('blocks a disabled item inside an enabled group', function () {
 
 it('uses user exceptions before company role permissions', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
-    $role = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
+    $user    = partnerAccessUser($company);
+    $role    = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
 
     $role->permissions()->create([
         'permission_key' => 'viability',
-        'scope_type' => 'group',
-        'enabled' => true,
+        'scope_type'     => 'group',
+        'enabled'        => true,
     ]);
     $role->permissions()->create([
         'permission_key' => 'viability.export',
-        'scope_type' => 'item',
-        'enabled' => false,
+        'scope_type'     => 'item',
+        'enabled'        => false,
     ]);
 
     PartnerUserPermissionException::query()->create([
-        'company_id' => $company->id,
-        'user_id' => $user->id,
+        'company_id'     => $company->id,
+        'user_id'        => $user->id,
         'permission_key' => 'viability.export',
-        'enabled' => true,
+        'enabled'        => true,
     ]);
 
     expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeTrue();
@@ -202,15 +191,15 @@ it('uses user exceptions before company role permissions', function () {
 
 it('uses user exceptions to block an otherwise allowed permission', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessRoleWithPermissions($company, ['viability', 'viability.export']);
 
     PartnerUserPermissionException::query()->create([
-        'company_id' => $company->id,
-        'user_id' => $user->id,
+        'company_id'     => $company->id,
+        'user_id'        => $user->id,
         'permission_key' => 'viability.export',
-        'enabled' => false,
+        'enabled'        => false,
     ]);
 
     expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
@@ -219,7 +208,7 @@ it('uses user exceptions to block an otherwise allowed permission', function () 
 it('resolves branch permissions from the parent company configuration', function () {
     $parent = partnerAccessCompany();
     $branch = partnerAccessCompany(['parent_id' => $parent->id]);
-    $user = partnerAccessUser($branch);
+    $user   = partnerAccessUser($branch);
 
     partnerAccessRoleWithPermissions($parent, ['viability'], ['viability.export']);
 
@@ -230,7 +219,7 @@ it('resolves branch permissions from the parent company configuration', function
 it('ignores branch permission configuration because the parent company is the authority', function () {
     $parent = partnerAccessCompany();
     $branch = partnerAccessCompany(['parent_id' => $parent->id]);
-    $user = partnerAccessUser($branch);
+    $user   = partnerAccessUser($branch);
 
     partnerAccessRoleWithPermissions($parent, ['viability'], ['viability.export']);
     partnerAccessRoleWithPermissions($branch, ['viability', 'viability.export']);
@@ -241,15 +230,15 @@ it('ignores branch permission configuration because the parent company is the au
 it('uses parent company user exceptions for branch users', function () {
     $parent = partnerAccessCompany();
     $branch = partnerAccessCompany(['parent_id' => $parent->id]);
-    $user = partnerAccessUser($branch);
+    $user   = partnerAccessUser($branch);
 
     partnerAccessRoleWithPermissions($parent, ['viability', 'viability.export']);
 
     PartnerUserPermissionException::query()->create([
-        'company_id' => $parent->id,
-        'user_id' => $user->id,
+        'company_id'     => $parent->id,
+        'user_id'        => $user->id,
         'permission_key' => 'viability.export',
-        'enabled' => false,
+        'enabled'        => false,
     ]);
 
     expect(PartnerAccessGate::allows($user, 'viability.export'))->toBeFalse();
@@ -257,7 +246,7 @@ it('uses parent company user exceptions for branch users', function () {
 
 it('does not allow company admin permissions beyond the contractor grant', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessGrantWithPermissions($company, ['viability', 'viability.list'], ['viability.export']);
     partnerAccessRoleWithPermissions($company, ['viability', 'viability.export']);
@@ -275,7 +264,7 @@ it('requires a company admin for administrative partner permissions', function (
 
 it('allows a company admin to see the admin panel even when the company role does not include admin permissions', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
 
     partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access', 'admin_users.view']);
     partnerAccessRoleWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
@@ -286,7 +275,7 @@ it('allows a company admin to see the admin panel even when the company role doe
 
 it('does not allow company admin permissions beyond contractor grants', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
 
     partnerAccessGrantWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
 
@@ -296,13 +285,13 @@ it('does not allow company admin permissions beyond contractor grants', function
 
 it('returns forbidden for direct partner urls when the route permission is blocked', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
-    $role = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
+    $user    = partnerAccessUser($company);
+    $role    = PartnerRole::query()->create(['company_id' => $company->id, 'name' => 'Restrita']);
 
     $role->permissions()->create([
         'permission_key' => 'viability',
-        'scope_type' => 'group',
-        'enabled' => false,
+        'scope_type'     => 'group',
+        'enabled'        => false,
     ]);
 
     $this->actingAs($user)
@@ -312,7 +301,7 @@ it('returns forbidden for direct partner urls when the route permission is block
 
 it('allows partner search notes through portal permission without viability grants', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     partnerAccessGrantWithPermissions($company, ['portal', 'portal.dashboard', 'portal.search_notes']);
@@ -327,7 +316,7 @@ it('allows partner search notes through portal permission without viability gran
 
 it('blocks partner search notes when the contractor disables the portal search permission', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessGrantWithPermissions($company, ['portal', 'portal.dashboard']);
 
@@ -338,9 +327,35 @@ it('blocks partner search notes when the contractor disables the portal search p
         ->assertForbidden();
 });
 
+it('keeps partner search notes enabled by default for legacy contractor grants without portal rows', function () {
+    $company = partnerAccessCompany();
+    $user    = partnerAccessUser($company);
+    Bancoupdate::query()->create(['last_update' => now()]);
+
+    PartnerCompanyPermissionGrant::query()->create([
+        'company_id'     => $company->id,
+        'permission_key' => 'conclusion_reports',
+        'scope_type'     => 'group',
+        'enabled'        => true,
+    ]);
+    PartnerCompanyPermissionGrant::query()->create([
+        'company_id'     => $company->id,
+        'permission_key' => 'conclusion_reports.list',
+        'scope_type'     => 'item',
+        'enabled'        => true,
+    ]);
+    partnerAccessRoleWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
+
+    expect(PartnerAccessGate::allows($user, 'portal.search_notes'))->toBeTrue();
+
+    $this->actingAs($user)
+        ->get(route('partner.search.notes'))
+        ->assertOk();
+});
+
 it('keeps the partner portal entry available when viability is disabled but another module is granted', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessGrantWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list']);
 
@@ -351,7 +366,7 @@ it('keeps the partner portal entry available when viability is disabled but anot
 
 it('keeps the partner portal entry available when viability is disabled but another role module is enabled', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessRoleWithPermissions($company, ['conclusion_reports', 'conclusion_reports.list'], ['viability']);
 
@@ -362,7 +377,7 @@ it('keeps the partner portal entry available when viability is disabled but anot
 
 it('does not open the partner portal for non admin users with only admin permissions', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access', 'admin_users.view']);
 
@@ -373,8 +388,8 @@ it('does not open the partner portal for non admin users with only admin permiss
 
 it('shows editable user permissions in the partner user edit form without the admin group', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
-    $target = partnerAccessUser($company);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
+    $target  = partnerAccessUser($company);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     partnerAccessGrantWithPermissions($company, [
@@ -397,7 +412,7 @@ it('shows editable user permissions in the partner user edit form without the ad
 
 it('does not show the partner permissions administration menu item', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     partnerAccessGrantWithPermissions($company, [
@@ -416,11 +431,11 @@ it('does not show the partner permissions administration menu item', function ()
 });
 
 it('shows all branch addresses from the parent company in the partner user edit form', function () {
-    $parent = partnerAccessCompany(['name' => 'Matriz Parceira']);
-    $branch = partnerAccessCompany(['name' => 'Filial Norte', 'parent_id' => $parent->id]);
+    $parent  = partnerAccessCompany(['name' => 'Matriz Parceira']);
+    $branch  = partnerAccessCompany(['name' => 'Filial Norte', 'parent_id' => $parent->id]);
     $sibling = partnerAccessCompany(['name' => 'Filial Sul', 'parent_id' => $parent->id]);
-    $admin = partnerAccessUser($branch, ['admin' => true]);
-    $target = partnerAccessUser($branch);
+    $admin   = partnerAccessUser($branch, ['admin' => true]);
+    $target  = partnerAccessUser($branch);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     Andresscompany::query()->create(['company_id' => $parent->id, 'city' => 'Vitoria', 'street' => 'Base Matriz']);
@@ -444,7 +459,7 @@ it('shows all branch addresses from the parent company in the partner user edit 
 it('hides contractor blocked permissions from a branch admin user edit form', function () {
     $parent = partnerAccessCompany();
     $branch = partnerAccessCompany(['parent_id' => $parent->id]);
-    $admin = partnerAccessUser($branch, ['admin' => true]);
+    $admin  = partnerAccessUser($branch, ['admin' => true]);
     $target = partnerAccessUser($branch);
     Bancoupdate::query()->create(['last_update' => now()]);
 
@@ -476,16 +491,16 @@ it('hides contractor blocked permissions from a branch admin user edit form', fu
 it('allows a branch admin to assign sibling branch data visibility to a user', function () {
     $this->withoutMiddleware(VerifyCsrfToken::class);
 
-    $parent = partnerAccessCompany();
-    $branch = partnerAccessCompany(['parent_id' => $parent->id]);
+    $parent  = partnerAccessCompany();
+    $branch  = partnerAccessCompany(['parent_id' => $parent->id]);
     $sibling = partnerAccessCompany(['parent_id' => $parent->id]);
-    $admin = partnerAccessUser($branch, ['admin' => true]);
-    $target = partnerAccessUser($branch);
+    $admin   = partnerAccessUser($branch, ['admin' => true]);
+    $target  = partnerAccessUser($branch);
 
     $siblingAddress = Andresscompany::query()->create([
         'company_id' => $sibling->id,
-        'city' => 'Cachoeiro',
-        'street' => 'Base Sul',
+        'city'       => 'Cachoeiro',
+        'street'     => 'Base Sul',
     ]);
 
     partnerAccessGrantWithPermissions($parent, [
@@ -498,15 +513,15 @@ it('allows a branch admin to assign sibling branch data visibility to a user', f
 
     $this->actingAs($admin)
         ->put(route('partner.admin.users.update', $target), [
-            'name' => $target->name,
-            'email' => $target->email,
+            'name'     => $target->name,
+            'email'    => $target->email,
             'branches' => [$siblingAddress->id],
         ])
         ->assertRedirect(route('partner.admin.users.edit', $target));
 
     $visible = partnerAccessViability($branch, $target, '5001', 'Cachoeiro');
-    $hidden = partnerAccessViability($branch, $target, '5002', 'Linhares');
-    $query = Viability::query()->where('company_id', $branch->id);
+    $hidden  = partnerAccessViability($branch, $target, '5002', 'Linhares');
+    $query   = Viability::query()->where('company_id', $branch->id);
     app(PartnerBranchScope::class)->applyToNoteRelation($query, $target, $branch->id);
 
     expect(PartnerUserBranch::query()
@@ -522,8 +537,8 @@ it('updates individual user permissions from the partner user edit form', functi
     $this->withoutMiddleware(VerifyCsrfToken::class);
 
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
-    $target = partnerAccessUser($company);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
+    $target  = partnerAccessUser($company);
 
     partnerAccessGrantWithPermissions($company, [
         'admin',
@@ -536,11 +551,11 @@ it('updates individual user permissions from the partner user edit form', functi
 
     $this->actingAs($admin)
         ->put(route('partner.admin.users.update', $target), [
-            'name' => $target->name,
-            'email' => $target->email,
-            'branches' => [],
+            'name'             => $target->name,
+            'email'            => $target->email,
+            'branches'         => [],
             'user_permissions' => [
-                'conclusion_reports' => '1',
+                'conclusion_reports'      => '1',
                 'conclusion_reports.list' => '0',
             ],
         ])
@@ -568,7 +583,7 @@ it('stores branch user individual permission changes on the parent company', fun
 
     $parent = partnerAccessCompany();
     $branch = partnerAccessCompany(['parent_id' => $parent->id]);
-    $admin = partnerAccessUser($branch, ['admin' => true]);
+    $admin  = partnerAccessUser($branch, ['admin' => true]);
     $target = partnerAccessUser($branch);
 
     partnerAccessGrantWithPermissions($parent, [
@@ -582,11 +597,11 @@ it('stores branch user individual permission changes on the parent company', fun
 
     $this->actingAs($admin)
         ->put(route('partner.admin.users.update', $target), [
-            'name' => $target->name,
-            'email' => $target->email,
-            'branches' => [],
+            'name'             => $target->name,
+            'email'            => $target->email,
+            'branches'         => [],
             'user_permissions' => [
-                'conclusion_reports' => '1',
+                'conclusion_reports'      => '1',
                 'conclusion_reports.list' => '0',
             ],
         ])
@@ -605,7 +620,7 @@ it('stores branch user individual permission changes on the parent company', fun
 
 it('blocks partner admin routes for non admin company users', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     $this->actingAs($user)
         ->get(route('partner.admin.users'))
@@ -613,13 +628,13 @@ it('blocks partner admin routes for non admin company users', function () {
 });
 
 it('does not list users from another company in partner admin', function () {
-    $company = partnerAccessCompany();
+    $company      = partnerAccessCompany();
     $otherCompany = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
-    $visible = partnerAccessUser($company, ['name' => 'Usuário Visível']);
-    $hidden = partnerAccessUser($otherCompany, ['name' => 'Usuário Oculto']);
-    $internal = User::factory()->create([
-        'name' => 'Usuário Interno',
+    $admin        = partnerAccessUser($company, ['admin' => true]);
+    $visible      = partnerAccessUser($company, ['name' => 'Usuário Visível']);
+    $hidden       = partnerAccessUser($otherCompany, ['name' => 'Usuário Oculto']);
+    $internal     = User::factory()->create([
+        'name'       => 'Usuário Interno',
         'company_id' => $otherCompany->id,
         'onlyparner' => false,
     ]);
@@ -636,22 +651,22 @@ it('does not list users from another company in partner admin', function () {
 
 it('shows partner user branches and last access in the admin user list', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
     $visible = partnerAccessUser($company, [
-        'name' => 'Usuário com Filial',
+        'name'         => 'Usuário com Filial',
         'last_seen_at' => now()->setDate(2026, 8, 18)->setTime(14, 35),
     ]);
     $branch = Andresscompany::query()->create([
         'company_id' => $company->id,
-        'city' => 'Campinas',
-        'street' => 'Base Campinas',
+        'city'       => 'Campinas',
+        'street'     => 'Base Campinas',
     ]);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     PartnerUserBranch::query()->create([
         'company_id' => $company->id,
-        'user_id' => $visible->id,
-        'branch_id' => $branch->id,
+        'user_id'    => $visible->id,
+        'branch_id'  => $branch->id,
     ]);
 
     $this->actingAs($admin)
@@ -666,9 +681,9 @@ it('shows partner user branches and last access in the admin user list', functio
 });
 
 it('lists soft deleted partner users only in the disabled tab', function () {
-    $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
-    $active = partnerAccessUser($company, ['name' => 'Usuário Ativo']);
+    $company  = partnerAccessCompany();
+    $admin    = partnerAccessUser($company, ['admin' => true]);
+    $active   = partnerAccessUser($company, ['name' => 'Usuário Ativo']);
     $disabled = partnerAccessUser($company, ['name' => 'Usuário Desativado']);
     Bancoupdate::query()->create(['last_update' => now()]);
 
@@ -691,9 +706,9 @@ it('resets a partner user password from the edit action', function () {
     $this->withoutMiddleware(VerifyCsrfToken::class);
 
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
-    $target = partnerAccessUser($company, [
-        'password' => Hash::make('senha-antiga'),
+    $admin   = partnerAccessUser($company, ['admin' => true]);
+    $target  = partnerAccessUser($company, [
+        'password'   => Hash::make('senha-antiga'),
         'first_pass' => false,
     ]);
 
@@ -708,13 +723,13 @@ it('resets a partner user password from the edit action', function () {
 });
 
 it('soft deletes inactive partner users according to the company policy', function () {
-    $company = partnerAccessCompany(['partner_user_inactivity_days' => 30]);
+    $company  = partnerAccessCompany(['partner_user_inactivity_days' => 30]);
     $inactive = partnerAccessUser($company, [
         'last_seen_at' => now()->subDays(31),
     ]);
     $neverLogged = partnerAccessUser($company, [
-        'created_at' => now()->subDays(31),
-        'last_seen_at' => null,
+        'created_at'    => now()->subDays(31),
+        'last_seen_at'  => null,
         'last_login_at' => null,
     ]);
     $recent = partnerAccessUser($company, [
@@ -722,10 +737,10 @@ it('soft deletes inactive partner users according to the company policy', functi
     ]);
     $activeByRecentAccess = partnerAccessUser($company, [
         'last_login_at' => now()->subDays(90),
-        'last_seen_at' => now()->subDays(5),
+        'last_seen_at'  => now()->subDays(5),
     ]);
     $withoutPolicyCompany = partnerAccessCompany();
-    $withoutPolicy = partnerAccessUser($withoutPolicyCompany, [
+    $withoutPolicy        = partnerAccessUser($withoutPolicyCompany, [
         'last_seen_at' => now()->subDays(60),
     ]);
 
@@ -741,8 +756,8 @@ it('soft deletes inactive partner users according to the company policy', functi
 
 it('updates last seen when an authenticated user opens a saved page', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, [
-        'admin' => true,
+    $admin   = partnerAccessUser($company, [
+        'admin'        => true,
         'last_seen_at' => now()->subDay(),
     ]);
     Bancoupdate::query()->create(['last_update' => now()]);
@@ -757,20 +772,20 @@ it('updates last seen when an authenticated user opens a saved page', function (
 it('rejects assigning a user to a branch from another company', function () {
     $this->withoutMiddleware(VerifyCsrfToken::class);
 
-    $company = partnerAccessCompany();
+    $company      = partnerAccessCompany();
     $otherCompany = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
-    $target = partnerAccessUser($company);
-    $otherBranch = Andresscompany::query()->create([
+    $admin        = partnerAccessUser($company, ['admin' => true]);
+    $target       = partnerAccessUser($company);
+    $otherBranch  = Andresscompany::query()->create([
         'company_id' => $otherCompany->id,
-        'city' => 'Outra cidade',
-        'street' => 'Rua externa',
+        'city'       => 'Outra cidade',
+        'street'     => 'Rua externa',
     ]);
 
     $this->actingAs($admin)
         ->put(route('partner.admin.users.update', $target), [
-            'name' => $target->name,
-            'email' => $target->email,
+            'name'     => $target->name,
+            'email'    => $target->email,
             'branches' => [$otherBranch->id],
         ])
         ->assertForbidden();
@@ -778,27 +793,27 @@ it('rejects assigning a user to a branch from another company', function () {
 
 it('restricts partner data queries to assigned branches when branch links exist for the company', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     $allowedBranch = Andresscompany::query()->create([
         'company_id' => $company->id,
-        'city' => 'Campinas',
-        'street' => 'Base Campinas',
+        'city'       => 'Campinas',
+        'street'     => 'Base Campinas',
     ]);
     Andresscompany::query()->create([
         'company_id' => $company->id,
-        'city' => 'Santos',
-        'street' => 'Base Santos',
+        'city'       => 'Santos',
+        'street'     => 'Base Santos',
     ]);
 
     PartnerUserBranch::query()->create([
         'company_id' => $company->id,
-        'user_id' => $user->id,
-        'branch_id' => $allowedBranch->id,
+        'user_id'    => $user->id,
+        'branch_id'  => $allowedBranch->id,
     ]);
 
     $visible = partnerAccessViability($company, $user, '1001', 'Campinas');
-    $hidden = partnerAccessViability($company, $user, '1002', 'Santos');
+    $hidden  = partnerAccessViability($company, $user, '1002', 'Santos');
 
     $query = Viability::query()->where('company_id', $company->id);
     app(PartnerBranchScope::class)->applyToNoteRelation($query, $user, $company->id);
@@ -809,17 +824,17 @@ it('restricts partner data queries to assigned branches when branch links exist 
 
 it('does not restrict admins by branch assignment', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
 
     $branch = Andresscompany::query()->create([
         'company_id' => $company->id,
-        'city' => 'Campinas',
+        'city'       => 'Campinas',
     ]);
 
     PartnerUserBranch::query()->create([
         'company_id' => $company->id,
-        'user_id' => $admin->id,
-        'branch_id' => $branch->id,
+        'user_id'    => $admin->id,
+        'branch_id'  => $branch->id,
     ]);
 
     partnerAccessViability($company, $admin, '2001', 'Campinas');
@@ -833,7 +848,7 @@ it('does not restrict admins by branch assignment', function () {
 
 it('keeps legacy data visibility when no branch assignment exists for the company', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessViability($company, $user, '3001', 'Campinas');
     partnerAccessViability($company, $user, '3002', 'Santos');
@@ -845,8 +860,8 @@ it('keeps legacy data visibility when no branch assignment exists for the compan
 });
 
 it('blocks a Livewire partner action when the permission is disabled', function () {
-    $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $company   = partnerAccessCompany();
+    $user      = partnerAccessUser($company);
     $viability = partnerAccessViability($company, $user, '4001', 'Campinas');
 
     partnerAccessRoleWithPermissions($company, ['viability'], ['viability.respond']);
@@ -859,7 +874,7 @@ it('blocks a Livewire partner action when the permission is disabled', function 
 
 it('blocks a Livewire export action when the export permission is disabled', function () {
     $company = partnerAccessCompany();
-    $user = partnerAccessUser($company);
+    $user    = partnerAccessUser($company);
 
     partnerAccessRoleWithPermissions($company, ['viability'], ['viability.export']);
 
@@ -871,7 +886,7 @@ it('blocks a Livewire export action when the export permission is disabled', fun
 
 it('blocks direct access to partner import template without permission', function () {
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
 
     partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access']);
 
@@ -884,7 +899,7 @@ it('blocks direct access to partner bulk import without permission', function ()
     $this->withoutMiddleware(VerifyCsrfToken::class);
 
     $company = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin   = partnerAccessUser($company, ['admin' => true]);
 
     partnerAccessGrantWithPermissions($company, ['admin', 'admin_panel.access']);
 
@@ -898,24 +913,24 @@ it('blocks direct access to partner bulk import without permission', function ()
 it('shows import preview errors for duplicate emails and branches from another company', function () {
     $this->withoutMiddleware(VerifyCsrfToken::class);
 
-    $company = partnerAccessCompany();
+    $company      = partnerAccessCompany();
     $otherCompany = partnerAccessCompany();
-    $admin = partnerAccessUser($company, ['admin' => true]);
+    $admin        = partnerAccessUser($company, ['admin' => true]);
     Bancoupdate::query()->create(['last_update' => now()]);
 
     Andresscompany::query()->create([
         'company_id' => $company->id,
-        'city' => 'Campinas',
+        'city'       => 'Campinas',
     ]);
     $otherBranch = Andresscompany::query()->create([
         'company_id' => $otherCompany->id,
-        'city' => 'Santos',
+        'city'       => 'Santos',
     ]);
 
     $csv = "Nome,Email,Filial\n"
-        ."Maria,maria@example.test,Campinas\n"
-        ."Maria Duplicada,maria@example.test,Campinas\n"
-        ."Joao,joao@example.test,{$otherBranch->id}\n";
+        . "Maria,maria@example.test,Campinas\n"
+        . "Maria Duplicada,maria@example.test,Campinas\n"
+        . "Joao,joao@example.test,{$otherBranch->id}\n";
 
     $file = UploadedFile::fake()->createWithContent('usuarios.csv', $csv);
 
