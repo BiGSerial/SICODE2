@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Note;
+use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 
 class SupervisionRepository
@@ -63,16 +64,18 @@ class SupervisionRepository
                                             });
                                         });
                                     })
-                                    ->orWhere(function ($q2) {
-                                        $q2->whereHas('Operations', function ($sq) {
-                                            $sq->where('operacao', '0010')
-                                            ->where('status', 'like', 'CONF%');
-                                        })->whereHas('Operations', function ($sq) {
-                                            $sq->where('operacao', '0030')
-                                            ->where('status', 'like', 'CONF%');
-                                        })->whereHas('Operations', function ($sq) {
-                                            $sq->where('operacao', '0040')
-                                            ->where('status', 'like', 'LIB%');
+                                    ->when(!SicodeRules::paymentRequiresOnlyOperation30Confirmed(), function ($sq) {
+                                        $sq->orWhere(function ($q2) {
+                                            $q2->whereHas('Operations', function ($sq) {
+                                                $sq->where('operacao', '0010')
+                                                ->where('status', 'like', 'CONF%');
+                                            })->whereHas('Operations', function ($sq) {
+                                                $sq->where('operacao', '0030')
+                                                ->where('status', 'like', 'CONF%');
+                                            })->whereHas('Operations', function ($sq) {
+                                                $sq->where('operacao', '0040')
+                                                ->where('status', 'like', 'LIB%');
+                                            });
                                         });
                                     });
 

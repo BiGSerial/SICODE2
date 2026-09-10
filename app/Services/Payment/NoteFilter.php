@@ -4,6 +4,7 @@ namespace App\Services\Payment;
 
 use App\Models\City;
 use App\Models\Note;
+use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 
 class NoteFilter
@@ -60,20 +61,22 @@ class NoteFilter
                         ->whereHas('Operations', function (Builder $op) {
                             $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
                         })
-                        ->whereHas('Operations', function (Builder $op) {
-                            $op->where('operacao', '0040')
-                               ->where(function (Builder $qq) {
-                                   $qq->where('status', 'like', 'CONF%')
-                                      ->orWhere('status', 'like', 'CNPA%');
-                               });
-                        })
-                        ->whereHas('Operations', function (Builder $op) {
-                            $op->where('operacao', '0050')
-                               ->where(function (Builder $qq) {
-                                   $qq->where('status', 'like', 'LIB%')
-                                      ->orWhere('status', 'like', 'CNPA%')
-                                      ->orWhere('status', 'like', 'JBFI LIB%');
-                               });
+                        ->when(!SicodeRules::paymentRequiresOnlyOperation30Confirmed(), function (Builder $ord) {
+                            $ord->whereHas('Operations', function (Builder $op) {
+                                $op->where('operacao', '0040')
+                                   ->where(function (Builder $qq) {
+                                       $qq->where('status', 'like', 'CONF%')
+                                          ->orWhere('status', 'like', 'CNPA%');
+                                   });
+                            })
+                            ->whereHas('Operations', function (Builder $op) {
+                                $op->where('operacao', '0050')
+                                   ->where(function (Builder $qq) {
+                                       $qq->where('status', 'like', 'LIB%')
+                                          ->orWhere('status', 'like', 'CNPA%')
+                                          ->orWhere('status', 'like', 'JBFI LIB%');
+                                   });
+                            });
                         });
                 });
             })

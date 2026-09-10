@@ -38,6 +38,11 @@ class SicodeRules
         return self::boolRule('dispatch.partner_can_claim_company_stack', true);
     }
 
+    public static function paymentRequiresOnlyOperation30Confirmed(): bool
+    {
+        return self::boolRule('dispatch.payment.operation_30_confirmed_only', false);
+    }
+
     public static function workReportFieldEnabled(string $field): bool
     {
         return self::boolRule("work_report.fields.{$field}", true);
