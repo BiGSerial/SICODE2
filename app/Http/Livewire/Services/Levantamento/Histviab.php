@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Services\Levantamento;
 
 use App\Models\{File, Production, Service, User};
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\{Component, WithPagination};
 
 class Histviab extends Component
@@ -89,8 +89,10 @@ class Histviab extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }

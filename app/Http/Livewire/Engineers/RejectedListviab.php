@@ -3,11 +3,9 @@
 namespace App\Http\Livewire\Engineers;
 
 use App\Exports\Viability\ViabilitiesRejectedExport;
-use App\Models\File;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class RejectedListviab extends Component
 {
@@ -21,13 +19,13 @@ class RejectedListviab extends Component
 
     // Filters
     private $filter_group = 'engineer';
+
     private $filter;
 
     protected $listeners = [
-        'refresh' => '$refresh',
+        'refresh'      => '$refresh',
         'refresh_list' => '$refresh',
     ];
-
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -41,23 +39,24 @@ class RejectedListviab extends Component
         $this->gotoPage(1);
     }
 
-
     public function exportToExcel_mylist()
     {
         return (new ViabilitiesRejectedExport($this->my_lists))
-             ->download(date('Ymd_His').'-viabilidades_rejeitadas_para_responder.xlsx');
+             ->download(date('Ymd_His') . '-viabilidades_rejeitadas_para_responder.xlsx');
     }
 
     public function exportToExcel_lists()
     {
         return (new ViabilitiesRejectedExport($this->lists))
-             ->download(date('Ymd_His').'-viabilidades_rejeitadas_aguardando_resolucao.xlsx');
+             ->download(date('Ymd_His') . '-viabilidades_rejeitadas_aguardando_resolucao.xlsx');
     }
 
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -107,8 +106,10 @@ class RejectedListviab extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -125,7 +126,9 @@ class RejectedListviab extends Component
     public function getMyListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -170,15 +173,13 @@ class RejectedListviab extends Component
             });
         }
 
-
         return $query->orderBy('updated_at');
     }
-
 
     public function render()
     {
         return view('livewire.engineers.rejected-listviab', [
-            'lists' => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
+            'lists'   => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
             'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),
         ]);
 

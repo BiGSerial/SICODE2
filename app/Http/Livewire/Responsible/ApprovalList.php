@@ -4,16 +4,10 @@ namespace App\Http\Livewire\Responsible;
 
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
-use App\Models\ExternalOrganRelease;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Production;
-use App\Models\Reclaim;
-use App\Models\Service;
+use App\Models\{ExternalOrganRelease, File, Note, Production, Reclaim, Service};
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class ApprovalList extends Component
 {
@@ -23,27 +17,34 @@ class ApprovalList extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $allCenters = false;
+
     public $typeNote = '';
+
     public $search;
+
     public $advanceSearch = '';
+
     public $multinotas = [];
+
     public $selected = [];
+
     public $select_all = false;
 
     private $filter_group = 'analises';
+
     private $filter;
+
     private $serviceId;
 
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
-        'search' => ['except' => '', 'as' => 'busca'],
+        'search'   => ['except' => '', 'as' => 'busca'],
     ];
 
     protected $listeners = [
         'refresh_list' => '$refresh',
         'confirm_att',
     ];
-
 
     public function mount()
     {
@@ -61,13 +62,14 @@ class ApprovalList extends Component
 
     }
 
-
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -81,16 +83,15 @@ class ApprovalList extends Component
         }
     }
 
-
     public function setSelectAll()
     {
         $ids = $this->lists->pluck('id')->toArray();
 
         if (!$this->select_all) {
-            $this->selected = array_unique(array_merge($this->selected, $ids));
+            $this->selected   = array_unique(array_merge($this->selected, $ids));
             $this->select_all = true;
         } else {
-            $this->selected = array_diff($this->selected, $ids);
+            $this->selected   = array_diff($this->selected, $ids);
             $this->select_all = false;
         }
     }
@@ -111,8 +112,6 @@ class ApprovalList extends Component
         $this->preAtt();
     }
 
-
-
     public function preAtt()
     {
 
@@ -132,8 +131,8 @@ class ApprovalList extends Component
         $count = count($this->selected);
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmação de Atribuição',
-            'msg'           => "Você está prestes a assumir <strong>{$count}</strong> nota(s) para Analisar Projeto.
+            'title' => 'Confirmação de Atribuição',
+            'msg'   => "Você está prestes a assumir <strong>{$count}</strong> nota(s) para Analisar Projeto.
                 <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>É válido lembrar que existe um prazo para analisar os projetos e dar uma definição. Caso vença o
                 tempo sem definição, o sistema automáticamente irá aprovar e seguir para contratação.</p>
                 <p class='fw-bold'>Deseja prosseguir?</p>
@@ -147,14 +146,10 @@ class ApprovalList extends Component
 
         ]);
 
-
     }
-
 
     public function confirm_att()
     {
-
-
 
         $notes = Note::find($this->selected);
 
@@ -178,15 +173,14 @@ class ApprovalList extends Component
 
                     $approval = $note->Approval()->create([
 
-                         'user_id'     => auth()->id(),
-                         'status'      => $note->nstats,
-                         'dt_status'   => $note->dt_status,
-                     ]);
+                        'user_id'   => auth()->id(),
+                        'status'    => $note->nstats,
+                        'dt_status' => $note->dt_status,
+                    ]);
 
                     if ($approval && !$approval->note->files()->where('file_name', 'like', 'PROJETO%')->exists()) {
 
                         $this->serviceId = Service::where('service', 'Desenho')->first()->uuid;
-
 
                         if (!$this->serviceId) {
                             throw new \Exception('Serviço de Desenho não encontrado. Não é possível prosseguir com a atribuição.');
@@ -206,34 +200,31 @@ class ApprovalList extends Component
                             ->orderBy('completed_at', 'desc')
                             ->first();
 
-
                         if ($hasProduction) {
                             $production = Production::create([
-                                'note_id' => $approval->note_id,
-                                'service_id' => $this->serviceId,
-                                'completed' => false,
-                                'd5' => true,
-                                'att_at' => now(),
-                                'att_by' => $approval->user_id,
+                                'note_id'     => $approval->note_id,
+                                'service_id'  => $this->serviceId,
+                                'completed'   => false,
+                                'd5'          => true,
+                                'att_at'      => now(),
+                                'att_by'      => $approval->user_id,
                                 'dispatch_at' => now(),
                                 'dispatch_by' => $approval->user_id,
-                                'user_id' => $hasProduction->user_id,
-                                'company_id' => $hasProduction->company_id,
-                                'status' => 2,
-                                'dt_note' => $approval->note->dt_status,
-                                'dhstats' => $approval->note->dt_status,
+                                'user_id'     => $hasProduction->user_id,
+                                'company_id'  => $hasProduction->company_id,
+                                'status'      => 2,
+                                'dt_note'     => $approval->note->dt_status,
+                                'dhstats'     => $approval->note->dt_status,
                                 'status_note' => $approval->note->nstats,
-                                'centroTrab' => $approval->note->centerjob,
+                                'centroTrab'  => $approval->note->centerjob,
                             ]);
                         }
 
-
-
                         $toReclaim = $approval->reclaims()->create([
-                            'service_id' => $this->serviceId,
-                            'note_id' => $approval->note_id,
+                            'service_id'    => $this->serviceId,
+                            'note_id'       => $approval->note_id,
                             'production_id' => $production ? $production->id : null,
-                            'category' => "ANEXAR PDF",
+                            'category'      => "ANEXAR PDF",
 
                         ]);
 
@@ -251,7 +242,7 @@ class ApprovalList extends Component
                         'position' => 'center',
                         'icon'     => 'error',
                         'title'    => 'Erro ao assumir Notas/Ov',
-                        'html'      => 'Erro: ' . $th->getMessage(),
+                        'html'     => 'Erro: ' . $th->getMessage(),
                         // 'timer'    => 2500,
                     ]);
 
@@ -276,27 +267,25 @@ class ApprovalList extends Component
 
     }
 
-
-
     public function clearAll()
     {
-        $this->search = '';
+        $this->search        = '';
         $this->advanceSearch = '';
-        $this->multinotas = [];
-        $this->selected = [];
+        $this->multinotas    = [];
+        $this->selected      = [];
         $this->gotoPage(1);
     }
-
-
-
 
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -349,14 +338,14 @@ class ApprovalList extends Component
         })
 
         ->with([
-           'orders' => function ($q) {
-               $q->where('statusSist', 'not like', 'ENT%')
-                   ->where('statusSist', 'not like', 'ENC%')
-                   ->orderBy('ordem');
-           },
-           'orders.operations' => function ($q) {
-               $q->where('operacao', '0010');
-           },
+            'orders' => function ($q) {
+                $q->where('statusSist', 'not like', 'ENT%')
+                    ->where('statusSist', 'not like', 'ENC%')
+                    ->orderBy('ordem');
+            },
+            'orders.operations' => function ($q) {
+                $q->where('operacao', '0010');
+            },
         ]);
 
         if ($this->typeNote) {
@@ -382,7 +371,6 @@ class ApprovalList extends Component
                   });
             });
         }
-
 
         $activeFilters = is_array($this->filter) ? $this->filter : [];
 
@@ -453,7 +441,6 @@ class ApprovalList extends Component
             ->orderBy('id', 'ASC')
             ->paginate(50);
     }
-
 
     public function render()
     {

@@ -3,19 +3,10 @@
 namespace App\Http\Livewire\Dispatchs;
 
 use App\Exports\Reports\ReturnInternExport;
-use App\Models\Company;
+use App\Models\{Company, File, Reclaim, Service, User};
 use App\Models\Edp_depc\City;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Operation;
-use App\Models\Production;
-use App\Models\Reclaim;
-use App\Models\Service;
-use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class ReturnD5 extends Component
 {
@@ -24,7 +15,6 @@ class ReturnD5 extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
-
 
     public $service;
 
@@ -62,30 +52,32 @@ class ReturnD5 extends Component
 
     //filter User
     public $filterUser;
+
     // Filters
     private $filter_group = 'd5controls';
+
     private $filters;
 
     // Orderenação
     public $sortField = 'created_at';
+
     public $sortDirection = 'asc';
 
-
     protected $queryString = [
-        'search' => ['except' => '', 'as' => 'busca'],
-        'perPage' => ['as' => 'pagina'],
-        'filterUser' => ['except' => ''],
+        'search'        => ['except' => '', 'as' => 'busca'],
+        'perPage'       => ['as' => 'pagina'],
+        'filterUser'    => ['except' => ''],
         'sortDirection' => ['except' => 'asc'],
-        'notAtt' => ['except' => false],
+        'notAtt'        => ['except' => false],
     ];
 
     protected $listeners = [
         'refresh_list',
-        'refreshComponent' => '$refresh',
+        'refreshComponent'  => '$refresh',
         'confirm_viability' => 'confirm_viability',
-        'cleanAll' => 'closeall',
-        'giveBack' => 'giveBack',
-        'filterUser' => 'filterUser',
+        'cleanAll'          => 'closeall',
+        'giveBack'          => 'giveBack',
+        'filterUser'        => 'filterUser',
     ];
 
     public function mount($service)
@@ -95,10 +87,10 @@ class ReturnD5 extends Component
         }
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
-
-
 
         $this->service   = Service::where('uuid', $service)->first();
         $this->companies = Company::query()
@@ -107,14 +99,13 @@ class ReturnD5 extends Component
             ->orderBy('name')
             ->get();
         // $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
-        $this->services  = Service::orderBy('service')->get();
+        $this->services = Service::orderBy('service')->get();
     }
 
     public function setNotAtt()
     {
         $this->notAtt = !$this->notAtt;
     }
-
 
     public function massAssign()
     {
@@ -123,7 +114,7 @@ class ReturnD5 extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'SEM OBRAS SELECIONADAS',
-                'html'      => 'Verifique a seleção das obras e tente novamente.',
+                'html'     => 'Verifique a seleção das obras e tente novamente.',
                 'timer'    => 5000,
             ]);        # code...
         } else {
@@ -139,7 +130,7 @@ class ReturnD5 extends Component
 
     public function exportToExcel()
     {
-        return (new ReturnInternExport($this->lists->get()))->download('Retorno_Interno_Export_List_'.date('YmdHis').'.xlsx');
+        return (new ReturnInternExport($this->lists->get()))->download('Retorno_Interno_Export_List_' . date('YmdHis') . '.xlsx');
     }
 
     public function filterUser($user_id)
@@ -156,15 +147,11 @@ class ReturnD5 extends Component
     {
         if ($value) {
 
-
-
             foreach ($this->lists->pluck('id')->toArray() as $id) {
                 if (!in_array($id, $this->selected)) {
                     $this->selected[] = $id;
                 }
             }
-
-
 
         } else {
             // Criar um novo array $selected com os IDs que devem ser mantidos
@@ -183,8 +170,10 @@ class ReturnD5 extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }
@@ -192,10 +181,7 @@ class ReturnD5 extends Component
     public function go_att_mass()
     {
 
-
-
     }
-
 
     public function closeall()
     {
@@ -203,10 +189,8 @@ class ReturnD5 extends Component
 
         $this->gotoPage(1);
 
-
         $this->selectAll = false;
-        $this->selected = [];
-
+        $this->selected  = [];
 
         $this->emit('refresh_list');
     }
@@ -222,15 +206,17 @@ class ReturnD5 extends Component
         $this->sortField = $field;
     }
 
-
     public function getListsProperty()
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filters = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -261,7 +247,7 @@ class ReturnD5 extends Component
             ->values()
             ->all();
 
-        $cityCodes = collect();
+        $cityCodes       = collect();
         $directCityCodes = collect($cityFilters)
             ->filter(fn ($value) => preg_match('/^\d+$/', (string) $value) === 1)
             ->values();
@@ -343,11 +329,9 @@ class ReturnD5 extends Component
             ])
             ->orderBy($this->sortField, $this->sortDirection);
 
-
         return $query;
 
     }
-
 
     public function render()
     {

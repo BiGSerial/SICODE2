@@ -3,11 +3,9 @@
 namespace App\Http\Livewire\Engineers;
 
 use App\Exports\Engineers\InterReturnExport;
-use App\Models\File;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class ReturnInternList extends Component
 {
@@ -21,13 +19,13 @@ class ReturnInternList extends Component
 
     // Filters
     private $filter_group = 'engineer';
+
     private $filter;
 
     protected $listeners = [
-        'refresh' => '$refresh',
+        'refresh'      => '$refresh',
         'refresh_list' => '$refresh',
     ];
-
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -41,18 +39,19 @@ class ReturnInternList extends Component
         $this->gotoPage(1);
     }
 
-
     public function export_excel()
     {
-        return (new InterReturnExport($this->my_lists->get()))->download(date('YmdHis').'_inter_returnExport.xlsx');
+        return (new InterReturnExport($this->my_lists->get()))->download(date('YmdHis') . '_inter_returnExport.xlsx');
     }
 
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -66,12 +65,12 @@ class ReturnInternList extends Component
         }
     }
 
-
-
     public function getMyListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -81,7 +80,6 @@ class ReturnInternList extends Component
         $query = Viability::query()->where('rejected', true)
                 ->where('completed', false)
                 ->whereRelation('Reclaims', 'completed', true);
-
 
         if (!auth()->user()->superadm) {
             $query->whereIn('engineer_id', auth()->user()->visibleUserIdsForWork());
@@ -108,11 +106,8 @@ class ReturnInternList extends Component
             });
         }
 
-
-
         return $query->orderBy('updated_at');
     }
-
 
     public function render()
     {

@@ -546,7 +546,7 @@
                                     {{ $prazoClass ?? 'text-bg-info' }}"
                                     style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
-                                    data-bs-title="Prazo Pagamento"
+                                    data-bs-title="Prazo Medição"
                                     data-bs-content="
                             <p>A Data Corresponde a entrega da ADS <br>:</p>
                             <span class='fs-4 text-success'>&#9632;</span> > 15 DIAS PARA VENCER <br>
@@ -568,7 +568,7 @@
                                 "
                                     style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
-                                    data-bs-title="Prazo Pagamento"
+                                    data-bs-title="Prazo Medição"
                                     data-bs-content="
                             <p>A Data Corresponde 40 Parcial <br> para Parcial, corresponde a partir da data da fiscalização:</p>
                             <span class='fs-4 text-success'>&#9632;</span> >= 5 DIAS PARA VENCER <br>

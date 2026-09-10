@@ -9,16 +9,16 @@ use Illuminate\Support\Str;
 class WorkReportStatusResolver
 {
     public const FINALIZED = 'Finalizado';
-    public const INCONSISTENT_PAYMENT = 'Pagamento Inconsistente';
+    public const INCONSISTENT_PAYMENT = 'Medição Inconsistente';
     public const INFORM = 'Informe';
     public const WAITING_FISCALIZATION = 'Aguardando Fiscalização';
     public const FISCALIZATION = 'Em Fiscalização';
-    public const WAITING_PAYMENT = 'Aguardando Pagamento';
+    public const WAITING_PAYMENT = 'Aguardando Medição';
     public const WAITING_D5_DISPATCH = 'Aguardando Despacho D5';
     public const WAITING_D5_RESOLUTION = 'Aguardando Resolução D5';
     public const WAITING_D5_FISCALIZATION = 'Aguardando Fiscalização D5';
     public const D5_FISCALIZATION = 'Fiscalização D5';
-    public const WAITING_D5_PAYMENT = 'Aguardando Pagamento D5';
+    public const WAITING_D5_PAYMENT = 'Aguardando Medição D5';
     public const RELEASING_LETTER = 'Liberando Carta';
 
     public function resolve(WorkReport $workReport): array
@@ -42,6 +42,7 @@ class WorkReportStatusResolver
         $d5PaymentFinished = (bool) ($state['d5_payment_finished'] ?? false);
         $letterReleased = (bool) ($state['letter_released'] ?? false);
         $hasAds = (bool) ($state['has_ads'] ?? false);
+        $sapOperationStatus = $state['sap_operation_status'] ?? null;
 
         $anyFiscalAssociated = $normalFiscalAssociated || $d5FiscalAssociated;
         $anyPaymentAssociated = $normalPaymentAssociated || $d5PaymentAssociated;
@@ -87,6 +88,14 @@ class WorkReportStatusResolver
             return $this->status('releasing_letter', self::RELEASING_LETTER, 'text-bg-primary');
         }
 
+        if (!$normalFiscalAssociated && !$normalPaymentAssociated && is_array($sapOperationStatus)) {
+            return $this->status(
+                $sapOperationStatus['key'],
+                $sapOperationStatus['label'],
+                $sapOperationStatus['class']
+            );
+        }
+
         if (!$normalFiscalAssociated && !$normalPaymentAssociated) {
             return $this->status(
                 $hasAds ? 'waiting_fiscalization' : 'inform',
@@ -104,11 +113,11 @@ class WorkReportStatusResolver
         }
 
         if ($normalPaymentAssociated && !$normalPaymentFinished) {
-            return $this->status('payment', 'Em Pagamento', 'text-bg-primary');
+            return $this->status('payment', 'Em Medição', 'text-bg-primary');
         }
 
         if ($normalPaymentFinished) {
-            return $this->status('payment_finished', 'Pagamento Finalizado', 'text-bg-success');
+            return $this->status('payment_finished', 'Medição Finalizada', 'text-bg-success');
         }
 
         return $this->status('inform', self::INFORM, 'text-bg-info');
@@ -144,7 +153,129 @@ class WorkReportStatusResolver
             'd5_payment_associated' => $effectiveD5PaymentProductions->isNotEmpty(),
             'd5_payment_finished' => $this->anyPaymentFinished($effectiveD5PaymentProductions) || (bool) ($fiveNote?->is_archived ?? false),
             'letter_released' => (bool) ($fiveNote?->is_payed ?? false) || (bool) ($fiveNote?->is_archived ?? false),
+            'sap_operation_status' => $this->sapOperationStatus($workReport),
         ];
+    }
+
+    private function sapOperationStatus(WorkReport $workReport): ?array
+    {
+        $mainOrder = $this->mainValidOrderFor($workReport);
+
+        if (!$mainOrder) {
+            return null;
+        }
+
+        $operations = $this->orderOperations($mainOrder);
+
+        $operation30 = $this->operationByCode($operations, '0030');
+        $operation50 = $this->operationByCode($operations, '0050');
+        $operation60 = $this->operationByCode($operations, '0060');
+
+        if (
+            $operation60
+            && $this->operationFinished($operation60)
+            && $this->orderClosed($mainOrder)
+            && $operation50
+            && $this->operationFinished($operation50)
+        ) {
+            return $this->status('finalized', self::FINALIZED, 'text-bg-success');
+        }
+
+        if ($operation50 && $this->operationFinished($operation50) && $operation30 && $this->operationFinished($operation30)) {
+            return $this->status('payment_finished', 'Medição Finalizada', 'text-bg-success');
+        }
+
+        if ($operation30 && $this->operationFinished($operation30)) {
+            return $this->status('waiting_payment', self::WAITING_PAYMENT, 'text-bg-warning');
+        }
+
+        if ($operation30) {
+            if ($operation30->inicioReal && !$this->operationFinished($operation30)) {
+                return $this->status('fiscalization', self::FISCALIZATION, 'text-bg-primary');
+            }
+
+            return $this->status('waiting_fiscalization', self::WAITING_FISCALIZATION, 'text-bg-secondary');
+        }
+
+        return null;
+    }
+
+    private function workReportOperations(WorkReport $workReport): Collection
+    {
+        $mainOrder = $this->mainValidOrderFor($workReport);
+
+        return $mainOrder ? $this->orderOperations($mainOrder) : collect();
+    }
+
+    private function mainValidOrderFor(WorkReport $workReport): ?object
+    {
+        $orders = $workReport->relationLoaded('Orders')
+            ? $workReport->Orders
+            : $workReport->Orders()->with('Operations')->get();
+
+        return $this->mainValidOrder($orders);
+    }
+
+    private function orderOperations(object $mainOrder): Collection
+    {
+        return $mainOrder->relationLoaded('Operations')
+            ? $mainOrder->Operations->filter()
+            : $mainOrder->Operations()->get()->filter();
+    }
+
+    private function mainValidOrder(Collection $orders): ?object
+    {
+        $orders200 = $this->ordersByPrefix($orders, '200');
+
+        if ($orders200->isNotEmpty()) {
+            return $orders200->first();
+        }
+
+        $orders170 = $this->ordersByPrefix($orders, '170');
+
+        if ($orders170->isNotEmpty()) {
+            return $orders170->first();
+        }
+
+        $orders180 = $this->ordersByPrefix($orders, '180');
+
+        if ($orders180->isNotEmpty()) {
+            return $orders180->first();
+        }
+
+        if ($orders->count() === 1 && str_starts_with((string) $orders->first()->ordem, '190')) {
+            return $orders->first();
+        }
+
+        return null;
+    }
+
+    private function ordersByPrefix(Collection $orders, string $prefix): Collection
+    {
+        return $orders
+            ->filter(fn ($order) => str_starts_with((string) $order->ordem, $prefix))
+            ->sortByDesc(fn ($order) => $order->updated_at ?? $order->created_at ?? $order->id ?? $order->ordem)
+            ->values();
+    }
+
+    private function operationByCode(Collection $operations, string $code): ?object
+    {
+        return $operations
+            ->filter(fn ($operation) => str_pad((string) $operation->operacao, 4, '0', STR_PAD_LEFT) === $code)
+            ->sortByDesc(fn ($operation) => $operation->fimReal ?? $operation->inicioReal ?? $operation->updated_at ?? $operation->id)
+            ->first();
+    }
+
+    private function operationFinished(object $operation): bool
+    {
+        return filled($operation->fimReal ?? null);
+    }
+
+    private function orderClosed(object $order): bool
+    {
+        $status = strtoupper((string) ($order->statusSist ?? ''));
+
+        return str_contains($status, 'ENCE') || str_contains($status, 'ENT');
     }
 
     private function productionsByService(Collection $productions, string $service): Collection

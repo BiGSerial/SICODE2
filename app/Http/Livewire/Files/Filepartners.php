@@ -2,33 +2,35 @@
 
 namespace App\Http\Livewire\Files;
 
-use App\Models\File;
-use App\Models\Note;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{File, Note};
+use App\Services\Files\FileUploadService;
+use Illuminate\Support\Facades\{DB};
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 
 class Filepartners extends Component
 {
     use WithFileUploads;
 
     public ?Note $note = null;
+
     public $notNote = false;
+
     public $needFiles;
+
     public $uploadsfiles = [];
+
     public $files = [];
 
     protected $listeners = [
-        'save_files' => 'save',
+        'save_files'   => 'save',
         'cancel_files' => 'cancel',
         'needFiles',
     ];
 
     public function mount($note, $needFiles = false)
     {
-        $this->note = $note;
+        $this->note      = $note;
         $this->needFiles = $needFiles;
 
         if ($this->needFiles) {
@@ -50,9 +52,9 @@ class Filepartners extends Component
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'TIPO DE ARQUIVO NÃO PERMITIDO',
-                'html' => '<div class="card bg-primary text-white"><div class="card-body">
+                'icon'     => 'warning',
+                'title'    => 'TIPO DE ARQUIVO NÃO PERMITIDO',
+                'html'     => '<div class="card bg-primary text-white"><div class="card-body">
                     <p class="fw-bold">Existem arquivos com formatos não suportados, revise e tente novamente.</p>
                     Somente são aceitos arquivos: <span class="fw-bold">.pdf, .jpg, .png, .webp, .xls, .xlsx ou .zip</span>
                     </div></div>',
@@ -60,6 +62,7 @@ class Filepartners extends Component
 
             foreach ($this->uploadsfiles as $file) {
                 $tempPath = $file->getRealPath();
+
                 if ($tempPath && file_exists($tempPath)) {
                     unlink($tempPath);
                 }
@@ -77,6 +80,7 @@ class Filepartners extends Component
                 $this->files[] = $file;
             } else {
                 $tempPath = $file->getRealPath();
+
                 if ($tempPath && file_exists($tempPath)) {
                     unlink($tempPath);
                 }
@@ -92,8 +96,10 @@ class Filepartners extends Component
 
         foreach ($this->files as $file) {
             $fileNameWithoutExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
             if (strpos($fileNameWithoutExtension, $this->note->note) === false) {
                 $this->notNote = true;
+
                 break;
             }
         }
@@ -109,6 +115,7 @@ class Filepartners extends Component
     {
         if (isset($this->files[$index])) {
             $tempPath = $this->files[$index]->getRealPath();
+
             if ($tempPath && file_exists($tempPath)) {
                 unlink($tempPath);
             }
@@ -123,11 +130,12 @@ class Filepartners extends Component
         if (count($this->files) > 0) {
             foreach ($this->files as $file) {
                 $tempPath = $file->getRealPath();
+
                 if ($tempPath && file_exists($tempPath)) {
                     unlink($tempPath);
                 }
             }
-            $this->files = [];
+            $this->files   = [];
             $this->notNote = false;
         }
 
@@ -137,8 +145,8 @@ class Filepartners extends Component
     public function save()
     {
         if (count($this->files)) {
-            $pdfCount = File::where('note_id', $this->note->id)->where('ext', 'pdf')->count();
-            $xlsCount = File::where('note_id', $this->note->id)->whereIn('ext', ['xls', 'xlsx'])->count();
+            $pdfCount      = File::where('note_id', $this->note->id)->where('ext', 'pdf')->count();
+            $xlsCount      = File::where('note_id', $this->note->id)->whereIn('ext', ['xls', 'xlsx'])->count();
             $totalPdfCount = $pdfCount + count(array_filter($this->files, fn ($file) => $file->getClientOriginalExtension() == 'pdf'));
             $totalXlsCount = $xlsCount + count(array_filter($this->files, fn ($file) => in_array($file->getClientOriginalExtension(), ['xls', 'xlsx'])));
 
@@ -146,10 +154,11 @@ class Filepartners extends Component
 
             foreach ($this->files as $file) {
                 $tempPath = $file->getRealPath();
+
                 if ($tempPath && file_exists($tempPath)) {
-                    $newName = "";
+                    $newName   = "";
                     $extension = $file->getClientOriginalExtension();
-                    $folhas = ($extension == 'pdf') ? $totalPdfCount : $totalXlsCount;
+                    $folhas    = ($extension == 'pdf') ? $totalPdfCount : $totalXlsCount;
 
                     if ($extension == "pdf") {
                         $newName = "CROQUI_VIAB_" . $this->note->note . "_F" . str_pad(++$pdfCount, 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
@@ -159,20 +168,20 @@ class Filepartners extends Component
                         $newName = strtoupper($extension) . "_VIAB_" . $this->note->note . "_F" . str_pad(count($this->files), 2, '0', STR_PAD_LEFT) . "_" . str_pad($folhas, 2, '0', STR_PAD_LEFT);
                     }
 
-                    $version = File::where('file_name', 'like', "%" . $newName . "%")->count();
-                    $newName = $newName . "_rev" . $version . "." . $extension;
-                    $caminho = $file->store('/arquivos/partner');
+                    $version  = File::where('file_name', 'like', "%" . $newName . "%")->count();
+                    $baseName = $newName . "_rev" . $version;
+                    $newName  = $baseName . "." . $extension;
 
-                    if (Storage::exists($caminho)) {
-                        File::create([
-                            'note_id' => $this->note->id,
-                            'user_id' => auth()->user()->id,
-                            'service_id' => null,
-                            'file_name' => $newName,
-                            'path' => $caminho,
-                            'ext' => $extension,
-                        ]);
-                    } else {
+                    try {
+                        app(FileUploadService::class)->create(
+                            $file,
+                            $this->note,
+                            '/arquivos/partner',
+                            $baseName,
+                            $extension,
+                            ['file_name' => $newName],
+                        );
+                    } catch (\Throwable) {
 
                         DB::rollBack();
 
@@ -195,7 +204,7 @@ class Filepartners extends Component
             DB::commit();
 
             $this->dispatchBrowserEvent('torrada', [
-                'status' => 'success',
+                'status'   => 'success',
                 'menssage' => "Arquivos salvos com sucesso",
             ]);
         }

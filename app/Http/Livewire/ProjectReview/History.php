@@ -5,8 +5,9 @@ namespace App\Http\Livewire\ProjectReview;
 use App\Jobs\Reports\ExportProjectReviewHistoryListJob;
 use App\Models\{Company, File, Notetimeline, Production, ProjectReviewCategory, ProjectReviewCycle, ProjectReviewMessage, ProjectReviewSubcategory};
 use App\Notifications\SystemNotification;
+use App\Services\Files\FileStorageService;
 use App\Support\Notifications\UserNotificationData;
-use Illuminate\Support\Facades\{DB, Schema, Storage};
+use Illuminate\Support\Facades\{DB, Schema};
 use Livewire\{Component, WithPagination};
 
 class History extends Component
@@ -731,7 +732,9 @@ class History extends Component
             return null;
         }
 
-        if (!$file->path || !Storage::exists($file->path)) {
+        $storage = app(FileStorageService::class);
+
+        if (!$storage->exists($file)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -746,7 +749,7 @@ class History extends Component
         $downloadName = $file->original_name ?: ($file->file_name . ($file->ext ? '.' . $file->ext : ''));
 
         try {
-            return Storage::download($file->path, $downloadName);
+            return $storage->download($file, $downloadName);
         } catch (\Throwable $e) {
             report($e);
             $this->dispatchBrowserEvent('swal', [

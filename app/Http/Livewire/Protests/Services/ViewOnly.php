@@ -2,13 +2,11 @@
 
 namespace App\Http\Livewire\Protests\Services;
 
-use App\Models\EvidenceFile;
-use App\Models\MedProtest;
+use App\Models\{EvidenceFile, MedProtest};
 use App\Notifications\SystemNotification;
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Validation\ValidationException;
+use Livewire\{Component, WithFileUploads};
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ViewOnly extends Component
@@ -16,36 +14,39 @@ class ViewOnly extends Component
     use WithFileUploads;
 
     public $medProtest;
+
     public $comment;
 
     public $filesConfig = [
-        'disk' => 'public',
-        'path' => 'protest_attachments',
-        'maxSize' => (10 * 1024),
+        'disk'         => 'public',
+        'path'         => 'protest_attachments',
+        'maxSize'      => (10 * 1024),
         'allowedTypes' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt'],
 
     ];
+
     /**
      * @var array<TemporaryUploadedFile>
      */
     public $tempFiles = [];
+
     /**
      * @var array<TemporaryUploadedFile>|null
      */
     public $files = []; // This will hold the files selected for upload
 
     protected $listeners = [
-        'refreshComponent' => '$refresh',
+        'refreshComponent'        => '$refresh',
         'confirmFinishMedProtest' => 'finish',
     ];
 
     protected $messages = [
         'comment.required' => 'O comentário é obrigatório.',
-        'comment.string' => 'O comentário deve ser uma string.',
-        'comment.min' => 'O comentário deve ter pelo menos 10 caracteres.',
-        'files.*.mimes' => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
-        'files.*.max' => 'Cada arquivo não pode ter mais de 10MB.',
-        'files.max' => 'Você pode anexar no máximo 5 arquivos de cada vez.',
+        'comment.string'   => 'O comentário deve ser uma string.',
+        'comment.min'      => 'O comentário deve ter pelo menos 10 caracteres.',
+        'files.*.mimes'    => 'Apenas arquivos PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT são permitidos.',
+        'files.*.max'      => 'Cada arquivo não pode ter mais de 10MB.',
+        'files.max'        => 'Você pode anexar no máximo 5 arquivos de cada vez.',
     ];
 
     // This method is called automatically by Livewire when the 'files' property is updated
@@ -54,7 +55,7 @@ class ViewOnly extends Component
         try {
             // Validate the newly added files
             $this->validate([
-                'files.*' => 'mimes:'.implode(',', $this->filesConfig['allowedTypes']).'|max:'.$this->filesConfig['maxSize'],
+                'files.*' => 'mimes:' . implode(',', $this->filesConfig['allowedTypes']) . '|max:' . $this->filesConfig['maxSize'],
             ]);
 
             foreach ($this->files as $file) {
@@ -65,6 +66,7 @@ class ViewOnly extends Component
                     if ($existingFile->getClientOriginalName() === $fileName) {
                         // Remove the existing file
                         unset($this->tempFiles[$index]);
+
                         break;
                     }
                 }
@@ -75,11 +77,12 @@ class ViewOnly extends Component
 
             // Reindex the array to maintain sequential indices
             $this->tempFiles = array_values($this->tempFiles);
-            $this->files = []; // Clear the input files after adding to tempFiles
+            $this->files     = []; // Clear the input files after adding to tempFiles
 
         } catch (ValidationException $e) {
             $this->emit('showAlert', ['type' => 'error', 'message' => 'Erro ao validar arquivos.', 'errors' => $e->errors()]);
             $this->reset('files'); // Clear the files that caused the validation error
+
             throw $e; // Re-throw to show validation messages
         }
     }
@@ -87,18 +90,17 @@ class ViewOnly extends Component
     public function finishMedProtest()
     {
 
-
         $this->dispatchBrowserEvent('alertar', [
-               'title'         => 'FINALIZAR MEDIDA DE RECLAMAÇÃO',
-               'msg'           => "Você tem certeza que deseja finalizar esta medida de reclamação?",
-               'icon'          => 'question',
-               'btnOktxt'      => 'Sim, Finalizar!',
-               'btnCanceltxt'  => 'Não, Cancele',
-               'action'        => 'confirmFinishMedProtest',
-               'cancel_titulo' => 'Cancelado!',
-               'cancel_msg'    => 'Ação Cancelada.',
+            'title'         => 'FINALIZAR MEDIDA DE RECLAMAÇÃO',
+            'msg'           => "Você tem certeza que deseja finalizar esta medida de reclamação?",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, Finalizar!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirmFinishMedProtest',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Ação Cancelada.',
 
-           ]);
+        ]);
     }
 
     public function finish()
@@ -112,24 +114,25 @@ class ViewOnly extends Component
                 'title'    => 'Você não está designado para esta medida de reclamação!',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
         $userAssigned->update([
             'completed' => true,
-            'ended_at' => now(),
+            'ended_at'  => now(),
         ]);
 
         if (!$this->medProtest->needsConfirmation) {
 
             $this->medProtest->update([
-                'completed' => true,
+                'completed'    => true,
                 'completed_at' => now(),
             ]);
 
             $this->medProtest->Assignments()->where('completed', false)->update([
                 'completed' => true,
-                'ended_at' => now(),
+                'ended_at'  => now(),
             ]);
 
         }
@@ -143,7 +146,6 @@ class ViewOnly extends Component
 
         $this->emitSelf('refreshComponent'); // Refresh the component to reflect the changes
     }
-
 
     public function mount($medProtestId)
     {
@@ -190,7 +192,7 @@ class ViewOnly extends Component
 
                 $recipient->User?->notify(new SystemNotification(
                     titulo: 'Novo comentário na Medida de Reclamação',
-                    mensagem: 'O usuário '.auth()->user()->name.' comentou na medida da reclamação '.$this->medProtest->protest?->nota.'.',
+                    mensagem: 'O usuário ' . auth()->user()->name . ' comentou na medida da reclamação ' . $this->medProtest->protest?->nota . '.',
                     link: $link, // ou outra rota que você tiver
                     status: 6,
                     extras: [
@@ -208,10 +210,10 @@ class ViewOnly extends Component
 
     public function dowloadFile(EvidenceFile $file)
     {
-        // dd(Storage::fileExists('public/'.$file->path));
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
+        if ($service->exists($file)) {
+            return $service->download($file);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -253,29 +255,23 @@ class ViewOnly extends Component
     {
         if (empty($this->tempFiles)) {
             $this->dispatch('showAlert', ['type' => 'warning', 'message' => 'Nenhum arquivo para salvar.']);
+
             return;
         }
 
         $savedFiles = [];
+
         foreach ($this->tempFiles as $file) {
             try {
-                // Generate a unique filename to prevent conflicts
-                $filename =  'evidencia_'.$this->medProtest->protest->nota. '_' . $this->medProtest->med_id . '_'.uniqid(). ".". $file->getClientOriginalExtension();
-                $path = $file->storeAs($this->filesConfig['path'] . "/" . $this->medProtest->protest->nota, $filename, 'public');
+                $filename = 'evidencia_' . $this->medProtest->protest->nota . '_' . $this->medProtest->med_id . '_' . uniqid() . "." . $file->getClientOriginalExtension();
 
-                // Store file information in the database
-                $this->medProtest->EvidenceFiles()->create([
-                    'user_id' => auth()->id(),
-                    'original_name' => $file->getClientOriginalName(),
-                    'stored_name' => $filename,
-                    'disk' => $this->filesConfig['disk'],
-                    'path' => $path,
-                    'mime' => $file->getClientMimeType(),
-                    'extension' => $file->getClientOriginalExtension(),
-                    'size' => $file->getSize(),
-                    'sha256' => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_at' => now(),
-                ])->save();
+                app(EvidenceFileService::class)->store(
+                    $this->medProtest,
+                    $file,
+                    $this->filesConfig['path'] . "/" . $this->medProtest->protest->nota,
+                    $filename,
+                    auth()->id()
+                );
                 $savedFiles[] = $file->getClientOriginalName();
             } catch (\Exception $e) {
                 // Log the error and notify the user
@@ -313,7 +309,7 @@ class ViewOnly extends Component
             'doc', 'docx' => 'bg-primary text-white',
             'xls', 'xlsx' => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt' => 'bg-secondary text-white',
+            'txt'   => 'bg-secondary text-white',
             default => 'bg-dark text-white',
         };
     }
@@ -326,7 +322,7 @@ class ViewOnly extends Component
             'doc', 'docx' => 'ri-file-word-fill',
             'xls', 'xlsx' => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt' => 'ri-file-text-fill',
+            'txt'   => 'ri-file-text-fill',
             default => 'ri-file-fill',
         };
     }
@@ -346,7 +342,6 @@ class ViewOnly extends Component
             return '0 bytes';
         }
     }
-
 
     public function render()
     {

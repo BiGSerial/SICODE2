@@ -34,6 +34,22 @@ class Adsform extends Model
         'user_id' => 'string',
     ];
 
+    protected static function booted(): void
+    {
+        $refresh = function (Adsform $adsform) {
+            if (!$adsform->work_report_id) {
+                return;
+            }
+
+            app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)
+                ->refresh((int) $adsform->work_report_id);
+        };
+
+        static::created($refresh);
+        static::updated($refresh);
+        static::deleted($refresh);
+    }
+
     public function workReport()
     {
         return $this->belongsTo(WorkReport::class);

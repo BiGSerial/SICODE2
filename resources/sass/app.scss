@@ -30,6 +30,59 @@ h6,
 // Módulo Jurídico
 @import 'legal/legal';
 
+.dispatch-scroll-area,
+.dispatch-modal__table-wrap,
+#add_mass_notes .modal-body > .table-responsive {
+    max-height: min(44vh, 420px);
+    overflow: auto;
+    scrollbar-color: #0f766e #e2e8f0;
+    scrollbar-width: thin;
+}
+
+.dispatch-scroll-area::-webkit-scrollbar,
+.dispatch-modal__table-wrap::-webkit-scrollbar,
+#add_mass_notes .modal-body > .table-responsive::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+}
+
+.dispatch-scroll-area::-webkit-scrollbar-track,
+.dispatch-modal__table-wrap::-webkit-scrollbar-track,
+#add_mass_notes .modal-body > .table-responsive::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+}
+
+.dispatch-scroll-area::-webkit-scrollbar-thumb,
+.dispatch-modal__table-wrap::-webkit-scrollbar-thumb,
+#add_mass_notes .modal-body > .table-responsive::-webkit-scrollbar-thumb {
+    background: #0f766e;
+    border: 2px solid #e2e8f0;
+    border-radius: 999px;
+}
+
+#add_mass_notes .modal-content {
+    max-height: calc(100vh - 2rem);
+}
+
+#add_mass_notes .modal-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#add_mass_notes .modal-body > .row {
+    flex: 0 0 auto;
+}
+
+#add_mass_notes .modal-body > .table-responsive thead th {
+    background: #eef2f7;
+    color: #334155;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
 .btn-edp-primary:hover {
     background: $edp-btn-gradiente;
     color: #fff !important;

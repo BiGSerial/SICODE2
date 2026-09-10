@@ -2,18 +2,12 @@
 
 namespace App\Http\Livewire\Protests\Services;
 
-use App\Enum\ProtestJobPriority;
-use App\Enum\ProtestJobStatus;
-use App\Models\Comment;
-use App\Models\EvidenceFile;
-use App\Models\ProtestJob;
-use App\Models\User;
+use App\Enum\{ProtestJobPriority, ProtestJobStatus};
+use App\Models\{Comment, ProtestJob, User};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use Livewire\TemporaryUploadedFile;
+use Livewire\{Component, TemporaryUploadedFile, WithFileUploads};
 
 class ViewUpper extends Component
 {
@@ -73,7 +67,7 @@ class ViewUpper extends Component
             ])
             ->findOrFail($jobId);
 
-        $auth = auth()->user();
+        $auth    = auth()->user();
         $ownerId = $this->job->owner_id;
 
         // Pode gerenciar? Dono do Job OU alguém que enxerga o dono na hierarquia
@@ -127,6 +121,7 @@ class ViewUpper extends Component
     {
         if (!$this->canManageJob) {
             $this->addError('priority', 'Você não tem permissão para alterar a prioridade deste Job.');
+
             return;
         }
 
@@ -143,9 +138,9 @@ class ViewUpper extends Component
         ]);
 
         $this->job->events()->create([
-            'type'        => 'priority_changed',
-            'actor_id'    => optional(auth()->user())->id,
-            'meta'        => [
+            'type'     => 'priority_changed',
+            'actor_id' => optional(auth()->user())->id,
+            'meta'     => [
                 'priority'       => $enum->value,
                 'priority_label' => $enum->label(),
             ],
@@ -166,6 +161,7 @@ class ViewUpper extends Component
     {
         if (!$this->canManageJob) {
             $this->addError('newOwnerId', 'Você não tem permissão para reatribuir este Job.');
+
             return;
         }
 
@@ -178,6 +174,7 @@ class ViewUpper extends Component
         // Mesmo responsável? não faz nada
         if ($this->job->owner_id === $this->newOwnerId) {
             $this->addError('newOwnerId', 'Este usuário já é o responsável atual pelo Job.');
+
             return;
         }
 
@@ -186,6 +183,7 @@ class ViewUpper extends Component
 
         if (!$visibleIds->contains($this->newOwnerId)) {
             $this->addError('newOwnerId', 'O usuário selecionado não está dentro da sua hierarquia visível.');
+
             return;
         }
 
@@ -289,6 +287,7 @@ class ViewUpper extends Component
                 foreach ($this->tempFiles as $index => $existingFile) {
                     if ($existingFile->getClientOriginalName() === $fileName) {
                         unset($this->tempFiles[$index]);
+
                         break;
                     }
                 }
@@ -335,6 +334,7 @@ class ViewUpper extends Component
                 'status'   => 'error',
                 'menssage' => 'MedProtest não encontrado. Não foi possível salvar os arquivos.',
             ]);
+
             return;
         }
 
@@ -343,14 +343,14 @@ class ViewUpper extends Component
                 'status'   => 'warning',
                 'menssage' => 'Nenhum arquivo selecionado para salvar.',
             ]);
+
             return;
         }
 
-        $allowed = $this->filesConfig['allowedTypes'] ?? [];
-        $maxSize = ($this->filesConfig['maxSize'] ?? 10240) * 1024; // bytes
-        $disk    = $this->filesConfig['disk'] ?? 'public';
-        $baseDir = $this->filesConfig['path'] ?? 'protest_attachments';
-        $notaRef = $medProtest->protest->nota ?? $medProtest->id;
+        $allowed   = $this->filesConfig['allowedTypes'] ?? [];
+        $maxSize   = ($this->filesConfig['maxSize'] ?? 10240) * 1024; // bytes
+        $baseDir   = $this->filesConfig['path'] ?? 'protest_attachments';
+        $notaRef   = $medProtest->protest->nota ?? $medProtest->id;
         $targetDir = trim($baseDir . '/' . $notaRef, '/');
 
         /** @var TemporaryUploadedFile $file */
@@ -374,29 +374,14 @@ class ViewUpper extends Component
                 $ext
             );
 
-            $path = $file->storeAs($targetDir, $storedName, $disk);
-
-            $sha256 = null;
-
-            try {
-                $sha256 = hash_file('sha256', $file->getRealPath());
-            } catch (\Throwable $e) {
-                // ignora hash se n�o conseguir ler o arquivo tempor�rio
-            }
-
-            $medProtest->EvidenceFiles()->create([
-                'user_id'       => auth()->id(),
-                'original_name' => $file->getClientOriginalName(),
-                'stored_name'   => $storedName,
-                'disk'          => $disk,
-                'path'          => $path,
-                'mime'          => $file->getClientMimeType(),
-                'extension'     => $ext,
-                'size'          => $size,
-                'sha256'        => $sha256,
-                'origin'        => 'view-upper',
-                'uploaded_at'   => now(),
-            ]);
+            app(EvidenceFileService::class)->store(
+                $medProtest,
+                $file,
+                $targetDir,
+                $storedName,
+                auth()->id(),
+                'view-upper'
+            );
         }
 
         $this->clearAllFiles();
@@ -424,11 +409,7 @@ class ViewUpper extends Component
             return;
         }
 
-        $disk = $file->disk ?? 'public';
-
-        if ($file->path && Storage::disk($disk)->exists($file->path)) {
-            Storage::disk($disk)->delete($file->path);
-        }
+        app(EvidenceFileService::class)->deletePhysical($file);
 
         $file->delete();
 
@@ -454,13 +435,7 @@ class ViewUpper extends Component
             return;
         }
 
-        $disk = $file->disk ?? 'public';
-        $downloadName = $file->original_name ?? $file->stored_name ?? basename($file->path);
-
-        return Storage::disk($disk)->download(
-            $file->path,
-            $downloadName
-        );
+        return app(EvidenceFileService::class)->download($file);
     }
 
     /* Helpers visuais para ícones / tamanho de arquivo
@@ -472,12 +447,12 @@ class ViewUpper extends Component
         $ext = strtolower($extension);
 
         return match ($ext) {
-            'pdf'         => 'bg-danger-subtle text-danger',
+            'pdf' => 'bg-danger-subtle text-danger',
             'doc', 'docx' => 'bg-primary-subtle text-primary',
             'xls', 'xlsx' => 'bg-success-subtle text-success',
             'jpg', 'jpeg', 'png' => 'bg-warning-subtle text-warning',
-            'txt'         => 'bg-secondary-subtle text-secondary',
-            default       => 'bg-light text-muted',
+            'txt'   => 'bg-secondary-subtle text-secondary',
+            default => 'bg-light text-muted',
         };
     }
 
@@ -486,12 +461,12 @@ class ViewUpper extends Component
         $ext = strtolower($extension);
 
         return match ($ext) {
-            'pdf'                   => 'ri-file-pdf-2-line',
-            'doc', 'docx'           => 'ri-file-word-2-line',
-            'xls', 'xlsx'           => 'ri-file-excel-2-line',
-            'jpg', 'jpeg', 'png'    => 'ri-image-2-line',
-            'txt'                   => 'ri-file-text-line',
-            default                 => 'ri-file-3-line',
+            'pdf' => 'ri-file-pdf-2-line',
+            'doc', 'docx' => 'ri-file-word-2-line',
+            'xls', 'xlsx' => 'ri-file-excel-2-line',
+            'jpg', 'jpeg', 'png' => 'ri-image-2-line',
+            'txt'   => 'ri-file-text-line',
+            default => 'ri-file-3-line',
         };
     }
 
@@ -520,6 +495,7 @@ class ViewUpper extends Component
 
         if (!$medProtest) {
             $this->addError('comment', 'MedProtest não encontrado.');
+
             return;
         }
 
@@ -590,8 +566,8 @@ class ViewUpper extends Component
         ]);
 
         return view('livewire.protests.services.view-upper', [
-            'job'           => $job,
-            'canManageJob'  => $this->canManageJob,
+            'job'             => $job,
+            'canManageJob'    => $this->canManageJob,
             'priorityOptions' => $this->priorityOptions,
             'availableUsers'  => $this->availableUsers,
             'tempFiles'       => $this->tempFiles,

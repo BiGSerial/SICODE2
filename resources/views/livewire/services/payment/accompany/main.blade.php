@@ -9,7 +9,7 @@
     @include('livewire.services.partials.user-activity-list-style')
     @include('livewire.services.partials.user-activity-hero', [
         'context' => 'Acompanhamento de produção',
-        'subtitle' => 'Gestão das atividades de pagamento',
+        'subtitle' => 'Gestão das atividades de medição',
         'total' => $lists->total(),
         'accent' => '#0f766e',
     ])
@@ -143,7 +143,7 @@
                                     <th class="align-middle text-center">Município</th>
                                     <th class="align-middle text-center">Data Execução</th>
                                     <th class="align-middle text-center">Data Informe</th>
-                                    <th class="align-middle text-center">Prazo Pagamento</th>
+                                    <th class="align-middle text-center">Prazo Medição</th>
                                     <th class="align-middle text-center">Status</th>
                                     <th class="align-middle text-center"></th>
                                 </tr>
@@ -401,7 +401,7 @@
                                  "
                                         style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
                                         data-bs-trigger="hover focus" data-bs-placement="top"
-                                        data-bs-title="Prazo Pagamento"
+                                        data-bs-title="Prazo Medição"
                                         data-bs-content="
                              <p>A Data Corresponde 40 Parcial</p>
                              <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>

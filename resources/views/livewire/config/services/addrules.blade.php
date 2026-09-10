@@ -27,14 +27,14 @@
                         <label for="email" class="form-label">Contrato</label>
                         <select class="form-select form-select-sm" wire:model="contract_s">
                             @if ($contracts->count())
-                                <option selected>Selecione uma Empresa</option>
+                                <option selected>Selecione um Contrato</option>
                                 @foreach ($contracts as $contract)
-                                    <option value="{{ $contract->id }}">{{ $contract->number }}
-                                        ({{ date('m/y', strToTime($contract->date_end)) }})
+                                    <option value="{{ $contract->id }}">{{ $contract->number ?? '—' }}
+                                        ({{ $contract->date_end ? date('m/y', strtotime($contract->date_end)) : 'sem data' }})
                                     </option>
                                 @endforeach
                             @else
-                                <option selected disabled>Nenhuma empresa com contrato</option>
+                                <option selected disabled>Nenhum contrato para esta empresa</option>
                             @endif
                         </select>
                     </div>

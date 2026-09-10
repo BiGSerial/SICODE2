@@ -5,8 +5,8 @@ namespace App\Http\Livewire\Reports\Concerns;
 use App\Custom\Notestatus;
 use App\Models\File;
 use App\Models\Reclaim;
+use App\Services\Files\FileStorageService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 
 trait LoadsReturnInternDetails
 {
@@ -54,6 +54,8 @@ trait LoadsReturnInternDetails
             ->values()
             ->all();
 
+        $storage = app(FileStorageService::class);
+
         $this->returnDetails = [
             'reclaim_id' => $reclaim->id,
             'note_id' => $note?->id,
@@ -95,7 +97,7 @@ trait LoadsReturnInternDetails
                     'service' => $file->Service?->service ?: 'Sem serviço',
                     'name' => $file->file_name,
                     'extension' => strtoupper($file->ext ?: pathinfo($file->file_name, PATHINFO_EXTENSION)),
-                    'exists' => filled($file->path) && Storage::fileExists($file->path),
+                    'exists' => $storage->exists($file),
                 ])
                 ->values()
                 ->all() ?? [],
@@ -125,7 +127,9 @@ trait LoadsReturnInternDetails
             ->where('note_id', $noteId)
             ->findOrFail($fileId);
 
-        if (blank($file->path) || !Storage::fileExists($file->path)) {
+        $storage = app(FileStorageService::class);
+
+        if (!$storage->exists($file)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon' => 'error',
@@ -142,7 +146,7 @@ trait LoadsReturnInternDetails
             ? $file->file_name
             : $file->file_name.($extension ? '.'.$extension : '');
 
-        return Storage::download($file->path, $downloadName);
+        return $storage->download($file, $downloadName);
     }
 
     protected function returnInternDetailOrigin(Reclaim $reclaim): string

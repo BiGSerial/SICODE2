@@ -10,8 +10,8 @@ use App\Models\User;
 use App\Models\Viability;
 use App\Models\Note;
 use App\Models\HiringWaiting;
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -225,8 +225,10 @@ class Accompany extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         } else {
             $this->dispatchBrowserEvent('swal', [

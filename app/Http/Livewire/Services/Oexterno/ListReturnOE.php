@@ -5,8 +5,8 @@ namespace App\Http\Livewire\Services\Oexterno;
 use App\Models\External;
 use App\Models\File;
 use App\Models\Service;
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Traits\WildcardFormatter;
@@ -92,8 +92,10 @@ class ListReturnOE extends Component
 
     public function downloadFile(File $file)
     {
-        if ($file && Storage::exists($file->path)) {
-            return Storage::download($file->path);
+        $storage = app(FileStorageService::class);
+
+        if ($file && $storage->exists($file)) {
+            return $storage->download($file);
         }
 
         $this->dispatchBrowserEvent('swal', [

@@ -16,6 +16,24 @@
                             {{ $production->priority ? 'Remover' : '' }} Prioridade
                         </a>
                     </li>
+                    @if ($production->priority)
+                        <li>
+                            <a class="dropdown-item" href="#"
+                                wire:click.prevent="$emitTo('components.modal.priority', 'infoPriority', {{ $production->id }})">
+                                <i class="ri-file-info-line text-primary align-middle"></i>
+                                Ver Prioridade
+                            </a>
+                        </li>
+                    @endif
+                @endif
+                @if ($production->d5)
+                    <li>
+                        <a class="dropdown-item" href="#"
+                            wire:click.prevent="$emitTo('dispatchs.common.reclaim-info', 'getInfoByProduction', {{ $production->id }})">
+                            <i class="ri-loop-left-line text-primary align-middle"></i>
+                            Ver Retorno Interno
+                        </a>
+                    </li>
                 @endif
                 <li>
                     @if (!$production->completed && $production->user_id)
@@ -75,5 +93,6 @@
         @livewire('production.actions.to-return', key('to_return_note'))
         @livewire('production.actions.to-remove', key('to_remove_note'))
         @livewire('production.actions.to-remove-transfer', key('to_remove_transfer_note'))
+        @livewire('dispatchs.common.reclaim-info', key('reclaim_info_production_action'))
     @endonce
 </div>

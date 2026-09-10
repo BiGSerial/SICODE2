@@ -191,15 +191,15 @@
                                                         $production = $flowProduction->Production;
                                                         $stageLabel = match ($flowProduction->stage) {
                                                             \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION => 'Fiscalização',
-                                                            \App\Models\WorkReportFlowProduction::STAGE_PAYMENT => 'Pagamento',
+                                                            \App\Models\WorkReportFlowProduction::STAGE_PAYMENT => 'Medição',
                                                             default => mb_strtoupper($flowProduction->stage ?? '-'),
                                                         };
                                                         $sourceLabel = match ($flowProduction->source) {
                                                             'retrofill_inference' => 'Retrofill',
                                                             'dispatch_supervision_main' => 'Despacho Fiscalização',
-                                                            'dispatch_payment_main' => 'Despacho Pagamento',
-                                                            'dispatch_payment_stack' => 'Pilha Pagamento',
-                                                            'services_payment_self_assign' => 'Autoatribuição Pagamento',
+                                                            'dispatch_payment_main' => 'Despacho Medição',
+                                                            'dispatch_payment_stack' => 'Pilha Medição',
+                                                            'services_payment_self_assign' => 'Autoatribuição Medição',
                                                             default => $flowProduction->source ?: '-',
                                                         };
                                                     @endphp
@@ -308,7 +308,7 @@
                                                                         data-preview-carousel="#{{ $modalScope }}-preview-carousel"
                                                                         data-preview-index="{{ $previewIndex }}">
                                                                         @if ($hasPreviewImage)
-                                                                            <img src="{{ route('files.preview', ['file' => $file->id]) }}"
+                                                                        <img src="{{ route('files.preview', ['file' => $file->id, 'thumbnail' => 1]) }}"
                                                                                 alt="{{ $file->file_name }}" loading="lazy"
                                                                                 onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
                                                                             <span class="work-thumb-placeholder d-none">SEM IMAGEM</span>

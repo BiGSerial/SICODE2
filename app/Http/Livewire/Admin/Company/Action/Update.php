@@ -2,21 +2,14 @@
 
 namespace App\Http\Livewire\Admin\Company\Action;
 
-use App\Exports\Admin\Company\UserRegistrationWorkbookExport;
-use App\Exports\Admin\Company\UserRegistrationErrorsExport;
-use App\Models\Andresscompany;
-use App\Models\Centerjob;
-use App\Models\Company;
-use App\Models\Contract;
-use App\Models\PartnerCompanyPermissionGrant;
-use App\Models\Service;
+use App\Exports\Admin\Company\{UserRegistrationErrorsExport, UserRegistrationWorkbookExport};
+use App\Models\{Andresscompany, Centerjob, Company, Contract, PartnerCompanyPermissionGrant, Service};
 use App\Services\Admin\Company\UserRegistrationWorkbookService;
+use App\Services\Files\EntityImageService;
 use App\Services\PartnerAccess\PartnerPermissionCatalog;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 use Maatwebsite\Excel\Facades\Excel;
 
 class Update extends Component
@@ -24,32 +17,59 @@ class Update extends Component
     use WithFileUploads;
 
     public $photo0;
+
     public $photo1;
+
     public $photo2;
+
     public $photo3;
+
     public ?Company $company = null;
+
     public $addresses = [];
+
     public ?Andresscompany $newAddress = null;
+
     public ?Centerjob $centerjob = null;
+
     public ?Contract $contractForm = null;
+
     public $contractNumber = '';
+
     public $contractDateEnd = '';
+
     public $contractService = false;
+
     public $contractConstruction = false;
+
     public $contractSelectedServices = [];
+
     public $contractServiceDispatch = [];
+
     public $contractActivitySearch = '';
+
     public $showContractForm = false;
+
     public $contractDeleteId;
+
     public $branchName = '';
+
     public $branchEmail = '';
+
     public $branchTelephone = '';
+
     public $showBranchForm = false;
+
     public $branchSearch = '';
+
     public $branchAttachId = '';
+
     public $registrationWorkbook;
+
     public array $registrationValidation = [];
+
     public array $partnerGrantPermissions = [];
+
     public bool $partnerGrantConfigured = false;
 
     protected $listeners = [
@@ -58,30 +78,28 @@ class Update extends Component
         'confirm_remove_company_contract' => 'removeContractConfirmed',
     ];
 
-
-
     protected $rules = [
-        'company.name' => 'required|string|max:255',
-        'company.email' => 'required|email',
-        'company.telephone' => 'required|string',
+        'company.name'                         => 'required|string|max:255',
+        'company.email'                        => 'required|email',
+        'company.telephone'                    => 'required|string',
         'company.partner_user_inactivity_days' => 'nullable|integer|min:1|max:3650',
-        'addresses' => 'nullable|array',
-        'addresses.*.street' => 'nullable|string',
-        'addresses.*.city' => 'nullable|string',
-        'addresses.*.uf' => 'nullable|string|size:2',
-        'addresses.*.complement' => 'nullable|string',
-        'newAddress.street' => 'nullable|string',
-        'newAddress.city' => 'nullable|string',
-        'newAddress.uf' => 'nullable|string|size:2',
-        'newAddress.complement' => 'nullable|string',
-        'centerjob.center' => 'nullable|string',
-        'centerjob.deposit' => 'nullable|string',
-        'centerjob.centerjob' => 'nullable|string',
-        'photo0' => 'nullable|image|max:2048',
-        'photo1' => 'nullable|image|max:2048',
-        'photo2' => 'nullable|image|max:2048',
-        'photo3' => 'nullable|image|max:2048',
-        'registrationWorkbook' => 'nullable|file|mimes:xlsx,xls|max:10240',
+        'addresses'                            => 'nullable|array',
+        'addresses.*.street'                   => 'nullable|string',
+        'addresses.*.city'                     => 'nullable|string',
+        'addresses.*.uf'                       => 'nullable|string|size:2',
+        'addresses.*.complement'               => 'nullable|string',
+        'newAddress.street'                    => 'nullable|string',
+        'newAddress.city'                      => 'nullable|string',
+        'newAddress.uf'                        => 'nullable|string|size:2',
+        'newAddress.complement'                => 'nullable|string',
+        'centerjob.center'                     => 'nullable|string',
+        'centerjob.deposit'                    => 'nullable|string',
+        'centerjob.centerjob'                  => 'nullable|string',
+        'photo0'                               => 'nullable|image|max:2048',
+        'photo1'                               => 'nullable|image|max:2048',
+        'photo2'                               => 'nullable|image|max:2048',
+        'photo3'                               => 'nullable|image|max:2048',
+        'registrationWorkbook'                 => 'nullable|file|mimes:xlsx,xls|max:10240',
     ];
 
     public function mount()
@@ -91,36 +109,40 @@ class Update extends Component
         }
     }
 
-
     public function title_img($id)
     {
         switch ($id) {
             case '0':
                 return (object) [
                     'title' => 'Logo para Fundo Claro',
-                    'name' => 'img_w_path',
+                    'name'  => 'img_w_path',
                 ];
+
                 break;
             case '1':
                 return (object) [
                     'title' => 'Logo para Fundo Escuro',
-                    'name' => 'img_b_path',
+                    'name'  => 'img_b_path',
                 ];
+
                 break;
             case '2':
                 return (object) [
                     'title' => 'Logo para Reduzido Fundo Claro',
-                    'name' => 'img_rw_path',
+                    'name'  => 'img_rw_path',
                 ];
+
                 break;
             case '3':
                 return (object) [
                     'title' => 'Logo para Reduzido Fundo Escuro',
-                    'name' => 'img_rb_path',
+                    'name'  => 'img_rb_path',
                 ];
+
                 break;
             default:
                 return 'ERROR';
+
                 break;
         }
     }
@@ -128,12 +150,12 @@ class Update extends Component
     public function openModal(Company $company)
     {
 
-        $this->company = $company->load('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services');
+        $this->company   = $company->load('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services');
         $this->addresses = $this->company->Address;
-        $this->photo0 = null;
-        $this->photo1 = null;
-        $this->photo2 = null;
-        $this->photo3 = null;
+        $this->photo0    = null;
+        $this->photo1    = null;
+        $this->photo2    = null;
+        $this->photo3    = null;
         $this->resetContractForm();
         $this->resetBranchForm();
         $this->loadPartnerGrantPermissions();
@@ -156,7 +178,6 @@ class Update extends Component
 
     }
 
-
     public function cancelAddress()
     {
         $this->newAddress = null;
@@ -166,12 +187,11 @@ class Update extends Component
     {
         try {
             $this->validate([
-                'newAddress.street' => 'nullable|string',
-                'newAddress.city' => 'nullable|string',
-                'newAddress.uf' => 'nullable|string|size:2',
-                'newAddress.complement' => 'nullable|string'
+                'newAddress.street'     => 'nullable|string',
+                'newAddress.city'       => 'nullable|string',
+                'newAddress.uf'         => 'nullable|string|size:2',
+                'newAddress.complement' => 'nullable|string',
             ]);
-
 
         } catch (ValidationException $e) {
             dd($e->errors());
@@ -186,7 +206,6 @@ class Update extends Component
                 $this->emitSelf('refreshlist');
             }
         }
-
 
     }
 
@@ -212,17 +231,17 @@ class Update extends Component
     public function saveCenterjob()
     {
         $this->validate([
-            'centerjob.center' => 'nullable|string',
-            'centerjob.deposit' => 'nullable|string',
+            'centerjob.center'    => 'nullable|string',
+            'centerjob.deposit'   => 'nullable|string',
             'centerjob.centerjob' => 'nullable|string',
         ]);
 
         if ($this->centerjob) {
 
             $this->centerjob->company_id = $this->company->id;
-            $this->centerjob->center = strtoupper(trim($this->centerjob->center));
-            $this->centerjob->deposit = strtoupper(trim($this->centerjob->deposit));
-            $this->centerjob->centerjob = strtoupper(trim($this->centerjob->centerjob));
+            $this->centerjob->center     = strtoupper(trim($this->centerjob->center));
+            $this->centerjob->deposit    = strtoupper(trim($this->centerjob->deposit));
+            $this->centerjob->centerjob  = strtoupper(trim($this->centerjob->centerjob));
 
             if ($this->centerjob->save()) {
                 $this->centerjob = null;
@@ -230,7 +249,6 @@ class Update extends Component
                 $this->emitSelf('refreshlist');
             }
         }
-
 
     }
 
@@ -246,18 +264,18 @@ class Update extends Component
     public function newContract()
     {
         $this->resetContractForm();
-        $this->contractForm = new Contract();
-        $this->contractService = true;
+        $this->contractForm     = new Contract();
+        $this->contractService  = true;
         $this->showContractForm = true;
     }
 
     public function editContract(Contract $contract)
     {
-        $this->contractForm = $contract->load('services');
-        $this->contractNumber = $contract->number;
-        $this->contractDateEnd = $contract->date_end;
-        $this->contractService = (bool) $contract->service;
-        $this->contractConstruction = (bool) $contract->construction;
+        $this->contractForm             = $contract->load('services');
+        $this->contractNumber           = $contract->number;
+        $this->contractDateEnd          = $contract->date_end;
+        $this->contractService          = (bool) $contract->service;
+        $this->contractConstruction     = (bool) $contract->construction;
         $this->contractSelectedServices = $contract->services
             ->pluck('id')
             ->map(fn ($id) => (string) $id)
@@ -395,10 +413,10 @@ class Update extends Component
         $parentId = $this->company->parent_id ?: $this->company->id;
 
         Company::create([
-            'parent_id'  => $parentId,
-            'name'       => ucwords(mb_strtolower($this->branchName)),
-            'email'      => $this->branchEmail,
-            'telephone'  => $this->branchTelephone,
+            'parent_id' => $parentId,
+            'name'      => ucwords(mb_strtolower($this->branchName)),
+            'email'     => $this->branchEmail,
+            'telephone' => $this->branchTelephone,
         ]);
 
         $this->reloadCompany();
@@ -429,7 +447,7 @@ class Update extends Component
         $branch->save();
 
         $this->branchAttachId = '';
-        $this->branchSearch = '';
+        $this->branchSearch   = '';
         $this->reloadCompany();
         $this->emitUp('refresh_table_company');
 
@@ -447,7 +465,7 @@ class Update extends Component
             return null;
         }
 
-        $root = $this->company->parent ?: $this->company;
+        $root     = $this->company->parent ?: $this->company;
         $filename = 'ficha-cadastro-usuarios-' . Str::slug($root->name) . '-' . now()->format('Ymd-His') . '.xlsx';
 
         error_reporting(error_reporting() & ~E_DEPRECATED);
@@ -461,8 +479,8 @@ class Update extends Component
             'registrationWorkbook' => 'required|file|mimes:xlsx,xls|max:10240',
         ]);
 
-        $service = app(UserRegistrationWorkbookService::class);
-        $path = $this->registrationWorkbook->store('tmp/user-registration-workbooks');
+        $service                      = app(UserRegistrationWorkbookService::class);
+        $path                         = $this->registrationWorkbook->store('tmp/user-registration-workbooks');
         $this->registrationValidation = $service->validate($this->company, $path, 'local');
 
         $summary = $this->registrationValidation['summary'] ?? [];
@@ -477,7 +495,7 @@ class Update extends Component
                 $summary['units_valid'] ?? 0,
                 $summary['units_invalid'] ?? 0
             ),
-            'timer'    => 4000,
+            'timer' => 4000,
         ]);
     }
 
@@ -501,10 +519,10 @@ class Update extends Component
             return;
         }
 
-        $service = app(UserRegistrationWorkbookService::class);
-        $result = $service->processValid($this->company, $this->registrationValidation);
+        $service                      = app(UserRegistrationWorkbookService::class);
+        $result                       = $service->processValid($this->company, $this->registrationValidation);
         $this->registrationValidation = [];
-        $this->registrationWorkbook = null;
+        $this->registrationWorkbook   = null;
         $this->reloadCompany();
         $this->emitUp('refresh_table_company');
 
@@ -519,7 +537,7 @@ class Update extends Component
                 $result['updatedUsers'] ?? 0,
                 $result['removedUsers'] ?? 0
             ),
-            'timer'    => 4500,
+            'timer' => 4500,
         ]);
     }
 
@@ -539,13 +557,12 @@ class Update extends Component
     public function save()
     {
         $this->validate([
-            'photo0' => 'nullable|image|max:2048',
-            'photo1' => 'nullable|image|max:2048',
-            'photo2' => 'nullable|image|max:2048',
-            'photo3' => 'nullable|image|max:2048',
+            'photo0'                               => 'nullable|image|max:2048',
+            'photo1'                               => 'nullable|image|max:2048',
+            'photo2'                               => 'nullable|image|max:2048',
+            'photo3'                               => 'nullable|image|max:2048',
             'company.partner_user_inactivity_days' => 'nullable|integer|min:1|max:3650',
         ]);
-
 
         if ($this->company) {
             $this->company->partner_user_inactivity_days = $this->company->partner_user_inactivity_days ?: null;
@@ -555,21 +572,19 @@ class Update extends Component
                 $photo = $this->title_img($i);
 
                 if ($this->{"photo$i"}) {
+                    $images = app(EntityImageService::class);
 
-                    if ($this->company->{$photo->name} && Storage::disk('public')->exists($this->company->{$photo->name})) {
-                        Storage::disk('public')->delete($this->company->{$photo->name});
+                    if ($this->company->{$photo->name}) {
+                        $images->delete($this->company->{$photo->name});
                     }
 
-                    $extension = $this->{"photo$i"}->getClientOriginalExtension();
-                    $originalName = pathinfo($this->{"photo$i"}->getClientOriginalName(), PATHINFO_FILENAME);
-                    $filename = Str::slug($originalName) . '-' . now()->format('YmdHis') . '.' . $extension;
-                    $folder = 'logos/' . $this->company->id;
-                    $this->company->{$photo->name} = $this->{"photo$i"}->storeAs($folder, $filename, 'public');
+                    $extension                     = $this->{"photo$i"}->getClientOriginalExtension();
+                    $originalName                  = pathinfo($this->{"photo$i"}->getClientOriginalName(), PATHINFO_FILENAME);
+                    $filename                      = Str::slug($originalName) . '-' . now()->format('YmdHis') . '.' . $extension;
+                    $folder                        = 'logos/' . $this->company->id;
+                    $this->company->{$photo->name} = $images->store($this->{"photo$i"}, $folder, $filename);
                 }
             }
-
-
-
 
             $this->company->save();
             $this->reloadCompany();
@@ -588,13 +603,10 @@ class Update extends Component
         }
 
         $column = $this->title_img($index)->name;
-        $path = $this->company?->{$column};
+        $path   = $this->company?->{$column};
+        $url    = app(EntityImageService::class)->url($path);
 
-        if ($path && Storage::disk('public')->exists($path)) {
-            return Storage::disk('public')->url($path);
-        }
-
-        return asset('img/edp-img/edp-avatar.jpg');
+        return $url ?: asset('img/edp-img/edp-avatar.jpg');
     }
 
     public function permissionInputKey(string $permissionKey): string
@@ -602,12 +614,11 @@ class Update extends Component
         return str_replace('.', '__', $permissionKey);
     }
 
-
     public function render()
     {
         return view('livewire.admin.company.action.update', [
             'partnerPermissionCatalog' => PartnerPermissionCatalog::groups(),
-            'services_l' => Service::query()
+            'services_l'               => Service::query()
                 ->when($this->contractService && !$this->contractConstruction, fn ($q) => $q->where('project', true))
                 ->when($this->contractConstruction && !$this->contractService, fn ($q) => $q->where('construction', true))
                 ->when($this->contractActivitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
@@ -644,15 +655,15 @@ class Update extends Component
 
     private function resetContractForm(): void
     {
-        $this->contractForm = null;
-        $this->contractNumber = '';
-        $this->contractDateEnd = '';
-        $this->contractService = false;
-        $this->contractConstruction = false;
+        $this->contractForm             = null;
+        $this->contractNumber           = '';
+        $this->contractDateEnd          = '';
+        $this->contractService          = false;
+        $this->contractConstruction     = false;
         $this->contractSelectedServices = [];
-        $this->contractServiceDispatch = [];
-        $this->contractActivitySearch = '';
-        $this->showContractForm = false;
+        $this->contractServiceDispatch  = [];
+        $this->contractActivitySearch   = '';
+        $this->showContractForm         = false;
     }
 
     private function reloadCompany(): void
@@ -661,19 +672,19 @@ class Update extends Component
             return;
         }
 
-        $this->company = Company::with('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services')->find($this->company->id);
+        $this->company   = Company::with('parent', 'branches.Address', 'branches.contracts.services', 'Address', 'Centerjobs', 'contracts.services')->find($this->company->id);
         $this->addresses = $this->company?->Address ?? [];
         $this->loadPartnerGrantPermissions();
     }
 
     private function resetBranchForm(): void
     {
-        $this->branchName = '';
-        $this->branchEmail = '';
+        $this->branchName      = '';
+        $this->branchEmail     = '';
         $this->branchTelephone = '';
-        $this->showBranchForm = false;
-        $this->branchSearch = '';
-        $this->branchAttachId = '';
+        $this->showBranchForm  = false;
+        $this->branchSearch    = '';
+        $this->branchAttachId  = '';
     }
 
     private function loadPartnerGrantPermissions(): void
@@ -681,7 +692,7 @@ class Update extends Component
         $root = $this->partnerPermissionCompany();
 
         if (!$root) {
-            $this->partnerGrantConfigured = false;
+            $this->partnerGrantConfigured  = false;
             $this->partnerGrantPermissions = [];
 
             return;
@@ -692,12 +703,12 @@ class Update extends Component
             ->get()
             ->keyBy('permission_key');
 
-        $this->partnerGrantConfigured = $grants->isNotEmpty();
+        $this->partnerGrantConfigured  = $grants->isNotEmpty();
         $this->partnerGrantPermissions = [];
 
         foreach (PartnerPermissionCatalog::allPermissionKeys() as $permissionKey) {
             $this->partnerGrantPermissions[$this->permissionInputKey($permissionKey)] = $this->partnerGrantConfigured
-                ? (bool) ($grants->get($permissionKey)?->enabled ?? false)
+                ? (bool) ($grants->get($permissionKey)?->enabled ?? PartnerPermissionCatalog::defaultsToEnabled($permissionKey))
                 : true;
         }
     }
@@ -713,12 +724,12 @@ class Update extends Component
         foreach (PartnerPermissionCatalog::allPermissionKeys() as $permissionKey) {
             PartnerCompanyPermissionGrant::query()->updateOrCreate(
                 [
-                    'company_id' => $root->id,
+                    'company_id'     => $root->id,
                     'permission_key' => $permissionKey,
                 ],
                 [
                     'scope_type' => array_key_exists($permissionKey, PartnerPermissionCatalog::groups()) ? 'group' : 'item',
-                    'enabled' => (bool) ($this->partnerGrantPermissions[$this->permissionInputKey($permissionKey)] ?? false),
+                    'enabled'    => (bool) ($this->partnerGrantPermissions[$this->permissionInputKey($permissionKey)] ?? false),
                 ]
             );
         }

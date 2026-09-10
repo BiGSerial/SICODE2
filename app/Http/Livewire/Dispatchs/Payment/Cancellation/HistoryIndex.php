@@ -2,15 +2,13 @@
 
 namespace App\Http\Livewire\Dispatchs\Payment\Cancellation;
 
-use App\Jobs\Dispatchs\ExportCancellationHistoryJob;
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
 use App\Enum\CancellationRequestStatus;
+use App\Jobs\Dispatchs\ExportCancellationHistoryJob;
+use App\Models\{CancellationRequest, EvidenceFile};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HistoryIndex extends Component
@@ -21,10 +19,15 @@ class HistoryIndex extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $service;
+
     public string $multiSearch = '';
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
     public ?string $status = null;
+
     public ?CancellationRequest $noteDetail = null;
 
     public function mount(string $service): void
@@ -46,7 +49,7 @@ class HistoryIndex extends Component
         ExportCancellationHistoryJob::dispatch($this->exportPayload(), (string) Auth::id());
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Exportação iniciada. Você será notificado quando concluir.',
         ]);
     }
@@ -55,10 +58,10 @@ class HistoryIndex extends Component
     {
         return [
             'service_uuid' => $this->service,
-            'multiSearch' => $this->parseMultiSearch(),
-            'dateFrom' => $this->dateFrom,
-            'dateTo' => $this->dateTo,
-            'status' => $this->status,
+            'multiSearch'  => $this->parseMultiSearch(),
+            'dateFrom'     => $this->dateFrom,
+            'dateTo'       => $this->dateTo,
+            'status'       => $this->status,
         ];
     }
 
@@ -94,11 +97,14 @@ class HistoryIndex extends Component
         $this->authorize('viewQueue', CancellationRequest::class);
 
         $file = EvidenceFile::findOrFail($fileId);
+
         if ($file->evidenciable_type !== CancellationRequest::class) {
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     public function render()

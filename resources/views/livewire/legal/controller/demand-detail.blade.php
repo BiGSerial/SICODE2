@@ -1713,7 +1713,7 @@
                                                 @foreach($subFiles as $f)
                                                     @php
                                                         $fp = $f->path ?? $f->file_path ?? null;
-                                                        $fu = $fp ? \Illuminate\Support\Facades\Storage::url($fp) : null;
+                                                        $fu = $f->storageUrl();
                                                         $fn = $f->original_name ?? ($fp ? basename($fp) : 'Arquivo');
                                                     @endphp
                                                     @if($fu)
@@ -1789,7 +1789,8 @@
                             @foreach($imageFiles as $index => $file)
                                 @php
                                     $fp  = $file->path ?? $file->file_path ?? null;
-                                    $fu  = $fp ? \Illuminate\Support\Facades\Storage::url($fp) : null;
+                                    $fu  = $file->storageUrl();
+                                    $fd  = $file->storageUrl(true);
                                     $fn  = $file->original_name ?? ($fp ? basename($fp) : 'Imagem');
                                     $vis = $file->visibility ?? 'controller';
                                     $fileType = $file->legalDemand?->source_type instanceof \BackedEnum ? $file->legalDemand->source_type->value : (string) ($file->legalDemand?->source_type ?? '');
@@ -1807,7 +1808,7 @@
                                                 {{ $vis === 'controller' ? '🔒 Interno' : '👁 Compartilhado' }}
                                             </span>
                                         </div>
-                                        <a href="{{ $fu }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1" style="font-size:11px;padding:2px 8px">
+                                        <a href="{{ $fd ?? $fu }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1" style="font-size:11px;padding:2px 8px">
                                             <i class="bi bi-download me-1"></i>Baixar
                                         </a>
                                     </div>
@@ -1823,7 +1824,8 @@
                         @foreach($otherFiles as $file)
                             @php
                                 $fp  = $file->path ?? $file->file_path ?? null;
-                                $fu  = $fp ? \Illuminate\Support\Facades\Storage::url($fp) : null;
+                                $fu  = $file->storageUrl();
+                                $fd  = $file->storageUrl(true);
                                 $fn  = $file->original_name ?? ($fp ? basename($fp) : 'Arquivo');
                                 $ext = strtolower(pathinfo($fn, PATHINFO_EXTENSION));
                                 $vis = $file->visibility ?? 'controller';
@@ -1843,7 +1845,7 @@
                                         {{ $vis === 'controller' ? '🔒 Interno' : '👁 Compartilhado' }}
                                     </span>
                                     <div class="d-flex gap-2">
-                                        <a href="{{ $fu }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Baixar</a>
+                                        <a href="{{ $fd ?? $fu }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Baixar</a>
                                         @if(($file->uploaded_by ?? null) === auth()->id())
                                             <button class="btn btn-sm btn-outline-danger" wire:click="removeFile({{ $file->id }})"><i class="bi bi-trash"></i></button>
                                         @endif
@@ -2328,7 +2330,7 @@
                         <div id="filesCarousel" class="carousel slide" data-bs-ride="false">
                             <div class="carousel-inner">
                                 @foreach($imageFiles as $index => $file)
-                                    @php $fp = $file->path ?? $file->file_path ?? null; $fu = $fp ? \Illuminate\Support\Facades\Storage::url($fp) : null; @endphp
+                                    @php $fp = $file->path ?? $file->file_path ?? null; $fu = $file->storageUrl(); $fd = $file->storageUrl(true); @endphp
                                     @if($fu)
                                         <div class="carousel-item @if($index === 0) active @endif">
                                             <div class="text-center">
@@ -2336,7 +2338,7 @@
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center mt-2">
                                                 <div class="small text-muted">{{ $file->original_name ?? basename($fp) }}</div>
-                                                <a href="{{ $fu }}" target="_blank" class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Baixar</a>
+                                                <a href="{{ $fd ?? $fu }}" target="_blank" class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Baixar</a>
                                             </div>
                                         </div>
                                     @endif

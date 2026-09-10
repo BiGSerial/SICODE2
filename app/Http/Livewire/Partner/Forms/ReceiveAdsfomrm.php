@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Partner\Forms;
 
 use App\Custom\Partial\{Ads};
 use App\Models\{File, Note};
+use App\Services\Files\FileUploadService;
 use App\Traits\WithFileUploadProcessing;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads};
@@ -371,29 +372,22 @@ class ReceiveAdsfomrm extends Component
             $this->lateDeliveryAfterSubmit = $lateDeliveryMessage;
 
             if ($adsForm) {
-                $caminho = $this->file->storeAs('/arquivos/ADS_FINAL/', $newName . '.' . $this->file->getClientOriginalExtension());
+                try {
+                    $file = app(FileUploadService::class)->create(
+                        $this->file,
+                        $this->note,
+                        '/arquivos/ADS_FINAL/',
+                        $newName,
+                        $this->file->getClientOriginalExtension(),
+                        ['service_id' => null],
+                    );
 
-                if (Storage::exists($caminho)) {
-                    $file = File::create([
-                        'note_id'       => $this->note->id,
-                        'user_id'       => Auth()->User()->id,
-                        'service_id'    => null,
-                        'file_name'     => $newName,
-                        'original_name' => $this->file->getClientOriginalName(),
-                        'path'          => $caminho,
-                        'ext'           => $this->file->getClientOriginalExtension(),
-                        'suspicious'    => false,
-                        'noexists'      => false,
-                    ]);
+                    $adsForm->files()->attach($file->id);
 
-                    if ($file) {
-                        $adsForm->files()->attach($file->id);
-
-                        if ($this->hasFile) {
-                            $this->emitTo('files.manager.create-ads-files', 'saveFiles');
-                        }
+                    if ($this->hasFile) {
+                        $this->emitTo('files.manager.create-ads-files', 'saveFiles');
                     }
-                } else {
+                } catch (\Throwable) {
                     DB::rollback();
 
                     $this->dispatchBrowserEvent('swal', [

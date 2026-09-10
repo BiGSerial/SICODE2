@@ -6,8 +6,8 @@ use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
 use App\Support\SicodeRules;
+use App\Services\Files\FileStorageService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -21,6 +21,7 @@ class Main extends Component
     public $service;           // Service (objeto)
     public $perPage = 30;
     public $search;
+    public $note_type = '';
 
     public $rubrica_s = [];
     public $limit_pause = 50;
@@ -74,6 +75,7 @@ class Main extends Component
             'request_user_id' => auth()->id(),
             'target_user_id'  => $this->user_s ?: auth()->id(),
             'search'          => $this->search,
+            'note_type'       => $this->note_type,
         ]);
 
         $this->dispatchBrowserEvent('swal', [
@@ -176,6 +178,11 @@ class Main extends Component
         $this->emit('refresh_service');
     }
 
+    public function updatedNoteType()
+    {
+        $this->resetPage();
+    }
+
     public function filter_clean()
     {
         $this->rubrica_s = [];
@@ -188,8 +195,10 @@ class Main extends Component
             return;
         }
 
-        if (Storage::disk('local')->exists($file->path)) {
-            return Storage::download($file->path, $file->file_name);
+        $storage = app(FileStorageService::class);
+
+        if ($storage->exists($file)) {
+            return $storage->download($file, $file->file_name);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -219,7 +228,7 @@ class Main extends Component
 
         return Production::query()
                     ->with([
-                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status',
+                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
                 // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
                 'Note.WorkForm:id,note_id,informed_at,rejected',
                 'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
@@ -254,6 +263,9 @@ class Main extends Component
                     $sub->whereRelation('Note', 'note', 'like', "%{$search}%")
                         ->orWhereRelation('Note', 'material', 'like', "%{$search}%");
                 });
+            })
+            ->when($this->note_type, function (Builder $q, $noteType) {
+                $q->whereRelation('Note', 'type_note', $noteType);
             })
             ->when(!empty($cityFilter), function (Builder $q) use ($cityFilter) {
                 $q->whereHas('Note', function (Builder $noteQuery) use ($cityFilter) {

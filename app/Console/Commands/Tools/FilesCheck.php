@@ -3,8 +3,8 @@
 namespace App\Console\Commands\Tools;
 
 use App\Models\File;
+use App\Services\Files\FileStorageService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 
 class FilesCheck extends Command
 {
@@ -29,10 +29,10 @@ class FilesCheck extends Command
     {
         $files = File::all();
         $missingFiles = [];
-
+        $storage = app(FileStorageService::class);
 
         foreach ($files as $file) {
-            if (!Storage::exists($file->path)) {
+            if (!$storage->exists($file)) {
 
                 $missingFiles[] = $file->path;
                 $this->warn("Arquivo inexistente: {$file->file_name} - Caminho: {$file->path}");

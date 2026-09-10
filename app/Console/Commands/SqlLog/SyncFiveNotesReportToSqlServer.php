@@ -394,7 +394,7 @@ class SyncFiveNotesReportToSqlServer extends Command
             return [
                 'key' => 'aguardando_geracao_d5',
                 'phase_key' => 'pagamento',
-                'phase_label' => 'Pagamento',
+                'phase_label' => 'Medição',
                 'status_label' => 'Aguardando Geracao de D5',
             ];
         }
@@ -403,8 +403,8 @@ class SyncFiveNotesReportToSqlServer extends Command
             return [
                 'key' => 'aguardando_pagamento',
                 'phase_key' => 'pagamento',
-                'phase_label' => 'Pagamento',
-                'status_label' => 'Aguardando Pagamento',
+                'phase_label' => 'Medição',
+                'status_label' => 'Aguardando Medição',
             ];
         }
 

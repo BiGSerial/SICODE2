@@ -97,6 +97,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
     Route::get('/acceptance-terms', 'acceptanceTerms')->middleware('can:superadm')->name('acceptance_terms');
+    Route::get('/analysis-closure-rules', 'analysisClosureRules')->middleware('can:superadm')->name('analysis_closure_rules');
     Route::get('/partner-dashboard-legal-notes', 'partnerDashboardLegalNotes')->middleware('can:superadm')->name('partner_dashboard_legal_notes');
     Route::prefix('/system')->name('system.')->group(function () {
         Route::get('/jobs_view', 'jobs_view')->name('jobs_view');
@@ -387,7 +388,7 @@ Route::prefix('/partner/admin')
 
 Route::prefix('/partner')->controller(PartnerController::class)->name('partner.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->middleware('partner.permission:portal.access')->name('main.viability');
-    Route::get('/search-notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes');
+    Route::get('/search-notes', 'searchNotes')->middleware('partner.permission:portal.search_notes')->name('search.notes');
     Route::get('/todo-viability', 'viability')->middleware('partner.permission:viability.list')->name('todo.viability');
     // Route::get('/hired-viability', 'hired_viability')->name('hired.viability');
     Route::get('/historic-viability', 'historic_viab')->middleware('partner.permission:viability.history')->name('hist.viability');
@@ -402,7 +403,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/partialreportlist', 'partialreportlist')->middleware('partner.permission:partial_reports.list')->name('report.partiallist');
     Route::get('/send_ads_form', 'sendAdsForm')->middleware('partner.permission:conclusion_reports.ads_delivery')->name('report.sendAdsForm');
     Route::get('/ads_requests', 'adsRequests')->middleware('partner.permission:conclusion_reports.ads_requests')->name('ads.requests');
-    Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:viability.search_notes')->name('search.notes.legacy');
+    Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:portal.search_notes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
         Route::get('/list', 'partner_d5_list')->middleware('partner.permission:d5_notes.list')->name('list');
@@ -494,6 +495,7 @@ Route::prefix('juridico')->name('legal.')->middleware(['auth'])->controller(\App
     Route::get('/fila', 'queue')->name('queue');
     Route::get('/triagem', 'triage')->name('triage');
     Route::get('/demanda/{uuid}', 'demandDetail')->name('demand.detail');
+    Route::get('/arquivo/{file}', 'file')->name('file.show');
     Route::get('/subdemanda/{uuid}', 'subdemandDetail')->name('subdemand.detail');
     Route::get('/subdemandas/monitor', 'subdemandMonitor')->name('subdemand.monitor');
 
@@ -530,5 +532,8 @@ Route::prefix('juridico/externo')->name('legal.external.')->controller(\App\Http
     Route::get('/subdemanda/{token}', 'subdemandResponseExternal')
         ->middleware(['throttle:60,1'])
         ->name('subdemand.response');
+    Route::get('/arquivo/{file}', 'file')
+        ->middleware(['signed', 'throttle:60,1'])
+        ->name('file.show');
     Route::get('/expirado', 'externalExpired')->name('expired');
 });

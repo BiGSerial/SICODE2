@@ -147,7 +147,7 @@ class PartialHist extends Component
                 ];
             } elseif ($partial->supervision && !$partial->payment) {
                 $status = [
-                    'status' => 'EM PAGAMENTO',
+                    'status' => 'EM MEDIÇÃO',
                     'color' => 'text-bg-info',
                 ];
             } elseif ($partial->allow && !$partial->supervision) {
@@ -239,7 +239,7 @@ class PartialHist extends Component
             'companies' => $service->companyOptions(),
             'statuses' => [
                 PartialHistoryService::STATUS_SUPERVISION => 'EM FISCALIZAÇÃO',
-                PartialHistoryService::STATUS_PAYMENT => 'EM PAGAMENTO',
+                PartialHistoryService::STATUS_PAYMENT => 'EM MEDIÇÃO',
                 PartialHistoryService::STATUS_PAID => 'PAGO',
                 PartialHistoryService::STATUS_REJECTED => 'REJEITADO',
             ],

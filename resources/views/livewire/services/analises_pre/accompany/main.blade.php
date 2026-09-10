@@ -516,14 +516,11 @@
                             </div>
                             <div class="col-12 col-md-4">
                                 <div class="form-floating">
-                                    <select class="form-select" id="bulkConclusion" wire:model.defer="bulkConclusion">
+                                    <select class="form-select" id="bulkConclusion" wire:model="bulkConclusion">
                                         <option value="" selected>Selecione</option>
-                                        <option value="ISR - LIBERADO">ISR - LIBERADO</option>
-                                        <option value="ENVIADO A CAMPO">ENVIADO A CAMPO</option>
-                                        <option value="ENVIADO AO DESENHO">ENVIADO AO DESENHO</option>
-                                        <option value="ENVIADO CARTA AO CLIENTE">ENVIADO CARTA AO CLIENTE</option>
-                                        <option value="ENVIADO RESPOSTA EMPRESA">ENVIADO RESPOSTA EMPRESA</option>
-                                        <option value="ENVIADO PARA O STATUS 21">ENVIADO PARA O STATUS 21</option>
+                                        @foreach (\App\Support\SicodeRules::preAnalysisConclusionOptions() as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
                                     </select>
                                     <label for="bulkConclusion">Conclusão</label>
                                 </div>

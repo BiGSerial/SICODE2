@@ -358,7 +358,7 @@
 
                                         @if ($list->priority)
                                             <i class="ri-alert-fill text-danger align-middle"
-                                                wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
+                                                wire:click.prevent="$emitTo('components.modal.priority', 'infoPriority', {{ $list->id }})"
                                                 style="cursor: pointer;"></i>
                                         @endif
                                     </td>
@@ -637,6 +637,7 @@
 
     {{-- END MODALS --}}
     @livewire('components.status.show-status', key('show_status_note'))
+    @livewire('dispatchs.common.reclaim-info', key('reclaim-info-default-stack'))
 
 </div>
 

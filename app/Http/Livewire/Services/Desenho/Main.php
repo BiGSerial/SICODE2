@@ -5,9 +5,8 @@ namespace App\Http\Livewire\Services\Desenho;
 use App\Custom\Notestatus;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Models\{File, Note, Production, Service, User};
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
+use Illuminate\Support\Facades\{Auth, DB};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
@@ -42,25 +41,32 @@ class Main extends Component
     public $production;
 
     public $note;
+
     public $statusFilter = '';
+
     public array $noteStatusFilters = [];
+
     public array $locationFilters = [];
+
     public array $rubricaFilters = [];
+
     public bool $reviewCanFinish = false;
+
     public bool $notificationReviewHandled = false;
+
     public bool $showProjectReviewInProgress = false;
 
     protected $listeners = [
-        'refresh_accomany'   => '$refresh',
-        'getCopy'            => 'copy',
-        'confirm_getAnalise' => 'go_to_analise',
-        'force_check_open' => 'checkOpen',
+        'refresh_accomany'                  => '$refresh',
+        'getCopy'                           => 'copy',
+        'confirm_getAnalise'                => 'go_to_analise',
+        'force_check_open'                  => 'checkOpen',
         'openProjectReviewFromNotification' => 'openProjectReviewFromNotification',
     ];
 
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->first();
+        $this->service                     = Service::where('uuid', $service)->first();
         $this->showProjectReviewInProgress = (bool) session('desenho.show_project_review_in_progress', false);
     }
 
@@ -89,6 +95,7 @@ class Main extends Component
                 'html'     => 'Esta atividade está em tratativa de Análise de Projeto e não pode ser transferida.',
                 'timer'    => 3800,
             ]);
+
             return;
         }
 
@@ -107,8 +114,10 @@ class Main extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -128,11 +137,12 @@ class Main extends Component
             $this->notificationReviewHandled = true;
 
             $shouldOpenReview = request()->boolean('open_project_review');
-            $productionId = (int) request()->query('production', 0);
-            $noteId = (int) request()->query('note', 0);
+            $productionId     = (int) request()->query('production', 0);
+            $noteId           = (int) request()->query('note', 0);
 
             if ($shouldOpenReview && $productionId > 0) {
                 $this->openProjectReviewFromNotification($productionId, $noteId > 0 ? $noteId : 0);
+
                 return;
             }
         }
@@ -201,6 +211,7 @@ class Main extends Component
             && (int) $productionModel->status === Production::STATUS_IN_PROJECT_REVIEW
         ) {
             $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id);
+
             return;
         }
 
@@ -242,11 +253,13 @@ class Main extends Component
                 'html'     => 'A atividade indicada na notificação não está disponível para sua pilha atual.',
                 'timer'    => 3400,
             ]);
+
             return;
         }
 
         if ($this->hasProjectReviewCycle($productionModel)) {
             $this->openProjectReviewReadonly($productionModel->id, (int) $productionModel->note_id, true);
+
             return;
         }
 
@@ -274,6 +287,7 @@ class Main extends Component
                 'html'     => 'A atividade não está disponível para visualização da Análise de Projeto.',
                 'timer'    => 3200,
             ]);
+
             return;
         }
 
@@ -283,9 +297,9 @@ class Main extends Component
         ], true);
 
         $this->analise = [
-            'productionId' => $productionModel->id,
-            'noteId' => $productionModel->note_id,
-            'viewOnlyProjectReview' => true,
+            'productionId'              => $productionModel->id,
+            'noteId'                    => $productionModel->note_id,
+            'viewOnlyProjectReview'     => true,
             'allowProjectReviewHistory' => $allowHistory,
         ];
 
@@ -350,8 +364,8 @@ class Main extends Component
     public function clearAdvancedFilters(): void
     {
         $this->noteStatusFilters = [];
-        $this->locationFilters = [];
-        $this->rubricaFilters = [];
+        $this->locationFilters   = [];
+        $this->rubricaFilters    = [];
         $this->resetPage();
     }
 
@@ -369,13 +383,14 @@ class Main extends Component
         }
 
         $options = [];
+
         foreach ($counts as $status => $count) {
-            $statusId = (int) $status;
+            $statusId   = (int) $status;
             $statusMeta = Notestatus::status($statusId);
-            $options[] = [
-                'value' => (string) $statusId,
-                'label' => $statusMeta?->status ?? ('Status ' . $statusId),
-                'count' => $count,
+            $options[]  = [
+                'value'   => (string) $statusId,
+                'label'   => $statusMeta?->status ?? ('Status ' . $statusId),
+                'count'   => $count,
                 'colorbg' => $statusMeta?->colorbg ?? 'text-bg-secondary',
             ];
         }
@@ -385,9 +400,9 @@ class Main extends Component
         });
 
         array_unshift($options, [
-            'value' => '',
-            'label' => 'Todos',
-            'count' => array_sum($counts),
+            'value'   => '',
+            'label'   => 'Todos',
+            'count'   => array_sum($counts),
             'colorbg' => 'text-bg-dark',
         ]);
 
@@ -534,8 +549,8 @@ class Main extends Component
             ->pluck('total', 'value')
             ->map(function ($total, $value) use ($selected) {
                 return [
-                    'value' => (string) $value,
-                    'count' => (int) $total,
+                    'value'    => (string) $value,
+                    'count'    => (int) $total,
                     'selected' => in_array((string) $value, $selected, true),
                 ];
             })
@@ -601,12 +616,12 @@ class Main extends Component
         $lists = $this->lists;
 
         return view('livewire.services.desenho.main', [
-            'lists' => $lists,
-            'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
-            'statusFilterOptions' => $this->statusFilterOptions,
+            'lists'                   => $lists,
+            'legalTagsByNoteId'       => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
+            'statusFilterOptions'     => $this->statusFilterOptions,
             'noteStatusFilterOptions' => $this->noteStatusFilterOptions,
-            'locationFilterOptions' => $this->locationFilterOptions,
-            'rubricaFilterOptions' => $this->rubricaFilterOptions,
+            'locationFilterOptions'   => $this->locationFilterOptions,
+            'rubricaFilterOptions'    => $this->rubricaFilterOptions,
         ]);
     }
 

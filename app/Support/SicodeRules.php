@@ -2,8 +2,9 @@
 
 namespace App\Support;
 
-use App\Models\{Company, Note, Production, User};
+use App\Models\{Company, Note, Production, SystemSetting, User};
 use Illuminate\Support\Collection;
+use Throwable;
 
 class SicodeRules
 {
@@ -78,6 +79,46 @@ class SicodeRules
             ->unique()
             ->values()
             ->all();
+    }
+
+    public static function analysisEnvironmentWithoutReason(): bool
+    {
+        return self::boolRule('analysis.environment_without_reason', false);
+    }
+
+    public static function analysisConclusionOptions(): array
+    {
+        return self::stringOptionsRule('analysis.conclusions', [
+            'ISR - LIBERADO' => 'ISR - LIBERADO',
+            'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+            'ENVIADO AO DESENHO' => 'ENVIADO AO DESENHO',
+            'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
+            'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
+            'ENVIADO PARA O STATUS 21' => 'ENVIADO PARA O STATUS 21',
+        ]);
+    }
+
+    public static function preAnalysisConclusionOptions(): array
+    {
+        return self::stringOptionsRule('analysis.pre_analysis_conclusions', [
+            'ISR - LIBERADO' => 'ISR - LIBERADO',
+            'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+            'ENVIADO AO DESENHO/ORÇAMENTO' => 'ENVIADO AO DESENHO/ORÇAMENTO',
+            'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
+            'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
+            'ENVIADO PARA CONSTRUÇÃO' => 'ENVIADO PARA CONSTRUÇÃO',
+            'ARQUIVADO' => 'ARQUIVADO',
+        ]);
+    }
+
+    public static function isValidAnalysisConclusion(?string $conclusion): bool
+    {
+        return self::hasStringOption(self::analysisConclusionOptions(), $conclusion);
+    }
+
+    public static function isValidPreAnalysisConclusion(?string $conclusion): bool
+    {
+        return self::hasStringOption(self::preAnalysisConclusionOptions(), $conclusion);
     }
 
     public static function visibleCompanyIdsFor(User $user): array
@@ -301,6 +342,60 @@ class SicodeRules
 
     private static function boolRule(string $key, bool $default = false): bool
     {
+        $override = self::databaseRule($key);
+
+        if ($override !== null) {
+            return filter_var($override, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? $default;
+        }
+
         return (bool) config('sicode.rules.' . self::ruleset() . '.' . $key, $default);
+    }
+
+    private static function stringOptionsRule(string $key, array $default = []): array
+    {
+        $options = self::databaseRule($key);
+
+        if ($options === null) {
+            $options = config('sicode.rules.' . self::ruleset() . '.' . $key, $default);
+        }
+
+        if (!is_array($options)) {
+            return $default;
+        }
+
+        return collect($options)
+            ->mapWithKeys(fn ($label, $value) => [(string) $value => (string) $label])
+            ->filter(fn ($label, $value) => filled($value) && filled($label))
+            ->all();
+    }
+
+    private static function databaseRule(string $key)
+    {
+        try {
+            $value = SystemSetting::getValue('sicode.rules.' . self::ruleset() . '.' . $key);
+        } catch (Throwable $exception) {
+            return null;
+        }
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return $decoded;
+        }
+
+        return $value;
+    }
+
+    private static function hasStringOption(array $options, ?string $value): bool
+    {
+        if (!filled($value) || $value === '0') {
+            return false;
+        }
+
+        return array_key_exists($value, $options);
     }
 }

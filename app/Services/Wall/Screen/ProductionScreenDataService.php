@@ -2,26 +2,17 @@
 
 namespace App\Services\Wall\Screen;
 
-use App\Custom\ProductionQueryBuilder;
-use App\Models\Note;
-use App\Models\Production;
-use App\Models\Reclaim;
-use App\Models\Service;
-use App\Models\SystemSetting;
-use App\Models\WallScreen;
-use App\Repositories\PublishRepository;
-use App\Repositories\SupervisionRepository;
-use App\Repositories\SurveyRepository;
+use App\Custom\RuleBuilder;
+use App\Models\{Note, Production, Reclaim, Service, SystemSetting, WallScreen};
+use App\Repositories\{PublishRepository, SupervisionRepository, SurveyRepository};
 use App\Services\Payment\NoteFilter as PaymentNoteFilter;
 use App\Services\Publication\NoteFilter as PublicationNoteFilter;
-use App\Services\Wall\Contracts\WallScreenDataService;
 use App\Services\Wall\Context\ScreenContext;
+use App\Services\Wall\Contracts\WallScreenDataService;
 use App\Services\Wall\Support\CacheLockTrait;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\{Cache, DB, Schema};
 
 class ProductionScreenDataService implements WallScreenDataService
 {
@@ -38,6 +29,7 @@ class ProductionScreenDataService implements WallScreenDataService
     ];
 
     private bool $queueAgeDateColumnResolved = false;
+
     private ?string $queueAgeDateColumn = null;
 
     public function __construct(
@@ -153,17 +145,17 @@ class ProductionScreenDataService implements WallScreenDataService
     private function compute(Service $service, ?Service $previousService, bool $useRuleBuilder, array $sourceConfig): array
     {
         [$start, $end] = $this->weeklyWindow();
-        $dayLabels = $this->dailyDateLabels($start, $end);
+        $dayLabels     = $this->dailyDateLabels($start, $end);
 
-        $queueAllQuery  = $this->buildActivityQueueQuery($service, $useRuleBuilder, false, $sourceConfig);
-        $noteIdsQuery   = (clone $queueAllQuery)->select('notes.id');
-        $queueOvQuery   = (clone $queueAllQuery)->where('notes.type_note', 2);
+        $queueAllQuery   = $this->buildActivityQueueQuery($service, $useRuleBuilder, false, $sourceConfig);
+        $noteIdsQuery    = (clone $queueAllQuery)->select('notes.id');
+        $queueOvQuery    = (clone $queueAllQuery)->where('notes.type_note', 2);
         $queueNotesQuery = (clone $queueAllQuery)->where(function ($q) {
             $q->whereNull('notes.type_note')->orWhere('notes.type_note', '!=', 2);
         });
 
-        $queueTotalAll  = (clone $queueAllQuery)->count();
-        $queueTotalOv   = (clone $queueOvQuery)->count();
+        $queueTotalAll = (clone $queueAllQuery)->count();
+        $queueTotalOv  = (clone $queueOvQuery)->count();
 
         $queueHistogram = $this->buildQueueAgeHistogram($queueOvQuery, $service->uuid);
         $noteTypeDonut  = $this->buildNoteTypeCoverageDonut($queueNotesQuery, $service->uuid);
@@ -182,7 +174,7 @@ class ProductionScreenDataService implements WallScreenDataService
 
         $openHistogramNormal = $this->buildAgeHistogram((clone $productionOpenQuery)->where(fn ($q) => $q->whereNull('productions.d5')->orWhere('productions.d5', false)), 'productions.att_at');
         $openHistogramRi     = $this->buildAgeHistogram((clone $productionOpenQuery)->where('productions.d5', true), 'productions.att_at');
-        $openHistogram = [
+        $openHistogram       = [
             'labels'        => $openHistogramNormal['labels'],
             'normal_values' => $openHistogramNormal['values'],
             'ri_values'     => $openHistogramRi['values'],
@@ -194,6 +186,7 @@ class ProductionScreenDataService implements WallScreenDataService
 
         $previousDone = 0;
         $nextEntry    = 0;
+
         if ($previousService) {
             $prevDoneQuery = Production::query()
                 ->where('service_id', $previousService->uuid)
@@ -228,11 +221,11 @@ class ProductionScreenDataService implements WallScreenDataService
             ->values()->all();
 
         return [
-            'service_id'           => (string) $service->uuid,
-            'service_name'         => (string) $service->service,
-            'previous_service_id'  => $previousService?->uuid,
+            'service_id'            => (string) $service->uuid,
+            'service_name'          => (string) $service->service,
+            'previous_service_id'   => $previousService?->uuid,
             'previous_service_name' => $previousService?->service,
-            'week' => [
+            'week'                  => [
                 'start' => $start->format('Y-m-d'),
                 'end'   => $end->format('Y-m-d'),
                 'label' => sprintf('%s a %s', $start->format('d/m'), $end->format('d/m')),
@@ -252,7 +245,7 @@ class ProductionScreenDataService implements WallScreenDataService
             'production_daily'          => $productionDaily,
             'internal_return_donut'     => $internalTypes,
             'recent_completed'          => $recentCompleted,
-            'production_histogram' => [
+            'production_histogram'      => [
                 'labels'   => $openHistogram['labels'],
                 'datasets' => [['label' => 'Atribuido aberto', 'backgroundColor' => 'rgba(0, 206, 201, .65)', 'borderColor' => '#00cec9', 'data' => $openHistogram['values']]],
             ],
@@ -287,10 +280,10 @@ class ProductionScreenDataService implements WallScreenDataService
                 $sourceConfig['search'] ?? null,
                 (string) ($sourceConfig['filter_group'] ?? 'payment')
             ),
-            'publish_repository'    => $this->publishRepository->getBaseQuery((bool) ($sourceConfig['all_services'] ?? false)),
+            'publish_repository'     => $this->publishRepository->getBaseQuery((bool) ($sourceConfig['all_services'] ?? false)),
             'supervision_repository' => $this->supervisionRepository->getBaseQuery(),
-            'survey_repository'     => $this->surveyRepository->getBaseQuery(),
-            default                 => $this->buildLegacyProductionQuery($service, $useRuleBuilder),
+            'survey_repository'      => $this->surveyRepository->getBaseQuery(),
+            default                  => $this->buildLegacyProductionQuery($service, $useRuleBuilder),
         };
     }
 
@@ -300,7 +293,7 @@ class ProductionScreenDataService implements WallScreenDataService
 
         if ($useRuleBuilder) {
             $service->loadMissing('Status');
-            ProductionQueryBuilder::applyRules($query, $service->Status);
+            RuleBuilder::applyRules($query, $service->Status);
         } else {
             $query->where('nstats', $service->status);
         }
@@ -331,7 +324,9 @@ class ProductionScreenDataService implements WallScreenDataService
     private function applyConfiguredQueryFilters(Builder $query, array $filters): void
     {
         foreach ($filters as $filter) {
-            if (!is_array($filter)) continue;
+            if (!is_array($filter)) {
+                continue;
+            }
 
             $mode     = (string) ($filter['mode'] ?? 'include');
             $scope    = (string) ($filter['scope'] ?? 'base');
@@ -340,7 +335,9 @@ class ProductionScreenDataService implements WallScreenDataService
             $operator = (string) ($filter['operator'] ?? 'equals');
             $value    = array_key_exists('value', $filter) ? (string) ($filter['value'] ?? '') : '';
 
-            if (!$this->isColumnAllowed($column)) continue;
+            if (!$this->isColumnAllowed($column)) {
+                continue;
+            }
 
             if ($scope === 'relation' && $relation !== '') {
                 if ($mode === 'exclude') {
@@ -348,6 +345,7 @@ class ProductionScreenDataService implements WallScreenDataService
                 } else {
                     $query->whereHas($relation, fn ($q) => $this->applyAtomicFilter($q, $column, $operator, $value, false));
                 }
+
                 continue;
             }
 
@@ -359,7 +357,7 @@ class ProductionScreenDataService implements WallScreenDataService
     {
         $op = match ($operator) {
             'starts_with', 'contains', 'ends_with' => $exclude ? 'not like' : 'like',
-            default                                 => $exclude ? '!=' : '=',
+            default => $exclude ? '!=' : '=',
         };
 
         $sqlValue = match ($operator) {
@@ -378,10 +376,14 @@ class ProductionScreenDataService implements WallScreenDataService
      */
     private function isColumnAllowed(string $column): bool
     {
-        if ($column === '') return false;
+        if ($column === '') {
+            return false;
+        }
 
         // Formato: palavra simples ou tabela.coluna
-        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $column)) return false;
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $column)) {
+            return false;
+        }
 
         // Extrai somente a parte da coluna (descarta prefixo de tabela)
         $bare = str_contains($column, '.') ? explode('.', $column)[1] : $column;
@@ -395,10 +397,10 @@ class ProductionScreenDataService implements WallScreenDataService
 
     private function buildQueueAgeHistogram(Builder $baseQuery, string $serviceId, int $maxDays = 30): array
     {
-        $labels   = [...array_map('strval', range(0, $maxDays - 1)), "{$maxDays}+"];
-        $totals   = array_fill_keys($labels, 0);
-        $assigned = array_fill_keys($labels, 0);
-        $maxLabel = "{$maxDays}+";
+        $labels     = [...array_map('strval', range(0, $maxDays - 1)), "{$maxDays}+"];
+        $totals     = array_fill_keys($labels, 0);
+        $assigned   = array_fill_keys($labels, 0);
+        $maxLabel   = "{$maxDays}+";
         $dateColumn = $this->resolveQueueAgeDateColumn();
 
         if ($dateColumn === null) {
@@ -441,10 +443,16 @@ class ProductionScreenDataService implements WallScreenDataService
 
         foreach ($rows as $row) {
             $bucket = (string) $row->bucket;
-            if (!array_key_exists($bucket, $totals)) continue;
+
+            if (!array_key_exists($bucket, $totals)) {
+                continue;
+            }
             $qty = (int) $row->total;
             $totals[$bucket] += $qty;
-            if ((int) $row->has_assigned === 1) $assigned[$bucket] += $qty;
+
+            if ((int) $row->has_assigned === 1) {
+                $assigned[$bucket] += $qty;
+            }
         }
 
         $totalValues    = array_values($totals);
@@ -468,10 +476,12 @@ class ProductionScreenDataService implements WallScreenDataService
 
         if (Schema::hasColumn('notes', 'dt_status')) {
             $this->queueAgeDateColumn = 'dt_status';
+
             return $this->queueAgeDateColumn;
         }
 
         $this->queueAgeDateColumn = null;
+
         return null;
     }
 
@@ -507,11 +517,17 @@ class ProductionScreenDataService implements WallScreenDataService
             ->groupBy('has_associated')
             ->get();
 
-        $associated = 0; $without = 0;
+        $associated = 0;
+        $without    = 0;
+
         foreach ($rows as $row) {
             $qty = (int) ($row->total ?? 0);
-            if ((int) ($row->has_associated ?? 0) === 1) $associated += $qty;
-            else $without += $qty;
+
+            if ((int) ($row->has_associated ?? 0) === 1) {
+                $associated += $qty;
+            } else {
+                $without += $qty;
+            }
         }
         $total = $associated + $without;
 
@@ -540,7 +556,10 @@ class ProductionScreenDataService implements WallScreenDataService
 
         foreach ($rows as $row) {
             $b = (string) ($row->bucket ?? '');
-            if (array_key_exists($b, $buckets)) $buckets[$b] = (int) ($row->total ?? 0);
+
+            if (array_key_exists($b, $buckets)) {
+                $buckets[$b] = (int) ($row->total ?? 0);
+            }
         }
 
         return ['labels' => $labels, 'values' => array_map(fn ($l) => (int) ($buckets[$l] ?? 0), $labels)];
@@ -612,6 +631,7 @@ class ProductionScreenDataService implements WallScreenDataService
             $labels[] = $cursor->toDateString();
             $cursor->addDay();
         }
+
         return $labels;
     }
 
@@ -623,17 +643,31 @@ class ProductionScreenDataService implements WallScreenDataService
     private function compactName(string $name): string
     {
         $parts = array_values(array_filter(preg_split('/\s+/', trim($name)), fn ($p) => $p !== ''));
-        if (empty($parts)) return '-';
+
+        if (empty($parts)) {
+            return '-';
+        }
+
         return count($parts) === 1 ? $parts[0] : $parts[0] . ' ' . $parts[count($parts) - 1];
     }
 
     private function compactCompany(string $name): string
     {
         $parts = array_values(array_filter(preg_split('/\s+/', trim($name)), fn ($p) => $p !== ''));
-        if (empty($parts)) return '-';
-        if (count($parts) === 1) return $parts[0];
+
+        if (empty($parts)) {
+            return '-';
+        }
+
+        if (count($parts) === 1) {
+            return $parts[0];
+        }
         $initials = '';
-        for ($i = 1; $i < count($parts); $i++) $initials .= mb_strtoupper(mb_substr($parts[$i], 0, 1));
+
+        for ($i = 1; $i < count($parts); $i++) {
+            $initials .= mb_strtoupper(mb_substr($parts[$i], 0, 1));
+        }
+
         return $parts[0] . ' ' . $initials;
     }
 }

@@ -6,15 +6,15 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Administracao</li>
-                <li class="breadcrumb-item">Gerenciamento</li>
-                <li class="breadcrumb-item active" aria-current="page">ADS</li>
+                <li class="breadcrumb-item">Integrações</li>
+                <li class="breadcrumb-item active" aria-current="page">Monitor de Requisições ADS</li>
             </ol>
         </ol>
     </nav>
 @endsection
 
 @section('menu')
-    @include('admin.control.menu')
+    @include('admin.integrations.menu')
 @endsection
 
 @section('content')

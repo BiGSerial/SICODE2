@@ -2,11 +2,9 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Models\File;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{File, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class TacitList extends Component
 {
@@ -21,10 +19,10 @@ class TacitList extends Component
 
     // Filters
     private $filter_group = 'partner';
+
     private $filter;
 
     protected $listeners = ['refresh_list' => '$refresh'];
-
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
@@ -47,7 +45,9 @@ class TacitList extends Component
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -98,13 +98,12 @@ class TacitList extends Component
     {
         $this->authorizePartnerAccess('viability.view_files');
 
-
         if ($file = File::find($id)) {
 
+            $storage = app(FileStorageService::class);
 
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -117,9 +116,6 @@ class TacitList extends Component
             }
         }
     }
-
-
-
 
     public function render()
     {

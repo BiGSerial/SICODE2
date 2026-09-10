@@ -101,6 +101,13 @@
                 <button class="btn btn-outline-light btn-sm" wire:click="clearFilters">
                     <i class="ri-filter-off-line me-1"></i> Limpar
                 </button>
+                <button class="btn btn-outline-light btn-sm" wire:click="exportActionHistory" wire:loading.attr="disabled"
+                    wire:target="exportActionHistory">
+                    <span wire:loading.remove wire:target="exportActionHistory">
+                        <i class="ri-history-line me-1"></i> Exportar ações
+                    </span>
+                    <span wire:loading wire:target="exportActionHistory">Gerando...</span>
+                </button>
                 <button class="btn btn-light btn-sm text-dark" wire:click="exportReport" wire:loading.attr="disabled"
                     wire:target="exportReport">
                     <span wire:loading.remove wire:target="exportReport">

@@ -42,10 +42,13 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($notes as $note)
+                                        @php
+                                            $workReportStatus = $this->workReportStatusBadgeForNote($note);
+                                        @endphp
                                         <tr wire:key="{{ $note->id }}"
                                             wire:click="toConfirmWork({{ $note }})"
-                                            class="{{ !$note->WorkForm ? 'cursor-pointer hover-highlight' : 'text-muted' }}"
-                                            title="{{ !$note->WorkForm ? 'Clique para informar esta obra' : 'Esta obra já foi informada' }}">
+                                            class="{{ $workReportStatus['row_class'] }}"
+                                            title="{{ $workReportStatus['title'] }}">
                                             <td class="fw-bold align-middle">{{ $note->note }}</td>
                                             <td class="align-middle">
                                                 @if ($note->Orders->count())
@@ -73,9 +76,8 @@
                                                 @endif
                                             </td>
                                             <td class="align-middle">
-                                                <span
-                                                    class="badge {{ $note->WorkForm ? 'bg-success' : 'bg-info text-dark' }}">
-                                                    {{ $note->WorkForm ? 'INFORMADA' : 'NÃO INFORMADA' }}
+                                                <span class="badge {{ $workReportStatus['class'] }}">
+                                                    {{ $workReportStatus['label'] }}
                                                 </span>
                                             </td>
                                         </tr>

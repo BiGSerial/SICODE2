@@ -2,22 +2,21 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Service;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Models\{File, Note, Service};
+use App\Services\Files\{FileStorageService, FileUploadService};
+use Livewire\{Component, WithFileUploads};
 
 class Fileedit extends Component
 {
     use WithFileUploads;
 
     public ?File $file = null;
-    public $services;
-    public $newFile;
-    public $noteNumber = '';
 
+    public $services;
+
+    public $newFile;
+
+    public $noteNumber = '';
 
     protected $listeners = [
         'editFile',
@@ -27,13 +26,11 @@ class Fileedit extends Component
 
     public function editFile(File $file)
     {
-        $this->file = $file;
+        $this->file       = $file;
         $this->noteNumber = $this->file?->Note?->note ?? '';
         $this->resetErrorBag();
 
-
         if ($this->file) {
-
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'modal_edit_file',
@@ -71,9 +68,7 @@ class Fileedit extends Component
 
     public function fileConfirmDelete()
     {
-        if (Storage::exists($this->file->path)) {
-            Storage::delete($this->file->path);
-        }
+        app(FileStorageService::class)->delete($this->file);
 
         try {
             $this->file->delete();
@@ -100,18 +95,16 @@ class Fileedit extends Component
     }
 
     protected $rules = [
-        'file.file_name' => 'required|string|max:255',
+        'file.file_name'  => 'required|string|max:255',
         'file.service_id' => 'nullable|exists:services,uuid',
-        'newFile' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,txt,rtf,ppt,pptx,dwg,dxf,dwf,rvt,rfa,skp|max:20480',
-        'noteNumber' => 'nullable|string|max:255',
+        'newFile'         => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,txt,rtf,ppt,pptx,dwg,dxf,dwf,rvt,rfa,skp|max:20480',
+        'noteNumber'      => 'nullable|string|max:255',
     ];
 
     public function mount()
     {
         $this->services = Service::orderBy('service')->get();
     }
-
-
 
     public function updateFile()
     {
@@ -122,37 +115,31 @@ class Fileedit extends Component
 
             if (!$note) {
                 $this->addError('noteNumber', 'Nota nao encontrada.');
+
                 return;
             }
 
             $this->file->note_id = $note->id;
         }
 
-        $baseName = pathinfo($this->file->file_name, PATHINFO_FILENAME);
+        $baseName              = pathinfo($this->file->file_name, PATHINFO_FILENAME);
         $this->file->file_name = mb_strtoupper($baseName);
-
 
         if ($this->newFile) {
 
             $directory = $this->file->path ? pathinfo($this->file->path, PATHINFO_DIRNAME) : '';
             $directory = $directory === '.' ? '' : trim($directory, '/');
             $extension = $this->newFile->getClientOriginalExtension();
-            $storedName = $this->file->file_name.'.'.$extension;
-            $path = $this->newFile->storeAs($directory, $storedName);
 
-            if (Storage::exists($path)) {
-
-                if ($this->file->path && Storage::exists($this->file->path) && $this->file->path !== $path) {
-                    Storage::delete($this->file->path);
-                }
-
-                $this->file->path = $path;
-                $this->file->ext = $extension;
-                $this->file->suspicious = false;
-                $this->file->original_name = $this->newFile->getClientOriginalName();
-                $this->file->noexists = false;
-
-            } else {
+            try {
+                app(FileUploadService::class)->replace(
+                    $this->file,
+                    $this->newFile,
+                    $directory,
+                    $this->file->file_name,
+                    $extension,
+                );
+            } catch (\Throwable) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'warning',
@@ -166,7 +153,6 @@ class Fileedit extends Component
 
                 return;
             }
-
         }
 
         $this->file->service_id = $this->file->service_id ?: null;
@@ -187,13 +173,12 @@ class Fileedit extends Component
         $this->closeAll();
     }
 
-
     public function closeAll()
     {
         $this->emitUp('update_list');
         $this->dispatchBrowserEvent('hideModal');
-        $this->file = null;
-        $this->newFile = '';
+        $this->file       = null;
+        $this->newFile    = '';
         $this->noteNumber = '';
         $this->resetErrorBag();
     }

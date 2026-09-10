@@ -12,14 +12,14 @@ class Priority extends Component
 
     public $productions = null;
 
-    public $infoPriority;
+    public $priorityInfo;
 
     protected $listeners = [
         'setPriority'           => 'setPriority',
         'confirmPriority'       => 'confirmPriority',
         'removePriority'        => 'removePriority',
         'confirmRemovePriority' => 'confirmRemovePriority',
-        'infoPriority'          => 'infoPriority',
+        'infoPriority'          => 'showPriorityInfo',
     ];
 
     public function setPriority($production)
@@ -224,11 +224,36 @@ class Priority extends Component
 
     }
 
-    public function infoPriority($production)
+    public function showPriorityInfo($production)
     {
-        if ($this->infoPriority = ModelsPriority::where('production_id', $production)->get()->last()) {
-            $this->dispatchBrowserEvent('showModal', [
+        $productionModel = Production::query()
+            ->select(['id', 'note_id', 'service_id'])
+            ->find($production);
+
+        $this->priorityInfo = ModelsPriority::query()
+            ->with(['Note:id,note', 'User:id,name'])
+            ->where('production_id', $production)
+            ->latest('id')
+            ->first();
+
+        if (!$this->priorityInfo && $productionModel) {
+            $this->priorityInfo = ModelsPriority::query()
+                ->with(['Note:id,note', 'User:id,name'])
+                ->where('note_id', $productionModel->note_id)
+                ->where('service_id', $productionModel->service_id)
+                ->latest('id')
+                ->first();
+        }
+
+        if ($this->priorityInfo) {
+            $this->dispatchBrowserEvent('priorityInfoLoaded', [
                 'id' => 'infoPrioridade',
+                'note' => $this->priorityInfo->Note?->note ?? '',
+                'reason' => $this->priorityInfo->prioridade ?: '---',
+                'user' => $this->priorityInfo->User?->name ?: '---',
+                'created_at' => $this->priorityInfo->created_at
+                    ? $this->priorityInfo->created_at->format('d/m/Y H:i:s')
+                    : '--:--',
             ]);
         } else {
             $this->dispatchBrowserEvent('swal', [

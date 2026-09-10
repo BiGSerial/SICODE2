@@ -3,13 +3,11 @@
 namespace App\Http\Livewire\Engineers\CancellationApprovals;
 
 use App\Enum\CancellationEngineerApprovalStatus;
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
+use App\Models\{CancellationRequest, EvidenceFile};
+use App\Services\Files\EvidenceFileService;
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -22,18 +20,23 @@ class Show extends Component
     ];
 
     public int $requestId;
+
     public CancellationRequest $cancellationRequest;
+
     public string $decision = CancellationEngineerApprovalStatus::APPROVED->value;
+
     public string $reason = '';
+
     public $files = [];
+
     public array $tempFiles = [];
 
     public array $config = [
-        'max_size_mb' => 10,
+        'max_size_mb'  => 10,
         'allowed_exts' => [
-            'jpg','jpeg','png','gif','bmp','svg','tiff','webp',
-            'pdf','doc','docx','odt','xls','xlsx','xlsm','ods',
-            'dwg','dxf','dws','dwt','dgn','rvt','rfa','skp','txt'
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+            'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+            'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
         ],
     ];
 
@@ -77,7 +80,7 @@ class Show extends Component
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
                 'original_name' => $file->getClientOriginalName(),
-                'file' => $file,
+                'file'          => $file,
             ];
         }
 
@@ -95,14 +98,14 @@ class Show extends Component
     public function decide(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Confirmar decisão',
-            'msg' => 'Deseja salvar esta decisão de aprovação de cancelamento?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, salvar decisão',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_engineer_cancellation_decide',
+            'title'         => 'Confirmar decisão',
+            'msg'           => 'Deseja salvar esta decisão de aprovação de cancelamento?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, salvar decisão',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_engineer_cancellation_decide',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A decisão não foi salva.',
+            'cancel_msg'    => 'A decisão não foi salva.',
         ]);
     }
 
@@ -110,6 +113,7 @@ class Show extends Component
     {
         if (!trim($this->reason)) {
             $this->addError('reason', 'A justificativa é obrigatória.');
+
             return;
         }
 
@@ -124,8 +128,8 @@ class Show extends Component
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Decisão registrada com sucesso.']);
 
             $this->tempFiles = [];
-            $this->files = [];
-            $this->reason = '';
+            $this->files     = [];
+            $this->reason    = '';
             $this->loadRequest();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -135,11 +139,14 @@ class Show extends Component
     public function downloadEvidence(int $fileId): StreamedResponse
     {
         $file = EvidenceFile::findOrFail($fileId);
+
         if ($file->evidenciable_type !== CancellationRequest::class || $file->evidenciable_id !== $this->cancellationRequest->id) {
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     public function render()

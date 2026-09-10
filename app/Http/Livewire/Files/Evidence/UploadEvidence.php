@@ -3,23 +3,23 @@
 namespace App\Http\Livewire\Files\Evidence;
 
 use App\Models\FiveNote;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\{FileStorageService, StorageContextResolver};
+use Illuminate\Support\Facades\{Auth, DB};
 use Illuminate\Support\Str;
-use Livewire\Component;
-use Livewire\WithFileUploads;
-use RuntimeException;
+use Livewire\{Component, WithFileUploads};
 
 class UploadEvidence extends Component
 {
     use WithFileUploads;
 
     public ?FiveNote $five = null;
+
     public ?string $type = null;
+
     public ?string $origin = null;
 
     public $files = []; // Buffer temporário do Livewire
+
     public $tempFiles = []; // Lista visual de arquivos prontos para salvar
 
     public array $config = [
@@ -27,9 +27,9 @@ class UploadEvidence extends Component
         'base_path'    => 'evidences',
         'max_size_mb'  => 10,
         'allowed_exts' => [
-            'jpg','jpeg','png','gif','bmp','svg','tiff','webp',
-            'pdf','doc','docx','odt','xls','xlsx','xlsm','ods',
-            'dwg','dxf','dws','dwt','dgn','rvt','rfa','skp','txt'
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+            'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+            'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
         ],
     ];
 
@@ -49,7 +49,8 @@ class UploadEvidence extends Component
     {
         $maxKb = $this->config['max_size_mb'] * 1024;
         $mimes = implode(',', $this->config['allowed_exts']);
-        return [ 'files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}" ];
+
+        return ['files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}"];
     }
 
     public function updatedFiles(): void
@@ -80,38 +81,46 @@ class UploadEvidence extends Component
 
     public function cancelEvidences(): void
     {
-        $this->files = [];
+        $this->files     = [];
         $this->tempFiles = [];
         $this->emitUp('hasEvidence', false);
     }
 
     public function saveEvidences(?int $fiveId = null): void
     {
-        if ($fiveId) $this->five = FiveNote::find($fiveId);
+        if ($fiveId) {
+            $this->five = FiveNote::find($fiveId);
+        }
+
         if (!$this->five || !count($this->tempFiles)) {
             $this->emitUp('evidenceSaved');
+
             return;
         }
 
         DB::beginTransaction();
+
         try {
-            $dir = "evidences/{$this->origin}/{$this->type}";
+            $context       = app(StorageContextResolver::class);
+            $storage       = app(FileStorageService::class);
+            $dir           = $context->scopedDirectory("evidences/{$this->origin}/{$this->type}");
+            $disk          = $context->evidenceDisk();
             $sequenceCache = [];
 
             foreach ($this->tempFiles as $t) {
                 $storedName = $this->buildEvidenceStoredName($t, $sequenceCache);
-                $path = $t['file']->storeAs($dir, $storedName, $this->config['disk']);
+                $stored     = $storage->putUploadedAs($t['file'], $dir, $storedName, $disk);
 
                 $this->five->EvidenceFiles()->create([
                     'user_id'       => Auth::id(),
                     'original_name' => $t['original_name'],
                     'stored_name'   => $storedName,
-                    'disk'          => $this->config['disk'],
-                    'path'          => $path,
-                    'mime'          => $t['file']->getMimeType(),
+                    'disk'          => $stored['disk'],
+                    'path'          => $stored['path'],
+                    'mime'          => $stored['mime'],
                     'extension'     => $t['extension'],
-                    'size'          => $t['size'],
-                    'sha256'        => hash('sha256', Storage::disk($this->config['disk'])->get($path)),
+                    'size'          => $stored['size'],
+                    'sha256'        => $stored['sha256'],
                     'uploaded_at'   => now(),
                     'origin'        => $this->origin,
                 ]);
@@ -130,7 +139,7 @@ class UploadEvidence extends Component
     {
         $originToken = $this->normalizeToken((string) $this->origin, 'origem');
         $numberToken = $this->resolveNumberToken();
-        $prefix = "evidencia_{$originToken}_{$numberToken}";
+        $prefix      = "evidencia_{$originToken}_{$numberToken}";
 
         if (!array_key_exists($prefix, $sequenceCache)) {
             $sequenceCache[$prefix] = $this->nextSequenceForPrefix($prefix);
@@ -138,10 +147,10 @@ class UploadEvidence extends Component
             $sequenceCache[$prefix]++;
         }
 
-        $seq = str_pad((string) $sequenceCache[$prefix], 3, '0', STR_PAD_LEFT);
+        $seq  = str_pad((string) $sequenceCache[$prefix], 3, '0', STR_PAD_LEFT);
         $hash = substr(hash(
             'sha256',
-            ($tempFile['original_name'] ?? '').'|'.microtime(true).'|'.random_int(1000, 9999)
+            ($tempFile['original_name'] ?? '') . '|' . microtime(true) . '|' . random_int(1000, 9999)
         ), 0, 12);
         $ext = strtolower((string) ($tempFile['extension'] ?? 'bin'));
 
@@ -163,7 +172,7 @@ class UploadEvidence extends Component
     {
         $current = $this->five?->EvidenceFiles()
             ->where('origin', $this->origin)
-            ->where('stored_name', 'like', $prefix.'_%')
+            ->where('stored_name', 'like', $prefix . '_%')
             ->count() ?? 0;
 
         return $current + 1;
@@ -181,5 +190,8 @@ class UploadEvidence extends Component
         return $normalized !== '' ? $normalized : $fallback;
     }
 
-    public function render() { return view('livewire.files.evidence.upload-evidence'); }
+    public function render()
+    {
+        return view('livewire.files.evidence.upload-evidence');
+    }
 }

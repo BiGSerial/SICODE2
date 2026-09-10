@@ -2,13 +2,13 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Exports\parner\exportExcel;
 use App\Exports\Viability\HistoricReport;
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
-use App\Models\{File, Note, Viability};
+use App\Models\{File, Viability};
+use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\{Crypt, Storage};
+use Illuminate\Support\Facades\Crypt;
 use Livewire\{Component, WithPagination};
 use ZipArchive;
 
@@ -29,13 +29,18 @@ class Histviab extends Component
     public $search;
 
     public $typeNote = '';
+
     public $advanceSearch = '';
+
     public $multinotas = [];
 
     // search by date
     public $date_in;
+
     public $date_out;
+
     public $month;
+
     public $dateBy = 'sended_at';
 
     // Filters
@@ -76,8 +81,10 @@ class Histviab extends Component
 
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -98,6 +105,7 @@ class Histviab extends Component
             $this->gotoPage(1);
 
             $this->multinotas = $this->formatTextToArray($this->advanceSearch);
+
             if (count($this->multinotas)) {
                 $this->advanceSearch = '';
                 $this->dispatchBrowserEvent('hideModal');
@@ -109,11 +117,10 @@ class Histviab extends Component
     {
         if (trim($this->search)) {
             $this->gotoPage(1);
-            $this->multinotas = [];
+            $this->multinotas    = [];
             $this->advanceSearch = '';
         }
     }
-
 
     public function openForms($id)
     {
@@ -135,12 +142,51 @@ class Histviab extends Component
                 $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
+                $storage    = app(FileStorageService::class);
+                $tempCopies = [];
+
                 foreach ($files as $file) {
-                    $content = Storage::get($file->path);
-                    $zip->addFromString($file->file_name . '.' . $file->ext, $content);
+                    $tempCopy = $storage->temporaryLocalCopy($file);
+
+                    if (!$tempCopy) {
+                        continue;
+                    }
+
+                    if (!$storage->matchesStoredChecksum($file, $tempCopy)) {
+                        $zip->close();
+
+                        foreach (array_merge($tempCopies, [$tempCopy]) as $copy) {
+                            if (is_file($copy)) {
+                                @unlink($copy);
+                            }
+                        }
+
+                        if (file_exists($zipFile)) {
+                            @unlink($zipFile);
+                        }
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'error',
+                            'title'    => 'Checksum divergente!',
+                            'html'     => 'O arquivo ' . e($file->original_name ?: $file->file_name) . ' não confere com o hash gravado no servidor.',
+                            'timer'    => 5000,
+                        ]);
+
+                        return;
+                    }
+
+                    $zip->addFile($tempCopy, $file->file_name . '.' . $file->ext);
+                    $tempCopies[] = $tempCopy;
                 }
 
                 $zip->close();
+
+                foreach ($tempCopies as $tempCopy) {
+                    if (is_file($tempCopy)) {
+                        @unlink($tempCopy);
+                    }
+                }
 
                 $this->files_selected = [];
 
@@ -160,19 +206,19 @@ class Histviab extends Component
 
     public function cleanAll()
     {
-        $this->date_in = "";
+        $this->date_in  = "";
         $this->date_out = "";
-        $this->dateBy = 'sended_at';
-        $this->search = '';
+        $this->dateBy   = 'sended_at';
+        $this->search   = '';
     }
 
     public function updatedMonth()
     {
         if ($this->month) {
-            $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
-            $this->date_out =  Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+            $this->date_in  = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+            $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
         } else {
-            $this->date_in = '';
+            $this->date_in  = '';
             $this->date_out = '';
         }
     }
@@ -181,13 +227,14 @@ class Histviab extends Component
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
             $this->filter = $_SESSION['filter'][$this->filter_group];
         }
-
 
         $query = Viability::Query();
         // ->where('completed', true)
@@ -242,8 +289,6 @@ class Histviab extends Component
                 }
             });
         }
-
-
 
         return $query->orderBy('completed_at', 'DESC');
     }

@@ -79,6 +79,7 @@
                             'kind' => 'group',
                             'label' => 'DESPACHO',
                             'open' => 'side',
+                            'accent' => 'danger',
                             'nodes' => $buildDispatchItems($projectDispatchItems),
                         ]
                         : null,
@@ -104,6 +105,7 @@
                             'kind' => 'group',
                             'label' => 'DESPACHO',
                             'open' => 'side',
+                            'accent' => 'danger',
                             'nodes' => $buildDispatchItems($constructionDispatchItems),
                         ]
                         : null,

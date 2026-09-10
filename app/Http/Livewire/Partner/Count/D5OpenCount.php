@@ -26,16 +26,7 @@ class D5OpenCount extends Component
             ->where('is_completed', false)
             ->where('returned', $this->returned);
 
-        if (!auth()->user()->superadm) {
-            $query->where(function ($q) {
-                if (auth()->user()->Companies->isNotEmpty()) {
-                    $q->whereIn('company_id', auth()->user()->Companies->pluck('id')->all())
-                        ->orWhere('company_id', auth()->user()->Company->id);
-                } else {
-                    $q->where('company_id', auth()->user()->Company->id);
-                }
-            });
-        }
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToFiveNotes($query);
 

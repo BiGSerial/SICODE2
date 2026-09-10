@@ -734,6 +734,21 @@
                         </div>
 
                         <div class="d-flex gap-2">
+                            @if ($this->hasMultipleCloseFinalScopes())
+                                <div class="border rounded p-2 bg-light me-2">
+                                    <div class="fw-bold small mb-1">Escopo a encerrar</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @foreach ($this->closeFinalScopeOptions() as $scopeOption)
+                                            <label class="form-check d-flex align-items-center gap-1 m-0">
+                                                <input class="form-check-input" type="checkbox"
+                                                    wire:model.defer="closeFinalScopeSelections.{{ $scopeOption['scope'] }}">
+                                                <span class="badge {{ $scopeOption['class'] }}">{{ $scopeOption['label'] }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
                             <button type="button" class="btn btn-secondary" wire:click.prevent="saveForm()">
                                 <i class="ri-save-3-line me-1"></i> SALVAR
                             </button>

@@ -615,7 +615,7 @@
                                             $status = 'Finalizada';
                                             $color = 'text-bg-success';
                                         } elseif ($lists->FiveNote?->is_supervisioned) {
-                                            $status = 'Aguardando Liberação Pagamento';
+                                            $status = 'Aguardando Liberação Medição';
                                             $color = 'text-bg-danger';
                                         } elseif ($lists->FiveNote?->is_completed) {
                                             $status = 'Aguardando Fiscalização';
@@ -625,7 +625,7 @@
                                             $color = 'text-bg-primary';
                                         }
                                     } else {
-                                        $status = 'Aguardando Despacho Pagamento';
+                                        $status = 'Aguardando Despacho Medição';
                                         $color = 'text-bg-primary';
                                     }
                                 @endphp
@@ -1332,7 +1332,7 @@
                                             @elseif($partial->allow && !$partial->supervision)
                                                 <span class="badge bg-warning">EM FISCALIZAÇÃO</span>
                                             @elseif($partial->allow && $partial->supervision && !$partial->payment)
-                                                <span class="badge bg-warning">EM PAGAMENTO</span>
+                                                <span class="badge bg-warning">EM MEDIÇÃO</span>
                                             @elseif($partial->allow && $partial->complete)
                                                 <span class="badge bg-warning">PAGO</span>
                                             @else

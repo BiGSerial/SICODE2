@@ -454,7 +454,7 @@
                     @foreach ($images as $file)
                         @php
                             $nameWithExt = pathinfo($file->file_name, PATHINFO_FILENAME) . '.' . $file->ext;
-                            $previewImageUrl = route('files.preview', ['file' => $file->id, 'v' => optional($file->updated_at)->timestamp]);
+                            $previewImageUrl = route('files.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]);
                             $currentIndex = array_search((int) $file->id, $globalImageIds, true);
                             $globalImageIndex = $currentIndex === false ? 0 : $currentIndex;
                         @endphp

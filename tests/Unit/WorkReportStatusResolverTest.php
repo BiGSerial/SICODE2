@@ -3,6 +3,8 @@
 namespace Tests\Unit;
 
 use App\Models\FiveNote;
+use App\Models\Operation;
+use App\Models\Order;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\WorkReport;
@@ -38,7 +40,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_fiscalization_finished_without_payment(): void
     {
-        $this->assertStatus('Aguardando Pagamento', [
+        $this->assertStatus('Aguardando Medição', [
             'has_ads' => true,
             'normal_fiscal_associated' => true,
             'normal_fiscal_finished' => true,
@@ -47,7 +49,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_waiting_payment_without_fiscalization_is_inconsistent(): void
     {
-        $this->assertStatus('Pagamento Inconsistente', [
+        $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
             'normal_payment_finished' => false,
         ]);
@@ -55,7 +57,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_payment_in_progress_without_fiscalization_is_inconsistent(): void
     {
-        $this->assertStatus('Pagamento Inconsistente', [
+        $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
             'normal_payment_finished' => false,
         ]);
@@ -63,7 +65,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_payment_finished_without_fiscalization_is_inconsistent(): void
     {
-        $this->assertStatus('Pagamento Inconsistente', [
+        $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
             'normal_payment_finished' => true,
             'd5_completed' => true,
@@ -102,7 +104,7 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_d5_fiscalization_finished_without_payment(): void
     {
-        $this->assertStatus('Aguardando Pagamento D5', [
+        $this->assertStatus('Aguardando Medição D5', [
             'd5_associated_to_note' => true,
             'd5_associated_to_production' => true,
             'd5_fiscal_associated' => true,
@@ -189,7 +191,7 @@ class WorkReportStatusResolverTest extends TestCase
         $workReport->setRelation('Note', $note);
         $workReport->setRelation('Adsform', null);
 
-        $this->assertSame('Aguardando Pagamento D5', $this->resolver->resolve($workReport)['label']);
+        $this->assertSame('Aguardando Medição D5', $this->resolver->resolve($workReport)['label']);
     }
 
     public function test_payment_finished_with_completed_d5_and_finished_fiscalizations(): void
@@ -277,8 +279,167 @@ class WorkReportStatusResolverTest extends TestCase
         $this->assertSame('Informe', $this->resolver->resolve($workReport)['label']);
     }
 
+    public function test_sap_operation_30_open_waits_fiscalization_without_flow(): void
+    {
+        $this->assertSame('Aguardando Fiscalização', $this->resolveWithOperation('0030')['label']);
+    }
+
+    public function test_sap_operation_30_started_is_fiscalization_without_flow(): void
+    {
+        $this->assertSame('Em Fiscalização', $this->resolveWithOperation('0030', inicioReal: '2026-09-09')['label']);
+    }
+
+    public function test_sap_operation_30_finished_waits_payment_without_flow(): void
+    {
+        $this->assertSame('Aguardando Medição', $this->resolveWithOperation('0030', fimReal: '2026-09-09')['label']);
+    }
+
+    public function test_sap_operation_50_finished_is_payment_finished_without_flow(): void
+    {
+        $this->assertSame('Medição Finalizada', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'operacao' => '0030', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'operacao' => '0050', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_60_finished_is_finalized_without_flow(): void
+    {
+        $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_50_open_does_not_wait_payment_without_operation_30_finished(): void
+    {
+        $this->assertSame('Aguardando Fiscalização', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'operacao' => '0030'],
+            ['ordem' => '1700000001', 'operacao' => '0050'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_60_finished_does_not_finalize_without_closed_order_status(): void
+    {
+        $this->assertSame('Medição Finalizada', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'statusSist' => 'LIB', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1700000001', 'statusSist' => 'LIB', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'statusSist' => 'LIB', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_ignores_non_main_order_prefixes(): void
+    {
+        $this->assertSame('Informe', $this->resolveWithOrderOperations([
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+            ['ordem' => '1500000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_uses_190_only_when_it_is_the_unique_order(): void
+    {
+        $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_uses_170_order(): void
+    {
+        $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
+            ['ordem' => '1900000001', 'operacao' => '0030'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENT', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENT', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENT', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_prefers_170_when_it_exists_with_180(): void
+    {
+        $this->assertSame('Aguardando Fiscalização', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'operacao' => '0030'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_prefers_180_when_it_exists_with_15_or_19(): void
+    {
+        $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
+            ['ordem' => '1500000001', 'operacao' => '0030'],
+            ['ordem' => '1900000001', 'operacao' => '0030'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_prefers_latest_200_order(): void
+    {
+        $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
+            ['ordem' => '2000000001', 'operacao' => '0030', 'id' => 1],
+            ['ordem' => '2000000002', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07', 'id' => 2],
+            ['ordem' => '2000000002', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08', 'id' => 2],
+            ['ordem' => '2000000002', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09', 'id' => 2],
+            ['ordem' => '1700000001', 'operacao' => '0030', 'id' => 3],
+        ])['label']);
+    }
+
     private function assertStatus(string $expected, array $state): void
     {
         $this->assertSame($expected, $this->resolver->resolveState($state)['label']);
+    }
+
+    private function resolveWithOperation(string $code, ?string $inicioReal = null, ?string $fimReal = null): array
+    {
+        return $this->resolveWithOrderOperations([
+            [
+                'ordem' => '1700000001',
+                'operacao' => $code,
+                'inicioReal' => $inicioReal,
+                'fimReal' => $fimReal,
+            ],
+        ]);
+    }
+
+    private function resolveWithOrderOperations(array $rows): array
+    {
+        $orders = collect($rows)
+            ->groupBy('ordem')
+            ->map(function ($orderRows, string $ordem) {
+                $firstRow = $orderRows->first();
+                $order = new Order([
+                    'ordem' => $ordem,
+                    'statusSist' => $firstRow['statusSist'] ?? null,
+                ]);
+                $order->id = $firstRow['id'] ?? null;
+                $order->setRelation('Operations', new EloquentCollection(
+                    $orderRows
+                        ->map(fn (array $row) => new Operation([
+                            'operacao' => $row['operacao'],
+                            'inicioReal' => $row['inicioReal'] ?? null,
+                            'fimReal' => $row['fimReal'] ?? null,
+                        ]))
+                        ->all()
+                ));
+
+                return $order;
+            })
+            ->values();
+
+        return $this->resolveWithOrders($orders);
+    }
+
+    private function resolveWithOrders($orders): array
+    {
+        $workReport = new WorkReport();
+        $workReport->setRelation('Orders', new EloquentCollection($orders->all()));
+        $workReport->setRelation('FlowProductions', new EloquentCollection());
+        $workReport->setRelation('Adsform', null);
+        $workReport->setRelation('Note', new \App\Models\Note());
+
+        return $this->resolver->resolve($workReport);
     }
 }

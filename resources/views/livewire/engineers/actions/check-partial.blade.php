@@ -219,7 +219,7 @@
                                                                         data-preview-carousel="#{{ $modalScope }}-preview-carousel"
                                                                         data-preview-index="{{ $previewIndex }}">
                                                                         @if ($hasPreviewImage)
-                                                                            <img src="{{ route('files.preview', ['file' => $file->id]) }}"
+                                                                        <img src="{{ route('files.preview', ['file' => $file->id, 'thumbnail' => 1]) }}"
                                                                                 alt="{{ $file->file_name }}" loading="lazy"
                                                                                 onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
                                                                             <span class="work-thumb-placeholder d-none">SEM IMAGEM</span>

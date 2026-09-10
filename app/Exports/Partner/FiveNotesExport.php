@@ -142,7 +142,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             }
 
             if ($five->is_supervisioned) {
-                return 'Aguardando LiberaÃ§Ã£o Pagamento';
+                return 'Aguardando LiberaÃ§Ã£o Medição';
             }
 
             if ($five->is_completed) {
@@ -154,7 +154,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             }
         }
 
-        return 'Aguardando Despacho Pagamento';
+        return 'Aguardando Despacho Medição';
     }
 
     protected function showAssignee(): bool
@@ -246,7 +246,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
     {
         return match ($this->activityKey($five)) {
             'finalizado' => 'Finalizado',
-            'aguardando_pagamento' => 'Aguardando Pagamento',
+            'aguardando_pagamento' => 'Aguardando Medição',
             'aguardando_fiscalizacao' => 'Aguardando Fiscalizacao',
             'aguardando_geracao_d5' => 'Aguardando Geracao de D5',
             default => 'Aguardando Fornecedor',

@@ -52,7 +52,7 @@ class WorkReportFlowProductionLinker
             return null;
         }
 
-        $workReport = $this->resolveCurrentFinalWorkReport((int) $production->note_id);
+        $workReport = $this->resolveCurrentFinalWorkReport((int) $production->note_id, $finalScope);
         if (!$workReport) {
             return null;
         }
@@ -65,7 +65,7 @@ class WorkReportFlowProductionLinker
                 ->where('production_id', '!=', $production->id)
                 ->update(['is_current' => false]);
 
-            return WorkReportFlowProduction::query()->updateOrCreate(
+            $link = WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,
                     'production_id' => $production->id,
@@ -86,16 +86,26 @@ class WorkReportFlowProductionLinker
                     ], fn ($value) => $value !== null),
                 ]
             );
+
+            app(WorkReportCurrentStatusRefresher::class)->refresh($workReport->id);
+
+            return $link;
         });
     }
 
-    public function resolveCurrentFinalWorkReport(int $noteId): ?WorkReport
+    public function resolveCurrentFinalWorkReport(int $noteId, string $finalScope = WorkReportFlowProduction::SCOPE_GENERAL): ?WorkReport
     {
         return WorkReport::query()
+            ->with(['Note', 'Orders'])
             ->where('note_id', $noteId)
             ->where('canceled', false)
             ->orderByRaw('COALESCE(informed_at, created_at) DESC')
             ->orderByDesc('id')
-            ->first();
+            ->get()
+            ->first(function (WorkReport $workReport) use ($finalScope) {
+                return collect($workReport->finalScopePayloads())
+                    ->pluck('scope')
+                    ->contains($finalScope);
+            });
     }
 }

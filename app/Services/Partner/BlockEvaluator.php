@@ -3,6 +3,7 @@
 namespace App\Services\Partner;
 
 use App\Models\{Note, Partial, Production, Service, WorkReport};
+use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use App\Support\SicodeRules;
 
 class BlockEvaluator
@@ -32,7 +33,7 @@ class BlockEvaluator
         ;
 
         // 1) Já informada?
-        if ($wf) {
+        if ($this->hasCompletedFinalScopeCoverage($note, $wf)) {
             return $this->res(self::HOLD_RED, false, 'Obra já informada', null, $wf);
         }
 
@@ -101,6 +102,41 @@ class BlockEvaluator
     private function noteStatusBlocksSuspended(): bool
     {
         return !SicodeRules::workReportBlocksByNoteStatus();
+    }
+
+    private function hasCompletedFinalScopeCoverage(Note $note, ?WorkReport $workReport): bool
+    {
+        if (!SicodeRules::workReportSplitsBtzeroEpFinalFlows() || (int) $note->type_note !== 1) {
+            return (bool) $workReport;
+        }
+
+        $orders = $note->relationLoaded('Orders') ? $note->Orders : $note->Orders()->get();
+        $orders = $orders
+            ->filter(fn ($order) => !(strpos((string) $order->statusSist, 'ENT') === 0 || strpos((string) $order->statusSist, 'ENC') === 0))
+            ->values();
+
+        $detectedScopes = collect(app(WorkReportFinalScopeResolver::class)->resolve($note->type_note, $orders))
+            ->pluck('scope')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($detectedScopes->isEmpty()) {
+            return (bool) $workReport;
+        }
+
+        $activeScopes = WorkReport::query()
+            ->with(['Note', 'Orders'])
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->get()
+            ->flatMap(fn (WorkReport $activeWorkReport) => collect($activeWorkReport->finalScopePayloads())->pluck('scope'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $activeScopes->isNotEmpty()
+            && $detectedScopes->diff($activeScopes)->isEmpty();
     }
 
     private function res(int $block, bool $command, string $reason, ?Partial $partial = null, ?WorkReport $work = null, ?Production $production = null): object

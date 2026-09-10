@@ -8,8 +8,8 @@ use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Viability;
+use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -129,8 +129,10 @@ class Histhiring extends Component
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',

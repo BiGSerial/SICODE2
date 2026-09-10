@@ -2,12 +2,10 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Models\File;
-use App\Models\Production;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Production};
+use Illuminate\Support\Facades\{DB};
+use Livewire\{Component, WithFileUploads};
 
 /**
  * Componente Livewire para Gerenciamento de Arquivos de Produção
@@ -45,31 +43,38 @@ use Livewire\WithFileUploads;
 class CreatePublicationFiles extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
     public ?Production $production = null;
+
     public $needFiles;
+
     public $alertFile = false;
+
     public $files = [];
+
     public $tempFiles = [];
+
     public $uploadType;
+
     public $services;
 
     protected $listeners = [
         'saveFiles',
-        'cleanFiles' => 'closeAll',
+        'cleanFiles'       => 'closeAll',
         'refreshComponent' => '$refresh',
     ];
 
     public function mount(Production $production, bool $needFiles = false)
     {
         $this->production = $production;
-        $this->needFiles = $needFiles;
+        $this->needFiles  = $needFiles;
     }
 
     public $filesConfig = [
-        'disk' => 'public',
-        'path' => 'protest_attachments',
-        'maxSize' => (10 * 1024),
+        'disk'         => 'public',
+        'path'         => 'protest_attachments',
+        'maxSize'      => (10 * 1024),
         'allowedTypes' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt'],
 
     ];
@@ -81,7 +86,7 @@ class CreatePublicationFiles extends Component
             'doc', 'docx' => 'bg-primary text-white',
             'xls', 'xlsx' => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt' => 'bg-secondary text-white',
+            'txt'   => 'bg-secondary text-white',
             default => 'bg-dark text-white',
         };
     }
@@ -93,7 +98,7 @@ class CreatePublicationFiles extends Component
             'doc', 'docx' => 'ri-file-word-fill',
             'xls', 'xlsx' => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt' => 'ri-file-text-fill',
+            'txt'   => 'ri-file-text-fill',
             default => 'ri-file-fill',
         };
     }
@@ -120,8 +125,6 @@ class CreatePublicationFiles extends Component
         $this->emitSelf('refreshComponent');
     }
 
-
-
     public function updatedFiles()
     {
         $this->validate();
@@ -144,6 +147,7 @@ class CreatePublicationFiles extends Component
                         'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -154,6 +158,7 @@ class CreatePublicationFiles extends Component
                         'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -195,19 +200,16 @@ class CreatePublicationFiles extends Component
             foreach ($this->tempFiles as &$temp_file) {
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->production->Note->note) === false) {
-                    $this->alertFile = true;
+                    $this->alertFile         = true;
                     $temp_file['suspicious'] = true;
                 }
             }
-
 
             $this->emitUp('hasFile', true);
         } else {
             $this->emitUp('hasFile', false);
         }
     }
-
-
 
     public function removeFile($index)
     {
@@ -217,7 +219,6 @@ class CreatePublicationFiles extends Component
             $this->emitSelf('refreshComponent');
         }
     }
-
 
     public function closeAll()
     {
@@ -231,20 +232,17 @@ class CreatePublicationFiles extends Component
 
         $this->production = null;
         $this->uploadType = '';
-        $this->files = [];
+        $this->files      = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
 
     }
 
-
     // public function createFile(Note $note)
     // {
     //     $this->note = $note;
 
-
     //     if ($this->note) {
-
 
     //         $this->dispatchBrowserEvent('showModal', [
     //             'id' => 'modal_mass_upload',
@@ -252,15 +250,12 @@ class CreatePublicationFiles extends Component
     //     }
     // }
 
-
     private function rename(array &$temps, string $type)
     {
-        $count = 0;
-        $item = 1;
-        $type_s = '';
+        $count   = 0;
+        $item    = 1;
+        $type_s  = '';
         $service = '';
-
-
 
         usort($temps, function ($a, $b) {
             $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
@@ -272,15 +267,13 @@ class CreatePublicationFiles extends Component
             return strcmp($a['original_name'], $b['original_name']);
         });
 
-
-
         foreach ($temps as $temp) {
 
             $agrupe[$temp['uploadType']][] = $temp;
 
             if ($temp['service_id'] !== $service) {
                 $service = $temp['service_id'];
-                $count = 0;
+                $count   = 0;
             }
 
             if ($temp['uploadType'] === $type) {
@@ -292,14 +285,14 @@ class CreatePublicationFiles extends Component
         foreach ($temps as &$temp) {
 
             if ($temp['uploadType'] !== $type_s || $temp['service_id'] !== $service) {
-                $type_s = $temp['uploadType'];
+                $type_s  = $temp['uploadType'];
                 $service = $temp['service_id'];
-                $item = 1;
+                $item    = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->production->Service->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->production->Note->note."_N".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev   = mb_strtoupper(substr($this->production->Service->service, 0, 4));
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->production->Note->note . "_N" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
@@ -307,10 +300,8 @@ class CreatePublicationFiles extends Component
 
     }
 
-
     public function saveFiles()
     {
-
 
         if (count($this->tempFiles)) {
             foreach ($this->tempFiles as $tempFile) {
@@ -318,31 +309,23 @@ class CreatePublicationFiles extends Component
             }
         } else {
             $this->emitUp('continue');
+
             return;
         }
-
-
 
         DB::beginTransaction();
 
         foreach ($this->tempFiles as $saveFile) {
-            $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
+            $rev = File::where('file_name', 'like', $saveFile['newName'] . "%")->count();
 
-            $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
-
-            if (Storage::exists($caminho)) {
-                File::create([
-                    'note_id' => $this->production->note->id,
-                    'user_id' => Auth()->User()->id,
-                    'service_id' => $saveFile['service_id'],
-                    'file_name' => $saveFile['newName']."_Rev".$rev,
-                    'original_name' => $saveFile['original_name'],
-                    'path' => $caminho,
-                    'ext' => $saveFile['ext'],
-                    'suspicious' => $saveFile['suspicious'],
-                    'noexists' => false,
-                ]);
-            } else {
+            try {
+                $this->persistManagedFileUpload(
+                    $saveFile,
+                    $this->production->note,
+                    '/arquivos/' . $saveFile['uploadType'],
+                    $saveFile['newName'] . "_Rev" . $rev,
+                );
+            } catch (\Throwable) {
                 DB::rollback();
 
                 $this->dispatchBrowserEvent('swal', [
@@ -362,7 +345,6 @@ class CreatePublicationFiles extends Component
 
         DB::commit();
 
-
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
@@ -376,14 +358,10 @@ class CreatePublicationFiles extends Component
         $this->closeAll();
     }
 
-
-
     protected $rules = [
 
         'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:41943', // 40MB
     ];
-
-
 
     public function render()
     {

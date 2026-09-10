@@ -460,7 +460,7 @@ class WaitingFiveNotes extends Component
                 'wait_days' => $this->waitDays($fiveNote->supervisioned_at, $fiveNote->payed_at),
             ],
             [
-                'label' => 'Pagamento',
+                'label' => 'Medição',
                 'at' => $fiveNote->payed_at,
                 'wait_days' => $this->waitDays(
                     $fiveNote->payed_at,
@@ -493,7 +493,7 @@ class WaitingFiveNotes extends Component
         }
 
         if ($fiveNote->is_supervisioned) {
-            return ['key' => 'aguardando_pagamento', 'label' => 'Aguardando Pagamento', 'color' => 'text-bg-primary'];
+            return ['key' => 'aguardando_pagamento', 'label' => 'Aguardando Medição', 'color' => 'text-bg-primary'];
         }
 
         if ($fiveNote->is_completed) {

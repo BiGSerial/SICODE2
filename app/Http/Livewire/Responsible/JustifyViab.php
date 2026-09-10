@@ -2,27 +2,25 @@
 
 namespace App\Http\Livewire\Responsible;
 
-use App\Models\City;
-use App\Models\File;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\{City, File, Viability};
+use App\Services\Files\FileStorageService;
+use Livewire\{Component, WithPagination};
 
 class JustifyViab extends Component
 {
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
     public $search;
+
     public $perPage = 50;
+
     public $cities;
 
-
-
     protected $queryString = [
-        'search' => ['except' => '', 'as' => 'buscar'],
-        'page' => ['except' => 1, 'as' => 'p'],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
     ];
 
@@ -43,13 +41,12 @@ class JustifyViab extends Component
     public function downloadFile($id)
     {
 
-
         if ($file = File::find($id)) {
 
+            $storage = app(FileStorageService::class);
 
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -73,9 +70,7 @@ class JustifyViab extends Component
             ->orderBy('justified_at', 'desc');
         })->where('tacit', true);
 
-
         if (!auth()->user()->superadm) {
-
 
             // if (Auth()->user()->Companies->isNotEmpty()) {
             //     $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
@@ -90,8 +85,6 @@ class JustifyViab extends Component
         // return $query->select('viabilities.*', 'tacit_comments.justified_at as comment_justified_at');
         return $query;
     }
-
-
 
     public function render()
     {

@@ -2,70 +2,81 @@
 
 namespace App\Http\Livewire\Admin\Control;
 
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Order;
-use App\Models\User;
-use App\Models\Viability;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{Company, File, Order, User, Viability};
+use App\Services\Files\FileStorageService;
 use Livewire\Component;
 
 class ViabilityEdit extends Component
 {
     public ?Viability $viability = null;
+
     public ?string $initAt = null;
+
     public ?string $sendedAt = null;
+
     public ?string $returnedAt = null;
+
     public ?string $tacitAt = null;
+
     public ?string $completedAt = null;
+
     public ?string $engineerAt = null;
+
     public ?string $hiredAt = null;
+
     public $companies = [];
+
     public $companyUsers = [];
+
     public $engineers = [];
+
     public $availableOrders = [];
+
     public $linkedOrders = [];
+
     public $pendingFileSave = false;
+
     public $hasFile = false;
+
     public $deleteFileId;
 
     protected $listeners = [
         'getInfoResponse',
-        'savedFiles' => 'onFilesSaved',
-        'continue' => 'onFilesSaved',
-        'hasFile' => 'hasFile',
-        'resetForm' => 'resetForm',
+        'savedFiles'        => 'onFilesSaved',
+        'continue'          => 'onFilesSaved',
+        'hasFile'           => 'hasFile',
+        'resetForm'         => 'resetForm',
         'confirmDeleteFile' => 'confirmDeleteFile',
     ];
 
     protected function rules(): array
     {
         return [
-            'viability.order_id' => ['nullable', 'integer'],
-            'viability.company_id' => ['nullable', 'uuid'],
-            'viability.user_id' => ['nullable', 'uuid'],
-            'viability.engineer_id' => ['nullable', 'uuid'],
-            'initAt' => ['nullable', 'date'],
-            'sendedAt' => ['nullable', 'date'],
-            'returnedAt' => ['nullable', 'date'],
-            'tacitAt' => ['nullable', 'date'],
-            'completedAt' => ['nullable', 'date'],
-            'engineerAt' => ['nullable', 'date'],
-            'hiredAt' => ['nullable', 'date'],
-            'viability.tacit' => ['nullable', 'boolean'],
-            'viability.completed' => ['nullable', 'boolean'],
-            'viability.canceled' => ['nullable', 'boolean'],
-            'viability.rejected' => ['nullable', 'boolean'],
-            'viability.approved' => ['nullable', 'boolean'],
-            'viability.engineer' => ['nullable', 'boolean'],
-            'viability.hired' => ['nullable', 'boolean'],
-            'viability.replica' => ['nullable', 'boolean'],
-            'viability.treplica' => ['nullable', 'boolean'],
-            'viability.inActivity' => ['nullable', 'boolean'],
+            'viability.order_id'        => ['nullable', 'integer'],
+            'viability.company_id'      => ['nullable', 'uuid'],
+            'viability.user_id'         => ['nullable', 'uuid'],
+            'viability.engineer_id'     => ['nullable', 'uuid'],
+            'initAt'                    => ['nullable', 'date'],
+            'sendedAt'                  => ['nullable', 'date'],
+            'returnedAt'                => ['nullable', 'date'],
+            'tacitAt'                   => ['nullable', 'date'],
+            'completedAt'               => ['nullable', 'date'],
+            'engineerAt'                => ['nullable', 'date'],
+            'hiredAt'                   => ['nullable', 'date'],
+            'viability.tacit'           => ['nullable', 'boolean'],
+            'viability.completed'       => ['nullable', 'boolean'],
+            'viability.canceled'        => ['nullable', 'boolean'],
+            'viability.rejected'        => ['nullable', 'boolean'],
+            'viability.approved'        => ['nullable', 'boolean'],
+            'viability.engineer'        => ['nullable', 'boolean'],
+            'viability.hired'           => ['nullable', 'boolean'],
+            'viability.replica'         => ['nullable', 'boolean'],
+            'viability.treplica'        => ['nullable', 'boolean'],
+            'viability.inActivity'      => ['nullable', 'boolean'],
             'viability.visible_partner' => ['nullable', 'boolean'],
-            'viability.rehired' => ['nullable', 'boolean'],
-            'viability.status' => ['nullable', 'integer'],
-            'viability.value' => ['nullable', 'numeric'],
+            'viability.rehired'         => ['nullable', 'boolean'],
+            'viability.status'          => ['nullable', 'integer'],
+            'viability.value'           => ['nullable', 'numeric'],
         ];
     }
 
@@ -81,13 +92,13 @@ class ViabilityEdit extends Component
         // Nao carregar a relacao Engineer aqui para evitar conflito com o campo booleano `engineer`.
         $this->viability = $viability->load(['Note', 'Company', 'User', 'Orders', 'Files']);
 
-        $this->initAt = $this->formatDateTimeLocal($this->viability->init_at);
-        $this->sendedAt = $this->formatDateTimeLocal($this->viability->sended_at);
-        $this->returnedAt = $this->formatDateTimeLocal($this->viability->returned_at);
-        $this->tacitAt = $this->formatDateTimeLocal($this->viability->tacit_at);
+        $this->initAt      = $this->formatDateTimeLocal($this->viability->init_at);
+        $this->sendedAt    = $this->formatDateTimeLocal($this->viability->sended_at);
+        $this->returnedAt  = $this->formatDateTimeLocal($this->viability->returned_at);
+        $this->tacitAt     = $this->formatDateTimeLocal($this->viability->tacit_at);
         $this->completedAt = $this->formatDateTimeLocal($this->viability->completed_at);
-        $this->engineerAt = $this->formatDateTimeLocal($this->viability->engineer_at);
-        $this->hiredAt = $this->formatDateTimeLocal($this->viability->hired_at);
+        $this->engineerAt  = $this->formatDateTimeLocal($this->viability->engineer_at);
+        $this->hiredAt     = $this->formatDateTimeLocal($this->viability->hired_at);
 
         $this->refreshCompanyUsers($this->viability->company_id);
         $this->refreshOrders();
@@ -108,6 +119,7 @@ class ViabilityEdit extends Component
     {
         if (!$companyId) {
             $this->companyUsers = [];
+
             return;
         }
 
@@ -120,14 +132,15 @@ class ViabilityEdit extends Component
     {
         if (!$this->viability?->note_id) {
             $this->availableOrders = [];
-            $this->linkedOrders = [];
+            $this->linkedOrders    = [];
+
             return;
         }
 
-        $orders = Order::where('note_id', $this->viability->note_id)->orderBy('ordem')->get();
+        $orders    = Order::where('note_id', $this->viability->note_id)->orderBy('ordem')->get();
         $linkedIds = $this->viability->Orders->pluck('id')->all();
 
-        $this->linkedOrders = $orders->whereIn('id', $linkedIds)->values()->all();
+        $this->linkedOrders    = $orders->whereIn('id', $linkedIds)->values()->all();
         $this->availableOrders = $orders->whereNotIn('id', $linkedIds)->values()->all();
     }
 
@@ -162,18 +175,19 @@ class ViabilityEdit extends Component
         try {
             $this->validate();
 
-            $this->viability->init_at = $this->normalizeDateTime($this->initAt);
-            $this->viability->sended_at = $this->normalizeDateTime($this->sendedAt);
-            $this->viability->returned_at = $this->normalizeDateTime($this->returnedAt);
-            $this->viability->tacit_at = $this->normalizeDateTime($this->tacitAt);
+            $this->viability->init_at      = $this->normalizeDateTime($this->initAt);
+            $this->viability->sended_at    = $this->normalizeDateTime($this->sendedAt);
+            $this->viability->returned_at  = $this->normalizeDateTime($this->returnedAt);
+            $this->viability->tacit_at     = $this->normalizeDateTime($this->tacitAt);
             $this->viability->completed_at = $this->normalizeDateTime($this->completedAt);
-            $this->viability->engineer_at = $this->normalizeDateTime($this->engineerAt);
-            $this->viability->hired_at = $this->normalizeDateTime($this->hiredAt);
+            $this->viability->engineer_at  = $this->normalizeDateTime($this->engineerAt);
+            $this->viability->hired_at     = $this->normalizeDateTime($this->hiredAt);
 
             $this->viability->save();
 
             if (!$this->hasFile) {
                 $this->onFilesSaved();
+
                 return;
             }
 
@@ -236,13 +250,12 @@ class ViabilityEdit extends Component
         }
 
         $file = File::find($this->deleteFileId);
+
         if (!$file) {
             return;
         }
 
-        if (Storage::exists($file->path)) {
-            Storage::delete($file->path);
-        }
+        app(FileStorageService::class)->delete($file);
 
         $this->viability->Files()->detach($file->id);
         $file->delete();
@@ -252,8 +265,10 @@ class ViabilityEdit extends Component
 
     public function downloadFile(File $file)
     {
-        if (Storage::exists($file->path)) {
-            return Storage::download($file->path, $file->file_name);
+        $storage = app(FileStorageService::class);
+
+        if ($storage->exists($file)) {
+            return $storage->download($file, $file->file_name);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -267,20 +282,20 @@ class ViabilityEdit extends Component
     public function resetForm(bool $refresh = true): void
     {
         $this->resetErrorBag();
-        $this->viability = null;
-        $this->initAt = null;
-        $this->sendedAt = null;
-        $this->returnedAt = null;
-        $this->tacitAt = null;
-        $this->completedAt = null;
-        $this->engineerAt = null;
-        $this->hiredAt = null;
-        $this->companyUsers = [];
+        $this->viability       = null;
+        $this->initAt          = null;
+        $this->sendedAt        = null;
+        $this->returnedAt      = null;
+        $this->tacitAt         = null;
+        $this->completedAt     = null;
+        $this->engineerAt      = null;
+        $this->hiredAt         = null;
+        $this->companyUsers    = [];
         $this->availableOrders = [];
-        $this->linkedOrders = [];
+        $this->linkedOrders    = [];
         $this->pendingFileSave = false;
-        $this->hasFile = false;
-        $this->deleteFileId = null;
+        $this->hasFile         = false;
+        $this->deleteFileId    = null;
         $this->emitTo('files.manager.create-viab-files', 'cleanFiles');
 
         if ($refresh) {
@@ -317,6 +332,7 @@ class ViabilityEdit extends Component
 
         try {
             $date = \Carbon\Carbon::make($value);
+
             return $date ? $date->format('Y-m-d H:i:s') : null;
         } catch (\Throwable $e) {
             return null;
@@ -326,9 +342,9 @@ class ViabilityEdit extends Component
     public function render()
     {
         return view('livewire.admin.control.viability-edit', [
-            'companies' => $this->companies,
+            'companies'    => $this->companies,
             'companyUsers' => $this->companyUsers,
-            'engineers' => $this->engineers,
+            'engineers'    => $this->engineers,
         ]);
     }
 }

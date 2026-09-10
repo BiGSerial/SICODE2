@@ -3,17 +3,14 @@
 namespace App\Http\Livewire\Legal\Controller;
 
 use App\Enum\LegalDemandSubdemandStatus;
-use App\Models\Company;
-use App\Models\Note;
-use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandEvent, LegalDemandFile, LegalDemandSubdemand, LegalExternalContact};
+use App\Models\{Company, Note, User};
+use App\Models\Legal\{LegalDemand, LegalDemandAssignment, LegalDemandComment, LegalDemandEvent, LegalDemandFile, LegalExternalContact};
 use App\Models\SicodeSql\Legal\LegalCaseSummary;
-use App\Models\User;
 use App\Notifications\SystemNotification;
-use App\Services\Legal\{LegalDemandFileService, LegalDemandSubdemandWorkflowService, LegalDemandWorkflowService};
+use App\Services\Legal\{LegalDemandSubdemandWorkflowService, LegalDemandUploadService, LegalDemandWorkflowService};
 use App\Support\Notifications\UserNotificationData;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{DB, URL};
 use Livewire\{Component, WithFileUploads};
 use Throwable;
 
@@ -35,8 +32,11 @@ class DemandDetail extends Component
     public ?string $assignDueAt = null;
 
     public bool $assignAsExternal = false;
+
     public ?int $externalContactId = null;
+
     public string $externalContactName = '';
+
     public string $externalContactEmail = '';
 
     public string  $returnReason = '';
@@ -56,6 +56,7 @@ class DemandDetail extends Component
 
     // Upload
     public $uploadFiles = [];
+
     public array $uploadNames = [];
 
     public string $fileVisibility = 'controller';
@@ -70,37 +71,62 @@ class DemandDetail extends Component
     public string $noteInput = '';
 
     public string $noteLinkContext = '';
+
     public ?string $noteOperatorSlaDueAt = null;
+
     public string $noteExecutionInstruction = '';
+
     public array $noteEditSlaDueAt = [];
+
     public array $noteEditContext = [];
+
     public array $noteEditInstruction = [];
+
     public string $internalAction = '';
 
     public ?array $legalCaseSummary = null;
 
     // Subdemandas
     public bool $showSubdemandForm = false;
+
     public string $subdemandAssignedToUserId = '';
+
     public ?string $subdemandDeadlineAt = null;
+
     public string $subdemandDescription = '';
+
     public string $subdemandUserSearch = '';
+
     public string $subdemandCompanyFilter = '';
+
     public bool $subdemandAssignAsExternal = false;
+
     public bool $subdemandRequiresEvidence = false;
+
     public ?int $subdemandExternalContactId = null;
+
     public string $subdemandExternalContactName = '';
+
     public string $subdemandExternalContactEmail = '';
 
     public bool $showSubdemandActionForm = false;
+
     public ?int $subdemandActionId = null;
+
     public string $subdemandActionToStatus = '';
+
     public string $subdemandActionReason = '';
+
     public string $subdemandActionDescription = '';
+
     public string $subdemandActionAssignedToUserId = '';
+
     public ?string $subdemandActionDeadlineAt = null;
+
     public array $subdemandInlineStatus = [];
+
     public array $subdemandControllerCommentInput = [];
+
     public array $subdemandExternalLinks = [];
 
     public function mount(string $uuid): void
@@ -112,20 +138,20 @@ class DemandDetail extends Component
             403
         );
 
-        $this->uuid   = $uuid;
-        $demand = LegalDemand::where('uuid', $uuid)->with($this->demandRelations())->first();
+        $this->uuid = $uuid;
+        $demand     = LegalDemand::where('uuid', $uuid)->with($this->demandRelations())->first();
         abort_if(is_null($demand), 404, 'Demanda não encontrada ou foi removida.');
-        $this->demand = $demand;
+        $this->demand           = $demand;
         $this->legalCaseSummary = $this->loadLegalCaseSummary();
     }
 
     public function linkNotesToCase(): void
     {
         $this->validate([
-            'noteInput' => 'required|string|min:1',
-            'noteOperatorSlaDueAt' => 'required|date',
+            'noteInput'                => 'required|string|min:1',
+            'noteOperatorSlaDueAt'     => 'required|date',
             'noteExecutionInstruction' => 'required|string|min:5|max:5000',
-            'noteLinkContext' => 'nullable|string|max:2000',
+            'noteLinkContext'          => 'nullable|string|max:2000',
         ]);
 
         $tokens = collect(preg_split('/[\\s,;]+/', $this->noteInput))
@@ -136,17 +162,19 @@ class DemandDetail extends Component
 
         if ($tokens->isEmpty()) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Informe ao menos um ID ou número de note válido.']);
+
             return;
         }
 
         $numericTokens = $tokens->filter(fn ($v) => ctype_digit($v))->map(fn ($v) => (int) $v)->values()->all();
-        $stringTokens = $tokens->map(fn ($v) => (string) $v)->values()->all();
+        $stringTokens  = $tokens->map(fn ($v) => (string) $v)->values()->all();
 
         $validIds = Note::query()
             ->where(function ($q) use ($numericTokens, $stringTokens) {
                 if (!empty($numericTokens)) {
                     $q->orWhereIn('id', $numericTokens);
                 }
+
                 if (!empty($stringTokens)) {
                     $q->orWhereIn('note', $stringTokens);
                 }
@@ -156,15 +184,17 @@ class DemandDetail extends Component
 
         if (empty($validIds)) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhuma note encontrada para os valores informados.']);
+
             return;
         }
 
         $payload = [];
+
         foreach ($validIds as $id) {
             $payload[$id] = [
-                'linked_by' => auth()->id(),
-                'linked_at' => now(),
-                'context' => $this->noteLinkContext ?: null,
+                'linked_by'  => auth()->id(),
+                'linked_at'  => now(),
+                'context'    => $this->noteLinkContext ?: null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -175,9 +205,9 @@ class DemandDetail extends Component
             $this->saveNoteExecutionContext($validIds);
         });
 
-        $this->noteInput = '';
-        $this->noteLinkContext = '';
-        $this->noteOperatorSlaDueAt = null;
+        $this->noteInput                = '';
+        $this->noteLinkContext          = '';
+        $this->noteOperatorSlaDueAt     = null;
         $this->noteExecutionInstruction = '';
         $this->demand->refresh()->load(['legalCase.notes', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
 
@@ -194,23 +224,25 @@ class DemandDetail extends Component
     public function attachSingleNote(int $noteId): void
     {
         $this->validate([
-            'noteOperatorSlaDueAt' => 'required|date',
+            'noteOperatorSlaDueAt'     => 'required|date',
             'noteExecutionInstruction' => 'required|string|min:5|max:5000',
-            'noteLinkContext' => 'nullable|string|max:2000',
+            'noteLinkContext'          => 'nullable|string|max:2000',
         ]);
 
         $note = Note::query()->find($noteId);
+
         if (!$note) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Note não encontrada.']);
+
             return;
         }
 
         DB::transaction(function () use ($note): void {
             $this->demand->legalCase->notes()->syncWithoutDetaching([
                 $note->id => [
-                    'linked_by' => auth()->id(),
-                    'linked_at' => now(),
-                    'context' => $this->noteLinkContext ?: null,
+                    'linked_by'  => auth()->id(),
+                    'linked_at'  => now(),
+                    'context'    => $this->noteLinkContext ?: null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
@@ -226,9 +258,9 @@ class DemandDetail extends Component
     public function updateLinkedNoteExecutionContext(int $noteId): void
     {
         $this->validate([
-            "noteEditSlaDueAt.$noteId" => 'required|date',
+            "noteEditSlaDueAt.$noteId"    => 'required|date',
             "noteEditInstruction.$noteId" => 'required|string|min:5|max:5000',
-            "noteEditContext.$noteId" => 'nullable|string|max:2000',
+            "noteEditContext.$noteId"     => 'nullable|string|max:2000',
         ]);
 
         $isLinked = $this->demand->legalCase->notes()
@@ -237,12 +269,13 @@ class DemandDetail extends Component
 
         if (!$isLinked) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Note não está vinculada ao processo.']);
+
             return;
         }
 
         DB::transaction(function () use ($noteId): void {
             $this->demand->legalCase->notes()->updateExistingPivot($noteId, [
-                'context' => trim((string) ($this->noteEditContext[$noteId] ?? '')) ?: null,
+                'context'    => trim((string) ($this->noteEditContext[$noteId] ?? '')) ?: null,
                 'updated_at' => now(),
             ]);
 
@@ -277,10 +310,11 @@ class DemandDetail extends Component
 
         if ($this->assignAsExternal) {
             $rules['assignDueAt'] = 'required|date';
+
             if ($this->externalContactId) {
                 $rules['externalContactId'] = 'exists:legal_external_contacts,id';
             } else {
-                $rules['externalContactName'] = 'required|string|min:3|max:120';
+                $rules['externalContactName']  = 'required|string|min:3|max:120';
                 $rules['externalContactEmail'] = 'required|email|max:190';
             }
         } else {
@@ -291,15 +325,15 @@ class DemandDetail extends Component
 
         try {
             $externalMetadata = [];
-            $toUserId = $this->assignToUserId ?: null;
-            $toTeamId = $this->assignToTeamId ?: null;
+            $toUserId         = $this->assignToUserId ?: null;
+            $toTeamId         = $this->assignToTeamId ?: null;
 
             if ($this->assignAsExternal) {
-                $contact = $this->resolveExternalContact();
+                $contact          = $this->resolveExternalContact();
                 $externalMetadata = [
-                    'external_dispatch' => true,
-                    'external_contact_id' => $contact->id,
-                    'external_contact_name' => $contact->name,
+                    'external_dispatch'      => true,
+                    'external_contact_id'    => $contact->id,
+                    'external_contact_name'  => $contact->name,
                     'external_contact_email' => $contact->email,
                 ];
                 $toUserId = null;
@@ -318,20 +352,20 @@ class DemandDetail extends Component
             );
 
             if ($this->assignAsExternal) {
-                $expiresAt = Carbon::parse((string) $this->assignDueAt);
-                $metadata = (array) ($assignment->metadata ?? []);
-                $metadata['external_link_expires_at'] = $expiresAt->toDateTimeString();
+                $expiresAt                              = Carbon::parse((string) $this->assignDueAt);
+                $metadata                               = (array) ($assignment->metadata ?? []);
+                $metadata['external_link_expires_at']   = $expiresAt->toDateTimeString();
                 $metadata['external_link_generated_at'] = now()->toDateTimeString();
                 $metadata['external_link_generated_by'] = auth()->id();
-                $assignment->metadata = $metadata;
+                $assignment->metadata                   = $metadata;
                 $assignment->save();
             }
 
             $this->demand->refresh()->load(['legalCase', 'controller', 'currentAssignee', 'events.actor', 'files', 'comments.user', 'assignments.sentBy']);
-            $this->showAssignForm = false;
-            $this->assignAsExternal = false;
-            $this->externalContactId = null;
-            $this->externalContactName = '';
+            $this->showAssignForm       = false;
+            $this->assignAsExternal     = false;
+            $this->externalContactId    = null;
+            $this->externalContactName  = '';
             $this->externalContactEmail = '';
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Responsável atribuído', 'timer' => 2500]);
         } catch (\InvalidArgumentException $e) {
@@ -356,7 +390,8 @@ class DemandDetail extends Component
             $this->demand->refresh()->load(['events.actor', 'files', 'comments.user', 'assignments.toUser']);
 
             // Notifica executante
-            $latestAssignment = $this->demand->assignments()->whereNotIn('status',['cancelled'])->latest()->first();
+            $latestAssignment = $this->demand->assignments()->whereNotIn('status', ['cancelled'])->latest()->first();
+
             if ($latestAssignment?->to_user_id) {
                 $this->notifyUser(
                     User::find($latestAssignment->to_user_id),
@@ -462,6 +497,7 @@ class DemandDetail extends Component
     public function updateCommentVisibility(int $commentId, string $visibility): void
     {
         abort_unless($this->canManageCommunicationVisibility(), 403);
+
         if (!in_array($visibility, ['controller', 'shared'], true)) {
             return;
         }
@@ -472,6 +508,7 @@ class DemandDetail extends Component
             ->findOrFail($commentId);
 
         $oldVisibility = $comment->visibility;
+
         if ($oldVisibility === $visibility) {
             return;
         }
@@ -485,7 +522,7 @@ class DemandDetail extends Component
         $this->demand->refresh()->load(['comments.user']);
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Visibilidade atualizada',
             'timer' => 1400,
         ]);
@@ -508,7 +545,7 @@ class DemandDetail extends Component
         $this->demand->refresh()->load(['comments.user']);
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Comentário removido',
             'timer' => 1400,
         ]);
@@ -517,27 +554,30 @@ class DemandDetail extends Component
     public function createSubdemand(): void
     {
         abort_unless(config('features.legal_subdemands', true), 404);
+
         if (!$this->canManageSubdemands()) {
             $this->dispatchBrowserEvent('swal', [
-                'icon' => 'warning',
+                'icon'  => 'warning',
                 'title' => 'Assuma a demanda primeiro',
-                'html' => 'A criação de subdemanda exige que o controlador responsável seja você.',
+                'html'  => 'A criação de subdemanda exige que o controlador responsável seja você.',
             ]);
+
             return;
         }
 
         $this->validate([
-            'subdemandDeadlineAt' => 'nullable|date',
+            'subdemandDeadlineAt'  => 'nullable|date',
             'subdemandDescription' => 'nullable|string|max:1000',
         ]);
 
         if (!$this->subdemandAssignAsExternal && $this->subdemandAssignedToUserId === '') {
             $this->addError('subdemandAssignedToUserId', 'Informe um executante interno ou marque despacho externo.');
+
             return;
         }
 
         try {
-            $metadata = [];
+            $metadata         = [];
             $assignedToUserId = $this->subdemandAssignedToUserId !== '' ? $this->subdemandAssignedToUserId : null;
 
             if ($this->subdemandAssignAsExternal) {
@@ -546,14 +586,15 @@ class DemandDetail extends Component
                     $contact = LegalExternalContact::query()->findOrFail($this->subdemandExternalContactId);
                 } else {
                     $this->validate([
-                        'subdemandExternalContactName' => 'required|string|min:3|max:120',
+                        'subdemandExternalContactName'  => 'required|string|min:3|max:120',
                         'subdemandExternalContactEmail' => 'required|email|max:190',
                     ]);
 
-                    $contact = LegalExternalContact::query()->firstOrNew(['email' => mb_strtolower(trim($this->subdemandExternalContactEmail))]);
-                    $contact->name = trim($this->subdemandExternalContactName);
-                    $contact->is_active = true;
+                    $contact               = LegalExternalContact::query()->firstOrNew(['email' => mb_strtolower(trim($this->subdemandExternalContactEmail))]);
+                    $contact->name         = trim($this->subdemandExternalContactName);
+                    $contact->is_active    = true;
                     $contact->last_used_at = now();
+
                     if (!$contact->exists) {
                         $contact->created_by = auth()->id();
                     }
@@ -561,8 +602,8 @@ class DemandDetail extends Component
                 }
 
                 $assignedToUserId = null;
-                $metadata = [
-                    'external_dispatch'  => true,
+                $metadata         = [
+                    'external_dispatch'      => true,
                     'external_contact_id'    => $contact->id,
                     'external_contact_name'  => $contact->name,
                     'external_contact_email' => $contact->email,
@@ -581,24 +622,25 @@ class DemandDetail extends Component
             );
 
             $externalLink = null;
+
             if ($this->subdemandAssignAsExternal) {
                 $token = app(LegalDemandSubdemandWorkflowService::class)->generateExternalAccess(
                     $subdemand,
                     auth()->user(),
                     $this->subdemandDeadlineAt ? new \DateTime($this->subdemandDeadlineAt) : null
                 );
-                $externalLink = route('legal.external.subdemand.response', ['token' => $token]);
+                $externalLink                                 = route('legal.external.subdemand.response', ['token' => $token]);
                 $this->subdemandExternalLinks[$subdemand->id] = $externalLink;
             } else {
                 LegalDemandAssignment::create([
                     'legal_demand_id' => $this->demand->id,
-                    'from_user_id' => auth()->id(),
-                    'to_user_id' => $assignedToUserId,
-                    'to_team_id' => null,
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                    'message' => $this->subdemandDescription ?: 'Subdemanda enviada para execução.',
-                    'metadata' => [
+                    'from_user_id'    => auth()->id(),
+                    'to_user_id'      => $assignedToUserId,
+                    'to_team_id'      => null,
+                    'status'          => 'sent',
+                    'sent_at'         => now(),
+                    'message'         => $this->subdemandDescription ?: 'Subdemanda enviada para execução.',
+                    'metadata'        => [
                         'subdemand_id'      => $subdemand->id,
                         'due_at'            => $this->subdemandDeadlineAt ? (new \DateTime($this->subdemandDeadlineAt))->format('Y-m-d H:i:s') : null,
                         'source'            => 'subdemand',
@@ -618,20 +660,20 @@ class DemandDetail extends Component
                 );
             }
 
-            $this->showSubdemandForm = false;
-            $this->subdemandAssignedToUserId = '';
-            $this->subdemandDeadlineAt = null;
-            $this->subdemandDescription = '';
-            $this->subdemandAssignAsExternal = false;
-            $this->subdemandExternalContactId = null;
-            $this->subdemandExternalContactName = '';
+            $this->showSubdemandForm             = false;
+            $this->subdemandAssignedToUserId     = '';
+            $this->subdemandDeadlineAt           = null;
+            $this->subdemandDescription          = '';
+            $this->subdemandAssignAsExternal     = false;
+            $this->subdemandExternalContactId    = null;
+            $this->subdemandExternalContactName  = '';
             $this->subdemandExternalContactEmail = '';
-            $this->subdemandRequiresEvidence = false;
+            $this->subdemandRequiresEvidence     = false;
             $this->reloadDemand();
             $this->dispatchBrowserEvent('swal', [
-                'icon' => 'success',
+                'icon'  => 'success',
                 'title' => 'Subdemanda criada',
-                'html' => $externalLink ? ('Link externo: <a target=\"_blank\" href=\"' . e($externalLink) . '\">abrir</a>') : null,
+                'html'  => $externalLink ? ('Link externo: <a target=\"_blank\" href=\"' . e($externalLink) . '\">abrir</a>') : null,
                 'timer' => 3200,
             ]);
         } catch (\InvalidArgumentException $e) {
@@ -645,8 +687,8 @@ class DemandDetail extends Component
             // Externo e interno são mutuamente exclusivos.
             $this->subdemandAssignedToUserId = '';
         } else {
-            $this->subdemandExternalContactId = null;
-            $this->subdemandExternalContactName = '';
+            $this->subdemandExternalContactId    = null;
+            $this->subdemandExternalContactName  = '';
             $this->subdemandExternalContactEmail = '';
         }
     }
@@ -663,19 +705,19 @@ class DemandDetail extends Component
     public function regenerateSubdemandExternalAccess(int $subdemandId): void
     {
         abort_unless($this->canManageSubdemands(), 403);
-        $sub = $this->demand->subdemands()->findOrFail($subdemandId);
+        $sub   = $this->demand->subdemands()->findOrFail($subdemandId);
         $token = app(LegalDemandSubdemandWorkflowService::class)->generateExternalAccess(
             $sub,
             auth()->user(),
             $sub->deadline_at
         );
-        $link = route('legal.external.subdemand.response', ['token' => $token]);
+        $link                                   = route('legal.external.subdemand.response', ['token' => $token]);
         $this->subdemandExternalLinks[$sub->id] = $link;
         $this->reloadDemand();
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Link externo atualizado',
-            'html' => 'Novo link: <a target=\"_blank\" href=\"' . e($link) . '\">abrir</a>',
+            'html'  => 'Novo link: <a target=\"_blank\" href=\"' . e($link) . '\">abrir</a>',
         ]);
     }
 
@@ -684,13 +726,13 @@ class DemandDetail extends Component
         abort_unless($this->canManageSubdemands(), 403);
         $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
 
-        $this->subdemandActionId = $subdemandId;
-        $this->subdemandActionToStatus = $toStatus;
-        $this->subdemandActionReason = '';
-        $this->subdemandActionDescription = '';
+        $this->subdemandActionId               = $subdemandId;
+        $this->subdemandActionToStatus         = $toStatus;
+        $this->subdemandActionReason           = '';
+        $this->subdemandActionDescription      = '';
         $this->subdemandActionAssignedToUserId = (string) ($subdemand->assigned_to_user_id ?? '');
-        $this->subdemandActionDeadlineAt = $subdemand->deadline_at?->format('Y-m-d\TH:i');
-        $this->showSubdemandActionForm = true;
+        $this->subdemandActionDeadlineAt       = $subdemand->deadline_at?->format('Y-m-d\TH:i');
+        $this->showSubdemandActionForm         = true;
     }
 
     public function removeSubdemand(int $subdemandId): void
@@ -698,7 +740,8 @@ class DemandDetail extends Component
         abort_unless($this->canManageSubdemands(), 403);
 
         $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
-        $status = $subdemand->status instanceof \BackedEnum ? $subdemand->status->value : (string) $subdemand->status;
+        $status    = $subdemand->status instanceof \BackedEnum ? $subdemand->status->value : (string) $subdemand->status;
+
         if (in_array($status, ['concluida', 'encerrada_controlador'], true)) {
             return;
         }
@@ -711,11 +754,11 @@ class DemandDetail extends Component
             description: 'Subdemanda removida do fluxo ativo pelo controlador.'
         );
 
-        $metadata = (array) ($subdemand->metadata ?? []);
+        $metadata                          = (array) ($subdemand->metadata ?? []);
         $metadata['removed_by_controller'] = true;
-        $metadata['removed_at'] = now()->toDateTimeString();
-        $metadata['removed_by'] = auth()->id();
-        $subdemand->metadata = $metadata;
+        $metadata['removed_at']            = now()->toDateTimeString();
+        $metadata['removed_by']            = auth()->id();
+        $subdemand->metadata               = $metadata;
         $subdemand->save();
 
         // Encerrar também atribuições internas abertas vinculadas a esta subdemanda.
@@ -723,7 +766,7 @@ class DemandDetail extends Component
             ->whereJsonContains('metadata->subdemand_id', $subdemand->id)
             ->whereNotIn('status', ['cancelled', 'closed'])
             ->update([
-                'status' => 'cancelled',
+                'status'     => 'cancelled',
                 'updated_at' => now(),
             ]);
 
@@ -735,9 +778,9 @@ class DemandDetail extends Component
     {
         abort_unless($this->canManageSubdemands(), 403);
         $this->validate([
-            'subdemandActionId' => 'required|integer',
-            'subdemandActionToStatus' => 'required|string',
-            'subdemandActionReason' => 'nullable|string|max:1000',
+            'subdemandActionId'          => 'required|integer',
+            'subdemandActionToStatus'    => 'required|string',
+            'subdemandActionReason'      => 'nullable|string|max:1000',
             'subdemandActionDescription' => 'nullable|string|max:1000',
         ]);
 
@@ -752,13 +795,13 @@ class DemandDetail extends Component
                 description: $this->subdemandActionDescription ?: null,
             );
 
-            $this->showSubdemandActionForm = false;
-            $this->subdemandActionId = null;
-            $this->subdemandActionToStatus = '';
-            $this->subdemandActionReason = '';
-            $this->subdemandActionDescription = '';
+            $this->showSubdemandActionForm         = false;
+            $this->subdemandActionId               = null;
+            $this->subdemandActionToStatus         = '';
+            $this->subdemandActionReason           = '';
+            $this->subdemandActionDescription      = '';
             $this->subdemandActionAssignedToUserId = '';
-            $this->subdemandActionDeadlineAt = null;
+            $this->subdemandActionDeadlineAt       = null;
             $this->reloadDemand();
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Subdemanda atualizada', 'timer' => 2200]);
         } catch (\InvalidArgumentException $e) {
@@ -770,9 +813,9 @@ class DemandDetail extends Component
     {
         abort_unless($this->canManageSubdemands(), 403);
         $this->validate([
-            'subdemandActionId' => 'required|integer',
+            'subdemandActionId'               => 'required|integer',
             'subdemandActionAssignedToUserId' => 'nullable|string',
-            'subdemandActionReason' => 'nullable|string|max:1000',
+            'subdemandActionReason'           => 'nullable|string|max:1000',
         ]);
 
         $subdemand = $this->demand->subdemands()->findOrFail((int) $this->subdemandActionId);
@@ -793,9 +836,9 @@ class DemandDetail extends Component
     {
         abort_unless($this->canManageSubdemands(), 403);
         $this->validate([
-            'subdemandActionId' => 'required|integer',
+            'subdemandActionId'         => 'required|integer',
             'subdemandActionDeadlineAt' => 'nullable|date',
-            'subdemandActionReason' => 'nullable|string|max:1000',
+            'subdemandActionReason'     => 'nullable|string|max:1000',
         ]);
 
         $subdemand = $this->demand->subdemands()->findOrFail((int) $this->subdemandActionId);
@@ -814,15 +857,16 @@ class DemandDetail extends Component
     public function applyInternalAction(): void
     {
         $action = trim($this->internalAction);
+
         if ($action === '') {
             return;
         }
 
         try {
             match ($action) {
-                'start_triage' => app(LegalDemandWorkflowService::class)->startTriage($this->demand, auth()->user()),
+                'start_triage'   => app(LegalDemandWorkflowService::class)->startTriage($this->demand, auth()->user()),
                 'approve_return' => app(LegalDemandWorkflowService::class)->approveFieldReturn($this->demand, auth()->user()),
-                default => throw new \InvalidArgumentException('Ação de status não permitida neste contexto.'),
+                default          => throw new \InvalidArgumentException('Ação de status não permitida neste contexto.'),
             };
 
             $this->internalAction = '';
@@ -837,11 +881,13 @@ class DemandDetail extends Component
     {
         abort_unless($this->canManageSubdemands(), 403);
         $to = (string) ($this->subdemandInlineStatus[$subdemandId] ?? '');
+
         if ($to === '') {
             return;
         }
 
         $allowed = ['em_andamento', 'aguardando_retorno', 'encerrada_controlador'];
+
         if (!in_array($to, $allowed, true)) {
             return;
         }
@@ -864,23 +910,24 @@ class DemandDetail extends Component
         abort_unless($this->canManageSubdemands(), 403);
 
         $comment = trim((string) ($this->subdemandControllerCommentInput[$subdemandId] ?? ''));
+
         if ($comment === '') {
             return;
         }
 
-        $subdemand = $this->demand->subdemands()->findOrFail($subdemandId);
+        $subdemand    = $this->demand->subdemands()->findOrFail($subdemandId);
         $assignmentId = $this->demand->assignments()
             ->whereNotIn('status', ['cancelled', 'closed'])
             ->latest()
             ->first()?->id;
 
         \App\Models\Legal\LegalDemandComment::create([
-            'legal_demand_id' => $this->demand->id,
-            'assignment_id' => $assignmentId,
+            'legal_demand_id'           => $this->demand->id,
+            'assignment_id'             => $assignmentId,
             'legal_demand_subdemand_id' => $subdemand->id,
-            'user_id' => auth()->id(),
-            'comment' => $comment,
-            'visibility' => 'shared',
+            'user_id'                   => auth()->id(),
+            'comment'                   => $comment,
+            'visibility'                => 'shared',
         ]);
 
         // Notifica executante interno da subdemanda
@@ -930,40 +977,20 @@ class DemandDetail extends Component
     public function saveQueuedFiles(): void
     {
         $this->validate([
-            'uploadFiles' => 'required|array|min:1',
+            'uploadFiles'   => 'required|array|min:1',
             'uploadFiles.*' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,docx,xlsx',
-            'uploadNames' => 'array',
+            'uploadNames'   => 'array',
             'uploadNames.*' => 'nullable|string|max:190',
         ]);
 
         $assignmentId = $this->demand->assignments()->whereNotIn('status', ['cancelled', 'closed'])->first()?->id;
+        $uploader     = app(LegalDemandUploadService::class);
 
         foreach ($this->uploadFiles as $index => $file) {
-            $customName = trim((string) ($this->uploadNames[$index] ?? ''));
-            $originalName = (string) $file->getClientOriginalName();
-
-            if ($customName === '') {
-                $customName = $originalName;
-            }
-
-            $customName = preg_replace('/[\\\\\\/]+/', '-', $customName) ?: $originalName;
-            $extension = strtolower((string) $file->getClientOriginalExtension());
-            if ($extension !== '' && !str_ends_with(strtolower($customName), '.' . $extension)) {
-                $customName .= '.' . $extension;
-            }
-
-            $path = $file->storeAs("legal/demands/{$this->demand->id}", $customName, 'public');
-
-            LegalDemandFile::create([
-                'legal_demand_id' => $this->demand->id,
+            $uploader->upload($this->demand, $file, auth()->user(), [
                 'assignment_id' => $assignmentId,
-                'uploaded_by' => auth()->id(),
-                'file_name' => basename($path),
-                'original_name' => $customName,
-                'path' => $path,
-                'mime_type' => $file->getMimeType(),
-                'size' => $file->getSize(),
-                'visibility' => $this->fileVisibility,
+                'visibility'    => $this->fileVisibility,
+                'name'          => (string) ($this->uploadNames[$index] ?? ''),
             ]);
         }
 
@@ -988,6 +1015,7 @@ class DemandDetail extends Component
     public function render()
     {
         $fieldUsersQuery = User::query()->with('Company')->orderBy('name');
+
         if (trim($this->subdemandUserSearch) !== '') {
             $s = '%' . trim($this->subdemandUserSearch) . '%';
             $fieldUsersQuery->where(function ($q) use ($s) {
@@ -995,10 +1023,11 @@ class DemandDetail extends Component
                     ->orWhere('email', 'like', $s);
             });
         }
+
         if (trim($this->subdemandCompanyFilter) !== '') {
             $fieldUsersQuery->where('company_id', $this->subdemandCompanyFilter);
         }
-        $fieldUsers = $fieldUsersQuery->limit(120)->get();
+        $fieldUsers        = $fieldUsersQuery->limit(120)->get();
         $currentAssignment = $this->demand->assignments()
             ->whereNotIn('status', ['cancelled', 'closed'])
             ->with(['sentBy', 'toUser'])
@@ -1010,29 +1039,29 @@ class DemandDetail extends Component
             : $this->demand->internal_status;
 
         return view('livewire.legal.controller.demand-detail', [
-            'fieldUsers'         => $fieldUsers,
-            'externalContacts'   => LegalExternalContact::query()
+            'fieldUsers'       => $fieldUsers,
+            'externalContacts' => LegalExternalContact::query()
                 ->where('is_active', true)
                 ->orderByDesc('last_used_at')
                 ->orderBy('name')
                 ->limit(100)
                 ->get(),
-            'currentAssignment'  => $currentAssignment,
-            'currentAssignmentExternalLink' => $this->currentAssignmentExternalLink($currentAssignment),
+            'currentAssignment'                  => $currentAssignment,
+            'currentAssignmentExternalLink'      => $this->currentAssignmentExternalLink($currentAssignment),
             'currentAssignmentExternalExpiresAt' => $this->currentAssignmentExternalExpiresAt($currentAssignment),
-            'statusValue'        => $statusValue,
-            'isExternallyClosed' => $this->demand->isExternallyClosed(),
-            'searchedNotes'      => $this->searchNotes(),
-            'linkedNotes'        => ($ln = $this->linkedNotes()),
-            'notesProductions'   => $ln->flatMap(fn ($n) => $n->Productions)->sortByDesc('created_at')->values(),
-            'notesOrders'        => $ln->flatMap(fn ($n) => $n->Orders)->sortByDesc('created_at')->values(),
-            'subdemandStatuses'  => LegalDemandSubdemandStatus::cases(),
-            'companies'          => Company::query()->orderBy('name')->get(['id', 'name']),
-            'canManageSubdemands' => $this->canManageSubdemands(),
-            'canManageCommunicationVisibility' => $this->canManageCommunicationVisibility(),
-            'subdemandsFeatureEnabled' => (bool) config('features.legal_subdemands', true),
-            'availableInternalActions' => $this->availableInternalActions(),
-            'legalCaseSummary' => $this->legalCaseSummary,
+            'statusValue'                        => $statusValue,
+            'isExternallyClosed'                 => $this->demand->isExternallyClosed(),
+            'searchedNotes'                      => $this->searchNotes(),
+            'linkedNotes'                        => ($ln = $this->linkedNotes()),
+            'notesProductions'                   => $ln->flatMap(fn ($n) => $n->Productions)->sortByDesc('created_at')->values(),
+            'notesOrders'                        => $ln->flatMap(fn ($n) => $n->Orders)->sortByDesc('created_at')->values(),
+            'subdemandStatuses'                  => LegalDemandSubdemandStatus::cases(),
+            'companies'                          => Company::query()->orderBy('name')->get(['id', 'name']),
+            'canManageSubdemands'                => $this->canManageSubdemands(),
+            'canManageCommunicationVisibility'   => $this->canManageCommunicationVisibility(),
+            'subdemandsFeatureEnabled'           => (bool) config('features.legal_subdemands', true),
+            'availableInternalActions'           => $this->availableInternalActions(),
+            'legalCaseSummary'                   => $this->legalCaseSummary,
         ]);
     }
 
@@ -1051,6 +1080,7 @@ class DemandDetail extends Component
 
             if (!$summary) {
                 $digits = preg_replace('/\D+/', '', $caseNumber) ?: '';
+
                 if ($digits !== '' && $digits !== $caseNumber) {
                     $summary = LegalCaseSummary::query()
                         ->forProcess($digits)
@@ -1112,25 +1142,25 @@ class DemandDetail extends Component
     private function auditCommentAction(string $eventType, LegalDemandComment $comment, array $metadata = []): void
     {
         $description = match ($eventType) {
-            'comment_created' => 'Comentário adicionado à demanda.',
+            'comment_created'            => 'Comentário adicionado à demanda.',
             'comment_visibility_changed' => 'Visibilidade do comentário alterada.',
-            'comment_deleted' => 'Comentário removido pelo autor.',
-            default => 'Comentário atualizado.',
+            'comment_deleted'            => 'Comentário removido pelo autor.',
+            default                      => 'Comentário atualizado.',
         };
 
         LegalDemandEvent::create([
             'legal_demand_id' => $this->demand->id,
-            'assignment_id' => $comment->assignment_id,
-            'event_type' => $eventType,
-            'actor_user_id' => auth()->id(),
-            'description' => $description,
-            'occurred_at' => now(),
-            'metadata' => array_merge([
-                'source' => 'demand_detail',
-                'comment_id' => $comment->id,
+            'assignment_id'   => $comment->assignment_id,
+            'event_type'      => $eventType,
+            'actor_user_id'   => auth()->id(),
+            'description'     => $description,
+            'occurred_at'     => now(),
+            'metadata'        => array_merge([
+                'source'          => 'demand_detail',
+                'comment_id'      => $comment->id,
                 'comment_user_id' => $comment->user_id,
-                'comment' => $comment->comment,
-                'visibility' => $comment->visibility,
+                'comment'         => $comment->comment,
+                'visibility'      => $comment->visibility,
             ], $metadata),
         ]);
     }
@@ -1163,6 +1193,7 @@ class DemandDetail extends Component
         }
 
         $expiresAt = $this->currentAssignmentExternalExpiresAt($assignment);
+
         if (!$expiresAt || $expiresAt->isPast()) {
             return null;
         }
@@ -1181,6 +1212,7 @@ class DemandDetail extends Component
         }
 
         $raw = data_get($assignment->metadata ?? [], 'external_link_expires_at');
+
         if (!$raw) {
             return null;
         }
@@ -1195,19 +1227,21 @@ class DemandDetail extends Component
     private function resolveExternalContact(): LegalExternalContact
     {
         if ($this->externalContactId) {
-            $contact = LegalExternalContact::query()->findOrFail($this->externalContactId);
+            $contact               = LegalExternalContact::query()->findOrFail($this->externalContactId);
             $contact->last_used_at = now();
             $contact->save();
+
             return $contact;
         }
 
         $email = mb_strtolower(trim($this->externalContactEmail));
-        $name = trim($this->externalContactName);
+        $name  = trim($this->externalContactName);
 
-        $contact = LegalExternalContact::query()->firstOrNew(['email' => $email]);
-        $contact->name = $name;
-        $contact->is_active = true;
+        $contact               = LegalExternalContact::query()->firstOrNew(['email' => $email]);
+        $contact->name         = $name;
+        $contact->is_active    = true;
         $contact->last_used_at = now();
+
         if (!$contact->exists) {
             $contact->created_by = auth()->id();
         }
@@ -1219,6 +1253,7 @@ class DemandDetail extends Component
     private function searchNotes()
     {
         $term = $this->currentNoteSearchTerm();
+
         if ($term === '') {
             return collect();
         }
@@ -1239,11 +1274,13 @@ class DemandDetail extends Component
     private function currentNoteSearchTerm(): string
     {
         $raw = trim($this->noteInput);
+
         if ($raw === '') {
             return '';
         }
 
         $parts = preg_split('/[\\s,;]+/', $raw);
+
         if (empty($parts)) {
             return '';
         }
@@ -1254,6 +1291,7 @@ class DemandDetail extends Component
     private function linkedNotes()
     {
         $caseId = $this->demand->legal_case_id;
+
         if (!$caseId) {
             return collect();
         }
@@ -1272,7 +1310,7 @@ class DemandDetail extends Component
                 ->with(['User', 'Company', 'Dispatcher', 'Note', 'Service'])
                 ->orderByDesc('created_at')
                 ->limit(20),
-            'Orders'      => fn ($q) => $q->orderByDesc('created_at')->limit(20),
+            'Orders' => fn ($q) => $q->orderByDesc('created_at')->limit(20),
         ])
             ->whereIn('id', $pivots->keys())
             ->select([
@@ -1283,10 +1321,10 @@ class DemandDetail extends Component
             ])
             ->get()
             ->map(function ($n) use ($pivots) {
-                $p = $pivots->get($n->id);
+                $p                  = $pivots->get($n->id);
                 $n->pivot_linked_at = $p?->linked_at;
                 $n->pivot_context   = $p?->context;
-                $instruction = DB::table('legal_demand_note_instructions')
+                $instruction        = DB::table('legal_demand_note_instructions')
                     ->where('legal_demand_id', $this->demand->id)
                     ->where('note_id', $n->id)
                     ->where('active', true)
@@ -1312,8 +1350,7 @@ class DemandDetail extends Component
         ?string $slaDueAtValue = null,
         ?string $instructionValue = null,
         ?string $contextValue = null
-    ): void
-    {
+    ): void {
         $noteIds = collect($noteIds)
             ->map(fn ($id) => (int) $id)
             ->filter()
@@ -1324,13 +1361,13 @@ class DemandDetail extends Component
             return;
         }
 
-        $slaDueAt = Carbon::parse((string) ($slaDueAtValue ?: $this->noteOperatorSlaDueAt));
+        $slaDueAt    = Carbon::parse((string) ($slaDueAtValue ?: $this->noteOperatorSlaDueAt));
         $instruction = trim((string) ($instructionValue ?? $this->noteExecutionInstruction));
-        $context = trim((string) ($contextValue ?? $this->noteLinkContext));
+        $context     = trim((string) ($contextValue ?? $this->noteLinkContext));
 
         $this->demand->forceFill([
             'operator_sla_due_at' => $slaDueAt,
-            'operator_sla_note' => $context ?: null,
+            'operator_sla_note'   => $context ?: null,
         ])->save();
 
         DB::table('legal_demand_note_instructions')
@@ -1338,18 +1375,18 @@ class DemandDetail extends Component
             ->whereIn('note_id', $noteIds->all())
             ->where('active', true)
             ->update([
-                'active' => false,
+                'active'     => false,
                 'updated_at' => now(),
             ]);
 
         $rows = $noteIds->map(fn (int $noteId) => [
             'legal_demand_id' => $this->demand->id,
-            'note_id' => $noteId,
-            'created_by' => auth()->id(),
-            'instruction' => $instruction,
-            'active' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'note_id'         => $noteId,
+            'created_by'      => auth()->id(),
+            'instruction'     => $instruction,
+            'active'          => true,
+            'created_at'      => now(),
+            'updated_at'      => now(),
         ])->all();
 
         DB::table('legal_demand_note_instructions')->insert($rows);
@@ -1360,12 +1397,14 @@ class DemandDetail extends Component
         if (!$user) {
             return;
         }
+
         try {
             $user->notify(new SystemNotification(new UserNotificationData(
                 title:   $title,
                 message: $message,
                 status:  $status,
             )));
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
     }
 }

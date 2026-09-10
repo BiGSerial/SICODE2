@@ -6,9 +6,11 @@ use App\Exports\Partner\FiveNotesExport;
 use App\Models\FiveNote;
 use App\Models\User;
 use App\Notifications\SystemNotification;
+use App\Services\PartnerAccess\PartnerAccessGate;
+use App\Services\PartnerAccess\PartnerBranchScope;
 use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -56,6 +58,7 @@ class ExportFiveNotesJob implements ShouldQueue
             $query = FiveNote::query();
 
             $this->applyUserScope($query, $user);
+            app(PartnerBranchScope::class)->applyToFiveNotes($query, $user);
             $this->applyBaseConstraints($query);
             $this->applyFilters($query);
 
@@ -119,8 +122,8 @@ class ExportFiveNotesJob implements ShouldQueue
             return;
         }
 
-        $companyIds       = $user->Companies?->pluck('id')->filter()->all() ?? [];
-        $defaultCompanyId = $user->Company?->id;
+        $companyIds = $user->Companies?->pluck('id')->filter()->all() ?? [];
+        $defaultCompanyId = PartnerAccessGate::companyIdFor($user);
 
         if ($companyIds) {
             $query->where(function ($q) use ($companyIds, $defaultCompanyId) {

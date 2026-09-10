@@ -5,9 +5,9 @@ namespace App\Http\Livewire\Components\FiveNote;
 use App\Models\EvidenceFile;
 use App\Models\FiveNote;
 use App\Models\Service;
+use App\Services\Files\EvidenceFileService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class ViewD5 extends Component
@@ -71,10 +71,10 @@ class ViewD5 extends Component
 
     public function dowloadFile(EvidenceFile $file)
     {
-        // dd(Storage::fileExists('public/'.$file->path));
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
+        if ($service->exists($file)) {
+            return $service->download($file);
         } else {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -230,7 +230,7 @@ class ViewD5 extends Component
         return match ($eventType) {
             'd5_created' => 'D5 criada',
             'd5_created_from_supervision' => 'D5 Solicitada',
-            'd5_payment_updated' => 'Pagamento atualizou',
+            'd5_payment_updated' => 'Medição atualizou',
             'd5_released_to_partner' => 'Liberada para empreiteira',
             'd5_partner_completed' => 'Empreiteira concluiu',
             'd5_partner_recompleted' => 'Empreiteira concluiu novamente',
@@ -251,7 +251,7 @@ class ViewD5 extends Component
     {
         return match ($stage) {
             'created' => 'Criada',
-            'payment_review' => 'Em pagamento',
+            'payment_review' => 'Em medição',
             'released_to_partner' => 'Com empreiteira',
             'partner_done' => 'Concluída pela empreiteira',
             'supervision_queue' => 'Fila fiscalização',
@@ -289,7 +289,7 @@ class ViewD5 extends Component
                 'icon' => 'ri-shield-check-line',
             ],
             [
-                'label' => 'Pagamento',
+                'label' => 'Medição',
                 'at' => $fiveNote->payed_at,
                 'wait_days' => $this->waitDays(
                     $fiveNote->payed_at,
@@ -323,7 +323,7 @@ class ViewD5 extends Component
         }
 
         if ($fiveNote->is_supervisioned) {
-            return ['key' => 'aguardando_pagamento', 'label' => 'Aguardando Pagamento', 'color' => 'text-bg-primary'];
+            return ['key' => 'aguardando_pagamento', 'label' => 'Aguardando Medição', 'color' => 'text-bg-primary'];
         }
 
         if ($fiveNote->is_completed) {

@@ -4,9 +4,10 @@ namespace App\Http\Livewire\Home;
 
 use App\Models\User;
 use App\Models\UserDelegation;
+use App\Services\Files\EntityImageService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -123,10 +124,12 @@ class Profile extends Component
                 'avatarUpload' => ['required', 'image', 'max:2048'],
             ]);
 
-            $path = $this->avatarUpload->store('avatars', 'public');
+            $service = app(EntityImageService::class);
+            $filename = (string) Str::uuid() . '.' . $this->avatarUpload->getClientOriginalExtension();
+            $path = $service->store($this->avatarUpload, 'avatars', $filename);
 
             if ($this->user->avatar && !$this->avatarIsDiceBear($this->user->avatar)) {
-                Storage::disk('public')->delete($this->user->avatar);
+                $service->delete($this->user->avatar);
             }
 
             $this->user->avatar = $path;

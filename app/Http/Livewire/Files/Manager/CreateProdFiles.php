@@ -3,13 +3,10 @@
 namespace App\Http\Livewire\Files\Manager;
 
 use App\Helpers\SelectOptions;
-use App\Models\File;
-use App\Models\Production;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Models\{File, Production};
+use Illuminate\Support\Facades\{DB, Schema};
+use Livewire\{Component, WithFileUploads};
 
 /**
  * Componente Livewire para Gerenciamento de Arquivos de Produção
@@ -47,6 +44,7 @@ use Livewire\WithFileUploads;
 class CreateProdFiles extends Component
 {
     use WithFileUploads;
+    use PersistsManagedFileUploads;
 
     private const ALLOWED_EXTENSIONS = [
         'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
@@ -56,12 +54,19 @@ class CreateProdFiles extends Component
     private const MAX_FILE_SIZE_BYTES = 40 * 1024 * 1024; // 40MB
 
     public ?Production $production = null;
+
     public $needFiles;
+
     public $alertFile = false;
+
     public $files = [];
+
     public $tempFiles = [];
+
     public $uploadType;
+
     public $services;
+
     public string $filesTypeMethod = 'getProductionFilesType';
 
     protected $listeners = [
@@ -72,7 +77,8 @@ class CreateProdFiles extends Component
     public function mount(Production $production, bool $needFiles = false, ?string $filesTypeMethod = null)
     {
         $this->production = $production;
-        $this->needFiles = $needFiles;
+        $this->needFiles  = $needFiles;
+
         if ($filesTypeMethod) {
             $this->filesTypeMethod = $filesTypeMethod;
         }
@@ -93,6 +99,7 @@ class CreateProdFiles extends Component
                         'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -103,6 +110,7 @@ class CreateProdFiles extends Component
                         'title'    => 'Tamanho excede 40MB: ' . $file->getClientOriginalName(),
                         'timer'    => 1500,
                     ]);
+
                     continue;
                 }
 
@@ -144,19 +152,16 @@ class CreateProdFiles extends Component
             foreach ($this->tempFiles as &$temp_file) {
 
                 if (strpos($temp_file['file']->getClientOriginalName(), $this->production->Note->note) === false) {
-                    $this->alertFile = true;
+                    $this->alertFile         = true;
                     $temp_file['suspicious'] = true;
                 }
             }
-
 
             $this->emitUp('hasFile', true);
         } else {
             $this->emitUp('hasFile', false);
         }
     }
-
-
 
     public function removeFile($index)
     {
@@ -170,7 +175,6 @@ class CreateProdFiles extends Component
         $this->checkFilesExists();
     }
 
-
     public function closeAll()
     {
         if (count($this->tempFiles)) {
@@ -183,20 +187,17 @@ class CreateProdFiles extends Component
 
         $this->production = null;
         $this->uploadType = '';
-        $this->files = [];
+        $this->files      = [];
         $this->resetErrorBag();
         $this->emitUp('update_list');
 
     }
 
-
     // public function createFile(Note $note)
     // {
     //     $this->note = $note;
 
-
     //     if ($this->note) {
-
 
     //         $this->dispatchBrowserEvent('showModal', [
     //             'id' => 'modal_mass_upload',
@@ -204,15 +205,12 @@ class CreateProdFiles extends Component
     //     }
     // }
 
-
     private function rename(array &$temps, string $type)
     {
-        $count = 0;
-        $item = 1;
-        $type_s = '';
+        $count   = 0;
+        $item    = 1;
+        $type_s  = '';
         $service = '';
-
-
 
         usort($temps, function ($a, $b) {
             $uploadTypeComparison = strcmp($a['uploadType'], $b['uploadType']);
@@ -224,15 +222,13 @@ class CreateProdFiles extends Component
             return strcmp($a['original_name'], $b['original_name']);
         });
 
-
-
         foreach ($temps as $temp) {
 
             $agrupe[$temp['uploadType']][] = $temp;
 
             if ($temp['service_id'] !== $service) {
                 $service = $temp['service_id'];
-                $count = 0;
+                $count   = 0;
             }
 
             if ($temp['uploadType'] === $type) {
@@ -244,21 +240,20 @@ class CreateProdFiles extends Component
         foreach ($temps as &$temp) {
 
             if ($temp['uploadType'] !== $type_s || $temp['service_id'] !== $service) {
-                $type_s = $temp['uploadType'];
+                $type_s  = $temp['uploadType'];
                 $service = $temp['service_id'];
-                $item = 1;
+                $item    = 1;
             }
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
-                $service_abrev = mb_strtoupper(substr($this->production->Service->service, 0, 4));
-                $temp['newName'] = $type."_".$service_abrev."_".$this->production->Note->note."_F".str_pad($item, 2, '0', STR_PAD_LEFT)."-".str_pad($count, 2, '0', STR_PAD_LEFT);
+                $service_abrev   = mb_strtoupper(substr($this->production->Service->service, 0, 4));
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->production->Note->note . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
         }
 
     }
-
 
     public function saveFiles()
     {
@@ -268,6 +263,7 @@ class CreateProdFiles extends Component
             }
         } else {
             $this->emitUp('continue');
+
             return;
         }
 
@@ -276,25 +272,18 @@ class CreateProdFiles extends Component
         DB::beginTransaction();
 
         foreach ($this->tempFiles as $saveFile) {
-            $rev = File::where('file_name', 'like', $saveFile['newName']."%")->count();
+            $rev = File::where('file_name', 'like', $saveFile['newName'] . "%")->count();
 
-            $caminho = $saveFile['file']->storeAs('/arquivos/'. $saveFile['uploadType'], $saveFile['newName']."_Rev".$rev.'.'.$saveFile['ext']);
-
-            if (Storage::exists($caminho)) {
-                $createdFile = File::create([
-                    'note_id' => $this->production->note->id,
-                    'user_id' => Auth()->User()->id,
-                    'service_id' => $saveFile['service_id'],
-                    'file_name' => $saveFile['newName']."_Rev".$rev,
-                    'original_name' => $saveFile['original_name'],
-                    'path' => $caminho,
-                    'ext' => $saveFile['ext'],
-                    'suspicious' => $saveFile['suspicious'],
-                    'noexists' => false,
-                ]);
+            try {
+                $createdFile = $this->persistManagedFileUpload(
+                    $saveFile,
+                    $this->production->note,
+                    '/arquivos/' . $saveFile['uploadType'],
+                    $saveFile['newName'] . "_Rev" . $rev,
+                );
 
                 $this->associateFileToProduction($createdFile);
-            } else {
+            } catch (\Throwable) {
                 DB::rollback();
 
                 $this->dispatchBrowserEvent('swal', [
@@ -314,7 +303,6 @@ class CreateProdFiles extends Component
 
         DB::commit();
 
-
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
@@ -327,8 +315,6 @@ class CreateProdFiles extends Component
 
         $this->closeAll();
     }
-
-
 
     protected $rules = [
 
@@ -356,8 +342,6 @@ class CreateProdFiles extends Component
 
         return is_array($options) ? $options : [];
     }
-
-
 
     public function render()
     {

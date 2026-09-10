@@ -273,7 +273,8 @@
                         @forelse($subdemand->files->where('removed_at', null)->sortByDesc('created_at') as $file)
                             @php
                                 $fp  = $file->path ?? $file->file_path ?? null;
-                                $fu  = $fp ? \Illuminate\Support\Facades\Storage::url($fp) : null;
+                                $fu  = $file->storageUrl();
+                                $fd  = $file->storageUrl(true);
                                 $fn  = $file->original_name ?? ($fp ? basename($fp) : 'Arquivo');
                             @endphp
                             @if($fu)
@@ -283,7 +284,7 @@
                                         <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $fn }}">{{ $fn }}</div>
                                         <div style="font-size:11px;color:#64748b">{{ $file->uploadedBy?->name ?: 'Externo' }} · {{ strtoupper(pathinfo($fn, PATHINFO_EXTENSION)) }}</div>
                                     </div>
-                                    <a href="{{ $fu }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ $fd ?? $fu }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                         <i class="bi bi-download me-1"></i>Baixar
                                     </a>
                                 </div>

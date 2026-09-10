@@ -9,7 +9,7 @@ use App\Models\File;
 use App\Models\RamalReport; // Ensure this model exists in your application
 use App\Models\User;
 use App\Models\WorkReport;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Files\FileStorageService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -75,8 +75,10 @@ class Ramallist extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',

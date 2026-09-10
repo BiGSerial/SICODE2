@@ -88,6 +88,18 @@ class Production extends Model
         'dhstats' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::updated(function (Production $production) {
+            if (!$production->wasChanged(['completed', 'confirmed', 'completed_at', 'confirmed_at', 'status', 'att_at'])) {
+                return;
+            }
+
+            app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)
+                ->refreshByProductionId((int) $production->id);
+        });
+    }
+
     public function Note()
     {
         return $this->belongsTo(Note::class);

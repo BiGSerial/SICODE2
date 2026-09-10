@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Jobs\Reports\ExportFiveNoteReportJob;
+use App\Jobs\Reports\ExportFiveNoteActionHistoryReportJob;
 use App\Models\Company;
 use App\Services\Reports\FiveNoteReportService;
 use Livewire\Component;
@@ -84,6 +85,22 @@ class FiveNoteReport extends Component
             'title' => 'Exportação iniciada',
             'html' => "<div class='card'><div class='card-body'>
                 <p>Seu arquivo está sendo gerado.</p>
+                <p class='mb-0'><strong>Você será notificado quando o download estiver disponível.</strong></p>
+            </div></div>",
+            'timer' => 5000,
+        ]);
+    }
+
+    public function exportActionHistory(): void
+    {
+        ExportFiveNoteActionHistoryReportJob::dispatch($this->filters(), (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Exportação iniciada',
+            'html' => "<div class='card'><div class='card-body'>
+                <p>Seu histórico de ações D5 está sendo gerado.</p>
                 <p class='mb-0'><strong>Você será notificado quando o download estiver disponível.</strong></p>
             </div></div>",
             'timer' => 5000,

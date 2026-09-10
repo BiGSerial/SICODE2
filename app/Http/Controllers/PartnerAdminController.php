@@ -339,7 +339,9 @@ class PartnerAdminController extends Controller
     private function editablePermissionKeys(string $companyId)
     {
         $adminKeys = collect(['admin'])
-            ->merge(PartnerPermissionCatalog::itemKeysForGroup(PartnerPermissionCatalog::GROUP_ADMIN));
+            ->merge(PartnerPermissionCatalog::itemKeysForGroup(PartnerPermissionCatalog::GROUP_ADMIN))
+            ->merge([PartnerPermissionCatalog::GROUP_PORTAL])
+            ->merge(PartnerPermissionCatalog::itemKeysForGroup(PartnerPermissionCatalog::GROUP_PORTAL));
 
         return PartnerAccessGate::grantedPermissionKeysForCompany($companyId)
             ->diff($adminKeys)

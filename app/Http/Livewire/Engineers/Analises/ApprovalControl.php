@@ -5,43 +5,47 @@ namespace App\Http\Livewire\Engineers\Analises;
 use App\Exports\Responsible\Projeto\ControlExport;
 use App\Helpers\TextFormatter;
 use App\Models\Edp_depc\City;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\User;
+use App\Models\{File, Note, User};
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class ApprovalControl extends Component
 {
     use WithPagination;
     use TextFormatter;
 
-
     protected $paginationTheme = 'bootstrap';
 
     public $allCenters = false;
+
     public $typeNote = '';
+
     public $search;
+
     public $advanceSearch = '';
+
     public $multinotas = [];
+
     public $selected = [];
+
     public $select_all = false;
 
     public $approvalDelete;
 
     public $usersSelected = [];
+
     public $userSearch = '';
 
     public $onlyFinished = false;
 
     private $filter_group = 'analises';
+
     private $filter;
 
     protected $queryString = [
         'typeNote' => ['except' => '', 'as' => 'tipo'],
-        'search' => ['except' => '', 'as' => 'busca'],
+        'search'   => ['except' => '', 'as' => 'busca'],
     ];
 
     protected $listeners = [
@@ -51,8 +55,6 @@ class ApprovalControl extends Component
         'confirm_approved',
         'confirm_delete',
     ];
-
-
 
     public function buscarMulti()
     {
@@ -82,8 +84,10 @@ class ApprovalControl extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -102,16 +106,15 @@ class ApprovalControl extends Component
         return (new ControlExport($this->selected))->download('controle_aprovacao.xlsx');
     }
 
-
     public function setSelectAll()
     {
         $ids = $this->lists->pluck('id')->toArray();
 
         if (!$this->select_all) {
-            $this->selected = array_unique(array_merge($this->selected, $ids));
+            $this->selected   = array_unique(array_merge($this->selected, $ids));
             $this->select_all = true;
         } else {
-            $this->selected = array_diff($this->selected, $ids);
+            $this->selected   = array_diff($this->selected, $ids);
             $this->select_all = false;
         }
     }
@@ -132,14 +135,11 @@ class ApprovalControl extends Component
         $this->preMassApprove();
     }
 
-
-
     public function preMassApprove()
     {
         if ($this->selected) {
             $this->selected = array_map('intval', $this->selected);
         }
-
 
         $this->selected = array_unique($this->selected);
 
@@ -161,8 +161,8 @@ class ApprovalControl extends Component
         $notes = implode(', ', $notes);
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmação de Liberação',
-            'msg'           => "Você está prestes a aprovar <strong>{$count}</strong> nota(s) liberando-as para contratação.
+            'title' => 'Confirmação de Liberação',
+            'msg'   => "Você está prestes a aprovar <strong>{$count}</strong> nota(s) liberando-as para contratação.
                 <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez liberada essas notas elas não poderão ser revertidas.</p>
                 <p class='border border-1 rounded fw-bold text-primary p-1 mt-2'>{$notes}</p>
                 <p class='fw-bold'>Deseja prosseguir?</p>
@@ -175,14 +175,10 @@ class ApprovalControl extends Component
             'cancel_msg'    => 'Nenhuma Nota/Ov foi assumida.',
         ]);
 
-
     }
-
 
     public function confirm_approved()
     {
-
-
 
         $notes = Note::find($this->selected);
 
@@ -206,9 +202,9 @@ class ApprovalControl extends Component
                     try {
                         $note->Approval->update([
 
-                            'approved'     => true,
+                            'approved'    => true,
                             'reason'      => 'LIBERADO EM MASSA POR ' . auth()->user()->name,
-                            'approved_at'   => now(),
+                            'approved_at' => now(),
                         ]);
 
                     } catch (\Throwable $th) {
@@ -216,7 +212,7 @@ class ApprovalControl extends Component
                             'position' => 'center',
                             'icon'     => 'error',
                             'title'    => 'Erro ao aprovar Notas/Ov',
-                            'html'      => 'Erro: ' . $th->getMessage(),
+                            'html'     => 'Erro: ' . $th->getMessage(),
                             // 'timer'    => 2500,
                         ]);
 
@@ -228,16 +224,14 @@ class ApprovalControl extends Component
 
             }
 
-
-
         } else {
             if ($notes->first()->Approval()->exists()) {
                 try {
                     $notes->first()->Approval->update([
 
-                        'approved'     => true,
+                        'approved'    => true,
                         'reason'      => 'APROVADO INDIVIDUALMENTE POR ' . auth()->user()->name,
-                        'approved_at'   => now(),
+                        'approved_at' => now(),
                     ]);
 
                 } catch (\Throwable $th) {
@@ -245,7 +239,7 @@ class ApprovalControl extends Component
                         'position' => 'center',
                         'icon'     => 'error',
                         'title'    => 'Erro ao aprovar Notas/Ov',
-                        'html'      => 'Erro: ' . $th->getMessage(),
+                        'html'     => 'Erro: ' . $th->getMessage(),
                         // 'timer'    => 2500,
                     ]);
 
@@ -269,27 +263,25 @@ class ApprovalControl extends Component
 
     }
 
-
-
     public function clearAll()
     {
-        $this->search = '';
+        $this->search        = '';
         $this->advanceSearch = '';
-        $this->multinotas = [];
-        $this->selected = [];
+        $this->multinotas    = [];
+        $this->selected      = [];
         $this->gotoPage(1);
     }
-
-
-
 
     public function getListsProperty()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -300,15 +292,12 @@ class ApprovalControl extends Component
 
         $query = Note::query();
 
-
-
         $query->whereHas('Approval', function ($q) {
             $q->where('approved', false);
 
             if (count($this->usersSelected)) {
                 $q->whereIn('user_id', $this->usersSelected);
             }
-
 
             if ($this->onlyFinished) {
                 $q->whereExists(function ($sub) {
@@ -362,10 +351,8 @@ class ApprovalControl extends Component
             });
         }
 
-
-
         $activeFilters = is_array($this->filter) ? $this->filter : [];
-        $regionValues = collect((array) ($activeFilters['region'] ?? []))
+        $regionValues  = collect((array) ($activeFilters['region'] ?? []))
             ->filter(fn ($v) => filled($v))
             ->map(fn ($v) => trim((string) $v))
             ->values();
@@ -381,9 +368,11 @@ class ApprovalControl extends Component
             );
 
             $mappedQuery = City::query();
+
             if ($regionValues->isNotEmpty()) {
                 $mappedQuery->whereIn('baseConstrucao', $regionValues->all());
             }
+
             if ($cityValues->isNotEmpty()) {
                 $mappedQuery->where(function ($sq) use ($cityValues) {
                     $sq->whereIn('cidade', $cityValues->all())
@@ -449,8 +438,8 @@ class ApprovalControl extends Component
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Remover Aprovação',
-            'msg'           => "Você está prestes a remover a aprovação da nota <strong>{$note->note}</strong> do usuário <strong>{$this->approvalDelete->user->name}</strong>.
+            'title' => 'Remover Aprovação',
+            'msg'   => "Você está prestes a remover a aprovação da nota <strong>{$note->note}</strong> do usuário <strong>{$this->approvalDelete->user->name}</strong>.
                 <p class='border border-1 rounded text-bg-secondary p-1 mt-2'>Uma vez removida essa aprovação ela não poderá ser revertida.</p>
                 <p class='fw-bold'>Deseja prosseguir?</p>
                 ",
@@ -475,7 +464,7 @@ class ApprovalControl extends Component
                     'position' => 'center',
                     'icon'     => 'error',
                     'title'    => 'Erro ao remover Aprovação',
-                    'html'      => 'Erro: ' . $th->getMessage(),
+                    'html'     => 'Erro: ' . $th->getMessage(),
                     // 'timer'    => 2500,
                 ]);
 
@@ -498,10 +487,9 @@ class ApprovalControl extends Component
     public function render()
     {
 
-
         return view('livewire.engineers.analises.approval-control', [
             'lists' => $this->lists->paginate(50),
-            'users'  => $this->users,
+            'users' => $this->users,
         ]);
     }
 }

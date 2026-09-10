@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\Files\EntityImageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\{Model, SoftDeletes};
-use Illuminate\Support\Facades\Storage;
 
 class Company extends Model
 {
@@ -77,12 +77,14 @@ class Company extends Model
 
     public function getLogoUrlAttribute(): string
     {
-        if ($this->img_rw_path && Storage::disk('public')->exists($this->img_rw_path)) {
-            return Storage::disk('public')->url($this->img_rw_path);
+        $images = app(EntityImageService::class);
+
+        if ($url = $images->url($this->img_rw_path)) {
+            return $url;
         }
 
-        if ($this->parent?->img_rw_path && Storage::disk('public')->exists($this->parent->img_rw_path)) {
-            return Storage::disk('public')->url($this->parent->img_rw_path);
+        if ($url = $images->url($this->parent?->img_rw_path)) {
+            return $url;
         }
 
         return asset('img/edp-img/edp-avatar.jpg');

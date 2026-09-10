@@ -2,20 +2,13 @@
 
 namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
-use App\Enum\ProtestJobPriority;
-use App\Enum\ProtestJobStatus;
-use App\Models\EvidenceFile;
-use App\Models\MedProtest;
-use App\Models\ProtestJob;
-use App\Models\Service;
-use App\Models\User;
+use App\Enum\{ProtestJobPriority, ProtestJobStatus};
+use App\Models\{EvidenceFile, MedProtest, ProtestJob, Service, User};
 use App\Notifications\SystemNotification;
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
+use Livewire\{Component, TemporaryUploadedFile, WithFileUploads};
 
 class ControlMedProtest extends Component
 {
@@ -24,26 +17,38 @@ class ControlMedProtest extends Component
     /* ===================== CONTEXTO ===================== */
 
     public ?MedProtest $modProtest = null;
+
     public int $notePage = 0;
 
     // formulário de criação do job
     public ?string $selectedUser = null;      // owner_id (UUID do usuário)
+
     public string $priority = '';             // string (ex: 'normal')
+
     public bool $is_advance = false;          // avanço parceiro?
+
     public bool $need_evidence = false;       // precisa evidência obrigatória?
+
     public ?string $sla_due_at = null;        // prazo de retorno (SLA)
+
     public string $notes = '';                // instrução/comentário inicial para o executor
+
     public string $reason_close = '';
+
     public ?string $result = null;
+
     public array $resultOptions = [];
 
     // suporte UI
     public string $userSearch = '';
+
     public $userList = [];
+
     public $serviceList = [];
 
     // comentários da medida
     public $deleteCommentId = null;
+
     public string $comment = '';
 
     public bool $showReasonClose = false;
@@ -68,14 +73,14 @@ class ControlMedProtest extends Component
 
     protected $listeners = [
         'openModProtestControl',
-        'refreshComponent'       => '$refresh',
+        'refreshComponent' => '$refresh',
     ];
 
     protected array $fileValidationMessages = [
-        'files.array'     => 'Selecione arquivos vÇílidos.',
-        'files.max'       => 'VocÇ¦ pode anexar no mÇ­ximo 5 arquivos por vez.',
-        'files.*.mimes'   => 'Formato nÇœo permitido. Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT.',
-        'files.*.max'     => 'Cada arquivo pode ter no mÇ­ximo 10MB.',
+        'files.array'   => 'Selecione arquivos vÇílidos.',
+        'files.max'     => 'VocÇ¦ pode anexar no mÇ­ximo 5 arquivos por vez.',
+        'files.*.mimes' => 'Formato nÇœo permitido. Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, TXT.',
+        'files.*.max'   => 'Cada arquivo pode ter no mÇ­ximo 10MB.',
     ];
 
     /* ===================== MOUNT ===================== */
@@ -91,10 +96,9 @@ class ControlMedProtest extends Component
             ->get();
 
         // prioridade padrão
-        $this->priority = ProtestJobPriority::NORMAL->value;
+        $this->priority      = ProtestJobPriority::NORMAL->value;
         $this->resultOptions = MedProtest::resultOptions();
     }
-
 
     /* ===================== ABRIR MODAL ===================== */
 
@@ -153,7 +157,7 @@ class ControlMedProtest extends Component
         }
 
         $allowedHours = [0, 8, 12, 18];
-        $hour = $date->hour;
+        $hour         = $date->hour;
 
         $closestHour = collect($allowedHours)->first(function ($value) use ($hour) {
             return $value >= $hour;
@@ -161,7 +165,7 @@ class ControlMedProtest extends Component
 
         if ($closestHour === null) {
             $closestHour = $allowedHours[array_key_first($allowedHours)];
-            $date = $date->addDay();
+            $date        = $date->addDay();
         }
 
         $date = $date->copy()->setHour($closestHour)->setMinute(0)->setSecond(0);
@@ -171,17 +175,17 @@ class ControlMedProtest extends Component
 
     protected function resetFormForNewJob(): void
     {
-        $this->selectedUser     = null;
-        $this->priority         = ProtestJobPriority::NORMAL->value;
-        $this->is_advance       = false;
-        $this->need_evidence    = false;
-        $this->sla_due_at       = null;
-        $this->notes            = '';
-        $this->comment          = '';
-        $this->deleteCommentId  = null;
-        $this->reason_close     = '';
-        $this->showReasonClose  = false;
-        $this->result           = null;
+        $this->selectedUser    = null;
+        $this->priority        = ProtestJobPriority::NORMAL->value;
+        $this->is_advance      = false;
+        $this->need_evidence   = false;
+        $this->sla_due_at      = null;
+        $this->notes           = '';
+        $this->comment         = '';
+        $this->deleteCommentId = null;
+        $this->reason_close    = '';
+        $this->showReasonClose = false;
+        $this->result          = null;
         $this->resetFileUploads();
     }
 
@@ -299,8 +303,8 @@ class ControlMedProtest extends Component
         $ownerRule = $requireOwner ? 'required|exists:users,id' : 'nullable|exists:users,id';
 
         return $this->validate([
-            'selectedUser'  => $ownerRule,
-            'priority'      => 'required|in:' .
+            'selectedUser' => $ownerRule,
+            'priority'     => 'required|in:' .
                 implode(',', array_map(fn ($e) => $e->value, ProtestJobPriority::cases())),
             'is_advance'    => 'boolean',
             'need_evidence' => 'boolean',
@@ -325,20 +329,20 @@ class ControlMedProtest extends Component
                 'protest_id'     => $this->modProtest->protest_id,
                 'med_protest_id' => $this->modProtest->id,
 
-                'created_by'     => auth()->id(),
-                'owner_id'       => $data['selectedUser'],
+                'created_by' => auth()->id(),
+                'owner_id'   => $data['selectedUser'],
 
                 // IMPORTANTE: salvar string, não o objeto enum
-                'status'         => ProtestJobStatus::OPENED->value,
-                'priority'       => ProtestJobPriority::from($data['priority'])->value,
+                'status'   => ProtestJobStatus::OPENED->value,
+                'priority' => ProtestJobPriority::from($data['priority'])->value,
 
-                'is_advance'     => $data['is_advance'] ?? false,
-                'need_evidence'  => $data['need_evidence'] ?? false,
+                'is_advance'    => $data['is_advance'] ?? false,
+                'need_evidence' => $data['need_evidence'] ?? false,
 
-                'sla_due_at'     => $data['sla_due_at'] ?? null,
-                'notes'          => $data['notes'] ?? null,
+                'sla_due_at' => $data['sla_due_at'] ?? null,
+                'notes'      => $data['notes'] ?? null,
 
-                'sent_at'        => now(),
+                'sent_at' => now(),
             ]);
 
             if ($job->owner?->onlyparner) {
@@ -381,7 +385,7 @@ class ControlMedProtest extends Component
         $this->validateJobForm(false);
 
         $this->reason_close = '';
-        $this->result = $this->modProtest?->result;
+        $this->result       = $this->modProtest?->result;
         $this->resetErrorBag('reason_close');
         $this->resetErrorBag('result');
         $this->showReasonClose = true;
@@ -390,8 +394,8 @@ class ControlMedProtest extends Component
     public function cancelCloseNow(): void
     {
         $this->showReasonClose = false;
-        $this->reason_close = '';
-        $this->result = null;
+        $this->reason_close    = '';
+        $this->result          = null;
         $this->resetErrorBag('reason_close');
         $this->resetErrorBag('result');
     }
@@ -406,7 +410,7 @@ class ControlMedProtest extends Component
 
         $this->validate([
             'reason_close' => 'required|string|max:5000',
-            'result' => 'required|in:' . implode(',', MedProtest::resultOptions()),
+            'result'       => 'required|in:' . implode(',', MedProtest::resultOptions()),
         ]);
 
         DB::transaction(function () use ($data) {
@@ -418,19 +422,19 @@ class ControlMedProtest extends Component
                 'protest_id'     => $this->modProtest->protest_id,
                 'med_protest_id' => $this->modProtest->id,
 
-                'created_by'     => auth()->id(),
-                'owner_id'       => $ownerId,
+                'created_by' => auth()->id(),
+                'owner_id'   => $ownerId,
 
                 // SALVANDO STRING DO ENUM
-                'status'         => ProtestJobStatus::OPENED->value,
-                'priority'       => ProtestJobPriority::from($data['priority'])->value,
+                'status'   => ProtestJobStatus::OPENED->value,
+                'priority' => ProtestJobPriority::from($data['priority'])->value,
 
-                'is_advance'     => $data['is_advance'] ?? false,
-                'need_evidence'  => $data['need_evidence'] ?? false,
+                'is_advance'    => $data['is_advance'] ?? false,
+                'need_evidence' => $data['need_evidence'] ?? false,
 
-                'sla_due_at'     => $data['sla_due_at'] ?? null,
-                'notes'          => $data['notes'] ?? null,
-                'sent_at'        => now(),
+                'sla_due_at' => $data['sla_due_at'] ?? null,
+                'notes'      => $data['notes'] ?? null,
+                'sent_at'    => now(),
             ]);
 
             // garante fluxo mínimo antes de finalizar
@@ -445,8 +449,8 @@ class ControlMedProtest extends Component
 
             // marca a medida como concluída
             $this->modProtest->update([
-                'completed'     => true,
-                'completed_at'  => now(),
+                'completed'    => true,
+                'completed_at' => now(),
             ]);
         });
 
@@ -471,8 +475,8 @@ class ControlMedProtest extends Component
         ]);
 
         $this->resetFormForNewJob();
-        $this->modProtest  = null;
-        $this->notePage    = 0;
+        $this->modProtest = null;
+        $this->notePage   = 0;
         $this->resetFileUploads();
     }
 
@@ -480,7 +484,6 @@ class ControlMedProtest extends Component
     {
 
     }
-
 
     public function closeModal()
     {
@@ -491,8 +494,9 @@ class ControlMedProtest extends Component
 
     public function updatedFiles(): void
     {
-        if (! $this->modProtest) {
+        if (!$this->modProtest) {
             $this->reset('files');
+
             return;
         }
 
@@ -504,7 +508,7 @@ class ControlMedProtest extends Component
             ], $this->fileValidationMessages);
 
             foreach ($this->files as $file) {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -513,6 +517,7 @@ class ControlMedProtest extends Component
                 foreach ($this->tempFiles as $index => $existingFile) {
                     if ($existingFile->getClientOriginalName() === $fileName) {
                         unset($this->tempFiles[$index]);
+
                         break;
                     }
                 }
@@ -529,13 +534,14 @@ class ControlMedProtest extends Component
                 'errors'  => $e->errors(),
             ]);
             $this->reset('files');
+
             throw $e;
         }
     }
 
     public function saveFiles(): void
     {
-        if (! $this->modProtest) {
+        if (!$this->modProtest) {
             return;
         }
 
@@ -544,12 +550,13 @@ class ControlMedProtest extends Component
                 'type'    => 'warning',
                 'message' => 'Nenhum arquivo recebido para salvar.',
             ]);
+
             return;
         }
 
         foreach ($this->tempFiles as $file) {
             try {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -558,28 +565,17 @@ class ControlMedProtest extends Component
                     $this->modProtest->med_id . '_' .
                     uniqid() . '.' . $file->getClientOriginalExtension();
 
-                $path = $file->storeAs(
+                app(EvidenceFileService::class)->store(
+                    $this->modProtest,
+                    $file,
                     $this->filesConfig['path'] . '/' . $this->modProtest->protest->nota,
                     $filename,
-                    $this->filesConfig['disk']
+                    auth()->id()
                 );
-
-                $this->modProtest->EvidenceFiles()->create([
-                    'user_id'       => auth()->id(),
-                    'original_name' => $file->getClientOriginalName(),
-                    'stored_name'   => $filename,
-                    'disk'          => $this->filesConfig['disk'],
-                    'path'          => $path,
-                    'mime'          => $file->getClientMimeType(),
-                    'extension'     => $file->getClientOriginalExtension(),
-                    'size'          => $file->getSize(),
-                    'sha256'        => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_at'   => now(),
-                ]);
             } catch (\Throwable $e) {
                 logger()->error('Erro ao salvar recebidos: ' . $e->getMessage(), [
-                    'file'        => $file instanceof TemporaryUploadedFile ? $file->getClientOriginalName() : null,
-                    'medId'       => $this->modProtest->id ?? null,
+                    'file'  => $file instanceof TemporaryUploadedFile ? $file->getClientOriginalName() : null,
+                    'medId' => $this->modProtest->id ?? null,
                 ]);
 
                 $this->dispatch('showAlert', [
@@ -617,10 +613,10 @@ class ControlMedProtest extends Component
 
     public function downloadFile(EvidenceFile $file)
     {
-        $disk = $file->disk ?? 'public';
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::disk($disk)->exists($file->path)) {
-            return Storage::disk($disk)->download($file->path, $file->original_name);
+        if ($service->exists($file)) {
+            return $service->download($file);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -629,12 +625,12 @@ class ControlMedProtest extends Component
             'title'    => 'Arquivo inexistente!',
             'timer'    => 5000,
         ]);
-        return;
+
     }
 
     public function deleteFile(EvidenceFile $file): void
     {
-        if (! $this->modProtest) {
+        if (!$this->modProtest) {
             return;
         }
 
@@ -652,24 +648,24 @@ class ControlMedProtest extends Component
     public function getFileIconClass(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'bg-danger text-white',
-            'doc', 'docx'        => 'bg-primary text-white',
-            'xls', 'xlsx'        => 'bg-success text-white',
+            'pdf' => 'bg-danger text-white',
+            'doc', 'docx' => 'bg-primary text-white',
+            'xls', 'xlsx' => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt'                => 'bg-secondary text-white',
-            default              => 'bg-dark text-white',
+            'txt'   => 'bg-secondary text-white',
+            default => 'bg-dark text-white',
         };
     }
 
     public function getFileIcon(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'ri-file-pdf-fill',
-            'doc', 'docx'        => 'ri-file-word-fill',
-            'xls', 'xlsx'        => 'ri-file-excel-fill',
+            'pdf' => 'ri-file-pdf-fill',
+            'doc', 'docx' => 'ri-file-word-fill',
+            'xls', 'xlsx' => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt'                => 'ri-file-text-fill',
-            default              => 'ri-file-fill',
+            'txt'   => 'ri-file-text-fill',
+            default => 'ri-file-fill',
         };
     }
 
@@ -678,15 +674,19 @@ class ControlMedProtest extends Component
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
         }
+
         if ($bytes >= 1048576) {
             return number_format($bytes / 1048576, 2) . ' MB';
         }
+
         if ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
         }
+
         if ($bytes > 1) {
             return $bytes . ' bytes';
         }
+
         return '0 bytes';
     }
 

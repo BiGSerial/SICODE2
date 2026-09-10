@@ -2,13 +2,10 @@
 
 namespace App\Http\Livewire\Protests\Dispatch\Actions;
 
-use App\Models\EvidenceFile;
-use App\Models\MedProtest;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{EvidenceFile, MedProtest};
+use App\Services\Files\EvidenceFileService;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
+use Livewire\{Component, TemporaryUploadedFile, WithFileUploads};
 
 class UploadMedProtestFiles extends Component
 {
@@ -69,8 +66,9 @@ class UploadMedProtestFiles extends Component
 
     public function updatedFiles(): void
     {
-        if (! $this->medProtest) {
+        if (!$this->medProtest) {
             $this->reset('files');
+
             return;
         }
 
@@ -82,7 +80,7 @@ class UploadMedProtestFiles extends Component
             ], $this->fileValidationMessages);
 
             foreach ($this->files as $file) {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -91,6 +89,7 @@ class UploadMedProtestFiles extends Component
                 foreach ($this->tempFiles as $index => $existingFile) {
                     if ($existingFile->getClientOriginalName() === $fileName) {
                         unset($this->tempFiles[$index]);
+
                         break;
                     }
                 }
@@ -107,13 +106,14 @@ class UploadMedProtestFiles extends Component
                 'errors'  => $e->errors(),
             ]);
             $this->reset('files');
+
             throw $e;
         }
     }
 
     public function saveFiles(): void
     {
-        if (! $this->medProtest) {
+        if (!$this->medProtest) {
             return;
         }
 
@@ -122,12 +122,13 @@ class UploadMedProtestFiles extends Component
                 'type'    => 'warning',
                 'message' => 'Nenhum arquivo recebido para salvar.',
             ]);
+
             return;
         }
 
         foreach ($this->tempFiles as $file) {
             try {
-                if (! $file instanceof TemporaryUploadedFile) {
+                if (!$file instanceof TemporaryUploadedFile) {
                     continue;
                 }
 
@@ -136,24 +137,13 @@ class UploadMedProtestFiles extends Component
                     $this->medProtest->med_id . '_' .
                     uniqid() . '.' . $file->getClientOriginalExtension();
 
-                $path = $file->storeAs(
+                app(EvidenceFileService::class)->store(
+                    $this->medProtest,
+                    $file,
                     $this->filesConfig['path'] . '/' . $this->medProtest->protest->nota,
                     $filename,
-                    $this->filesConfig['disk']
+                    auth()->id()
                 );
-
-                $this->medProtest->EvidenceFiles()->create([
-                    'user_id'       => auth()->id(),
-                    'original_name' => $file->getClientOriginalName(),
-                    'stored_name'   => $filename,
-                    'disk'          => $this->filesConfig['disk'],
-                    'path'          => $path,
-                    'mime'          => $file->getClientMimeType(),
-                    'extension'     => $file->getClientOriginalExtension(),
-                    'size'          => $file->getSize(),
-                    'sha256'        => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_at'   => now(),
-                ]);
             } catch (\Throwable $e) {
                 logger()->error('Erro ao salvar recebidos (medida): ' . $e->getMessage(), [
                     'file'  => $file instanceof TemporaryUploadedFile ? $file->getClientOriginalName() : null,
@@ -195,10 +185,10 @@ class UploadMedProtestFiles extends Component
 
     public function downloadFile(EvidenceFile $file)
     {
-        $disk = $file->disk ?? 'public';
+        $service = app(EvidenceFileService::class);
 
-        if (Storage::disk($disk)->exists($file->path)) {
-            return Storage::disk($disk)->download($file->path, $file->original_name);
+        if ($service->exists($file)) {
+            return $service->download($file);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -207,12 +197,12 @@ class UploadMedProtestFiles extends Component
             'title'    => 'Arquivo inexistente!',
             'timer'    => 5000,
         ]);
-        return;
+
     }
 
     public function deleteFile(EvidenceFile $file): void
     {
-        if (! $this->medProtest) {
+        if (!$this->medProtest) {
             return;
         }
 
@@ -231,24 +221,24 @@ class UploadMedProtestFiles extends Component
     public function getFileIconClass(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'bg-danger text-white',
-            'doc', 'docx'        => 'bg-primary text-white',
-            'xls', 'xlsx'        => 'bg-success text-white',
+            'pdf' => 'bg-danger text-white',
+            'doc', 'docx' => 'bg-primary text-white',
+            'xls', 'xlsx' => 'bg-success text-white',
             'jpg', 'jpeg', 'png' => 'bg-info text-white',
-            'txt'                => 'bg-secondary text-white',
-            default              => 'bg-dark text-white',
+            'txt'   => 'bg-secondary text-white',
+            default => 'bg-dark text-white',
         };
     }
 
     public function getFileIcon(string $extension): string
     {
         return match (strtolower($extension)) {
-            'pdf'                => 'ri-file-pdf-fill',
-            'doc', 'docx'        => 'ri-file-word-fill',
-            'xls', 'xlsx'        => 'ri-file-excel-fill',
+            'pdf' => 'ri-file-pdf-fill',
+            'doc', 'docx' => 'ri-file-word-fill',
+            'xls', 'xlsx' => 'ri-file-excel-fill',
             'jpg', 'jpeg', 'png' => 'ri-image-fill',
-            'txt'                => 'ri-file-text-fill',
-            default              => 'ri-file-fill',
+            'txt'   => 'ri-file-text-fill',
+            default => 'ri-file-fill',
         };
     }
 
@@ -257,15 +247,19 @@ class UploadMedProtestFiles extends Component
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
         }
+
         if ($bytes >= 1048576) {
             return number_format($bytes / 1048576, 2) . ' MB';
         }
+
         if ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
         }
+
         if ($bytes > 1) {
             return $bytes . ' bytes';
         }
+
         return '0 bytes';
     }
 

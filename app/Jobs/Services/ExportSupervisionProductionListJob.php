@@ -50,7 +50,7 @@ class ExportSupervisionProductionListJob implements ShouldQueue
 
             $rows = Production::query()
                 ->with([
-                    'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status',
+                    'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
                     'Note.WorkForm:id,note_id,informed_at,rejected',
                     'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
                     'Note.OldAds:id,note_id',
@@ -74,6 +74,9 @@ class ExportSupervisionProductionListJob implements ShouldQueue
                         $sub->whereRelation('Note', 'note', 'like', "%{$search}%")
                             ->orWhereRelation('Note', 'material', 'like', "%{$search}%");
                     });
+                })
+                ->when($this->params['note_type'] ?? null, function (Builder $q, $noteType) {
+                    $q->whereRelation('Note', 'type_note', $noteType);
                 })
                 ->orderByDesc('priority')
                 ->orderByDesc('partial')

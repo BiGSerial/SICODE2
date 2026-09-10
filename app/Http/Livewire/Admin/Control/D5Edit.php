@@ -2,28 +2,32 @@
 
 namespace App\Http\Livewire\Admin\Control;
 
-use App\Models\Company;
-use App\Models\EvidenceFile;
-use App\Models\FiveNote;
-use App\Models\Production;
-use Illuminate\Support\Facades\Storage;
+use App\Models\{Company, EvidenceFile, FiveNote, Production};
+use App\Services\Files\EvidenceFileService;
 use Livewire\Component;
 
 class D5Edit extends Component
 {
     public ?FiveNote $five = null;
+
     public $note;
+
     public $lockCompleted = false;
+
     public $productionId;
+
     public $availableProductions = [];
+
     public $linkedProductions = [];
+
     public $pendingEvidenceSave = false;
+
     public $companies;
 
     protected $listeners = [
         'getInfoResponse',
         'evidenceSaved' => 'onEvidenceSaved',
-        'resetForm' => 'resetForm',
+        'resetForm'     => 'resetForm',
     ];
 
     protected function rules(): array
@@ -63,14 +67,14 @@ class D5Edit extends Component
     public function getInfoResponse(FiveNote $five): void
     {
         $this->resetForm(false);
-        $this->five = $five->load(['note', 'company', 'productions.user', 'productions.service', 'EvidenceFiles']);
-        $this->note = $this->five->note;
+        $this->five          = $five->load(['note', 'company', 'productions.user', 'productions.service', 'EvidenceFiles']);
+        $this->note          = $this->five->note;
         $this->lockCompleted = (bool) ($this->five->is_supervisioned || $this->five->supervisioned_at || $this->five->is_archived);
 
-        $this->five->dispatch_at = $this->formatDateTimeLocal($this->five->dispatch_at);
-        $this->five->completed_at = $this->formatDateTimeLocal($this->five->completed_at);
+        $this->five->dispatch_at      = $this->formatDateTimeLocal($this->five->dispatch_at);
+        $this->five->completed_at     = $this->formatDateTimeLocal($this->five->completed_at);
         $this->five->supervisioned_at = $this->formatDateTimeLocal($this->five->supervisioned_at);
-        $this->five->payed_at = $this->formatDateTimeLocal($this->five->payed_at);
+        $this->five->payed_at         = $this->formatDateTimeLocal($this->five->payed_at);
 
         $this->productionId = null;
         $this->refreshProductionLists();
@@ -117,6 +121,7 @@ class D5Edit extends Component
                 'title'    => 'Producao nao encontrada',
                 'timer'    => 2000,
             ]);
+
             return;
         }
 
@@ -127,6 +132,7 @@ class D5Edit extends Component
                 'title'    => 'Producao nao pertence a mesma nota',
                 'timer'    => 2500,
             ]);
+
             return;
         }
 
@@ -154,6 +160,7 @@ class D5Edit extends Component
         }
 
         $production = Production::find($productionId);
+
         if (!$production) {
             return;
         }
@@ -169,6 +176,7 @@ class D5Edit extends Component
     public function toggleProductionD5(int $productionId): void
     {
         $production = Production::find($productionId);
+
         if (!$production) {
             return;
         }
@@ -183,7 +191,8 @@ class D5Edit extends Component
     {
         if (!$this->five) {
             $this->availableProductions = [];
-            $this->linkedProductions = [];
+            $this->linkedProductions    = [];
+
             return;
         }
 
@@ -192,15 +201,17 @@ class D5Edit extends Component
             ->orderByDesc('created_at')
             ->get();
 
-        $linkedIds = $this->five->productions->pluck('id')->all();
-        $this->linkedProductions = $all->whereIn('id', $linkedIds)->values()->all();
+        $linkedIds                  = $this->five->productions->pluck('id')->all();
+        $this->linkedProductions    = $all->whereIn('id', $linkedIds)->values()->all();
         $this->availableProductions = $all->whereNotIn('id', $linkedIds)->values()->all();
     }
 
     public function downloadEvidence(EvidenceFile $file)
     {
-        if (Storage::fileExists('public/'.$file->path)) {
-            return Storage::download('public/'.$file->path);
+        $service = app(EvidenceFileService::class);
+
+        if ($service->exists($file)) {
+            return $service->download($file);
         }
 
         $this->dispatchBrowserEvent('swal', [
@@ -247,13 +258,13 @@ class D5Edit extends Component
     public function resetForm(bool $refresh = true): void
     {
         $this->resetErrorBag();
-        $this->five = null;
-        $this->note = null;
-        $this->lockCompleted = false;
-        $this->productionId = null;
+        $this->five                 = null;
+        $this->note                 = null;
+        $this->lockCompleted        = false;
+        $this->productionId         = null;
         $this->availableProductions = [];
-        $this->linkedProductions = [];
-        $this->pendingEvidenceSave = false;
+        $this->linkedProductions    = [];
+        $this->pendingEvidenceSave  = false;
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
 
         if ($refresh) {

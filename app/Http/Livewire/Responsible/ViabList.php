@@ -2,11 +2,11 @@
 
 namespace App\Http\Livewire\Responsible;
 
-use App\Exports\parner\exportExcel;
 use App\Exports\Viability\ViabilitiesInProgressExport;
 use App\Models\Edp_depc\City;
 use App\Models\{File, Note, Viability};
-use Illuminate\Support\Facades\{Crypt, Storage};
+use App\Services\Files\FileStorageService;
+use Illuminate\Support\Facades\Crypt;
 use Livewire\{Component, WithPagination};
 use ZipArchive;
 
@@ -21,6 +21,7 @@ class ViabList extends Component
     public $cities;
 
     public $files_selected = [];
+
     public $inActivity = [];
 
     public $search;
@@ -69,13 +70,12 @@ class ViabList extends Component
     public function downloadFile($id)
     {
 
-
         if ($file = File::find($id)) {
 
+            $storage = app(FileStorageService::class);
 
-
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -107,12 +107,51 @@ class ViabList extends Component
                 $zip     = new ZipArchive();
                 $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
+                $storage    = app(FileStorageService::class);
+                $tempCopies = [];
+
                 foreach ($files as $file) {
-                    $content = Storage::get($file->path);
-                    $zip->addFromString($file->file_name . '.' . $file->ext, $content);
+                    $tempCopy = $storage->temporaryLocalCopy($file);
+
+                    if (!$tempCopy) {
+                        continue;
+                    }
+
+                    if (!$storage->matchesStoredChecksum($file, $tempCopy)) {
+                        $zip->close();
+
+                        foreach (array_merge($tempCopies, [$tempCopy]) as $copy) {
+                            if (is_file($copy)) {
+                                @unlink($copy);
+                            }
+                        }
+
+                        if (file_exists($zipFile)) {
+                            @unlink($zipFile);
+                        }
+
+                        $this->dispatchBrowserEvent('swal', [
+                            'position' => 'center',
+                            'icon'     => 'error',
+                            'title'    => 'Checksum divergente!',
+                            'html'     => 'O arquivo ' . e($file->original_name ?: $file->file_name) . ' não confere com o hash gravado no servidor.',
+                            'timer'    => 5000,
+                        ]);
+
+                        return;
+                    }
+
+                    $zip->addFile($tempCopy, $file->file_name . '.' . $file->ext);
+                    $tempCopies[] = $tempCopy;
                 }
 
                 $zip->close();
+
+                foreach ($tempCopies as $tempCopy) {
+                    if (is_file($tempCopy)) {
+                        @unlink($tempCopy);
+                    }
+                }
 
                 $this->files_selected = [];
 
@@ -134,7 +173,9 @@ class ViabList extends Component
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -188,11 +229,9 @@ class ViabList extends Component
 
     }
 
-
-
     public function checkInActivity($item)
     {
-        return isset($item->inActivity) ? $item->inActivity : false;
+        return $item->inActivity ?? false;
     }
 
     public function render()

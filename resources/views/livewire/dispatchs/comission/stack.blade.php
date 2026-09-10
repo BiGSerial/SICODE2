@@ -214,6 +214,11 @@
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
                                 {{ $item->note?->note }}
+                                @if ($item->d5)
+                                    <span class="badge text-bg-primary ms-1"
+                                        wire:click.prevent="$emitTo('dispatchs.common.reclaim-info', 'getInfoByProduction', {{ $item->id }})"
+                                        style="cursor: pointer;">RI</span>
+                                @endif
                                 <x-legal.note-demand-tags :note-id="$item->note_id" :row-key="'dispatchs-comission-'.$item->id" />
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} text-center">

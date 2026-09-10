@@ -27,7 +27,7 @@ class PartnerController extends Controller
     private function landingRoutes(): array
     {
         return [
-            'partner.main.viability' => 'viability.dashboard',
+            'partner.main.viability' => 'portal.dashboard',
             'partner.todo.viability' => 'viability.list',
             'partner.rejected.viability' => 'viability.rejected',
             'partner.tacit.viability' => 'viability.tacit',

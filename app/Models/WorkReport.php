@@ -40,6 +40,10 @@ class WorkReport extends Model
         'acceptance_name',
         'acceptance_meta',
         'selected_final_scopes',
+        'current_status_key',
+        'current_status_label',
+        'current_status_class',
+        'current_status_updated_at',
     ];
 
     protected $casts = [
@@ -54,7 +58,23 @@ class WorkReport extends Model
         'selected_final_scopes' => 'array',
         'retry' => 'boolean',
         'date' => 'date',
+        'current_status_updated_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (WorkReport $workReport) {
+            app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)->refresh($workReport);
+        });
+
+        static::updated(function (WorkReport $workReport) {
+            if (!$workReport->wasChanged(['canceled', 'rejected', 'informed_at'])) {
+                return;
+            }
+
+            app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)->refresh($workReport);
+        });
+    }
 
     public function Note()
     {

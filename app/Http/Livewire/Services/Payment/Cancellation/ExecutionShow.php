@@ -4,15 +4,12 @@ namespace App\Http\Livewire\Services\Payment\Cancellation;
 
 use App\Enum\CancellationEngineerApprovalStatus;
 use App\Jobs\Services\ExportCancellationExecutionOrdersJob;
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
-use App\Models\User;
+use App\Models\{CancellationRequest, EvidenceFile, User};
+use App\Services\Files\EvidenceFileService;
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -22,41 +19,50 @@ class ExecutionShow extends Component
     use AuthorizesRequests;
 
     protected $listeners = [
-        'confirm_cancellation_execution_run_action' => 'confirmRunAction',
+        'confirm_cancellation_execution_run_action'       => 'confirmRunAction',
         'confirm_cancellation_execution_request_engineer' => 'confirmRequestEngineerApproval',
-        'confirm_cancellation_execution_change_engineer' => 'confirmChangeEngineer',
-        'confirm_cancellation_execution_cancel_engineer' => 'confirmCancelEngineerApproval',
+        'confirm_cancellation_execution_change_engineer'  => 'confirmChangeEngineer',
+        'confirm_cancellation_execution_cancel_engineer'  => 'confirmCancelEngineerApproval',
     ];
 
     public string $service;
+
     public int $requestId;
+
     public CancellationRequest $cancellationRequest;
 
     public string $action = 'DONE';
+
     public string $comment = '';
+
     public ?string $engineerId = null;
+
     public string $engineerReason = '';
+
     public bool $showEngineerActionForm = false;
+
     public string $engineerActionMode = 'request';
+
     public bool $showDecisionForm = false;
 
     public $files = [];
+
     public array $tempFiles = [];
 
     public array $config = [
-        'disk' => 'public',
-        'base_path' => 'evidences/CANCELLATION_EXECUTION',
-        'max_size_mb' => 10,
+        'disk'         => 'public',
+        'base_path'    => 'evidences/CANCELLATION_EXECUTION',
+        'max_size_mb'  => 10,
         'allowed_exts' => [
-            'jpg','jpeg','png','gif','bmp','svg','tiff','webp',
-            'pdf','doc','docx','odt','xls','xlsx','xlsm','ods',
-            'dwg','dxf','dws','dwt','dgn','rvt','rfa','skp','txt'
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+            'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+            'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
         ],
     ];
 
     public function mount(string $service, int $request): void
     {
-        $this->service = $service;
+        $this->service   = $service;
         $this->requestId = $request;
         $this->loadRequest();
     }
@@ -83,22 +89,25 @@ class ExecutionShow extends Component
 
         $this->engineerId = $this->cancellationRequest->engineer_approver_id;
         $engineerRejected = $this->cancellationRequest->engineer_approval_status === CancellationEngineerApprovalStatus::REJECTED;
-        $canFinalize = !$this->cancellationRequest->requires_engineer_approval
+        $canFinalize      = !$this->cancellationRequest->requires_engineer_approval
             || in_array($this->cancellationRequest->engineer_approval_status?->value, ['APPROVED', 'CANCELED'], true);
 
         if ($engineerRejected) {
             $this->action = 'ABORTED';
+
             if (!trim($this->comment)) {
                 $this->comment = 'Não autorizado pelo engenheiro.';
             }
             $this->showDecisionForm = true;
+
             return;
         }
 
         $this->action = $canFinalize ? 'DONE' : 'PAUSED';
+
         if ($this->cancellationRequest->engineer_approval_status !== CancellationEngineerApprovalStatus::PENDING) {
             $this->showEngineerActionForm = false;
-            $this->engineerActionMode = 'request';
+            $this->engineerActionMode     = 'request';
         }
     }
 
@@ -108,19 +117,19 @@ class ExecutionShow extends Component
             return;
         }
 
-        $this->action = $action;
+        $this->action           = $action;
         $this->showDecisionForm = true;
     }
 
     public function startEngineerRequest(): void
     {
-        $this->engineerActionMode = 'request';
+        $this->engineerActionMode     = 'request';
         $this->showEngineerActionForm = true;
     }
 
     public function startEngineerChange(): void
     {
-        $this->engineerActionMode = 'change';
+        $this->engineerActionMode     = 'change';
         $this->showEngineerActionForm = true;
     }
 
@@ -140,9 +149,9 @@ class ExecutionShow extends Component
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
                 'original_name' => $file->getClientOriginalName(),
-                'extension' => strtolower($file->getClientOriginalExtension()),
-                'size' => $file->getSize(),
-                'file' => $file,
+                'extension'     => strtolower($file->getClientOriginalExtension()),
+                'size'          => $file->getSize(),
+                'file'          => $file,
             ];
         }
 
@@ -160,21 +169,21 @@ class ExecutionShow extends Component
     public function runAction(): void
     {
         $actionLabel = match ($this->action) {
-            'DONE' => 'finalizar',
-            'PAUSED' => 'pausar',
+            'DONE'    => 'finalizar',
+            'PAUSED'  => 'pausar',
             'ABORTED' => 'cancelar',
-            default => 'executar',
+            default   => 'executar',
         };
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Confirmar ação',
-            'msg' => "Deseja {$actionLabel} esta solicitação?",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, confirmar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_execution_run_action',
+            'title'         => 'Confirmar ação',
+            'msg'           => "Deseja {$actionLabel} esta solicitação?",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, confirmar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_execution_run_action',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'Nenhuma ação foi executada.',
+            'cancel_msg'    => 'Nenhuma ação foi executada.',
         ]);
     }
 
@@ -182,6 +191,7 @@ class ExecutionShow extends Component
     {
         if (in_array($this->action, ['PAUSED', 'ABORTED'], true) && !trim($this->comment)) {
             $this->addError('comment', 'Comentário obrigatório.');
+
             return;
         }
 
@@ -204,10 +214,10 @@ class ExecutionShow extends Component
             }
 
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Solicitação atualizada.']);
-            $this->comment = '';
-            $this->action = 'DONE';
-            $this->tempFiles = [];
-            $this->files = [];
+            $this->comment          = '';
+            $this->action           = 'DONE';
+            $this->tempFiles        = [];
+            $this->files            = [];
             $this->showDecisionForm = false;
             $this->loadRequest();
         } catch (RuntimeException $e) {
@@ -218,14 +228,14 @@ class ExecutionShow extends Component
     public function requestEngineerApproval(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Solicitar aprovação',
-            'msg' => 'Deseja enviar esta solicitação para aprovação do engenheiro?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, solicitar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_execution_request_engineer',
+            'title'         => 'Solicitar aprovação',
+            'msg'           => 'Deseja enviar esta solicitação para aprovação do engenheiro?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, solicitar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_execution_request_engineer',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A aprovação não foi solicitada.',
+            'cancel_msg'    => 'A aprovação não foi solicitada.',
         ]);
     }
 
@@ -233,6 +243,7 @@ class ExecutionShow extends Component
     {
         if (!$this->engineerId) {
             $this->addError('engineerId', 'Selecione um engenheiro.');
+
             return;
         }
 
@@ -241,9 +252,9 @@ class ExecutionShow extends Component
             $service->requestEngineerApproval($this->cancellationRequest, Auth::user(), $engineer, $this->engineerReason);
 
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Aprovação enviada para o engenheiro.']);
-            $this->engineerReason = '';
+            $this->engineerReason         = '';
             $this->showEngineerActionForm = false;
-            $this->engineerActionMode = 'request';
+            $this->engineerActionMode     = 'request';
             $this->loadRequest();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -253,14 +264,14 @@ class ExecutionShow extends Component
     public function changeEngineer(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Alterar engenheiro',
-            'msg' => 'Deseja alterar o engenheiro responsável por esta aprovação?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, alterar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_execution_change_engineer',
+            'title'         => 'Alterar engenheiro',
+            'msg'           => 'Deseja alterar o engenheiro responsável por esta aprovação?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, alterar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_execution_change_engineer',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'O engenheiro não foi alterado.',
+            'cancel_msg'    => 'O engenheiro não foi alterado.',
         ]);
     }
 
@@ -268,6 +279,7 @@ class ExecutionShow extends Component
     {
         if (!$this->engineerId) {
             $this->addError('engineerId', 'Selecione um engenheiro.');
+
             return;
         }
 
@@ -276,9 +288,9 @@ class ExecutionShow extends Component
             $service->changeEngineerApprover($this->cancellationRequest, Auth::user(), $engineer, $this->engineerReason);
 
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Engenheiro alterado com sucesso.']);
-            $this->engineerReason = '';
+            $this->engineerReason         = '';
             $this->showEngineerActionForm = false;
-            $this->engineerActionMode = 'request';
+            $this->engineerActionMode     = 'request';
             $this->loadRequest();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
@@ -288,14 +300,14 @@ class ExecutionShow extends Component
     public function cancelEngineerApproval(): void
     {
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Cancelar solicitação ao engenheiro',
-            'msg' => 'Deseja cancelar a solicitação de aprovação do engenheiro?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, cancelar',
-            'btnCanceltxt' => 'Não, manter',
-            'action' => 'confirm_cancellation_execution_cancel_engineer',
+            'title'         => 'Cancelar solicitação ao engenheiro',
+            'msg'           => 'Deseja cancelar a solicitação de aprovação do engenheiro?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, cancelar',
+            'btnCanceltxt'  => 'Não, manter',
+            'action'        => 'confirm_cancellation_execution_cancel_engineer',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação ao engenheiro foi mantida.',
+            'cancel_msg'    => 'A solicitação ao engenheiro foi mantida.',
         ]);
     }
 
@@ -315,12 +327,12 @@ class ExecutionShow extends Component
     public function exportRequest(): void
     {
         ExportCancellationExecutionOrdersJob::dispatch([
-            'ids' => [$this->cancellationRequest->id],
+            'ids'     => [$this->cancellationRequest->id],
             'user_id' => (string) Auth::id(),
         ]);
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Exportação iniciada. Você será notificado quando concluir.',
         ]);
     }
@@ -328,11 +340,14 @@ class ExecutionShow extends Component
     public function downloadEvidence(int $fileId): StreamedResponse
     {
         $file = EvidenceFile::findOrFail($fileId);
+
         if ($file->evidenciable_type !== CancellationRequest::class || $file->evidenciable_id !== $this->cancellationRequest->id) {
             abort(403);
         }
 
-        return Storage::disk($file->disk)->download($file->path, $file->original_name);
+        $service = app(EvidenceFileService::class);
+
+        return $service->download($file);
     }
 
     public function render()
@@ -345,7 +360,7 @@ class ExecutionShow extends Component
         $approvalPending = $this->cancellationRequest->engineer_approval_status === CancellationEngineerApprovalStatus::PENDING;
 
         return view('livewire.services.payment.cancellation.execution-show', [
-            'engineers' => $engineers,
+            'engineers'       => $engineers,
             'approvalPending' => $approvalPending,
         ]);
     }

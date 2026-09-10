@@ -51,6 +51,11 @@ class ConfigController extends Controller
         return view('config.acceptance_terms');
     }
 
+    public function analysisClosureRules()
+    {
+        return view('config.analysis_closure_rules');
+    }
+
     public function partnerDashboardLegalNotes()
     {
         return view('config.partner_dashboard_legal_notes');

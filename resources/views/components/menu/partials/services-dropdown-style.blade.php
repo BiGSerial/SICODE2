@@ -182,32 +182,32 @@
     .services-dropdown .sd-group--side {
         margin: 0.22rem 0.5rem;
         border-radius: 0.4rem;
-        border: 1px solid #b8cbf5;
-        border-left: 4px solid var(--sd-cobalt);
+        border: 1px solid var(--sd-accent-border, #b8cbf5);
+        border-left: 4px solid var(--sd-accent, var(--sd-cobalt));
         overflow: visible;
     }
 
     .services-dropdown .sd-group--side > .sd-group-toggle {
-        background: var(--sd-cobalt-tint);
+        background: var(--sd-accent-tint, var(--sd-cobalt-tint));
         border-radius: 0.3rem;
         padding: 0.48rem 0.55rem 0.48rem 0.7rem;
     }
 
     .services-dropdown .sd-group--side > .sd-group-toggle:hover {
-        background: var(--sd-cobalt-hover);
+        background: var(--sd-accent-hover, var(--sd-cobalt-hover));
     }
 
     .services-dropdown .sd-group--side > .sd-group-toggle.is-active {
-        background: var(--sd-cobalt-active);
+        background: var(--sd-accent-active, var(--sd-cobalt-active));
         border-radius: 0.3rem 0.3rem 0 0;
     }
 
-    /* Badge à direita do botão side — caixa cobalt com seta */
+    /* Badge à direita do botão side — caixa na cor do accent, com seta */
     .services-dropdown .sd-group--side .sd-group-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: var(--sd-cobalt);
+        background: var(--sd-accent, var(--sd-cobalt));
         color: #fff;
         border-radius: 0.25rem;
         width: 1.4rem;
@@ -223,11 +223,11 @@
     }
 
     .services-dropdown .sd-group--side > .sd-group-toggle:hover .sd-group-badge {
-        background: #1a2db0;
+        background: var(--sd-accent-dark, #1a2db0);
     }
 
     .services-dropdown .sd-group--side > .sd-group-toggle.is-active .sd-group-badge {
-        background: #1a2db0;
+        background: var(--sd-accent-dark, #1a2db0);
     }
 
     /* ════════════════════════════════════════════════════════════════
@@ -239,33 +239,33 @@
     .services-dropdown .sd-group--down {
         margin: 0.22rem 0.5rem;
         border-radius: 0.4rem;
-        border: 1px solid #bfc8d6;
-        border-left: 4px solid var(--sd-navy);
+        border: 1px solid var(--sd-accent-border, #bfc8d6);
+        border-left: 4px solid var(--sd-accent, var(--sd-navy));
         overflow: visible;
         margin-bottom: 0.3rem;
     }
 
     .services-dropdown .sd-group--down > .sd-group-toggle {
-        background: var(--sd-navy-tint);
+        background: var(--sd-accent-tint, var(--sd-navy-tint));
         border-radius: 0.3rem;
         padding: 0.48rem 0.55rem 0.48rem 0.7rem;
     }
 
     .services-dropdown .sd-group--down > .sd-group-toggle:hover {
-        background: var(--sd-navy-hover);
+        background: var(--sd-accent-hover, var(--sd-navy-hover));
     }
 
     .services-dropdown .sd-group--down > .sd-group-toggle.is-active {
-        background: var(--sd-navy-hover);
+        background: var(--sd-accent-hover, var(--sd-navy-hover));
         border-radius: 0.3rem 0.3rem 0 0;
     }
 
-    /* Badge à direita do botão down — caixa navy */
+    /* Badge à direita do botão down — caixa na cor do accent (default navy) */
     .services-dropdown .sd-group--down .sd-group-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: var(--sd-navy);
+        background: var(--sd-accent, var(--sd-navy));
         color: #fff;
         border-radius: 0.25rem;
         width: 1.4rem;
@@ -285,7 +285,49 @@
     }
 
     .services-dropdown .sd-group--down > .sd-group-toggle:hover .sd-group-badge {
-        background: #2e3f55;
+        background: var(--sd-accent-dark, #2e3f55);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       Accents — cor selecionável por grupo (kind = group)
+       Definir 'accent' => 'danger' no node aplica a classe
+       sd-group--accent-danger, sobrescrevendo as variáveis --sd-accent-*
+       usadas pelos blocos --side/--down acima (funciona nos dois modos).
+    ════════════════════════════════════════════════════════════════ */
+    .services-dropdown .sd-group--accent-danger {
+        --sd-accent:        #c1442e;
+        --sd-accent-tint:   #fbeae7;
+        --sd-accent-hover:  #f6d9d3;
+        --sd-accent-active: #eec0b7;
+        --sd-accent-dark:   #963527;
+        --sd-accent-border: #eab8ac;
+    }
+
+    .services-dropdown .sd-group--accent-success {
+        --sd-accent:        #227a5b;
+        --sd-accent-tint:   #e2f2ea;
+        --sd-accent-hover:  #cbe7d9;
+        --sd-accent-active: #b0dac6;
+        --sd-accent-dark:   #17573f;
+        --sd-accent-border: #a8d6c1;
+    }
+
+    .services-dropdown .sd-group--accent-warning {
+        --sd-accent:        #a3690f;
+        --sd-accent-tint:   #f8ecd6;
+        --sd-accent-hover:  #f1ddb6;
+        --sd-accent-active: #e8ca8f;
+        --sd-accent-dark:   #7a4d0a;
+        --sd-accent-border: #e4c48a;
+    }
+
+    .services-dropdown .sd-group--accent-info {
+        --sd-accent:        #2f6690;
+        --sd-accent-tint:   #e5eff5;
+        --sd-accent-hover:  #cee1ec;
+        --sd-accent-active: #b3d0e2;
+        --sd-accent-dark:   #204a68;
+        --sd-accent-border: #a9c9dc;
     }
 
     /* ── Estilos comuns a todos os toggles de grupo ──────────────── */

@@ -111,7 +111,6 @@ class Services extends Component
     public function update_return(Service $service)
     {
 
-
         $check = $service->update(['canReturn' => !$service->canReturn]);
 
         if ($check) {
@@ -120,18 +119,22 @@ class Services extends Component
 
             $this->dispatchBrowserEvent('torrada', [
                 'status'   => 'success',
-                'menssage' => "SERVIÇO ".$service->service." ALTERADO PARA ". $status,
+                'menssage' => "SERVIÇO " . $service->service . " ALTERADO PARA " . $status,
             ]);
         }
 
         $this->emitSelf('$refresh');
 
-
     }
 
     public function getServicesProperty()
     {
-        return Service::with('contracts.company')->orderBy('service')->get();
+        // Serviços legados (ex.: sobras de rollback) nunca têm Projeto nem
+        // Construção definidos — a criação de um serviço hoje exige um dos dois.
+        return Service::with('contracts.company')
+            ->where(fn ($query) => $query->where('project', true)->orWhere('construction', true))
+            ->orderBy('service')
+            ->get();
     }
 
     public function render()

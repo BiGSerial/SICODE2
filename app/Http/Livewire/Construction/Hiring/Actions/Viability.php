@@ -2,31 +2,30 @@
 
 namespace App\Http\Livewire\Construction\Hiring\Actions;
 
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\User;
-use App\Models\Viability as ModelsViability;
+use App\Models\{Company, File, Note, Order, User, Viability as ModelsViability};
+use App\Services\Files\FileUploadService;
 use Exception;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\{DB};
+use Livewire\{Component, WithFileUploads};
 
 class Viability extends Component
 {
     use WithFileUploads;
 
     public $notes;
+
     public $companies;
+
     public $company_id;
+
     public $responsible_id;
 
     public $responsibles;
+
     public $toViabilities = [];
 
     public $hiringAll = false;
+
     public $retainAll = false;
 
     protected $listeners = [
@@ -36,16 +35,16 @@ class Viability extends Component
     ];
 
     protected $rules = [
-        'company_id' => 'required',
-        'responsible_id' => 'required',
+        'company_id'                         => 'required',
+        'responsible_id'                     => 'required',
         'toViabilities.*.temp_files.files.*' => 'file|max:10240|mimes:xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,webp,gif,bmp,tiff',
     ];
 
     protected $messages = [
-        'company_id.required' => 'Selecione a empresa',
-        'responsible_id.required' => 'Selecione o responsável',
-        'toViabilities.*.temp_files.files.*.file' => 'O arquivo deve ser um documento',
-        'toViabilities.*.temp_files.files.*.max' => 'O arquivo deve ter no máximo 10MB',
+        'company_id.required'                      => 'Selecione a empresa',
+        'responsible_id.required'                  => 'Selecione o responsável',
+        'toViabilities.*.temp_files.files.*.file'  => 'O arquivo deve ser um documento',
+        'toViabilities.*.temp_files.files.*.max'   => 'O arquivo deve ter no máximo 10MB',
         'toViabilities.*.temp_files.files.*.mimes' => 'O arquivo deve ser um dos seguintes tipos: xlsx,xls,ods,ots,doc,docx,odt,ott,pdf,jpg,jpeg,png,webp,gif,bmp,tiff',
     ];
 
@@ -59,13 +58,13 @@ class Viability extends Component
     {
         $this->notes = Note::whereIn('id', $notes_id)
                 ->with([
-                'files' => function ($q) {
-                    $q->where('file_name', 'like', 'PROJETO%');
-                },
-                'orders' => function ($q) {
-                    $q->where('statusSist', 'not like', 'ENC%')
-                      ->where('statusSist', 'not like', 'ENT%');
-                }
+                    'files' => function ($q) {
+                        $q->where('file_name', 'like', 'PROJETO%');
+                    },
+                    'orders' => function ($q) {
+                        $q->where('statusSist', 'not like', 'ENC%')
+                          ->where('statusSist', 'not like', 'ENT%');
+                    },
                 ])
                 ->get();
 
@@ -80,7 +79,6 @@ class Viability extends Component
     public function updatedCompanyId($company_id)
     {
 
-
         $this->responsibles = User::whereHas('companies', function ($query) use ($company_id) {
             $query->where('companies.id', trim($company_id));
         })
@@ -89,20 +87,18 @@ class Viability extends Component
         ->orderBy('name')
         ->get();
 
-
     }
-
 
     private function mountViabilities($notes)
     {
         foreach ($notes as $note) {
             $this->toViabilities[$note->id] = [
-                'company_id' => $this->company_id,
+                'company_id'     => $this->company_id,
                 'responsible_id' => $this->responsible_id,
-                'contratar' => false,
-                'reter' => false,
-                'note' => $note,
-                'temp_files' => [],
+                'contratar'      => false,
+                'reter'          => false,
+                'note'           => $note,
+                'temp_files'     => [],
             ];
         }
     }
@@ -166,12 +162,10 @@ class Viability extends Component
         return true;
     }
 
-
     public function toViability()
     {
 
         $validate = $this->validate();
-
 
         if (!$validate) {
             $this->dispatchBrowserEvent('swal', [
@@ -182,7 +176,6 @@ class Viability extends Component
                 'timer'    => 10000,
             ]);
         }
-
 
         if (count($this->toViabilities) <= 0) {
             $this->dispatchBrowserEvent('swal', [
@@ -199,11 +192,11 @@ class Viability extends Component
         $count = count($this->toViabilities);
 
         $company = Company::find($this->company_id)->name;
-        $user = User::find($this->responsible_id)->name;
+        $user    = User::find($this->responsible_id)->name;
 
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => "ENVIAR VIABILIDADE",
-            'msg'           => "
+            'title' => "ENVIAR VIABILIDADE",
+            'msg'   => "
                 <p>Deseja enviar <span class='fw-bold'>{$count}</span> obra(s) para <span class='fw-bold'>{$company}</span>?</p>
                 <div class='card'>
                     <div class='card-body text-left'>
@@ -221,8 +214,6 @@ class Viability extends Component
 
         ]);
 
-        return;
-
     }
 
     public function removeViability($key)
@@ -236,7 +227,6 @@ class Viability extends Component
         }
     }
 
-
     public function goViability()
     {
         $note = '';
@@ -247,19 +237,16 @@ class Viability extends Component
             foreach ($this->toViabilities as $toViability) {
 
                 $viability = ModelsViability::create([
-                    'note_id'    => $toViability['note']['id'],
-                    'user_id'    => Auth()->User()->id,
-                    'company_id' => $this->company_id,
-                    'engineer_id' => $this->responsible_id,
-                    'sended_at' => $toViability['reter'] ? null : date('Y-m-d H:i:s'),
+                    'note_id'         => $toViability['note']['id'],
+                    'user_id'         => Auth()->User()->id,
+                    'company_id'      => $this->company_id,
+                    'engineer_id'     => $this->responsible_id,
+                    'sended_at'       => $toViability['reter'] ? null : date('Y-m-d H:i:s'),
                     'visible_partner' => $toViability['reter'] ? true : false,
-                    'hired'  => $toViability['contratar'] ? true : false,
-                    'hired_at' => $toViability['contratar'] ? date('Y-m-d H:i:s') : null,
-                    'status' => $toViability['reter'] ? 16 : 1,
-                    ]);
-
-
-
+                    'hired'           => $toViability['contratar'] ? true : false,
+                    'hired_at'        => $toViability['contratar'] ? date('Y-m-d H:i:s') : null,
+                    'status'          => $toViability['reter'] ? 16 : 1,
+                ]);
 
                 $orders = Order::where('statusSist', 'NOT LIKE', 'ENC%')
                                 ->where('statusSist', 'NOT LIKE', 'ENT%')
@@ -268,6 +255,7 @@ class Viability extends Component
 
                 if ($orders->count()) {
                     $sum = 0.0;
+
                     foreach ($orders as $order) {
                         $sum += $order->moaberto;
                         $viability->orders()->syncWithoutDetaching([$order->id]);
@@ -286,32 +274,23 @@ class Viability extends Component
 
                     if ($note->exists()) {
                         foreach ($toViability['temp_files']['files'] as $index => $file) {
-                            $new_name = 'PROJETO_DESE_'.$note->note.'_F'.str_pad($index + 1, 2, '0', STR_PAD_LEFT).'-'.str_pad(count($toViability['temp_files']['files']), 2, '0', STR_PAD_LEFT);
-                            $rev = File::where('file_name', 'like', $new_name."%")->count();
+                            $new_name = 'PROJETO_DESE_' . $note->note . '_F' . str_pad($index + 1, 2, '0', STR_PAD_LEFT) . '-' . str_pad(count($toViability['temp_files']['files']), 2, '0', STR_PAD_LEFT);
+                            $rev      = File::where('file_name', 'like', $new_name . "%")->count();
 
-                            $caminho = $file->store('/arquivos/PROJETO');
-
-                            if (Storage::exists($caminho)) {
-
-                                $createdFile = File::create([
-                                    'note_id' => $note->id,
-                                    'user_id' => Auth()->User()->id,
+                            $createdFile = app(FileUploadService::class)->create(
+                                $file,
+                                $note,
+                                '/arquivos/PROJETO',
+                                $new_name . "_Rev-" . $rev,
+                                $file->extension(),
+                                [
                                     'service_id' => null,
-                                    'file_name' => $new_name."_Rev-".$rev,
-                                    'original_name' => $file->getClientOriginalName(),
-                                    'path' => $caminho,
-                                    'ext' => $file->extension(),
-                                    'suspicious' => 0,
-                                    'noexists' => false,
-                                ]);
+                                    'suspicious' => false,
+                                ],
+                            );
 
-                                if ($createdFile) {
-                                    // Mantem rastreabilidade do anexo pela origem da viabilidade
-                                    $viability->files()->syncWithoutDetaching([$createdFile->id]);
-                                }
-                            } else {
-                                throw new Exception("Um ou mais arquivos não foram salvos corretamente", 1);
-                            }
+                            // Mantem rastreabilidade do anexo pela origem da viabilidade
+                            $viability->files()->syncWithoutDetaching([$createdFile->id]);
                         }
                     }
                 }
@@ -336,20 +315,18 @@ class Viability extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ERRO',
-                'html'     => 'Ocorreu um erro ao tentar enviar a viabilidade, tente novamente.<br><br>'.$th->getMessage(),
+                'html'     => 'Ocorreu um erro ao tentar enviar a viabilidade, tente novamente.<br><br>' . $th->getMessage(),
                 // 'timer'    => 10000,
             ]);
         }
-
-
 
     }
 
     public function closeAll()
     {
-        $this->toViabilities = [];
-        $this->notes = null;
-        $this->company_id = null;
+        $this->toViabilities  = [];
+        $this->notes          = null;
+        $this->company_id     = null;
         $this->responsible_id = null;
         $this->resetErrorBag();
         $this->resetValidation();
@@ -357,8 +334,6 @@ class Viability extends Component
         $this->emitUp('closeAll');
         $this->dispatchBrowserEvent('hideModal');
     }
-
-
 
     public function render()
     {

@@ -2,11 +2,9 @@
 
 namespace App\Support;
 
-use App\Models\CancellationRequest;
-use App\Models\EvidenceFile;
-use App\Models\User;
+use App\Models\{CancellationRequest, EvidenceFile, User};
+use App\Services\Files\{FileStorageService, StorageContextResolver};
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class EvidenceFileUploader
@@ -43,47 +41,56 @@ class EvidenceFileUploader
     public function attachEvidence(CancellationRequest $request, User $user, array $data, string $origin): EvidenceFile
     {
         return $request->EvidenceFiles()->create([
-            'user_id' => $user->id,
+            'user_id'       => $user->id,
             'original_name' => $data['original_name'],
-            'stored_name' => $data['stored_name'],
-            'disk' => $data['disk'],
-            'path' => $data['path'],
-            'mime' => $data['mime'],
-            'extension' => $data['extension'],
-            'size' => $data['size'],
-            'sha256' => $data['sha256'],
-            'uploaded_at' => now(),
-            'origin' => $origin,
+            'stored_name'   => $data['stored_name'],
+            'disk'          => $data['disk'],
+            'path'          => $data['path'],
+            'mime'          => $data['mime'],
+            'extension'     => $data['extension'],
+            'size'          => $data['size'],
+            'sha256'        => $data['sha256'],
+            'uploaded_at'   => now(),
+            'origin'        => $origin,
         ]);
     }
 
     private function storeSingleCancellationFile(UploadedFile $file, string $dir, string $noteRef): array
     {
-        $extension = strtolower($file->getClientOriginalExtension());
+        $context    = app(StorageContextResolver::class);
+        $storage    = app(FileStorageService::class);
+        $extension  = strtolower($file->getClientOriginalExtension());
         $storedName = $this->buildStoredName($noteRef);
-        $path = $file->storeAs($dir, $storedName . '.' . $extension, 'public');
+        $stored     = $storage->putUploadedAs(
+            $file,
+            $context->scopedDirectory($dir),
+            $storedName . '.' . $extension,
+            $context->evidenceDisk(),
+        );
 
         return [
             'original_name' => $file->getClientOriginalName(),
-            'stored_name' => $storedName,
-            'disk' => 'public',
-            'path' => $path,
-            'mime' => $file->getMimeType(),
-            'extension' => $extension,
-            'size' => $file->getSize(),
-            'sha256' => hash('sha256', Storage::disk('public')->get($path)),
+            'stored_name'   => $storedName,
+            'disk'          => $stored['disk'],
+            'path'          => $stored['path'],
+            'mime'          => $stored['mime'],
+            'extension'     => $extension,
+            'size'          => $stored['size'],
+            'sha256'        => $stored['sha256'],
         ];
     }
 
     private function normalizeNoteRef(string $note): string
     {
         $clean = preg_replace('/[^a-zA-Z0-9_-]/', '', $note) ?: 'nota';
+
         return Str::lower(Str::limit($clean, 24, ''));
     }
 
     private function buildStoredName(string $noteRef): string
     {
         $hash = Str::lower(Str::random(6));
+
         return "evidencia-{$noteRef}-{$hash}";
     }
 }

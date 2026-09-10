@@ -7,8 +7,8 @@ use App\Models\Edp_depc\City;
 use App\Models\File;
 use App\Models\WorkReport;
 use App\Jobs\Reports\ExportWorkreportsJob;
+use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -120,8 +120,10 @@ class Workreports extends Component
     {
         if ($file = File::find($id)) {
 
-            if (Storage::disk('local')->exists($file->path)) {
-                return Storage::download($file->path, $file->file_name);
+            $storage = app(FileStorageService::class);
+
+            if ($storage->exists($file)) {
+                return $storage->download($file, $file->file_name);
             }
         }
     }
