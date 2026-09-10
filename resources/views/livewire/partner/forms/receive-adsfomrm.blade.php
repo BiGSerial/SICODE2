@@ -55,32 +55,10 @@
                             <tbody>
                                 @foreach ($notes as $tNote)
                                     @php
-                                        $block = false;
-                                        $reason = '';
-
-                                        if (!$tNote->WorkForm) {
-                                            $block = true;
-                                            $reason = 'SEM INFORME DE OBRA';
-                                        } elseif ($tNote->WorkForm->rejected) {
-                                            $block = true;
-                                            $latestReturn = $tNote->WorkForm->LatestReturnwork;
-                                            $rejectCategory = trim((string) ($latestReturn?->category ?? ''));
-                                            $rejectObs = trim((string) ($latestReturn?->text_obs ?? ''));
-                                            $rejectUser = trim((string) ($latestReturn?->User?->name ?? ''));
-                                            $rejectUserEmail = trim((string) ($latestReturn?->User?->email ?? ''));
-                                            $rejectAt = $latestReturn?->created_at?->format('d/m/Y H:i');
-                                            $reason = 'INFORME REJEITADO';
-                                        } else {
-                                            $adsForm = $tNote->WorkForm->Adsform;
-                                            $hasOldAds = $tNote->OldAds->isNotEmpty();
-                                            $hasAdsFile = $adsForm ? $adsForm->Files->isNotEmpty() : false;
-                                            $hasTacitDelivered = (bool) ($adsForm?->tacit_delivered_at);
-
-                                            if ($hasOldAds || $hasAdsFile || $hasTacitDelivered) {
-                                                $block = true;
-                                                $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
-                                            }
-                                        }
+                                        $adsOptions = $this->adsDeliveryOptionsForNote($tNote);
+                                        $eligibleOptions = collect($adsOptions)->where('block', false)->values();
+                                        $block = $eligibleOptions->isEmpty();
+                                        $reason = collect($adsOptions)->pluck('reason')->filter()->unique()->implode(' / ');
                                     @endphp
                                     <tr wire:key="{{ $tNote->id }}">
                                         <td class="fw-bold">{{ $tNote->note }}</td>
@@ -104,61 +82,62 @@
                                             @endif
                                         </td>
                                         <td>
-                                            @if ($tNote->WorkForm?->rejected)
-                                                <div class="card border-danger-subtle shadow-sm mb-0">
-                                                    <div class="card-header bg-danger-subtle py-2 px-3 border-0">
-                                                        <div class="fw-bold text-danger mb-1">INFORME REJEITADO</div>
-                                                        <div class="small text-muted">
-                                                            Motivo: {{ $rejectCategory !== '' ? $rejectCategory : 'Não informado' }}
-                                                        </div>
-                                                    </div>
-                                                    <div class="card-body py-2 px-3">
-                                                        <div class="small">
-                                                            {{ $rejectObs !== '' ? $rejectObs : 'Sem observação registrada.' }}
-                                                        </div>
-                                                    </div>
-                                                    <div class="card-footer bg-white py-2 px-3 border-0 border-top">
-                                                        <div class="d-flex align-items-center gap-2 text-muted small">
-                                                            @if ($rejectUserEmail !== '')
-                                                                @php
-                                                                    $teamsWebUrl = 'https://teams.microsoft.com/l/chat/0/0?users=' . urlencode($rejectUserEmail);
-                                                                    $teamsDesktopUrl = 'msteams://teams.microsoft.com/l/chat/0/0?users=' . urlencode($rejectUserEmail);
-                                                                @endphp
-                                                                <a href="{{ $teamsWebUrl }}"
-                                                                    target="_blank" rel="noopener noreferrer"
-                                                                    class="text-decoration-none text-reset"
-                                                                    style="color: inherit;"
-                                                                    title="Conversar no Teams com {{ $rejectUserEmail }}"
-                                                                    onclick="openTeamsDesktopWithFallback(event, '{{ $teamsDesktopUrl }}', '{{ $teamsWebUrl }}')">
-                                                                    <i class="ri-microsoft-fill"></i>
-                                                                </a>
-                                                                <a href="{{ $teamsWebUrl }}"
-                                                                    target="_blank" rel="noopener noreferrer"
-                                                                    class="text-decoration-none text-reset"
-                                                                    style="color: inherit;"
-                                                                    title="Conversar no Teams com {{ $rejectUserEmail }}"
-                                                                    onclick="openTeamsDesktopWithFallback(event, '{{ $teamsDesktopUrl }}', '{{ $teamsWebUrl }}')">
-                                                                    {{ $rejectUser !== '' ? $rejectUser : 'Usuário não identificado' }}
-                                                                </a>
-                                                            @else
-                                                                <i class="ri-microsoft-fill"></i>
-                                                                <span>{{ $rejectUser !== '' ? $rejectUser : 'Usuário não identificado' }}</span>
-                                                            @endif
-                                                            <span>•</span>
-                                                            <span>{{ $rejectAt ?? 'Data não registrada' }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            @if (empty($adsOptions))
+                                                <span class="fw-semibold">SEM INFORME DE OBRA</span>
                                             @else
-                                                <span class="fw-semibold">{{ $reason }}</span>
+                                                <div class="d-flex flex-column gap-2">
+                                                    @foreach ($adsOptions as $option)
+                                                        <div class="border rounded-3 p-2 bg-white">
+                                                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                                                <span class="fw-semibold">#{{ $option['id'] }}</span>
+                                                                @foreach ($option['scopes'] as $scope)
+                                                                    <span class="badge {{ $scope['class'] }}">{{ $scope['label'] }}</span>
+                                                                @endforeach
+                                                                @if ($option['block'])
+                                                                    <span class="badge bg-danger-subtle text-danger-emphasis">{{ $option['reason'] }}</span>
+                                                                @else
+                                                                    <span class="badge bg-success-subtle text-success-emphasis">DISPONÍVEL</span>
+                                                                @endif
+                                                            </div>
+                                                            @if ($option['rejected_reason_html'])
+                                                                <div class="small text-muted mt-1">{!! $option['rejected_reason_html'] !!}</div>
+                                                            @endif
+                                                            <div class="small text-muted mt-1">
+                                                                {{ count($option['orders']) ? implode(', ', $option['orders']) : 'Sem ordens vinculadas' }}
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
                                             @endif
                                         </td>
                                         <td class="text-center">
                                             @if (!$block)
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    wire:click.prevent="getNote({{ $tNote->id }})">
-                                                    Selecionar
-                                                </button>
+                                                @if ($eligibleOptions->count() === 1)
+                                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        wire:click.prevent="getNote({{ $tNote->id }}, {{ $eligibleOptions->first()['id'] }})">
+                                                        Selecionar
+                                                    </button>
+                                                @else
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle"
+                                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                                            Selecionar
+                                                        </button>
+                                                        <ul class="dropdown-menu dropdown-menu-end">
+                                                            @foreach ($eligibleOptions as $option)
+                                                                <li>
+                                                                    <button type="button" class="dropdown-item"
+                                                                        wire:click.prevent="getNote({{ $tNote->id }}, {{ $option['id'] }})">
+                                                                        Informe #{{ $option['id'] }}
+                                                                        {{ collect($option['scopes'])->pluck('label')->implode(', ') }}
+                                                                    </button>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </div>
+                                            @endif
+                                            @elseif ($reason)
+                                                <span class="small text-muted">{{ $reason }}</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -182,6 +161,44 @@
                         <div class="small text-muted">Nota selecionada</div>
                         <div class="fs-5 fw-bold">{{ $note->note }}</div>
                     </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
+                <div class="card-header bg-white border-0 p-4 pb-2">
+                    <h5 class="mb-0 fw-bold">Informe vinculado à ADS</h5>
+                </div>
+                <div class="card-body pt-2">
+                    @if (empty($workReportOptions))
+                        <div class="alert alert-danger mb-0">Esta obra não possui informe final ativo para entrega da ADS.</div>
+                    @else
+                        <div class="row g-3">
+                            @foreach ($workReportOptions as $option)
+                                <div class="col-md-6" wire:key="ads-work-report-option-{{ $option['id'] }}">
+                                    <label class="ads-report-option h-100 @if ((string) $selectedWorkReportId === (string) $option['id']) is-selected @endif @if ($option['block']) is-blocked @endif">
+                                        <input class="form-check-input" type="radio" name="selectedWorkReportId"
+                                            value="{{ $option['id'] }}" wire:model="selectedWorkReportId"
+                                            @disabled($option['block'])>
+                                        <span class="d-block flex-grow-1">
+                                            <span class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                                                <strong>Informe #{{ $option['id'] }}</strong>
+                                                @foreach ($option['scopes'] as $scope)
+                                                    <span class="badge {{ $scope['class'] }}">{{ $scope['label'] }}</span>
+                                                @endforeach
+                                            </span>
+                                            <span class="d-block small text-muted">{{ $option['company'] }} • {{ $option['date'] }}</span>
+                                            <span class="d-block small text-muted">
+                                                {{ count($option['orders']) ? implode(', ', $option['orders']) : 'Sem ordens vinculadas' }}
+                                            </span>
+                                            @if ($option['block'])
+                                                <span class="badge bg-danger-subtle text-danger-emphasis mt-2">{{ $option['reason'] }}</span>
+                                            @endif
+                                        </span>
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -233,8 +250,8 @@
                 </div>
                 <div class="card-body pt-2">
                     <div class="input-group mb-2">
-                        <input type="file" class="form-control" wire:model="file" accept=".xlsx,.xls">
-                        <button class="btn btn-primary" wire:click.prevent="processFile" @disabled(!$file)>
+                        <input type="file" class="form-control" wire:model="file" accept=".xlsx,.xls" @disabled(!$selectedWorkReportId)>
+                        <button class="btn btn-primary" wire:click.prevent="processFile" @disabled(!$file || !$selectedWorkReportId)>
                             <span wire:loading.remove wire:target="processFile">Processar</span>
                             <span wire:loading wire:target="processFile" class="spinner-border spinner-border-sm" role="status"
                                 aria-hidden="true"></span>
@@ -433,6 +450,29 @@
             padding: 12px;
             background: #fff;
             height: 100%;
+        }
+
+        .ads-report-option {
+            align-items: flex-start;
+            background: #fff;
+            border: 1px solid var(--ads-border);
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            gap: 12px;
+            padding: 14px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .ads-report-option.is-selected {
+            border-color: #0ea5a4;
+            box-shadow: 0 0 0 0.2rem rgba(14, 165, 164, 0.16);
+        }
+
+        .ads-report-option.is-blocked {
+            background: #f8fafc;
+            cursor: not-allowed;
+            opacity: 0.72;
         }
 
         .search-wrap {

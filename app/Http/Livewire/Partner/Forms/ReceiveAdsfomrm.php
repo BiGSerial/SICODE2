@@ -3,9 +3,10 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Custom\Partial\{Ads};
-use App\Models\{File, Note};
+use App\Models\{File, Note, WorkReport};
 use App\Services\Files\FileUploadService;
 use App\Traits\WithFileUploadProcessing;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\{DB, Storage};
 use Livewire\{Component, WithFileUploads};
 
@@ -40,6 +41,8 @@ class ReceiveAdsfomrm extends Component
     public bool $hasAsbuiltFile = false;
 
     public $lateDeliveryAfterSubmit = null;
+    public $selectedWorkReportId = null;
+    public array $workReportOptions = [];
 
     // Serialized state for $theAds
     public $theAdsPath = null;
@@ -146,18 +149,28 @@ class ReceiveAdsfomrm extends Component
                 ->orWhereRelation('Orders', 'ordem', trim($this->search));
         })
             ->with(
-                'WorkForm.Orders',
-                'WorkForm.LatestReturnwork.User',
-                'WorkForm.Adsform.Files',
                 'OldAds',
-                'TempAdsInfos'
+                'TempAdsInfos',
+                'Orders'
             )
             ->get();
     }
 
-    public function getNote($id)
+    public function getNote($id, $workReportId = null)
     {
-        $this->note = Note::find($id);
+        $this->note = Note::with(['Orders', 'OldAds', 'TempAdsInfos'])->find($id);
+        $this->workReportOptions = $this->adsDeliveryOptionsForNote($this->note);
+
+        $eligibleIds = collect($this->workReportOptions)
+            ->where('block', false)
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->values();
+
+        $requestedId = $workReportId ? (string) $workReportId : null;
+        $this->selectedWorkReportId = $requestedId && $eligibleIds->contains($requestedId)
+            ? $requestedId
+            : ($eligibleIds->count() === 1 ? $eligibleIds->first() : null);
     }
 
     public function removeTempFile($path)
@@ -173,6 +186,17 @@ class ReceiveAdsfomrm extends Component
     public function processFile()
     {
         $this->process = false;
+
+        if (!$this->selectedWorkReport()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'INFORME NÃO SELECIONADO',
+                'html'     => 'Selecione o informe final correto antes de processar a ADS.',
+            ]);
+
+            return;
+        }
 
         if (is_null($this->theAds) && $this->theAdsPath) {
 
@@ -225,35 +249,37 @@ class ReceiveAdsfomrm extends Component
 
     public function toSave()
     {
-        if (!$this->note?->WorkForm || $this->note->WorkForm->rejected) {
-            $reason = $this->buildRejectedWorkFormReasonHtml($this->note);
+        $workReport = $this->selectedWorkReport();
+
+        if (!$workReport || (bool) $workReport->rejected) {
+            $reason = $this->buildRejectedWorkFormReasonHtml($workReport);
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'INFORME INVÁLIDO',
-                'html'     => "Esta obra não possui Informe de Obra válido para entrega da ADS." . ($reason ? "<br><br>{$reason}" : ''),
+                'html'     => "Selecione um Informe de Obra válido para entrega da ADS." . ($reason ? "<br><br>{$reason}" : ''),
             ]);
 
             return;
         }
 
-        if (!$this->isEligibleByOrderStatusRule()) {
+        if (!$this->isEligibleByOrderStatusRule($workReport)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OBRA NAO ELEGIVEL',
-                'html'     => 'Para envio da ADS e obrigatorio existir ORDER ativa (status diferente de ENT/ENC).',
+                'html'     => 'Para envio da ADS e obrigatorio existir ORDER ativa no informe selecionado (status diferente de ENT/ENC).',
             ]);
 
             return;
         }
 
-        if ($this->isAdsClosed()) {
+        if ($this->isAdsClosed($workReport)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ADS BLOQUEADA',
-                'html'     => "Esta obra já possui ADS entregue e não pode ser reenviada.",
+                'html'     => "O informe selecionado já possui ADS entregue e não pode ser reenviado.",
             ]);
 
             return;
@@ -323,16 +349,40 @@ class ReceiveAdsfomrm extends Component
     {
         $this->authorizePartnerAccess('conclusion_reports.ads_delivery');
 
+        $workReport = $this->selectedWorkReport();
+
+        if (!$workReport || (bool) $workReport->rejected) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'INFORME INVÁLIDO',
+                'html'     => 'Selecione o informe correto para vincular a ADS.',
+            ]);
+
+            return;
+        }
+
+        if (!$this->isEligibleByOrderStatusRule($workReport) || $this->isAdsClosed($workReport)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ADS BLOQUEADA',
+                'html'     => 'O informe selecionado não está apto para receber ADS.',
+            ]);
+
+            return;
+        }
+
         $newName = "ADS_IFINAL_" . $this->note->note;
         $newName = $newName . "_N" . str_pad((File::where('file_name', 'like', $newName . "%")->count() + 1), 3, '0', STR_PAD_LEFT);
 
         DB::beginTransaction();
 
         try {
-            $adsForm             = $this->note->WorkForm->Adsform;
+            $adsForm             = $workReport->Adsform;
             $lateDeliveryMessage = null;
 
-            if ($adsForm && $this->isAdsClosed()) {
+            if ($adsForm && $this->isAdsClosed($workReport)) {
                 DB::rollBack();
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -366,7 +416,7 @@ class ReceiveAdsfomrm extends Component
                 }
                 $adsForm->update($payload);
             } else {
-                $adsForm = $this->note->WorkForm->Adsform()->create($payload);
+                $adsForm = $workReport->Adsform()->create($payload);
             }
 
             $this->lateDeliveryAfterSubmit = $lateDeliveryMessage;
@@ -446,9 +496,79 @@ class ReceiveAdsfomrm extends Component
         $this->lateDeliveryAfterSubmit = null;
         $this->hasFile                 = false;
         $this->hasAsbuiltFile          = false;
+        $this->selectedWorkReportId    = null;
+        $this->workReportOptions       = [];
     }
 
-    private function isAdsClosed(): bool
+    public function adsDeliveryOptionsForNote(?Note $note): array
+    {
+        if (!$note) {
+            return [];
+        }
+
+        $hasOldAds = $note->relationLoaded('OldAds')
+            ? $note->OldAds->isNotEmpty()
+            : $note->OldAds()->exists();
+
+        return $this->activeWorkReportsForNote($note)
+            ->map(function (WorkReport $workReport) use ($hasOldAds) {
+                $reason = '';
+                $block = false;
+
+                if ($hasOldAds) {
+                    $block = true;
+                    $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
+                } elseif ((bool) $workReport->rejected) {
+                    $block = true;
+                    $reason = 'INFORME REJEITADO';
+                } elseif (!$this->isEligibleByOrderStatusRule($workReport)) {
+                    $block = true;
+                    $reason = 'SEM ORDEM ATIVA NO INFORME';
+                } elseif ($this->isAdsClosed($workReport)) {
+                    $block = true;
+                    $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
+                }
+
+                return [
+                    'id' => (string) $workReport->id,
+                    'block' => $block,
+                    'reason' => $reason,
+                    'company' => $workReport->Company?->name ?? '---',
+                    'date' => optional($workReport->informed_at ?? $workReport->created_at)->format('d/m/Y H:i') ?? '---',
+                    'orders' => $workReport->Orders->pluck('ordem')->filter()->values()->all(),
+                    'scopes' => $workReport->finalScopeBadges(),
+                    'rejected_reason_html' => $this->buildRejectedWorkFormReasonHtml($workReport),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function activeWorkReportsForNote(Note $note): Collection
+    {
+        return WorkReport::query()
+            ->with(['Company', 'Orders', 'LatestReturnwork.User', 'Adsform.Files', 'Note'])
+            ->where('note_id', $note->id)
+            ->where(function ($query) {
+                $query->where('canceled', false)
+                    ->orWhereNull('canceled');
+            })
+            ->orderByRaw('COALESCE(informed_at, created_at) DESC')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    private function selectedWorkReport(): ?WorkReport
+    {
+        if (!$this->note || !$this->selectedWorkReportId) {
+            return null;
+        }
+
+        return $this->activeWorkReportsForNote($this->note)
+            ->firstWhere('id', (int) $this->selectedWorkReportId);
+    }
+
+    private function isAdsClosed(?WorkReport $workReport = null): bool
     {
         if (!$this->note) {
             return false;
@@ -462,11 +582,13 @@ class ReceiveAdsfomrm extends Component
             return true;
         }
 
-        if (!$this->note?->WorkForm?->Adsform) {
+        $workReport = $workReport ?: $this->selectedWorkReport();
+
+        if (!$workReport?->Adsform) {
             return false;
         }
 
-        $adsForm = $this->note->WorkForm->Adsform;
+        $adsForm = $workReport->Adsform;
 
         if ($adsForm->tacit && !$adsForm->tacit_delivered_at) {
             return false;
@@ -477,8 +599,14 @@ class ReceiveAdsfomrm extends Component
 
     private function buildConfirmMessage(): string
     {
+        $workReport = $this->selectedWorkReport();
+        $scopes = $workReport
+            ? collect($workReport->finalScopeBadges())->pluck('label')->implode(', ')
+            : '---';
+
         return "
             Você deseja informar o ADS da obra {$this->note->note} Final?</br></br>
+            <p class='mb-2'><strong>Informe:</strong> #{$workReport?->id} {$scopes}</p>
             <div class='card card-light'>
             <div class='card-body'>
             <p>Uma vez enviado, não será mais possível re-submeter. Confira se toda documentação Necessária está presente.</p>
@@ -489,18 +617,15 @@ class ReceiveAdsfomrm extends Component
 
     public function getRejectedWorkFormReasonProperty(): string
     {
-        return $this->buildRejectedWorkFormReasonText($this->note);
+        return $this->buildRejectedWorkFormReasonText($this->selectedWorkReport());
     }
 
-    private function buildRejectedWorkFormReasonText(?Note $note = null): string
+    private function buildRejectedWorkFormReasonText(?WorkReport $workForm = null): string
     {
-        $targetNote = $note ?: $this->note;
-
-        if (!$targetNote?->WorkForm?->rejected) {
+        if (!$workForm?->rejected) {
             return '';
         }
 
-        $workForm     = $targetNote->WorkForm;
         $latestReturn = $workForm->relationLoaded('LatestReturnwork')
             ? $workForm->LatestReturnwork
             : $workForm->LatestReturnwork()->first();
@@ -525,9 +650,9 @@ class ReceiveAdsfomrm extends Component
         return implode(' | ', $parts);
     }
 
-    private function buildRejectedWorkFormReasonHtml(?Note $note = null): string
+    private function buildRejectedWorkFormReasonHtml(?WorkReport $workForm = null): string
     {
-        $text = $this->buildRejectedWorkFormReasonText($note);
+        $text = $this->buildRejectedWorkFormReasonText($workForm);
 
         if ($text === '') {
             return '';
@@ -536,19 +661,21 @@ class ReceiveAdsfomrm extends Component
         return "<strong>Motivo do bloqueio:</strong><br>{$text}";
     }
 
-    private function isEligibleByOrderStatusRule(): bool
+    private function isEligibleByOrderStatusRule(?WorkReport $workReport = null): bool
     {
-        if (!$this->note) {
+        $workReport = $workReport ?: $this->selectedWorkReport();
+
+        if (!$workReport) {
             return false;
         }
 
-        $hasOrders = $this->note->Orders()->exists();
+        $hasOrders = $workReport->Orders()->exists();
 
         if (!$hasOrders) {
             return false;
         }
 
-        return $this->note->Orders()
+        return $workReport->Orders()
             ->where(function ($query) {
                 $query->where('statusSist', 'not like', 'ENT%')
                     ->where('statusSist', 'not like', 'ENC%');
