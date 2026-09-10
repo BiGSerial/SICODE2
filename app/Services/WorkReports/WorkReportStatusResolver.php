@@ -159,21 +159,33 @@ class WorkReportStatusResolver
 
     private function sapOperationStatus(WorkReport $workReport): ?array
     {
-        $operations = $this->workReportOperations($workReport);
+        $mainOrder = $this->mainValidOrderFor($workReport);
+
+        if (!$mainOrder) {
+            return null;
+        }
+
+        $operations = $this->orderOperations($mainOrder);
 
         $operation30 = $this->operationByCode($operations, '0030');
         $operation50 = $this->operationByCode($operations, '0050');
         $operation60 = $this->operationByCode($operations, '0060');
 
-        if ($operation60 && $this->operationFinished($operation60)) {
+        if (
+            $operation60
+            && $this->operationFinished($operation60)
+            && $this->orderClosed($mainOrder)
+            && $operation50
+            && $this->operationFinished($operation50)
+        ) {
             return $this->status('finalized', self::FINALIZED, 'text-bg-success');
         }
 
-        if ($operation50 && $this->operationFinished($operation50)) {
+        if ($operation50 && $this->operationFinished($operation50) && $operation30 && $this->operationFinished($operation30)) {
             return $this->status('payment_finished', 'Medição Finalizada', 'text-bg-success');
         }
 
-        if (($operation50 && !$this->operationFinished($operation50)) || ($operation30 && $this->operationFinished($operation30))) {
+        if ($operation30 && $this->operationFinished($operation30)) {
             return $this->status('waiting_payment', self::WAITING_PAYMENT, 'text-bg-warning');
         }
 
@@ -190,16 +202,22 @@ class WorkReportStatusResolver
 
     private function workReportOperations(WorkReport $workReport): Collection
     {
+        $mainOrder = $this->mainValidOrderFor($workReport);
+
+        return $mainOrder ? $this->orderOperations($mainOrder) : collect();
+    }
+
+    private function mainValidOrderFor(WorkReport $workReport): ?object
+    {
         $orders = $workReport->relationLoaded('Orders')
             ? $workReport->Orders
             : $workReport->Orders()->with('Operations')->get();
 
-        $mainOrder = $this->mainValidOrder($orders);
+        return $this->mainValidOrder($orders);
+    }
 
-        if (!$mainOrder) {
-            return collect();
-        }
-
+    private function orderOperations(object $mainOrder): Collection
+    {
         return $mainOrder->relationLoaded('Operations')
             ? $mainOrder->Operations->filter()
             : $mainOrder->Operations()->get()->filter();
@@ -251,6 +269,13 @@ class WorkReportStatusResolver
     private function operationFinished(object $operation): bool
     {
         return filled($operation->fimReal ?? null);
+    }
+
+    private function orderClosed(object $order): bool
+    {
+        $status = strtoupper((string) ($order->statusSist ?? ''));
+
+        return str_contains($status, 'ENCE') || str_contains($status, 'ENT');
     }
 
     private function productionsByService(Collection $productions, string $service): Collection

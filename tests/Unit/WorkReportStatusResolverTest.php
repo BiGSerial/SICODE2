@@ -296,18 +296,42 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_sap_operation_50_finished_is_payment_finished_without_flow(): void
     {
-        $this->assertSame('Medição Finalizada', $this->resolveWithOperation('0050', fimReal: '2026-09-09')['label']);
+        $this->assertSame('Medição Finalizada', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'operacao' => '0030', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'operacao' => '0050', 'fimReal' => '2026-09-09'],
+        ])['label']);
     }
 
     public function test_sap_operation_60_finished_is_finalized_without_flow(): void
     {
-        $this->assertSame('Finalizado', $this->resolveWithOperation('0060', fimReal: '2026-09-09')['label']);
+        $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_50_open_does_not_wait_payment_without_operation_30_finished(): void
+    {
+        $this->assertSame('Aguardando Fiscalização', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'operacao' => '0030'],
+            ['ordem' => '1700000001', 'operacao' => '0050'],
+        ])['label']);
+    }
+
+    public function test_sap_operation_60_finished_does_not_finalize_without_closed_order_status(): void
+    {
+        $this->assertSame('Medição Finalizada', $this->resolveWithOrderOperations([
+            ['ordem' => '1700000001', 'statusSist' => 'LIB', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1700000001', 'statusSist' => 'LIB', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'statusSist' => 'LIB', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+        ])['label']);
     }
 
     public function test_sap_operation_ignores_non_main_order_prefixes(): void
     {
         $this->assertSame('Informe', $this->resolveWithOrderOperations([
-            ['ordem' => '1900000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
             ['ordem' => '1500000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
         ])['label']);
     }
@@ -315,7 +339,9 @@ class WorkReportStatusResolverTest extends TestCase
     public function test_sap_operation_uses_190_only_when_it_is_the_unique_order(): void
     {
         $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
-            ['ordem' => '1900000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1900000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
         ])['label']);
     }
 
@@ -323,7 +349,9 @@ class WorkReportStatusResolverTest extends TestCase
     {
         $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
             ['ordem' => '1900000001', 'operacao' => '0030'],
-            ['ordem' => '1700000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENT', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENT', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1700000001', 'statusSist' => 'ENT', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
         ])['label']);
     }
 
@@ -331,7 +359,9 @@ class WorkReportStatusResolverTest extends TestCase
     {
         $this->assertSame('Aguardando Fiscalização', $this->resolveWithOrderOperations([
             ['ordem' => '1700000001', 'operacao' => '0030'],
-            ['ordem' => '1800000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
         ])['label']);
     }
 
@@ -340,7 +370,9 @@ class WorkReportStatusResolverTest extends TestCase
         $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
             ['ordem' => '1500000001', 'operacao' => '0030'],
             ['ordem' => '1900000001', 'operacao' => '0030'],
-            ['ordem' => '1800000001', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08'],
+            ['ordem' => '1800000001', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09'],
         ])['label']);
     }
 
@@ -348,7 +380,9 @@ class WorkReportStatusResolverTest extends TestCase
     {
         $this->assertSame('Finalizado', $this->resolveWithOrderOperations([
             ['ordem' => '2000000001', 'operacao' => '0030', 'id' => 1],
-            ['ordem' => '2000000002', 'operacao' => '0060', 'fimReal' => '2026-09-09', 'id' => 2],
+            ['ordem' => '2000000002', 'statusSist' => 'ENCE', 'operacao' => '0030', 'fimReal' => '2026-09-07', 'id' => 2],
+            ['ordem' => '2000000002', 'statusSist' => 'ENCE', 'operacao' => '0050', 'fimReal' => '2026-09-08', 'id' => 2],
+            ['ordem' => '2000000002', 'statusSist' => 'ENCE', 'operacao' => '0060', 'fimReal' => '2026-09-09', 'id' => 2],
             ['ordem' => '1700000001', 'operacao' => '0030', 'id' => 3],
         ])['label']);
     }
@@ -373,21 +407,27 @@ class WorkReportStatusResolverTest extends TestCase
     private function resolveWithOrderOperations(array $rows): array
     {
         $orders = collect($rows)
-            ->map(function (array $row) {
-                $operation = new Operation([
-                    'operacao' => $row['operacao'],
-                    'inicioReal' => $row['inicioReal'] ?? null,
-                    'fimReal' => $row['fimReal'] ?? null,
-                ]);
-
+            ->groupBy('ordem')
+            ->map(function ($orderRows, string $ordem) {
+                $firstRow = $orderRows->first();
                 $order = new Order([
-                    'ordem' => $row['ordem'],
+                    'ordem' => $ordem,
+                    'statusSist' => $firstRow['statusSist'] ?? null,
                 ]);
-                $order->id = $row['id'] ?? null;
-                $order->setRelation('Operations', new EloquentCollection([$operation]));
+                $order->id = $firstRow['id'] ?? null;
+                $order->setRelation('Operations', new EloquentCollection(
+                    $orderRows
+                        ->map(fn (array $row) => new Operation([
+                            'operacao' => $row['operacao'],
+                            'inicioReal' => $row['inicioReal'] ?? null,
+                            'fimReal' => $row['fimReal'] ?? null,
+                        ]))
+                        ->all()
+                ));
 
                 return $order;
-            });
+            })
+            ->values();
 
         return $this->resolveWithOrders($orders);
     }
