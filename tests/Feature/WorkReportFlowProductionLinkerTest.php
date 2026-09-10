@@ -156,6 +156,69 @@ class WorkReportFlowProductionLinkerTest extends TestCase
         $this->assertSame($connectionReport->id, $connectionLink?->work_report_id);
     }
 
+    public function test_production_current_work_report_orders_uses_only_linked_work_report_orders(): void
+    {
+        $user = User::factory()->create();
+        $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
+        $note = Note::create(['note' => '4000000005', 'type_note' => 1]);
+        $service = Service::create(['service' => 'Medição']);
+
+        $networkOrder = Order::create([
+            'note_id' => $note->id,
+            'ordem' => '170000000005',
+            'statusSist' => 'LIB',
+        ]);
+        $connectionOrder = Order::create([
+            'note_id' => $note->id,
+            'ordem' => '180000000005',
+            'statusSist' => 'LIB',
+        ]);
+
+        $networkReport = WorkReport::create([
+            'note_id' => $note->id,
+            'company_id' => $company->id,
+            'user_id' => $user->id,
+            'date' => '2026-08-01',
+            'informed_at' => '2026-08-01 08:00:00',
+            'selected_final_scopes' => ['network'],
+        ]);
+        $networkReport->Orders()->sync([$networkOrder->id]);
+
+        $connectionReport = WorkReport::create([
+            'note_id' => $note->id,
+            'company_id' => $company->id,
+            'user_id' => $user->id,
+            'date' => '2026-08-03',
+            'informed_at' => '2026-08-03 08:00:00',
+            'selected_final_scopes' => ['connection'],
+        ]);
+        $connectionReport->Orders()->sync([$connectionOrder->id]);
+
+        $production = Production::create([
+            'note_id' => $note->id,
+            'service_id' => $service->uuid,
+            'company_id' => $company->id,
+            'user_id' => $user->id,
+            'att_at' => '2026-08-03 09:00:00',
+            'completed' => false,
+            'partial' => false,
+        ]);
+
+        WorkReportFlowProduction::create([
+            'work_report_id' => $connectionReport->id,
+            'production_id' => $production->id,
+            'stage' => WorkReportFlowProduction::STAGE_PAYMENT,
+            'final_scope' => WorkReportFlowProduction::SCOPE_CONNECTION,
+            'is_current' => true,
+            'source' => 'test',
+        ]);
+
+        $orders = $production->currentWorkReportOrders(WorkReportFlowProduction::STAGE_PAYMENT);
+
+        $this->assertSame([$connectionOrder->id], $orders->pluck('id')->all());
+        $this->assertNotContains($networkOrder->id, $orders->pluck('id')->all());
+    }
+
     public function test_splitter_keeps_closing_scope_on_original_and_moves_remaining_scope_to_mirror_production(): void
     {
         $user = User::factory()->create();

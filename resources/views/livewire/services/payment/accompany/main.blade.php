@@ -180,14 +180,19 @@
                                 @foreach ($lists as $list)
                                     @php
                                         $daysLeft = $this->deadline($list->Note);
-                                        if ($list->partial) {
-                                            $partial = $list->note->partials?->last();
-                                        } else {
-                                            $partial = null;
-                                        }
+	                                        if ($list->partial) {
+	                                            $partial = $list->note->partials?->last();
+	                                        } else {
+	                                            $partial = null;
+	                                        }
+	                                        $workForms = $list->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT);
+	                                        $workForm = $workForms->first() ?: $list->Note->WorkForm;
+	                                        $orders = $workForms->isNotEmpty()
+	                                            ? $list->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
+	                                            : ($partial?->Orders ?? ($workForm?->Orders ?? collect()));
 
-                                        $five = FiveStatus($list);
-                                        $adsForm = $list->Note->Adsform ?? $list->Note->WorkForm?->Adsform;
+	                                        $five = FiveStatus($list);
+	                                        $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                     @endphp
@@ -197,8 +202,8 @@
                                             wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
                                             class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
                                         @else
-                                        <tr wire:key="work-{{ $list->id }}"
-                                            wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->Note->WorkForm }})"
+	                                        <tr wire:key="work-{{ $list->id }}"
+	                                            wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm }})"
                                             class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
                                     @endif
                                     <td
@@ -263,26 +268,26 @@
                                         <x-files.select-download-list :files='$list->Note->Files' />
 
                                     </td>
-                                    <td class="fw-light text-center align-middle">
-                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                            @endforeach
-                                        @elseif ($partial)
-                                            @foreach ($partial->Orders as $order)
-                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+	                                    <td class="fw-light text-center align-middle">
+	                                        @if ($orders->count() && !$partial)
+	                                            @foreach ($orders as $order)
+	                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
+	                                            @endforeach
+	                                        @elseif ($partial)
+	                                            @foreach ($partial->Orders as $order)
+	                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
                                             @endforeach
                                         @endif
-                                    </td>
-                                    <td class="text-center align-middle fw-bold">
-                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
-                                            @php
-                                                $soma += $list->Note->WorkForm->Orders->sum('moaberto');
-                                            @endphp
-                                            <span class="my-0py-0">
-                                                R$
-                                                {{ number_format($list->Note->WorkForm->Orders->sum('moaberto'), 2, ',', '.') }}
-                                            </span>
+	                                    </td>
+	                                    <td class="text-center align-middle fw-bold">
+	                                        @if ($orders->count() && !$partial)
+	                                            @php
+	                                                $soma += $orders->sum('moaberto');
+	                                            @endphp
+	                                            <span class="my-0py-0">
+	                                                R$
+	                                                {{ number_format($orders->sum('moaberto'), 2, ',', '.') }}
+	                                            </span>
                                         @elseif ($partial && $partial?->Orders->isNotEmpty())
                                             @php
                                                 $soma += $partial->value;
@@ -303,42 +308,42 @@
 
                                         </td> --}}
 
-                                    <td class="text-center align-middle">
-                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-                                                </span>
-                                            @endforeach
-                                        @endif
+	                                    <td class="text-center align-middle">
+	                                        @if ($orders->count())
+	                                            @foreach ($orders as $order)
+	                                                <span class="my-0py-0">
+	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+	                                                </span>
+	                                            @endforeach
+	                                        @endif
                                     </td>
 
-                                    <td class="text-center align-middle">
-                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                                </span>
-                                            @endforeach
-                                        @endif
-
-                                    </td>
-                                    <td class="text-center align-middle">
-                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                                </span>
+	                                    <td class="text-center align-middle">
+	                                        @if ($orders->count())
+	                                            @foreach ($orders as $order)
+	                                                <span class="my-0py-0">
+	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+	                                                </span>
                                             @endforeach
                                         @endif
 
                                     </td>
-                                    <td class="text-center align-middle">
-                                        @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count() && !$partial)
-                                            @foreach ($list->Note->WorkForm->Orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                                </span>
+	                                    <td class="text-center align-middle">
+	                                        @if ($orders->count())
+	                                            @foreach ($orders as $order)
+	                                                <span class="my-0py-0">
+	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+	                                                </span>
+                                            @endforeach
+                                        @endif
+
+                                    </td>
+	                                    <td class="text-center align-middle">
+	                                        @if ($orders->count() && !$partial)
+	                                            @foreach ($orders as $order)
+	                                                <span class="my-0py-0">
+	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+	                                                </span>
                                             @endforeach
                                         @elseif ($partial)
                                             @foreach ($partial->Orders as $order)
@@ -351,26 +356,26 @@
                                     </td>
 
 
-                                    <td class="fw-light text-center">
-                                        @if ($list->Note->WorkForm)
-                                            {{ $list->Note->WorkForm ? $list->Note->WorkForm->Company->name : '---' }}
-                                        @elseif ($partial)
-                                            {{ $partial->Company->name }}
-                                        @endif
+	                                    <td class="fw-light text-center">
+	                                        @if ($workForm)
+	                                            {{ $workForm->Company?->name ?? '---' }}
+	                                        @elseif ($partial)
+	                                            {{ $partial->Company?->name ?? '---' }}
+	                                        @endif
                                     </td>
 
                                     <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
 
-                                    <td class="fw-light text-center">
-                                        @if ($list->Note->WorkForm)
-                                            {{ $list->Note->WorkForm ? date('d/m/Y', strToTime($list->Note->WorkForm->date)) : '---' }}
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-                                    <td class="fw-light">
-                                        @if ($list->Note->WorkForm)
-                                            {{ $list->Note->WorkForm ? date('d/m/Y H:i:s', strToTime($list->Note->WorkForm->informed_at)) : '---' }}
+	                                    <td class="fw-light text-center">
+	                                        @if ($workForm)
+	                                            {{ $workForm->date ? date('d/m/Y', strToTime($workForm->date)) : '---' }}
+	                                        @else
+	                                            ---
+	                                        @endif
+	                                    </td>
+	                                    <td class="fw-light">
+	                                        @if ($workForm)
+	                                            {{ $workForm->informed_at ? date('d/m/Y H:i:s', strToTime($workForm->informed_at)) : '---' }}
                                         @elseif ($partial)
                                             {{ $partial->supervision_at->format('d/m/Y H:i:s') }}
                                         @endif

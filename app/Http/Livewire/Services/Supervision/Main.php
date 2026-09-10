@@ -227,16 +227,21 @@ class Main extends Component
         $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), work_reports.informed_at), 0)";
 
         return Production::query()
-                    ->with([
-                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
-                // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
-                'Note.WorkForm:id,note_id,informed_at,rejected',
-                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                // belongsToMany via order_work_report: NÃO existe work_form_id em orders
-                'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
-                'Note.OldAds:id,note_id,date',
-                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                'Wpas:id,production_id,dd,created_at',
+	            ->with([
+	                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
+	                // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
+	                'Note.WorkForm:id,note_id,informed_at,rejected',
+	                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+	                // belongsToMany via order_work_report: NÃO existe work_form_id em orders
+	                'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
+	                'WorkReportFlowProductions' => fn ($q) => $q->where('is_current', true)
+	                    ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION),
+	                'WorkReportFlowProductions.WorkReport:id,note_id,company_id,informed_at,rejected,selected_final_scopes',
+	                'WorkReportFlowProductions.WorkReport.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem', 'orders.note_id'),
+	                'WorkReportFlowProductions.WorkReport.Company:id,name,deleted_at',
+	                'Note.OldAds:id,note_id,date',
+	                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+	                'Wpas:id,production_id,dd,created_at',
                 'Note.Files:id,service_id,note_id,file_name,path,ext',
             ])
 

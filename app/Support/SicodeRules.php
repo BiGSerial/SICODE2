@@ -38,9 +38,9 @@ class SicodeRules
         return self::boolRule('dispatch.partner_can_claim_company_stack', true);
     }
 
-    public static function paymentRequiresOnlyOperation30Confirmed(): bool
+    public static function paymentIgnoresOperation40AfterOperation30Confirmed(): bool
     {
-        return self::boolRule('dispatch.payment.operation_30_confirmed_only', false);
+        return self::boolRule('dispatch.payment.ignores_operation_40_after_operation_30_confirmed', false);
     }
 
     public static function workReportFieldEnabled(string $field): bool

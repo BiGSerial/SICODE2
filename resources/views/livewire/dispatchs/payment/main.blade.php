@@ -327,13 +327,18 @@
                                     $reason = 'Disponivel na pilha da empresa para atribuicao individual.';
                                 }
 
-                                $wf = $list->WorkForm;
-                                $partial = !$wf ? $list->Partials->first() ?? null : null;
-                                $orders = $wf
-                                    ? $wf->Orders ?? collect()
-                                    : ($partial
-                                        ? $partial->Orders ?? collect()
-                                        : collect());
+	                                $linkedWorkForms = $production instanceof \App\Models\Production
+	                                    ? $production->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
+	                                    : collect();
+	                                $wf = $linkedWorkForms->first() ?: $list->WorkForm;
+	                                $partial = !$wf ? $list->Partials->first() ?? null : null;
+	                                $orders = $linkedWorkForms->isNotEmpty()
+	                                    ? $production->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
+	                                    : ($wf
+	                                        ? $wf->Orders ?? collect()
+	                                        : ($partial
+	                                            ? $partial->Orders ?? collect()
+	                                            : collect()));
 
                                 $five = $list->FiveNote;
                                 $hasD5 = (bool) $five;
@@ -422,22 +427,25 @@
                                         <span class="badge scope-badge text-bg-secondary">Geral</span>
                                     @endif
                                 </td>
-                                <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($wf && $orders->isNotEmpty() && !$partial)
-                                        {{-- @foreach ($list->WorkForm->Orders as $order)
-                                            @php
-                                                $soma += $order->moaberto;
-                                            @endphp
-                                            <p class="my-0 py-0">
-                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </p>
-                                        @endforeach --}}
-                                        @php
-                                            $soma += $list->total_moaberto;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
-                                        </p>
+	                                <td class="text-center align-middle fw-bold {{ $rowClass }}">
+	                                    @if ($wf && $orders->isNotEmpty() && !$partial)
+	                                        {{-- @foreach ($list->WorkForm->Orders as $order)
+	                                            @php
+	                                                $soma += $order->moaberto;
+	                                            @endphp
+	                                            <p class="my-0 py-0">
+	                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
+	                                            </p>
+	                                        @endforeach --}}
+	                                        @php
+	                                            $rowMoaberto = $linkedWorkForms->isNotEmpty()
+	                                                ? $orders->sum('moaberto')
+	                                                : $list->total_moaberto;
+	                                            $soma += $rowMoaberto;
+	                                        @endphp
+	                                        <p class="my-0 py-0">
+	                                            R$ {{ number_format($rowMoaberto, 2, ',', '.') }}
+	                                        </p>
                                     @elseif ($partial)
                                         @php
                                             $soma += $partial->value;

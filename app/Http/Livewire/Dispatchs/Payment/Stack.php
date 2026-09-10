@@ -702,7 +702,15 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with(['Note'])
+	        return Production::with([
+	            'Note',
+	            'WorkReportFlowProductions' => fn ($q) => $q->where('is_current', true)
+	                ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT),
+	            'WorkReportFlowProductions.WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+	            'WorkReportFlowProductions.WorkReport.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+	            'WorkReportFlowProductions.WorkReport.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+	            'WorkReportFlowProductions.WorkReport.Company:id,name,deleted_at',
+	        ])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->leftJoinSub(
                 DB::table('operation_resps')

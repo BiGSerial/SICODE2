@@ -15,15 +15,29 @@ class SicodeSpFiscalizationPaymentRulesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_sp_operation_30_confirmed_enters_payment_without_operation_40_or_50(): void
+    public function test_sp_operation_30_confirmed_enters_payment_without_operation_40_when_operation_50_is_released(): void
     {
         config(['sicode.ruleset' => 'sp']);
 
         $note = $this->makeFinalWorkReportNote('4000001030', [
             ['operacao' => '0030', 'status' => 'CONF'],
+            ['operacao' => '0050', 'status' => 'LIB'],
         ]);
 
         $this->assertTrue(
+            app(NoteFilter::class)->filter(null, 'payments')->where('notes.id', $note->id)->exists()
+        );
+    }
+
+    public function test_sp_operation_30_confirmed_does_not_enter_payment_without_operation_50_released(): void
+    {
+        config(['sicode.ruleset' => 'sp']);
+
+        $note = $this->makeFinalWorkReportNote('4000001033', [
+            ['operacao' => '0030', 'status' => 'CONF'],
+        ]);
+
+        $this->assertFalse(
             app(NoteFilter::class)->filter(null, 'payments')->where('notes.id', $note->id)->exists()
         );
     }

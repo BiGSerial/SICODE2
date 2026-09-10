@@ -280,9 +280,17 @@ class Main extends Component
                     $q->whereIn('rubrica', $this->filters['rubrica']);
                 });
             })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
+	            ->with([
+	                'Note' => function ($query) {
+	                    $query->orderBy('dt_status', 'asc');
+	                },
+	                'WorkReportFlowProductions' => fn ($q) => $q->where('is_current', true)
+	                    ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT),
+	                'WorkReportFlowProductions.WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+	                'WorkReportFlowProductions.WorkReport.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+	                'WorkReportFlowProductions.WorkReport.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+	                'WorkReportFlowProductions.WorkReport.Company:id,name,deleted_at',
+	            ])
             ->select('productions.*', 'notes.dt_created as note_dt_created', 'latest_operation_resps.latest_fimLancado as fimLancado')
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')

@@ -61,22 +61,22 @@ class NoteFilter
                         ->whereHas('Operations', function (Builder $op) {
                             $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
                         })
-                        ->when(!SicodeRules::paymentRequiresOnlyOperation30Confirmed(), function (Builder $ord) {
+                        ->when(!SicodeRules::paymentIgnoresOperation40AfterOperation30Confirmed(), function (Builder $ord) {
                             $ord->whereHas('Operations', function (Builder $op) {
                                 $op->where('operacao', '0040')
                                    ->where(function (Builder $qq) {
                                        $qq->where('status', 'like', 'CONF%')
                                           ->orWhere('status', 'like', 'CNPA%');
                                    });
-                            })
-                            ->whereHas('Operations', function (Builder $op) {
-                                $op->where('operacao', '0050')
-                                   ->where(function (Builder $qq) {
-                                       $qq->where('status', 'like', 'LIB%')
-                                          ->orWhere('status', 'like', 'CNPA%')
-                                          ->orWhere('status', 'like', 'JBFI LIB%');
-                                   });
                             });
+                        })
+                        ->whereHas('Operations', function (Builder $op) {
+                            $op->where('operacao', '0050')
+                               ->where(function (Builder $qq) {
+                                   $qq->where('status', 'like', 'LIB%')
+                                      ->orWhere('status', 'like', 'CNPA%')
+                                      ->orWhere('status', 'like', 'JBFI LIB%');
+                               });
                         });
                 });
             })

@@ -64,7 +64,7 @@ class SupervisionRepository
                                             });
                                         });
                                     })
-                                    ->when(!SicodeRules::paymentRequiresOnlyOperation30Confirmed(), function ($sq) {
+                                    ->when(!SicodeRules::paymentIgnoresOperation40AfterOperation30Confirmed(), function ($sq) {
                                         $sq->orWhere(function ($q2) {
                                             $q2->whereHas('Operations', function ($sq) {
                                                 $sq->where('operacao', '0010')

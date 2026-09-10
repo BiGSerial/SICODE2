@@ -562,10 +562,11 @@
                                 $production = $e['production'];
                                 $reason = $e['reason'];
                                 $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
-                                $canDispatch = !$block || $command || $stackProductionAvailable;
-                                if ($stackProductionAvailable) {
-                                    $rowClass = '';
-                                }
+	                                $canDispatch = !$block || $command || $stackProductionAvailable;
+	                                if ($stackProductionAvailable) {
+	                                    $rowClass = '';
+	                                    $production = $stackProductionAvailable;
+	                                }
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
                                 $partial = $e['isPartial'];
@@ -590,14 +591,22 @@
                                     $adsDate = $list->Adsform->created_at;
                                     $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
                                 }
-                                $isTacitAds = (bool) ($list->Adsform?->tacit ?? false);
-
-                                $informedDate = null;
-                                if ($list->WorkForm) {
-                                    $informedDate = $list->WorkForm->informed_at;
-                                } elseif ($latestValidPartial) {
-                                    $informedDate = $latestValidPartial->created_at;
-                                }
+	                                $isTacitAds = (bool) ($list->Adsform?->tacit ?? false);
+	
+	                                $informedDate = null;
+	                                $orders = $production instanceof \App\Models\Production
+	                                    ? $production->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+	                                    : ($list->WorkForm?->Orders ?? collect());
+	                                $workForm = $production instanceof \App\Models\Production
+	                                    ? $production->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)->first()
+	                                    : null;
+	                                $workForm = $workForm ?: $list->WorkForm;
+	
+	                                if ($workForm) {
+	                                    $informedDate = $workForm->informed_at;
+	                                } elseif ($latestValidPartial) {
+	                                    $informedDate = $latestValidPartial->created_at;
+	                                }
 
                                 $daysFromInformed = null;
                                 if ($informedDate) {
@@ -643,11 +652,11 @@
                                     @endif
                                     <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$list->id" />
                                 </td>
-                                <td class="text-center {{ $rowClass }} text-nowrap">
-                                    @if ($list->WorkForm)
-                                        @foreach ($list->WorkForm->Orders as $order)
-                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                        @endforeach
+	                                <td class="text-center {{ $rowClass }} text-nowrap">
+	                                    @if ($orders->isNotEmpty())
+	                                        @foreach ($orders as $order)
+	                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
+	                                        @endforeach
                                     @elseif ($latestValidPartial)
                                         @foreach ($latestValidPartial->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
@@ -715,9 +724,9 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="fw-bold text-center {{ $rowClass }}">
-                                    R$ {{ number_format((float) ($list->orders?->sum('service_cost') ?? 0), 2, ',', '.') }}
-                                </td>
+	                                <td class="fw-bold text-center {{ $rowClass }}">
+	                                    R$ {{ number_format((float) ($orders?->sum('service_cost') ?? 0), 2, ',', '.') }}
+	                                </td>
                                 <td class="fw-light text-center {{ $rowClass }}" tabindex="2"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Levantamentos Realizados"
