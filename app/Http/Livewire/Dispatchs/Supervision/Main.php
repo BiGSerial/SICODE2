@@ -10,6 +10,7 @@ use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Supervision\{BlockEvaluator, WorkReportBlockEvaluator, WorkReportSupervisionCandidateQuery};
 use App\Support\SicodeRules;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -173,7 +174,7 @@ class Main extends Component
     {
 
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = Note::max('dt_status');
 
         // if (!session()->isStarted()) { session()->start(); }
         // if (isset($_SESSION['filtro']) && $_SESSION['filtro']) {
@@ -981,12 +982,15 @@ class Main extends Component
         //     dd($this->filter);
         // }
 
+        $candidateWorkReportQuery = app(WorkReportSupervisionCandidateQuery::class);
+        $candidateWorkReports     = $candidateWorkReportQuery->fastIdsSubquery(excludeOpenProduction: false);
+        $candidateWorkReportList  = $candidateWorkReportQuery->listSubquery(excludeOpenProduction: false);
+
         $query = Note::query()
             ->excludeCanceledFullDone()
-            ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
-
-        $candidateWorkReports = app(WorkReportSupervisionCandidateQuery::class)
-            ->idsQuery(excludeOpenProduction: false);
+            ->leftJoinSub($candidateWorkReportList, 'operational_work_reports', function ($join) {
+                $join->on('operational_work_reports.note_id', '=', 'notes.id');
+            });
 
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
@@ -994,19 +998,10 @@ class Main extends Component
             $this->service->uuid,
             fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
                 ? null
-                : $statusQuery->where(function ($query) use ($candidateWorkReports) {
-                    $this->whereD5OrPartialOrCandidateWorkReport($query, $candidateWorkReports);
+                : $statusQuery->where(function ($query) {
+                    $this->whereD5OrPartialOrCandidateWorkReport($query);
                 })
         );
-
-        $query->where(function ($query) use ($candidateWorkReports) {
-            $query->whereNull('work_reports.id')
-                ->orWhereIn('work_reports.id', $candidateWorkReports)
-                ->orWhereHas('FiveNote', function ($query) {
-                    $query->where('is_supervisioned', false)
-                        ->where('is_completed', true);
-                });
-        });
 
         if (strlen((string) $this->search)) {
 
@@ -1075,31 +1070,49 @@ class Main extends Component
             });
         }
 
-        $candidateWorkReportSql      = $candidateWorkReports->toSql();
-        $candidateWorkReportBindings = $candidateWorkReports->getBindings();
-
-        $query->with(['orders' => function ($q) {
-            $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-        }, 'WorkReports.Orders.Operations', 'WorkReports.Adsform', 'WorkReports.FlowProductions.Production.User', 'WorkReports.FlowProductions.Production.Company', 'Productions.User', 'Productions.Company', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
+        $query->with([
+            'orders' => function ($query) {
+                $query->where('statusSist', 'not like', 'ENT%')
+                    ->where('statusSist', 'not like', 'ENC%');
+            },
+            'WorkReports' => function ($query) use ($candidateWorkReports) {
+                $query->whereIn('work_reports.id', $candidateWorkReports);
+            },
+            'WorkReports.Orders.Operations',
+            'WorkReports.Adsform',
+            'WorkReports.FlowProductions' => function ($query) {
+                $query->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true)
+                    ->with(['Production.User', 'Production.Company']);
+            },
+            'Productions' => function ($query) {
+                $query->where('service_id', $this->service->uuid)
+                    ->orderByDesc('created_at');
+            },
+            'Productions.User',
+            'Productions.Company',
+            'Wpas' => function ($query) {
+                $query->where('service_id', $this->service->uuid);
+            },
+            'Partials' => function ($query) {
+                $query->where('allow', true)
+                    ->where('deny', false)
+                    ->where('supervision', false)
+                    ->orderByDesc('created_at');
+            },
+            'Partials.Orders',
+            'WorkForm.Orders',
+            'Adsform',
+            'TempAdsInfos',
+            'OldAds',
+            'FiveNote',
+        ])
             ->select('notes.*')
-            ->selectRaw(
-                "CASE
-                    WHEN work_reports.id IN ({$candidateWorkReportSql})
-                    AND NOT EXISTS (
-                        SELECT 1 FROM five_notes
-                        WHERE five_notes.note_id = notes.id
-                        AND five_notes.is_supervisioned = 0
-                        AND five_notes.is_completed = 1
-                    )
-                    THEN work_reports.id
-                    ELSE NULL
-                END as operational_work_report_id",
-                $candidateWorkReportBindings
-            )
-            ->addSelect('work_reports.created_at as work_dt_created')
+            ->addSelect('operational_work_reports.id as operational_work_report_id')
+            ->addSelect('operational_work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('notes.id', 'ASC')
-            ->orderBy('work_reports.id', 'ASC');
+            ->orderBy('operational_work_reports.id', 'ASC');
 
         return $query;
     }
@@ -1136,21 +1149,36 @@ class Main extends Component
         return app(WorkReportBlockEvaluator::class)->evaluate($workReport, $this->service);
     }
 
-    private function whereD5OrPartialOrCandidateWorkReport($query, $candidateWorkReports): void
+    private function whereD5OrPartialOrCandidateWorkReport($query): void
     {
-        $query->whereHas('FiveNote', function ($query) {
-            $query->where('is_supervisioned', false)
-                ->where('is_completed', true);
-        })
-            ->orWhere(function ($query) {
-                $query->whereHas('Partials', function ($query) {
-                    $query->where('supervision', false)
-                        ->where('allow', true)
-                        ->where('deny', false);
-                })
-                    ->whereDoesntHave('WorkForm');
-            })
-            ->orWhereIn('work_reports.id', $candidateWorkReports);
+        $query->whereIn('notes.id', $this->eligibleStatusNoteIdsSubquery());
+    }
+
+    private function eligibleStatusNoteIdsSubquery(): QueryBuilder
+    {
+        $d5 = DB::table('five_notes')
+            ->select('note_id')
+            ->where('is_supervisioned', false)
+            ->where('is_completed', true);
+
+        $partial = DB::table('partials')
+            ->select('note_id')
+            ->where('supervision', false)
+            ->where('allow', true)
+            ->where('deny', false)
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('work_reports')
+                    ->whereColumn('work_reports.note_id', 'partials.note_id')
+                    ->where('work_reports.canceled', false);
+            });
+
+        $workReport = app(WorkReportSupervisionCandidateQuery::class)
+            ->noteIdsSubquery(excludeOpenProduction: false);
+
+        return DB::query()
+            ->fromSub($d5->union($partial)->union($workReport), 'eligible_note_ids')
+            ->select('note_id');
     }
 
     private function selectedWorkReportIds(): array
@@ -1215,7 +1243,7 @@ class Main extends Component
 
     public function getToListsProperty()
     {
-        return $this->lists->paginate($this->perPage);
+        return $this->lists->simplePaginate($this->perPage);
     }
 
     public function render()

@@ -489,8 +489,7 @@
                 <div class="col-12 col-lg-6 text-lg-end">
                     <div class="summary-item">
                         Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
-                        <strong>{{ $lists->lastItem() }}</strong> de
-                        <strong>{{ $lists->total() }}</strong> registros.
+                        <strong>{{ $lists->lastItem() }}</strong> registros.
                     </div>
                 </div>
             </div>
@@ -840,8 +839,7 @@
             <div class="col-12 col-lg-6 text-lg-end">
                 <div class="summary-item">
                     Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
-                    <strong>{{ $lists->lastItem() }}</strong> de
-                    <strong>{{ $lists->total() }}</strong> registros.
+                    <strong>{{ $lists->lastItem() }}</strong> registros.
                 </div>
             </div>
         </div>

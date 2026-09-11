@@ -5,6 +5,8 @@ namespace App\Services\Supervision;
 use App\Models\{WorkReport, WorkReportFlowProduction};
 use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
 class WorkReportSupervisionCandidateQuery
 {
@@ -26,6 +28,105 @@ class WorkReportSupervisionCandidateQuery
     public function idsQuery(bool $excludeOpenProduction = true): Builder
     {
         return $this->baseQuery($excludeOpenProduction)->select('work_reports.id');
+    }
+
+    public function fastIdsSubquery(bool $excludeOpenProduction = true): QueryBuilder
+    {
+        return $this->fastBaseSubquery($excludeOpenProduction)->select('wr.id');
+    }
+
+    public function listSubquery(bool $excludeOpenProduction = true): QueryBuilder
+    {
+        return $this->fastBaseSubquery($excludeOpenProduction)
+            ->select([
+                'wr.id',
+                'wr.note_id',
+                'wr.created_at',
+            ]);
+    }
+
+    public function noteIdsSubquery(bool $excludeOpenProduction = true): QueryBuilder
+    {
+        return DB::query()
+            ->fromSub($this->listSubquery($excludeOpenProduction), 'candidate_work_reports')
+            ->select('note_id')
+            ->groupBy('note_id');
+    }
+
+    private function fastBaseSubquery(bool $excludeOpenProduction = true): QueryBuilder
+    {
+        $query = DB::table('work_reports as wr')
+            ->join('order_work_report as owr', 'owr.work_report_id', '=', 'wr.id')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
+            ->leftJoin('operations as op30_released', function ($join) {
+                $join->on('op30_released.order_id', '=', 'o.id')
+                    ->where('op30_released.operacao', '0030')
+                    ->where(function ($query) {
+                        $query->where('op30_released.status', 'like', 'CNPA%')
+                            ->orWhere('op30_released.status', 'like', 'LIB%')
+                            ->orWhere('op30_released.status', 'like', 'JBFI LIB%');
+                    });
+            })
+            ->leftJoin('operations as op40_released', function ($join) {
+                $join->on('op40_released.order_id', '=', 'o.id')
+                    ->where('op40_released.operacao', '0040')
+                    ->where(function ($query) {
+                        $query->where('op40_released.status', 'like', 'LIB%')
+                            ->orWhere('op40_released.status', 'like', 'JBFI LIB%');
+                    });
+            })
+            ->where('wr.canceled', false)
+            ->where('wr.rejected', false)
+            ->where('o.statusSist', 'like', 'LIB%')
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('cancellation_requests')
+                    ->whereColumn('cancellation_requests.note_id', 'wr.note_id')
+                    ->where('cancellation_requests.status', 'DONE')
+                    ->where('cancellation_requests.scope', 'NOTE_FULL');
+            })
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereNotNull('op30_released.id')
+                        ->whereNotNull('op40_released.id');
+                });
+
+                if (!SicodeRules::paymentIgnoresOperation40AfterOperation30Confirmed()) {
+                    $query->orWhere(function ($query) {
+                        $query->whereExists(function ($query) {
+                            $query->selectRaw('1')
+                                ->from('operations as op10_confirmed')
+                                ->whereColumn('op10_confirmed.order_id', 'o.id')
+                                ->where('op10_confirmed.operacao', '0010')
+                                ->where('op10_confirmed.status', 'like', 'CONF%');
+                        })
+                            ->whereExists(function ($query) {
+                                $query->selectRaw('1')
+                                    ->from('operations as op30_confirmed')
+                                    ->whereColumn('op30_confirmed.order_id', 'o.id')
+                                    ->where('op30_confirmed.operacao', '0030')
+                                    ->where('op30_confirmed.status', 'like', 'CONF%');
+                            })
+                            ->whereNotNull('op40_released.id');
+                    });
+                }
+            })
+            ->groupBy('wr.id', 'wr.note_id', 'wr.created_at');
+
+        if ($excludeOpenProduction) {
+            $query->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('work_report_flow_productions as wrfp')
+                    ->join('productions as p', 'p.id', '=', 'wrfp.production_id')
+                    ->whereColumn('wrfp.work_report_id', 'wr.id')
+                    ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('wrfp.is_current', true)
+                    ->where('p.completed', false)
+                    ->where('p.confirmed', false);
+            });
+        }
+
+        return $query;
     }
 
     private function baseQuery(bool $excludeOpenProduction = true): Builder
