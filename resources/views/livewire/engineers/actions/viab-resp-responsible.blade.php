@@ -383,10 +383,10 @@
                                                                         <tbody>
                                                                             <tr>
                                                                                 <td class="text-center align-middle">
-                                                                                    {{ $production->Service->service }}
+                                                                                    {{ $production->Service?->service ?? '---' }}
                                                                                 </td>
                                                                                 <td class="text-center align-middle">
-                                                                                    {{ $production->User->name }}</td>
+                                                                                    {{ $production->User?->name ?? 'Sem responsável' }}</td>
                                                                                 <td class="text-center align-middle">
                                                                                     {{ Carbon::parse($production->completed_at)->format('d/m/Y H:i:s') }}
                                                                                 </td>
