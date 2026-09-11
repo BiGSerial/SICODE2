@@ -55,9 +55,14 @@ class ViabRespResponsible extends Component
     public function updatedService($uuid)
     {
         if ($uuid) {
-            $this->production = Production::where('note_id', $this->viability->note_id)->where('service_id', $uuid)->get()->last();
+            $production = Production::with('User')
+                ->where('note_id', $this->viability->note_id)
+                ->where('service_id', $uuid)
+                ->latest()
+                ->first();
 
-            if (!$this->production) {
+            if (!$production || !$production->User || $production->User->trashed()) {
+                $this->production = null;
                 $this->show = true;
                 $this->text = '<h5 class="text-center">USUÁRIO NÃO ENCONTRADO</h5>
                                                                     <p>
@@ -69,6 +74,7 @@ class ViabRespResponsible extends Component
                                                                     </p>
                 ';
             } else {
+                $this->production = $production;
                 $this->show = false;
             }
 
@@ -239,12 +245,16 @@ class ViabRespResponsible extends Component
                                 return;
                             }
 
-                            $production = Production::where('note_id', $this->viability->note_id)->where('service_id', $this->service)->get()->last();
+                            $production = Production::with(['Note', 'User'])
+                                ->where('note_id', $this->viability->note_id)
+                                ->where('service_id', $this->service)
+                                ->latest()
+                                ->first();
                             // Verifica se o usuário foi excluído
-                            if ($production  && $production ->User->trashed()) {
+                            if (!$production || !$production->User || $production->User->trashed()) {
 
                                 $reclaim = $this->viability->Reclaims()->create([
-                                    'note_id' => $production->note_id,
+                                    'note_id' => $production?->note_id ?? $this->viability->note_id,
                                     'service_id' => $this->service,
                                     'category' => 'RESOLUÇAO DE VIABILIDADE',
                                 ]);
