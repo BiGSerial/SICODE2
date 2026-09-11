@@ -2,17 +2,9 @@
 
 namespace App\Services\Dispatch;
 
-use App\Models\Company;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\WorkReportFlowProduction;
-use App\Models\Wpa;
+use App\Models\{Company, Note, Notetimeline, Production, Service, User, WorkReport, WorkReportFlowProduction, Wpa};
 use App\Services\D5\D5WorkflowService;
-use App\Services\WorkReports\WorkReportFlowProductionLinker;
-use App\Services\WorkReports\WorkReportFinalScopeOptions;
+use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +32,24 @@ class DispatchWorkflowService
         return $this->dispatch($note, $service, $company, $targetUser, $actor, $dd, $finalScopes);
     }
 
+    public function dispatchWorkReportToCompanyStack(WorkReport $workReport, Service $service, Company $company, User $actor, ?string $dd = null, array $finalScopes = []): Production
+    {
+        if ($actor->contract) {
+            throw new DispatchException('Usuario com contrato deve atribuir a atividade, nao enviar para pilha.');
+        }
+
+        if (!SicodeRules::allowsCompanyStackDispatch()) {
+            throw new DispatchException('O envio para pilha da empresa nao esta habilitado para este ambiente.');
+        }
+
+        return $this->dispatchWorkReport($workReport, $service, $company, null, $actor, $dd, $finalScopes);
+    }
+
+    public function dispatchWorkReportToUser(WorkReport $workReport, Service $service, Company $company, User $targetUser, User $actor, ?string $dd = null, array $finalScopes = []): Production
+    {
+        return $this->dispatchWorkReport($workReport, $service, $company, $targetUser, $actor, $dd, $finalScopes);
+    }
+
     public function claimFromCompanyStack(Production $production, User $user): Production
     {
         if (!SicodeRules::partnerCanClaimCompanyStack()) {
@@ -62,12 +72,12 @@ class DispatchWorkflowService
             }
 
             $production->update([
-                'user_id' => $user->id,
-                'att_by' => $user->id,
-                'att_at' => now(),
+                'user_id'      => $user->id,
+                'att_by'       => $user->id,
+                'att_at'       => now(),
                 'completed_at' => null,
-                'completed' => false,
-                'status' => 2,
+                'completed'    => false,
+                'status'       => 2,
             ]);
 
             $this->afterAssigned($production, $user, null);
@@ -101,14 +111,14 @@ class DispatchWorkflowService
             $previousUserId = $production->user_id;
 
             $production->update([
-                'user_id' => $targetUser->id,
-                'company_id' => $company->id,
-                'att_by' => $actor->id,
-                'att_at' => now(),
+                'user_id'      => $targetUser->id,
+                'company_id'   => $company->id,
+                'att_by'       => $actor->id,
+                'att_at'       => now(),
                 'completed_at' => null,
-                'completed' => false,
-                'status' => 2,
-                'd5' => $d5Return,
+                'completed'    => false,
+                'status'       => 2,
+                'd5'           => $d5Return,
             ]);
 
             $this->afterAssigned($production, $actor, $previousUserId);
@@ -139,17 +149,18 @@ class DispatchWorkflowService
             $previousUserId = $production->user_id;
 
             $production->update([
-                'user_id' => null,
-                'company_id' => $company->id,
-                'att_by' => null,
-                'att_at' => null,
+                'user_id'      => null,
+                'company_id'   => $company->id,
+                'att_by'       => null,
+                'att_at'       => null,
                 'completed_at' => null,
-                'completed' => false,
-                'status' => 1,
+                'completed'    => false,
+                'status'       => 1,
             ]);
 
             if ($previousUserId) {
                 $five = $production->note?->FiveNote;
+
                 if ($five) {
                     app(D5WorkflowService::class)->onProductionUnassigned(
                         $five,
@@ -184,10 +195,11 @@ class DispatchWorkflowService
 
             $production->update([
                 'user_id' => null,
-                'status' => 1,
+                'status'  => 1,
             ]);
 
             $five = $production->note?->FiveNote;
+
             if ($five && $previousUserId) {
                 app(D5WorkflowService::class)->onProductionUnassigned(
                     $five,
@@ -220,6 +232,7 @@ class DispatchWorkflowService
             $context = $this->contextResolver->for($note, $service);
 
             $dd = $this->normalizeDd($dd);
+
             if ($context['requires_dd'] && !$dd) {
                 throw new DispatchException('Todas as Notas/OVs precisam estar associadas a uma Nota DD.');
             }
@@ -247,20 +260,20 @@ class DispatchWorkflowService
             $this->assertNoOpenDispatch($note, $service);
 
             $production = Production::create([
-                'note_id' => $note->id,
-                'service_id' => $service->uuid,
-                'user_id' => $targetUser?->id,
-                'company_id' => $company->id,
+                'note_id'     => $note->id,
+                'service_id'  => $service->uuid,
+                'user_id'     => $targetUser?->id,
+                'company_id'  => $company->id,
                 'dispatch_by' => $actor->id,
-                'att_by' => $targetUser ? $actor->id : null,
-                'dt_note' => $note->dt_status,
+                'att_by'      => $targetUser ? $actor->id : null,
+                'dt_note'     => $note->dt_status,
                 'status_note' => $note->nstats,
                 'dispatch_at' => now(),
-                'att_at' => $targetUser ? now() : null,
-                'status' => $targetUser ? 2 : 1,
-                'centroTrab' => $note->centerjob,
-                'partial' => (bool) ($context['is_partial'] ?? false),
-                'dfive' => (bool) ($context['is_d5_fiscalization'] ?? false),
+                'att_at'      => $targetUser ? now() : null,
+                'status'      => $targetUser ? 2 : 1,
+                'centroTrab'  => $note->centerjob,
+                'partial'     => (bool) ($context['is_partial'] ?? false),
+                'dfive'       => (bool) ($context['is_d5_fiscalization'] ?? false),
             ]);
 
             if ($dd) {
@@ -286,6 +299,92 @@ class DispatchWorkflowService
         });
     }
 
+    private function dispatchWorkReport(WorkReport $workReport, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd, array $finalScopes): Production
+    {
+        return DB::transaction(function () use ($workReport, $service, $company, $targetUser, $actor, $dd, $finalScopes) {
+            $workReport = WorkReport::query()
+                ->with(['Note', 'Orders'])
+                ->whereKey($workReport->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $note = Note::whereKey($workReport->note_id)->lockForUpdate()->firstOrFail();
+            $note->loadMissing(['FiveNote', 'Partials', 'WorkForm', 'Productions']);
+
+            if ((bool) $workReport->canceled || (bool) $workReport->rejected) {
+                throw new DispatchException('Este informe nao esta disponivel para despacho.');
+            }
+
+            if ($this->contextResolver->serviceKey($service) !== 'supervision') {
+                throw new DispatchException('Despacho por informe ainda nao esta habilitado para este servico.');
+            }
+
+            if (!SicodeRules::userCanAccessCompany($actor, $company->id)) {
+                throw new DispatchException('Usuario sem permissao para despachar para esta empresa.');
+            }
+
+            if ($targetUser && !$this->userBelongsToCompany($targetUser, $company->id)) {
+                throw new DispatchException('Usuario destino nao pertence a empresa selecionada.');
+            }
+
+            $dd = $this->normalizeDd($dd);
+
+            if ($this->contextResolver->for($note, $service)['requires_dd'] && !$dd) {
+                throw new DispatchException('Todas as Notas/OVs precisam estar associadas a uma Nota DD.');
+            }
+
+            $finalScopes = $this->finalScopesForWorkReport($workReport, $finalScopes);
+            $this->assertNoOpenWorkReportDispatch($workReport, $service, $finalScopes);
+            $this->assertNoOpenAmbiguousLegacyDispatch($note, $service);
+
+            $production = Production::create([
+                'note_id'     => $note->id,
+                'service_id'  => $service->uuid,
+                'user_id'     => $targetUser?->id,
+                'company_id'  => $company->id,
+                'dispatch_by' => $actor->id,
+                'att_by'      => $targetUser ? $actor->id : null,
+                'dt_note'     => $note->dt_status,
+                'status_note' => $note->nstats,
+                'dispatch_at' => now(),
+                'att_at'      => $targetUser ? now() : null,
+                'status'      => $targetUser ? 2 : 1,
+                'centroTrab'  => $note->centerjob,
+                'partial'     => false,
+                'dfive'       => false,
+            ]);
+
+            if ($dd) {
+                $this->attachDd($note, $production, $dd);
+            }
+
+            foreach ($finalScopes as $finalScope) {
+                app(WorkReportFlowProductionLinker::class)->linkFiscalizationForWorkReport(
+                    $production,
+                    $workReport,
+                    'dispatch_work_report',
+                    [],
+                    $finalScope
+                );
+            }
+
+            if ($targetUser) {
+                $this->afterAssigned($production, $actor, null);
+            }
+
+            $this->timeline(
+                $production,
+                $actor,
+                $targetUser
+                    ? 'Atribuiu o INFORME para: ' . $targetUser->name
+                    : 'Despachou o INFORME para: ' . $company->name,
+                $targetUser ? 2 : 1
+            );
+
+            return $production;
+        });
+    }
+
     private function assertNoOpenDispatch(Note $note, Service $service): void
     {
         $hasOpen = Production::where('note_id', $note->id)
@@ -298,6 +397,75 @@ class DispatchWorkflowService
         if ($hasOpen) {
             throw new DispatchException('Ja existe atividade aberta para esta Nota/OV neste servico.');
         }
+    }
+
+    private function assertNoOpenWorkReportDispatch(WorkReport $workReport, Service $service, array $finalScopes): void
+    {
+        $hasOpen = WorkReportFlowProduction::query()
+            ->where('work_report_id', $workReport->id)
+            ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+            ->whereIn('final_scope', $finalScopes)
+            ->where('is_current', true)
+            ->whereHas('Production', function ($query) use ($service) {
+                $query->where('service_id', $service->uuid)
+                    ->where('completed', false)
+                    ->where('confirmed', false);
+            })
+            ->lockForUpdate()
+            ->exists();
+
+        if ($hasOpen) {
+            throw new DispatchException('Ja existe atividade aberta para este Informe neste servico.');
+        }
+    }
+
+    private function assertNoOpenAmbiguousLegacyDispatch(Note $note, Service $service): void
+    {
+        $hasOpen = Production::where('note_id', $note->id)
+            ->where('service_id', $service->uuid)
+            ->where('completed', false)
+            ->where('confirmed', false)
+            ->where('partial', false)
+            ->where('dfive', false)
+            ->whereDoesntHave('WorkReportFlowProductions', function ($query) {
+                $query->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true);
+            })
+            ->lockForUpdate()
+            ->exists();
+
+        if ($hasOpen) {
+            throw new DispatchException('Existe atividade aberta sem vinculo de Informe para esta Nota/OV.');
+        }
+    }
+
+    private function finalScopesForWorkReport(WorkReport $workReport, array $requestedScopes): array
+    {
+        $available = collect($workReport->finalScopePayloads())
+            ->pluck('scope')
+            ->unique()
+            ->values();
+
+        if ($available->isEmpty()) {
+            return [WorkReportFlowProduction::SCOPE_GENERAL];
+        }
+
+        if (empty($requestedScopes)) {
+            return $available->all();
+        }
+
+        $selected = collect($requestedScopes)
+            ->map(fn ($scope) => (string) $scope)
+            ->intersect($available)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($selected)) {
+            throw new DispatchException('Escopo do Informe invalido para despacho.');
+        }
+
+        return $selected;
     }
 
     private function openCompanyStackProduction(Note $note, Service $service, Company $company): ?Production
@@ -330,12 +498,12 @@ class DispatchWorkflowService
         }
 
         $production->update([
-            'user_id' => $targetUser->id,
-            'att_by' => $actor->id,
-            'att_at' => now(),
+            'user_id'      => $targetUser->id,
+            'att_by'       => $actor->id,
+            'att_at'       => now(),
             'completed_at' => null,
-            'completed' => false,
-            'status' => 2,
+            'completed'    => false,
+            'status'       => 2,
         ]);
 
         $this->afterAssigned($production, $actor, null);
@@ -355,7 +523,7 @@ class DispatchWorkflowService
         if ($existing) {
             $existing->update([
                 'production_id' => $production->id,
-                'service_id' => $production->service_id,
+                'service_id'    => $production->service_id,
             ]);
 
             return;
@@ -363,9 +531,9 @@ class DispatchWorkflowService
 
         Wpa::create([
             'production_id' => $production->id,
-            'note_id' => $note->id,
-            'service_id' => $production->service_id,
-            'dd' => $dd,
+            'note_id'       => $note->id,
+            'service_id'    => $production->service_id,
+            'dd'            => $dd,
         ]);
     }
 
@@ -377,6 +545,7 @@ class DispatchWorkflowService
                 $availableScopes = $production->Note
                     ? app(WorkReportFinalScopeOptions::class)->forNote($production->Note)
                     : [];
+
                 if (count($availableScopes) > 1) {
                     return;
                 }
@@ -405,6 +574,7 @@ class DispatchWorkflowService
     private function afterAssigned(Production $production, User $actor, ?string $previousUserId): void
     {
         $five = $production->note?->FiveNote;
+
         if (!$five) {
             return;
         }
@@ -422,11 +592,11 @@ class DispatchWorkflowService
     private function timeline(Production $production, User $actor, string $info, int $status): void
     {
         Notetimeline::create([
-            'note_id' => $production->id,
-            'service_id' => $production->service_id,
-            'user_id' => $actor->id,
-            'info' => "Usuario {$actor->name} {$info}",
-            'status' => $status,
+            'note_id'      => $production->id,
+            'service_id'   => $production->service_id,
+            'user_id'      => $actor->id,
+            'info'         => "Usuario {$actor->name} {$info}",
+            'status'       => $status,
             'productionId' => $production->id,
         ]);
     }

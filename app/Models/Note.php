@@ -147,6 +147,11 @@ class Note extends Model
         return $this->hasOne(WorkReport::class)->where('canceled', false);
     }
 
+    public function WorkReports()
+    {
+        return $this->hasMany(WorkReport::class);
+    }
+
     public function WorkFormAny()
     {
         return $this->hasOne(WorkReport::class);

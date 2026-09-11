@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class WorkReportFlowProduction extends Model
 {
     public const STAGE_FISCALIZATION = 'fiscalization';
-    public const STAGE_PAYMENT = 'payment';
-    public const SCOPE_GENERAL = 'general';
-    public const SCOPE_NETWORK = 'network';
-    public const SCOPE_CONNECTION = 'connection';
+    public const STAGE_PAYMENT       = 'payment';
+    public const STAGE_PUBLICATION   = 'publication';
+    public const SCOPE_GENERAL       = 'general';
+    public const SCOPE_NETWORK       = 'network';
+    public const SCOPE_CONNECTION    = 'connection';
 
     protected $fillable = [
         'work_report_id',
@@ -28,10 +29,10 @@ class WorkReportFlowProduction extends Model
     ];
 
     protected $casts = [
-        'is_current' => 'boolean',
-        'linked_at' => 'datetime',
+        'is_current'  => 'boolean',
+        'linked_at'   => 'datetime',
         'reversed_at' => 'datetime',
-        'metadata' => 'array',
+        'metadata'    => 'array',
     ];
 
     public function WorkReport()

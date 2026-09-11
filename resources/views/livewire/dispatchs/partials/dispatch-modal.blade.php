@@ -432,19 +432,20 @@
                             </thead>
                             <tbody>
                                 @foreach ($notes as $index => $note)
+                                    @php($scopeKey = $scopeKeysByIndex[$index] ?? $note->id)
                                     <tr>
                                         <td class="text-center fw-bold">{{ $index + 1 }}</td>
                                         <td class="dispatch-modal__note">{{ $note->note }}</td>
                                         <td class="dispatch-modal__material">{{ $note->material }}</td>
                                         @if ($requiresFinalScope)
                                             <td class="dispatch-modal__scope">
-                                                @php($scopeOptions = $finalScopeOptions[$note->id] ?? [])
+                                                @php($scopeOptions = $finalScopeOptions[$scopeKey] ?? [])
                                                 @if (count($scopeOptions) > 1)
                                                     <div class="dispatch-modal__scope-options">
                                                         @foreach ($scopeOptions as $scopeOption)
                                                             <label class="form-check">
                                                                 <input class="form-check-input" type="checkbox"
-                                                                    wire:model.defer="finalScopeSelections.{{ $note->id }}.{{ $scopeOption['scope'] }}">
+                                                                    wire:model.defer="finalScopeSelections.{{ $scopeKey }}.{{ $scopeOption['scope'] }}">
                                                                 <span class="form-check-label">{{ $scopeOption['label'] }}</span>
                                                             </label>
                                                         @endforeach

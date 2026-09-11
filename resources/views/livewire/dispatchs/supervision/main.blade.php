@@ -555,21 +555,35 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $e = $this->needBlock($list); // ['block'=>.., 'command'=>.., 'color'=>.., 'reason'=>..]
-                                $rowClass = $e['color'];
-                                $block = $e['block'];
-                                $command = $e['command'];
-                                $production = $e['production'];
-                                $reason = $e['reason'];
-                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
-	                                $canDispatch = !$block || $command || $stackProductionAvailable;
-	                                if ($stackProductionAvailable) {
-	                                    $rowClass = '';
-	                                    $production = $stackProductionAvailable;
-	                                }
+                                $operationalWorkReport = $this->operationalWorkReportFor($list);
+                                $selectionKey = $this->selectionKeyFor($list);
+                                $stackProductionAvailable = null;
+
+                                if ($operationalWorkReport) {
+                                    $e = $this->needBlockForWorkReport($operationalWorkReport);
+                                    $rowClass = $e['color'];
+                                    $block = $e['block'];
+                                    $command = $e['command'];
+                                    $production = $e['production'];
+                                    $reason = $e['reason'];
+                                    $canDispatch = $command;
+                                } else {
+                                    $e = $this->needBlock($list); // ['block'=>.., 'command'=>.., 'color'=>.., 'reason'=>..]
+                                    $rowClass = $e['color'];
+                                    $block = $e['block'];
+                                    $command = $e['command'];
+                                    $production = $e['production'];
+                                    $reason = $e['reason'];
+                                    $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+	                                    $canDispatch = !$block || $command || $stackProductionAvailable;
+	                                    if ($stackProductionAvailable) {
+	                                        $rowClass = '';
+	                                        $production = $stackProductionAvailable;
+	                                    }
+                                }
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
-                                $partial = $e['isPartial'];
+                                $partial = $operationalWorkReport ? false : $e['isPartial'];
                                 $latestValidPartial = $list->Partials
                                     ?->where('allow', true)
                                     ->where('deny', false)
@@ -584,22 +598,31 @@
 
                                 $adsAt = null;
                                 $adsDate = null;
-                                if ($list->OldAds->isNotEmpty()) {
+                                if ($operationalWorkReport?->Adsform) {
+                                    $adsDate = $operationalWorkReport->Adsform->created_at;
+                                    $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
+                                } elseif ($list->OldAds->isNotEmpty()) {
                                     $adsDate = $list->OldAds->last()->date;
                                     $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
                                 } elseif ($list->Adsform) {
                                     $adsDate = $list->Adsform->created_at;
                                     $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
                                 }
-	                                $isTacitAds = (bool) ($list->Adsform?->tacit ?? false);
+	                                $isTacitAds = (bool) (($operationalWorkReport?->Adsform?->tacit ?? null) ?? ($list->Adsform?->tacit ?? false));
 	
 	                                $informedDate = null;
-	                                $orders = $production instanceof \App\Models\Production
-	                                    ? $production->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
-	                                    : ($list->WorkForm?->Orders ?? collect());
-	                                $workForm = $production instanceof \App\Models\Production
-	                                    ? $production->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)->first()
-	                                    : null;
+	                                $orders = $operationalWorkReport
+	                                    ? $operationalWorkReport->Orders
+	                                    : (
+	                                        $production instanceof \App\Models\Production
+	                                            ? $production->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+	                                            : ($list->WorkForm?->Orders ?? collect())
+	                                    );
+	                                $workForm = $operationalWorkReport ?: (
+	                                    $production instanceof \App\Models\Production
+	                                        ? $production->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)->first()
+	                                        : null
+	                                );
 	                                $workForm = $workForm ?: $list->WorkForm;
 	
 	                                if ($workForm) {
@@ -623,7 +646,7 @@
                             <tr class="align-middle">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                        value="{{ $selectionKey }}" wire:model.defer="selected"
                                         @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
@@ -650,7 +673,7 @@
                                             <i class="ri-fire-line text-danger fw-bold"></i>
                                         </span>
                                     @endif
-                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$list->id" />
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$selectionKey" />
                                 </td>
 	                                <td class="text-center {{ $rowClass }} text-nowrap">
 	                                    @if ($orders->isNotEmpty())
@@ -773,10 +796,14 @@
                                     @if ($canDispatch)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
+                                            @if ($operationalWorkReport)
+                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForWorkReports', [{{ $operationalWorkReport->id }}])"
+                                            @else
+                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
+                                            @endif
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
-                                            data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV' }}"></i>
+                                            data-bs-title="{{ $operationalWorkReport ? 'Despachar este Informe' : ($stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV') }}"></i>
                                     @else
                                         @php
                                             $assignedName = $production?->User

@@ -4,11 +4,11 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
-use App\Models\{Bancoupdate, Company, Note, Production, Service, User, Wpa};
+use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport, Wpa};
 use App\Models\City;
 use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
-use App\Services\Supervision\BlockEvaluator;
+use App\Services\Supervision\{BlockEvaluator, WorkReportBlockEvaluator, WorkReportSupervisionCandidateQuery};
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -386,7 +386,7 @@ class Main extends Component
 
             // Adicionar os IDs que cumprem as regras à lista de selecionados
             foreach ($this->toLists as $item) {
-                $id = $item->id;
+                $id = $this->selectionKeyFor($item);
 
                 if (!in_array($id, $this->selected)) {
                     if (Auth()->User()?->contract) {
@@ -416,7 +416,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds     = $this->toLists->pluck('id')->toArray();
+            $visibleIds     = $this->toLists->map(fn ($item) => $this->selectionKeyFor($item))->all();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
@@ -426,7 +426,7 @@ class Main extends Component
     public function checkAllSelect($items)
     {
 
-        $items = $items->pluck('id')->toArray();
+        $items = $items->map(fn ($item) => $this->selectionKeyFor($item))->all();
 
         $this->selectAll = empty(array_diff($items, $this->selected));
 
@@ -478,7 +478,7 @@ class Main extends Component
 
     public function get_single_note($note)
     {
-        $this->selected = [$note];
+        $this->selected = [(string) $note];
 
         $this->go_att_mass();
     }
@@ -499,7 +499,27 @@ class Main extends Component
             return;
         }
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
+        $workReportIds = $this->selectedWorkReportIds();
+        $noteIds       = $this->selectedNoteIds();
+
+        if ($workReportIds && $noteIds) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione apenas Informes finais ou apenas itens legados no mesmo despacho.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
+
+        if ($workReportIds) {
+            $this->emitTo('dispatchs.shared.dispatch-modal', 'openForWorkReports', $workReportIds);
+
+            return;
+        }
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $noteIds);
     }
 
     public function confirm_att()
@@ -678,7 +698,7 @@ class Main extends Component
         $this->user_s    = "";
         $this->user_l    = collect();
         // $this->type = "";
-        $this->additionalData = [];
+        $this->additionalData      = [];
         $this->bulkSearchAnyStatus = false;
 
         $this->emit('refresh_dispatch');
@@ -693,11 +713,11 @@ class Main extends Component
         $this->search_user = "";
         $this->user_l      = collect();
         // $this->type = "";
-        $this->additionalData = [];
-        $this->multiSearch = [];
+        $this->additionalData      = [];
+        $this->multiSearch         = [];
         $this->bulkSearchAnyStatus = false;
-        $this->advanceSearch = "";
-        $this->search = "";
+        $this->advanceSearch       = "";
+        $this->search              = "";
     }
 
     public function buscarMulti()
@@ -737,9 +757,9 @@ class Main extends Component
 
         $additionalData    = [];
         $additionalDataUpd = [];
-        $seenDds = [];
-        $unchanged = 0;
-        $moved = 0;
+        $seenDds           = [];
+        $unchanged         = 0;
+        $moved             = 0;
 
         foreach (preg_split('/\r\n|\r|\n/', trim($this->enter_dd)) as $lineNumber => $linha) {
             $linha = trim($linha);
@@ -810,11 +830,13 @@ class Main extends Component
                     'dd'            => $ddNumber,
                 ];
                 $moved++;
+
                 continue;
             }
 
             if ($existingByDd) {
                 $unchanged++;
+
                 continue;
             }
 
@@ -856,9 +878,11 @@ class Main extends Component
         $this->additionalDataUpd = $additionalDataUpd;
 
         $summary = "Você está prestes a associar {$count} Nota(s)/OV(s) e DD(s).";
+
         if ($moved) {
             $summary .= " {$moved} DD(s) serão movidas de outra Nota/OV para a Nota/OV informada.";
         }
+
         if ($unchanged) {
             $summary .= " {$unchanged} vínculo(s) já existiam e serão mantidos.";
         }
@@ -960,16 +984,31 @@ class Main extends Component
         $query = Note::query()
             ->excludeCanceledFullDone()
             ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
+
+        $candidateWorkReports = app(WorkReportSupervisionCandidateQuery::class)
+            ->idsQuery(excludeOpenProduction: false);
+
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
             Auth()->User(),
             $this->service->uuid,
             fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
                 ? null
-                : $this->supervisionRepository->applyBaseRules($statusQuery)
+                : $statusQuery->where(function ($query) use ($candidateWorkReports) {
+                    $this->whereD5OrPartialOrCandidateWorkReport($query, $candidateWorkReports);
+                })
         );
 
-        if (strlen($this->search)) {
+        $query->where(function ($query) use ($candidateWorkReports) {
+            $query->whereNull('work_reports.id')
+                ->orWhereIn('work_reports.id', $candidateWorkReports)
+                ->orWhereHas('FiveNote', function ($query) {
+                    $query->where('is_supervisioned', false)
+                        ->where('is_completed', true);
+                });
+        });
+
+        if (strlen((string) $this->search)) {
 
             $query->where(function ($q) {
                 return $q->where('note', 'like', '%' . trim($this->search) . '%')
@@ -1036,14 +1075,106 @@ class Main extends Component
             });
         }
 
+        $candidateWorkReportSql      = $candidateWorkReports->toSql();
+        $candidateWorkReportBindings = $candidateWorkReports->getBindings();
+
         $query->with(['orders' => function ($q) {
             $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-        }, 'Productions.User', 'Productions.Company', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
-            ->select('notes.*', 'work_reports.created_at as work_dt_created')
+        }, 'WorkReports.Orders.Operations', 'WorkReports.Adsform', 'WorkReports.FlowProductions.Production.User', 'WorkReports.FlowProductions.Production.Company', 'Productions.User', 'Productions.Company', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
+            ->select('notes.*')
+            ->selectRaw(
+                "CASE
+                    WHEN work_reports.id IN ({$candidateWorkReportSql})
+                    AND NOT EXISTS (
+                        SELECT 1 FROM five_notes
+                        WHERE five_notes.note_id = notes.id
+                        AND five_notes.is_supervisioned = 0
+                        AND five_notes.is_completed = 1
+                    )
+                    THEN work_reports.id
+                    ELSE NULL
+                END as operational_work_report_id",
+                $candidateWorkReportBindings
+            )
+            ->addSelect('work_reports.created_at as work_dt_created')
             ->orderBy('work_dt_created', 'ASC')
-            ->orderBy('id', 'ASC');
+            ->orderBy('notes.id', 'ASC')
+            ->orderBy('work_reports.id', 'ASC');
 
         return $query;
+    }
+
+    public function selectionKeyFor(Note $note): string
+    {
+        $workReport = $this->operationalWorkReportFor($note);
+
+        return $workReport ? 'wr:' . $workReport->id : 'note:' . $note->id;
+    }
+
+    public function operationalWorkReportFor(Note $note): ?WorkReport
+    {
+        $workReportId = $note->getAttribute('operational_work_report_id');
+
+        if (!$workReportId) {
+            return null;
+        }
+
+        if ($note->relationLoaded('WorkReports')) {
+            return $note->WorkReports->firstWhere('id', (int) $workReportId);
+        }
+
+        return WorkReport::with(['Orders.Operations', 'Adsform'])->find($workReportId);
+    }
+
+    public function openProductionForWorkReport(WorkReport $workReport): ?Production
+    {
+        return app(WorkReportBlockEvaluator::class)->currentProductionFor($workReport, $this->service);
+    }
+
+    public function needBlockForWorkReport(WorkReport $workReport): array
+    {
+        return app(WorkReportBlockEvaluator::class)->evaluate($workReport, $this->service);
+    }
+
+    private function whereD5OrPartialOrCandidateWorkReport($query, $candidateWorkReports): void
+    {
+        $query->whereHas('FiveNote', function ($query) {
+            $query->where('is_supervisioned', false)
+                ->where('is_completed', true);
+        })
+            ->orWhere(function ($query) {
+                $query->whereHas('Partials', function ($query) {
+                    $query->where('supervision', false)
+                        ->where('allow', true)
+                        ->where('deny', false);
+                })
+                    ->whereDoesntHave('WorkForm');
+            })
+            ->orWhereIn('work_reports.id', $candidateWorkReports);
+    }
+
+    private function selectedWorkReportIds(): array
+    {
+        return collect($this->selected)
+            ->map(fn ($id) => (string) $id)
+            ->filter(fn (string $id) => str_starts_with($id, 'wr:'))
+            ->map(fn (string $id) => (int) substr($id, 3))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function selectedNoteIds(): array
+    {
+        return collect($this->selected)
+            ->map(fn ($id) => (string) $id)
+            ->filter(fn (string $id) => str_starts_with($id, 'note:') || ctype_digit($id))
+            ->map(fn (string $id) => (int) (str_starts_with($id, 'note:') ? substr($id, 5) : $id))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     // public function getBaseProperty()

@@ -5,8 +5,7 @@ namespace App\Http\Livewire\Partner\Forms;
 use App\Models\{Company, Note, Order, User, WorkReport};
 use App\Services\Partner\BlockEvaluator;
 use App\Services\PartnerAccess\PartnerAccessGate;
-use App\Services\WorkReports\WorkReportAcceptanceSignature;
-use App\Services\WorkReports\WorkReportFinalScopeResolver;
+use App\Services\WorkReports\{FinalWorkReportCreationGuard, WorkReportAcceptanceSignature, WorkReportFinalScopeResolver};
 use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -394,6 +393,7 @@ class Workreports extends Component
                 'title'    => 'Empreiteira não vinculada',
                 'html'     => 'Não foi possível identificar uma empreiteira vinculada ao seu usuário.',
             ]);
+
             return;
         }
 
@@ -408,10 +408,10 @@ class Workreports extends Component
             return;
         }
 
-        $this->form['user_id']         = Auth()->User()->id;
-        $this->form['informed_at']     = date('Y-m-d H:i:s');
-        $this->form['acceptance_at']   = date('Y-m-d H:i:s');
-        $this->form['acceptance_meta'] = $this->buildAcceptanceMeta();
+        $this->form['user_id']               = Auth()->User()->id;
+        $this->form['informed_at']           = date('Y-m-d H:i:s');
+        $this->form['acceptance_at']         = date('Y-m-d H:i:s');
+        $this->form['acceptance_meta']       = $this->buildAcceptanceMeta();
         $this->form['selected_final_scopes'] = $this->selectedFinalScopesForSave();
 
         $existingWorkReport = $this->activeWorkReportWithAnySelectedFinalScope($this->form['selected_final_scopes']);
@@ -949,15 +949,15 @@ class Workreports extends Component
 
         $orders = collect($this->temp_orders)
             ->map(fn (array $order) => (object) [
-                'order_id' => $order['id'] ?? null,
+                'order_id'     => $order['id'] ?? null,
                 'order_number' => $order['ordem'] ?? null,
             ]);
 
         return collect(app(WorkReportFinalScopeResolver::class)->resolve($this->note->type_note, $orders))
             ->map(fn (array $payload) => [
-                'scope' => $payload['scope'],
-                'label' => $this->finalScopeLabel($payload['scope']),
-                'class' => $this->finalScopeBadgeClass($payload['scope']),
+                'scope'  => $payload['scope'],
+                'label'  => $this->finalScopeLabel($payload['scope']),
+                'class'  => $this->finalScopeBadgeClass($payload['scope']),
                 'orders' => collect($payload['orders'] ?? [])
                     ->pluck('number')
                     ->filter()
@@ -984,9 +984,9 @@ class Workreports extends Component
 
         return collect(app(WorkReportFinalScopeResolver::class)->resolve($this->note->type_note, $this->selectableOrdersForCurrentNote()))
             ->map(fn (array $payload) => [
-                'scope' => $payload['scope'],
-                'label' => $this->finalScopeLabel($payload['scope']),
-                'class' => $this->finalScopeBadgeClass($payload['scope']),
+                'scope'  => $payload['scope'],
+                'label'  => $this->finalScopeLabel($payload['scope']),
+                'class'  => $this->finalScopeBadgeClass($payload['scope']),
                 'orders' => collect($payload['orders'] ?? [])
                     ->pluck('number')
                     ->filter()
@@ -1044,26 +1044,26 @@ class Workreports extends Component
 
         if ($activeScopes->isEmpty()) {
             return [
-                'class' => 'bg-info text-dark',
-                'label' => 'NAO INFORMADA',
-                'title' => 'Clique para informar esta obra',
+                'class'     => 'bg-info text-dark',
+                'label'     => 'NAO INFORMADA',
+                'title'     => 'Clique para informar esta obra',
                 'row_class' => 'cursor-pointer hover-highlight',
             ];
         }
 
         if ($detectedScopes->diff($activeScopes)->isNotEmpty()) {
             return [
-                'class' => 'bg-warning text-dark',
-                'label' => 'TIPO PENDENTE',
-                'title' => 'Esta obra possui informe ativo, mas ainda ha tipo pendente',
+                'class'     => 'bg-warning text-dark',
+                'label'     => 'TIPO PENDENTE',
+                'title'     => 'Esta obra possui informe ativo, mas ainda ha tipo pendente',
                 'row_class' => 'cursor-pointer hover-highlight',
             ];
         }
 
         return [
-            'class' => 'bg-success',
-            'label' => 'INFORMADA',
-            'title' => 'Esta obra ja possui informe ativo para todos os tipos detectados',
+            'class'     => 'bg-success',
+            'label'     => 'INFORMADA',
+            'title'     => 'Esta obra ja possui informe ativo para todos os tipos detectados',
             'row_class' => 'text-muted',
         ];
     }
@@ -1071,18 +1071,18 @@ class Workreports extends Component
     private function finalScopeLabel(string $scope): string
     {
         return match ($scope) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'Rede',
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligacao',
-            default => 'Geral',
+            default                                        => 'Geral',
         };
     }
 
     private function finalScopeBadgeClass(string $scope): string
     {
         return match ($scope) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'text-bg-primary',
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'text-bg-primary',
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'text-bg-warning',
-            default => 'text-bg-secondary',
+            default                                        => 'text-bg-secondary',
         };
     }
 
@@ -1137,9 +1137,9 @@ class Workreports extends Component
         }
 
         return match ($this->selectedFinalScopeMode) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => [WorkReportFinalScopeResolver::SCOPE_NETWORK],
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => [WorkReportFinalScopeResolver::SCOPE_NETWORK],
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => [WorkReportFinalScopeResolver::SCOPE_CONNECTION],
-            'both' => [
+            'both'                                         => [
                 WorkReportFinalScopeResolver::SCOPE_NETWORK,
                 WorkReportFinalScopeResolver::SCOPE_CONNECTION,
             ],
@@ -1300,6 +1300,19 @@ class Workreports extends Component
     protected function canInformNote(?Note $note): bool
     {
         if (!$note) {
+            return false;
+        }
+
+        $openPartial = app(FinalWorkReportCreationGuard::class)->openPartialFor($note);
+
+        if ($openPartial) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'PARCIAL EM ANDAMENTO',
+                'html'     => 'Não é permitido criar um informe final enquanto existir uma parcial em andamento para esta obra.',
+            ]);
+
             return false;
         }
 
