@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Files\FileDerivative;
+use App\Services\Files\FileStorageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -136,10 +137,20 @@ class File extends Model
             return (int) $storedSize;
         }
 
-        $disk = (string) ($this->disk ?: 'local');
+        if (!$this->path) {
+            return 0;
+        }
 
-        return $this->path && Storage::disk($disk)->exists($this->path)
-            ? (int) Storage::disk($disk)->size($this->path)
-            : 0;
+        try {
+            $storage = app(FileStorageService::class);
+
+            return $storage->exists($this) ? $storage->size($this) : 0;
+        } catch (\Throwable) {
+            $disk = (string) ($this->disk ?: 'local');
+
+            return Storage::disk($disk)->exists($this->path)
+                ? (int) Storage::disk($disk)->size($this->path)
+                : 0;
+        }
     }
 }

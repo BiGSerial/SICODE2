@@ -14,7 +14,6 @@
                 var(--oe-bg);
             padding: 1.5rem 0;
         }
-
         .oexterno-header {
             background: linear-gradient(120deg, #0f172a, #0f766e 70%);
             color: #f8fafc;
@@ -23,83 +22,40 @@
             box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
             margin-bottom: 1.5rem;
         }
-
-        .oexterno-header h2 {
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
-
-        .oexterno-header .meta {
-            color: rgba(248, 250, 252, 0.75);
-            font-size: 0.95rem;
-        }
-
-        .filters-grid .filter-card {
+        .filters-grid .filter-card,
+        .summary-bar,
+        .table-card {
             background-color: var(--oe-surface);
             border: 1px solid var(--oe-border);
-            border-radius: 0.9rem;
-            padding: 1rem 1.25rem;
-            height: 100%;
+            border-radius: .9rem;
             box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
         }
-
+        .filters-grid .filter-card { padding: 1rem 1.25rem; height: 100%; }
         .filters-grid .filter-card h6 {
-            font-size: 0.75rem;
+            font-size: .75rem;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: .08em;
             font-weight: 600;
             color: var(--oe-muted);
         }
-
-        .summary-bar {
-            background: var(--oe-surface);
-            border: 1px solid var(--oe-border);
-            border-radius: 0.9rem;
-            padding: 0.75rem 1.25rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-        }
-
-        .summary-bar .summary-item {
-            font-size: 0.92rem;
-            color: var(--oe-muted);
-        }
-
-        .summary-bar .summary-item strong {
-            color: var(--oe-ink);
-        }
-
-        .table-card {
-            background: var(--oe-surface);
-            border: 1px solid var(--oe-border);
-            border-radius: 1rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-            overflow: hidden;
-        }
-
+        .summary-bar { padding: .75rem 1.25rem; }
+        .summary-bar .summary-item { font-size: .92rem; color: var(--oe-muted); }
+        .summary-bar .summary-item strong { color: var(--oe-ink); }
+        .table-card { overflow: hidden; }
         .table-card .table thead th {
-            font-size: 0.75rem;
+            font-size: .75rem;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: .06em;
             white-space: nowrap;
         }
-
-        .table-card .table tbody td {
-            font-size: 0.92rem;
-        }
-
-        @media (max-width: 991px) {
-            .oexterno-header {
-                padding: 1.25rem;
-            }
-        }
+        .table-card .table tbody td { font-size: .92rem; }
     </style>
 
     <div class="container-fluid">
         <div class="oexterno-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             <div>
-                <h2>CONTROLE DE DADOS</h2>
-                <div class="meta">Controle D5</div>
+                <h2 class="mb-0">CONTROLE DE DADOS</h2>
+                <div class="meta">Controle de Informes Parciais</div>
             </div>
         </div>
 
@@ -112,8 +68,7 @@
                             <div class="row g-2">
                                 <div class="col-12 col-sm-4">
                                     <div class="form-floating w-100">
-                                        <select class="form-select border border-secondary" wire:model="perPage"
-                                            id="perPageSelect">
+                                        <select class="form-select border border-secondary" wire:model="perPage" id="perPageSelect">
                                             <option value="25">25</option>
                                             <option value="50">50</option>
                                             <option value="100">100</option>
@@ -127,7 +82,7 @@
                                         <input wire:model.debounce.500ms="search" type="text"
                                             class="form-control border border-secondary" id="search"
                                             placeholder="Buscar">
-                                        <label for="search">Buscar por nota ou D5</label>
+                                        <label for="search">Buscar por id, nota, ordem ou responsavel</label>
                                         <button
                                             class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
                                             data-bs-toggle="modal" data-bs-target="#buscar_multi">
@@ -145,14 +100,11 @@
                             @endif
                         </div>
                     </div>
-
                     <div class="col-12 col-lg-5 col-xl-6">
                         <div class="filter-card h-100">
                             <h6>Dicas</h6>
                             <div class="text-muted small">
-                                Busca individual por numero da D5 ou numero da nota.
-                                Para busca em lote, separe por virgula, espaco, ponto e virgula,
-                                tabulacao ou quebra de linha.
+                                Controle para rejeitar, apagar, editar informacoes e ajustar associacoes das atividades/ordens do informe parcial.
                             </div>
                         </div>
                     </div>
@@ -186,54 +138,66 @@
                         </div>
                     @else
                         <div class="card-header fw-bold text-bg-secondary d-flex justify-content-between align-items-center">
-                            <h4 class="mb-0">LISTA DE D5</h4>
+                            <h4 class="mb-0">LISTA DE INFORMES PARCIAIS</h4>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-sm table-hover table-striped mb-0">
                                 <thead class="table-dark">
                                     <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                                        <th class="fw-bold text-start">D5 / Nota</th>
+                                        <th class="fw-bold text-start">ID / Nota</th>
                                         <th class="fw-bold text-center">Empresa</th>
-                                        <th class="fw-bold text-center">Local</th>
-                                        <th class="fw-bold text-center">PEP</th>
-                                        <th class="fw-bold text-center">Codificacao</th>
-                                        <th class="fw-bold text-center">Despacho</th>
+                                        <th class="fw-bold text-center">Responsavel</th>
+                                        <th class="fw-bold text-center">Valor</th>
+                                        <th class="fw-bold text-center">Atividades</th>
                                         <th class="fw-bold text-center">Status</th>
                                         <th class="fw-bold text-center"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($lists as $list)
+                                    @foreach ($lists as $item)
                                         <tr class="align-middle text-center">
                                             <td class="text-start">
-                                                <div class="fw-semibold">{{ $list->note_d5 ?? 'SEM D5' }}</div>
-                                                <div class="small text-muted">{{ $list->note?->note ?? '---' }}</div>
+                                                <div class="fw-semibold">#{{ $item->id }}</div>
+                                                <div class="small text-muted">{{ $item->Note?->note ?? '---' }}</div>
                                             </td>
-                                            <td>{{ $list->company?->name }}</td>
-                                            <td>{{ $list->loc_install }}</td>
-                                            <td>{{ $list->pep }}</td>
-                                            <td>{{ $list->codify }}</td>
-                                            <td>{{ $list->dispatch_at?->format('d/m/Y H:i') }}</td>
+                                            <td>{{ $item->company?->name }}</td>
+                                            <td>{{ $item->responsible ?: $item->user?->name }}</td>
+                                            <td>{{ $item->value !== null ? 'R$ ' . number_format((float) $item->value, 2, ',', '.') : '-' }}</td>
                                             <td>
-                                                <span class="badge {{ $list->is_completed ? 'text-bg-success' : 'text-bg-warning' }}">
-                                                    {{ $list->is_completed ? 'Concluido' : 'Em aberto' }}
-                                                </span>
-                                                <span class="badge {{ $list->is_supervisioned ? 'text-bg-info' : 'text-bg-secondary' }}">
-                                                    {{ $list->is_supervisioned ? 'Fiscalizado' : 'Nao fiscalizado' }}
-                                                </span>
-                                                <span class="badge {{ $list->is_archived ? 'text-bg-dark' : 'text-bg-light' }}">
-                                                    {{ $list->is_archived ? 'Arquivado' : 'Ativo' }}
-                                                </span>
+                                                @forelse ($item->orders as $order)
+                                                    <span class="badge text-bg-light">{{ $order->ordem }}</span>
+                                                @empty
+                                                    <span class="text-muted">Sem atividades</span>
+                                                @endforelse
                                             </td>
                                             <td>
-                                                <div class="d-flex justify-content-center gap-1">
+                                                <span class="badge {{ $item->allow ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                    {{ $item->allow ? 'Aprovado' : 'Nao aprovado' }}
+                                                </span>
+                                                <span class="badge {{ $item->deny ? 'text-bg-danger' : 'text-bg-secondary' }}">
+                                                    {{ $item->deny ? 'Rejeitado' : 'Nao rejeitado' }}
+                                                </span>
+                                                <span class="badge {{ $item->complete ? 'text-bg-info' : 'text-bg-light' }}">
+                                                    {{ $item->complete ? 'Completo' : 'Aberto' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex justify-content-center gap-1 flex-wrap">
                                                     <button class="btn btn-sm btn-primary p-1"
-                                                        wire:click="$emitTo('admin.control.d5-edit', 'getInfoResponse', {{ $list->id }})">
+                                                        wire:click="$emitTo('admin.control.partial-edit', 'getInfoResponse', {{ $item->id }})">
                                                         Editar
                                                     </button>
+                                                    <button class="btn btn-sm btn-outline-success p-1"
+                                                        wire:click="approve({{ $item->id }})">
+                                                        Aprovar
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-warning p-1"
+                                                        wire:click="reject({{ $item->id }})">
+                                                        Rejeitar
+                                                    </button>
                                                     <button class="btn btn-sm btn-outline-danger p-1"
-                                                        wire:click="requestDelete({{ $list->id }})">
-                                                        Remover
+                                                        wire:click="requestDelete({{ $item->id }})">
+                                                        Apagar
                                                     </button>
                                                 </div>
                                             </td>
@@ -249,9 +213,7 @@
             @if (!empty($multiSearch) && !empty($missing))
                 <div class="col-12 col-xl-3">
                     <div class="table-card">
-                        <div class="card-header fw-bold text-bg-secondary">
-                            NAO ENCONTRADOS
-                        </div>
+                        <div class="card-header fw-bold text-bg-secondary">NAO ENCONTRADOS</div>
                         <div class="card-body">
                             <ul class="list-group list-group-flush">
                                 @foreach ($missing as $item)
@@ -266,9 +228,7 @@
 
         <div class="summary-bar mt-3">
             <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    {{ $lists->links() }}
-                </div>
+                <div class="col-12 col-lg-6">{{ $lists->links() }}</div>
                 <div class="col-12 col-lg-6 text-lg-end">
                     <div class="summary-item">
                         Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
@@ -279,17 +239,11 @@
             </div>
         </div>
 
-        <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1"
-            aria-labelledby="buscarMultiLabel" aria-hidden="true">
+        <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content edp-bg-stategrey-50">
-                    <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                        Buscar Multi-Notas
-                    </div>
-                    <div>
-                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                            wire:model.defer="advanceSearch"></textarea>
-                    </div>
+                    <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">Buscar Multi-Notas</div>
+                    <textarea class="form-control" cols="50" rows="10" wire:model.defer="advanceSearch"></textarea>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
                     </div>
@@ -297,6 +251,6 @@
             </div>
         </div>
 
-        @livewire('admin.control.d5-edit', key('admin-d5-edit'))
+        @livewire('admin.control.partial-edit', key('admin-partial-edit'))
     </div>
 </div>

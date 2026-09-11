@@ -27,6 +27,11 @@
                             <i class="bi bi-list-ul fs-5 text-edp-verde"></i> <span>CONTROLE INFORME OBRA</span>
                         </a>
                     </li>
+                    <li class="mt-1">
+                        <a href="{{ route('admin.control.partials') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-list-ul fs-5 text-edp-verde"></i> <span>CONTROLE INFORME PARCIAL</span>
+                        </a>
+                    </li>
                 </div>
             </ul>
         </li>

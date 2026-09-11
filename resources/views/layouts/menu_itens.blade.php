@@ -61,6 +61,7 @@
                                 'open' => 'side',
                                 'items' => [
                                     ['label' => 'CONTROLE DE DADOS (D5)', 'route' => 'admin.control.d5', 'icon' => 'ri-database-2-line', 'can' => 'superadm'],
+                                    ['label' => 'CONTROLE INFORME PARCIAL', 'route' => 'admin.control.partials', 'icon' => 'ri-file-list-3-line', 'can' => 'superadm'],
                                 ],
                             ],
                             [

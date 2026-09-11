@@ -1,7 +1,3 @@
-@php
-    use Illuminate\Support\Facades\Storage;
-@endphp
-
 @push('css')
     <style>
         .files-manager-page {
@@ -322,7 +318,8 @@
                     <tbody>
                         @forelse ($lists as $list)
                             @php
-                                $f_exists = Storage::exists($list->path);
+                                $fileStorage = app(\App\Services\Files\FileStorageService::class);
+                                $f_exists = $fileStorage->exists($list);
                                 $isTacitRestricted = (bool) ($list->has_tacit_ads_restriction ?? false);
                                 $isBlockedForUser = !$isSuperAdm && $isTacitRestricted;
                             @endphp
@@ -345,7 +342,7 @@
                                 <td>{{ $this->preferredOrder($list) ?: '-' }}</td>
                                 <td>
                                     @if ($f_exists)
-                                        {{ $this->formatFileSize(Storage::size($list->path)) }}
+                                        {{ $this->formatFileSize($fileStorage->size($list)) }}
                                     @else
                                         -
                                     @endif

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Partial extends Model
 {
@@ -88,6 +89,16 @@ class Partial extends Model
         return $this->belongsToMany(File::class, 'file_partial');
     }
 
+    public function productions(): MorphToMany
+    {
+        return $this->morphToMany(
+            Production::class,
+            'productionable',
+            'productionables',
+            'productionable_id',
+            'production_id'
+        )->withTimestamps();
+    }
 
 
 

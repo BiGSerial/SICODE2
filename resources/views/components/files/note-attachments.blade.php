@@ -4,9 +4,9 @@
 ])
 
 @php
-    use Illuminate\Support\Facades\Storage;
     use Illuminate\Support\Str;
     use App\Models\Service;
+    use App\Services\Files\FileStorageService;
 
     $allFiles = collect($files ?? []);
     $imageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
@@ -85,11 +85,13 @@
     $previewTitleId = 'nsPreviewTitle_' . uniqid();
     $previewDownloadId = 'nsPreviewDownload_' . uniqid();
 
-    $fmtSize = function (?string $path): string {
-        if (!$path || !Storage::exists($path)) {
+    $fileStorage = app(FileStorageService::class);
+
+    $fmtSize = function ($file) use ($fileStorage): string {
+        if (!$file || !$fileStorage->exists($file)) {
             return '---';
         }
-        $size = Storage::size($path);
+        $size = $fileStorage->size($file);
         if ($size < 1024) {
             return $size . ' B';
         }
@@ -469,7 +471,7 @@
                                         <span class="badge text-bg-dark">ADS TÁCITA</span>
                                     </div>
                                 @endif
-                                <div class="mb-1">{{ $fmtSize($file->path) }} · {{ optional($file->created_at)->format('d/m/Y') }}</div>
+                                <div class="mb-1">{{ $fmtSize($file) }} · {{ optional($file->created_at)->format('d/m/Y') }}</div>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <label class="form-check m-0">
                                         @if ($isSuperAdm || !($tacitRestrictedById[(int) $file->id] ?? false))
@@ -531,7 +533,7 @@
                                         @endif
                                     </td>
                                     <td class="text-center align-middle">{{ optional($file->created_at)->format('d/m/Y H:i') }}</td>
-                                    <td class="text-center align-middle">{{ $fmtSize($file->path) }}</td>
+                                    <td class="text-center align-middle">{{ $fmtSize($file) }}</td>
                                     <td class="text-center align-middle">
                                         <div class="actions justify-content-center">
                                             @if ($isSuperAdm)

@@ -7,7 +7,7 @@
                 <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
                 <li class="breadcrumb-item">Administracao</li>
                 <li class="breadcrumb-item">Controle de Dados</li>
-                <li class="breadcrumb-item active" aria-current="page">Controle D5</li>
+                <li class="breadcrumb-item active" aria-current="page">Controle Informe Parcial</li>
             </ol>
         </ol>
     </nav>
@@ -18,7 +18,7 @@
 @endsection
 
 @section('content')
-    @livewire('admin.control.d5-list')
+    @livewire('admin.control.partial-list')
 @endsection
 
 @push('script')

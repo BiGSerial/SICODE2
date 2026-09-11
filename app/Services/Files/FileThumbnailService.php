@@ -65,7 +65,7 @@ class FileThumbnailService
             imagedestroy($image);
             imagedestroy($thumb);
 
-            $disk   = $file->disk ?: 'local';
+            $disk   = $this->storage->resolvedDiskName($file);
             $path   = 'thumbnails/files/' . $file->id . '/' . Str::slug(pathinfo((string) $file->file_name, PATHINFO_FILENAME) ?: 'arquivo') . '.webp';
             $stream = fopen($target, 'rb');
 
