@@ -22,43 +22,54 @@ class FileStorageService
 
     public function fileDisk(File $file): FilesystemAdapter
     {
-        return $this->disk($file->disk ?: 'local');
+        return $this->disk($this->resolvedDiskName($file));
     }
 
     public function exists(File $file): bool
     {
-        return $file->path !== null && $this->fileDisk($file)->exists($file->path);
+        return $this->resolveLocation($file) !== null;
     }
 
     public function get(File $file): string
     {
-        return $this->fileDisk($file)->get((string) $file->path);
+        [$disk, $path] = $this->requireLocation($file);
+
+        return $this->disk($disk)->get($path);
     }
 
     public function stream(File $file)
     {
-        return $this->fileDisk($file)->readStream((string) $file->path);
+        [$disk, $path] = $this->requireLocation($file);
+
+        return $this->disk($disk)->readStream($path);
     }
 
     public function download(File $file, ?string $name = null): StreamedResponse
     {
-        return $this->fileDisk($file)->download((string) $file->path, $name ?: $file->stored_name);
+        [$disk, $path] = $this->requireLocation($file);
+
+        return $this->disk($disk)->download($path, $name ?: $file->stored_name);
     }
 
     public function delete(File $file): bool
     {
-        return $this->exists($file) && $this->fileDisk($file)->delete((string) $file->path);
+        $location = $this->resolveLocation($file);
+
+        if ($location === null) {
+            return false;
+        }
+
+        [$disk, $path] = $location;
+
+        return $this->disk($disk)->delete($path);
     }
 
     public function move(File $file, string $newPath): bool
     {
-        $disk = $this->fileDisk($file);
+        [$diskName, $path] = $this->requireLocation($file);
+        $disk = $this->disk($diskName);
 
-        if (!$this->exists($file)) {
-            return false;
-        }
-
-        return (string) $file->path === $newPath || $disk->move((string) $file->path, $newPath);
+        return $path === $newPath || $disk->move($path, $newPath);
     }
 
     /**
@@ -126,7 +137,26 @@ class FileStorageService
 
     public function mimeType(File $file): string
     {
-        return (string) ($file->mime ?: $this->fileDisk($file)->mimeType((string) $file->path) ?: 'application/octet-stream');
+        if ($file->mime) {
+            return (string) $file->mime;
+        }
+
+        [$disk, $path] = $this->requireLocation($file);
+
+        return (string) ($this->disk($disk)->mimeType($path) ?: 'application/octet-stream');
+    }
+
+    public function size(File $file): int
+    {
+        $storedSize = $file->getRawOriginal('size') ?? null;
+
+        if ($storedSize !== null) {
+            return (int) $storedSize;
+        }
+
+        [$disk, $path] = $this->requireLocation($file);
+
+        return (int) $this->disk($disk)->size($path);
     }
 
     public function putUploadedAs(UploadedFile $upload, string $directory, string $name, ?string $disk = null): array
@@ -150,5 +180,68 @@ class FileStorageService
             'size'   => $upload->getSize(),
             'sha256' => hash_file('sha256', $upload->getRealPath()),
         ];
+    }
+
+    public function resolvedDiskName(File $file): string
+    {
+        return $this->resolveLocation($file)[0] ?? $this->diskName($file->disk ?: null);
+    }
+
+    public function resolvedPath(File $file): ?string
+    {
+        return $this->resolveLocation($file)[1] ?? null;
+    }
+
+    private function requireLocation(File $file): array
+    {
+        $location = $this->resolveLocation($file);
+
+        if ($location === null) {
+            throw new \RuntimeException('Arquivo não encontrado no storage.');
+        }
+
+        return $location;
+    }
+
+    private function resolveLocation(File $file): ?array
+    {
+        foreach ($this->locationCandidates($file) as [$disk, $path]) {
+            if ($path !== '' && $this->disk($disk)->exists($path)) {
+                return [$disk, $path];
+            }
+        }
+
+        return null;
+    }
+
+    private function locationCandidates(File $file): array
+    {
+        $rawPath = ltrim((string) $file->path, '/');
+
+        if ($rawPath === '') {
+            return [];
+        }
+
+        $paths = array_values(array_unique(array_filter([
+            $rawPath,
+            str_starts_with($rawPath, 'storage/') ? substr($rawPath, strlen('storage/')) : null,
+            str_starts_with($rawPath, 'public/') ? substr($rawPath, strlen('public/')) : null,
+        ])));
+
+        $disks = array_values(array_unique(array_filter([
+            $file->disk ?: null,
+            'local',
+            'public',
+        ])));
+
+        $candidates = [];
+
+        foreach ($disks as $disk) {
+            foreach ($paths as $path) {
+                $candidates[] = [$disk, $path];
+            }
+        }
+
+        return $candidates;
     }
 }

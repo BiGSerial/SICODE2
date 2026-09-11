@@ -3,14 +3,14 @@
 namespace App\Http\Livewire\Admin\Control;
 
 use App\Helpers\TextFormatter;
-use App\Models\FiveNote;
+use App\Models\Partial;
 use App\Traits\WildcardFormmater;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class D5List extends Component
+class PartialList extends Component
 {
     use WithPagination;
     use TextFormatter;
@@ -33,7 +33,7 @@ class D5List extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
-        'confirmDeleteD5' => 'deleteD5',
+        'confirmDeletePartial' => 'deletePartial',
     ];
 
     public function updatedSearch(): void
@@ -64,25 +64,25 @@ class D5List extends Component
 
     private function baseQuery(): Builder
     {
-        $base = FiveNote::query()->with(['note', 'company']);
+        $base = Partial::query()->with(['Note', 'company', 'user', 'engineer', 'supervisor', 'payer', 'orders']);
 
         if ($this->search) {
             $search = $this->formatWithWildcard($this->search);
             $base->where(function ($query) use ($search) {
-                $query->where('note_d5', $search->type, $search->search)
-                    ->orWhereHas('note', function ($q) use ($search) {
-                        $q->where('note', $search->type, $search->search);
-                    });
+                $query->where('id', $search->type, $search->search)
+                    ->orWhere('responsible', $search->type, $search->search)
+                    ->orWhereHas('Note', fn ($q) => $q->where('note', $search->type, $search->search))
+                    ->orWhereHas('orders', fn ($q) => $q->where('ordem', $search->type, $search->search));
             });
         }
 
         if (!empty($this->multiSearch)) {
             $values = $this->multiSearch;
             $base->where(function ($query) use ($values) {
-                $query->whereIn('note_d5', $values)
-                    ->orWhereHas('note', function ($q) use ($values) {
-                        $q->whereIn('note', $values);
-                    });
+                $query->whereIn('id', $values)
+                    ->orWhereIn('responsible', $values)
+                    ->orWhereHas('Note', fn ($q) => $q->whereIn('note', $values))
+                    ->orWhereHas('orders', fn ($q) => $q->whereIn('ordem', $values));
             });
         }
 
@@ -97,20 +97,14 @@ class D5List extends Component
             return [];
         }
 
-        $probe = (clone $base)->select(['id', 'note_d5', 'note_id'])->with(['note:id,note']);
-        $matches = $probe->get();
-        $found = [];
-
-        foreach ($matches as $item) {
-            if ($item->note_d5 && in_array($item->note_d5, $values, true)) {
-                $found[] = $item->note_d5;
-            }
-            if ($item->note?->note && in_array($item->note->note, $values, true)) {
-                $found[] = $item->note->note;
-            }
-        }
-
-        $found = array_values(array_unique($found));
+        $found = (clone $base)->get()->flatMap(function ($item) {
+            return array_filter([
+                (string) $item->id,
+                (string) ($item->responsible ?? ''),
+                (string) ($item->Note->note ?? ''),
+                ...$item->orders->pluck('ordem')->map(fn ($order) => (string) $order)->all(),
+            ]);
+        })->filter()->unique()->values()->all();
 
         return array_values(array_diff($values, $found));
     }
@@ -128,82 +122,105 @@ class D5List extends Component
         return $base->paginate($this->perPage);
     }
 
+    public function approve(int $id): void
+    {
+        $partial = Partial::find($id);
+
+        if (!$partial) {
+            return;
+        }
+
+        $partial->forceFill([
+            'allow' => true,
+            'deny' => false,
+            'decision_at' => now(),
+            'engineer_id' => auth()->id(),
+        ])->save();
+
+        $this->emit('refresh_list');
+    }
+
+    public function reject(int $id): void
+    {
+        $partial = Partial::find($id);
+
+        if (!$partial) {
+            return;
+        }
+
+        $partial->forceFill([
+            'allow' => false,
+            'deny' => true,
+            'complete' => false,
+            'decision_at' => now(),
+            'engineer_id' => auth()->id(),
+        ])->save();
+
+        $this->emit('refresh_list');
+    }
+
     public function requestDelete(int $id): void
     {
         $this->deleteId = $id;
-
         $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Remover D5',
-            'msg'           => 'Tem certeza que deseja remover esta D5? Evidencias, eventos e vinculos com producoes serao removidos/desassociados.',
+            'title'         => 'Remover Informe Parcial',
+            'msg'           => 'Tem certeza que deseja remover este informe parcial? Vinculos com atividades e arquivos serao desassociados.',
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, remover',
             'btnCanceltxt'  => 'Nao, cancelar',
-            'action'        => 'confirmDeleteD5',
+            'action'        => 'confirmDeletePartial',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg'    => 'Nenhuma D5 foi removida.',
+            'cancel_msg'    => 'Nenhum informe parcial foi removido.',
         ]);
     }
 
-    public function deleteD5(): void
+    public function deletePartial(): void
     {
         if (!$this->deleteId) {
             return;
         }
 
-        $five = FiveNote::with(['productions', 'EvidenceFiles', 'timelineEvents', 'Comments'])->find($this->deleteId);
+        $partial = Partial::with(['orders', 'files', 'productions.partialInforms'])->find($this->deleteId);
 
-        if (!$five) {
+        if (!$partial) {
             $this->deleteId = null;
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'D5 nao encontrada',
-                'timer'    => 2500,
-            ]);
-
             return;
         }
 
-        try {
-            DB::transaction(function () use ($five) {
-                foreach ($five->productions as $production) {
+        DB::transaction(function () use ($partial) {
+            $productions = $partial->productions;
+
+            $partial->orders()->detach();
+            $partial->files()->detach();
+            $partial->productions()->detach();
+
+            foreach ($productions as $production) {
+                $production->load('partialInforms');
+
+                if ($production->partialInforms->isEmpty()) {
                     $production->forceFill([
-                        'dfive' => false,
-                        'd5'    => false,
+                        'partial' => false,
+                        'partial_at' => null,
                     ])->save();
                 }
+            }
 
-                $five->productions()->detach();
-                $five->EvidenceFiles()->delete();
-                $five->timelineEvents()->delete();
-                $five->Comments()->delete();
-                $five->delete();
-            });
-        } catch (\Throwable) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Nao foi possivel remover a D5',
-                'text'     => 'Verifique dependencias vinculadas e tente novamente.',
-            ]);
-
-            return;
-        }
+            $partial->delete();
+        });
 
         $this->deleteId = null;
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => 'D5 removida',
+            'title'    => 'Informe parcial removido',
             'timer'    => 2000,
         ]);
-
         $this->resetPage();
     }
 
     public function render()
     {
-        return view('livewire.admin.control.d5-list', [
+        return view('livewire.admin.control.partial-list', [
             'lists' => $this->lists,
             'missing' => $this->missingSearch,
         ]);

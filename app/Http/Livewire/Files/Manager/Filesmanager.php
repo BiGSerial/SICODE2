@@ -246,7 +246,7 @@ class Filesmanager extends Component
                     $file->noexists = true;
                     $file->save();
                     $noExists++;
-                } elseif ($exists && !$file->noexists) {
+                } elseif ($exists && $file->noexists) {
                     $file->noexists = false;
                     $file->save();
                 }

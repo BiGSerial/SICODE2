@@ -65,7 +65,7 @@ class Search extends Component
                 },
 
                 // Arquivos
-                'Files:id,note_id,service_id,file_name,ext,path,created_at',
+                'Files:id,note_id,service_id,user_id,file_name,original_name,ext,path,disk,mime,size,sha256,noexists,created_at,updated_at',
                 'Files.Service:id,service',
 
                 // Ordens + Operações
@@ -109,9 +109,9 @@ class Search extends Component
                         'Company:id,name',
                         'Form:id,viability_id,user_id,reason,description,changes,responsible,rejected,approved,historic,created_at,updated_at',
                         'Form.User:id,name,email',
-                        'Form.Files:id,file_name,original_name,path,ext,user_id,created_at',
+                        'Form.Files:id,file_name,original_name,path,disk,mime,size,sha256,noexists,ext,user_id,created_at,updated_at',
                         'Form.Files.User:id,name',
-                        'Files:id,file_name,original_name,path,ext,user_id,created_at',
+                        'Files:id,file_name,original_name,path,disk,mime,size,sha256,noexists,ext,user_id,created_at,updated_at',
                         'Files.User:id,name',
                     ])->select([
                         'id','note_id','user_id','engineer_id','company_id',
@@ -207,6 +207,10 @@ class Search extends Component
             ])
             ->first();
 
+        if ($this->lists) {
+            $this->loadVisibleFilesForCurrentSearch($term);
+        }
+
         // reset de estados voláteis
         $this->hasProtestOverview = $this->lists
             ? $this->lists->Protests()->exists()
@@ -282,11 +286,10 @@ class Search extends Component
             return;
         }
 
-        $validIds = File::query()
-            ->where('note_id', (int) $this->lists->id)
-            ->whereIn('id', $ids->all())
+        $validIds = $this->lists->Files
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
+            ->intersect($ids)
             ->values()
             ->all();
 
@@ -325,11 +328,10 @@ class Search extends Component
             return;
         }
 
-        $selectedIds = File::query()
-            ->where('note_id', (int) $this->lists->id)
-            ->whereIn('id', $selectedIds->all())
+        $selectedIds = $this->lists->Files
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
+            ->intersect($selectedIds)
             ->values()
             ->all();
 
@@ -351,6 +353,43 @@ class Search extends Component
             'note' => $this->lists->note,
             'note_id' => (int) $this->lists->id,
         ]);
+    }
+
+    private function loadVisibleFilesForCurrentSearch(string $term): void
+    {
+        $term = trim($term);
+        $note = trim((string) $this->lists->note);
+
+        $files = File::query()
+            ->with(['Service:id,service', 'User:id,name'])
+            ->where(function ($q) use ($term, $note) {
+                $q->where('note_id', (int) $this->lists->id);
+
+                foreach (array_unique(array_filter([$term, $note])) as $value) {
+                    $q->orWhere('file_name', 'like', '%' . $value . '%')
+                        ->orWhere('original_name', 'like', '%' . $value . '%');
+                }
+            })
+            ->orderBy('file_name')
+            ->get([
+                'id',
+                'note_id',
+                'service_id',
+                'user_id',
+                'file_name',
+                'original_name',
+                'ext',
+                'path',
+                'disk',
+                'mime',
+                'size',
+                'sha256',
+                'noexists',
+                'created_at',
+                'updated_at',
+            ]);
+
+        $this->lists->setRelation('Files', $files);
     }
 
     public function render()

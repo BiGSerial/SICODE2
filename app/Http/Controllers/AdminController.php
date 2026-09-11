@@ -56,6 +56,11 @@ class AdminController extends Controller
         return view('admin.control.workreports');
     }
 
+    public function control_partials()
+    {
+        return view('admin.control.partials');
+    }
+
     public function control_ads_requests()
     {
         return view('admin.control.ads_requests');

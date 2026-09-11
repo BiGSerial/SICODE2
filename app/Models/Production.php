@@ -207,6 +207,17 @@ class Production extends Model
         )->withTimestamps();
     }
 
+    public function partialInforms(): MorphToMany
+    {
+        return $this->morphedByMany(
+            Partial::class,
+            'productionable',
+            'productionables',
+            'production_id',
+            'productionable_id'
+        )->withTimestamps();
+    }
+
     public function WorkReportFlowProductions()
     {
         return $this->hasMany(WorkReportFlowProduction::class);

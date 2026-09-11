@@ -139,8 +139,15 @@ class FilesController extends Controller
             abort(422, 'Contexto da nota inválido para gerar ZIP.');
         }
 
-        $files = File::where('note_id', $noteId)
-            ->whereIn('id', $ids)
+        $files = File::whereIn('id', $ids)
+            ->where(function ($query) use ($noteId, $note) {
+                $query->where('note_id', $noteId);
+
+                if (trim($note) !== '') {
+                    $query->orWhere('file_name', 'like', '%' . $note . '%')
+                        ->orWhere('original_name', 'like', '%' . $note . '%');
+                }
+            })
             ->get();
 
         if ($files->isEmpty()) {
