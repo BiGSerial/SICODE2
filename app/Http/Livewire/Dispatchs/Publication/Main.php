@@ -7,9 +7,10 @@ use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
 use App\Helpers\TextFormatter;
 use App\Models\City;
-use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, WorkReport};
 use App\Repositories\PublishRepository;
 use App\Services\Publication\NoteFilter;
+use App\Services\WorkReports\{WorkReportFinalScopeResolver, WorkReportFlowProductionLinker};
 use App\Traits\WildcardFormmater;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -59,8 +60,6 @@ class Main extends Component
     public $notes;
 
     public $enter_dd;
-
-    public $filteredLists;
 
     public $search_user;
 
@@ -149,7 +148,7 @@ class Main extends Component
     public function updatedSelectall($val)
     {
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+        $idsToKeep = $this->currentPageListIds();
 
         if ($val) {
             // Adicionar os IDs ausentes de $selected
@@ -192,6 +191,21 @@ class Main extends Component
 
     public function hasPublication(Note $note)
     {
+        $workReport = $note->WorkForm;
+
+        if ($workReport) {
+            $production = $workReport->FlowProductions
+                ?->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION)
+                ->where('is_current', true)
+                ->pluck('Production')
+                ->filter(fn ($production) => $production && (string) $production->service_id === (string) $this->service->uuid)
+                ->last();
+
+            if ($production) {
+                return $production;
+            }
+        }
+
         $production = $note->Productions->where('service_id', $this->service->uuid)->last();
 
         if ($production) {
@@ -219,8 +233,6 @@ class Main extends Component
     public function go_att_mass()
     {
 
-        $this->clean();
-
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -232,13 +244,7 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::find($this->selected);
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
     }
 
     public function confirm_att()
@@ -354,6 +360,8 @@ class Main extends Component
                     $user_info = $this->dispatchRecipientInfo();
 
                     if ($production) {
+                        $this->linkPublicationWorkReport($production, $note);
+
                         Notetimeline::Create([
                             'note_id'      => $production->id,
                             'service_id'   => $production->service_id,
@@ -389,6 +397,8 @@ class Main extends Component
                     $user_info = $this->dispatchRecipientInfo();
 
                     if ($production) {
+                        $this->linkPublicationWorkReport($production, $note);
+
                         Notetimeline::Create([
                             'note_id'      => $production->id,
                             'service_id'   => $production->service_id,
@@ -499,7 +509,7 @@ class Main extends Component
         }
 
 
-        $query = $this->publishRepository->getBaseQuery($this->all_services);
+        $query = $this->publishRepository->getBaseQuery($this->all_services, $this->service->uuid);
 
         // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
         if (!$this->all_services) {
@@ -507,11 +517,6 @@ class Main extends Component
                 $q->where(function ($wq) {
                     $wq->whereHas('WorkForm', function ($sq) {
                         $sq->where('rejected', false);
-                    })->orWhere(function ($sq) {
-                        if ($this->btzeroform) {
-                            $sq->doesntHave('WorkForm')
-                               ->whereHas('RamalForm');
-                        }
                     });
                 });
             });
@@ -550,7 +555,7 @@ class Main extends Component
             $multiSearchTerms = $this->multiSearch;
             $query->where(function ($q1) use ($multiSearchTerms) {
                 $q1->whereIn('note', $multiSearchTerms)
-                    ->orWhereHas('Orders', function ($q2) use ($multiSearchTerms) {
+                    ->orWhereHas('WorkForm.Orders', function ($q2) use ($multiSearchTerms) {
                         $q2->whereIn('ordem', $multiSearchTerms);
                     });
             });
@@ -572,7 +577,13 @@ class Main extends Component
 
 
         // Eager Loading e Seleção de Colunas
-        $query->with('Productions', 'WorkForm', 'RamalForm')
+        $query->with([
+            'Productions',
+            'WorkForm.Company',
+            'WorkForm.Orders',
+            'WorkForm.FlowProductions.Production',
+            'RamalForm',
+        ])
             ->select([
                 'notes.*',
                     DB::raw("
@@ -686,17 +697,38 @@ class Main extends Component
         return "{$note} => Desconhecido";
     }
 
+    private function linkPublicationWorkReport(Production $production, Note $note): void
+    {
+        $workReport = $note->WorkForm instanceof WorkReport
+            ? $note->WorkForm
+            : $note->WorkForm()->with('Orders')->first();
+
+        if (!$workReport) {
+            return;
+        }
+
+        $scope = collect($workReport->finalScopePayloads())
+            ->pluck('scope')
+            ->first(fn (string $scope) => app(WorkReportFinalScopeResolver::class)->publicationRequired($scope));
+
+        if (!$scope) {
+            return;
+        }
+
+        app(WorkReportFlowProductionLinker::class)->linkPublicationForWorkReport(
+            $production,
+            $workReport,
+            'dispatch_publication_main',
+            [],
+            $scope
+        );
+    }
+
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
+        $lists = $this->lists->paginate($this->perPage);
 
-            return !$list->Productions
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
-
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
+        if (empty(array_diff($lists->pluck('id')->toArray(), $this->selected))) {
             $this->selectall = true;
         } else {
             $this->selectall = false;
@@ -765,8 +797,16 @@ class Main extends Component
         // }
 
         return view('livewire.dispatchs.publication.main', [
-            'lists'  => $this->lists->paginate($this->perPage),
+            'lists'  => $lists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
+    }
+
+    private function currentPageListIds(): array
+    {
+        return $this->lists
+            ->paginate($this->perPage)
+            ->pluck('id')
+            ->toArray();
     }
 }

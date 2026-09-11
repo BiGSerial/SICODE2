@@ -303,7 +303,7 @@
                 <div>
                     <h1 class="dispatch-modal__title" id="dispatchModalLabel">Despachar {{ $service->service }}</h1>
                     <div class="dispatch-modal__subtitle">
-                        {{ $notes && $notes->count() ? $notes->count() . ' OV/Nota(s) selecionada(s)' : 'Nenhuma OV/Nota selecionada' }}
+                        {{ $notes && $notes->count() ? $notes->count() . ' ' . $this->dispatchItemLabelPlural . ' selecionado(s)' : 'Nenhum ' . $this->dispatchItemLabel . ' selecionado' }}
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -420,7 +420,7 @@
                             <thead>
                                 <tr>
                                     <th scope="col" class="text-center" style="width:52px;">#</th>
-                                    <th scope="col">Nota/OV</th>
+                                    <th scope="col">{{ ucfirst($this->dispatchItemLabel) }}</th>
                                     <th scope="col">Descricao</th>
                                     @if ($requiresFinalScope)
                                         <th scope="col">Escopo</th>
@@ -450,7 +450,7 @@
                                                             </label>
                                                         @endforeach
                                                     </div>
-                                                    <div class="dispatch-modal__scope-warning">Marque o escopo exato desta fiscalizacao.</div>
+                                                    <div class="dispatch-modal__scope-warning">{{ $this->finalScopePrompt }}</div>
                                                 @elseif (count($scopeOptions) === 1)
                                                     <span class="badge dispatch-modal__scope-badge text-bg-primary">{{ $scopeOptions[0]['label'] }}</span>
                                                 @else

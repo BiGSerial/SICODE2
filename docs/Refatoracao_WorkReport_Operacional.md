@@ -63,3 +63,89 @@ Toda decisao desta refatoracao deve priorizar confiabilidade, integridade do dad
 - Listas paginam candidatos por WorkReport.
 - Exports nao voltam a mapear Ordens pela Nota inteira.
 - Testes automatizados cobrem caso de Nota com multiplos WorkReports.
+
+## Registro De Andamento
+
+Atualizado em 2026-09-11.
+
+### Concluido / Validado
+
+- Base operacional criada em `work_report_flow_productions`, com `stage`, `final_scope`, controle de vinculo atual e reversao.
+- `WorkReportFlowProductionLinker` centraliza vinculos de Fiscalizacao, Medicao e Publicacao.
+- `WorkReportStatusResolver` calcula o status atual do informe a partir dos vinculos operacionais, D5 e fallback por operacoes SAP.
+- `WorkReportCurrentStatusRefresher` persiste `current_status_key`, `current_status_label`, `current_status_class` e `current_status_updated_at` em `work_reports`.
+- Fiscalizacao ja permite selecao e despacho por WorkReport pelo modal compartilhado.
+- Fiscalizacao bloqueia despacho ambiguo legado quando ha atividade aberta sem vinculo de informe.
+- Fiscalizacao permite coexistencia de WorkReports diferentes da mesma Nota, separados por escopo.
+- Medicao cria vinculos por WorkReport/escopo nos fluxos de despacho e autoatribuicao ja migrados.
+- Escopos finais de BTZero EP estao materializados como Rede, Ligacao ou Geral, com regra de Publicacao nao aplicavel para Ligacao.
+- Lista de despacho de Publicacao passou a avaliar elegibilidade pelas Ordens do WorkReport ativo, nao pela Nota inteira.
+- Lista de despacho de Publicacao nao reabre por Ordem 150 posterior quando essa Ordem nao pertence ao informe publicavel.
+- Lista de despacho de Publicacao permite coexistencia com Fiscalizacao aberta/simultanea do mesmo informe.
+- Lista de despacho de Publicacao remove o informe pela OP20 confirmada nas Ordens associadas ao WorkReport, nao pela simples existencia de `Production`.
+- Despacho em lote de Publicacao passou a abrir o modal compartilhado de despacho por informe, substituindo o modal legado da tela.
+- Despacho de Publicacao passou a materializar vinculo operacional `stage = publication` para o WorkReport publicavel.
+- Telas principais ja exibem badges de escopo e status atual do informe em pontos de parceiro, Fiscalizacao, Medicao e Publicacao.
+- Testes especificos de linker, status e selecao de Fiscalizacao passaram no container `sicode2-app`.
+- Testes especificos de Publicacao por WorkReport passaram no container `sicode2-app`.
+
+Comando validado:
+
+```bash
+docker exec sicode2-app php artisan test tests/Feature/WorkReportFlowProductionLinkerTest.php tests/Unit/WorkReportStatusResolverTest.php tests/Feature/SupervisionDispatchWorkReportSelectionTest.php
+docker exec sicode2-app php artisan test tests/Feature/PublicationWorkReportDispatchListTest.php tests/Feature/WorkReportFlowProductionLinkerTest.php
+docker exec sicode2-app php artisan test tests/Feature/PublicationWorkReportDispatchListTest.php tests/Feature/WorkReportFlowProductionLinkerTest.php tests/Unit/WorkReportStatusResolverTest.php tests/Feature/SupervisionDispatchWorkReportSelectionTest.php
+```
+
+Resultados:
+
+- Suite de linker/status/selecao de Fiscalizacao: 41 testes, 60 assertions.
+- Suite focada em Publicacao por WorkReport + linker: 14 testes, 33 assertions.
+- Suite combinada final: 48 testes, 71 assertions.
+
+### Parcial / Em Atencao
+
+- Publicacao possui lista de despacho e criacao inicial vinculadas ao WorkReport publicavel; ainda falta revisar pilha, acompanhamento, encerramento e export para garantir que todos usam o mesmo vinculo operacional.
+- `note_inform_flows` continua existindo como camada consolidada/analitica e fonte materializada de escopos quando disponivel; nao deve ser confundida com o vinculo operacional ativo.
+- Algumas rotas/telas de Medicao ainda mantem trechos legados de criacao/atribuicao de `Production`; confirmar caso a caso se todos chamam o linker antes de considerar a fase totalmente encerrada.
+- Existem alteracoes locais em andamento no formulario de Fiscalizacao para regra de D5/conclusao. Elas nao fazem parte da refatoracao estrutural por WorkReport, mas impactam o encerramento operacional de Fiscalizacao.
+- Execucao de testes pelo host falha por resolucao/conexao do banco (`host.docker.internal`/MySQL); executar a suite pelo container enquanto esse ambiente nao for ajustado.
+
+### Etapas A Concluir
+
+1. Completar Publicacao por WorkReport aplicavel.
+   - Revisar pilha/atribuicao de Publicacao para usar e preservar o vinculo `stage = publication`.
+   - Revisar encerramento de Publicacao para refrescar status do WorkReport vinculado.
+   - Revisar export de Publicacao para usar as Ordens do WorkReport, nao da Nota inteira.
+   - Impedir fallback ambiguo quando houver mais de um WorkReport compativel.
+
+2. Revisar todos os fluxos de Medicao.
+   - Confirmar que despacho principal, pilha, acompanhamento e autoatribuicao sempre criam vinculo operacional quando o fluxo for final.
+   - Garantir que parcial continue fora de `work_report_flow_productions`.
+   - Validar que OP30/OP50 sao avaliadas somente nas Ordens do WorkReport.
+
+3. Revisar exports.
+   - Fiscalizacao e Medicao devem usar a mesma fonte de verdade das telas.
+   - Publicacao deve exportar por WorkReport aplicavel, nao por Nota expandida.
+
+4. Completar historico por informe.
+   - Novos eventos devem registrar `work_report_id` quando nascerem de Fiscalizacao, Medicao ou Publicacao por informe.
+   - Manter `note_id`, `service_id` e `production_id` para compatibilidade e auditoria.
+
+5. Consolidar invariantes de banco.
+   - Avaliar indice/constraint para impedir duas atividades ativas do mesmo WorkReport + etapa + servico.
+   - Preservar a possibilidade de atividades simultaneas para WorkReports diferentes da mesma Nota.
+
+6. Levantamento D5.
+   - Mapear todos os pontos que inferem D5 por Nota.
+   - Definir se D5 permanece agregado por Nota ou se precisara de amarracao por WorkReport em uma fase futura.
+   - Nao alterar estrutura D5 nesta fase sem nova decisao.
+
+7. Retrofill e diagnostico.
+   - Rodar ou revisar retrofill de vinculos para producoes finais existentes.
+   - Gerar relatorio de casos ambiguos: multiplos WorkReports ativos, producoes finais sem vinculo, vinculos inativos/revertidos e publicacoes sem WorkReport.
+
+8. Ampliar testes.
+   - Cobrir Publicacao por WorkReport, incluindo exclusao de Ligacao.
+   - Cobrir duplicidade ativa por WorkReport/etapa/servico.
+   - Cobrir exports usando WorkReport como unidade real.

@@ -64,6 +64,7 @@ class DispatchContextResolver
             'levantamento' => 'survey',
             'fiscalizacao' => 'supervision',
             'pagamento' => 'payment',
+            'publicacao' => 'publication',
             default => (string) $service->folder,
         };
     }

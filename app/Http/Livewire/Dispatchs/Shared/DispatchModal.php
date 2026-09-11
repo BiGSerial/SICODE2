@@ -83,7 +83,7 @@ class DispatchModal extends Component
         $this->applyContractModeDefaults();
         $this->additionalData = [];
         $contextResolver      = app(DispatchContextResolver::class);
-        $scopeAwareService    = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
+        $scopeAwareService    = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
@@ -218,7 +218,7 @@ class DispatchModal extends Component
         $this->applyContractModeDefaults();
 
         $contextResolver   = app(DispatchContextResolver::class);
-        $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
+        $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
@@ -335,13 +335,13 @@ class DispatchModal extends Component
         $this->dispatchBrowserEvent('alertar', [
             'target'        => 'dispatchs.shared.dispatch-modal',
             'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
+            'msg'           => "Você está prestes a Despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}",
             'icon'          => 'warning',
             'btnOktxt'      => 'Sim, Despache!',
             'btnCanceltxt'  => 'Não, Cancele',
             'action'        => 'confirm_dispatch_modal',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma nota foi despachada.',
+            'cancel_msg'    => "Nenhum {$this->dispatchItemLabel} foi despachado.",
         ]);
     }
 
@@ -373,7 +373,8 @@ class DispatchModal extends Component
             $workflow          = app(DispatchWorkflowService::class);
             $scopeOptions      = app(WorkReportFinalScopeOptions::class);
             $contextResolver   = app(DispatchContextResolver::class);
-            $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment'], true);
+            $serviceKey        = $contextResolver->serviceKey($this->service);
+            $scopeAwareService = in_array($serviceKey, ['supervision', 'payment', 'publication'], true);
             $company           = Company::findOrFail($this->company_s);
             $targetUser        = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
             $actor             = auth()->user();
@@ -402,7 +403,7 @@ class DispatchModal extends Component
                         continue;
                     }
 
-                    $available = $scopeOptions->forNote($note);
+                    $available = $scopeOptions->forNote($note, $serviceKey === 'publication');
                     $selected  = $this->selectedFinalScopesForNote($note);
 
                     if (count($available) > 1 && empty($selected)) {
@@ -483,7 +484,7 @@ class DispatchModal extends Component
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => 'Notas Despachadas com sucesso!',
+            'title'    => "{$this->dispatchItemLabelPlural} despachados com sucesso!",
             'timer'    => 2500,
         ]);
 
@@ -501,6 +502,23 @@ class DispatchModal extends Component
     public function render()
     {
         return view('livewire.dispatchs.shared.dispatch-modal');
+    }
+
+    public function getDispatchItemLabelProperty(): string
+    {
+        return $this->currentServiceKey() === 'publication' ? 'informe' : 'nota/OV';
+    }
+
+    public function getDispatchItemLabelPluralProperty(): string
+    {
+        return $this->currentServiceKey() === 'publication' ? 'informe(s)' : 'nota(s)/OV(s)';
+    }
+
+    public function getFinalScopePromptProperty(): string
+    {
+        return $this->currentServiceKey() === 'publication'
+            ? 'Marque o escopo exato desta publicacao.'
+            : 'Marque o escopo exato desta fiscalizacao.';
     }
 
     private function loadDispatchCompanies(): void
@@ -597,7 +615,8 @@ class DispatchModal extends Component
 
     private function prepareFinalScopeSelection(Note $note): void
     {
-        $options                               = app(WorkReportFinalScopeOptions::class)->forNote($note);
+        $publicationOnly                       = app(DispatchContextResolver::class)->serviceKey($this->service) === 'publication';
+        $options                               = app(WorkReportFinalScopeOptions::class)->forNote($note, $publicationOnly);
         $this->finalScopeOptions[$note->id]    = $options;
         $this->finalScopeSelections[$note->id] = [];
 
@@ -634,7 +653,11 @@ class DispatchModal extends Component
             ->all();
 
         return app(WorkReportFinalScopeOptions::class)
-            ->validScopesForNote($note, $selected);
+            ->validScopesForNote(
+                $note,
+                $selected,
+                app(DispatchContextResolver::class)->serviceKey($this->service) === 'publication'
+            );
     }
 
     private function selectedFinalScopesForWorkReport(WorkReport $workReport, string $scopeKey): array
@@ -652,6 +675,11 @@ class DispatchModal extends Component
             ->all();
 
         return empty($selected) ? $available->all() : $selected;
+    }
+
+    private function currentServiceKey(): string
+    {
+        return app(DispatchContextResolver::class)->serviceKey($this->service);
     }
 
     private function modalNoteRelations(): array

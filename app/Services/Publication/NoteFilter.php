@@ -31,33 +31,10 @@ class NoteFilter
 
             $q->where(function ($wq) {
                 $wq->whereHas('WorkForm', function ($sq) {
-                    $sq->where('rejected', false);
-                })->orWhere(function ($sq) {
-                    if ($this->btzeroform) {
-                        $sq->doesntHave('WorkForm')
-                       ->whereHas('RamalForm');
-                    }
+                    $sq->where('rejected', false)
+                        ->whereHas('Orders', fn (Builder $order) => $this->publicationEligibleOrder($order));
                 });
             });
-        });
-
-        $query->whereHas('Orders', function ($q) {
-            $q->where(function ($sq) {
-                $sq->where('statusSist', 'LIKE', 'LIB%')
-                    ->orWhere('statusSist', 'LIKE', 'ABER%');
-            })
-                ->whereHas('Operations', function ($sq) {
-                    $sq->where('operacao', '0010')
-                        ->where('status', 'like', 'CONF%');
-                })
-                ->whereHas('Operations', function ($sq) {
-                    $sq->where('operacao', '0020')
-                        ->where(function ($q) {
-                            $q->where('status', 'like', 'LIB%')
-                                ->orWhere('status', 'like', 'CNPA%')
-                                ->orWhere('status', 'like', 'JBFI LIB%');
-                        });
-                });
         });
 
         if (SicodeRules::workReportSplitsBtzeroEpFinalFlows()) {
@@ -106,5 +83,19 @@ class NoteFilter
 
 
         return $query;
+    }
+
+    private function publicationEligibleOrder(Builder $query): Builder
+    {
+        return $query
+            ->where('statusSist', 'LIKE', 'LIB%')
+            ->whereHas('Operations', function (Builder $operation) {
+                $operation->where('operacao', '0020')
+                    ->where(function (Builder $status) {
+                        $status->where('status', 'like', 'LIB%')
+                            ->orWhere('status', 'like', 'CNPA%')
+                            ->orWhere('status', 'like', 'JBFI LIB%');
+                    });
+            });
     }
 }

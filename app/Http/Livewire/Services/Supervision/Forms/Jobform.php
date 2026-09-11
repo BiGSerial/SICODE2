@@ -117,7 +117,7 @@ class Jobform extends Component
     {
         $isPartial             = (bool) ($this->production?->partial);
         $d5Selected            = $isPartial || in_array((string) $this->d5, ['0', '1'], true) || (bool) ($this->production?->dfive);
-        $needsD5               = !$isPartial && (string) $this->d5 === '1' && !(bool) ($this->production?->dfive);
+        $needsD5               = $this->hasD5OnClose() && !(bool) ($this->production?->dfive);
         $hasConclusion         = $this->filledValue($this->analise?->conclusion);
         $hasPartnerPhotoAnswer = in_array((string) $this->supervisionByPartnerPhotos, ['0', '1'], true);
         $hasPostes             = $this->filledValue($this->analise?->postes);
@@ -277,6 +277,16 @@ class Jobform extends Component
     {
 
         $this->d5 = $value;
+
+        if ($this->analise && !$this->production?->partial) {
+            if ((string) $value === '1' && $this->analise->conclusion !== 'FISCALIZADO COM PENDENCIAS') {
+                $this->analise->conclusion = 'FISCALIZADO COM PENDENCIAS';
+            }
+
+            if ((string) $value === '0' && $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS') {
+                $this->analise->conclusion = null;
+            }
+        }
 
         if (!$value) {
             $this->return = [
@@ -592,7 +602,11 @@ class Jobform extends Component
             return;
         }
 
-        if (!$this->production->partial && $this->d5 == '1' && !$this->production->dfive) {
+        if (!$this->validateD5ConclusionRule()) {
+            return;
+        }
+
+        if ($this->shouldCreateD5OnClose()) {
             $requiredD5Fields = [
                 'reason'      => 'MOTIVO',
                 'codify'      => 'CÓDIGO',
@@ -772,7 +786,7 @@ class Jobform extends Component
 
             }
 
-            if ($this->d5 == 1 || $this->production->dfive) {
+            if ($this->shouldHandleD5OnClose()) {
 
                 // $d5 = D5Return::create([
                 //     'production_id' => $this->production->id,
@@ -927,6 +941,59 @@ class Jobform extends Component
 
             return;
         }
+    }
+
+    private function shouldCreateD5OnClose(): bool
+    {
+        return !$this->production?->partial
+            && !$this->production?->dfive
+            && (string) $this->d5 === '1'
+            && $this->analise?->conclusion === 'FISCALIZADO COM PENDENCIAS';
+    }
+
+    private function shouldHandleD5OnClose(): bool
+    {
+        return $this->shouldCreateD5OnClose() || (bool) ($this->production?->dfive);
+    }
+
+    private function hasD5OnClose(): bool
+    {
+        return !$this->production?->partial
+            && ((string) $this->d5 === '1' || (bool) ($this->production?->dfive));
+    }
+
+    private function validateD5ConclusionRule(): bool
+    {
+        if ($this->production?->partial || !$this->analise?->conclusion) {
+            return true;
+        }
+
+        $withPending = $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS';
+        $hasD5       = $this->hasD5OnClose();
+
+        if ($hasD5 && !$withPending) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Conclusao incompativel com D5',
+                'html'     => '<div class="card"><div class="card-body text-start">Quando existe D5, a conclusao deve ser Fiscalizado Com Pendencias.</div></div>',
+            ]);
+
+            return false;
+        }
+
+        if (!$hasD5 && $withPending) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Conclusao exige D5',
+                'html'     => '<div class="card"><div class="card-body text-start">Fiscalizado Com Pendencias exige D5 = SIM. Sem D5, finalize sem pendencias ou selecione outra conclusao.</div></div>',
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     public function evidenceSaved()

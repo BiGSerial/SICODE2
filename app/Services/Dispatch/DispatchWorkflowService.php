@@ -568,6 +568,34 @@ class DispatchWorkflowService
                 $finalScopes,
                 'dispatch_workflow'
             );
+
+            return;
+        }
+
+        if ($serviceKey === 'publication') {
+            $production->loadMissing('Note');
+            $finalScopes = !empty($finalScopes)
+                ? $finalScopes
+                : collect($production->Note ? app(WorkReportFinalScopeOptions::class)->forNote($production->Note, true) : [])
+                    ->pluck('scope')
+                    ->all();
+
+            foreach ($finalScopes as $finalScope) {
+                $workReport = app(WorkReportFlowProductionLinker::class)
+                    ->resolveCurrentFinalWorkReport((int) $production->note_id, $finalScope);
+
+                if (!$workReport) {
+                    continue;
+                }
+
+                app(WorkReportFlowProductionLinker::class)->linkPublicationForWorkReport(
+                    $production,
+                    $workReport,
+                    'dispatch_workflow',
+                    [],
+                    $finalScope
+                );
+            }
         }
     }
 

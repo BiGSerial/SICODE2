@@ -514,6 +514,10 @@
             @php
                 $closeNote = $closeNoteDetails;
                 $hasD5Reason = !empty($return['reason'] ?? null);
+                $requiresD5Fields = (string) ($d5 ?? '') === '1'
+                    && !($production->partial ?? false)
+                    && !($production->dfive ?? false);
+                $hasD5ForConclusion = !$production->partial && ((string) ($d5 ?? '') === '1' || ($production->dfive ?? false));
                 $hasConclusion = !empty($analise['conclusion'] ?? null);
                 $isInRevision = (bool) ($production->Note->WorkForm?->rejected);
             @endphp
@@ -631,7 +635,7 @@
 
                                         @if ((string) $d5 === '1')
                                             <div class="col-md-4 close-field">
-                                                <label class="form-label">Motivo <span class="close-required">*</span></label>
+                                                <label class="form-label">Motivo @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <select class="form-select border border-secondary"
                                                     wire:model.defer="return.reason">
                                                     <option value="" selected>Selecione</option>
@@ -640,13 +644,13 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
-                                                @if (!$hasD5Reason)
-                                                    <div class="close-help text-danger">Obrigatório quando D5 = SIM.</div>
+                                                @if ($requiresD5Fields && !$hasD5Reason)
+                                                    <div class="close-help text-danger">Obrigatório para criar D5 com pendência.</div>
                                                 @endif
                                             </div>
 
                                             <div class="col-md-4 close-field">
-                                                <label class="form-label">Codigo <span class="close-required">*</span></label>
+                                                <label class="form-label">Codigo @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <select class="form-select border border-secondary"
                                                     wire:model.defer="return.codify">
                                                     <option value="" selected>Selecione</option>
@@ -655,12 +659,12 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
-                                                @if (!$hasD5Reason)
-                                                    <div class="close-help text-danger">Obrigatório quando D5 = SIM.</div>
+                                                @if ($requiresD5Fields && empty($return['codify'] ?? null))
+                                                    <div class="close-help text-danger">Obrigatório para criar D5 com pendência.</div>
                                                 @endif
                                             </div>
                                             <div class="col-md-4 close-field">
-                                                <label class="form-label">Local Instalação <span class="close-required">*</span></label>
+                                                <label class="form-label">Local Instalação @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <input type="text" class="form-control border border-secondary"
                                                     wire:model.defer="return.loc_install"
                                                     placeholder="Ex.: 708-EP-00459941" @disabled($return['loc_install'] ?? false)>
@@ -1115,6 +1119,9 @@
                                             wire:model="analise.conclusion">
                                             <option value="" selected>Selecione</option>
                                             @foreach (SelectOptions::getSupervisionEnd() as $supEnd)
+                                                @continue($production->partial && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
+                                                @continue(!$production->partial && $hasD5ForConclusion && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
+                                                @continue(!$production->partial && !$hasD5ForConclusion && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
                                                 <option value="{{ $supEnd->value }}">{{ $supEnd->reason }}</option>
                                             @endforeach
                                             @if ($production->partial)
@@ -1124,6 +1131,14 @@
                                         @if ($production->partial)
                                             <div class="close-help text-warning fw-bold">
                                                 Fluxo parcial: a conclusão pode rejeitar a obra e não solicita D5.
+                                            </div>
+                                        @elseif ($hasD5ForConclusion)
+                                            <div class="close-help text-warning fw-bold">
+                                                D5 marcada: a conclusão permitida é Fiscalizado Com Pendências.
+                                            </div>
+                                        @else
+                                            <div class="close-help text-muted">
+                                                Sem D5: Fiscalizado Com Pendências não fica disponível.
                                             </div>
                                         @endif
                                         @if (!$hasConclusion)
