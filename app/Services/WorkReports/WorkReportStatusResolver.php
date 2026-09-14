@@ -237,12 +237,6 @@ class WorkReportStatusResolver
             return $orders170->first();
         }
 
-        $orders180 = $this->ordersByPrefix($orders, '180');
-
-        if ($orders180->isNotEmpty()) {
-            return $orders180->first();
-        }
-
         if ($orders->count() === 1 && str_starts_with((string) $orders->first()->ordem, '190')) {
             return $orders->first();
         }
