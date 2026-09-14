@@ -3,10 +3,61 @@
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
 @endphp
-<div class="user-activity-page">
+<div class="user-activity-page payment-accompany-page">
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
     @include('livewire.services.partials.user-activity-list-style')
+    <style>
+        .payment-accompany-page .payment-accompany-table {
+            min-width: 1540px;
+            table-layout: auto;
+        }
+
+        .payment-accompany-page .activity-filter-card,
+        .payment-accompany-page .user-activity-summary {
+            margin-left: 0;
+            margin-right: 0;
+            width: 100%;
+        }
+
+        .payment-accompany-page .user-activity-table-card {
+            max-width: 100%;
+        }
+
+        .payment-accompany-page .payment-accompany-table th,
+        .payment-accompany-page .payment-accompany-table td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        .payment-accompany-page .payment-type-scope-cell {
+            min-width: 96px;
+        }
+
+        .payment-accompany-page .payment-type-scope-cell .badge {
+            display: block;
+            width: 86px;
+            margin: 0 auto 0.25rem;
+            line-height: 1.1;
+        }
+
+        .payment-accompany-page .payment-note-cell {
+            min-width: 130px;
+        }
+
+        .payment-accompany-page .payment-company-cell {
+            min-width: 180px;
+            white-space: normal;
+        }
+
+        .payment-accompany-page .payment-date-cell {
+            min-width: 124px;
+        }
+
+        .payment-accompany-page .payment-action-cell {
+            min-width: 58px;
+        }
+    </style>
     @include('livewire.services.partials.user-activity-hero', [
         'context' => 'Acompanhamento de produção',
         'subtitle' => 'Gestão das atividades de medição',
@@ -126,10 +177,10 @@
 
 
                     <div class="table-responsive">
-                        <table class="table table-sm table-striped table-condensed table-hover">
+                        <table class="table table-sm table-striped table-condensed table-hover payment-accompany-table">
                             <thead class="table-dark">
                                 <tr>
-                                    <th class="align-middle text-center">Tipo</th>
+                                    <th class="align-middle text-center">Tipo / Escopo</th>
                                     <th class="align-middle text-center">Nota</th>
                                     <th class="align-middle text-center">Files</th>
                                     <th class="align-middle text-center">Ordem</th>
@@ -179,20 +230,26 @@
                                 @endphp
                                 @foreach ($lists as $list)
                                     @php
-                                        $daysLeft = $this->deadline($list->Note);
-	                                        if ($list->partial) {
-	                                            $partial = $list->note->partials?->last();
-	                                        } else {
-	                                            $partial = null;
-	                                        }
-	                                        $workForms = $list->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT);
-	                                        $workForm = $workForms->first() ?: $list->Note->WorkForm;
-	                                        $orders = $workForms->isNotEmpty()
-	                                            ? $list->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-	                                            : ($partial?->Orders ?? ($workForm?->Orders ?? collect()));
+                                        $flowWorkForm = $list->WorkReportFlowProductions
+                                            ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
+                                            ?->WorkReport;
+                                        $workForm = $flowWorkForm ?? $list->Note->WorkForm;
 
-	                                        $five = FiveStatus($list);
-	                                        $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
+                                        $daysLeft = $this->deadline($list->Note);
+                                        if ($list->partial) {
+                                            $partial = $list->note->partials?->last();
+                                        } else {
+                                            $partial = null;
+                                        }
+
+                                        $orders = $workForm && !$partial
+                                            ? $workForm->Orders ?? collect()
+                                            : ($partial
+                                                ? $partial->Orders ?? collect()
+                                                : collect());
+
+                                        $five = FiveStatus($list);
+                                        $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                     @endphp
@@ -202,23 +259,25 @@
                                             wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
                                             class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
                                         @else
-	                                        <tr wire:key="work-{{ $list->id }}"
-	                                            wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm }})"
+                                        <tr wire:key="work-{{ $list->id }}"
+                                            @if ($workForm) wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm->id }})" @endif
                                             class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
                                     @endif
-                                    <td
-                                        class="align-middle @if ($list->partial) text-bg-warning
-                                            @else
-                                            text-bg-success @endif">
-                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                    <td class="payment-type-scope-cell align-middle">
                                         @if ($list->partial)
-                                            PARCIAL
+                                            <span class="badge text-bg-warning">PARCIAL</span>
                                         @else
-                                            TOTAL
+                                            <span class="badge text-bg-success">TOTAL</span>
+                                            @if ($workForm)
+                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                                    <span class="badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
+                                                @endforeach
+                                            @else
+                                                <span class="badge text-bg-secondary">Geral</span>
+                                            @endif
                                         @endif
-
                                     </td>
-                                    <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
+                                    <td class="payment-note-cell fw-bold @if ($list->priority) text-danger fw-bold @endif">
 
 
                                         @if ($five->exists)
@@ -268,26 +327,22 @@
                                         <x-files.select-download-list :files='$list->Note->Files' />
 
                                     </td>
-	                                    <td class="fw-light text-center align-middle">
-	                                        @if ($orders->count() && !$partial)
-	                                            @foreach ($orders as $order)
-	                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
-	                                            @endforeach
-	                                        @elseif ($partial)
-	                                            @foreach ($partial->Orders as $order)
-	                                                <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                            @endforeach
-                                        @endif
-	                                    </td>
-	                                    <td class="text-center align-middle fw-bold">
-	                                        @if ($orders->count() && !$partial)
-	                                            @php
-	                                                $soma += $orders->sum('moaberto');
-	                                            @endphp
-	                                            <span class="my-0py-0">
-	                                                R$
-	                                                {{ number_format($orders->sum('moaberto'), 2, ',', '.') }}
-	                                            </span>
+                                    <td class="fw-light text-center align-middle">
+                                        @forelse ($orders as $order)
+                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                        @empty
+                                            <p class="my-0 py-0">---</p>
+                                        @endforelse
+                                    </td>
+                                    <td class="text-center align-middle fw-bold">
+                                        @if ($workForm && $orders->count() && !$partial)
+                                            @php
+                                                $soma += $orders->sum('moaberto');
+                                            @endphp
+                                            <span class="my-0py-0">
+                                                R$
+                                                {{ number_format($orders->sum('moaberto'), 2, ',', '.') }}
+                                            </span>
                                         @elseif ($partial && $partial?->Orders->isNotEmpty())
                                             @php
                                                 $soma += $partial->value;
@@ -308,45 +363,39 @@
 
                                         </td> --}}
 
-	                                    <td class="text-center align-middle">
-	                                        @if ($orders->count())
-	                                            @foreach ($orders as $order)
-	                                                <span class="my-0py-0">
-	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-	                                                </span>
-	                                            @endforeach
-	                                        @endif
+                                    <td class="text-center align-middle">
+                                        @if ($orders->count())
+                                            @foreach ($orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
+                                                </span>
+                                            @endforeach
+                                        @endif
                                     </td>
 
-	                                    <td class="text-center align-middle">
-	                                        @if ($orders->count())
-	                                            @foreach ($orders as $order)
-	                                                <span class="my-0py-0">
-	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-	                                                </span>
+                                    <td class="text-center align-middle">
+                                        @if ($orders->count())
+                                            @foreach ($orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
+                                                </span>
                                             @endforeach
                                         @endif
 
                                     </td>
-	                                    <td class="text-center align-middle">
-	                                        @if ($orders->count())
-	                                            @foreach ($orders as $order)
-	                                                <span class="my-0py-0">
-	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-	                                                </span>
+                                    <td class="text-center align-middle">
+                                        @if ($orders->count())
+                                            @foreach ($orders as $order)
+                                                <span class="my-0py-0">
+                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
+                                                </span>
                                             @endforeach
                                         @endif
 
                                     </td>
-	                                    <td class="text-center align-middle">
-	                                        @if ($orders->count() && !$partial)
-	                                            @foreach ($orders as $order)
-	                                                <span class="my-0py-0">
-	                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-	                                                </span>
-                                            @endforeach
-                                        @elseif ($partial)
-                                            @foreach ($partial->Orders as $order)
+                                    <td class="text-center align-middle">
+                                        @if ($orders->count())
+                                            @foreach ($orders as $order)
                                                 <span class="my-0py-0">
                                                     {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
                                                 </span>
@@ -356,26 +405,26 @@
                                     </td>
 
 
-	                                    <td class="fw-light text-center">
-	                                        @if ($workForm)
-	                                            {{ $workForm->Company?->name ?? '---' }}
-	                                        @elseif ($partial)
-	                                            {{ $partial->Company?->name ?? '---' }}
-	                                        @endif
+                                    <td class="payment-company-cell fw-light text-center">
+                                        @if ($workForm)
+                                            {{ $workForm->Company->name ?? '---' }}
+                                        @elseif ($partial)
+                                            {{ $partial->Company->name }}
+                                        @endif
                                     </td>
 
                                     <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
 
-	                                    <td class="fw-light text-center">
-	                                        @if ($workForm)
-	                                            {{ $workForm->date ? date('d/m/Y', strToTime($workForm->date)) : '---' }}
-	                                        @else
-	                                            ---
-	                                        @endif
-	                                    </td>
-	                                    <td class="fw-light">
-	                                        @if ($workForm)
-	                                            {{ $workForm->informed_at ? date('d/m/Y H:i:s', strToTime($workForm->informed_at)) : '---' }}
+                                    <td class="payment-date-cell fw-light text-center">
+                                        @if ($workForm)
+                                            {{ $workForm->date ? date('d/m/Y', strToTime($workForm->date)) : '---' }}
+                                        @else
+                                            ---
+                                        @endif
+                                    </td>
+                                    <td class="payment-date-cell fw-light">
+                                        @if ($workForm)
+                                            {{ $workForm->informed_at ? date('d/m/Y H:i:s', strToTime($workForm->informed_at)) : '---' }}
                                         @elseif ($partial)
                                             {{ $partial->supervision_at->format('d/m/Y H:i:s') }}
                                         @endif
@@ -422,7 +471,7 @@
                                             wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
                                             style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
                                     </td>
-                                    <td class="fw-bold fs-5">
+                                    <td class="payment-action-cell fw-bold fs-5">
                                         @if (!$list->block && !$this->blockWaiting($list->status))
                                             @if (!$list->completed)
                                                 <span class="d-inline-block" data-bs-toggle="tooltip"
@@ -445,7 +494,7 @@
                                             @endif
                                         @endif
 
-                                        @if ($list->partial && !$list->Note->WorkForm)
+                                        @if ($list->partial && !$workForm)
                                             <span class="d-inline-block" data-bs-toggle="tooltip"
                                                 data-bs-placement="top" data-bs-custom-class="custom-tooltip"
                                                 data-bs-title="Devolver Informe">
@@ -462,22 +511,9 @@
                             </tbody>
                             <tfoot class="table-dark">
                                 <tr>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
+                                    <td colspan="4"></td>
                                     <td class="fw-bold">R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
+                                    <td colspan="11"></td>
                                 </tr>
                             </tfoot>
                         </table>

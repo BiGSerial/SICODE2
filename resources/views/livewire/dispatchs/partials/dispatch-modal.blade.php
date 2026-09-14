@@ -223,15 +223,20 @@
             }
 
             .dispatch-modal__scope-badge {
-                display: inline-flex;
                 align-items: center;
+                border-radius: 6px;
+                box-sizing: border-box;
+                display: inline-flex;
                 justify-content: center;
-                min-width: 86px;
-                min-height: 28px;
+                min-width: 88px;
+                min-height: 30px;
                 font-size: 0.76rem;
                 font-weight: 800;
-                line-height: 1;
-                padding: 0.35rem 0.6rem;
+                line-height: 1.1;
+                padding: 0.4rem 0.65rem;
+                text-align: center;
+                vertical-align: middle;
+                white-space: nowrap;
             }
 
             .dispatch-modal__scope-warning {
@@ -432,29 +437,34 @@
                             </thead>
                             <tbody>
                                 @foreach ($notes as $index => $note)
-                                    @php($scopeKey = $scopeKeysByIndex[$index] ?? $note->id)
                                     <tr>
                                         <td class="text-center fw-bold">{{ $index + 1 }}</td>
                                         <td class="dispatch-modal__note">{{ $note->note }}</td>
                                         <td class="dispatch-modal__material">{{ $note->material }}</td>
                                         @if ($requiresFinalScope)
                                             <td class="dispatch-modal__scope">
-                                                @php($scopeOptions = $finalScopeOptions[$scopeKey] ?? [])
-                                                @if (count($scopeOptions) > 1)
+                                                @php($scopeOptions = $finalScopeOptions[$note->id] ?? [])
+                                                @if ($this->scopeIsLocked($note) && count($scopeOptions) > 0)
+                                                    <div class="dispatch-modal__scope-options">
+                                                        @foreach ($scopeOptions as $scopeOption)
+                                                            <span class="dispatch-modal__scope-badge text-bg-primary">{{ $scopeOption['label'] }}</span>
+                                                        @endforeach
+                                                    </div>
+                                                @elseif (count($scopeOptions) > 1)
                                                     <div class="dispatch-modal__scope-options">
                                                         @foreach ($scopeOptions as $scopeOption)
                                                             <label class="form-check">
                                                                 <input class="form-check-input" type="checkbox"
-                                                                    wire:model.defer="finalScopeSelections.{{ $scopeKey }}.{{ $scopeOption['scope'] }}">
+                                                                    wire:model.defer="finalScopeSelections.{{ $note->id }}.{{ $scopeOption['scope'] }}">
                                                                 <span class="form-check-label">{{ $scopeOption['label'] }}</span>
                                                             </label>
                                                         @endforeach
                                                     </div>
                                                     <div class="dispatch-modal__scope-warning">{{ $this->finalScopePrompt }}</div>
                                                 @elseif (count($scopeOptions) === 1)
-                                                    <span class="badge dispatch-modal__scope-badge text-bg-primary">{{ $scopeOptions[0]['label'] }}</span>
+                                                    <span class="dispatch-modal__scope-badge text-bg-primary">{{ $scopeOptions[0]['label'] }}</span>
                                                 @else
-                                                    <span class="badge dispatch-modal__scope-badge text-bg-secondary">Nao aplicavel</span>
+                                                    <span class="dispatch-modal__scope-badge text-bg-secondary">Nao aplicavel</span>
                                                 @endif
                                             </td>
                                         @endif

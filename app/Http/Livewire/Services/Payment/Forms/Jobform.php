@@ -65,6 +65,104 @@ class Jobform extends Component
         $this->companies = Company::orderBy('name')->get();
     }
 
+    public function getCloseStepSummaryProperty(): array
+    {
+        $steps   = $this->closeSteps;
+        $current = collect($steps)->firstWhere('state', 'current')
+            ?? collect($steps)->firstWhere('state', 'warning')
+            ?? collect($steps)->firstWhere('state', 'todo')
+            ?? collect($steps)->last();
+
+        return [
+            'icon'      => $current['icon'] ?? 'ri-information-line',
+            'iconClass' => match ($current['state'] ?? 'todo') {
+                'done'    => 'is-ready',
+                'warning' => 'is-warning',
+                default   => ($this->canCloseFinish ? 'is-ready' : 'is-warning'),
+            },
+            'label'   => $current['label'] ?? 'Pronto para encerrar',
+            'message' => $current['message'] ?? 'Todas as etapas obrigatórias foram preenchidas.',
+        ];
+    }
+
+    public function getCanCloseFinishProperty(): bool
+    {
+        return collect($this->closeSteps)
+            ->where('required', true)
+            ->every(fn (array $step) => $step['state'] === 'done');
+    }
+
+    public function getCloseStepsProperty(): array
+    {
+        $needsD5Data = (bool) ($this->five && !$this->five->is_supervisioned);
+        $hasConclusion = $this->filledValue($this->analise?->conclusion);
+        $hasScopeSelection = $this->hasValidCloseFinalScopeSelection();
+
+        $steps = [];
+
+        if ($needsD5Data) {
+            $steps[] = $this->closeStep('Número D5', $this->filledValue($this->five?->note_d5), 'Informe o número da D5.', 'ri-file-text-line');
+            $steps[] = $this->closeStep('Empresa D5', $this->filledValue($this->five?->company_id), 'Selecione a empresa responsável pela D5.', 'ri-building-line');
+        }
+
+        if ($this->hasMultipleCloseFinalScopes()) {
+            $steps[] = $this->closeStep('Escopo medido', $hasScopeSelection, 'Selecione o escopo que será encerrado nesta medição.', 'ri-focus-3-line');
+        }
+
+        $steps[] = $this->closeStep('Resultado', $hasConclusion, 'Selecione o resultado da medição.', 'ri-checkbox-circle-line');
+
+        $steps[] = [
+            'label'    => 'Observações',
+            'message'  => $this->filledValue($this->analise?->info)
+                ? 'Observação registrada.'
+                : 'Observação opcional para contextualizar o encerramento.',
+            'icon'     => 'ri-message-3-line',
+            'required' => false,
+            'state'    => $this->filledValue($this->analise?->info) ? 'done' : 'warning',
+        ];
+
+        if (collect($steps)->where('required', true)->every(fn (array $step) => $step['state'] === 'done')) {
+            $steps[] = [
+                'label'    => 'Encerrar',
+                'message'  => 'Etapas obrigatórias concluídas. Encerramento liberado.',
+                'icon'     => 'ri-checkbox-circle-line',
+                'required' => true,
+                'state'    => 'done',
+            ];
+        }
+
+        return $this->markCurrentCloseStep($steps);
+    }
+
+    private function closeStep(string $label, bool $done, string $message, string $icon): array
+    {
+        return [
+            'label'    => $label,
+            'message'  => $done ? "{$label} preenchido." : $message,
+            'icon'     => $icon,
+            'required' => true,
+            'state'    => $done ? 'done' : 'todo',
+        ];
+    }
+
+    private function markCurrentCloseStep(array $steps): array
+    {
+        foreach ($steps as &$step) {
+            if (($step['required'] ?? false) && $step['state'] === 'todo') {
+                $step['state'] = 'current';
+
+                break;
+            }
+        }
+
+        return $steps;
+    }
+
+    private function filledValue($value): bool
+    {
+        return !is_null($value) && trim((string) $value) !== '';
+    }
+
     public function showProduction(Production $production)
     {
         $this->five = null;
@@ -145,7 +243,7 @@ class Jobform extends Component
         $this->emitUp('refresh_list');
     }
 
-    public function saveForm($end = false)
+    public function saveForm($end = false): bool
     {
 
 
@@ -168,6 +266,8 @@ class Jobform extends Component
                 'status'   => 'success',
                 'menssage' => 'SALVO COM SUCESSO',
             ]);
+
+            return true;
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->validator->errors()->all();
             $html = '<ul>';
@@ -184,7 +284,7 @@ class Jobform extends Component
                 'html'     => '<div class="card"><div class="card-body text-start">' . $html . '</div></div>',
             ]);
 
-            return;
+            return false;
         }
     }
 
@@ -207,6 +307,21 @@ class Jobform extends Component
 
     public function to_finish()
     {
+        if (!$this->canCloseFinish) {
+            $summary = $this->closeStepSummary;
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Encerramento incompleto',
+                'html'     => '<div class="card"><div class="card-body text-start">'
+                    . e($summary['message'])
+                    . '</div></div>',
+            ]);
+
+            return;
+        }
+
         if (!$this->hasValidCloseFinalScopeSelection()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -265,9 +380,9 @@ class Jobform extends Component
 
     public function save()
     {
-        $this->saveForm(true);
-
-
+        if (!$this->saveForm(true)) {
+            return;
+        }
 
         DB::beginTransaction();
 

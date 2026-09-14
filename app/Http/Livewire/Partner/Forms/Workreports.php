@@ -306,6 +306,14 @@ class Workreports extends Component
             return;
         }
 
+        if (!$this->hasSelectedOrdersForNewWorkReport()) {
+            return;
+        }
+
+        if (!$this->selectedOrdersAreAvailableForNewWorkReport()) {
+            return;
+        }
+
         if ($this->requireFilesForSubmit && !$this->hasEvidenceFile) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -413,6 +421,14 @@ class Workreports extends Component
         $this->form['acceptance_at']         = date('Y-m-d H:i:s');
         $this->form['acceptance_meta']       = $this->buildAcceptanceMeta();
         $this->form['selected_final_scopes'] = $this->selectedFinalScopesForSave();
+
+        if (!$this->hasSelectedOrdersForNewWorkReport()) {
+            return;
+        }
+
+        if (!$this->selectedOrdersAreAvailableForNewWorkReport()) {
+            return;
+        }
 
         $existingWorkReport = $this->activeWorkReportWithAnySelectedFinalScope($this->form['selected_final_scopes']);
 
@@ -593,6 +609,17 @@ class Workreports extends Component
     public function addOrders()
     {
         if ($order = Order::find($this->s_order)) {
+            if (!$this->canSelectOrderForCurrentReport($order)) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Ordem indisponível',
+                    'html'     => 'Esta ordem já está vinculada a outro informe ativo. Cancele o informe anterior para reutilizar a ordem.',
+                ]);
+
+                return;
+            }
+
             $this->temp_orders[$order->id] = ['id' => $order->id, 'ordem' => $order->ordem];
             $this->syncFinalScopeModeWithDetectedScopes();
             $this->syncOrdersWithSelectedFinalScopeMode();
@@ -695,9 +722,7 @@ class Workreports extends Component
     {
         $this->note = $this->preNote;
 
-        $filteredOrders = $this->note->Orders->filter(function ($order) {
-            return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-        });
+        $filteredOrders = $this->selectableOrdersForCurrentNote();
 
         if (count($filteredOrders)) {
             foreach ($filteredOrders as $order) {
@@ -1024,6 +1049,28 @@ class Workreports extends Component
             ->all();
     }
 
+    public function canSelectOrderForCurrentReport($order): bool
+    {
+        return $this->orderUnavailableReason($order) === null;
+    }
+
+    public function orderUnavailableReason($order): ?string
+    {
+        if (!$order || $this->orderIsClosedForWorkReport($order)) {
+            return 'ordem encerrada';
+        }
+
+        if (!$this->note) {
+            return null;
+        }
+
+        if (in_array((int) $order->id, $this->activeWorkReportOrderIdsForNote($this->note), true)) {
+            return 'já informada';
+        }
+
+        return null;
+    }
+
     public function workReportStatusBadgeForNote(Note $note): array
     {
         $detectedScopes = collect(app(WorkReportFinalScopeResolver::class)->resolve($note->type_note, $this->selectableOrdersForNote($note)))
@@ -1219,10 +1266,75 @@ class Workreports extends Component
     protected function selectableOrdersForNote(Note $note)
     {
         $orders = $note->relationLoaded('Orders') ? $note->Orders : $note->Orders()->get();
+        $activeWorkReportOrderIds = $this->activeWorkReportOrderIdsForNote($note);
 
         return $orders
-            ->filter(fn ($order) => !(strpos((string) $order->statusSist, 'ENT') === 0 || strpos((string) $order->statusSist, 'ENC') === 0))
+            ->filter(fn ($order) => !$this->orderIsClosedForWorkReport($order))
+            ->filter(fn ($order) => !in_array((int) $order->id, $activeWorkReportOrderIds, true))
             ->values();
+    }
+
+    protected function orderIsClosedForWorkReport(object $order): bool
+    {
+        return strpos((string) $order->statusSist, 'ENT') === 0
+            || strpos((string) $order->statusSist, 'ENC') === 0;
+    }
+
+    protected function activeWorkReportOrderIdsForNote(Note $note): array
+    {
+        return DB::table('order_work_report as owr')
+            ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
+            ->where('wr.note_id', $note->id)
+            ->where('wr.canceled', false)
+            ->pluck('owr.order_id')
+            ->map(fn ($orderId) => (int) $orderId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function selectedOrdersAreAvailableForNewWorkReport(): bool
+    {
+        if (!$this->note || empty($this->temp_orders)) {
+            return true;
+        }
+
+        $activeWorkReportOrderIds = $this->activeWorkReportOrderIdsForNote($this->note);
+
+        $unavailableOrders = collect($this->temp_orders)
+            ->filter(fn (array $order) => in_array((int) ($order['id'] ?? 0), $activeWorkReportOrderIds, true))
+            ->pluck('ordem')
+            ->filter()
+            ->values();
+
+        if ($unavailableOrders->isEmpty()) {
+            return true;
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Ordem já informada',
+            'html'     => 'A(s) ordem(ns) ' . $unavailableOrders->implode(', ') . ' já está(ão) vinculada(s) a outro informe ativo. Cancele o informe anterior para reutilizar a ordem.',
+        ]);
+
+        return false;
+    }
+
+    protected function hasSelectedOrdersForNewWorkReport(): bool
+    {
+        if (!empty($this->temp_orders)) {
+            return true;
+        }
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Ordem obrigatória',
+            'html'     => 'Selecione ao menos uma ordem disponível para criar o informe. Ordens vinculadas a informes ativos só podem ser reutilizadas após o cancelamento do informe anterior.',
+        ]);
+
+        return false;
     }
 
     private function scopeForOrder(object $order): string

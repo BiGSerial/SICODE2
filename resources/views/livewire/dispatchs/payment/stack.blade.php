@@ -476,17 +476,21 @@
 
                                 $daysLeft = $this->deadline($list->Note);
 
-	                                if ($list->partial) {
-	                                    $partial = $list->note->partials?->last();
-	                                } else {
-	                                    $partial = null;
-	                                }
-	                                $workForms = $list->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT);
-	                                $workForm = $workForms->first() ?: $list->Note->WorkForm;
-	                                $orders = $workForms->isNotEmpty()
-	                                    ? $list->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-	                                    : ($partial?->Orders ?? ($workForm?->Orders ?? collect()));
-	                                $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
+                                if ($list->partial) {
+                                    $partial = $list->note->partials?->last();
+                                } else {
+                                    $partial = null;
+                                }
+                                $flowWorkForm = $list->WorkReportFlowProductions
+                                    ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
+                                    ?->WorkReport;
+                                $workForm = $flowWorkForm ?? $list->Note->WorkForm;
+                                $orders = $workForm && !$partial
+                                    ? $workForm->Orders ?? collect()
+                                    : ($partial
+                                        ? $partial->Orders ?? collect()
+                                        : collect());
+                                $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
                                 $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                 $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
 
@@ -544,26 +548,18 @@
                                     @endif
                                 </td>
                                 <td class="text-center align-middle">
-	                                    @if ($orders->count() && !$partial)
-	                                        @foreach ($orders as $order)
-	                                            <p class="my-0 py-0">
-	                                                {{ $order->ordem }}
-	                                            </p>
-	                                        @endforeach
-                                    @elseif($partial && $partial->Orders->count())
-                                        @foreach ($partial->Orders as $order)
-                                            <p class="my-0 py-0">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @endif
+                                    @forelse ($orders as $order)
+                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
 
                                 </td>
                                 <td class="text-center align-middle">
-	                                    @if ($workForm)
-	                                        @foreach ($workForm->finalScopeBadges() as $scopeBadge)
-	                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
-	                                        @endforeach
+                                    @if ($workForm)
+                                        @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
+                                        @endforeach
                                     @elseif ($partial)
                                         <span class="badge text-bg-secondary">Parcial</span>
                                     @else
@@ -571,11 +567,11 @@
                                     @endif
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-	                                    @if ($orders->count() && !$partial)
-	                                        @php
-	                                            $moaberto = $orders->sum('moaberto');
-	                                            $soma += $moaberto;
-	                                        @endphp
+                                    @if ($workForm && $orders->count())
+                                        @php
+                                            $moaberto = $orders->sum('moaberto');
+                                            $soma += $moaberto;
+                                        @endphp
                                         <p class="my-0 py-0">
                                             R$ {{ number_format($moaberto, 2, ',', '.') }}
                                         </p>
@@ -592,11 +588,11 @@
                                 </td>
 
                                 <td class="text-center align-middle">
-	                                    @if ($orders->count() && !$partial)
-	                                        @foreach ($orders as $order)
-	                                            <span class="my-0py-0">
-	                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-	                                            </span>
+                                    @if ($orders->count())
+                                        @foreach ($orders as $order)
+                                            <span class="my-0py-0">
+                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
+                                            </span>
                                         @endforeach
                                     @endif
 
@@ -605,10 +601,10 @@
 
                                 <td class="fw-light text-center">
 
-	                                    @if ($workForm)
-	                                        <span class="my-0 py-0">
-	                                            {{ $workForm?->Company?->name }}
-	                                        </span>
+                                    @if ($workForm)
+                                        <span class="my-0 py-0">
+                                            {{ $workForm?->Company?->name }}
+                                        </span>
                                     @elseif ($partial)
                                         <span class="my-0 py-0">
                                             {{ $partial?->Company?->name }}

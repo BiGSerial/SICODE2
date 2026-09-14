@@ -91,6 +91,7 @@ class Search extends Component
                           'Service:id,uuid,service',
                           'User:id,name,email',
                           'Company:id,name',
+                          'WorkReportFlowProductions:id,production_id,stage,final_scope,is_current',
                       ])
                       ->select([
                           'id','note_id','service_id','user_id','company_id',
@@ -150,7 +151,8 @@ class Search extends Component
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
                         'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
                     ]);
                 },
 
@@ -177,8 +179,69 @@ class Search extends Component
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
                         'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
                     ]);
+                },
+
+                'WorkForms' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                        'Equipment:id,work_report_id',
+                        'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'FlowProductions' => function ($query) {
+                            $query->with([
+                                'Production.Service:id,uuid,service',
+                                'Production.User:id,name,email',
+                                'Production.Company:id,name',
+                                'LinkedBy:id,name,email',
+                            ])
+                                ->orderBy('stage')
+                                ->orderByDesc('is_current')
+                                ->orderBy('linked_at')
+                                ->orderBy('id');
+                        },
+                    ])
+                    ->select([
+                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
+                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
+                    ])
+                    ->orderBy('created_at')
+                    ->orderBy('id');
+                },
+
+                'WorkFormsAny' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                        'Equipment:id,work_report_id',
+                        'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'FlowProductions' => function ($query) {
+                            $query->with([
+                                'Production.Service:id,uuid,service',
+                                'Production.User:id,name,email',
+                                'Production.Company:id,name',
+                                'LinkedBy:id,name,email',
+                            ])
+                                ->orderBy('stage')
+                                ->orderByDesc('is_current')
+                                ->orderBy('linked_at')
+                                ->orderBy('id');
+                        },
+                    ])
+                    ->select([
+                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
+                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
+                    ])
+                    ->orderBy('created_at')
+                    ->orderBy('id');
                 },
 
                 'RamalForm' => function ($q) {

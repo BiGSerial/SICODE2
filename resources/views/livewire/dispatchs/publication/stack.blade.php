@@ -487,7 +487,7 @@
 
     </div>
 
-    <div wire:ignore.self class="modal fade" id="add_mass_notes" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade" id="legacy_publication_stack_dispatch_modal" tabindex="-1" aria-labelledby="exampleModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content edp-bg-stategrey-50">
@@ -598,6 +598,8 @@
         </div>
     </div>
 
+
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-stack-modal-'.$service->uuid))
 
 
     @stack('modals')

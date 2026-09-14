@@ -4,7 +4,6 @@ namespace App\Services\Payment;
 
 use App\Models\City;
 use App\Models\Note;
-use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 
 class NoteFilter
@@ -17,7 +16,7 @@ class NoteFilter
      * Regras (OR entre grupos):
      *  (A) WorkForm OK + Orders/Operations coerentes (liberações padrão)
      *  (B) Partials válidas (sem WorkForm)
-     *  (C) FiveNote com prioridade (is_completed && is_supervisioned && !is_archived)
+     *  (C) FiveNote pendente para Medicao ou liberacao final
      *
      * Filtros adicionais:
      *  - busca simples ($search)
@@ -61,14 +60,13 @@ class NoteFilter
                         ->whereHas('Operations', function (Builder $op) {
                             $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
                         })
-                        ->when(!SicodeRules::paymentIgnoresOperation40AfterOperation30Confirmed(), function (Builder $ord) {
-                            $ord->whereHas('Operations', function (Builder $op) {
-                                $op->where('operacao', '0040')
-                                   ->where(function (Builder $qq) {
-                                       $qq->where('status', 'like', 'CONF%')
-                                          ->orWhere('status', 'like', 'CNPA%');
-                                   });
-                            });
+                        ->whereHas('Operations', function (Builder $op) {
+                            $op->where('operacao', '0040')
+                               ->where(function (Builder $qq) {
+                                   $qq->where('status', 'like', 'LIB%')
+                                      ->orWhere('status', 'like', 'CONF%')
+                                      ->orWhere('status', 'like', 'CNPA%');
+                               });
                         })
                         ->whereHas('Operations', function (Builder $op) {
                             $op->where('operacao', '0050')
@@ -98,12 +96,21 @@ class NoteFilter
                 ->whereDoesntHave('WorkForm'); // prioridade: partials só entram sem WF
             })
 
-            // (C) FiveNote priorizado (is_completed && is_supervisioned && !is_archived)
+            // (C) FiveNote pendente para criacao/despacho pela Medicao, ou ja fiscalizada para liberacao final
             ->orWhere(function (Builder $q) {
                 $q->whereHas('FiveNote', function (Builder $fn) {
-                    $fn->where('is_supervisioned', true)
-                       ->where('is_completed', true)
-                       ->where('is_archived', false);
+                    $fn->where('is_archived', false)
+                        ->where(function (Builder $d5) {
+                            $d5->where(function (Builder $pendingPayment) {
+                                $pendingPayment->where('is_supervisioned', false)
+                                    ->where('visible_partner', false)
+                                    ->where('is_payed', false);
+                            })
+                            ->orWhere(function (Builder $releaseLetter) {
+                                $releaseLetter->where('is_supervisioned', true)
+                                    ->where('is_completed', true);
+                            });
+                        });
                 });
             });
         });

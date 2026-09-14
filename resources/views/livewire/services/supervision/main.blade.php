@@ -225,12 +225,13 @@
                             </thead>
                             <tbody id="table-body" class="align-middle text-center">
                                 @foreach ($lists as $list)
-	                                    @php
-	                                        $note = $list->Note;
-	                                        $linkedWorkForms = $list->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
-	                                        $workForm = $linkedWorkForms->first() ?: $note->WorkForm;
-	                                        $workFormOrders = $list->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
-	                                        $formBlock = $workForm ? (bool) $workForm->rejected : false;
+                                    @php
+                                        $note = $list->Note;
+                                        $flowWorkForm = $list->WorkReportFlowProductions
+                                            ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+                                            ?->WorkReport;
+                                        $workForm = $flowWorkForm ?? $note->WorkForm;
+                                        $formBlock = $workForm ? (bool) $workForm->rejected : false;
 
                                         $dfive = $list->dfive ? optional($note->FiveNote) : null;
                                         $colorCell = $list->partial ? 'table-warning' : 'table-success';
@@ -316,11 +317,11 @@
                                         </td>
 
                                         <td class="@if ($list->priority) text-danger fw-bold @endif">
-	                                            @if ($workFormOrders->isNotEmpty())
-	                                                @foreach ($workFormOrders as $order)
-	                                                    <p class="py-0 my-0">{{ $order->ordem }}</p>
-	                                                @endforeach
-	                                            @endif
+                                            @if ($workForm && $workForm->Orders && $workForm->Orders->isNotEmpty())
+                                                @foreach ($workForm->Orders as $order)
+                                                    <p class="py-0 my-0">{{ $order->ordem }}</p>
+                                                @endforeach
+                                            @endif
                                         </td>
 
                                         <td class="@if ($list->priority) text-danger fw-bold @endif">

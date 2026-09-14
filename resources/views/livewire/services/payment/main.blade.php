@@ -276,8 +276,7 @@
                                     wire:click="setSelectAllFiltered" @checked($this->checkAllSelect())>
                             </th>
                             <th class="align-middle text-center">Nota</th>
-                            <th class="align-middle text-center">Tipo</th>
-                            <th class="align-middle text-center">Escopo</th>
+                            <th class="align-middle text-center">Tipo / Escopo</th>
 
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
@@ -335,12 +334,17 @@
                                 $production = $eval['production'] ?? null;
 
                                 // 2) Derivados locais: WorkForm, última parcial válida (já limitada a 1), e conjunto de pedidos
-                                $wf = $list->WorkForm;
+                                $workForms = $list->relationLoaded('WorkForms')
+                                    ? $list->WorkForms
+                                    : collect([$list->WorkForm])->filter();
+                                $wf = $workForms->first() ?? $list->WorkForm;
+                                $selectionKey = (string) ($list->payment_context_key ?? $list->id);
+                                $workReportId = (int) ($list->payment_work_report_id ?? 0);
                                 $partial = !$wf ? $list->Partials->first() ?? null : null;
 
                                 // Escolhe o conjunto de orders em UM lugar só (evita vários ifs abaixo)
                                 $orders = $wf
-                                    ? $wf->Orders ?? collect()
+                                    ? $workForms->flatMap(fn ($workForm) => $workForm->Orders ?? collect())
                                     : ($partial
                                         ? $partial->Orders ?? collect()
                                         : collect());
@@ -388,10 +392,10 @@
                                     ->first();
                             @endphp
 
-                            <tr class="align-middle text-center" wire:key="service-payment-note-{{ $list->id }}">
+                            <tr class="align-middle text-center" wire:key="service-payment-note-{{ $selectionKey }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected">
+                                        value="{{ $selectionKey }}" wire:model.defer="selected">
                                 </td>
 
                                 {{-- Nota + D5 badge --}}
@@ -408,22 +412,23 @@
                                     @endif
                                 </td>
 
-                                {{-- Tipo: PARCIAL/TOTAL (sem revalidar flags – já veio filtrada) --}}
-                                <td
-                                    class="fw-light fw-bold text-center {{ $partial ? 'text-bg-warning' : 'text-bg-success' }}">
-                                    {{ $partial ? 'PARCIAL' : 'TOTAL' }}
-                                </td>
-
-                                <td class="fw-light fw-bold text-center {{ $rowClass }}">
-                                    @if ($wf)
-                                        @foreach ($wf->finalScopeBadges() as $scopeBadge)
-                                            <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
-                                        @endforeach
-                                    @elseif ($partial)
-                                        <span class="badge scope-badge text-bg-secondary">Parcial</span>
-                                    @else
-                                        <span class="badge scope-badge text-bg-secondary">Geral</span>
-                                    @endif
+                                <td class="fw-bold text-center {{ $rowClass }}">
+                                    <div class="d-grid gap-1 justify-items-center">
+                                        <span class="badge {{ $partial ? 'text-bg-warning' : 'text-bg-success' }}">
+                                            {{ $partial ? 'PARCIAL' : 'TOTAL' }}
+                                        </span>
+                                        @if ($wf)
+                                            @foreach ($workForms as $workForm)
+                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                                    <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
+                                                @endforeach
+                                            @endforeach
+                                        @elseif ($partial)
+                                            {{-- Parcial não possui escopo. --}}
+                                        @else
+                                            <span class="badge scope-badge text-bg-secondary">Geral</span>
+                                        @endif
+                                    </div>
                                 </td>
 
                                 {{-- Ordem --}}
@@ -573,7 +578,7 @@
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="to_accompany({{ $list->id }})"
+                                            wire:click.prevent="to_accompany({{ $list->id }}, {{ $workReportId ?: 'null' }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="Atribuir esta Nota/OV para você"></i>
@@ -597,7 +602,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
-                            <td colspan="5" class="text-end">Total:</td>
+                            <td colspan="4" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
                             <td colspan="12"></td>
                         </tr>

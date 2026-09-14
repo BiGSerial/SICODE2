@@ -11,6 +11,7 @@ enum CancellationRequestStatus: string
     case DONE = 'DONE';
     case REJECTED = 'REJECTED';
     case ABORTED = 'ABORTED';
+    case REVERTED = 'REVERTED';
 
     public static function values(): array
     {
@@ -27,6 +28,7 @@ enum CancellationRequestStatus: string
             self::DONE => 'Concluído',
             self::REJECTED => 'Rejeitado',
             self::ABORTED => 'Cancelado',
+            self::REVERTED => 'Desfeito',
         };
     }
 
@@ -40,6 +42,7 @@ enum CancellationRequestStatus: string
             self::DONE => 'bg-success',
             self::REJECTED => 'bg-danger',
             self::ABORTED => 'bg-secondary',
+            self::REVERTED => 'bg-dark',
         };
     }
 }

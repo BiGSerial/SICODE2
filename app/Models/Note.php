@@ -157,6 +157,16 @@ class Note extends Model
         return $this->hasOne(WorkReport::class);
     }
 
+    public function WorkForms()
+    {
+        return $this->hasMany(WorkReport::class)->where('canceled', false);
+    }
+
+    public function WorkFormsAny()
+    {
+        return $this->hasMany(WorkReport::class);
+    }
+
     public function d5Return()
     {
         return $this->hasOne(D5Return::class);

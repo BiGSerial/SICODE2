@@ -504,7 +504,7 @@ class Jobform extends Component
         $this->emitUp('refresh_list');
     }
 
-    public function saveForm($end = false)
+    public function saveForm($end = false): bool
     {
 
         try {
@@ -518,6 +518,8 @@ class Jobform extends Component
                 'status'   => 'success',
                 'menssage' => 'SALVO COM SUCESSO',
             ]);
+
+            return true;
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->validator->errors()->all();
             $html   = '<ul>';
@@ -535,7 +537,7 @@ class Jobform extends Component
                 'html'     => '<div class="card"><div class="card-body text-start">' . $html . '</div></div>',
             ]);
 
-            return;
+            return false;
         }
     }
 
@@ -746,7 +748,9 @@ class Jobform extends Component
 
     public function save()
     {
-        $this->saveForm(true);
+        if (!$this->saveForm(true)) {
+            return;
+        }
 
         DB::beginTransaction();
 
@@ -844,36 +848,40 @@ class Jobform extends Component
                         $this->five = $this->production->Note->FiveNote;
                     }
 
-                    $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
-
-                    if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
-                        $this->five->update([
-                            'is_completed' => false,
-                            'completed_at' => null,
-                            'returned'     => true,
-                        ]);
-
-                        app(D5WorkflowService::class)->onReturnedWithPending(
-                            $this->five,
-                            $fromStage,
-                            auth()->id(),
-                            $this->production
-                        );
+                    if (!$this->production->dfive) {
+                        $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
                     } else {
-                        $this->five->update([
-                            'is_supervisioned' => true,
-                            'supervisioned_at' => now(),
-                        ]);
+                        $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
-                        app(D5WorkflowService::class)->onSupervisionApproved(
-                            $this->five,
-                            $fromStage,
-                            auth()->id(),
-                            $this->production
-                        );
+                        if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
+                            $this->five->update([
+                                'is_completed' => false,
+                                'completed_at' => null,
+                                'returned'     => true,
+                            ]);
+
+                            app(D5WorkflowService::class)->onReturnedWithPending(
+                                $this->five,
+                                $fromStage,
+                                auth()->id(),
+                                $this->production
+                            );
+                        } else {
+                            $this->five->update([
+                                'is_supervisioned' => true,
+                                'supervisioned_at' => now(),
+                            ]);
+
+                            app(D5WorkflowService::class)->onSupervisionApproved(
+                                $this->five,
+                                $fromStage,
+                                auth()->id(),
+                                $this->production
+                            );
+                        }
+
+                        $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
                     }
-
-                    $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
 
                 }
             }

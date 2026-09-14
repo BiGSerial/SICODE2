@@ -2,9 +2,12 @@
     use Carbon\Carbon;
     use App\Custom\Notestatus;
     use App\Helpers\DaysLeft;
+    $contractCompanyName = \App\Support\SicodeRules::primaryCompanyNameFor(Auth()->User());
 @endphp
 
-<div>
+<div class="survey-main-page publication-dispatch-page">
+    @include('livewire.dispatchs.partials.list-shell-style')
+
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <style>
         #exemple {
@@ -33,6 +36,95 @@
 
     @push('css')
         <style>
+            .publication-dispatch-page .control-grid {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.9rem;
+            }
+
+            .publication-dispatch-page .control-card {
+                background: linear-gradient(160deg, #ffffff, #f8fafc);
+                border: 1px solid #dbe3ef;
+                border-radius: 0.9rem;
+                padding: 0.85rem;
+                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+            }
+
+            .publication-dispatch-page .control-card h6 {
+                color: var(--sp-muted);
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                margin-bottom: 0.65rem;
+                text-transform: uppercase;
+            }
+
+            .publication-dispatch-page .quick-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .publication-dispatch-page .quick-actions .btn {
+                min-height: 42px;
+                font-weight: 700;
+            }
+
+            .publication-dispatch-page .filters-row {
+                background: #f8fafc;
+                border: 1px dashed #cbd5e1;
+                border-radius: 0.8rem;
+                padding: 0.75rem;
+            }
+
+            .publication-dispatch-page .publication-note {
+                color: #64748b;
+                font-size: 0.82rem;
+                font-weight: 600;
+                margin-top: 0.35rem;
+            }
+
+            .publication-dispatch-page .bulk-search-modal .modal-content {
+                border: 0;
+                border-radius: 0.75rem;
+                box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+                overflow: hidden;
+            }
+
+            .publication-dispatch-page .bulk-search-modal .modal-header {
+                background: linear-gradient(120deg, #0f172a, #0f766e 75%);
+                color: #f8fafc;
+                border: 0;
+                padding: 1rem 1.25rem;
+            }
+
+            .publication-dispatch-page .bulk-search-modal .modal-title {
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
+            .publication-dispatch-page .bulk-search-modal textarea {
+                min-height: 12rem;
+                resize: vertical;
+                border-color: #cbd5e1;
+            }
+
+            @media (min-width: 992px) {
+                .publication-dispatch-page .control-grid {
+                    grid-template-columns: minmax(180px, 0.9fr) minmax(260px, 1fr) minmax(280px, 1fr) minmax(320px, 1.25fr);
+                }
+
+                .publication-dispatch-page .quick-actions {
+                    grid-template-columns: repeat(2, minmax(130px, 1fr));
+                }
+            }
+
+            @media (min-width: 1400px) {
+                .publication-dispatch-page .control-grid {
+                    grid-template-columns: minmax(170px, 0.7fr) minmax(260px, 1fr) minmax(260px, 0.9fr) minmax(360px, 1.25fr);
+                }
+            }
+
             @keyframes flame {
                 0% {
                     transform: scaleX(1) scaleY(1);
@@ -59,114 +151,141 @@
 
     <x-showselected :count="$selected" />
 
-    <div class="row">
-        <div class="col-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
-        </div>
-        <div class="mb-3 col-md-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
-
-            @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'publishing', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publishing', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publishing', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publishing', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publishing', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'publishing'], key('removeAll'))
-
-
-        </div>
-        <div class="mb-3">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0" data-bs-toggle="popover"
-                data-bs-trigger="hover focus" data-bs-placement="right" <div class="btn-group" role="group"
-                aria-label="Basic example" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                data-bs-placement="right" data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus()">
-                    {{ Notestatus::status(1)->status }}
-                    @if ($not_assigned)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="survey-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2>LISTA PARA {{ mb_strtoupper($service->service) }}
+                    @if ($contractCompanyName)
+                        - {{ mb_strtoupper($contractCompanyName) }}
                     @endif
-                </button>
-
-            </div>
-
-            <div class="btn-group ms-2" role="group" aria-label="Basic example" tabindex="0"
-                data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Informadas BT Zero"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="btzeroform()">
-                    Info BT Zero
-                    @if ($btzeroform)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
+                </h2>
+                <div class="survey-meta">
+                    @if ($service->Status->count())
+                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                            ({{ $sts->value }})
+                        @endforeach
                     @endif
-                </button>
-
+                </div>
             </div>
-        </div>
-    </div>
-
-    <div class="row">
-
-        @if (!$lists->count())
-            {{-- <div class="col-6">
-                @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div> --}}
-        @elseif ($lists->count())
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-        @endif
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
+            <div class="text-lg-end">
                 @if ($update)
-                    Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
+                    <div class="survey-meta">Ultima Atualizacao</div>
+                    <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
                 @endif
-            </span>
+            </div>
         </div>
 
-    </div>
+        <div class="filter-shell mb-3">
+            <div class="card-body p-3 p-lg-4">
+                <div class="control-grid">
+                    <div class="control-card">
+                        <h6>Paginacao</h6>
+                        <div class="form-floating">
+                            <select wire:model="perPage" class="form-select border border-secondary" id="publicationPerPage">
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                            </select>
+                            <label for="publicationPerPage">Registros por pagina</label>
+                        </div>
+                    </div>
 
-    <div class="card">
+                    <div class="control-card">
+                        <h6>Busca</h6>
+                        <div class="position-relative">
+                            <input wire:model.bounce.2s="search" type="text"
+                                class="form-control border border-secondary pe-5" id="publicationSearch"
+                                placeholder="Buscar">
+                            <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
+                                data-bs-toggle="modal" data-bs-target="#buscar_multi">
+                                <i class="ri-checkbox-multiple-blank-line"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h6>Tipo de Nota</h6>
+                        <div class="btn-group w-100" role="group" aria-label="Tipo de nota">
+                            <input type="radio" class="btn-check" name="publicationNoteType" wire:model="note_type" value="1" id="publicationNoteType1">
+                            <label class="btn btn-outline-primary" for="publicationNoteType1">Nota</label>
+                            <input type="radio" class="btn-check" name="publicationNoteType" wire:model="note_type" value="2" id="publicationNoteType2">
+                            <label class="btn btn-outline-primary" for="publicationNoteType2">OV</label>
+                            <input type="radio" class="btn-check" name="publicationNoteType" wire:model="note_type" value="" id="publicationNoteType3">
+                            <label class="btn btn-outline-primary" for="publicationNoteType3">Ambos</label>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h6>Acoes Rapidas</h6>
+                        <div class="quick-actions">
+                            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
+                                wire:click.prevent="filterStatus()">
+                                {{ Notestatus::status(1)->status }}
+                                @if ($not_assigned)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
+                                wire:click.prevent="btzeroform()">
+                                Info BT Zero
+                                @if ($btzeroform)
+                                    <span class="badge text-bg-success">ON</span>
+                                @else
+                                    <span class="badge text-bg-danger">OFF</span>
+                                @endif
+                            </button>
+
+                            <button class="btn btn-primary" wire:click.prevent='go_att_mass'>
+                                <i class="ri-checkbox-multiple-fill"></i> Atribuir
+                            </button>
+                            <button class="btn btn-primary" wire:click.prevent='export_excel'>
+                                <i class="ri-file-excel-2-line"></i> Exportar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filters-row d-flex flex-wrap align-items-center justify-content-end gap-2 mt-3">
+                    <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'publishing', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
+                        @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publishing', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
+                        @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publishing', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publishing', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publishing', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                        @livewire('components.filter.remove-all', ['group_filter' => 'publishing'], key('removeAll'))
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-bar">
+            <div class="row align-items-center g-2">
+                <div class="col-12 col-lg-6">
+                    @if ($lists->count())
+                        {{ $lists->links() }}
+                    @endif
+                </div>
+                <div class="col-12 col-lg-6 text-lg-end">
+                    <div class="summary-item">
+                        Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
+                        <strong>{{ $lists->lastItem() }}</strong> de
+                        <strong>{{ $lists->total() }}</strong> registros.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <div class="table-card">
 
         @if (!$lists->count())
             <div class="card-body">
-                <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }} - @if ($service->Status->count())
+                <h4 class="text-center mb-0">SEM NOTAS PARA EXIBIR EM {{ $service->service }} - @if ($service->Status->count())
                         @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
                             ({{ $sts->value }})
                         @endforeach
@@ -174,9 +293,9 @@
                 </h4>
             </div>
         @else
-            <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                <div class="row">
-                    <div class="col">
+            <div class="card-header fw-bold text-bg-secondary">
+                <div class="row align-items-center g-2">
+                    <div class="col-12 col-lg">
                         <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
                             @if ($service->Status->count())
                                 @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
@@ -184,18 +303,21 @@
                                 @endforeach
                             @endif
                         </h4>
+                        <div class="publication-note">
+                            Informe publicavel por OP20 liberada, independente da Fiscalizacao simultanea.
+                        </div>
                     </div>
-                    <div class="col-3 d-flex justify-content-end">
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'><i
+                    <div class="col-12 col-lg-auto d-flex flex-wrap gap-2 justify-content-lg-end">
+                        <button class="btn btn-sm btn-primary" wire:click.prevent='go_att_mass'><i
                                 class="ri-checkbox-multiple-fill"></i> Atribuir</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
+                        <button class="btn btn-sm btn-light" wire:click.prevent='export_excel'><i
                                 class="ri-file-excel-2-line"></i> Exportar</button>
                     </div>
                 </div>
             </div>
 
             <div class="table-responsive">
-                <table id="exemple" class="table table-sm table-striped table-condensed">
+                <table id="exemple" class="table table-sm table-condensed table-hover mb-0 main-table">
                     <thead class="table-dark">
                         <tr>
                             <th>
@@ -422,35 +544,37 @@
 
         @endif
     </div>
-    <div class="row">
-        <div class="col-6">
-            {{ $lists->links() }}
-        </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
+    <div class="summary-bar mt-3">
+        <div class="row align-items-center g-2">
+            <div class="col-12 col-lg-6">
+                @if ($lists->count())
+                    {{ $lists->links() }}
+                @endif
+            </div>
+            <div class="col-12 col-lg-6 text-lg-end">
+                <div class="summary-item">
+                    Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
+                    <strong>{{ $lists->lastItem() }}</strong> de
+                    <strong>{{ $lists->total() }}</strong> registros.
+                </div>
+            </div>
         </div>
     </div>
 
 
     {{-- MODALS --}}
 
-    {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
+    <div wire:ignore.self class="modal fade bulk-search-modal" id="buscar_multi" tabindex="-1" aria-labelledby="publicationBulkSearchLabel"
         aria-hidden="true">
-
-
         <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="publicationBulkSearchLabel">Buscar Multi-Notas</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
+                <div class="modal-body">
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch"
+                        wire:model.defer="advanceSearch" placeholder="Informe uma nota por linha"></textarea>
                 </div>
                 <div class="modal-footer d-flex justify-content-between align-items-center">
                     <div>
@@ -467,18 +591,21 @@
                     </div>
                 </div>
             </div>
-
         </div>
-
     </div>
 
     @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-'.$service->uuid))
 
+    </div>
 
     {{-- END MODALS --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const table = document.querySelector('#exemple');
+            if (!table) {
+                return;
+            }
+
             const headers = table.querySelectorAll('th');
             let currentSortColumn = null;
             let currentSortOrder = 'asc';

@@ -5,9 +5,11 @@ namespace App\Http\Livewire\Services\Supervision;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
+use App\Models\WorkReportFlowProduction;
 use App\Support\SicodeRules;
 use App\Services\Files\FileStorageService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -224,29 +226,40 @@ class Main extends Component
 
         // Cálculos (MariaDB)
         $daysAssignedExpr = "DATEDIFF(CURDATE(), productions.att_at)";
-        $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), work_reports.informed_at), 0)";
+        $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), linked_work_reports.informed_at), 0)";
+        $linkedWorkReports = DB::table('work_report_flow_productions as wrfp')
+            ->join('work_reports as wr', 'wr.id', '=', 'wrfp.work_report_id')
+            ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+            ->where('wrfp.is_current', true)
+            ->groupBy('wrfp.production_id')
+            ->selectRaw('wrfp.production_id, MIN(wr.created_at) as created_at, MIN(wr.informed_at) as informed_at');
 
         return Production::query()
-	            ->with([
-	                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
-	                // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
-	                'Note.WorkForm:id,note_id,informed_at,rejected',
-	                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-	                // belongsToMany via order_work_report: NÃO existe work_form_id em orders
-	                'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
-	                'WorkReportFlowProductions' => fn ($q) => $q->where('is_current', true)
-	                    ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION),
-	                'WorkReportFlowProductions.WorkReport:id,note_id,company_id,informed_at,rejected,selected_final_scopes',
-	                'WorkReportFlowProductions.WorkReport.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem', 'orders.note_id'),
-	                'WorkReportFlowProductions.WorkReport.Company:id,name,deleted_at',
-	                'Note.OldAds:id,note_id,date',
-	                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-	                'Wpas:id,production_id,dd,created_at',
+                    ->with([
+                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
+                // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
+                'Note.WorkForm:id,note_id,informed_at,rejected',
+                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                // belongsToMany via order_work_report: NÃO existe work_form_id em orders
+                'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
+                'Note.OldAds:id,note_id,date',
+                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                'Wpas:id,production_id,dd,created_at',
+                'WorkReportFlowProductions' => fn ($q) => $q
+                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true)
+                    ->with([
+                        'WorkReport:id,note_id,informed_at,created_at,rejected,selected_final_scopes',
+                        'WorkReport.Orders' => fn ($orders) => $orders->select('orders.id', 'orders.ordem'),
+                        'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                    ]),
                 'Note.Files:id,service_id,note_id,file_name,path,ext',
             ])
 
-            // JOIN necessário para created_at e days_left
-            ->leftJoin('work_reports', 'work_reports.note_id', '=', 'productions.note_id')
+            // JOIN necessário para created_at e days_left, sem multiplicar por todos os informes da nota.
+            ->leftJoinSub($linkedWorkReports, 'linked_work_reports', function ($join) {
+                $join->on('linked_work_reports.production_id', '=', 'productions.id');
+            })
 
             ->where('productions.service_id', $this->service->uuid)
             ->when(
@@ -299,7 +312,7 @@ class Main extends Component
                 'productions.completed',
                 'productions.att_at',
                 'productions.transferred',
-                'work_reports.created_at as work_dt_created',
+                'linked_work_reports.created_at as work_dt_created',
             ])
             ->selectRaw("$daysAssignedExpr as days_assigned")
             ->selectRaw("$daysLeftExpr as days_left");

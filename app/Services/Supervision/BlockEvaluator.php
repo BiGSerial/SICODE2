@@ -5,6 +5,7 @@ namespace App\Services\Supervision;
 use App\Models\Note;
 use App\Models\Service;
 use App\Models\Production;
+use App\Models\WorkReportFlowProduction;
 
 class BlockEvaluator
 {
@@ -150,17 +151,42 @@ class BlockEvaluator
 
     private function latestProductionForService(Note $note, string $serviceUuid): ?Production
     {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
         if ($note->relationLoaded('Productions')) {
-            return $note->Productions
+            $productions = $note->Productions
                 ->where('service_id', $serviceUuid)
-                ->sortByDesc('created_at')
-                ->first();
+                ->sortByDesc('created_at');
+
+            if ($workReportId > 0) {
+                $linkedProduction = $productions
+                    ->first(function (Production $production) use ($workReportId) {
+                        return $production->WorkReportFlowProductions
+                            ->where('work_report_id', $workReportId)
+                            ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                            ->where('is_current', true)
+                            ->isNotEmpty();
+                    });
+
+                return $linkedProduction;
+            }
+
+            return $productions->first();
         }
 
-        return Production::where('note_id', $note->id)
+        $query = Production::where('note_id', $note->id)
             ->where('service_id', $serviceUuid)
-            ->orderByDesc('created_at')
-            ->first();
+            ->orderByDesc('created_at');
+
+        if ($workReportId > 0) {
+            $query->whereHas('WorkReportFlowProductions', function ($q) use ($workReportId) {
+                $q->where('work_report_id', $workReportId)
+                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true);
+            });
+        }
+
+        return $query->first();
     }
 
     private function latestValidPartialForSupervision(Note $note): ?\App\Models\Partial

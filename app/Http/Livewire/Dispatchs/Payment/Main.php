@@ -110,6 +110,36 @@ class Main extends Component
         $this->noteFilter = $noteFilter;
     }
 
+    private function rowSelectionKey(Note $note): string
+    {
+        return (string) ($note->getAttribute('payment_context_key') ?: $note->id);
+    }
+
+    private function parseSelectionKey($key): array
+    {
+        if (is_string($key) && str_contains($key, ':')) {
+            [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
+
+            return [(int) $noteId, (int) $workReportId];
+        }
+
+        return [(int) $key, null];
+    }
+
+    private function dispatchPayloadForSelection($key): array|int
+    {
+        [$noteId, $workReportId] = $this->parseSelectionKey($key);
+
+        if ($workReportId) {
+            return [
+                'note_id' => $noteId,
+                'work_report_id' => $workReportId,
+            ];
+        }
+
+        return $noteId;
+    }
+
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
@@ -166,7 +196,12 @@ class Main extends Component
             'multiSearch'                => $this->multiSearch,
             'multi_search_any_situation' => (bool) $this->multi_search_any_situation,
             'bulkSearchAnyStatus'        => (bool) $this->bulkSearchAnyStatus,
-            'selected_ids'               => $this->selected,
+            'selected_ids'               => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[0])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
             'typeNote'                   => $this->typeNote,
             'not_assigned'               => $this->not_assigned,
             'company_ids'                => $filters['company'] ?? null,
@@ -254,13 +289,13 @@ class Main extends Component
 
         $visibleItems = $this->lists->items();
 
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        $selectedSet = array_fill_keys(array_map('strval', $this->selected), true);
 
         if ($this->selectall) {
 
             foreach ($visibleItems as $note) {
 
-                $id = (int) $note->id;
+                $id = $this->rowSelectionKey($note);
 
                 if (isset($selectedSet[$id])) {
                     continue;
@@ -272,11 +307,11 @@ class Main extends Component
             }
         } else {
             foreach ($visibleItems as $note) {
-                unset($selectedSet[(int) $note->id]);
+                unset($selectedSet[$this->rowSelectionKey($note)]);
             }
         }
 
-        $this->selected = array_map('intval', array_keys($selectedSet));
+        $this->selected = array_values(array_keys($selectedSet));
 
     }
 
@@ -289,12 +324,12 @@ class Main extends Component
 
         foreach ($items as $note) {
             if ($this->canDispatchNote($note)) {
-                $eligiblePage[] = (int) $note->id;
+                $eligiblePage[] = $this->rowSelectionKey($note);
             }
         }
 
         // selectall fica true quando TODOS os elegíveis da página estão selecionados
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        $selectedSet = array_fill_keys(array_map('strval', $this->selected), true);
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectall = false;
@@ -312,7 +347,7 @@ class Main extends Component
 
         foreach ($items as $note) {
             if ($this->canDispatchNote($note)) {
-                $eligiblePage[] = (int) $note->id;
+                $eligiblePage[] = $this->rowSelectionKey($note);
             }
         }
 
@@ -322,7 +357,7 @@ class Main extends Component
             return;
         }
 
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+        $selectedSet = array_fill_keys(array_map('strval', $this->selected), true);
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectall = false;
@@ -399,7 +434,7 @@ class Main extends Component
 
     public function get_single_note($note)
     {
-        $this->selected = [$note];
+        $this->selected = [(string) $note];
         $this->go_att_mass();
     }
 
@@ -417,7 +452,12 @@ class Main extends Component
             return;
         }
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
+        $payload = collect($this->selected)
+            ->map(fn ($key) => $this->dispatchPayloadForSelection($key))
+            ->values()
+            ->all();
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
 
     public function confirm_att()
@@ -938,9 +978,18 @@ class Main extends Component
               WHEN EXISTS (
                     SELECT 1 FROM five_notes as fn
                     WHERE fn.note_id = notes.id
-                      AND fn.is_supervisioned = 1
-                      AND fn.is_completed    = 1
-                      AND fn.is_archived     = 0
+                      AND COALESCE(fn.is_archived, 0) = 0
+                      AND (
+                          (
+                              COALESCE(fn.is_supervisioned, 0) = 0
+                              AND COALESCE(fn.visible_partner, 0) = 0
+                              AND COALESCE(fn.is_payed, 0) = 0
+                          )
+                          OR (
+                              COALESCE(fn.is_supervisioned, 0) = 1
+                              AND COALESCE(fn.is_completed, 0) = 1
+                          )
+                      )
                 )
                 THEN 1
               WHEN EXISTS (SELECT 1 FROM work_reports wr WHERE wr.note_id = notes.id)
@@ -1023,6 +1072,20 @@ class Main extends Component
             'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
+            'WorkForms' => fn ($q) => $q->select([
+                'id',
+                'note_id',
+                'company_id',
+                'informed_at',
+                'created_at',
+                'rejected',
+                'selected_final_scopes',
+            ])->where('canceled', false),
+            'WorkForms.Note:id,type_note',
+            'WorkForms.Company:id,name,deleted_at',
+            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'WorkForms.Adsform:id,work_report_id,created_at',
             'Partials' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -1065,7 +1128,60 @@ class Main extends Component
                                           ->orderByDesc('created_at'),
         ]);
 
+        $page->setCollection($this->expandPaymentRows($page->getCollection()));
+
         return $page;
+    }
+
+    private function expandPaymentRows($notes)
+    {
+        return $notes->flatMap(function (Note $note) {
+            $workForms = $note->relationLoaded('WorkForms')
+                ? $note->WorkForms
+                : collect([$note->WorkForm])->filter();
+
+            $eligibleWorkForms = $workForms
+                ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
+                ->values();
+
+            if ($eligibleWorkForms->isEmpty()) {
+                $note->setAttribute('payment_context_key', (string) $note->id);
+
+                return [$note];
+            }
+
+            return $eligibleWorkForms->map(function ($workForm) use ($note) {
+                $row = clone $note;
+                $row->setRelation('WorkForm', $workForm);
+                $row->setRelation('WorkForms', collect([$workForm]));
+                $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
+                $row->setAttribute('payment_work_report_id', (int) $workForm->id);
+                $row->setAttribute('dispatch_work_report_id', (int) $workForm->id);
+
+                return $row;
+            });
+        })->values();
+    }
+
+    private function workReportEligibleForPayment($workForm): bool
+    {
+        if (!$workForm) {
+            return false;
+        }
+
+        $orders = $workForm->relationLoaded('Orders') ? $workForm->Orders : $workForm->Orders()->with('Operations')->get();
+
+        $statuses = function (string $operation) use ($orders) {
+            return $orders
+                ->flatMap(fn ($order) => $order->Operations ?? collect())
+                ->where('operacao', $operation)
+                ->pluck('status')
+                ->map(fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status));
+        };
+
+        return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+            && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
+            && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
     }
 
     /**

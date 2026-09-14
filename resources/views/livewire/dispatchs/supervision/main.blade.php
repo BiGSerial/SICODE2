@@ -489,7 +489,8 @@
                 <div class="col-12 col-lg-6 text-lg-end">
                     <div class="summary-item">
                         Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
-                        <strong>{{ $lists->lastItem() }}</strong> registros.
+                        <strong>{{ $lists->lastItem() }}</strong> de
+                        <strong>{{ $lists->total() }}</strong> registros.
                     </div>
                 </div>
             </div>
@@ -554,35 +555,21 @@
                     <tbody>
                         @foreach ($lists as $list)
                             @php
-                                $operationalWorkReport = $this->operationalWorkReportFor($list);
-                                $selectionKey = $this->selectionKeyFor($list);
-                                $stackProductionAvailable = null;
-
-                                if ($operationalWorkReport) {
-                                    $e = $this->needBlockForWorkReport($operationalWorkReport);
-                                    $rowClass = $e['color'];
-                                    $block = $e['block'];
-                                    $command = $e['command'];
-                                    $production = $e['production'];
-                                    $reason = $e['reason'];
-                                    $canDispatch = $command;
-                                } else {
-                                    $e = $this->needBlock($list); // ['block'=>.., 'command'=>.., 'color'=>.., 'reason'=>..]
-                                    $rowClass = $e['color'];
-                                    $block = $e['block'];
-                                    $command = $e['command'];
-                                    $production = $e['production'];
-                                    $reason = $e['reason'];
-                                    $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
-	                                    $canDispatch = !$block || $command || $stackProductionAvailable;
-	                                    if ($stackProductionAvailable) {
-	                                        $rowClass = '';
-	                                        $production = $stackProductionAvailable;
-	                                    }
+                                $e = $this->needBlock($list); // ['block'=>.., 'command'=>.., 'color'=>.., 'reason'=>..]
+                                $workForm = $list->WorkForm;
+                                $rowClass = $e['color'];
+                                $block = $e['block'];
+                                $command = $e['command'];
+                                $production = $e['production'];
+                                $reason = $e['reason'];
+                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+                                $canDispatch = !$block || $command || $stackProductionAvailable;
+                                if ($stackProductionAvailable) {
+                                    $rowClass = '';
                                 }
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
-                                $partial = $operationalWorkReport ? false : $e['isPartial'];
+                                $partial = $e['isPartial'];
                                 $latestValidPartial = $list->Partials
                                     ?->where('allow', true)
                                     ->where('deny', false)
@@ -597,38 +584,24 @@
 
                                 $adsAt = null;
                                 $adsDate = null;
-                                if ($operationalWorkReport?->Adsform) {
-                                    $adsDate = $operationalWorkReport->Adsform->created_at;
-                                    $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
-                                } elseif ($list->OldAds->isNotEmpty()) {
+                                if ($list->OldAds->isNotEmpty()) {
                                     $adsDate = $list->OldAds->last()->date;
+                                    $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
+                                } elseif ($workForm?->Adsform) {
+                                    $adsDate = $workForm->Adsform->created_at;
                                     $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
                                 } elseif ($list->Adsform) {
                                     $adsDate = $list->Adsform->created_at;
                                     $adsAt = optional($adsDate)->format('d/m/Y H:i:s');
                                 }
-	                                $isTacitAds = (bool) (($operationalWorkReport?->Adsform?->tacit ?? null) ?? ($list->Adsform?->tacit ?? false));
-	
-	                                $informedDate = null;
-	                                $orders = $operationalWorkReport
-	                                    ? $operationalWorkReport->Orders
-	                                    : (
-	                                        $production instanceof \App\Models\Production
-	                                            ? $production->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
-	                                            : ($list->WorkForm?->Orders ?? collect())
-	                                    );
-	                                $workForm = $operationalWorkReport ?: (
-	                                    $production instanceof \App\Models\Production
-	                                        ? $production->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)->first()
-	                                        : null
-	                                );
-	                                $workForm = $workForm ?: $list->WorkForm;
-	
-	                                if ($workForm) {
-	                                    $informedDate = $workForm->informed_at;
-	                                } elseif ($latestValidPartial) {
-	                                    $informedDate = $latestValidPartial->created_at;
-	                                }
+                                $isTacitAds = (bool) (($workForm?->Adsform?->tacit ?? null) ?? ($list->Adsform?->tacit ?? false));
+
+                                $informedDate = null;
+                                if ($workForm) {
+                                    $informedDate = $workForm->informed_at;
+                                } elseif ($latestValidPartial) {
+                                    $informedDate = $latestValidPartial->created_at;
+                                }
 
                                 $daysFromInformed = null;
                                 if ($informedDate) {
@@ -642,10 +615,10 @@
                             @endphp
 
 
-                            <tr class="align-middle">
+                            <tr class="align-middle" wire:key="supervision-row-{{ $list->id }}-{{ $list->dispatch_work_report_id ?? 'note' }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $selectionKey }}" wire:model.defer="selected"
+                                        value="{{ $list->id }}" wire:model.defer="selected"
                                         @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
@@ -653,9 +626,18 @@
                                         </td>
                                     @endcan --}}
                                 <td class="text-center {{ $rowClass }}">
-                                    <span class="row-chip {{ $partial ? 'chip-partial' : 'chip-final' }}">
-                                        {{ $partial ? 'P' : 'F' }}
-                                    </span>
+                                    <div class="d-grid gap-1 justify-items-center">
+                                        <span class="row-chip {{ $partial ? 'chip-partial' : 'chip-final' }}">
+                                            {{ $partial ? 'P' : 'F' }}
+                                        </span>
+                                        @if (!$partial && $workForm)
+                                            @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                                <span class="badge {{ $scopeBadge['class'] }}">
+                                                    {{ $scopeBadge['label'] }}
+                                                </span>
+                                            @endforeach
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="fw-bold copy-text text-center {{ $rowClass }}"
                                     data-value="{{ $list->note }}">
@@ -672,13 +654,13 @@
                                             <i class="ri-fire-line text-danger fw-bold"></i>
                                         </span>
                                     @endif
-                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$selectionKey" />
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$list->id.'-'.($list->dispatch_work_report_id ?? 'note')" />
                                 </td>
-	                                <td class="text-center {{ $rowClass }} text-nowrap">
-	                                    @if ($orders->isNotEmpty())
-	                                        @foreach ($orders as $order)
-	                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
-	                                        @endforeach
+                                <td class="text-center {{ $rowClass }} text-nowrap">
+                                    @if ($workForm)
+                                        @foreach ($workForm->Orders as $order)
+                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                        @endforeach
                                     @elseif ($latestValidPartial)
                                         @foreach ($latestValidPartial->Orders as $order)
                                             <p class="my-0 py-0">{{ $order->ordem }}</p>
@@ -746,9 +728,9 @@
                                         </span>
                                     @endif
                                 </td>
-	                                <td class="fw-bold text-center {{ $rowClass }}">
-	                                    R$ {{ number_format((float) ($orders?->sum('service_cost') ?? 0), 2, ',', '.') }}
-	                                </td>
+                                <td class="fw-bold text-center {{ $rowClass }}">
+                                    R$ {{ number_format((float) ($list->orders?->sum('service_cost') ?? 0), 2, ',', '.') }}
+                                </td>
                                 <td class="fw-light text-center {{ $rowClass }}" tabindex="2"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Levantamentos Realizados"
@@ -795,14 +777,13 @@
                                     @if ($canDispatch)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            @if ($operationalWorkReport)
-                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForWorkReports', [{{ $operationalWorkReport->id }}])"
-                                            @else
-                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
-                                            @endif
+                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [@js([
+                                                'note_id' => $list->id,
+                                                'work_report_id' => (int) ($list->dispatch_work_report_id ?? 0),
+                                            ])])"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
-                                            data-bs-title="{{ $operationalWorkReport ? 'Despachar este Informe' : ($stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV') }}"></i>
+                                            data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV' }}"></i>
                                     @else
                                         @php
                                             $assignedName = $production?->User
@@ -839,7 +820,8 @@
             <div class="col-12 col-lg-6 text-lg-end">
                 <div class="summary-item">
                     Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
-                    <strong>{{ $lists->lastItem() }}</strong> registros.
+                    <strong>{{ $lists->lastItem() }}</strong> de
+                    <strong>{{ $lists->total() }}</strong> registros.
                 </div>
             </div>
         </div>

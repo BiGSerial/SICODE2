@@ -877,6 +877,16 @@
                         </thead>
                         <tbody>
                             @foreach ($lists->Productions as $p)
+                                @php
+                                    $finalScopes = $p->relationLoaded('WorkReportFlowProductions')
+                                        ? $p->WorkReportFlowProductions
+                                            ->where('is_current', true)
+                                            ->pluck('final_scope')
+                                            ->filter()
+                                            ->unique()
+                                            ->values()
+                                        : collect();
+                                @endphp
                                 <tr wire:key="prod-{{ $p->id }}">
                                     <td>
                                         @if ($p->d5)
@@ -887,6 +897,14 @@
                                         @endif
                                         @if ($p->partial)
                                             <span class="badge text-bg-warning">P</span>
+                                        @endif
+                                        @if (!$p->partial && $finalScopes->isNotEmpty())
+                                            @foreach ($finalScopes as $finalScope)
+                                                <span class="badge {{ $finalScope === 'connection' ? 'text-bg-warning' : 'text-bg-success' }}"
+                                                    title="{{ $finalScope === 'connection' ? 'Final Ligação' : 'Final' }}">
+                                                    F
+                                                </span>
+                                            @endforeach
                                         @endif
                                     </td>
                                     <td>{{ $p->Service?->service ?? 'Desconhecido' }}</td>
@@ -1270,12 +1288,11 @@
         @endif
 
         @php
-            $workForm = $lists->WorkForm ?: $lists->WorkFormAny;
-            $workFormCanceled = (bool) ($workForm?->canceled);
+            $workForms = $lists->WorkForms ?? collect();
         @endphp
 
         {{-- INFORMES DE OBRA (Parciais, Ramal, Work) --}}
-        @if ($workForm || $lists->RamalForm || $lists->Partials->isNotEmpty())
+        @if ($workForms->isNotEmpty() || $lists->RamalForm || $lists->Partials->isNotEmpty())
             <div class="card border-0 mt-3 shadow">
                 <div class="card-header rs-head-unified">
                     <h5 class="rs-section-title">INFORMES DE OBRA</h5>
@@ -1402,15 +1419,25 @@
                                 </tr>
                             @endif
 
-                            {{-- WORK FORM --}}
-                            @if ($workForm)
+                            {{-- WORK FORMS --}}
+                            @foreach ($workForms as $workForm)
+                                @php
+                                    $workFormCanceled = (bool) $workForm->canceled;
+                                @endphp
                                 <tr wire:key="work-{{ $workForm->id }}"
                                     @unless($workFormCanceled)
                                         wire:dblclick="$emitTo('partner.show.show-work-form','show_form',{{ $workForm->id }})"
                                     @endunless
                                     class="{{ $workFormCanceled ? 'rs-workform-canceled-row' : '' }}">
                                     <td class="text-center {{ $workFormCanceled ? 'bg-danger text-white' : 'bg-primary text-white' }} align-middle">
-                                        FINAL
+                                        <div class="d-grid gap-1">
+                                            <span>FINAL</span>
+                                            @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                                <span class="badge {{ $scopeBadge['class'] }}">
+                                                    {{ $scopeBadge['label'] }}
+                                                </span>
+                                            @endforeach
+                                        </div>
                                     </td>
                                     <td class="text-center align-middle">
                                         @foreach ($workForm->Orders as $o)
@@ -1515,7 +1542,7 @@
                                         {{ $workForm?->informed_at ? date('d/m/Y', strtotime($workForm?->informed_at)) : 'Desconhecido' }}
                                     </td>
                                 </tr>
-                            @endif
+                            @endforeach
                         </tbody>
                     </table>
                 </div>

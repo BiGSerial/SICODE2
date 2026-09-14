@@ -43,7 +43,7 @@
                     @else
                     @php
                         $longKeys  = ['Informação', 'Motivo', 'Restrição'];
-                        $skipKeys  = ['production_id', 'Conclusão'];
+                        $skipKeys  = ['production_id', 'conclusion', 'Conclusão'];
                         $allFields = collect($exibition ?? [])
                             ->filter(fn($r) => !in_array($r['chave'], $skipKeys) && $r['valor'] !== null);
                         $tableFields = $allFields->reject(fn($r) => in_array($r['chave'], $longKeys));

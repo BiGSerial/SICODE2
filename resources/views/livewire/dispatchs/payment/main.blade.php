@@ -285,9 +285,8 @@
                                     wire:click="setSelectAll" @checked($this->checkAllSelect($lists))>
                             </th>
                             <th class="align-middle text-center">Nota</th>
-                            <th class="align-middle text-center">Tipo</th>
+                            <th class="align-middle text-center">Tipo / Escopo</th>
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">Escopo</th>
                             <th class="align-middle text-center">MOA</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
@@ -327,18 +326,21 @@
                                     $reason = 'Disponivel na pilha da empresa para atribuicao individual.';
                                 }
 
-	                                $linkedWorkForms = $production instanceof \App\Models\Production
-	                                    ? $production->currentWorkReportsForStage(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-	                                    : collect();
-	                                $wf = $linkedWorkForms->first() ?: $list->WorkForm;
-	                                $partial = !$wf ? $list->Partials->first() ?? null : null;
-	                                $orders = $linkedWorkForms->isNotEmpty()
-	                                    ? $production->currentWorkReportOrders(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-	                                    : ($wf
-	                                        ? $wf->Orders ?? collect()
-	                                        : ($partial
-	                                            ? $partial->Orders ?? collect()
-	                                            : collect()));
+                                $workForms = $list->relationLoaded('WorkForms')
+                                    ? $list->WorkForms
+                                    : collect([$list->WorkForm])->filter();
+                                $wf = $workForms->first() ?? $list->WorkForm;
+                                $selectionKey = (string) ($list->payment_context_key ?? $list->id);
+                                $workReportId = (int) ($list->payment_work_report_id ?? 0);
+                                $dispatchPayload = $workReportId
+                                    ? [['note_id' => (int) $list->id, 'work_report_id' => $workReportId]]
+                                    : [(int) $list->id];
+                                $partial = !$wf ? $list->Partials->first() ?? null : null;
+                                $orders = $wf
+                                    ? $workForms->flatMap(fn ($workForm) => $workForm->Orders ?? collect())
+                                    : ($partial
+                                        ? $partial->Orders ?? collect()
+                                        : collect());
 
                                 $five = $list->FiveNote;
                                 $hasD5 = (bool) $five;
@@ -383,10 +385,10 @@
                             @endphp
                             {{-- @dump($list->Productions) --}}
 
-                            <tr class="align-middle text-center" wire:key="note-{{ $list->id }}">
+                            <tr class="align-middle text-center" wire:key="note-{{ $selectionKey }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary " type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                        value="{{ $selectionKey }}" wire:model.defer="selected"
                                         @disabled(!$canDispatch)>
                                 </td>
 
@@ -401,12 +403,27 @@
                                     @else
                                         {{ $list->note }}
                                     @endif
-                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-payment-main-'.$list->id" />
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-payment-main-'.$selectionKey" />
                                 </td>
 
-                                <td
-                                    class="fw-light fw-bold text-center  @if ($partial) text-bg-warning @else text-bg-success @endif">
-                                    {{ $partial ? 'PARCIAL' : 'TOTAL' }} </td>
+                                <td class="fw-bold text-center {{ $rowClass }}">
+                                    <div class="d-grid gap-1 justify-items-center">
+                                        <span class="badge {{ $partial ? 'text-bg-warning' : 'text-bg-success' }}">
+                                            {{ $partial ? 'PARCIAL' : 'TOTAL' }}
+                                        </span>
+                                        @if ($wf)
+                                            @foreach ($workForms as $workForm)
+                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
+                                                    <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
+                                                @endforeach
+                                            @endforeach
+                                        @elseif ($partial)
+                                            {{-- Parcial não possui escopo. --}}
+                                        @else
+                                            <span class="badge scope-badge text-bg-secondary">Geral</span>
+                                        @endif
+                                    </div>
+                                </td>
 
                                 <td class="text-center align-middle {{ $rowClass }}">
                                     @forelse ($orders as $order)
@@ -416,36 +433,22 @@
                                     @endforelse
 
                                 </td>
-                                <td class="text-center align-middle {{ $rowClass }}">
-                                    @if ($wf)
-                                        @foreach ($wf->finalScopeBadges() as $scopeBadge)
-                                            <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
-                                        @endforeach
-                                    @elseif ($partial)
-                                        <span class="badge scope-badge text-bg-secondary">Parcial</span>
-                                    @else
-                                        <span class="badge scope-badge text-bg-secondary">Geral</span>
-                                    @endif
-                                </td>
-	                                <td class="text-center align-middle fw-bold {{ $rowClass }}">
-	                                    @if ($wf && $orders->isNotEmpty() && !$partial)
-	                                        {{-- @foreach ($list->WorkForm->Orders as $order)
-	                                            @php
-	                                                $soma += $order->moaberto;
-	                                            @endphp
-	                                            <p class="my-0 py-0">
-	                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-	                                            </p>
-	                                        @endforeach --}}
-	                                        @php
-	                                            $rowMoaberto = $linkedWorkForms->isNotEmpty()
-	                                                ? $orders->sum('moaberto')
-	                                                : $list->total_moaberto;
-	                                            $soma += $rowMoaberto;
-	                                        @endphp
-	                                        <p class="my-0 py-0">
-	                                            R$ {{ number_format($rowMoaberto, 2, ',', '.') }}
-	                                        </p>
+                                <td class="text-center align-middle fw-bold {{ $rowClass }}">
+                                    @if ($wf && $orders->isNotEmpty() && !$partial)
+                                        {{-- @foreach ($list->WorkForm->Orders as $order)
+                                            @php
+                                                $soma += $order->moaberto;
+                                            @endphp
+                                            <p class="my-0 py-0">
+                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
+                                            </p>
+                                        @endforeach --}}
+                                        @php
+                                            $soma += $list->total_moaberto;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
+                                        </p>
                                     @elseif ($partial)
                                         @php
                                             $soma += $partial->value;
@@ -614,7 +617,7 @@
                                     @if ($canDispatch)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [{{ $list->id }}])"
+                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', @js($dispatchPayload))"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar nota' }}"></i>
                                         @if ($command)
@@ -630,7 +633,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-dark align-middle">
-                            <td colspan="5" class="text-end">Total:</td>
+                            <td colspan="4" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
                             <td colspan="12"></td>
                         </tr>

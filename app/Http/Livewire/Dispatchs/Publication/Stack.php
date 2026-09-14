@@ -255,8 +255,6 @@ class Stack extends Component
     public function go_att_mass()
     {
 
-        $this->clean();
-
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -268,17 +266,7 @@ class Stack extends Component
             return;
         }
 
-        $this->productions = Production::find($this->selected);
-
-        $this->notes = Note::whereHas('Productions', function ($query) {
-            return $query->whereIn('id', $this->selected);
-        })->get();
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForProductions', array_values($this->selected));
     }
 
     public function go_des_att_mass()
