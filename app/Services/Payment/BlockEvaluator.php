@@ -110,6 +110,15 @@ class BlockEvaluator
             }
         }
 
+        // ===== Produção aberta
+        if (empty($prod->user_id)) {
+            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
+        }
+
+        if (!$prod->completed && !$prod->confirmed) {
+            return $this->res(self::HOLD_BLUE, false, 'prod_open_generic', $prod);
+        }
+
         // ===== 4) FALLBACK SAP (dt e status iguais => não refletiu)
         if (
             ($prod->dt_note ?? null) && ($note->dt_status ?? null) &&
@@ -119,11 +128,6 @@ class BlockEvaluator
             $prod->status_note == $note->nstats
         ) {
             return $this->res(self::HOLD_RED, true, 'sap_not_reflected_same_dt_and_status', $prod);
-        }
-
-        // ===== Produção sem atribuição
-        if (empty($prod->user_id)) {
-            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
         }
 
         // ===== 5) Estados herdados

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\File;
-use App\Services\Files\{FileStorageService, FileThumbnailService};
+use App\Models\{EvidenceFile, File};
+use App\Services\Files\{EvidenceFileService, FileStorageService, FileThumbnailService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -118,6 +118,21 @@ class FilesController extends Controller
         }
 
         abort(404, 'Arquivo não encontrado para visualização.');
+    }
+
+    public function previewEvidence(EvidenceFile $file, EvidenceFileService $evidence)
+    {
+        if (!$evidence->exists($file)) {
+            abort(404, 'Arquivo de evidencia nao encontrado para visualizacao.');
+        }
+
+        $name = $file->original_name ?: $file->stored_name ?: 'evidencia';
+
+        return response($evidence->get($file), 200, [
+            'Content-Type'        => $evidence->mimeType($file),
+            'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+            'Cache-Control'       => 'private, max-age=300',
+        ]);
     }
 
     public function zipSelected(Request $request)

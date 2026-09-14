@@ -1066,10 +1066,14 @@ class Main extends Component
                 'created_at',
                 'rejected',
                 'selected_final_scopes',
+                'equipment',
+                'changes',
+                'damage',
+                'connection',
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
-            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
             'WorkForms' => fn ($q) => $q->select([
@@ -1080,10 +1084,14 @@ class Main extends Component
                 'created_at',
                 'rejected',
                 'selected_final_scopes',
+                'equipment',
+                'changes',
+                'damage',
+                'connection',
             ])->where('canceled', false),
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
-            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,created_at',
             'Partials' => fn ($q) => $q->select([
@@ -1104,7 +1112,7 @@ class Main extends Component
                 ->where('payment', false)
                 ->orderByDesc('created_at'),
             'Partials.Company:id,name,deleted_at',
-            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
@@ -1145,6 +1153,10 @@ class Main extends Component
                 ->values();
 
             if ($eligibleWorkForms->isEmpty()) {
+                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
+                    return [];
+                }
+
                 $note->setAttribute('payment_context_key', (string) $note->id);
 
                 return [$note];
@@ -1169,19 +1181,40 @@ class Main extends Component
             return false;
         }
 
-        $orders = $workForm->relationLoaded('Orders') ? $workForm->Orders : $workForm->Orders()->with('Operations')->get();
+        $orders = $workForm->relationLoaded('Orders')
+            ? $workForm->Orders
+            : $workForm->Orders()->with('Operations')->get();
 
-        $statuses = function (string $operation) use ($orders) {
-            return $orders
-                ->flatMap(fn ($order) => $order->Operations ?? collect())
-                ->where('operacao', $operation)
-                ->pluck('status')
-                ->map(fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status));
-        };
+        $normalizedStatus = fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status);
 
-        return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-            && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
-            && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
+        return $orders->contains(function ($order) use ($normalizedStatus) {
+            if (!str_starts_with($normalizedStatus($order->statusSist ?? ''), 'LIB')) {
+                return false;
+            }
+
+            $statuses = function (string $operation) use ($order, $normalizedStatus) {
+                return collect($order->Operations ?? [])
+                    ->where('operacao', $operation)
+                    ->pluck('status')
+                    ->map($normalizedStatus);
+            };
+
+            return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+                && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
+                && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
+        });
+    }
+
+    private function isD5ReturnReadyForPayment(Note $note): bool
+    {
+        $five = $note->FiveNote;
+
+        return (bool) (
+            $five
+            && !$five->is_archived
+            && $five->is_completed
+            && $five->is_supervisioned
+        );
     }
 
     /**

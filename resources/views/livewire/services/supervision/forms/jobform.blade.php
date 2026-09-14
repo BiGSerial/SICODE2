@@ -517,7 +517,9 @@
                 $requiresD5Fields = (string) ($d5 ?? '') === '1'
                     && !($production->partial ?? false)
                     && !($production->dfive ?? false);
-                $hasD5ForConclusion = !$production->partial && ((string) ($d5 ?? '') === '1' || ($production->dfive ?? false));
+                $isRequestingD5OnFirstClose = !$production->partial
+                    && !$production->dfive
+                    && (string) ($d5 ?? '') === '1';
                 $hasConclusion = !empty($analise['conclusion'] ?? null);
                 $isInRevision = (bool) ($production->Note->WorkForm?->rejected);
             @endphp
@@ -910,6 +912,7 @@
                                                             data_get($p->analise, 'conclusion') ??
                                                             'Conclusão não informada';
                                                         $info = trim((string) data_get($p->analise, 'info', ''));
+                                                        $scopeBadges = $this->timelineScopeBadgesForProduction($p);
                                                     @endphp
 
                                                     <div class="five-tl-item">
@@ -926,6 +929,12 @@
                                                                         <i class="ri-briefcase-line"></i>
                                                                         {{ $serviceName }}
                                                                     </span>
+                                                                    @foreach ($scopeBadges as $scopeBadge)
+                                                                        <span class="badge {{ $scopeBadge['class'] }}"
+                                                                            title="{{ $scopeBadge['title'] }}">
+                                                                            {{ $scopeBadge['label'] }}
+                                                                        </span>
+                                                                    @endforeach
                                                                 </div>
                                                                 <div class="five-tl-date">
                                                                     <i class="ri-time-line"></i> {{ $doneAt }}
@@ -1134,8 +1143,8 @@
                                             <option value="" selected>Selecione</option>
                                             @foreach (SelectOptions::getSupervisionEnd() as $supEnd)
                                                 @continue($production->partial && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
-                                                @continue(!$production->partial && $hasD5ForConclusion && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
-                                                @continue(!$production->partial && !$hasD5ForConclusion && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
+                                                @continue($isRequestingD5OnFirstClose && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
+                                                @continue(!$production->partial && !$production->dfive && !$isRequestingD5OnFirstClose && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
                                                 <option value="{{ $supEnd->value }}">{{ $supEnd->reason }}</option>
                                             @endforeach
                                             @if ($production->partial)
@@ -1146,9 +1155,13 @@
                                             <div class="close-help text-warning fw-bold">
                                                 Fluxo parcial: a conclusão pode rejeitar a obra e não solicita D5.
                                             </div>
-                                        @elseif ($hasD5ForConclusion)
+                                        @elseif ($isRequestingD5OnFirstClose)
                                             <div class="close-help text-warning fw-bold">
                                                 D5 marcada: a conclusão permitida é Fiscalizado Com Pendências.
+                                            </div>
+                                        @elseif ($production->dfive)
+                                            <div class="close-help text-warning fw-bold">
+                                                Retorno D5: Fiscalizado Com Pendências devolve a D5 para a empreiteira.
                                             </div>
                                         @else
                                             <div class="close-help text-muted">

@@ -49,6 +49,41 @@
             };
         }
     }
+    if (!function_exists('__attachment_image_url')) {
+        function __attachment_image_url($file)
+        {
+            if ($file instanceof \App\Models\File) {
+                return route('files.preview', [
+                    'file' => $file->id,
+                    'thumbnail' => 1,
+                    'v' => optional($file->updated_at)->timestamp,
+                ]);
+            }
+
+            if ($file instanceof \App\Models\EvidenceFile) {
+                return route('files.evidence.preview', [
+                    'file' => $file->id,
+                    'v' => optional($file->updated_at)->timestamp,
+                ]);
+            }
+
+            $path = ltrim((string) ($file->path ?? ''), '/');
+
+            if ($path === '') {
+                return '';
+            }
+
+            if (str_starts_with($path, 'storage/')) {
+                return asset($path);
+            }
+
+            if (str_starts_with($path, 'public/')) {
+                return asset('storage/' . substr($path, strlen('public/')));
+            }
+
+            return asset('storage/' . $path);
+        }
+    }
 
     // Namespace único por instância para isolar CSS/JS
     $__ATTACH_NS = 'attch-' . uniqid();
@@ -140,15 +175,16 @@
 
                             <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3">
                                 @foreach ($images as $image)
+                                    @php $imageUrl = __attachment_image_url($image); @endphp
                                     <div class="col" style="min-width: 12rem">
                                         <div class="attachments-comp-image-item card border-0 shadow-sm h-100">
                                             <div class="position-relative">
-                                                <img src="{{ asset('storage/' . $image->path) }}"
+                                                <img src="{{ $imageUrl }}"
                                                     class="card-img-top attachments-comp-image"
                                                     style="object-fit:cover;cursor:pointer;height:160px"
                                                     alt="{{ $image->stored_name }}"
                                                     @click="
-                                                        viewingImage = '{{ asset('storage/' . $image->path) }}';
+                                                        viewingImage = '{{ $imageUrl }}';
                                                         viewingTitle = '{{ addslashes($image->stored_name) }}';
                                                         isLoading = true;
                                                         modalContentWidth = 'auto';

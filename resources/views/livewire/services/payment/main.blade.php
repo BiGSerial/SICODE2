@@ -195,7 +195,7 @@
                             </button>
 
                             <button class="btn btn-outline-success" wire:click.prevent="go_att_mass" @disabled(!count($selected))>
-                                <i class="ri-user-add-line"></i> Atribuir Selecionadas ({{ count($selected) }})
+                                <i class="ri-user-add-line"></i> Assumir Selecionadas ({{ count($selected) }})
                             </button>
 
                             <button class="btn btn-primary" wire:click.prevent="export_excel"
@@ -581,7 +581,7 @@
                                             wire:click.prevent="to_accompany({{ $list->id }}, {{ $workReportId ?: 'null' }})"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
-                                            data-bs-title="Atribuir esta Nota/OV para você"></i>
+                                            data-bs-title="Assumir esta Nota/OV para você"></i>
                                     @else
                                         @php
                                             if (isset($production?->User?->name)) {

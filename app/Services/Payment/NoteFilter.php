@@ -45,7 +45,7 @@ class NoteFilter
 
             // (A) WorkForm válido + Orders/Operations coerentes
             $root->where(function (Builder $q) use ($companyIds) {
-                $q->whereHas('WorkForm', function (Builder $wf) use ($companyIds) {
+                $q->whereHas('WorkForms', function (Builder $wf) use ($companyIds) {
                     // padronizado: campo boolean "rejected"
                     $wf->where('rejected', false)
                        ->when($companyIds, function (Builder $qq) use ($companyIds) {
@@ -53,29 +53,8 @@ class NoteFilter
                                $mix->whereIn('company_id', (array) $companyIds)
                                    ->orWhereNull('company_id');
                            });
-                       });
-                })
-                ->whereHas('Orders', function (Builder $ord) {
-                    $ord->where('statusSist', 'LIKE', 'LIB%')
-                        ->whereHas('Operations', function (Builder $op) {
-                            $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
-                        })
-                        ->whereHas('Operations', function (Builder $op) {
-                            $op->where('operacao', '0040')
-                               ->where(function (Builder $qq) {
-                                   $qq->where('status', 'like', 'LIB%')
-                                      ->orWhere('status', 'like', 'CONF%')
-                                      ->orWhere('status', 'like', 'CNPA%');
-                               });
-                        })
-                        ->whereHas('Operations', function (Builder $op) {
-                            $op->where('operacao', '0050')
-                               ->where(function (Builder $qq) {
-                                   $qq->where('status', 'like', 'LIB%')
-                                      ->orWhere('status', 'like', 'CNPA%')
-                                      ->orWhere('status', 'like', 'JBFI LIB%');
-                               });
-                        });
+                       })
+                       ->whereHas('Orders', fn (Builder $ord) => $this->wherePaymentReadyOrder($ord));
                 });
             })
 
@@ -111,6 +90,18 @@ class NoteFilter
                                     ->where('is_completed', true);
                             });
                         });
+                })
+                ->where(function (Builder $d5Payment) {
+                    $d5Payment
+                        ->whereHas('FiveNote', function (Builder $releaseLetter) {
+                            $releaseLetter->where('is_archived', false)
+                                ->where('is_supervisioned', true)
+                                ->where('is_completed', true);
+                        })
+                        ->orWhereHas('WorkForms', function (Builder $wf) {
+                            $wf->where('rejected', false)
+                               ->whereHas('Orders', fn (Builder $ord) => $this->wherePaymentReadyOrder($ord));
+                        });
                 });
             });
         });
@@ -141,6 +132,30 @@ class NoteFilter
         });
 
         return $query;
+    }
+
+    private function wherePaymentReadyOrder(Builder $ord): Builder
+    {
+        return $ord->where('statusSist', 'LIKE', 'LIB%')
+            ->whereHas('Operations', function (Builder $op) {
+                $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
+            })
+            ->whereHas('Operations', function (Builder $op) {
+                $op->where('operacao', '0040')
+                   ->where(function (Builder $qq) {
+                       $qq->where('status', 'like', 'LIB%')
+                          ->orWhere('status', 'like', 'CONF%')
+                          ->orWhere('status', 'like', 'CNPA%');
+                   });
+            })
+            ->whereHas('Operations', function (Builder $op) {
+                $op->where('operacao', '0050')
+                   ->where(function (Builder $qq) {
+                       $qq->where('status', 'like', 'LIB%')
+                          ->orWhere('status', 'like', 'CNPA%')
+                          ->orWhere('status', 'like', 'JBFI LIB%');
+                   });
+            });
     }
 
     private function municipioFilterValues(): array

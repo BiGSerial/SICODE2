@@ -330,6 +330,10 @@ class Jobform extends Component
             'Note.WorkForm.Orders',
             'Note.WorkForm.LatestReturnwork.User',
             'Note.FiveNote.company',
+            'Note.FiveNote.productions.User',
+            'Note.FiveNote.productions.Service',
+            'Note.FiveNote.productions.Analise',
+            'Note.FiveNote.productions.WorkReportFlowProductions',
             'Note.Partials.Orders',
             'Company'
         );
@@ -1024,20 +1028,20 @@ class Jobform extends Component
         }
 
         $withPending = $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS';
-        $hasD5       = $this->hasD5OnClose();
+        $isRequestingD5 = !$this->production?->dfive && (string) $this->d5 === '1';
 
-        if ($hasD5 && !$withPending) {
+        if ($isRequestingD5 && !$withPending) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'Conclusao incompativel com D5',
-                'html'     => '<div class="card"><div class="card-body text-start">Quando existe D5, a conclusao deve ser Fiscalizado Com Pendencias.</div></div>',
+                'html'     => '<div class="card"><div class="card-body text-start">Ao solicitar D5 nesta fiscalizacao, a conclusao deve ser Fiscalizado Com Pendencias.</div></div>',
             ]);
 
             return false;
         }
 
-        if (!$hasD5 && $withPending) {
+        if (!$isRequestingD5 && !$this->production?->dfive && $withPending) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -1096,6 +1100,51 @@ class Jobform extends Component
     public function render()
     {
         return view('livewire.services.supervision.forms.jobform');
+    }
+
+    public function timelineScopeBadgesForProduction(Production $production): array
+    {
+        $links = $production->relationLoaded('WorkReportFlowProductions')
+            ? $production->WorkReportFlowProductions
+            : $production->WorkReportFlowProductions()->get(['final_scope']);
+
+        $badges = $links
+            ->pluck('final_scope')
+            ->filter()
+            ->unique()
+            ->sortBy(fn (string $scope) => match ($scope) {
+                \App\Models\WorkReportFlowProduction::SCOPE_NETWORK => 1,
+                \App\Models\WorkReportFlowProduction::SCOPE_CONNECTION => 2,
+                default => 3,
+            })
+            ->map(fn (string $scope) => [
+                'scope' => $scope,
+                'label' => $production->workReportFinalScopeLabel($scope),
+                'class' => $production->workReportFinalScopeBadgeClass($scope),
+                'title' => 'Escopo vinculado ao informe desta producao.',
+            ])
+            ->values()
+            ->all();
+
+        if (!empty($badges)) {
+            return $badges;
+        }
+
+        if ($production->dfive) {
+            return [[
+                'scope' => \App\Models\WorkReportFlowProduction::SCOPE_NETWORK,
+                'label' => 'Rede',
+                'class' => 'text-bg-primary',
+                'title' => 'D5 ancorada no informe principal de rede.',
+            ]];
+        }
+
+        return [[
+            'scope' => \App\Models\WorkReportFlowProduction::SCOPE_GENERAL,
+            'label' => 'Geral',
+            'class' => 'text-bg-secondary',
+            'title' => 'Escopo nao identificado no vinculo operacional.',
+        ]];
     }
 
     public function closeFinalScopeOptions(): array

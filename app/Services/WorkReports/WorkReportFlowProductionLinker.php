@@ -140,6 +140,79 @@ class WorkReportFlowProductionLinker
             ->all();
     }
 
+    public function linkPaymentForWorkReport(Production $production, WorkReport|int $workReport, array $finalScopes, ?string $source = null, array $metadata = []): array
+    {
+        if ((bool) $production->partial || (bool) $production->dfive) {
+            return [];
+        }
+
+        $workReport = $workReport instanceof WorkReport
+            ? $workReport
+            : WorkReport::query()->whereKey($workReport)->where('canceled', false)->first();
+
+        if (!$workReport || (int) $workReport->note_id !== (int) $production->note_id) {
+            return [];
+        }
+
+        $scopes = collect($finalScopes)
+            ->map(fn ($scope) => (string) $scope)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($scopes->isEmpty()) {
+            $scopes = collect($workReport->selectedFinalScopesOrNull() ?? [])
+                ->filter()
+                ->unique()
+                ->values();
+        }
+
+        if ($scopes->isEmpty()) {
+            return [];
+        }
+
+        $links = DB::transaction(function () use ($production, $workReport, $source, $metadata, $scopes): array {
+            $created = [];
+
+            foreach ($scopes as $finalScope) {
+                WorkReportFlowProduction::query()
+                    ->where('work_report_id', $workReport->id)
+                    ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                    ->where('final_scope', $finalScope)
+                    ->where('production_id', '!=', $production->id)
+                    ->update(['is_current' => false]);
+
+                $created[] = WorkReportFlowProduction::query()->updateOrCreate(
+                    [
+                        'work_report_id' => $workReport->id,
+                        'production_id' => $production->id,
+                        'stage' => WorkReportFlowProduction::STAGE_PAYMENT,
+                        'final_scope' => $finalScope,
+                    ],
+                    [
+                        'is_current' => true,
+                        'linked_at' => now(),
+                        'linked_by' => auth()->id(),
+                        'source' => $source ?? 'dispatch_payment',
+                        'metadata' => array_filter([
+                            'note_id' => $production->note_id,
+                            'service_id' => $production->service_id,
+                            'production_status' => $production->status,
+                            'production_user_id' => $production->user_id,
+                            ...$metadata,
+                        ], fn ($value) => $value !== null),
+                    ]
+                );
+            }
+
+            return $created;
+        });
+
+        app(WorkReportCurrentStatusRefresher::class)->refresh($workReport->id);
+
+        return $links;
+    }
+
     public function link(Production $production, string $stage, string $source, array $metadata = [], string $finalScope = WorkReportFlowProduction::SCOPE_GENERAL): ?WorkReportFlowProduction
     {
         if ((bool) $production->partial || (bool) $production->dfive) {

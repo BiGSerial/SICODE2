@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Services\Payment;
 use App\Helpers\TextFormatter;
 use App\Http\Livewire\Concerns\Services\BulkSelfAssignable;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User, WorkReport};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\{BlockEvaluator, NoteFilter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
@@ -82,6 +82,10 @@ class Main extends Component
 
     protected $noteFilter;
 
+    private ?User $assignmentUser = null;
+
+    private array $workReportScopeCache = [];
+
     public function boot(NoteFilter $noteFilter)
     {
         $this->noteFilter = $noteFilter;
@@ -108,14 +112,14 @@ class Main extends Component
         $page = $this->baseQuery()->get();
 
         $page->load([
-            'WorkForm:id,note_id,company_id,informed_at,created_at,rejected,selected_final_scopes',
+            'WorkForm:id,note_id,company_id,informed_at,created_at,rejected,selected_final_scopes,equipment,changes,damage,connection',
             'WorkForm.Note:id,type_note',
-            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForms' => fn ($q) => $q->select(['id', 'note_id', 'company_id', 'informed_at', 'created_at', 'rejected', 'selected_final_scopes'])
+            'WorkForms' => fn ($q) => $q->select(['id', 'note_id', 'company_id', 'informed_at', 'created_at', 'rejected', 'selected_final_scopes', 'equipment', 'changes', 'damage', 'connection'])
                 ->where('canceled', false),
             'WorkForms.Note:id,type_note',
-            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
         ]);
 
@@ -313,22 +317,23 @@ class Main extends Component
             }
         }
 
-        // 3. Disparar o alerta (texto praticamente idêntico aos dois casos)
+        $currentUser = auth()->user();
+        $targetName  = $currentUser?->name ?? 'voce';
+
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Atribuir Tarefa',
+            'title' => 'Assumir tarefa',
             'msg'   => "
             Você deseja atribuir a NOTA/OV "
                 . ($this->partial ? "(PARCIAL) " : "")
-                . "para você?</br></br>
+                . "para <strong>{$targetName}</strong>?</br></br>
             <div class='card card-light'>
               <div class='card-body'>
-                <p><strong>NOTA/OV estará disponível em acompanhamento como
-                sua tarefa e nenhum outro usuário poderá atribuir pra si.</p>
+                <p>A NOTA/OV ficará disponível em acompanhamento como sua tarefa. Nesta lista de serviço, a atribuição é sempre para o usuário logado.</p>
               </div>
             </div>
         ",
             'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Atribua!',
+            'btnOktxt'      => 'Sim, assumir',
             'btnCanceltxt'  => 'Não, Cancele!',
             'action'        => 'confirm_accompany',
             'cancel_titulo' => 'Cancelado!',
@@ -338,9 +343,11 @@ class Main extends Component
 
     public function add_to_accompany()
     {
+        $workReportId = (int) $this->note->getAttribute('payment_target_work_report_id');
         $result = $this->assignNoteToSelf(
             $this->note,
-            $this->finalScopesForWorkReportId((int) $this->note->getAttribute('payment_target_work_report_id'))
+            $this->finalScopesForWorkReportId($workReportId),
+            $workReportId ?: null
         );
 
         if (!$result['ok']) {
@@ -362,20 +369,73 @@ class Main extends Component
         ]);
     }
 
+    public function go_att_mass(): void
+    {
+        if (!count($this->selected)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota selecionada',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $count = count($this->selected);
+        $targetName = auth()->user()?->name ?? 'voce';
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Assumir tarefas',
+            'msg'   => "Você deseja assumir <strong>{$count}</strong> Nota(s)/OV(s) para <strong>{$targetName}</strong>?</br></br>
+                <div class='card card-light'>
+                  <div class='card-body'>
+                    <p>As Notas/OVs elegíveis ficarão disponíveis em acompanhamento como suas tarefas. Nesta lista de serviço, a atribuição é sempre para o usuário logado.</p>
+                  </div>
+                </div>",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, assumir',
+            'btnCanceltxt'  => 'Não, Cancele!',
+            'action'        => 'confirm_accompany_mass',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhum serviço foi atribuído.',
+        ]);
+    }
+
     public function add_to_accompany_mass(): void
     {
         $success = 0;
         $errors = [];
+        $selectedRows = [];
 
         foreach ($this->selected as $selectedKey) {
             [$noteId, $workReportId] = $this->parseSelectionKey($selectedKey);
-            $note = Note::find($noteId);
+            $selectedRows[] = [
+                'note_id' => $noteId,
+                'work_report_id' => $workReportId ?: null,
+            ];
+        }
+
+        $notes = Note::query()
+            ->whereIn('id', collect($selectedRows)->pluck('note_id')->unique()->all())
+            ->with($this->assignmentNoteRelations())
+            ->get()
+            ->keyBy('id');
+        $this->primeWorkReportScopeCache(collect($selectedRows)->pluck('work_report_id')->filter()->unique()->all());
+
+        foreach ($selectedRows as $selectedRow) {
+            $workReportId = $selectedRow['work_report_id'];
+            $note = $notes->get($selectedRow['note_id']);
 
             if (!$note) {
                 continue;
             }
 
-            $result = $this->assignNoteToSelf($note, $this->finalScopesForWorkReportId($workReportId));
+            $result = $this->assignNoteToSelf(
+                $note,
+                $this->finalScopesForWorkReportId($workReportId),
+                $workReportId
+            );
 
             if ($result['ok']) {
                 $success++;
@@ -414,15 +474,32 @@ class Main extends Component
      * Autocontido: recalcula parcial/dt a partir da própria Nota, sem depender de estado
      * de instância — assim serve tanto para o fluxo de 1 item quanto para o de N itens.
      */
-    public function assignNoteToSelf(Note $note, ?array $targetFinalScopes = null): array
+    public function assignNoteToSelf(Note $note, ?array $targetFinalScopes = null, ?int $targetWorkReportId = null): array
     {
-        $note->loadMissing([
-            'WorkForm',
-            'FiveNote',
-            'Partials',
-            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
-                                        ->orderByDesc('created_at'),
-        ]);
+        $user = $this->assignmentUser();
+
+        if (!$user) {
+            return ['ok' => false, 'note' => $note->note, 'reason' => 'usuario autenticado nao encontrado'];
+        }
+
+        if ($targetWorkReportId) {
+            $note->setAttribute('dispatch_work_report_id', $targetWorkReportId);
+        }
+
+        $note->loadMissing($this->assignmentNoteRelations());
+
+        $targetWorkReport = $targetWorkReportId
+            ? $this->workReportForPaymentAssignment($note, $targetWorkReportId)
+            : null;
+        $workFormForValidation = $targetWorkReport ?: $note->WorkForm;
+
+        if ($workFormForValidation && !$this->isD5ReturnReadyForPayment($note) && !$this->workReportEligibleForPayment($workFormForValidation)) {
+            return [
+                'ok' => false,
+                'note' => $note->note,
+                'reason' => 'status das operacoes ainda nao permite assumir para medicao',
+            ];
+        }
 
         $latestPartial = $note->Partials?->sortByDesc('created_at')->first();
         $isPartial     = false;
@@ -464,7 +541,7 @@ class Main extends Component
 
         $dt       = $isPartial ? $partialDate : $note->dt_status;
         $fiveNote = (bool) $note->FiveNote;
-        $user     = User::find(Auth::id());
+        $isScopedPaymentAssignment = !empty($targetFinalScopes);
 
         $data = [
             'note_id'     => $note->id,
@@ -480,7 +557,7 @@ class Main extends Component
             'status'      => 2,
             'dhstats'     => $dt,
             'partial'     => $isPartial,
-            'dfive'       => $fiveNote,
+            'dfive'       => $fiveNote && !$isScopedPaymentAssignment,
         ];
 
         $production = Production::firstOrCreate([
@@ -494,11 +571,17 @@ class Main extends Component
             return ['ok' => false, 'note' => $note->note, 'reason' => 'erro ao tentar atribuir'];
         }
 
-        app(WorkReportFlowProductionLinker::class)->linkPaymentForScopes(
-            $production,
-            $finalScopes,
-            'services_payment_self_assign'
-        );
+        $linker = app(WorkReportFlowProductionLinker::class);
+
+        if ($targetWorkReportId) {
+            $linker->linkPaymentForWorkReport($production, $targetWorkReportId, $finalScopes, 'services_payment_self_assign');
+        } else {
+            $linker->linkPaymentForScopes(
+                $production,
+                $finalScopes,
+                'services_payment_self_assign'
+            );
+        }
 
         Notetimeline::create([
             'note_id'       => $note->id,
@@ -523,6 +606,43 @@ class Main extends Component
         return ['ok' => true, 'note' => $note->note, 'reason' => null];
     }
 
+    private function assignmentUser(): ?User
+    {
+        if ($this->assignmentUser && (string) $this->assignmentUser->id === (string) Auth::id()) {
+            return $this->assignmentUser;
+        }
+
+        return $this->assignmentUser = User::with('Employee.Contract')->find(Auth::id());
+    }
+
+    private function assignmentNoteRelations(): array
+    {
+        return [
+            'WorkForm',
+            'WorkForm.Orders.Operations',
+            'WorkForms.Orders.Operations',
+            'FiveNote',
+            'Partials',
+            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
+                ->with('WorkReportFlowProductions:id,production_id,work_report_id,stage,is_current')
+                ->orderByDesc('created_at'),
+        ];
+    }
+
+    private function workReportForPaymentAssignment(Note $note, int $workReportId): ?WorkReport
+    {
+        if ($note->relationLoaded('WorkForms')) {
+            return $note->WorkForms->firstWhere('id', $workReportId);
+        }
+
+        return WorkReport::query()
+            ->with('Orders.Operations')
+            ->where('note_id', $note->id)
+            ->where('id', $workReportId)
+            ->where('canceled', false)
+            ->first();
+    }
+
     /**
      * Verifica se a nota tem produção associada, considerando regras específicas
      *
@@ -542,6 +662,21 @@ class Main extends Component
 
     public function needBlock(Note $note): array
     {
+        $workForms = $note->relationLoaded('WorkForms')
+            ? $note->WorkForms
+            : collect([$note->WorkForm])->filter();
+        $workForm = $workForms->first();
+
+        if ($workForm && !$this->isD5ReturnReadyForPayment($note) && !$this->workReportEligibleForPayment($workForm)) {
+            return [
+                'block' => BlockEvaluator::HOLD_RED,
+                'command' => false,
+                'color' => 'table-danger',
+                'reason' => 'operations_not_ready_for_payment',
+                'production' => $note->Productions?->first(),
+            ];
+        }
+
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
         // retorna estrutura pra view usar diretamente
@@ -757,10 +892,14 @@ class Main extends Component
                 'created_at',
                 'rejected',
                 'selected_final_scopes',
+                'equipment',
+                'changes',
+                'damage',
+                'connection',
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
-            'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
             'WorkForms' => fn ($q) => $q->select([
@@ -771,10 +910,14 @@ class Main extends Component
                 'created_at',
                 'rejected',
                 'selected_final_scopes',
+                'equipment',
+                'changes',
+                'damage',
+                'connection',
             ])->where('canceled', false),
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
-            'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,created_at',
             'Partials' => fn ($q) => $q->select([
@@ -795,7 +938,7 @@ class Main extends Component
                 ->where('payment', false)
                 ->orderByDesc('created_at'),
             'Partials.Company:id,name,deleted_at',
-            'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+            'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
@@ -842,6 +985,10 @@ class Main extends Component
             }
 
             if ($eligibleWorkForms->isEmpty()) {
+                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
+                    return [];
+                }
+
                 $note->setAttribute('payment_context_key', (string) $note->id);
 
                 return [$note];
@@ -866,19 +1013,28 @@ class Main extends Component
             return false;
         }
 
-        $orders = $workForm->relationLoaded('Orders') ? $workForm->Orders : $workForm->Orders()->with('Operations')->get();
+        $orders = $workForm->relationLoaded('Orders')
+            ? $workForm->Orders
+            : $workForm->Orders()->with('Operations')->get();
 
-        $statuses = function (string $operation) use ($orders) {
-            return $orders
-                ->flatMap(fn ($order) => $order->Operations ?? collect())
-                ->where('operacao', $operation)
-                ->pluck('status')
-                ->map(fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status));
-        };
+        $normalizedStatus = fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status);
 
-        return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-            && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
-            && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
+        return $orders->contains(function ($order) use ($normalizedStatus) {
+            if (!str_starts_with($normalizedStatus($order->statusSist ?? ''), 'LIB')) {
+                return false;
+            }
+
+            $statuses = function (string $operation) use ($order, $normalizedStatus) {
+                return collect($order->Operations ?? [])
+                    ->where('operacao', $operation)
+                    ->pluck('status')
+                    ->map($normalizedStatus);
+            };
+
+            return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+                && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
+                && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
+        });
     }
 
     private function d5MustUsePrimaryNetworkReport(Note $note): bool
@@ -893,9 +1049,30 @@ class Main extends Component
             || ($five->is_completed && !$five->is_supervisioned);
     }
 
+    private function isD5ReturnReadyForPayment(Note $note): bool
+    {
+        $five = $note->FiveNote;
+
+        return (bool) (
+            $five
+            && !$five->is_archived
+            && $five->is_completed
+            && $five->is_supervisioned
+        );
+    }
+
     private function isNetworkWorkReport($workForm): bool
     {
-        return in_array('network', (array) ($workForm->selected_final_scopes ?? []), true);
+        $scopes = (array) ($workForm->selected_final_scopes ?? []);
+
+        if (!empty($scopes)) {
+            return in_array('network', $scopes, true);
+        }
+
+        return (bool) ($workForm->equipment ?? false)
+            || (bool) ($workForm->changes ?? false)
+            || (bool) ($workForm->damage ?? false)
+            || !(bool) ($workForm->connection ?? false);
     }
 
     private function finalScopesForWorkReportId(?int $workReportId): ?array
@@ -904,7 +1081,11 @@ class Main extends Component
             return null;
         }
 
-        $workReport = \App\Models\WorkReport::with(['Note:id,type_note', 'Orders:id,ordem'])
+        if (array_key_exists($workReportId, $this->workReportScopeCache)) {
+            return $this->workReportScopeCache[$workReportId];
+        }
+
+        $workReport = WorkReport::with(['Note:id,type_note', 'Orders:id,ordem'])
             ->where('id', $workReportId)
             ->where('canceled', false)
             ->first();
@@ -913,11 +1094,31 @@ class Main extends Component
             return null;
         }
 
-        return collect($workReport->finalScopePayloads())
+        return $this->workReportScopeCache[$workReportId] = collect($workReport->finalScopePayloads())
             ->pluck('scope')
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function primeWorkReportScopeCache(array $workReportIds): void
+    {
+        if (empty($workReportIds)) {
+            return;
+        }
+
+        WorkReport::query()
+            ->with(['Note:id,type_note', 'Orders:id,ordem'])
+            ->whereIn('id', $workReportIds)
+            ->where('canceled', false)
+            ->get()
+            ->each(function (WorkReport $workReport) {
+                $this->workReportScopeCache[(int) $workReport->id] = collect($workReport->finalScopePayloads())
+                    ->pluck('scope')
+                    ->unique()
+                    ->values()
+                    ->all();
+            });
     }
 
     // Rules Days Left
