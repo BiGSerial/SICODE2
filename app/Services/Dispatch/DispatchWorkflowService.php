@@ -479,6 +479,13 @@ class DispatchWorkflowService
     private function linkWorkReportFlow(Production $production, string $serviceKey, array $finalScopes = []): void
     {
         if ($production->dfive) {
+            if ($serviceKey === 'supervision') {
+                app(WorkReportFlowProductionLinker::class)->linkD5FiscalizationToNetwork(
+                    $production,
+                    'dispatch_d5_fiscalization'
+                );
+            }
+
             return;
         }
 

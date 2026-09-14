@@ -978,6 +978,23 @@ class Main extends Component
         $query = Note::query()
             ->excludeCanceledFullDone()
             ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
+
+        // A D5 is currently anchored to the primary Rede report. When it
+        // returns from the partner, do not clone that activity into the
+        // Ligacao report of the same Note.
+        $query->where(function ($scopeQuery) {
+            $scopeQuery
+                ->whereNotExists(function ($d5Query) {
+                    $d5Query->selectRaw('1')
+                        ->from('five_notes as fn')
+                        ->whereColumn('fn.note_id', 'notes.id')
+                        ->where('fn.is_completed', true)
+                        ->where('fn.is_supervisioned', false)
+                        ->where('fn.is_archived', false);
+                })
+                ->orWhereNull('work_reports.selected_final_scopes')
+                ->orWhereJsonContains('work_reports.selected_final_scopes', 'network');
+        });
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
             Auth()->User(),

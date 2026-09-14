@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Services\Supervision\Forms;
 
-use App\Models\{Analise, D5Return, EvidenceFile, File, FiveNote, Notetimeline, Production};
+use App\Models\{Analise, D5Return, EvidenceFile, File, FiveNote, Notetimeline, Production, WorkReport};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Files\EvidenceFileService;
 use App\Services\Files\FileStorageService;
@@ -375,7 +375,9 @@ class Jobform extends Component
         $latestPartial = $note->Partials?->sortByDesc('created_at')->first();
         $orders        = $workForm?->Orders?->pluck('ordem')->all()
             ?: ($latestPartial?->Orders?->pluck('ordem')->all() ?? []);
-        $scopeBadges = $this->production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
+        $scopeBadges = $this->production->dfive
+            ? $this->d5ScopeBadgesForNote($note)
+            : $this->production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
 
         $this->closeNoteDetails = [
             'type'        => $this->production->partial ? 'PARCIAL' : 'FINAL',
@@ -808,7 +810,7 @@ class Jobform extends Component
                     $order            = null;
 
                     if ($note) {
-                        $order    = $note->WorkForm?->Orders()->orderBy('ordem', 'asc')->first();
+                        $order    = $this->mainNetworkOrderForNote($note);
                         $workForm = $note->WorkForm;
                     }
 
@@ -968,6 +970,51 @@ class Jobform extends Component
     {
         return !$this->production?->partial
             && ((string) $this->d5 === '1' || (bool) ($this->production?->dfive));
+    }
+
+    private function mainNetworkOrderForNote($note): ?object
+    {
+        $workReports = WorkReport::query()
+            ->with('Orders')
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->orderByDesc('informed_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $networkReport = $workReports->first(function (WorkReport $workReport) {
+            return in_array('network', $workReport->selectedFinalScopesOrNull() ?? [], true);
+        });
+
+        $orders = ($networkReport?->Orders ?? $workReports->first()?->Orders ?? collect())
+            ->sortBy('ordem')
+            ->values();
+
+        return $orders->first(function ($order) {
+            $number = preg_replace('/\D+/', '', (string) ($order->ordem ?? ''));
+
+            return str_starts_with($number, '200')
+                || str_starts_with($number, '170')
+                || str_starts_with($number, '190');
+        }) ?? $orders->first();
+    }
+
+    private function d5ScopeBadgesForNote($note): array
+    {
+        $scopes = WorkReport::query()
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->get()
+            ->flatMap(fn (WorkReport $workReport) => $workReport->selectedFinalScopesOrNull() ?? [])
+            ->filter(fn ($scope) => in_array($scope, ['network', 'connection'], true))
+            ->unique()
+            ->sortBy(fn ($scope) => $scope === 'network' ? 1 : 2)
+            ->values();
+
+        return $scopes->map(fn (string $scope) => [
+            'label' => $scope === 'network' ? 'Rede' : 'Ligacao',
+            'class' => $scope === 'network' ? 'text-bg-primary' : 'text-bg-warning',
+        ])->all();
     }
 
     private function validateD5ConclusionRule(): bool

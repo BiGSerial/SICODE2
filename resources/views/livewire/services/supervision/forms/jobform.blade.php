@@ -744,12 +744,26 @@
                                             <div class="hi d-flex align-items-start gap-2">
                                                 <div class="hi-ico text-primary"><i class="ri-file-text-line"></i>
                                                 </div>
-                                                <div class="hi-body">
-                                                    <div class="hi-k">Nota D5</div>
-                                                    <div class="hi-v">{{ $five->note_d5 ?? '—' }}</div>
+                                            <div class="hi-body">
+                                                <div class="hi-k">Nota D5</div>
+                                                <div class="hi-v">{{ $five->note_d5 ?? '—' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <div class="hi d-flex align-items-start gap-2">
+                                            <div class="hi-ico text-primary"><i class="ri-focus-3-line"></i></div>
+                                            <div class="hi-body">
+                                                <div class="hi-k">Escopos da D5</div>
+                                                <div class="hi-v">
+                                                    @foreach (($closeNote['scopeBadges'] ?? []) as $scopeBadge)
+                                                        <span class="badge {{ $scopeBadge['class'] ?? 'text-bg-secondary' }} me-1 mb-1">{{ $scopeBadge['label'] ?? 'Geral' }}</span>
+                                                    @endforeach
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
                                         <div class="col-md-3">
                                             <div class="hi d-flex align-items-start gap-2">

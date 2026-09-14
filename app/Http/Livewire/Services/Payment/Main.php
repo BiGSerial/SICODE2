@@ -835,6 +835,12 @@ class Main extends Component
                 ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
                 ->values();
 
+            if ($this->d5MustUsePrimaryNetworkReport($note)) {
+                $eligibleWorkForms = $eligibleWorkForms
+                    ->filter(fn ($workForm) => $this->isNetworkWorkReport($workForm))
+                    ->values();
+            }
+
             if ($eligibleWorkForms->isEmpty()) {
                 $note->setAttribute('payment_context_key', (string) $note->id);
 
@@ -873,6 +879,23 @@ class Main extends Component
         return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
             && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
             && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
+    }
+
+    private function d5MustUsePrimaryNetworkReport(Note $note): bool
+    {
+        $five = $note->FiveNote;
+
+        if (!$five || (bool) $five->is_archived) {
+            return false;
+        }
+
+        return (!$five->is_completed && !$five->visible_partner && !$five->is_payed)
+            || ($five->is_completed && !$five->is_supervisioned);
+    }
+
+    private function isNetworkWorkReport($workForm): bool
+    {
+        return in_array('network', (array) ($workForm->selected_final_scopes ?? []), true);
     }
 
     private function finalScopesForWorkReportId(?int $workReportId): ?array
