@@ -392,6 +392,75 @@
             </div>
 
             <div class="col-12 col-xl-4">
+                @can('superadm')
+                    <div class="panel mb-3">
+                        <div class="card-header bg-white">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                <div>
+                                    <strong>Forçar comando agendado</strong>
+                                    <div class="small text-muted">Busca em todos os eventos do Scheduler</div>
+                                </div>
+                                <span class="badge text-bg-primary">{{ count($forceableEvents ?? []) }}</span>
+                            </div>
+                            <input type="search"
+                                class="form-control form-control-sm"
+                                placeholder="Buscar nome, comando, cron ou hash"
+                                wire:model.debounce.500ms="forceSearch">
+                        </div>
+                        <div class="table-wrap">
+                            <table class="table table-sm align-middle mb-0 agenda-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="col-command">Comando</th>
+                                        <th class="col-time">Cron</th>
+                                        <th class="col-next">Próx.</th>
+                                        <th class="text-end col-action">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($forceableEvents as $event)
+                                        <tr wire:key="force-any-event-{{ $event['id'] }}">
+                                            <td class="fw-semibold">
+                                                <div class="agenda-command" title="{{ $event['command_label'] }}">
+                                                    {{ $event['label'] }}
+                                                </div>
+                                                <div class="small text-muted text-truncate" title="{{ implode(' && ', $event['commands']) }}">
+                                                    {{ implode(' && ', $event['commands']) }}
+                                                </div>
+                                            </td>
+                                            <td class="small text-muted">{{ $event['expression'] }}</td>
+                                            <td>
+                                                <span title="{{ $event['next_date'] }} {{ $event['next_time'] }}">
+                                                    {{ $event['next_date'] }} {{ $event['next_time'] }}
+                                                </span>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary" type="button"
+                                                    wire:click="forceScheduledEvent('{{ $event['event_hash'] }}')"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="forceScheduledEvent('{{ $event['event_hash'] }}')"
+                                                    title="Executar agora via schedule">
+                                                    <i class="bi bi-play-fill"></i>
+                                                    <span class="visually-hidden">Forçar</span>
+                                                    <span class="spinner-border spinner-border-sm ms-1" wire:loading
+                                                        wire:target="forceScheduledEvent('{{ $event['event_hash'] }}')"
+                                                        aria-hidden="true"></span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4">
+                                                Nenhum comando encontrado.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endcan
+
                 <div class="panel mb-3">
                     <div class="card-header bg-white d-flex align-items-center justify-content-between">
                         <div>

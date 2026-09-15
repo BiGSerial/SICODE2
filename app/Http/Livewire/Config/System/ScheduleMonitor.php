@@ -26,6 +26,7 @@ class ScheduleMonitor extends Component
     public array $runningCommands = [];
     public array $supervisor = [];
     public string $recentSearch = '';
+    public string $forceSearch = '';
     public $recentPerPage = 15;
     public ?string $restartMessage = null;
     public string $restartStatus = 'info';
@@ -57,6 +58,11 @@ class ScheduleMonitor extends Component
     public function updatedRecentSearch(): void
     {
         $this->resetPage('recentLogsPage');
+    }
+
+    public function updatedForceSearch(): void
+    {
+        $this->refreshData();
     }
 
     public function updatedRecentPerPage(): void
@@ -299,10 +305,48 @@ class ScheduleMonitor extends Component
     {
         return view('livewire.config.system.schedule-monitor', [
             'recentLogs' => $this->buildRecentLogs(),
+            'forceableEvents' => $this->buildForceableEvents(),
         ]);
     }
 
     private function buildScheduledEvents(): array
+    {
+        $now = now();
+        return collect($this->allScheduleEventRows())
+            ->filter(fn (array $event) => Carbon::parse($event['next_run_at'])->isSameDay($now))
+            ->sortBy('next_run_at')
+            ->values()
+            ->all();
+    }
+
+    private function buildForceableEvents(): array
+    {
+        $search = mb_strtolower(trim($this->forceSearch));
+
+        return collect($this->allScheduleEventRows())
+            ->when($search !== '', function ($events) use ($search) {
+                return $events->filter(function (array $event) use ($search) {
+                    $haystack = mb_strtolower(implode(' ', [
+                        $event['label'],
+                        $event['command_label'],
+                        implode(' ', $event['commands']),
+                        $event['expression'],
+                        $event['event_hash'],
+                    ]));
+
+                    return str_contains($haystack, $search);
+                });
+            })
+            ->sortBy([
+                ['next_run_at', 'asc'],
+                ['label', 'asc'],
+            ])
+            ->take(50)
+            ->values()
+            ->all();
+    }
+
+    private function allScheduleEventRows(): array
     {
         $now = now();
         $latestLogs = $this->latestScheduleLogsByEventHash();
@@ -334,8 +378,6 @@ class ScheduleMonitor extends Component
                     'last_log' => $matchedLog,
                 ];
             })
-            ->filter(fn (array $event) => Carbon::parse($event['next_run_at'])->isSameDay($now))
-            ->sortBy('next_run_at')
             ->values()
             ->all();
     }
