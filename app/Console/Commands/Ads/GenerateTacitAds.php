@@ -446,7 +446,7 @@ class GenerateTacitAds extends Command
             $company = $request->company()->first();
 
             DB::connection('sqlsrv2')
-                ->table('sicode.dbo.ads_requests')
+                ->table('dbo.ads_requests')
                 ->insert([
                     'sicode_id' => $request->id,
                     'batch_id' => $request->batch_id,
