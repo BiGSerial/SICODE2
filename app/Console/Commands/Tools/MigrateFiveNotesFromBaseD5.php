@@ -7,6 +7,10 @@ use App\Models\Edp_depc\BaseD5;
 use App\Models\FiveNote;
 use App\Models\Note;
 use Illuminate\Console\Command;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use Throwable;
 
 class MigrateFiveNotesFromBaseD5 extends Command
 {
@@ -15,12 +19,20 @@ class MigrateFiveNotesFromBaseD5 extends Command
                             {--notes= : Lista de notas D5 separadas por virgula/espaco}
                             {--orders= : Lista de obras/ordens separadas por virgula/espaco}
                             {--notes-file= : Arquivo com notas D5}
-                            {--orders-file= : Arquivo com obras/ordens}';
+                            {--orders-file= : Arquivo com obras/ordens}
+                            {--excel= : Arquivo Excel D5 normalizado para migrar}
+                            {--output= : Arquivo Excel de saida com status da migracao}';
 
     protected $description = 'Migra registros da tbld_usr_baseD5 (SQL Server) para five_notes (MySQL)';
 
     public function handle(): int
     {
+        $excel = $this->cleanScalar($this->option('excel'));
+
+        if ($excel) {
+            return $this->handleExcelImport($excel);
+        }
+
         $limit = (int) $this->option('limit');
         $notes = $this->readListOption('notes', 'notes-file');
         $orders = $this->readListOption('orders', 'orders-file');
@@ -175,6 +187,154 @@ class MigrateFiveNotesFromBaseD5 extends Command
         return self::SUCCESS;
     }
 
+    protected function handleExcelImport(string $excelPath): int
+    {
+        $path = $this->resolvePath($excelPath);
+
+        if (! is_readable($path)) {
+            $this->error("Arquivo Excel nao legivel: {$path}");
+            return self::FAILURE;
+        }
+
+        $limit = $this->input->hasParameterOption('--limit')
+            ? (int) $this->option('limit')
+            : 0;
+        $output = $this->cleanScalar($this->option('output'));
+        $outputPath = $output ? $this->resolvePath($output) : $this->defaultExcelOutputPath($path);
+
+        $this->info("Lendo Excel: {$path}");
+
+        $spreadsheet = IOFactory::load($path);
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = $sheet->getHighestDataRow();
+        $statusColumnIndex = $this->resolveStatusColumnIndex($sheet);
+        $statusColumn = Coordinate::stringFromColumnIndex($statusColumnIndex);
+
+        $sheet->setCellValueExplicit($statusColumn . '1', 'resultado_importacao_sicode', DataType::TYPE_INLINE);
+
+        $created = 0;
+        $skipped = 0;
+        $processed = 0;
+
+        for ($rowNumber = 2; $rowNumber <= $highestRow; $rowNumber++) {
+            if ($limit > 0 && $processed >= $limit) {
+                break;
+            }
+
+            $noteD5 = $this->cleanScalar($sheet->getCell('A' . $rowNumber)->getFormattedValue());
+            $normalizedNote = $this->cleanScalar($sheet->getCell('C' . $rowNumber)->getFormattedValue());
+            $responsible = $this->cleanScalar($sheet->getCell('Q' . $rowNumber)->getFormattedValue());
+
+            if (! $noteD5 && ! $normalizedNote && ! $responsible) {
+                continue;
+            }
+
+            $processed++;
+            $status = $this->migrateExcelRow($noteD5, $normalizedNote, $responsible);
+
+            if (str_starts_with($status, 'SUBIU')) {
+                $created++;
+            } else {
+                $skipped++;
+            }
+
+            $sheet->setCellValueExplicit($statusColumn . $rowNumber, $status, DataType::TYPE_INLINE);
+        }
+
+        IOFactory::createWriter($spreadsheet, 'Xlsx')->save($outputPath);
+
+        $this->info('--- Resultado da migração por Excel ---');
+        $this->info("Linhas processadas : {$processed}");
+        $this->info("Criados            : {$created}");
+        $this->info("Nao subiram        : {$skipped}");
+        $this->info("Arquivo de status  : {$outputPath}");
+
+        return self::SUCCESS;
+    }
+
+    protected function migrateExcelRow(?string $noteD5, ?string $normalizedNote, ?string $responsible): string
+    {
+        if (! $noteD5) {
+            return 'NAO_SUBIU: coluna A Nota vazia';
+        }
+
+        if (! $normalizedNote) {
+            return 'NAO_SUBIU: coluna C Nota Normalizada vazia';
+        }
+
+        $companyId = $this->mapCompanyIdFromExcelResponsible($responsible);
+
+        if (! $companyId) {
+            return "NAO_SUBIU: empreiteira nao mapeada na coluna Q ({$responsible})";
+        }
+
+        $baseD5 = BaseD5::query()
+            ->where('nota', $normalizedNote)
+            ->first();
+
+        if (! $baseD5) {
+            return "NAO_SUBIU: nota normalizada {$normalizedNote} nao encontrada na BaseD5";
+        }
+
+        if (! $this->isValidCompanyId($companyId)) {
+            return "NAO_SUBIU: company_id do de-para nao existe em companies ({$companyId})";
+        }
+
+        if (FiveNote::where('note_d5', $noteD5)->exists()) {
+            return "NAO_SUBIU: D5 {$noteD5} ja existe em five_notes";
+        }
+
+        $note = Note::whereHas('orders', function ($q) use ($baseD5) {
+            $q->where('ordem', $baseD5->obra);
+        })->first();
+
+        if (! $note) {
+            return "NAO_SUBIU: sem Note para obra {$baseD5->obra} da nota normalizada {$normalizedNote}";
+        }
+
+        if (FiveNote::where('note_id', $note->id)->exists()) {
+            return "NAO_SUBIU: Note {$note->id} ja possui D5 em five_notes";
+        }
+
+        $order = $note->orders()
+            ->where('ordem', $baseD5->obra)
+            ->first();
+
+        if (! $order) {
+            return "NAO_SUBIU: sem Order para obra {$baseD5->obra} da nota normalizada {$normalizedNote}";
+        }
+
+        try {
+            FiveNote::create([
+                'note_d5'         => $noteD5,
+                'note_id'         => $note->id,
+                'loc_install'     => $baseD5->denomLocalInstal ?? null,
+                'conjunto'        => isset($baseD5->conjunto) ? (int) $baseD5->conjunto : null,
+                'description'     => $baseD5->denomConjunto ?? $baseD5->descricao ?? null,
+                'codify'          => $this->mapCodifyFromTxtCodeCodific($baseD5->txtCodeCodific ?? null),
+                'company_id'      => $companyId,
+                'pep'             => $order->pep ?? null,
+                'sintoms'         => null,
+                'reason'          => $this->mapReasonFromDescricao($baseD5->descricao ?? null),
+                'name'            => null,
+                'dispatch_at'     => $baseD5->dtCriacao,
+                'payed_at'        => $baseD5->dtCriacao,
+                'visible_partner' => true,
+                'is_payed'        => true,
+                'is_completed'      => false,
+                'completed_at'      => null,
+                'is_supervisioned'  => false,
+                'supervisioned_at'  => null,
+                'is_archived'       => false,
+                'isPassive'         => true,
+            ]);
+        } catch (Throwable $exception) {
+            return 'NAO_SUBIU: erro ao salvar - ' . $exception->getMessage();
+        }
+
+        return "SUBIU: D5 {$noteD5} criada pela nota normalizada {$normalizedNote}";
+    }
+
     protected function readListOption(string $inlineOption, string $fileOption): array
     {
         $contents = [];
@@ -204,6 +364,62 @@ class MigrateFiveNotesFromBaseD5 extends Command
             ->unique()
             ->values()
             ->all();
+    }
+
+    protected function resolvePath(string $path): string
+    {
+        if (str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return base_path($path);
+    }
+
+    protected function defaultExcelOutputPath(string $path): string
+    {
+        $directory = dirname($path);
+        $filename = pathinfo($path, PATHINFO_FILENAME);
+
+        return $directory . DIRECTORY_SEPARATOR . $filename . '_RESULTADO_IMPORTACAO.xlsx';
+    }
+
+    protected function resolveStatusColumnIndex($sheet): int
+    {
+        $highestColumnIndex = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+
+        for ($column = 1; $column <= $highestColumnIndex; $column++) {
+            $value = $this->cleanScalar(
+                $sheet->getCell(Coordinate::stringFromColumnIndex($column) . '1')->getFormattedValue()
+            );
+
+            if ($value === 'resultado_importacao_sicode') {
+                return $column;
+            }
+        }
+
+        return $highestColumnIndex + 1;
+    }
+
+    protected function mapCompanyIdFromExcelResponsible(?string $responsible): ?string
+    {
+        $responsible = $this->normalizeCompanyText($responsible);
+
+        if (! $responsible) {
+            return null;
+        }
+
+        $map = [
+            'ENGELMIG SJC' => 'a28ac7af-c0d7-42f4-988c-cbebf471b695',
+            'ENGELMIG LIT' => 'a28ac7af-c0d7-42f4-988c-cbebf471b695',
+            'MANSERV GUL'  => 'a2a8e9c7-3364-456e-ad4f-acd9d9a64593',
+            'LIG MCR'      => 'a2b27a16-e3ce-400d-8833-78039debd443',
+            'START VALE'   => 'a29c4a93-b57b-41e3-a956-0b4b2b289904',
+            'START MCR'    => 'a29c4b34-e72b-4bfb-a065-3e60949bc72e',
+            'COSAMPA MCR'  => 'a2b2e3a4-3d81-41a6-a0f6-378e022e1aa7',
+            'OCA LIT'      => 'a29852d8-5240-4eed-a6c6-54290e7169b5',
+        ];
+
+        return $map[$responsible] ?? null;
     }
 
     /**
