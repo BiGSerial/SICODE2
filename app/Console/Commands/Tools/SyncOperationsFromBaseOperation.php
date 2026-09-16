@@ -43,7 +43,11 @@ class SyncOperationsFromBaseOperation extends Command
         $limit = (int) $this->option('limit');
 
         // Query base
-        $baseQuery = Edp_depcBaseOperation::query();
+        $baseQuery = Edp_depcBaseOperation::query()
+            ->where(function ($query) {
+                $query->whereNull('status')
+                    ->orWhereRaw("UPPER(LTRIM(RTRIM(status))) NOT LIKE 'IMPR LIB%'");
+            });
 
         if ($limit > 0) {
             $baseQuery->limit($limit);
@@ -74,6 +78,10 @@ class SyncOperationsFromBaseOperation extends Command
 
         // Processa ORIGEM em chunks, por id (supondo coluna 'id' na origem)
         Edp_depcBaseOperation::query()
+            ->where(function ($query) {
+                $query->whereNull('status')
+                    ->orWhereRaw("UPPER(LTRIM(RTRIM(status))) NOT LIKE 'IMPR LIB%'");
+            })
             ->when($limit > 0, fn ($q) => $q->limit($limit))
             ->orderBy('id')
             ->chunkById($this->chunkSize, function (Collection $operationsSrc) use (&$progressBar, &$count) {

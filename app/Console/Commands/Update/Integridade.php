@@ -136,6 +136,12 @@ class Integridade extends Command
 
             } else {
                 $this->info('<bg=green;fg=white> DONE </> HASN´T INTEGRITY PROBLEMS WITH DATABASE INFORMATION.');
+
+                // Mesmo com as contagens por status íntegras, sincroniza sempre a
+                // janela mínima recente para corrigir nstats, days_left e demais
+                // campos alterados na origem sem divergência de quantidade.
+                $this->info('<bg=blue;fg=white> INFO </>  RUNNING THE MINIMUM 7-DAY BASE OV UPDATE...');
+                $this->call('sicode:upd_baseov', ['--days' => 7]);
                 $this->runPostIntegrityCommands();
             }
 

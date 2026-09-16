@@ -3,6 +3,7 @@
 namespace App\Services\WorkReports;
 
 use App\Models\WorkReport;
+use App\Models\Operation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -219,8 +220,8 @@ class WorkReportStatusResolver
     private function orderOperations(object $mainOrder): Collection
     {
         return $mainOrder->relationLoaded('Operations')
-            ? $mainOrder->Operations->filter()
-            : $mainOrder->Operations()->get()->filter();
+            ? $mainOrder->Operations->filter()->reject(fn ($operation) => Operation::isIgnoredStatus($operation->status ?? null))
+            : $mainOrder->Operations()->get()->filter()->reject(fn ($operation) => Operation::isIgnoredStatus($operation->status ?? null));
     }
 
     private function mainValidOrder(Collection $orders): ?object

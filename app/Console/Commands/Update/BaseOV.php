@@ -74,8 +74,15 @@ class BaseOV extends Command
                 $existing = $existingNotes->get($ov);
 
                 // Determine if should update or create
+                $nstatsDiverged = $existing
+                    && (string) $existing->nstats !== (string) $record->numStat;
+                $daysLeftDiverged = $existing
+                    && (string) $existing->days_left !== (string) $record->diasPVencimento;
+
                 $shouldUpdate = is_null($existing)
                     || Carbon::parse($record->dhStat)->isAfter($existing->dt_status)
+                    || $nstatsDiverged
+                    || $daysLeftDiverged
                     || $this->option('full')
                     || $this->option('force');
 

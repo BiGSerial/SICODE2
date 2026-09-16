@@ -43,6 +43,7 @@ class ImportSpecificOperations extends Command
             $sourceOperations = BaseOperation::query()
                 ->whereIn('ordem', $ordens)
                 ->get()
+                ->reject(fn ($operation) => Operation::isIgnoredStatus($operation->status ?? null))
                 ->filter(fn ($operation) => $this->clean($operation->operacao ?? null) !== null)
                 ->keyBy(function ($operation) {
                     return $this->clean($operation->ordem ?? null) . '|' . $this->clean($operation->operacao ?? null);
@@ -90,7 +91,9 @@ class ImportSpecificOperations extends Command
                     $operacao = $this->clean($sourceOperation->operacao);
                     $payload = $this->payloadFromSource($sourceOperation);
 
-                    $query = Operation::query()
+                    // Inclui temporariamente registros antigos IMPR LIB para que,
+                    // quando chegar um status válido, eles sejam substituídos.
+                    $query = Operation::withoutGlobalScopes()
                         ->where('order_id', $order->id)
                         ->where('operacao', $operacao);
 

@@ -73,7 +73,12 @@ class BaseOperation extends Command
                 $originOrders = $ordersByOrdem->keys()->filter()->values();
 
                 // Busca operações da ORIGEM para esse domínio
-                $operationsSrc = Edp_depcBaseOperation::whereIn('ordem', $originOrders)->get();
+                $operationsSrc = Edp_depcBaseOperation::whereIn('ordem', $originOrders)
+                    ->where(function ($query) {
+                        $query->whereNull('status')
+                            ->orWhereRaw("UPPER(LTRIM(RTRIM(status))) NOT LIKE 'IMPR LIB%'");
+                    })
+                    ->get();
 
                 if ($operationsSrc->isEmpty()) {
                     // nenhum resultado para todo o domínio do chunk
