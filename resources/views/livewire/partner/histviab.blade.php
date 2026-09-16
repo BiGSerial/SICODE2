@@ -69,6 +69,7 @@
 
 <div>
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     <div class="d-flex flex-column mb-3">
 

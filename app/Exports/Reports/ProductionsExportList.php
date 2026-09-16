@@ -129,7 +129,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         return [
             $row->Dispatcher?->name ?? '',
-            $row->Dispatcher?->Employee?->Contract?->company?->name ?? '',
+            $row->Dispatcher?->Company?->name ?? '',
             $row->User?->name ?? '',
             $row->Company?->name ?? '',
             $row->Service?->service ?? '',

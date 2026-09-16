@@ -5,6 +5,7 @@
 <div class="d5list-page">
     {{-- Carrega o Loading da pagina --}}
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     <style>
         .d5list-page {

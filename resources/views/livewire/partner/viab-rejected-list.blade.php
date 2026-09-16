@@ -8,6 +8,7 @@
 
 <div>
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     {{-- START SearchBar and Filters --}}
     <div class="card mb-3">

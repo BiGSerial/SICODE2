@@ -106,7 +106,7 @@ class Main extends Component
 
     public function add_to_accompany()
     {
-        $user = User::with('Employee.Contract')->find(Auth()->User()->id);
+        $user = User::find(Auth()->User()->id);
         $result = $this->assignNoteToCurrentUser($this->note, $user);
 
         if ($result['ok']) {
@@ -154,7 +154,7 @@ class Main extends Component
 
     public function add_to_accompany_mass()
     {
-        $user = User::with('Employee.Contract')->find(Auth()->User()->id);
+        $user = User::find(Auth()->User()->id);
         $notes = Note::whereIn('id', $this->selected)->get();
 
         $success = 0;
@@ -370,7 +370,7 @@ class Main extends Component
             'note_id'     => $note->id,
             'service_id'  => $this->service->uuid,
             'user_id'     => $user->id,
-            'company_id'  => $user->Employee->Contract->company_id,
+            'company_id'  => $user->company_id,
             'dispatch_by' => $user->id,
             'att_by'      => $user->id,
             'dt_note'     => $note->dt_status,

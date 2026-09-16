@@ -46,8 +46,6 @@ class ViabilityReportQueryService
                 'User:id,name,company_id',
                 'User.Company:id,name',
                 'User.Employee:id,user_id,contract_id',
-                'User.Employee.Contract:id,company_id',
-                'User.Employee.Contract.company:id,name',
                 'Engineer:id,name',
                 'Company:id,name',
                 'Note:id,note,material',

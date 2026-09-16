@@ -4,6 +4,7 @@ namespace App\Services\Partner;
 
 use App\Models\Equipment;
 use App\Models\User;
+use App\Services\PartnerAccess\PartnerAccessGate;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -17,7 +18,7 @@ class DeclaredEquipmentQueryService
         $query = Equipment::query();
 
         if (!$user->superadm) {
-            $companyIds = $user->Companies->pluck('id')->push($user->Company?->id)->filter()->unique()->values()->all();
+            $companyIds = PartnerAccessGate::visibleCompanyIdsFor($user);
 
             $query->whereRelation('WorkReport', function ($q) use ($companyIds) {
                 $q->whereIn('company_id', $companyIds);

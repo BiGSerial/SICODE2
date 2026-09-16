@@ -74,6 +74,22 @@
 
                 <hr>
 
+                <div class="partner-admin-section mb-3">
+                    <label class="form-label">Empresa/filial do usuário</label>
+                    <select name="company_id" class="form-select @error('company_id') is-invalid @enderror" required>
+                        <option value="">Selecione a empresa</option>
+                        @foreach ($companies as $company)
+                            <option value="{{ $company->id }}" @selected((string) old('company_id', $user->company_id ?: $managedCompany?->id) === (string) $company->id)>
+                                {{ $company->display_name ?: $company->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <div class="form-text">Define a empresa principal do usuário. As filiais visíveis são controladas separadamente abaixo.</div>
+                    @error('company_id')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
                 <div class="partner-admin-section">
                     <h6 class="partner-admin-panel-title mb-3">Filiais visíveis</h6>
                     <div class="row g-2">

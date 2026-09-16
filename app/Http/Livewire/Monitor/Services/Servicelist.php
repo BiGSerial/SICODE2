@@ -56,10 +56,10 @@ class Servicelist extends Component
             ->when(
                 Auth()->User()->contract,
                 function ($q) {
-                    return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                    return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
                 },
                 function ($q) {
-                    return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                    return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
                 }
             );
     }

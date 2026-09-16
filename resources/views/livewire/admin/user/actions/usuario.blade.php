@@ -76,8 +76,8 @@
                                     <div class="col-12 col-md-8 col-lg-4">
                                         <label class="form-label">Contrato</label>
                                         <select class="form-select @error('contract') is-invalid @enderror"
-                                            wire:model="contract" required>
-                                                    <option value="">Selecione o contrato</option>
+                                            wire:model="contract">
+                                                    <option value="">Nenhum contrato (opcional)</option>
                                                     @if ($contractList)
                                                         @foreach ($contractList as $cList)
                                                             <option value="{{ $cList->id }}">{{ $cList->number }} · {{ $cList->company?->name }} · {{ $cList->services->count() }} atividades</option>
@@ -90,7 +90,7 @@
                                             </div>
                                             <div class="col-12 col-md-4 col-lg-2 d-grid align-items-end">
                                                 <button type="button" class="btn btn-outline-primary" wire:click="applyContractServices" @disabled(!$contract)>
-                                                    <i class="ri-magic-line"></i> Aplicar
+                                                    <i class="ri-magic-line"></i> Aplicar atividades
                                                 </button>
                                             </div>
                                         </div>

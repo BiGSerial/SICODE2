@@ -708,7 +708,7 @@ class Main extends Component
             $this->company_l = Company::orderBy('name', 'ASC')->get();
         } else {
 
-            $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
+            $this->company_l = Company::whereIn('id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()))->get();
         }
 
         $this->company_l = Company::whereHas('toUsers', function ($query) {
@@ -726,7 +726,7 @@ class Main extends Component
         })
          ->where(function ($q) {
              $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+                 ->orWhere('company_id', $this->company_s);
          })
         ->when($this->search_user, function ($q) {
             return $q->where('name', 'like', '%' . $this->search_user . '%');

@@ -134,11 +134,9 @@
                             wire:model="companySelected" data-bs-toggle="tooltip" data-bs-placement="top"
                             data-bs-title="Empreiteira">
                             <option value="">Todas Empreiteiras</option>
-                            @if (Auth()->User()->Companies->isNotEmpty())
-                                @foreach (Auth()->User()->Companies as $company)
+                            @foreach ($this->partnerCompanyFilterOptions() as $company)
                                     <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                @endforeach
-                            @endif
+                            @endforeach
                         </select>
                     </div>
                 @endcan

@@ -225,8 +225,7 @@
                                 @php
                                     $workreport = $row->Workreport;
                                     $creator = $workreport?->User;
-                                    $creatorCompany =
-                                        $creator?->Employee?->Contract?->company?->name ?? $creator?->Company?->name ?? '—';
+                                    $creatorCompany = $creator?->Company?->name ?? '—';
                                 @endphp
                                 <tr>
                                     <td>{{ Carbon::parse($row->created_at)->format('d/m/Y H:i') }}</td>

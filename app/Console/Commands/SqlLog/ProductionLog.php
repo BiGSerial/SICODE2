@@ -63,8 +63,8 @@ class ProductionLog extends Command
                 'Company',
                 'Service',
                 // Carregamento condicional para otimizar apenas quando necessário
-                'Dispatcher.Employee.Contract.company',
-                'Att.Employee.Contract.company',
+                'Dispatcher.Company',
+                'Att.Company',
                 'Analise'
             ]);
 
@@ -99,9 +99,9 @@ class ProductionLog extends Command
                     'user' => optional($production->User)->name ?? 'Desconhecido',
                     'company' => optional($production->Company)->name ?? 'Desconhecido',
                     'dispatch_by' => optional($production->Dispatcher)->name ?? 'Desconhecido',
-                    'company_dispatch' => optional(optional(optional($production->Dispatcher)->Employee)->Contract)->company->name ?? 'Desconhecido',
+                    'company_dispatch' => optional($production->Dispatcher?->Company)->name ?? 'Desconhecido',
                     'att_by' => optional($production->Att)->name ?? 'Desconhecido',
-                    'company_att' => optional(optional(optional($production->Att)->Employee)->Contract)->company->name ?? 'Desconhecido',
+                    'company_att' => optional($production->Att?->Company)->name ?? 'Desconhecido',
                     'service' => optional($production->Service)->service ?? 'Desconhecido',
                     'note' => optional($production->Note)->note ?? 'desconhecido',
                     'status' => Notestatus::status($production->status)->status,

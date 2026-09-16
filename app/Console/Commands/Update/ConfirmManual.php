@@ -60,7 +60,7 @@ class ConfirmManual extends Command
                             'note_id'      => $note->id,
                             'service_id'   => $list->service_id,
                             'user_id'      => $list->user_id,
-                            'company_id'   => (User::with('Employee')->find($list->user_id))->Employee->Contract->company_id,
+                            'company_id'   => User::find($list->user_id)?->company_id,
                             'dispatch_by'  => $list->user_id,
                             'att_by'       => $list->user_id,
                             'dt_note'      => $note->dt_status,

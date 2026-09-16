@@ -43,7 +43,7 @@ class Occupation extends Component
         ->join('notes', 'productions.note_id', '=', 'notes.id')
         ->where('productions.service_id', $this->service->uuid)
         ->when(Auth()->user()->contract, function ($q) {
-            return $q->where('productions.company_id', Auth()->user()->employee->contract->company_id);
+            return $q->whereIn('productions.company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->user()));
         })
         ->when($this->company_s, function ($q) {
             return $q->where('productions.company_id', $this->company_s);

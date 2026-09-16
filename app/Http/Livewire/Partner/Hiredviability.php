@@ -166,15 +166,7 @@ class Hiredviability extends Component
                 ->where('hired', true)
                 ->where('completed', false);
 
-            if (!Auth()->User()->superadm) {
-
-                if (isset(Auth()->User()->Employee->Contract->Company->id)) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                } else {
-                    $q->where('company_id', null);
-                }
-            }
+            $this->applyPartnerCompanyScope($q);
 
         })
             ->with(['Viabilities' => function ($query) {

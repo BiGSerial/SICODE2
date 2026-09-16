@@ -69,6 +69,7 @@
 
 <div class="work-rejected-page">
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     <div class="toolbar mb-3">
         <div class="p-3 border-bottom">

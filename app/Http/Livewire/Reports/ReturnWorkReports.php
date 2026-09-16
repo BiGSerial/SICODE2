@@ -143,8 +143,6 @@ class ReturnWorkReports extends Component
                 'Workreport.User:id,name,company_id',
                 'Workreport.User.Company:id,name',
                 'Workreport.User.Employee:id,user_id,contract_id',
-                'Workreport.User.Employee.Contract:id,company_id',
-                'Workreport.User.Employee.Contract.company:id,name',
             ])
             ->whereBetween('created_at', [$start, $end])
             ->when(!empty($this->categoryValues), fn ($q) => $q->whereIn('category', $this->categoryValues))

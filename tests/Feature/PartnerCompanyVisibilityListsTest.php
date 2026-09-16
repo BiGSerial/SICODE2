@@ -114,3 +114,25 @@ it('shows pending and historic d5 notes by company', function () {
     expect(app(D5list::class)->getFivesProperty()->pluck('id')->all())->toContain($visiblePending->id);
     expect(app(Historic::class)->getFivesProperty()->pluck('id')->all())->toContain($visibleHistoric->id);
 });
+
+it('shows branch records to a partner user assigned to the matriz', function () {
+    $matriz = partnerCompanyVisibilityCompany('Parceira Matriz');
+    $filial = partnerCompanyVisibilityCompany('Parceira Filial');
+    $filial->update(['parent_id' => $matriz->id]);
+    $viewer = partnerCompanyVisibilityUser($matriz);
+
+    $visibleBranchNote = FiveNote::query()->create([
+        'company_id' => $filial->id,
+        'note_id' => partnerCompanyVisibilityNote('600010', 'ORDEM-FILIAL-VISIVEL')->id,
+        'note_d5' => 'D5-600010',
+        'visible_partner' => true,
+        'is_completed' => false,
+        'returned' => false,
+        'dispatch_at' => now(),
+    ]);
+
+    $this->actingAs($viewer);
+
+    expect(app(D5list::class)->getFivesProperty()->pluck('id')->all())
+        ->toContain($visibleBranchNote->id);
+});

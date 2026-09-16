@@ -312,7 +312,7 @@ class Main extends Component
                 return count($companyIds)
                     ? $q->where(function ($users) use ($companyIds) {
                         $users->whereIn('company_id', $companyIds)
-                            ->orWhereHas('Employee.Contract', fn ($contract) => $contract->whereIn('company_id', $companyIds))
+                            ->orWhereIn('company_id', $companyIds)
                             ->orWhereHas('Companies', fn ($company) => $company->whereIn('companies.id', $companyIds));
                     })
                     : $q->whereRaw('0 = 1');

@@ -26,13 +26,13 @@ class UsersSheet implements FromArray, WithEvents, WithTitle
         $this->existingUsers = User::query()
             ->with([
                 'Company.parent',
-                'Employee.Contract.company.parent',
+                'Employee.Contract',
                 'Employee.Service',
                 'Watchdog',
             ])
             ->where(function ($query) use ($unitIds) {
                 $query->whereIn('company_id', $unitIds)
-                    ->orWhereRelation('Employee.Contract', fn ($contractQuery) => $contractQuery->whereIn('company_id', $unitIds));
+                    ->orWhereIn('company_id', $unitIds);
             })
             ->orderBy('name')
             ->get();
@@ -63,7 +63,7 @@ class UsersSheet implements FromArray, WithEvents, WithTitle
         ];
 
         foreach ($this->existingUsers as $user) {
-            $company = $user->Company ?: $user->Employee?->Contract?->company ?: $this->root;
+            $company = $user->Company ?: $this->root;
             $contract = $user->Employee?->Contract;
             $contractLabel = $contract
                 ? "{$contract->number} | {$contract->company?->display_name}"

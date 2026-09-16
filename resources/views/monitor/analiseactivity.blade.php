@@ -10,10 +10,15 @@
 
 
 
-        @if (isset(Auth()->user()->Employee->Contract->services) &&
-                Auth()->user()->Employee->Contract->service &&
-                Auth()->user()->Employee->Contract->services->count())
-            @foreach (Auth()->user()->Employee->Contract->services as $service)
+        @php
+            $userServices = Auth()->user()->ToServices()->with('Service')->where('service', true)->get();
+        @endphp
+        @if ($userServices->count())
+            @foreach ($userServices as $userService)
+                @php($service = $userService->Service)
+                @if (!$service)
+                    @continue
+                @endif
                 <div class="col-xs-6 col-md-6 col-xl-6">
                     @livewire('components.statistics.statscard', ['service' => $service->uuid], key('stats-' . $service->uuid))
 

@@ -26,7 +26,7 @@
         @foreach ($lists as $list)
             <tr>
                 <td class="align-middlw">{{ $list->User->name }}</td>
-                <td class="align-middlw">{{ $list->User->Employee->Contract->Company->name }}</td>
+                <td class="align-middlw">{{ $list->User->Company?->name ?? '' }}</td>
                 <td class="align-middlw">
                     @if ($list->Orders->count())
                         @foreach ($list->Orders as $order)

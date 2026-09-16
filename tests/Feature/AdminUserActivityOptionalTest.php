@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\SicodeRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -177,6 +178,40 @@ it('does not add every contract activity during mass update', function () {
     $user->refresh();
 
     expect($user->Employee?->contract_id)->toBe($contract->id)
-        ->and($user->Employee?->service_id)->toBe($firstService->uuid)
-        ->and($user->ToServices()->pluck('service_id')->all())->toBe([$firstService->uuid]);
+        ->and($user->Employee?->service_id)->toBeNull()
+        ->and($user->ToServices()->count())->toBe(0);
+});
+
+it('allows creating a user in the company without a contract or activity', function () {
+    $actor = User::factory()->create(['superadm' => true, 'admin' => true]);
+    $company = optionalActivityCompany();
+
+    Livewire::actingAs($actor)
+        ->test(Usuario::class)
+        ->call('newUser')
+        ->set('user.email', 'sem-contrato@example.test')
+        ->set('user.name', 'Usuario Sem Contrato')
+        ->set('user.company_id', $company->id)
+        ->set('contract', null)
+        ->call('Save');
+
+    $user = User::query()->where('email', 'sem-contrato@example.test')->firstOrFail();
+
+    expect($user->company_id)->toBe($company->id)
+        ->and($user->Employee)->toBeNull()
+        ->and($user->ToServices()->count())->toBe(0);
+});
+
+it('expands the users company scope from matriz to its branches', function () {
+    $matriz = optionalActivityCompany();
+    $matriz->update(['name' => 'Matriz']);
+    $filial = optionalActivityCompany();
+    $filial->update(['name' => 'Filial', 'parent_id' => $matriz->id]);
+    $outraEmpresa = optionalActivityCompany();
+    $outraEmpresa->update(['name' => 'Outra empresa']);
+    $user = User::factory()->create(['company_id' => $matriz->id]);
+
+    expect(SicodeRules::visibleCompanyIdsFor($user))
+        ->toContain($matriz->id, $filial->id)
+        ->not->toContain($outraEmpresa->id);
 });

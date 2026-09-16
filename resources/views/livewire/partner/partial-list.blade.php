@@ -4,6 +4,7 @@
 <div>
 
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
     <div class="card">
         <div class="card-header">
             Pesquisa

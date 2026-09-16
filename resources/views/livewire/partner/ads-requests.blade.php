@@ -4,6 +4,7 @@
     @endphp
 
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     @if (!$sqlSyncEnabled)
         <div class="alert alert-warning">

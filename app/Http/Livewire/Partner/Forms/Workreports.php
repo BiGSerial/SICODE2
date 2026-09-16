@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\{Company, Note, Order, User, WorkReport};
 use App\Services\Partner\BlockEvaluator;
+use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\WorkReports\WorkReportAcceptanceSignature;
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use App\Support\SicodeRules;
@@ -1276,13 +1277,7 @@ class Workreports extends Component
             return collect();
         }
 
-        return collect()
-            ->merge($user->Companies?->pluck('id') ?? [])
-            ->push($user->company_id)
-            ->push($user->Employee?->Contract?->company_id)
-            ->filter()
-            ->unique()
-            ->values();
+        return collect(PartnerAccessGate::visibleCompanyIdsFor($user));
     }
 
     protected function defaultCompanyIdForUser(): ?string

@@ -86,7 +86,7 @@ class Transprod extends Component
 
     private function eligibleUsersQuery()
     {
-        return User::with('Company', 'Employee.Contract.company', 'Companies')
+        return User::with('Company', 'Companies')
             ->whereRelation('ToServices', function ($q) {
                 $q->when($this->production, function ($q) {
                     return $q->where('service_id', $this->production->service_id)
@@ -100,7 +100,7 @@ class Transprod extends Component
                 return count($companyIds)
                     ? $q->where(function ($users) use ($companyIds) {
                         $users->whereIn('company_id', $companyIds)
-                            ->orWhereHas('Employee.Contract', fn ($contract) => $contract->whereIn('company_id', $companyIds));
+                            ->orWhereIn('company_id', $companyIds);
                     })
                     : $q->whereRaw('0 = 1');
             });
@@ -110,13 +110,13 @@ class Transprod extends Component
     {
         return $query->where(function ($users) use ($companyId) {
             $users->where('company_id', $companyId)
-                ->orWhereHas('Employee.Contract', fn ($contract) => $contract->where('company_id', $companyId));
+                ->orWhere('company_id', $companyId);
         });
     }
 
     private function companyIdsForUser(User $user)
     {
-        return collect([$user->Employee?->Contract?->company_id ?: $user->company_id])
+        return collect([$user->company_id])
             ->filter()
             ->unique()
             ->values();

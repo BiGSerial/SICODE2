@@ -42,7 +42,7 @@
                                     <div class="col-md-4">
                                         <label class="form-label">Contrato</label>
                                         <select class="form-select" wire:model="contract">
-                                            <option value="">Selecione o contrato</option>
+                                            <option value="">Nenhum contrato (opcional)</option>
                                             @if ($contractList)
                                                 @foreach ($contractList as $cList)
                                                     <option value="{{ $cList->id }}">{{ $cList->number }} · {{ $cList->company?->name }} · {{ $cList->services->count() }} atividades</option>

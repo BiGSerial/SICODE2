@@ -16,17 +16,7 @@ class Rejectedanswercount extends Component
                 ->where('completed', false)
                 ->where('status', 5);
 
-        if (!auth()->user()->superadm) {
-
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->where(function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-        }
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 

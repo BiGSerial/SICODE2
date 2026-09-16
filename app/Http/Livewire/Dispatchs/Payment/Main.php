@@ -1120,7 +1120,7 @@ class Main extends Component
         })
             ->where(function ($q) {
                 $q->whereRelation('Company', 'company_id', $this->company_s)
-                  ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+                  ->orWhere('company_id', $this->company_s);
             })
             ->when($this->search_user, fn ($q) => $q->where('name', 'like', '%' . $this->search_user . '%'))
             ->orderBy('name', 'ASC')

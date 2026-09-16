@@ -58,16 +58,12 @@ class Reworkreports extends Workreports
 
         $this->loadCompanies();
 
-        $this->workReport = WorkReport::query()
+        $workReportQuery = WorkReport::query()
             ->with(['Note.Orders', 'Orders', 'Equipment', 'Meeters', 'Returnwork.User', 'Adsform'])
-            ->when(!auth()->user()->superadm, function ($q) {
-                $q->where(function ($query) {
-                    $query->whereIn('company_id', auth()->user()->Companies->pluck('id')->toArray())
-                        ->orWhere('company_id', auth()->user()->Company->id);
-                });
-            })
-            ->where('rejected', true)
-            ->findOrFail((int) $payload['work_report_id']);
+            ->where('rejected', true);
+
+        $this->applyPartnerCompanyScope($workReportQuery);
+        $this->workReport = $workReportQuery->findOrFail((int) $payload['work_report_id']);
 
         $this->note           = $this->workReport->Note;
         $this->hasExistingAds = (bool) $this->workReport->Adsform;

@@ -135,6 +135,7 @@
 
 <div class="partner-dashboard">
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     <style>
         .partner-dashboard {

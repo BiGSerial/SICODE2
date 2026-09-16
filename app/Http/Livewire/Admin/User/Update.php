@@ -84,8 +84,8 @@ class Update extends Component
         $this->legal_manager    = $this->user_update->legal_manager;
 
         if (isset($this->user_update->Employee)) {
-            $this->company_s  = $this->user_update->Employee->Contract->company_id;
-            $this->contract_s = $this->user_update->Employee->Contract->id;
+            $this->company_s  = $this->user_update->company_id;
+            $this->contract_s = $this->user_update->Employee->Contract?->id;
             $this->service_s  = $this->user_update->Employee->service_id;
         }
 
@@ -261,7 +261,7 @@ class Update extends Component
     public function render()
     {
         $this->companies = Company::when(!Auth()->User()->superadm, function ($q) {
-            return $q->where('id', Auth()->User()->Employee->Contract->company_id);
+            return $q->where('id', Auth()->User()->company_id);
         })->orderBy('name')->get();
         $this->contracts = Contract::where('company_id', $this->company_s)->orderBy('number')->get();
         $this->services  = Service::orderBy('service')->get();

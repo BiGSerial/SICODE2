@@ -16,7 +16,7 @@ class Monitorbusca extends Component
     public function getUsersProperty()
     {
         if (Auth()->User()->contract) {
-            $this->company_s = Auth()->User()->Employee->Contract->company->id;
+        $this->company_s = Auth()->User()->company_id;
         }
 
         return Production::whereNotNull('user_id')

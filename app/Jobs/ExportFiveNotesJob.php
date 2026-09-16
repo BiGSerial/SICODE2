@@ -118,27 +118,23 @@ class ExportFiveNotesJob implements ShouldQueue
 
     protected function applyUserScope(Builder $query, User $user): void
     {
+        $companyIds = $user->superadm
+            ? []
+            : PartnerAccessGate::visibleCompanyIdsFor($user);
+        $selectedCompanyId = (string) ($this->params['partnerCompanyFilter'] ?? '');
+
+        if ($selectedCompanyId !== '' && ($user->superadm || in_array($selectedCompanyId, $companyIds, true))) {
+            $query->where('company_id', $selectedCompanyId);
+
+            return;
+        }
+
         if ($user->superadm) {
             return;
         }
 
-        $companyIds = $user->Companies?->pluck('id')->filter()->all() ?? [];
-        $defaultCompanyId = PartnerAccessGate::companyIdFor($user);
-
         if ($companyIds) {
-            $query->where(function ($q) use ($companyIds, $defaultCompanyId) {
-                $q->whereIn('company_id', $companyIds);
-
-                if ($defaultCompanyId) {
-                    $q->orWhere('company_id', $defaultCompanyId);
-                }
-            });
-
-            return;
-        }
-
-        if ($defaultCompanyId) {
-            $query->where('company_id', $defaultCompanyId);
+            $query->whereIn('company_id', $companyIds);
 
             return;
         }

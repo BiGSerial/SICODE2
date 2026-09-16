@@ -196,7 +196,7 @@ class Productions extends Component
         $column = 'completed_at';
 
         if (auth()->user()->contract) {
-            $query->where('company_id', auth()->user()->employee->contract->company_id);
+            $query->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(auth()->user()));
         }
 
         if ($this->monthYear) {

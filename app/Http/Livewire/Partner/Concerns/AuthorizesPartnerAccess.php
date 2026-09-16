@@ -4,10 +4,38 @@ namespace App\Http\Livewire\Partner\Concerns;
 
 use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\PartnerAccess\PartnerBranchScope;
+use App\Models\Company;
 use Illuminate\Database\Eloquent\Builder;
 
 trait AuthorizesPartnerAccess
 {
+    public $partnerCompanyFilter = '';
+
+    public function updatedPartnerCompanyFilter(): void
+    {
+        if (method_exists($this, 'resetPage')) {
+            $this->resetPage();
+        }
+    }
+
+    protected function partnerCompanyFilterOptions()
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return collect();
+        }
+
+        $ids = $user->superadm
+            ? null
+            : PartnerAccessGate::visibleCompanyIdsFor($user);
+
+        return Company::query()
+            ->when($ids !== null, fn ($query) => $query->whereIn('id', $ids))
+            ->orderBy('name')
+            ->get();
+    }
+
     protected function authorizePartnerAccess(string $permissionKey): void
     {
         abort_unless(PartnerAccessGate::allows(auth()->user(), $permissionKey), 403);
@@ -19,20 +47,26 @@ trait AuthorizesPartnerAccess
 
         abort_unless($user, 403);
 
-        if ($user->superadm) {
-            return $query;
-        }
+        $companyIds = $user->superadm
+            ? null
+            : collect(PartnerAccessGate::visibleCompanyIdsFor($user));
 
-        $companyIds = $user->Companies()
-            ->select('companies.id')
-            ->pluck('companies.id')
-            ->push(PartnerAccessGate::companyIdFor($user))
-            ->filter()
-            ->unique()
-            ->values();
+        if ($companyIds === null) {
+            $selectedCompanyId = (string) ($this->partnerCompanyFilter ?? '');
+
+            return $selectedCompanyId !== ''
+                ? $query->where($column, $selectedCompanyId)
+                : $query;
+        }
 
         if ($companyIds->isEmpty()) {
             return $query->whereRaw('0 = 1');
+        }
+
+        $selectedCompanyId = (string) ($this->partnerCompanyFilter ?? '');
+
+        if ($selectedCompanyId !== '' && $companyIds->contains($selectedCompanyId)) {
+            return $query->where($column, $selectedCompanyId);
         }
 
         return $query->whereIn($column, $companyIds->all());

@@ -213,12 +213,7 @@ class Todoviability extends Component
                   ->where('completed', false)
                   ->where('tacit', false);
 
-                // escopo por empresa se não for superadm
-                if (!$user->superadm) {
-                    $companyId = optional($user->Employee->Contract)->Company->id
-                              ?? optional($user->Company)->id;
-                    $q->when($companyId, fn ($qq) => $qq->where('company_id', $companyId));
-                }
+                $this->applyPartnerCompanyScope($q);
             })
             ->pluck('id')
             ->toArray();
@@ -284,21 +279,7 @@ class Todoviability extends Component
             ->where('viabilities.rejected', false)
             ->where('viabilities.visible_partner', false); // regra original mantida
 
-        // Se não é superadm, restringe por empresa:
-        if (!$user->superadm) {
-            $companyIds = $user->Companies?->pluck('id')->all() ?? [];
-            $ownCompany = $user->Company?->id;
-
-            $query->where(function ($q) use ($companyIds, $ownCompany) {
-                if (!empty($companyIds)) {
-                    $q->whereIn('viabilities.company_id', $companyIds);
-                }
-
-                if ($ownCompany) {
-                    $q->orWhere('viabilities.company_id', $ownCompany);
-                }
-            });
-        }
+        $this->applyPartnerCompanyScope($query, 'viabilities.company_id');
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 

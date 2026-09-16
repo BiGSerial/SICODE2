@@ -67,7 +67,7 @@
                                     @php
                                         $name = explode(' ', $list->User->name);
                                         $name = $name[0] . ' ' . end($name);
-                                        $company = explode(' ', $list->User->load('Employee.Contract.company')->Employee->Contract->company->name);
+                                        $company = explode(' ', $list->User->Company?->name ?? '');
                                         $company = $company[0];
                                     @endphp
                                     <td>{{ $name }}</td>

@@ -343,7 +343,7 @@ class Main extends Component
 
         $dt       = $isPartial ? $partialDate : $note->dt_status;
         $fiveNote = (bool) $note->FiveNote;
-        $user     = User::with('Employee.Contract')->find(Auth::id());
+        $user     = User::find(Auth::id());
 
         $data = [
             'note_id'     => $note->id,

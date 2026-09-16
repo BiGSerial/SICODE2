@@ -63,6 +63,7 @@
 
 <div>
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     {{-- Filtros / Busca --}}
     <div class="card mb-3">

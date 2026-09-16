@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Admin\User;
 use App\Helpers\TextFormatter;
 use App\Jobs\Reports\ExportUserListJob;
 use App\Models\{Company, User};
+use App\Support\SicodeRules;
 use Livewire\{Component, WithPagination};
 
 class Table extends Component
@@ -83,11 +84,11 @@ class Table extends Component
 
         if (!Auth()->User()->contract) {
             $this->companies = Company::orderBy('name')->get();
-        } elseif (Auth()->User()->Companies->count()) {
-            $this->userCompany = auth()->user();
-            $this->companies = $this->userCompany->Companies()->get();
         } else {
-            $this->companies = Company::where('id', Auth()->User()->company_id)->orderBy('name')->get();
+            $this->companies = Company::whereIn(
+                'id',
+                SicodeRules::visibleCompanyIdsFor(auth()->user())
+            )->orderBy('name')->get();
         }
 
         $this->perPage = 30;
@@ -228,15 +229,7 @@ class Table extends Component
             ->when(
                 Auth()->User()->contract,
                 function ($q) {
-                    if (Auth()->User()->Companies->count()) {
-                        return $q->whereRelation('Employee.Contract.company', function ($sq) {
-                            return $sq->whereIn('id', Auth()->User()->Companies->pluck('id'));
-                        });
-                    }
-
-                    return $q->whereRelation('Employee.Contract.company', function ($sq) {
-                        return $sq->whereIn('id', [Auth()->User()->Employee->Contract->company->id]);
-                    });
+                    return $q->whereIn('company_id', SicodeRules::visibleCompanyIdsFor(Auth()->User()));
                 }
             )
             ->withTrashed()
@@ -270,7 +263,7 @@ class Table extends Component
                 });
             })
             ->when($this->selectedCompany, function ($q, $s) {
-                return $q->whereRelation('Employee.Contract', 'company_id', $s);
+                return $q->where('company_id', $s);
             })
             ->when($this->multiSearch, function ($q) {
                 return $q->where(function ($multiQuery) {

@@ -147,7 +147,7 @@ class Create extends Component
     public function render()
     {
         $this->companies = Company::when(!Auth()->User()->superadm, function ($q) {
-            return $q->where('id', Auth()->User()->Employee->Contract->company_id);
+            return $q->where('id', Auth()->User()->company_id);
         })->orderBy('name')->get();
         $this->contracts = Contract::where('company_id', $this->company_s)->orderBy('number')->get();
         $this->services  = Service::orderBy('service')->get();
