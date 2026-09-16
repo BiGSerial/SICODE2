@@ -21,7 +21,8 @@ class MigrateFiveNotesFromBaseD5 extends Command
                             {--notes-file= : Arquivo com notas D5}
                             {--orders-file= : Arquivo com obras/ordens}
                             {--excel= : Arquivo Excel D5 normalizado para migrar}
-                            {--output= : Arquivo Excel de saida com status da migracao}';
+                            {--output= : Arquivo Excel de saida com status da migracao}
+                            {--dry : Simula a importacao por Excel sem criar five_notes}';
 
     protected $description = 'Migra registros da tbld_usr_baseD5 (SQL Server) para five_notes (MySQL)';
 
@@ -193,16 +194,19 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
         if (! is_readable($path)) {
             $this->error("Arquivo Excel nao legivel: {$path}");
+            $this->showNearbyExcelFiles($path);
             return self::FAILURE;
         }
 
         $limit = $this->input->hasParameterOption('--limit')
             ? (int) $this->option('limit')
             : 0;
+        $dryRun = (bool) $this->option('dry');
         $output = $this->cleanScalar($this->option('output'));
         $outputPath = $output ? $this->resolvePath($output) : $this->defaultExcelOutputPath($path);
 
         $this->info("Lendo Excel: {$path}");
+        $this->line('Modo: ' . ($dryRun ? 'DRY RUN (sem gravar)' : 'EXECUCAO REAL'));
 
         $spreadsheet = IOFactory::load($path);
         $sheet = $spreadsheet->getActiveSheet();
@@ -223,6 +227,7 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
             $noteD5 = $this->cleanScalar($sheet->getCell('A' . $rowNumber)->getFormattedValue());
             $normalizedNote = $this->cleanScalar($sheet->getCell('C' . $rowNumber)->getFormattedValue());
+            $details = $this->cleanScalar($sheet->getCell('K' . $rowNumber)->getFormattedValue());
             $responsible = $this->cleanScalar($sheet->getCell('Q' . $rowNumber)->getFormattedValue());
 
             if (! $noteD5 && ! $normalizedNote && ! $responsible) {
@@ -230,9 +235,13 @@ class MigrateFiveNotesFromBaseD5 extends Command
             }
 
             $processed++;
-            $status = $this->migrateExcelRow($noteD5, $normalizedNote, $responsible);
+            try {
+                $status = $this->migrateExcelRow($noteD5, $normalizedNote, $responsible, $details, $dryRun);
+            } catch (Throwable $exception) {
+                $status = 'NAO_SUBIU: erro ao validar - ' . $exception->getMessage();
+            }
 
-            if (str_starts_with($status, 'SUBIU')) {
+            if (str_starts_with($status, 'SUBIU') || str_starts_with($status, 'DRY_RUN')) {
                 $created++;
             } else {
                 $skipped++;
@@ -245,14 +254,14 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
         $this->info('--- Resultado da migração por Excel ---');
         $this->info("Linhas processadas : {$processed}");
-        $this->info("Criados            : {$created}");
+        $this->info(($dryRun ? 'Subiriam' : 'Criados') . "            : {$created}");
         $this->info("Nao subiram        : {$skipped}");
         $this->info("Arquivo de status  : {$outputPath}");
 
         return self::SUCCESS;
     }
 
-    protected function migrateExcelRow(?string $noteD5, ?string $normalizedNote, ?string $responsible): string
+    protected function migrateExcelRow(?string $noteD5, ?string $normalizedNote, ?string $responsible, ?string $details = null, bool $dryRun = false): string
     {
         if (! $noteD5) {
             return 'NAO_SUBIU: coluna A Nota vazia';
@@ -268,14 +277,6 @@ class MigrateFiveNotesFromBaseD5 extends Command
             return "NAO_SUBIU: empreiteira nao mapeada na coluna Q ({$responsible})";
         }
 
-        $baseD5 = BaseD5::query()
-            ->where('nota', $normalizedNote)
-            ->first();
-
-        if (! $baseD5) {
-            return "NAO_SUBIU: nota normalizada {$normalizedNote} nao encontrada na BaseD5";
-        }
-
         if (! $this->isValidCompanyId($companyId)) {
             return "NAO_SUBIU: company_id do de-para nao existe em companies ({$companyId})";
         }
@@ -284,12 +285,10 @@ class MigrateFiveNotesFromBaseD5 extends Command
             return "NAO_SUBIU: D5 {$noteD5} ja existe em five_notes";
         }
 
-        $note = Note::whereHas('orders', function ($q) use ($baseD5) {
-            $q->where('ordem', $baseD5->obra);
-        })->first();
+        $note = Note::where('note', $normalizedNote)->first();
 
         if (! $note) {
-            return "NAO_SUBIU: sem Note para obra {$baseD5->obra} da nota normalizada {$normalizedNote}";
+            return "NAO_SUBIU: nota normalizada {$normalizedNote} nao encontrada em notes.note";
         }
 
         if (FiveNote::where('note_id', $note->id)->exists()) {
@@ -297,28 +296,42 @@ class MigrateFiveNotesFromBaseD5 extends Command
         }
 
         $order = $note->orders()
-            ->where('ordem', $baseD5->obra)
+            ->orderBy('id')
             ->first();
 
         if (! $order) {
-            return "NAO_SUBIU: sem Order para obra {$baseD5->obra} da nota normalizada {$normalizedNote}";
+            return "NAO_SUBIU: sem Order para nota normalizada {$normalizedNote}";
+        }
+
+        $baseD5 = null;
+
+        try {
+            $baseD5 = BaseD5::query()
+                ->where('nota', $normalizedNote)
+                ->first();
+        } catch (Throwable) {
+            $baseD5 = null;
+        }
+
+        if ($dryRun) {
+            return "DRY_RUN: D5 {$noteD5} subiria pela nota normalizada {$normalizedNote}";
         }
 
         try {
             FiveNote::create([
                 'note_d5'         => $noteD5,
                 'note_id'         => $note->id,
-                'loc_install'     => $baseD5->denomLocalInstal ?? null,
-                'conjunto'        => isset($baseD5->conjunto) ? (int) $baseD5->conjunto : null,
-                'description'     => $baseD5->denomConjunto ?? $baseD5->descricao ?? null,
+                'loc_install'     => $baseD5->denomLocalInstal ?? $order->locInstalacao ?? null,
+                'conjunto'        => isset($baseD5->conjunto) ? (int) $baseD5->conjunto : ($order->conjunto ?? null),
+                'description'     => $details ?? $baseD5->denomConjunto ?? $order->denConjunto ?? $order->descricao ?? null,
                 'codify'          => $this->mapCodifyFromTxtCodeCodific($baseD5->txtCodeCodific ?? null),
                 'company_id'      => $companyId,
                 'pep'             => $order->pep ?? null,
                 'sintoms'         => null,
                 'reason'          => $this->mapReasonFromDescricao($baseD5->descricao ?? null),
                 'name'            => null,
-                'dispatch_at'     => $baseD5->dtCriacao,
-                'payed_at'        => $baseD5->dtCriacao,
+                'dispatch_at'     => $baseD5->dtCriacao ?? $note->dt_created ?? now(),
+                'payed_at'        => $baseD5->dtCriacao ?? $note->dt_created ?? now(),
                 'visible_partner' => true,
                 'is_payed'        => true,
                 'is_completed'      => false,
@@ -368,11 +381,40 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
     protected function resolvePath(string $path): string
     {
+        $path = $this->normalizeShellCopiedPath($path);
+
         if (str_starts_with($path, '/')) {
             return $path;
         }
 
         return base_path($path);
+    }
+
+    protected function normalizeShellCopiedPath(string $path): string
+    {
+        return str_replace('\_', '_', $path);
+    }
+
+    protected function showNearbyExcelFiles(string $path): void
+    {
+        $directory = dirname($path);
+
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        $files = glob($directory . DIRECTORY_SEPARATOR . '*.xlsx') ?: [];
+
+        if ($files === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->line('Arquivos .xlsx encontrados nessa pasta:');
+
+        foreach (array_slice($files, 0, 10) as $file) {
+            $this->line(' - ' . $file);
+        }
     }
 
     protected function defaultExcelOutputPath(string $path): string
