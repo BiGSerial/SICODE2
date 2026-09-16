@@ -228,6 +228,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
         ->whereNumber('wall')
         ->whereNumber('screen')
         ->name('wall.production_v2_vue.screen');
+    Route::get('/general-sicode', 'generalSicode')->middleware('can:management')->name('general_sicode');
     Route::get('/productions', 'productions')->middleware('can:management')->name('productions');
     Route::get('/viabilies', 'viabilities')->middleware('can:management')->name('viabilities');
     Route::get('/return-intern', 'returnIntern')->middleware('can:management')->name('return_intern');

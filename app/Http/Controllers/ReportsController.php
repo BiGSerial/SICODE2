@@ -9,6 +9,11 @@ class ReportsController extends Controller
         return view('reports.productions');
     }
 
+    public function generalSicode()
+    {
+        return view('reports.general-sicode');
+    }
+
     public function viabilities()
     {
         return view('reports.viabilities');
