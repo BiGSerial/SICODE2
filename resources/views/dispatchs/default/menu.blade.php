@@ -21,6 +21,14 @@
                             <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i><span>ACOMPANHAMENTO</span>
                         </a>
                     </li>
+
+                    <li>
+                        <a href="{{ route('dispatch.historic', ['service' => $service->uuid]) }}"
+                            class="nav-item text-white fw-normal">
+                            <i class="ri-history-line fs-5 edp-text-verde-dark fw-normal"></i><span>HISTÓRICO DE
+                                DESPACHOS</span>
+                        </a>
+                    </li>
                                     
 </div>
             </ul>

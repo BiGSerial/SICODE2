@@ -193,6 +193,7 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/intern_returns', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/historic', 'historic')->name('historic');
     Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
     Route::get('/cancellations/queue', 'cancellationQueue')->name('cancellation.queue');

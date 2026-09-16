@@ -119,6 +119,15 @@ class DispatchController extends Controller
 
     }
 
+    public function historic(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        return view('dispatchs.historic', [
+            'service' => $service,
+        ]);
+    }
+
     public function waitingFiveNote(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();

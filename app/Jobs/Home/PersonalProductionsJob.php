@@ -2,8 +2,7 @@
 
 namespace App\Jobs\Home;
 
-use App\Exports\Reports\ProductionsExportList;
-use App\Models\Production;
+use App\Exports\Home\PersonalProductionsExport;
 use App\Models\Service;
 use App\Models\User;
 use App\Notifications\SystemNotification;
@@ -12,8 +11,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 class PersonalProductionsJob implements ShouldQueue
@@ -46,6 +47,8 @@ class PersonalProductionsJob implements ShouldQueue
         $serviceLabel = '';
         $includeOpen  = (bool)($this->params['include_open'] ?? false);
         $includeRi    = (bool)($this->params['include_ri'] ?? false);
+        $services     = array_values(array_filter((array)($this->params['service'] ?? [])));
+        $multiSearch  = array_values(array_filter((array)($this->params['multisearch'] ?? [])));
 
         try {
             // Intervalo (vem como 'Y-m-d'); normaliza para timestamps completos
@@ -53,40 +56,47 @@ class PersonalProductionsJob implements ShouldQueue
             $end   = isset($this->params['dt_end']) ? date('Y-m-d 23:59:59', strtotime($this->params['dt_end'])) : null;
 
             // Label do serviço quando há apenas um UUID
-            if (!empty($this->params['service']) && count($this->params['service']) === 1) {
-                $serviceLabel = Service::whereIn('uuid', $this->params['service'])->first()?->service ?? '';
+            if (count($services) === 1) {
+                $serviceLabel = Service::whereIn('uuid', $services)->first()?->service ?? '';
             }
 
             // Escopo fixo do dashboard pessoal:
             // user_id do usuário logado + concluídas + sem rejeitadas, com opção de incluir RI/aberto.
-            $query = Production::query()
+            $query = DB::table('productions as p')
+                ->leftJoin('notes as n', 'n.id', '=', 'p.note_id')
+                ->leftJoin('services as s', 's.uuid', '=', 'p.service_id')
+                ->leftJoin('analises as a', 'a.production_id', '=', 'p.id')
                 ->select([
-                    'id','user_id','company_id','service_id','dispatch_by',
-                    'note_id','att_by',
-                    'dt_note','dispatch_at','att_at','completed_at',
-                    'odi','odd','ods','eo','iproject','cad','cadastro',
-                    'postes_c','postes_u','stopped','d5','confirmed','status','completed',
-                    'partial','partial_at','supervision_by_partner_photos',
+                    'p.id',
+                    'n.note as numero_nota',
+                    's.service as servico',
+                    'p.dispatch_at as data_despacho',
+                    'p.att_at as data_atribuicao',
+                    'p.completed_at as data_conclusao',
+                    'p.stopped as tempo_parado_segundos',
+                    'p.postes_u as postes_utilizados',
+                    'p.status as situacao_producao',
+                    'a.conclusion as conclusao',
                 ])
-                ->where('user_id', $ownerId)
-                ->where('rejected', false)
-                ->when(!$includeRi, fn ($q) => $q->where('d5', false))
-                ->when(!$includeOpen, fn ($q) => $q->where('completed', true))
+                ->where('p.user_id', $ownerId)
+                ->where('p.rejected', false)
+                ->when(!$includeRi, fn ($q) => $q->where('p.d5', false))
+                ->when(!$includeOpen, fn ($q) => $q->where('p.completed', true))
                 // serviço por UUID (productions.service_id armazena UUID)
-                ->when(!empty($this->params['service'] ?? []), fn ($q) => $q->whereIn('service_id', $this->params['service']))
+                ->when($services !== [], fn ($q) => $q->whereIn('p.service_id', $services))
                 // intervalo estrito selecionado (concluídas em completed_at; em aberto em dispatch_at)
                 ->when($start && $end, function ($q) use ($start, $end, $includeOpen) {
                     $q->where(function ($w) use ($start, $end, $includeOpen) {
                         $w->where(function ($done) use ($start, $end) {
-                            $done->where('completed', true)
-                                ->whereBetween('completed_at', [$start, $end]);
+                            $done->where('p.completed', true)
+                                ->whereBetween('p.completed_at', [$start, $end]);
                         });
 
                         if ($includeOpen) {
                             $w->orWhere(function ($open) use ($start, $end) {
-                                $open->where('completed', false)
-                                    ->where('rejected', false)
-                                    ->whereBetween('dispatch_at', [$start, $end]);
+                                $open->where('p.completed', false)
+                                    ->where('p.rejected', false)
+                                    ->whereBetween('p.dispatch_at', [$start, $end]);
                             });
                         }
                     });
@@ -99,51 +109,43 @@ class PersonalProductionsJob implements ShouldQueue
                         : $search;
                     $type = str_contains($wildcard, '%') ? 'like' : '=';
                     $q->where(function ($w) use ($wildcard, $type) {
-                        $w->whereRelation('note', 'note', $type, $wildcard)
-                          ->orWhereRelation('note.orders', 'ordem', $type, $wildcard)
-                          ->orWhereRelation('note', 'material', $type, $wildcard);
+                        $w->where('n.note', $type, $wildcard)
+                            ->orWhere('n.material', $type, $wildcard)
+                            ->orWhereExists(function ($sub) use ($wildcard, $type) {
+                                $sub->selectRaw('1')
+                                    ->from('orders as o')
+                                    ->whereColumn('o.note_id', 'n.id')
+                                    ->where('o.ordem', $type, $wildcard);
+                            });
                     });
                 })
-                ->when(!empty($this->params['multisearch'] ?? []), function ($q) {
-                    $arr = array_values(array_filter($this->params['multisearch']));
-                    $q->where(function ($w) use ($arr) {
-                        $w->whereRelation('Note', function ($qs) use ($arr) {
-                            $qs->whereIn('note', $arr)
-                               ->orWhereIn('material', $arr);
-                        })
-                          ->orWhereRelation('Note.Orders', function ($qs) use ($arr) {
-                              $qs->whereIn('ordem', $arr);
-                          });
+                ->when($multiSearch !== [], function ($q) use ($multiSearch) {
+                    $q->where(function ($w) use ($multiSearch) {
+                        $w->whereIn('n.note', $multiSearch)
+                            ->orWhereIn('n.material', $multiSearch)
+                            ->orWhereExists(function ($sub) use ($multiSearch) {
+                                $sub->selectRaw('1')
+                                    ->from('orders as o')
+                                    ->whereColumn('o.note_id', 'n.id')
+                                    ->whereIn('o.ordem', $multiSearch);
+                            });
                     });
                 })
-                ->with([
-                    'Dispatcher:id,name',
-                    'Dispatcher.Employee.Contract.company:id,name',
-                    'Att:id,name',
-                    'Att.Employee.Contract.company:id,name',
-                    'User:id,name',
-                    'Company:id,name',
-                    'Service:uuid,service',
-                    'Note:id,note,material,group2,group5,lexp,postes,nexp,doe,rubrica,type_note',
-                    'Note.RamalForm:id,note_id,created_at',
-                    'Note.WorkForm:id,note_id,informed_at,rejected,created_at',
-                    'Analise',
-                    'Reclaim:id,category',
-                ])
-                ->orderBy('completed_at');
+                ->orderBy('p.completed_at')
+                ->orderBy('p.id');
 
             // Sem count extra: mantém estilo de relatório habilitado.
             $rowEstimate = 0;
 
             // Caminho/nome do arquivo (por usuário)
-            $serviceSuffix = $serviceLabel ? '_' . preg_replace('/\s+/', '_', $serviceLabel) : '';
+            $serviceSuffix = $serviceLabel ? '_' . Str::slug($serviceLabel, '_') : '';
             $dir           = "exports/users/{$ownerId}";
-            $filePath      = "{$dir}/" . now()->format('YmdHis') . "{$serviceSuffix}_my_productions.xlsx";
+            $filePath      = "{$dir}/" . now()->format('YmdHis') . "{$serviceSuffix}_historico_producoes.xlsx";
             $disk          = Storage::disk('local');
             $disk->makeDirectory($dir);
 
             // Exporta exatamente como na sua chamada de referência
-            $stored = (new ProductionsExportList($query, $rowEstimate))->store($filePath, 'local');
+            $stored = (new PersonalProductionsExport($query, $rowEstimate))->store($filePath, 'local');
 
             // Notificação de sucesso
             if (!$stored) {
