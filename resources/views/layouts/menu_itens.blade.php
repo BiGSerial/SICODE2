@@ -152,6 +152,7 @@
 
 @php
     $reports_links = [
+        ['route' => 'reports.general_sicode', 'label' => 'RELATÓRIO GERAL SICODE', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.productions', 'label' => 'RELATÓRIO DE PRODUÇÃO', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.viabilities', 'label' => 'RELATÓRIO DE VIABILIDADE', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.return_intern', 'label' => 'RETORNO INTERNO', 'visible' => Auth()->user()->can('management')],
