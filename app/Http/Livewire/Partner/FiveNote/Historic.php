@@ -51,8 +51,6 @@ class Historic extends Component
 
         $query->with('company');
 
-        $this->applyPartnerBranchScopeToFiveNotes($query);
-
         $query->where('visible_partner', true)
             ->where('is_completed', true)
             ->when($this->passiveFilter === 'current', fn ($q) => $q->where('isPassive', false))

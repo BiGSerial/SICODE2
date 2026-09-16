@@ -236,8 +236,6 @@ class FinishD5 extends Component
         $query = FiveNote::query()->whereKey($id);
 
         $this->applyPartnerCompanyScope($query);
-        $this->applyPartnerBranchScopeToFiveNotes($query);
-
         return $query->firstOrFail();
     }
 

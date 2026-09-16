@@ -7,7 +7,6 @@ use App\Models\FiveNote;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\PartnerAccess\PartnerAccessGate;
-use App\Services\PartnerAccess\PartnerBranchScope;
 use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,7 +57,6 @@ class ExportFiveNotesJob implements ShouldQueue
             $query = FiveNote::query();
 
             $this->applyUserScope($query, $user);
-            app(PartnerBranchScope::class)->applyToFiveNotes($query, $user);
             $this->applyBaseConstraints($query);
             $this->applyFilters($query);
 

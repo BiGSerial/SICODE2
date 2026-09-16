@@ -35,8 +35,6 @@ class ViewD5 extends Component
 
         $query = FiveNote::query()->whereKey($five->id);
         $this->applyPartnerCompanyScope($query);
-        $this->applyPartnerBranchScopeToFiveNotes($query);
-
         $this->five = $query->firstOrFail();
 
         if ($this->five) {

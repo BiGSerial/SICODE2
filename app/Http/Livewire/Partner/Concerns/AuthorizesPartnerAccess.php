@@ -3,7 +3,6 @@
 namespace App\Http\Livewire\Partner\Concerns;
 
 use App\Services\PartnerAccess\PartnerAccessGate;
-use App\Services\PartnerAccess\PartnerBranchScope;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -74,31 +73,34 @@ trait AuthorizesPartnerAccess
 
     protected function applyPartnerBranchScopeToNoteRelation(Builder $query, ?string $companyId = null, string $relation = 'Note'): Builder
     {
-        return app(PartnerBranchScope::class)->applyToNoteRelation($query, auth()->user(), $companyId, $relation);
+        // Partner visibility is company-based; address assignments do not reduce it.
+        return $query;
     }
 
     protected function applyPartnerBranchScopeToNotes(Builder $query, ?string $companyId = null): Builder
     {
-        return app(PartnerBranchScope::class)->applyToNotes($query, auth()->user(), $companyId);
+        return $query;
     }
 
     protected function applyPartnerBranchScopeToProtests(Builder $query, ?string $companyId = null): Builder
     {
-        return app(PartnerBranchScope::class)->applyToProtests($query, auth()->user(), $companyId);
+        return $query;
     }
 
     protected function applyPartnerBranchScopeToProtestJobs(Builder $query, ?string $companyId = null): Builder
     {
-        return app(PartnerBranchScope::class)->applyToProtestJobs($query, auth()->user(), $companyId);
+        return $query;
     }
 
     protected function applyPartnerBranchScopeToMedProtests(Builder $query, ?string $companyId = null): Builder
     {
-        return app(PartnerBranchScope::class)->applyToMedProtests($query, auth()->user(), $companyId);
+        return $query;
     }
 
     protected function applyPartnerBranchScopeToFiveNotes(Builder $query, ?string $companyId = null): Builder
     {
-        return app(PartnerBranchScope::class)->applyToFiveNotes($query, auth()->user(), $companyId);
+        // D5 visibility is governed by the user's company scope. A branch/address
+        // assignment must not hide other D5 records belonging to that company.
+        return $query;
     }
 }

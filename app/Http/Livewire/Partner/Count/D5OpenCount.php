@@ -28,8 +28,6 @@ class D5OpenCount extends Component
 
         $this->applyPartnerCompanyScope($query);
 
-        $this->applyPartnerBranchScopeToFiveNotes($query);
-
         return $query->count();
     }
 }
