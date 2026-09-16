@@ -73,12 +73,7 @@ class BaseOperation extends Command
                 $originOrders = $ordersByOrdem->keys()->filter()->values();
 
                 // Busca operações da ORIGEM para esse domínio
-                $operationsSrc = Edp_depcBaseOperation::whereIn('ordem', $originOrders)
-                    ->where(function ($query) {
-                        $query->whereNull('status')
-                            ->orWhereRaw("UPPER(LTRIM(RTRIM(status))) NOT LIKE 'IMPR LIB%'");
-                    })
-                    ->get();
+                $operationsSrc = Edp_depcBaseOperation::whereIn('ordem', $originOrders)->get();
 
                 if ($operationsSrc->isEmpty()) {
                     // nenhum resultado para todo o domínio do chunk
@@ -187,7 +182,7 @@ class BaseOperation extends Command
                             'fimPlanejado'    => $this->parseDateTime($src->fimPlanejado),
                             'inicioReal'      => $this->parseDateTime($src->inicioReal),
                             'fimReal'         => $this->parseDateTime($src->fimReal),
-                            'status'          => $src->status ?? null,
+                            'status'          => Operation::normalizeStatus($src->status ?? null),
                             'notaOv'          => $src->notaOv ?? null,
                             'cenPlan'         => $src->cenPlan ?? null,
                             'cenTrab'         => $src->cenTrab ?? null,

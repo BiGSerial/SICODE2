@@ -43,7 +43,6 @@ class ImportSpecificOperations extends Command
             $sourceOperations = BaseOperation::query()
                 ->whereIn('ordem', $ordens)
                 ->get()
-                ->reject(fn ($operation) => Operation::isIgnoredStatus($operation->status ?? null))
                 ->filter(fn ($operation) => $this->clean($operation->operacao ?? null) !== null)
                 ->keyBy(function ($operation) {
                     return $this->clean($operation->ordem ?? null) . '|' . $this->clean($operation->operacao ?? null);
@@ -199,7 +198,7 @@ class ImportSpecificOperations extends Command
             'fimPlanejado' => $this->parseDateTime($sourceOperation->fimPlanejado ?? null),
             'inicioReal' => $this->parseDateTime($sourceOperation->inicioReal ?? null),
             'fimReal' => $this->parseDateTime($sourceOperation->fimReal ?? null),
-            'status' => $this->clean($sourceOperation->status ?? null),
+            'status' => Operation::normalizeStatus($this->clean($sourceOperation->status ?? null)),
             'notaOv' => $this->clean($sourceOperation->notaOv ?? null),
             'cenPlan' => $this->clean($sourceOperation->cenPlan ?? null),
             'cenTrab' => $this->clean($sourceOperation->cenTrab ?? null),

@@ -34,11 +34,7 @@ class FixOperationOrder extends Command
 
         $chunkSize = 8000;
 
-        $sourceQuery = BaseOperation::where('operacao', $this->option('op'))
-            ->where(function ($query) {
-                $query->whereNull('status')
-                    ->orWhereRaw("UPPER(LTRIM(RTRIM(status))) NOT LIKE 'IMPR LIB%'");
-            });
+        $sourceQuery = BaseOperation::where('operacao', $this->option('op'));
 
         $op_count = $sourceQuery->count();
 
@@ -67,10 +63,6 @@ class FixOperationOrder extends Command
 
                     if ($operation) {
 
-                        if (Operation::isIgnoredStatus($operation->status ?? null)) {
-                            continue;
-                        }
-
                         $check = $order->Operations()->withoutGlobalScopes()->updateOrCreate(
                             ['operacao' => $operation->operacao],
                             [
@@ -79,7 +71,7 @@ class FixOperationOrder extends Command
                                 'fimPlanejado'    => $operation->fimPlanejado,
                                 'inicioReal'      => $operation->inicioReal,
                                 'fimReal'         => $operation->fimReal,
-                                'status'          => $operation->status,
+                                'status'          => Operation::normalizeStatus($operation->status ?? null),
                                 'notaOv'          => $operation->notaOv,
                                 'cenPlan'         => $operation->cenPlan,
                                 'cenTrab'         => $operation->cenTrab,

@@ -9,27 +9,30 @@ class Operation extends Model
 {
     use HasFactory;
 
-    public const IGNORED_STATUS_PREFIX = 'IMPR LIB';
+    public const SAP_PRINT_PREFIX = 'IMPR ';
 
     protected static function booted(): void
     {
-        // Esse status é um registro intermediário do SAP e não pode participar
-        // das decisões operacionais do SICODE.
-        static::addGlobalScope('without_impr_lib', function ($query) {
-            $query->where(function ($statusQuery) {
-                $statusQuery->whereNull('status')
-                    ->orWhereRaw("UPPER(TRIM(status)) NOT LIKE 'IMPR LIB%'");
-            });
-        });
-
         static::saving(function (self $operation) {
-            return !self::isIgnoredStatus($operation->status);
+            $operation->status = self::normalizeStatus($operation->status);
+            return true;
         });
     }
 
-    public static function isIgnoredStatus(?string $status): bool
+    public static function normalizeStatus(?string $status): ?string
     {
-        return str_starts_with(strtoupper(trim((string) $status)), self::IGNORED_STATUS_PREFIX);
+        $status = trim((string) $status);
+
+        if (str_starts_with(strtoupper($status), self::SAP_PRINT_PREFIX)) {
+            return trim(substr($status, strlen(self::SAP_PRINT_PREFIX)));
+        }
+
+        return $status !== '' ? $status : null;
+    }
+
+    public function getStatusAttribute($value): ?string
+    {
+        return self::normalizeStatus($value);
     }
 
     protected $fillable = [
