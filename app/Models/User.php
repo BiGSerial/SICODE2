@@ -175,6 +175,24 @@ class User extends Authenticatable
         return $this->belongsToMany(Company::class, 'company_user')->withTrashed();
     }
 
+    /**
+     * Regiões associadas ao usuário para uso futuro nas regras de visibilidade.
+     */
+    public function regions(): HasMany
+    {
+        return $this->hasMany(UserRegion::class);
+    }
+
+    public function applicationApiTokens(): HasMany
+    {
+        return $this->hasMany(ApplicationApiToken::class, 'created_by_user_id');
+    }
+
+    public function regionNames(): Collection
+    {
+        return $this->regions()->pluck('region');
+    }
+
     public function partnerPermissionExceptions(): HasMany
     {
         return $this->hasMany(PartnerUserPermissionException::class);

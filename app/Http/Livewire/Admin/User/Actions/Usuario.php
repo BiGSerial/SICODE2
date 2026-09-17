@@ -50,6 +50,10 @@ class Usuario extends Component
 
     public $region;
 
+    public $regionSelect;
+
+    public $temporaryRegions = [];
+
     public $cities;
 
     public $city;
@@ -148,7 +152,14 @@ class Usuario extends Component
         }
 
         $this->cities     = City::orderBy('cidade')->get();
-        $this->regionList = City::orderBy('regiao')->distinct()->pluck('regiao');
+        // A associação de acesso é feita pela Regional operacional
+        // (Centro, Norte, Sul...), não pelo campo geográfico "regiao".
+        $this->regionList = City::query()
+            ->whereNotNull('regional')
+            ->where('regional', '<>', '')
+            ->orderBy('regional')
+            ->distinct()
+            ->pluck('regional');
     }
 
     public function updatedRegion()
@@ -173,6 +184,7 @@ class Usuario extends Component
             $this->company                = $this->user->company_id ?? '';
             $this->contract               = $this->user->Employee?->Contract?->id ?? '';
             $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
+            $this->temporaryRegions = $this->user->regionNames()->values()->all();
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'userModal',
@@ -221,6 +233,7 @@ class Usuario extends Component
         $this->user                   = new User();
         $this->user->permission_locks = $this->normalizePermissionLocks([]);
         $this->user->user             = true;
+        $this->temporaryRegions      = [];
 
         $this->temporaryPassword  = Hash::make(123456);
         $this->temporaryFirstPass = 1;
@@ -308,6 +321,30 @@ class Usuario extends Component
         ]);
 
         $this->emitSelf('refreshuser');
+    }
+
+    public function addRegion(): void
+    {
+        $region = trim((string) $this->regionSelect);
+
+        if ($region === '' || in_array($region, $this->temporaryRegions, true)) {
+            return;
+        }
+
+        $this->temporaryRegions[] = $region;
+        $this->regionSelect = null;
+    }
+
+    public function removeRegion(string $region): void
+    {
+        $this->temporaryRegions = array_values(array_filter(
+            $this->temporaryRegions,
+            fn (string $selectedRegion): bool => $selectedRegion !== $region
+        ));
+
+        if ($this->user?->exists) {
+            $this->user->regions()->where('region', $region)->delete();
+        }
     }
 
     public function removeCompany($company_id)
@@ -410,6 +447,16 @@ class Usuario extends Component
         }
 
         $this->user->save();
+
+        $this->user->regions()->delete();
+        $this->user->regions()->createMany(
+            collect($this->temporaryRegions)
+                ->map(fn ($region): string => trim((string) $region))
+                ->filter()
+                ->unique()
+                ->map(fn (string $region): array => ['region' => $region])
+                ->all()
+        );
 
         if ($this->contract && $this->user->Employee) {
             // Atualiza o Employee existente
@@ -591,6 +638,8 @@ class Usuario extends Component
         $this->resetValidation();
 
         $this->temporaryServices = [];
+        $this->temporaryRegions = [];
+        $this->regionSelect = null;
 
         $this->user = null;
 

@@ -355,7 +355,6 @@
                                     $date = $list->fimLancado;
                                 }
 
-                                $date = $list->fimLancado;
                                 $dateC = $date ? Carbon::parse($date) : null;
 
                                 $statusFor = function ($order, $op) {

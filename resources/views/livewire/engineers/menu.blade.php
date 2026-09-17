@@ -192,6 +192,12 @@
                                 <span>HISTÓRICO DE APROVAÇÃO</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('engineers.cancellations.regional') }}" class="nav-item text-white fw-normal">
+                                <i class="ri-file-warning-line text-white fw-light fs-5"></i>
+                                <span>NOTAS EM CANCELAMENTO</span>
+                            </a>
+                        </li>
                     </div>
                 </ul>
             </li>

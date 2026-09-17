@@ -94,6 +94,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
         Route::get('/history', 'systemHistory')->name('history');
         Route::get('/schedule', 'systemSchedule')->middleware('can:superadm')->name('schedule');
         Route::get('/sqlsrv-health', 'sqlsrvHealth')->middleware('can:superadm')->name('sqlsrv_health');
+        Route::get('/api-tokens', 'applicationApiTokens')->name('api_tokens');
     });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
@@ -348,6 +349,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/cancelamentos/aprovacoes', 'cancellationApprovals')->name('cancellations.index');
     Route::get('/cancelamentos/aprovacoes/historico', 'cancellationApprovalsHistory')->name('cancellations.history');
     Route::get('/cancelamentos/aprovacoes/{request}', 'cancellationApprovalShow')->whereNumber('request')->name('cancellations.show');
+    Route::get('/cancelamentos/em-processo', 'cancellationRegional')->name('cancellations.regional');
 
     Route::prefix('/analises')->name('analises.')->group(function () {
         Route::get('/dashboard', 'analises_dashboard')->name('dashboard');

@@ -5,15 +5,42 @@
 <div>
     <x-show-loading />
 
+    <style>
+        #userModal .user-editor-dialog { max-width: 1220px; }
+        #userModal .user-editor-content { overflow: hidden; border-radius: 18px; }
+        #userModal .user-editor-header { padding: 1rem 1.35rem; }
+        #userModal .user-editor-body { padding: 1.25rem; background: #f2f5f8 !important; }
+        #userModal .user-editor-body > .card,
+        #userModal .user-editor-body .row > [class*="col-"] > .card {
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 13px;
+            box-shadow: 0 5px 16px rgba(15, 23, 42, .055) !important;
+        }
+        #userModal .user-editor-body .card-header { padding: .8rem 1rem; border-bottom-color: #e8edf3; border-radius: 13px 13px 0 0; }
+        #userModal .user-editor-body .card-body { padding: 1rem; }
+        #userModal .user-editor-body .form-label { margin-bottom: .35rem; color: #334155; font-size: .82rem; font-weight: 600; }
+        #userModal .user-editor-body .form-control,
+        #userModal .user-editor-body .form-select { min-height: 40px; border-color: #d6dee8; border-radius: 8px; }
+        #userModal .user-editor-body .table { margin-bottom: 0; }
+        #userModal .user-editor-body .table td { padding: .55rem .35rem; border-color: #edf1f5; }
+        #userModal .user-editor-footer { position: sticky; bottom: 0; z-index: 2; padding: .85rem 1.25rem; border-top: 1px solid #e5eaf1; }
+        @media (max-width: 767.98px) {
+            #userModal .user-editor-body { padding: .75rem; }
+            #userModal .user-editor-body .card-body { padding: .8rem; }
+            #userModal .user-editor-footer { flex-wrap: wrap; gap: .5rem; }
+            #userModal .user-editor-footer .btn { flex: 1 1 auto; }
+        }
+    </style>
+
     <div wire:ignore.self class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header text-white" style="background: linear-gradient(130deg, #0f172a 0%, #0f766e 80%);">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable user-editor-dialog">
+            <div class="modal-content border-0 shadow user-editor-content">
+                <div class="modal-header text-white user-editor-header" style="background: linear-gradient(130deg, #0f172a 0%, #0f766e 80%);">
                     <h5 class="modal-title" id="userModalLabel">Cadastro de Usuario</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <div class="modal-body bg-light">
+                <div class="modal-body bg-light user-editor-body">
                     @if ($this->user)
                         <div class="card border-0 shadow-sm mb-3">
                             <div class="card-body d-flex align-items-center gap-3">
@@ -258,7 +285,7 @@
                         </div>
 
                         <div class="row g-3">
-                            <div class="col-lg-7">
+                            <div class="col-12">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-header bg-white">
                                         <strong>Atividades liberadas</strong>
@@ -321,7 +348,10 @@
                                 </div>
                             </div>
 
-                            <div class="col-lg-5">
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-header bg-white">
                                         <strong>Empresas sob responsabilidade</strong>
@@ -370,11 +400,58 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="col-12 col-lg-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-white">
+                                        <strong>Regionais associadas</strong>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-9">
+                                                <select class="form-select" wire:model.defer="regionSelect">
+                                                    <option value="">Selecione a regional</option>
+                                                    @foreach ($regionList as $regionOption)
+                                                        @if (filled($regionOption) && !in_array($regionOption, $temporaryRegions, true))
+                                                            <option value="{{ $regionOption }}">{{ $regionOption }}</option>
+                                                        @endif
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div class="col-3 d-grid">
+                                                <button type="button" class="btn btn-success" wire:click="addRegion">
+                                                    <i class="ri-add-line"></i> Add
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle">
+                                                <tbody>
+                                                    @forelse ($temporaryRegions as $selectedRegion)
+                                                        <tr wire:key="user-regional-{{ md5($selectedRegion) }}">
+                                                            <td>{{ $selectedRegion }}</td>
+                                                            <td class="text-end">
+                                                                <i class="ri-delete-bin-line text-danger" style="cursor: pointer;"
+                                                                   wire:click="removeRegion('{{ addslashes($selectedRegion) }}')"></i>
+                                                            </td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                        <td colspan="2" class="text-center text-muted">Nenhuma regional vinculada</td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     @endif
                 </div>
 
-                <div class="modal-footer bg-white">
+                <div class="modal-footer bg-white user-editor-footer">
                     <button type="button" class="btn btn-outline-primary" wire:click="copyClipboarder"><i class="ri-file-copy-line align-middle"></i> Copiar acessos</button>
                     <button type="button" class="btn btn-warning" wire:click.prevent="resetPassword"><i class="ri-lock-password-line align-middle"></i> Resetar senha</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

@@ -2,7 +2,9 @@
 
 namespace App\Http\Livewire\Components\D5;
 
+use App\Models\EvidenceFile;
 use App\Models\Note;
+use App\Services\Files\EvidenceFileService;
 use Livewire\Component;
 
 class D5details extends Component
@@ -33,6 +35,27 @@ class D5details extends Component
             'id' => 'fiveNoteModal',
         ]);
         }
+    }
+
+    public function downloadFile(int $fileId, EvidenceFileService $service)
+    {
+        abort_unless($this->five && $this->five->EvidenceFiles->contains('id', $fileId), 403);
+
+        $file = EvidenceFile::findOrFail($fileId);
+
+        if (!$service->exists($file)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ARQUIVO INDISPONÍVEL',
+                'text'     => 'O arquivo não foi localizado no storage.',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
+
+        return $service->download($file);
     }
 
     public function render()

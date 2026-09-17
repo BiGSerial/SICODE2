@@ -596,12 +596,16 @@ class Main extends Component
             }
 
             // 2) parcial elegível?
-            $partialModel = $note->partials()->orderByDesc('created_at')->first();
+            $partialModel = $note->partials()
+                ->where('allow', true)
+                ->where('deny', false)
+                ->where('supervision', true)
+                ->where('payment', false)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
 
-            $isPartial = $partialModel
-                && $partialModel->allow
-                && $partialModel->supervision
-                && !$partialModel->payment;
+            $isPartial = (bool) $partialModel;
 
             // 3) dt_note
             $dtNote = $isPartial
@@ -864,7 +868,8 @@ class Main extends Component
             ")
             ->where('p.allow', 1)
             ->where('p.deny', 0)
-            ->where('p.supervision', 1);
+            ->where('p.supervision', 1)
+            ->where('p.payment', 0);
 
         $latestPartials = DB::query()
             ->fromSub($latestPartialBase, 't')

@@ -22,6 +22,11 @@
                             <i class="bi bi-circle"></i> <span>JOBS</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('config.system.api_tokens') }}" class="nav-item text-white fw-normal">
+                            <i class="ri-key-2-line me-1"></i> <span> TOKENS DE API</span>
+                        </a>
+                    </li>
                     @can('superadm')
                         <li>
                             <a href="{{ route('config.system.schedule') }}" class="nav-item text-white fw-normal">
