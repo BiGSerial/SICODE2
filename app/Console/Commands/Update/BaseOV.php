@@ -45,16 +45,19 @@ class BaseOV extends Command
         $log   = new RegistroJson('upd_baseOV', $this->options());
         $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
 
-        // days_left pode mudar na origem sem que dhStat seja alterado.
-        // Por isso, todos os registros ativos precisam ser comparados com
-        // notes para detectar divergências de nstats/days_left.
+        $days = max(0, (int) $this->option('days'));
+
+        // O recorte operacional deve ser feito pelo contador da origem
+        // (diasNoStatus / days_stat), e não por dhStat. Assim detectamos
+        // alterações de days_left dentro da janela sem varrer toda a BaseOV.
         $baseQuery = Edp_depcBaseOV::where('ultimoStatus', 1)
+            ->when(!$this->option('full'), fn ($q) => $q->where('diasNoStatus', '<=', $days))
             ->when($this->option('prazos'), fn ($q) => $q->where('numStat', '<', 98));
 
         $total = $baseQuery->count();
         $log->setTotal($total);
 
-        $this->info("Starting BaseOV data transfer...(Using updating of {$this->option('days')} days ago)");
+        $this->info("Starting BaseOV data transfer...(Source daysNoStatus <= {$days})");
         $this->info('');
 
         // ProgressBar com tempo restante
