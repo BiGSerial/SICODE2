@@ -217,6 +217,7 @@ class MigrateFiveNotesFromBaseD5 extends Command
         $sheet->setCellValueExplicit($statusColumn . '1', 'resultado_importacao_sicode', DataType::TYPE_INLINE);
 
         $created = 0;
+        $updated = 0;
         $skipped = 0;
         $processed = 0;
 
@@ -241,8 +242,11 @@ class MigrateFiveNotesFromBaseD5 extends Command
                 $status = 'NAO_SUBIU: erro ao validar - ' . $exception->getMessage();
             }
 
-            if (str_starts_with($status, 'SUBIU') || str_starts_with($status, 'DRY_RUN')) {
+            if (str_starts_with($status, 'SUBIU') || str_starts_with($status, 'ATUALIZOU') || str_starts_with($status, 'DRY_RUN')) {
                 $created++;
+                if (str_starts_with($status, 'ATUALIZOU')) {
+                    $updated++;
+                }
             } else {
                 $skipped++;
             }
@@ -254,7 +258,10 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
         $this->info('--- Resultado da migração por Excel ---');
         $this->info("Linhas processadas : {$processed}");
-        $this->info(($dryRun ? 'Subiriam' : 'Criados') . "            : {$created}");
+        $this->info(($dryRun ? 'Subiriam' : 'Processados') . "        : {$created}");
+        if (!$dryRun) {
+            $this->info("Atualizados             : {$updated}");
+        }
         $this->info("Nao subiram        : {$skipped}");
         $this->info("Arquivo de status  : {$outputPath}");
 
@@ -271,35 +278,36 @@ class MigrateFiveNotesFromBaseD5 extends Command
             return 'NAO_SUBIU: coluna C Nota Normalizada vazia';
         }
 
-        $companyId = $this->mapCompanyIdFromExcelResponsible($responsible);
-
-        if (! $companyId) {
-            return "NAO_SUBIU: empreiteira nao mapeada na coluna Q ({$responsible})";
-        }
-
-        if (! $this->isValidCompanyId($companyId)) {
-            return "NAO_SUBIU: company_id do de-para nao existe em companies ({$companyId})";
-        }
-
-        if (FiveNote::where('note_d5', $noteD5)->exists()) {
-            return "NAO_SUBIU: D5 {$noteD5} ja existe em five_notes";
-        }
-
         $note = Note::where('note', $normalizedNote)->first();
 
         if (! $note) {
             return "NAO_SUBIU: nota normalizada {$normalizedNote} nao encontrada em notes.note";
         }
 
-        if (FiveNote::where('note_id', $note->id)->exists()) {
-            return "NAO_SUBIU: Note {$note->id} ja possui D5 em five_notes";
+        $existingByD5 = FiveNote::where('note_d5', $noteD5)->first();
+        $existingByNote = FiveNote::where('note_id', $note->id)->first();
+
+        if ($existingByD5 && $existingByNote && $existingByD5->id !== $existingByNote->id) {
+            return "NAO_SUBIU: D5 {$noteD5} e Note {$note->id} apontam para registros diferentes";
+        }
+
+        $existing = $existingByD5 ?: $existingByNote;
+
+        $companyId = $this->mapCompanyIdFromExcelResponsible($responsible);
+
+        if (! $companyId && ! $existing) {
+            return "NAO_SUBIU: empreiteira nao mapeada na coluna Q ({$responsible})";
+        }
+
+        if ($companyId && ! $this->isValidCompanyId($companyId)) {
+            return "NAO_SUBIU: company_id do de-para nao existe em companies ({$companyId})";
         }
 
         $order = $note->orders()
             ->orderBy('id')
             ->first();
 
-        if (! $order) {
+        if (! $order && ! $existing) {
             return "NAO_SUBIU: sem Order para nota normalizada {$normalizedNote}";
         }
 
@@ -313,34 +321,65 @@ class MigrateFiveNotesFromBaseD5 extends Command
             $baseD5 = null;
         }
 
+        $conjuntoSource = $this->firstFilled(
+            $baseD5?->conjunto,
+            $order?->conjunto
+        );
+        $dispatchSource = $this->firstFilled(
+            $baseD5?->dtCriacao,
+            $note->dt_created
+        );
+
+        $sourceData = [
+            'note_d5'     => $noteD5,
+            'note_id'     => $note->id,
+            'loc_install' => $this->firstFilled($baseD5->denomLocalInstal ?? null, $order?->locInstalacao ?? null),
+            'conjunto'    => $conjuntoSource !== null ? (int) $conjuntoSource : null,
+            'description' => $this->firstFilled($details, $baseD5->denomConjunto ?? null, $order?->denConjunto ?? null, $order?->descricao ?? null),
+            'codify'      => $this->mapCodifyFromTxtCodeCodific($baseD5->txtCodeCodific ?? null),
+            'pep'         => $order?->pep ?? null,
+            'reason'      => $this->mapReasonFromDescricao($baseD5->descricao ?? null),
+            'dispatch_at' => $dispatchSource,
+            'payed_at'    => $dispatchSource,
+        ];
+
+        if ($companyId) {
+            $sourceData['company_id'] = $companyId;
+        }
+
         if ($dryRun) {
-            return "DRY_RUN: D5 {$noteD5} subiria pela nota normalizada {$normalizedNote}";
+            return $existing
+                ? "DRY_RUN: D5 {$noteD5} seria atualizada preservando campos vazios"
+                : "DRY_RUN: D5 {$noteD5} subiria pela nota normalizada {$normalizedNote}";
         }
 
         try {
-            FiveNote::create([
-                'note_d5'         => $noteD5,
-                'note_id'         => $note->id,
-                'loc_install'     => $baseD5->denomLocalInstal ?? $order->locInstalacao ?? null,
-                'conjunto'        => isset($baseD5->conjunto) ? (int) $baseD5->conjunto : ($order->conjunto ?? null),
-                'description'     => $details ?? $baseD5->denomConjunto ?? $order->denConjunto ?? $order->descricao ?? null,
-                'codify'          => $this->mapCodifyFromTxtCodeCodific($baseD5->txtCodeCodific ?? null),
-                'company_id'      => $companyId,
-                'pep'             => $order->pep ?? null,
-                'sintoms'         => null,
-                'reason'          => $this->mapReasonFromDescricao($baseD5->descricao ?? null),
-                'name'            => null,
-                'dispatch_at'     => $baseD5->dtCriacao ?? $note->dt_created ?? now(),
-                'payed_at'        => $baseD5->dtCriacao ?? $note->dt_created ?? now(),
-                'visible_partner' => true,
-                'is_payed'        => true,
-                'is_completed'      => false,
-                'completed_at'      => null,
-                'is_supervisioned'  => false,
-                'supervisioned_at'  => null,
-                'is_archived'       => false,
-                'isPassive'         => true,
-            ]);
+            if ($existing) {
+                foreach ($sourceData as $field => $value) {
+                    if ($this->hasSourceValue($value) || $existing->{$field} === null) {
+                        $existing->{$field} = $value;
+                    }
+                }
+                $existing->save();
+
+                return "ATUALIZOU: D5 {$noteD5} atualizada sem apagar dados existentes";
+            }
+
+            FiveNote::create(array_merge($sourceData, [
+                'company_id'       => $companyId,
+                'sintoms'          => null,
+                'name'             => null,
+                'dispatch_at'      => $sourceData['dispatch_at'] ?? now(),
+                'payed_at'         => $sourceData['payed_at'] ?? now(),
+                'visible_partner'  => true,
+                'is_payed'         => true,
+                'is_completed'     => false,
+                'completed_at'     => null,
+                'is_supervisioned' => false,
+                'supervisioned_at' => null,
+                'is_archived'      => false,
+                'isPassive'        => true,
+            ]));
         } catch (Throwable $exception) {
             return 'NAO_SUBIU: erro ao salvar - ' . $exception->getMessage();
         }
@@ -577,6 +616,13 @@ class MigrateFiveNotesFromBaseD5 extends Command
         }
 
         return null;
+    }
+
+    protected function hasSourceValue($value): bool
+    {
+        return $value !== null
+            && $value !== ''
+            && !(is_string($value) && trim($value) === '');
     }
 
     protected function cleanScalar($value): ?string
