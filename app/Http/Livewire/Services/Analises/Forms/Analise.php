@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Services\Analises\Forms;
 
 use App\Custom\GeradorCartas;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use App\Support\SicodeRules;
 use Carbon\Carbon;

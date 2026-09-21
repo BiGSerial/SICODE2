@@ -4,7 +4,7 @@ namespace App\Exports\Reports;
 
 use App\Custom\Notestatus;
 use App\Helpers\DaysLeft;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\Operation;
 use App\Models\Production;
 use Carbon\CarbonInterval;

@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\Viability\HistoricReport;
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Viability};
 use App\Services\Files\FileStorageService;
 use Carbon\Carbon;

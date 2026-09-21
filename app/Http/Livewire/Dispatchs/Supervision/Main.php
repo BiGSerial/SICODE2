@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
 use App\Models\{Bancoupdate, Company, Note, Production, Service, User, Wpa};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Supervision\BlockEvaluator;

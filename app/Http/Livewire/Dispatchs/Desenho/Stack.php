@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Exports\DispatchDesenhoStack;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component

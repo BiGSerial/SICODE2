@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Partner\Forms;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Form, Viability};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;

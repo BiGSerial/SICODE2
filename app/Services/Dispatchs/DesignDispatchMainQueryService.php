@@ -3,7 +3,7 @@
 namespace App\Services\Dispatchs;
 
 use App\Custom\RuleBuilder;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\Note;
 use App\Models\Service;
 use App\Models\User;

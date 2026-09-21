@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\File;
 use App\Models\WorkReport;
 use App\Services\Files\FileStorageService;

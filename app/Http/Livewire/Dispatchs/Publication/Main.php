@@ -6,7 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Repositories\PublishRepository;
 use App\Services\Publication\NoteFilter;

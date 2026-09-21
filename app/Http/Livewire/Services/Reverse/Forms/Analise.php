@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Services\Reverse\Forms;
 
 use App\Custom\GeradorCartas;
 use App\Helpers\SelectOptions;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;

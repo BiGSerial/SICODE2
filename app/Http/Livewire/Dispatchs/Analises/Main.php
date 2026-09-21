@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Analises;
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
 use App\Exports\Services\analisesExport;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\Design\BlockEvaluator;
 use App\Support\SicodeRules;

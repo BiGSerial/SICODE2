@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\WorkInformsExport;
 use App\Models\{Company, File, WorkReport};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Services\Files\FileStorageService;
 use App\Services\WorkReports\WorkReportStatusResolver;
 use Carbon\Carbon;

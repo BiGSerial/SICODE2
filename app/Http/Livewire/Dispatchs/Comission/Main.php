@@ -6,7 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\ExportDDExcel;
 use App\Models\Bancoupdate;
 use App\Models\Company;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\Note;
 use App\Models\Notetimeline;
 use App\Models\Production;

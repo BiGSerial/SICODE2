@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Partner\Forms;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Form, Note, Viability as ModelsViability};
 use Illuminate\Support\Facades\{Crypt, DB};
 use Illuminate\Validation\ValidationException;

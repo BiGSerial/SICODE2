@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\ExportViabilityToExcel;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Note, Viability};
 use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\{Auth, Crypt};

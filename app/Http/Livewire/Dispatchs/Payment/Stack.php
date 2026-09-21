@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Payment;
 use App\Exports\DispatchDesenhoStack;
 use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use App\Services\D5\D5WorkflowService;

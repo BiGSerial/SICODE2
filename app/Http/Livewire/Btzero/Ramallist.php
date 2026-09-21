@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Btzero;
 
 use App\Exports\SMC\Smcexport;
 use App\Exports\SMC\SmcListExport;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\File;
 use App\Models\RamalReport; // Ensure this model exists in your application
 use App\Models\User;

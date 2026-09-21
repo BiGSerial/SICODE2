@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Default;
 
 use App\Custom\RuleBuilder;
 use App\Exports\ExportDDExcel;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use Livewire\{Component, WithPagination};
 

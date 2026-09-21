@@ -6,7 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Helpers\TextFormatter;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\BlockEvaluator;

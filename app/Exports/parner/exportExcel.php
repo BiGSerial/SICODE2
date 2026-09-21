@@ -2,7 +2,7 @@
 
 namespace App\Exports\parner;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromView;

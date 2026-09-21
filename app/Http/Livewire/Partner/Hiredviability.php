@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Note};
 use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\Crypt;

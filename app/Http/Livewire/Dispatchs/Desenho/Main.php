@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Jobs\Dispatchs\ExportDispatchDrawingMainJob;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Services\Design\BlockEvaluator;
 use App\Services\Dispatchs\DesignDispatchMainQueryService;
 use App\Support\SicodeRules;
