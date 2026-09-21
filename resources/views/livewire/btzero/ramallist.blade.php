@@ -160,7 +160,7 @@
                         [
                             'myKey' => 'region',
                             'sendFilter' => 'city',
-                            'model' => 'App\Models\Edp_depc\City',
+                            'model' => 'App\Models\City',
                             'column' => 'regiao',
                             'filter' => 'Regiao',
                             'group_filter' => 'partner_forms',
@@ -176,7 +176,7 @@
                         [
                             'myKey' => 'city',
                             'sendFilter' => '',
-                            'model' => 'App\Models\Edp_depc\City',
+                            'model' => 'App\Models\City',
                             'column' => 'cidade',
                             'filter' => 'Municipio',
                             'group_filter' => 'partner_forms',

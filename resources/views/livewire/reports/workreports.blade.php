@@ -268,8 +268,8 @@
                             <div class="d-flex flex-wrap chip-filters">
                                 @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\\Models\\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'reports_worklist', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
                                 @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\\Models\\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'reports_worklist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\\Models\\Edp_depc\\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'reports_worklist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\\Models\\Edp_depc\\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'reports_worklist', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\\Models\\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'reports_worklist', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\\Models\\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'reports_worklist', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
                             </div>
                         </div>
                     </div>

@@ -65,9 +65,9 @@
 
             @livewire('components.filter.filter', ['myKey' => 'material', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'material', 'filter' => 'Material', 'group_filter' => 'reverse', 'values' => 'material', 'direction' => 'ASC', 'query' => ''], key('reverse-material'))
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'reverse', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('reverse-rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'reverse', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('reverse-region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'reverse', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('reverse-regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'reverse', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('reverse-city'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'reverse', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('reverse-region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'reverse', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('reverse-regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'reverse', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('reverse-city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'reverse'], key('reverse-removeAll'))
         </div>
 

@@ -73,9 +73,9 @@
             </div>
 
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'publication_acc', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publication_acc', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publication_acc', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publication_acc', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'publication_acc', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'publication_acc', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'publication_acc', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'publication_acc'], key('removeAll'))
         </div>
 

@@ -72,9 +72,9 @@
 
 
             @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises_pre', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('analises-pre-rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises_pre', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('analises-pre-region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'analises_pre', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('analises-pre-regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'analises_pre', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('analises-pre-city'))
+            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises_pre', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('analises-pre-region'))
+            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'baseConstrucao', 'filter' => 'Regional', 'group_filter' => 'analises_pre', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('analises-pre-regional'))
+            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'analises_pre', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('analises-pre-city'))
             @livewire('components.filter.remove-all', ['group_filter' => 'analises_pre'], key('analises-pre-removeAll'))
         </div>
 
