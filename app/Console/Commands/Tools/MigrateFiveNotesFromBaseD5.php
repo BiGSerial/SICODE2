@@ -30,6 +30,12 @@ class MigrateFiveNotesFromBaseD5 extends Command
     {
         $excel = $this->cleanScalar($this->option('excel'));
 
+        if ((bool) $this->option('dry') && ! $excel) {
+            $this->error('A opcao --dry exige --excel=/caminho/arquivo.xlsx.');
+
+            return self::FAILURE;
+        }
+
         if ($excel) {
             return $this->handleExcelImport($excel);
         }
@@ -211,13 +217,20 @@ class MigrateFiveNotesFromBaseD5 extends Command
         $spreadsheet = IOFactory::load($path);
         $sheet = $spreadsheet->getActiveSheet();
         $highestRow = $sheet->getHighestDataRow();
-        $statusColumnIndex = $this->resolveStatusColumnIndex($sheet);
+        $statusColumnIndex = $this->resolveStatusColumnIndex($sheet, $highestRow);
         $statusColumn = Coordinate::stringFromColumnIndex($statusColumnIndex);
+        $totalRows = max(0, $highestRow - 1);
 
         $sheet->setCellValueExplicit($statusColumn . '1', 'resultado_importacao_sicode', DataType::TYPE_INLINE);
 
+        $this->line("Linhas potenciais no Excel: {$totalRows}");
+        $this->line("Coluna de resultado: {$statusColumn}");
+        $this->output->progressStart($totalRows);
+
         $created = 0;
         $updated = 0;
+        $wouldCreate = 0;
+        $wouldUpdate = 0;
         $skipped = 0;
         $processed = 0;
 
@@ -232,6 +245,7 @@ class MigrateFiveNotesFromBaseD5 extends Command
             $responsible = $this->cleanScalar($sheet->getCell('Q' . $rowNumber)->getFormattedValue());
 
             if (! $noteD5 && ! $normalizedNote && ! $responsible) {
+                $this->output->progressAdvance();
                 continue;
             }
 
@@ -242,25 +256,34 @@ class MigrateFiveNotesFromBaseD5 extends Command
                 $status = 'NAO_SUBIU: erro ao validar - ' . $exception->getMessage();
             }
 
-            if (str_starts_with($status, 'SUBIU') || str_starts_with($status, 'ATUALIZOU') || str_starts_with($status, 'DRY_RUN')) {
+            if (str_starts_with($status, 'ATUALIZOU')) {
+                $updated++;
+            } elseif (str_starts_with($status, 'CRIOU')) {
                 $created++;
-                if (str_starts_with($status, 'ATUALIZOU')) {
-                    $updated++;
-                }
+            } elseif (str_starts_with($status, 'DRY_RUN_ATUALIZOU')) {
+                $wouldUpdate++;
+            } elseif (str_starts_with($status, 'DRY_RUN_CRIOU')) {
+                $wouldCreate++;
             } else {
                 $skipped++;
             }
 
             $sheet->setCellValueExplicit($statusColumn . $rowNumber, $status, DataType::TYPE_INLINE);
+            $this->output->progressAdvance();
         }
 
+        $this->output->progressFinish();
+        $this->line('Salvando o arquivo Excel de resultado...');
         IOFactory::createWriter($spreadsheet, 'Xlsx')->save($outputPath);
 
         $this->info('--- Resultado da migração por Excel ---');
         $this->info("Linhas processadas : {$processed}");
-        $this->info(($dryRun ? 'Subiriam' : 'Processados') . "        : {$created}");
-        if (!$dryRun) {
-            $this->info("Atualizados             : {$updated}");
+        if ($dryRun) {
+            $this->info("Criariam           : {$wouldCreate}");
+            $this->info("Atualizariam        : {$wouldUpdate}");
+        } else {
+            $this->info("Criados             : {$created}");
+            $this->info("Atualizados         : {$updated}");
         }
         $this->info("Nao subiram        : {$skipped}");
         $this->info("Arquivo de status  : {$outputPath}");
@@ -278,12 +301,15 @@ class MigrateFiveNotesFromBaseD5 extends Command
             return 'NAO_SUBIU: coluna C Nota Normalizada vazia';
         }
 
+        // A D5 legada só pode existir se a nota normalizada existir localmente.
         $note = Note::where('note', $normalizedNote)->first();
 
         if (! $note) {
             return "NAO_SUBIU: nota normalizada {$normalizedNote} nao encontrada em notes.note";
         }
 
+        // No modo Excel, a BaseD5 não é consultada. A decisão é feita pelas
+        // informações locais de Note e FiveNote.
         $existingByD5 = FiveNote::where('note_d5', $noteD5)->first();
         $existingByNote = FiveNote::where('note_id', $note->id)->first();
 
@@ -295,53 +321,14 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
         $companyId = $this->mapCompanyIdFromExcelResponsible($responsible);
 
-        if (! $companyId && ! $existing) {
-            return "NAO_SUBIU: empreiteira nao mapeada na coluna Q ({$responsible})";
-        }
-
-        if ($companyId && ! $this->isValidCompanyId($companyId)) {
-            return "NAO_SUBIU: company_id do de-para nao existe em companies ({$companyId})";
-        }
-
-        $order = $note->orders()
-            ->orderBy('id')
-            ->first();
-
-        if (! $order && ! $existing) {
-            return "NAO_SUBIU: sem Order para nota normalizada {$normalizedNote}";
-        }
-
-        $baseD5 = null;
-
-        try {
-            $baseD5 = BaseD5::query()
-                ->where('nota', $normalizedNote)
-                ->first();
-        } catch (Throwable) {
-            $baseD5 = null;
-        }
-
-        $conjuntoSource = $this->firstFilled(
-            $baseD5?->conjunto,
-            $order?->conjunto
-        );
-        $dispatchSource = $this->firstFilled(
-            $baseD5?->dtCriacao,
-            $note->dt_created
-        );
-
         $sourceData = [
-            'note_d5'     => $noteD5,
-            'note_id'     => $note->id,
-            'loc_install' => $this->firstFilled($baseD5->denomLocalInstal ?? null, $order?->locInstalacao ?? null),
-            'conjunto'    => $conjuntoSource !== null ? (int) $conjuntoSource : null,
-            'description' => $this->firstFilled($details, $baseD5->denomConjunto ?? null, $order?->denConjunto ?? null, $order?->descricao ?? null),
-            'codify'      => $this->mapCodifyFromTxtCodeCodific($baseD5->txtCodeCodific ?? null),
-            'pep'         => $order?->pep ?? null,
-            'reason'      => $this->mapReasonFromDescricao($baseD5->descricao ?? null),
-            'dispatch_at' => $dispatchSource,
-            'payed_at'    => $dispatchSource,
+            'note_d5' => $noteD5,
+            'note_id' => $note->id,
         ];
+
+        if ($this->hasSourceValue($details)) {
+            $sourceData['description'] = $details;
+        }
 
         if ($companyId) {
             $sourceData['company_id'] = $companyId;
@@ -349,8 +336,8 @@ class MigrateFiveNotesFromBaseD5 extends Command
 
         if ($dryRun) {
             return $existing
-                ? "DRY_RUN: D5 {$noteD5} seria atualizada preservando campos vazios"
-                : "DRY_RUN: D5 {$noteD5} subiria pela nota normalizada {$normalizedNote}";
+                ? "DRY_RUN_ATUALIZOU: D5 {$noteD5} seria atualizada preservando campos existentes"
+                : "DRY_RUN_CRIOU: D5 {$noteD5} seria criada pela nota {$normalizedNote}";
         }
 
         try {
@@ -360,31 +347,33 @@ class MigrateFiveNotesFromBaseD5 extends Command
                         $existing->{$field} = $value;
                     }
                 }
+
                 $existing->save();
 
-                return "ATUALIZOU: D5 {$noteD5} atualizada sem apagar dados existentes";
+                return "ATUALIZOU: D5 {$noteD5} atualizada sem duplicar registro";
             }
 
             FiveNote::create(array_merge($sourceData, [
-                'company_id'       => $companyId,
-                'sintoms'          => null,
-                'name'             => null,
-                'dispatch_at'      => $sourceData['dispatch_at'] ?? now(),
-                'payed_at'         => $sourceData['payed_at'] ?? now(),
-                'visible_partner'  => true,
-                'is_payed'         => true,
-                'is_completed'     => false,
-                'completed_at'     => null,
-                'is_supervisioned' => false,
-                'supervisioned_at' => null,
-                'is_archived'      => false,
-                'isPassive'        => true,
+                'description'       => $sourceData['description'] ?? null,
+                'company_id'        => $sourceData['company_id'] ?? null,
+                'sintoms'           => null,
+                'name'              => null,
+                'dispatch_at'       => now(),
+                'payed_at'          => now(),
+                'visible_partner'   => true,
+                'is_payed'          => true,
+                'is_completed'      => false,
+                'completed_at'      => null,
+                'is_supervisioned'  => false,
+                'supervisioned_at'  => null,
+                'is_archived'       => false,
+                'isPassive'         => true,
             ]));
         } catch (Throwable $exception) {
             return 'NAO_SUBIU: erro ao salvar - ' . $exception->getMessage();
         }
 
-        return "SUBIU: D5 {$noteD5} criada pela nota normalizada {$normalizedNote}";
+        return "CRIOU: D5 {$noteD5} criada pela nota {$normalizedNote}";
     }
 
     protected function readListOption(string $inlineOption, string $fileOption): array
@@ -464,21 +453,36 @@ class MigrateFiveNotesFromBaseD5 extends Command
         return $directory . DIRECTORY_SEPARATOR . $filename . '_RESULTADO_IMPORTACAO.xlsx';
     }
 
-    protected function resolveStatusColumnIndex($sheet): int
+    /**
+     * Encontra a primeira coluna completamente livre, procurando da direita
+     * para a esquerda. Nenhuma coluna que contenha dados pode ser reutilizada.
+     */
+    protected function resolveStatusColumnIndex($sheet, int $highestRow): int
     {
         $highestColumnIndex = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
 
-        for ($column = 1; $column <= $highestColumnIndex; $column++) {
-            $value = $this->cleanScalar(
-                $sheet->getCell(Coordinate::stringFromColumnIndex($column) . '1')->getFormattedValue()
-            );
-
-            if ($value === 'resultado_importacao_sicode') {
+        for ($column = $highestColumnIndex; $column >= 1; $column--) {
+            if ($this->isExcelColumnEmpty($sheet, $column, $highestRow)) {
                 return $column;
             }
         }
 
         return $highestColumnIndex + 1;
+    }
+
+    protected function isExcelColumnEmpty($sheet, int $columnIndex, int $highestRow): bool
+    {
+        $column = Coordinate::stringFromColumnIndex($columnIndex);
+
+        for ($row = 1; $row <= $highestRow; $row++) {
+            $value = $sheet->getCell($column . $row)->getValue();
+
+            if ($value !== null && trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function mapCompanyIdFromExcelResponsible(?string $responsible): ?string
