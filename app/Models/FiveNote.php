@@ -15,6 +15,7 @@ class FiveNote extends Model
     protected $fillable = [
         'note_d5',
         'note_id',
+        'work_report_id',
         'loc_install',
         'conjunto',
         'pep',
@@ -55,6 +56,11 @@ class FiveNote extends Model
     public function note(): BelongsTo
     {
         return $this->belongsTo(Note::class);
+    }
+
+    public function WorkReport(): BelongsTo
+    {
+        return $this->belongsTo(WorkReport::class);
     }
 
     public function company(): BelongsTo

@@ -591,12 +591,12 @@
                             {{-- D5 --}}
                             <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
                             <dd class="col-sm-8 text-white text-uppercase">
-                                @if ($lists->FiveNote)
+                                @if ($lists->LegacyFiveNote)
                                     <span class="fw-bold" style="cursor:pointer"
                                         wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $lists->id }})">
-                                        {{ $lists->FiveNote?->note_d5 ?? 'A GERAR D5' }}
-                                        @if ($lists->FiveNote?->visible_partner && $lists->FiveNote?->is_completed)
-                                            <small>( {{ $lists->FiveNote?->completed_at?->format('d/m/Y H:i') }}
+                                        {{ $lists->LegacyFiveNote?->note_d5 ?? 'A GERAR D5' }}
+                                        @if ($lists->LegacyFiveNote?->visible_partner && $lists->LegacyFiveNote?->is_completed)
+                                            <small>( {{ $lists->LegacyFiveNote?->completed_at?->format('d/m/Y H:i') }}
                                                 )</small>
                                         @endif
                                         <i class="ri-eye-line ms-1 text-primary"></i>
@@ -606,21 +606,21 @@
                                 @endif
                             </dd>
 
-                            @if ($lists->FiveNote)
+                            @if ($lists->LegacyFiveNote)
                                 @php
                                     $status = '';
                                     $color = '';
-                                    if ($lists->FiveNote?->is_payed) {
-                                        if ($lists->FiveNote?->is_archived) {
+                                    if ($lists->LegacyFiveNote?->is_payed) {
+                                        if ($lists->LegacyFiveNote?->is_archived) {
                                             $status = 'Finalizada';
                                             $color = 'text-bg-success';
-                                        } elseif ($lists->FiveNote?->is_supervisioned) {
+                                        } elseif ($lists->LegacyFiveNote?->is_supervisioned) {
                                             $status = 'Aguardando Liberação Medição';
                                             $color = 'text-bg-danger';
-                                        } elseif ($lists->FiveNote?->is_completed) {
+                                        } elseif ($lists->LegacyFiveNote?->is_completed) {
                                             $status = 'Aguardando Fiscalização';
                                             $color = 'text-bg-danger';
-                                        } elseif ($lists->FiveNote?->visible_partner) {
+                                        } elseif ($lists->LegacyFiveNote?->visible_partner) {
                                             $status = 'Aguardando Conclusão Parceira';
                                             $color = 'text-bg-primary';
                                         }
@@ -1437,6 +1437,9 @@
                                                     {{ $scopeBadge['label'] }}
                                                 </span>
                                             @endforeach
+                                            @if ($workForm->FiveNote)
+                                                <span class="badge text-bg-warning">D5: {{ $workForm->FiveNote->note_d5 ?? 'A GERAR D5' }}</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td class="text-center align-middle">

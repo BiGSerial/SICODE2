@@ -43,7 +43,8 @@ class Search extends Component
             ->where(function ($q) use ($term) {
                 $q->where('note', $term)
                   ->orWhereHas('Orders', fn ($qq) => $qq->where('ordem', $term))
-                  ->orWhereHas('FiveNote', fn ($qq) => $qq->where('note_d5', $term));
+                  ->orWhereHas('FiveNote', fn ($qq) => $qq->where('note_d5', $term))
+                  ->orWhereHas('FiveNotes', fn ($qq) => $qq->where('note_d5', $term));
             })
             ->with([
                 // D5
@@ -54,6 +55,23 @@ class Search extends Component
                     ])->select([
                         'id',
                         'note_id',
+                        'note_d5',
+                        'visible_partner',
+                        'is_completed',
+                        'is_payed',
+                        'is_archived',
+                        'is_supervisioned',
+                        'completed_at',
+                    ]);
+                },
+                'LegacyFiveNote' => function ($q) {
+                    $q->with([
+                        'productions.Service:id,uuid,service',
+                        'productions.User:id,name,email',
+                    ])->select([
+                        'id',
+                        'note_id',
+                        'work_report_id',
                         'note_d5',
                         'visible_partner',
                         'is_completed',
@@ -91,7 +109,7 @@ class Search extends Component
                           'Service:id,uuid,service',
                           'User:id,name,email',
                           'Company:id,name',
-                          'WorkReportFlowProductions:id,production_id,stage,final_scope,is_current',
+                          'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current',
                       ])
                       ->select([
                           'id','note_id','service_id','user_id','company_id',
@@ -128,6 +146,10 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                         'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
 
                         // CORRETO: equipamentos referenciam work_report_id
                         'Equipment:id,work_report_id',
@@ -160,6 +182,10 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                         'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
                         'Equipment:id,work_report_id',
                         'Returnwork:id,work_report_id,created_at',
                         'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
@@ -188,6 +214,10 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                         'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
                         'Equipment:id,work_report_id',
                         'Returnwork:id,work_report_id,created_at',
                         'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
@@ -218,6 +248,10 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                         'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
                         'Equipment:id,work_report_id',
                         'Returnwork:id,work_report_id,created_at',
                         'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',

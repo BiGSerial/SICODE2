@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
-use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport, Wpa};
+use App\Models\{Bancoupdate, Company, Note, Partial, Production, Service, User, WorkReport, Wpa};
 use App\Models\City;
 use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
@@ -404,7 +404,7 @@ class Main extends Component
 
             // Adicionar os IDs que cumprem as regras à lista de selecionados
             foreach ($this->toLists as $item) {
-                $id = $item->id;
+                $id = $this->selectionKey($item);
 
                 if (!in_array($id, $this->selected)) {
                     if (Auth()->User()?->contract) {
@@ -434,7 +434,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds     = $this->toLists->pluck('id')->toArray();
+            $visibleIds     = $this->toLists->map(fn ($item) => $this->selectionKey($item))->all();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
@@ -444,7 +444,7 @@ class Main extends Component
     public function checkAllSelect($items)
     {
 
-        $items = $items->pluck('id')->toArray();
+        $items = $items->map(fn ($item) => $this->selectionKey($item))->all();
 
         $this->selectAll = empty(array_diff($items, $this->selected));
 
@@ -517,7 +517,40 @@ class Main extends Component
             return;
         }
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
+        $noteIds = collect($this->selected)
+            ->map(fn ($key) => $this->parseSelectionKey($key)[0])
+            ->filter()
+            ->unique()
+            ->values();
+
+        $partialIdsByNote = Partial::query()
+            ->whereIn('note_id', $noteIds)
+            ->where('allow', true)
+            ->where('supervision', false)
+            ->where('deny', false)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['id', 'note_id'])
+            ->groupBy('note_id')
+            ->map(fn ($partials) => (int) $partials->first()->id);
+
+        $payload = collect($this->selected)
+            ->map(function ($key) use ($partialIdsByNote) {
+                [$noteId, $workReportId] = $this->parseSelectionKey($key);
+                $partialId = $partialIdsByNote[(int) $noteId] ?? null;
+
+                if ($workReportId) {
+                    return ['note_id' => $noteId, 'work_report_id' => $workReportId];
+                }
+
+                return $partialId
+                    ? ['note_id' => $noteId, 'partial_id' => $partialId]
+                    : $noteId;
+            })
+            ->values()
+            ->all();
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
 
     public function confirm_att()
@@ -551,7 +584,7 @@ class Main extends Component
             $para = (Company::find($this->company_s))->name;
         }
 
-        $partial = Note::whereIn('id', $this->selected)->whereHas('Partials', function ($q) {
+        $partial = Note::whereIn('id', $this->selectedNoteIds())->whereHas('Partials', function ($q) {
             $q->where('allow', true)
                 ->where('supervision', false)
                 ->where('deny', false);
@@ -1165,5 +1198,31 @@ class Main extends Component
             'lists'  => $this->toLists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
+    }
+
+    private function selectionKey(Note $note): string
+    {
+        return $note->id . ':' . (int) ($note->dispatch_work_report_id ?? 0);
+    }
+
+    private function parseSelectionKey($key): array
+    {
+        if (is_string($key) && str_contains($key, ':')) {
+            [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
+
+            return [(int) $noteId, (int) $workReportId];
+        }
+
+        return [(int) $key, null];
+    }
+
+    private function selectedNoteIds(): array
+    {
+        return collect($this->selected)
+            ->map(fn ($key) => $this->parseSelectionKey($key)[0])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

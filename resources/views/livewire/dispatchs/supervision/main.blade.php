@@ -618,7 +618,7 @@
                             <tr class="align-middle" wire:key="supervision-row-{{ $list->id }}-{{ $list->dispatch_work_report_id ?? 'note' }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                        value="{{ $list->id }}:{{ (int) ($list->dispatch_work_report_id ?? 0) }}" wire:model.defer="selected"
                                         @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
@@ -780,6 +780,7 @@
                                             wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [@js([
                                                 'note_id' => $list->id,
                                                 'work_report_id' => (int) ($list->dispatch_work_report_id ?? 0),
+                                                'partial_id' => (int) (($list->dispatch_work_report_id ?? 0) ? 0 : optional(collect($list->Partials ?? [])->where('allow', true)->where('supervision', false)->where('deny', false)->sortByDesc('created_at')->first())->id),
                                             ])])"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"

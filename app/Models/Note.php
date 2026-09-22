@@ -209,7 +209,19 @@ class Note extends Model
 
     public function FiveNote()
     {
-        return $this->hasOne(FiveNote::class);
+        // Mantém a relação histórica apontando apenas para a D5 sem informe.
+        // D5s vinculadas a um WorkReport devem ser acessadas pelo próprio informe.
+        return $this->hasOne(FiveNote::class)->whereNull('work_report_id');
+    }
+
+    public function FiveNotes()
+    {
+        return $this->hasMany(FiveNote::class);
+    }
+
+    public function LegacyFiveNote()
+    {
+        return $this->hasOne(FiveNote::class)->whereNull('work_report_id');
     }
 
     public function City()

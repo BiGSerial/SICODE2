@@ -126,7 +126,7 @@ class WorkReportStatusResolver
     private function stateFromWorkReport(WorkReport $workReport): array
     {
         $flowProductions = $workReport->FlowProductions ?? collect();
-        $fiveNote = $workReport->Note?->FiveNote;
+        $fiveNote = $this->fiveNoteFor($workReport);
         $d5Productions = $this->finalProductions($fiveNote?->productions ?? collect());
         $d5ProductionIds = $d5Productions->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
         $normalFiscalProductions = $this->finalProductions(
@@ -155,6 +155,34 @@ class WorkReportStatusResolver
             'letter_released' => (bool) ($fiveNote?->is_payed ?? false) || (bool) ($fiveNote?->is_archived ?? false),
             'sap_operation_status' => $this->sapOperationStatus($workReport),
         ];
+    }
+
+    private function fiveNoteFor(WorkReport $workReport): ?\App\Models\FiveNote
+    {
+        if ($workReport->relationLoaded('FiveNote') && $workReport->FiveNote) {
+            return $workReport->FiveNote;
+        }
+
+        if ($workReport->Note?->relationLoaded('LegacyFiveNote')) {
+            return $workReport->Note->LegacyFiveNote;
+        }
+
+        // Compatibilidade com objetos/fluxos legados que carregam apenas Note.FiveNote.
+        if ($workReport->Note?->relationLoaded('FiveNote')) {
+            return $workReport->Note->FiveNote;
+        }
+
+        if (!$workReport->getKey()) {
+            return null;
+        }
+
+        $direct = $workReport->FiveNote()->first();
+
+        if ($direct) {
+            return $direct;
+        }
+
+        return $workReport->Note?->LegacyFiveNote()->first();
     }
 
     private function sapOperationStatus(WorkReport $workReport): ?array
@@ -209,6 +237,12 @@ class WorkReportStatusResolver
 
     private function mainValidOrderFor(WorkReport $workReport): ?object
     {
+        // Objetos de teste/fluxos de criação ainda não persistidos não têm
+        // como possuir ordens; não tente abrir a conexão só para consultá-los.
+        if (!$workReport->getKey() && !$workReport->relationLoaded('Orders')) {
+            return null;
+        }
+
         $orders = $workReport->relationLoaded('Orders')
             ? $workReport->Orders
             : $workReport->Orders()->with('Operations')->get();

@@ -34,6 +34,7 @@ class DispatchModal extends Component
     public bool $requiresFinalScope = false;
     public array $sourceProductionIdsByNote = [];
     public array $targetWorkReportIdsByNote = [];
+    public array $targetPartialIdsByContext = [];
 
     protected $listeners = [
         'openForNotes' => 'openForNotes',
@@ -52,24 +53,21 @@ class DispatchModal extends Component
 
     public function openForNotes(array $noteIds): void
     {
-        $targetWorkReportIdsByNote = [];
-        $noteIds = collect($noteIds)
-            ->map(function ($value) use (&$targetWorkReportIdsByNote) {
+        $contexts = collect($noteIds)
+            ->map(function ($value) {
                 if (is_array($value)) {
                     $noteId = (int) ($value['note_id'] ?? $value['id'] ?? 0);
                     $workReportId = (int) ($value['work_report_id'] ?? 0);
+                    $partialId = (int) ($value['partial_id'] ?? 0);
 
-                    if ($noteId > 0 && $workReportId > 0) {
-                        $targetWorkReportIdsByNote[(string) $noteId] = $workReportId;
-                    }
-
-                    return $noteId;
+                    return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null];
                 }
 
-                return (int) $value;
+                return ['note_id' => (int) $value, 'work_report_id' => null, 'partial_id' => null];
             });
 
-        $noteIds = collect($noteIds)->filter()->unique()->values();
+        $contexts = $contexts->filter(fn (array $context) => $context['note_id'] > 0)->values();
+        $noteIds = $contexts->pluck('note_id')->unique()->values();
 
         if (!$noteIds->count()) {
             $this->dispatchBrowserEvent('swal', [
@@ -83,8 +81,41 @@ class DispatchModal extends Component
         }
 
         $this->resetModalState();
-        $this->targetWorkReportIdsByNote = $targetWorkReportIdsByNote;
-        $this->notes = Note::with($this->modalNoteRelations())->find($noteIds);
+        $loadedNotes = Note::with($this->modalNoteRelations())
+            ->whereIn('id', $noteIds)
+            ->get()
+            ->keyBy('id');
+
+        $this->targetWorkReportIdsByNote = $contexts
+            ->filter(fn (array $context) => $context['work_report_id'])
+            ->mapWithKeys(fn (array $context) => [
+                $this->contextKey($context['note_id'], $context['work_report_id']) => $context['work_report_id'],
+            ])
+            ->all();
+        $this->targetPartialIdsByContext = $contexts
+            ->filter(fn (array $context) => $context['partial_id'])
+            ->mapWithKeys(fn (array $context) => [
+                $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']) => $context['partial_id'],
+            ])
+            ->all();
+
+        $this->notes = $contexts
+            ->map(function (array $context) use ($loadedNotes) {
+                $note = $loadedNotes->get($context['note_id']);
+
+                if (!$note) {
+                    return null;
+                }
+
+                $row = clone $note;
+                $row->setAttribute('dispatch_work_report_id', $context['work_report_id']);
+                $row->setAttribute('dispatch_partial_id', $context['partial_id']);
+                $row->setAttribute('dispatch_context_key', $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']));
+
+                return $row;
+            })
+            ->filter()
+            ->values();
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
@@ -100,7 +131,7 @@ class DispatchModal extends Component
             $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
             $this->requiresFinalScope = $this->requiresFinalScope || (
                 $scopeAwareService
-                && count($this->finalScopeOptions[$note->id] ?? []) > 0
+                && count($this->finalScopeOptions[$this->contextKeyFor($note)] ?? []) > 0
             );
         }
 
@@ -165,7 +196,7 @@ class DispatchModal extends Component
             $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
             $this->requiresFinalScope = $this->requiresFinalScope || (
                 $scopeAwareService
-                && count($this->finalScopeOptions[$note->id] ?? []) > 0
+                && count($this->finalScopeOptions[$this->contextKeyFor($note)] ?? []) > 0
             );
         }
 
@@ -341,18 +372,18 @@ class DispatchModal extends Component
                         $production = Production::findOrFail($sourceProductionId);
 
                         if ($targetUser) {
-                            $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes);
+                            $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                         } else {
-                            $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes);
+                            $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                         }
 
                         continue;
                     }
 
                     if ($targetUser) {
-                        $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes);
+                        $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                     } else {
-                        $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes);
+                        $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                     }
                 }
             });
@@ -493,6 +524,7 @@ class DispatchModal extends Component
         $this->requiresFinalScope = false;
         $this->sourceProductionIdsByNote = [];
         $this->targetWorkReportIdsByNote = [];
+        $this->targetPartialIdsByContext = [];
     }
 
     private function applyContractModeDefaults(): void
@@ -516,22 +548,23 @@ class DispatchModal extends Component
             ? $this->scopeOptionsForWorkReport($targetWorkReport, $this->currentServiceKey() === 'publication')
             : app(WorkReportFinalScopeOptions::class)->forNote($note, $this->currentServiceKey() === 'publication');
 
-        $this->finalScopeOptions[$note->id] = $options;
-        $this->finalScopeSelections[$note->id] = [];
+        $contextKey = $this->contextKeyFor($note);
+        $this->finalScopeOptions[$contextKey] = $options;
+        $this->finalScopeSelections[$contextKey] = [];
 
         if (!empty($options) && ($targetWorkReport || count($options) === 1)) {
-            $this->finalScopeSelections[$note->id][$options[0]['scope']] = true;
+            $this->finalScopeSelections[$contextKey][$options[0]['scope']] = true;
         }
     }
 
     public function scopeIsLocked(Note $note): bool
     {
-        return isset($this->targetWorkReportIdsByNote[(string) $note->id]);
+        return isset($this->targetWorkReportIdsByNote[$this->contextKeyFor($note)]);
     }
 
     private function targetWorkReportFor(Note $note): ?WorkReport
     {
-        $workReportId = (int) ($this->targetWorkReportIdsByNote[(string) $note->id] ?? 0);
+        $workReportId = (int) ($this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? 0);
 
         if ($workReportId <= 0) {
             return null;
@@ -569,7 +602,7 @@ class DispatchModal extends Component
 
     private function selectedFinalScopesForNote(Note $note): array
     {
-        $selected = collect($this->finalScopeSelections[$note->id] ?? [])
+        $selected = collect($this->finalScopeSelections[$this->contextKeyFor($note)] ?? [])
             ->filter(fn ($enabled) => (bool) $enabled)
             ->keys()
             ->all();
@@ -581,6 +614,17 @@ class DispatchModal extends Component
     private function currentServiceKey(): string
     {
         return app(DispatchContextResolver::class)->serviceKey($this->service);
+    }
+
+    private function contextKey(int $noteId, ?int $workReportId, ?int $partialId = null): string
+    {
+        return $noteId . ':' . (int) ($workReportId ?: 0) . ':p' . (int) ($partialId ?: 0);
+    }
+
+    private function contextKeyFor(Note $note): string
+    {
+        return (string) ($note->getAttribute('dispatch_context_key')
+            ?: $this->contextKey((int) $note->id, (int) ($note->dispatch_work_report_id ?? 0), (int) ($note->dispatch_partial_id ?? 0)));
     }
 
     private function modalNoteRelations(): array
@@ -623,7 +667,7 @@ class DispatchModal extends Component
                 'selected_final_scopes',
             ])->where('canceled', false),
             'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem']),
-            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
+            'FiveNote:id,note_id,work_report_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Partials' => fn ($q) => $q->select([
                 'id',
                 'note_id',

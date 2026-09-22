@@ -14,16 +14,27 @@ class WorkReportFlowProductionLinker
         return $this->link($production, WorkReportFlowProduction::STAGE_FISCALIZATION, $source ?? 'dispatch_fiscalization', $metadata, $finalScope);
     }
 
-    public function linkD5FiscalizationToNetwork(Production $production, ?string $source = null, array $metadata = []): ?WorkReportFlowProduction
+    public function linkFiscalizationForWorkReport(Production $production, WorkReport|int $workReport, ?string $source = null, array $metadata = [], string $finalScope = WorkReportFlowProduction::SCOPE_GENERAL): ?WorkReportFlowProduction
+    {
+        return $this->linkForWorkReport($production, $workReport, WorkReportFlowProduction::STAGE_FISCALIZATION, $source ?? 'dispatch_fiscalization', $metadata, $finalScope);
+    }
+
+    public function linkD5FiscalizationToNetwork(Production $production, ?string $source = null, array $metadata = [], ?int $workReportId = null): ?WorkReportFlowProduction
     {
         if (!(bool) $production->dfive) {
             return null;
         }
 
-        $workReport = $this->resolveCurrentFinalWorkReport(
-            (int) $production->note_id,
-            WorkReportFlowProduction::SCOPE_NETWORK
-        );
+        $workReport = $workReportId
+            ? WorkReport::query()
+                ->whereKey($workReportId)
+                ->where('note_id', $production->note_id)
+                ->where('canceled', false)
+                ->first()
+            : $this->resolveCurrentFinalWorkReport(
+                (int) $production->note_id,
+                WorkReportFlowProduction::SCOPE_NETWORK
+            );
 
         if (!$workReport) {
             return null;
@@ -221,6 +232,56 @@ class WorkReportFlowProductionLinker
 
         $workReport = $this->resolveCurrentFinalWorkReport((int) $production->note_id, $finalScope);
         if (!$workReport) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($production, $workReport, $stage, $source, $metadata, $finalScope): WorkReportFlowProduction {
+            WorkReportFlowProduction::query()
+                ->where('work_report_id', $workReport->id)
+                ->where('stage', $stage)
+                ->where('final_scope', $finalScope)
+                ->where('production_id', '!=', $production->id)
+                ->update(['is_current' => false]);
+
+            $link = WorkReportFlowProduction::query()->updateOrCreate(
+                [
+                    'work_report_id' => $workReport->id,
+                    'production_id' => $production->id,
+                    'stage' => $stage,
+                    'final_scope' => $finalScope,
+                ],
+                [
+                    'is_current' => true,
+                    'linked_at' => now(),
+                    'linked_by' => auth()->id(),
+                    'source' => $source,
+                    'metadata' => array_filter([
+                        'note_id' => $production->note_id,
+                        'service_id' => $production->service_id,
+                        'production_status' => $production->status,
+                        'production_user_id' => $production->user_id,
+                        ...$metadata,
+                    ], fn ($value) => $value !== null),
+                ]
+            );
+
+            app(WorkReportCurrentStatusRefresher::class)->refresh($workReport->id);
+
+            return $link;
+        });
+    }
+
+    private function linkForWorkReport(Production $production, WorkReport|int $workReport, string $stage, string $source, array $metadata = [], string $finalScope = WorkReportFlowProduction::SCOPE_GENERAL): ?WorkReportFlowProduction
+    {
+        if ((bool) $production->partial || (bool) $production->dfive && $stage !== WorkReportFlowProduction::STAGE_FISCALIZATION) {
+            return null;
+        }
+
+        $workReport = $workReport instanceof WorkReport
+            ? $workReport
+            : WorkReport::query()->whereKey($workReport)->where('canceled', false)->first();
+
+        if (!$workReport || (int) $workReport->note_id !== (int) $production->note_id) {
             return null;
         }
 

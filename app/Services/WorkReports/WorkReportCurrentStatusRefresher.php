@@ -52,10 +52,13 @@ class WorkReportCurrentStatusRefresher
         return [
             'Adsform',
             'Orders.Operations',
+            'FiveNote.productions.Service:id,uuid,service',
+            'FiveNote.productions.User:id,name,email',
             'FlowProductions.Production.Service:id,uuid,service',
             'FlowProductions.Production.User:id,name,email',
             'FlowProductions.Production.Company:id,name',
-            'Note.FiveNote.productions.Service:id,uuid,service',
+            'Note.LegacyFiveNote.productions.Service:id,uuid,service',
+            'Note.LegacyFiveNote.productions.User:id,name,email',
         ];
     }
 }

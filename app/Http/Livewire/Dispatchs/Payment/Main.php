@@ -118,22 +118,24 @@ class Main extends Component
     private function parseSelectionKey($key): array
     {
         if (is_string($key) && str_contains($key, ':')) {
-            [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
+            [$noteId, $workReportId, $partialToken] = array_pad(explode(':', $key, 3), 3, null);
+            $partialId = str_starts_with((string) $partialToken, 'p') ? (int) substr((string) $partialToken, 1) : null;
 
-            return [(int) $noteId, (int) $workReportId];
+            return [(int) $noteId, (int) $workReportId, $partialId ?: null];
         }
 
-        return [(int) $key, null];
+        return [(int) $key, null, null];
     }
 
     private function dispatchPayloadForSelection($key): array|int
     {
-        [$noteId, $workReportId] = $this->parseSelectionKey($key);
+        [$noteId, $workReportId, $partialId] = $this->parseSelectionKey($key);
 
-        if ($workReportId) {
+        if ($workReportId || $partialId) {
             return [
                 'note_id' => $noteId,
-                'work_report_id' => $workReportId,
+                'work_report_id' => $workReportId ?: null,
+                'partial_id' => $partialId,
             ];
         }
 
@@ -622,7 +624,7 @@ class Main extends Component
                                             ->orderByDesc('created_at'),
             ]);
 
-            $fiveNote = $note->FiveNote ? true : false;
+            $fiveNote = (bool) ($note->WorkForm?->FiveNote ?? $note->FiveNote);
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
@@ -636,14 +638,16 @@ class Main extends Component
             }
 
             // 2) parcial elegível?
-            $partialModel = $note->partials()
-                ->where('allow', true)
-                ->where('deny', false)
-                ->where('supervision', true)
-                ->where('payment', false)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->first();
+            $partialModel = $note->dispatch_partial_id
+                ? $note->partials()->whereKey($note->dispatch_partial_id)->first()
+                : $note->partials()
+                    ->where('allow', true)
+                    ->where('deny', false)
+                    ->where('supervision', true)
+                    ->where('payment', false)
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id')
+                    ->first();
 
             $isPartial = (bool) $partialModel;
 
@@ -692,11 +696,20 @@ class Main extends Component
 
 
             if ($production) {
-                app(WorkReportFlowProductionLinker::class)->linkPaymentForScopes(
-                    $production,
-                    $this->selectedFinalScopesForNote($note),
-                    'dispatch_payment_main'
-                );
+                $linker = app(WorkReportFlowProductionLinker::class);
+                $finalScopes = $this->selectedFinalScopesForNote($note);
+                $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
+                if ($workReportId) {
+                    $linker->linkPaymentForWorkReport($production, $workReportId, $finalScopes, 'dispatch_payment_main');
+                } else {
+                    $linker->linkPaymentForScopes($production, $finalScopes, 'dispatch_payment_main');
+                }
+
+                if ($partialModel) {
+                    $production->update(['partial' => true]);
+                    $production->partialInforms()->syncWithoutDetaching([$partialModel->id]);
+                }
 
                 Notetimeline::create([
                     'note_id'      => $production->id, // (verifique se aqui não deveria ser $note->id)
@@ -707,11 +720,13 @@ class Main extends Component
                     'productionId' => $production->id,
                 ]);
 
-                if ($this->type === '2' && $production->user_id && $note->FiveNote) {
-                    $note->FiveNote->productions()->syncWithoutDetaching([$production->id]);
+                $productionFiveNote = $note->WorkForm?->FiveNote ?? $note->FiveNote;
+
+                if ($this->type === '2' && $production->user_id && $productionFiveNote) {
+                    $productionFiveNote->productions()->syncWithoutDetaching([$production->id]);
 
                     app(D5WorkflowService::class)->onProductionAssigned(
-                        $note->FiveNote,
+                        $productionFiveNote,
                         $production,
                         $dispatcherId,
                         null
@@ -1073,6 +1088,7 @@ class Main extends Component
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
+            'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
             'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
@@ -1091,6 +1107,7 @@ class Main extends Component
             ])->where('canceled', false),
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
+            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
             'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,created_at',
@@ -1158,6 +1175,23 @@ class Main extends Component
                 }
 
                 $note->setAttribute('payment_context_key', (string) $note->id);
+
+                $partial = $note->relationLoaded('Partials')
+                    ? $note->Partials
+                        ->where('allow', true)
+                        ->where('deny', false)
+                        ->where('supervision', true)
+                        ->where('payment', false)
+                        ->sortByDesc(fn ($item) => [$item->created_at?->timestamp ?? 0, $item->id])
+                        ->first()
+                    : null;
+
+                if ($partial) {
+                    $row = clone $note;
+                    $row->setAttribute('payment_context_key', $note->id . ':0:p' . $partial->id);
+                    $row->setAttribute('dispatch_partial_id', (int) $partial->id);
+                    return [$row];
+                }
 
                 return [$note];
             }
