@@ -182,6 +182,18 @@ class ProtestUpd extends Command
                 $log->fail($e->getMessage());
             }
 
+            // O comando era encerrado silenciosamente porque a exceção era
+            // capturada e apenas registrada no UpdateExecutionLog.
+            $this->error('Falha ao atualizar os protestos.');
+            $this->line(sprintf(
+                'Erro: %s: %s (%s:%d)',
+                $e::class,
+                $e->getMessage(),
+                $e->getFile(),
+                $e->getLine()
+            ));
+            report($e);
+
             return self::FAILURE;
         }
     }

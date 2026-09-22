@@ -144,14 +144,7 @@ class WorkReport extends Model
     public function scopePendingRejectedForPartner(Builder $query): Builder
     {
         return $query->active()
-            ->where('rejected', true)
-            ->whereDoesntHave('Note', function ($q) {
-                $q->whereIn('nstats', [55])
-                    ->orWhere(function ($q) {
-                        $q->where('nstats', 99)
-                            ->where('type_note', 1);
-                    });
-            });
+            ->where('rejected', true);
     }
 
 
