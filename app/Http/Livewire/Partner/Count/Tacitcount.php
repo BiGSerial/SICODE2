@@ -19,14 +19,7 @@ class Tacitcount extends Component
         ->where('completed', true)
         ->where('tacit', true);
 
-        if (!auth()->user()->superadm) {
-
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray());
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-        }
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 

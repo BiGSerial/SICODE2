@@ -7,7 +7,6 @@ use App\Models\FiveNote;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\PartnerAccess\PartnerAccessGate;
-use App\Services\PartnerAccess\PartnerBranchScope;
 use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,7 +57,6 @@ class ExportFiveNotesJob implements ShouldQueue
             $query = FiveNote::query();
 
             $this->applyUserScope($query, $user);
-            app(PartnerBranchScope::class)->applyToFiveNotes($query, $user);
             $this->applyBaseConstraints($query);
             $this->applyFilters($query);
 
@@ -118,27 +116,23 @@ class ExportFiveNotesJob implements ShouldQueue
 
     protected function applyUserScope(Builder $query, User $user): void
     {
+        $companyIds = $user->superadm
+            ? []
+            : PartnerAccessGate::visibleCompanyIdsFor($user);
+        $selectedCompanyId = (string) ($this->params['partnerCompanyFilter'] ?? '');
+
+        if ($selectedCompanyId !== '' && ($user->superadm || in_array($selectedCompanyId, $companyIds, true))) {
+            $query->where('company_id', $selectedCompanyId);
+
+            return;
+        }
+
         if ($user->superadm) {
             return;
         }
 
-        $companyIds = $user->Companies?->pluck('id')->filter()->all() ?? [];
-        $defaultCompanyId = PartnerAccessGate::companyIdFor($user);
-
         if ($companyIds) {
-            $query->where(function ($q) use ($companyIds, $defaultCompanyId) {
-                $q->whereIn('company_id', $companyIds);
-
-                if ($defaultCompanyId) {
-                    $q->orWhere('company_id', $defaultCompanyId);
-                }
-            });
-
-            return;
-        }
-
-        if ($defaultCompanyId) {
-            $query->where('company_id', $defaultCompanyId);
+            $query->whereIn('company_id', $companyIds);
 
             return;
         }

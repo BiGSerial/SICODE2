@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Engineers\Analises;
 
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{ExternalOrganRelease, File, Note};
 use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;

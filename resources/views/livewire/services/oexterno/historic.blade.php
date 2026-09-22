@@ -74,7 +74,7 @@
                         @livewire('components.filter.filter', [
                             'myKey' => 'region',
                             'sendFilter' => 'city',
-                            'model' => 'App\Models\Edp_depc\City',
+                            'model' => 'App\Models\City',
                             'column' => 'regiao',
                             'filter' => 'Região',
                             'group_filter' => 'oexterno',
@@ -86,7 +86,7 @@
                         @livewire('components.filter.filter', [
                             'myKey' => 'city',
                             'sendFilter' => '',
-                            'model' => 'App\Models\Edp_depc\City',
+                            'model' => 'App\Models\City',
                             'column' => 'cidade',
                             'filter' => 'Município',
                             'group_filter' => 'oexterno',

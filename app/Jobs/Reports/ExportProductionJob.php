@@ -150,9 +150,9 @@ class ExportProductionJob implements ShouldQueue
                 })
                 ->with([
                     'Dispatcher:id,name',
-                    'Dispatcher.Employee.Contract.company:id,name',
+                    'Dispatcher.Company:id,name',
                     'Att:id,name',
-                    'Att.Employee.Contract.company:id,name',
+                    'Att.Company:id,name',
                     'User:id,name',
                     'Company:id,name',
                     'Service:uuid,service',

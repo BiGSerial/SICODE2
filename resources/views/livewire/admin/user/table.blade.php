@@ -507,7 +507,7 @@
                                         @endif
                                     </td>
                                     <td class="text-start company-cell">
-                                        <div class="company-name">{{ isset($theUser->Employee->Contract->Company->name) ? mb_strtoupper($theUser->Employee->Contract->Company->name) : '-' }}</div>
+                                        <div class="company-name">{{ $theUser->Company?->name ? mb_strtoupper($theUser->Company->name) : '-' }}</div>
                                         <small class="user-meta">
                                             <i class="ri-file-text-line me-1"></i>Contrato:
                                             {{ $theUser->Employee->Contract->number ?? '-' }}

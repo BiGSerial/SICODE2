@@ -195,7 +195,7 @@ class GoWaiting extends Component
                                         'note_id' => $production['note']['id'],
                                         'service_id' => $this->service_s,
                                         'user_id' => $user->id,
-                                        'company_id' => $user->Employee->Contract->company->id,
+                                        'company_id' => $user->company_id,
                                         'dispatch_by' => auth()->user()->id,
                                         'att_by' => auth()->user()->id,
                                         'dt_note' => $production['note']['dt_status'],

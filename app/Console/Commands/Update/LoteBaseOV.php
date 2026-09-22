@@ -65,9 +65,18 @@ class LoteBaseOV extends Command
                 // $existingRecord = Note::where('note', $record->OV)->first();
                 $existingRecord = $notes->where('note', $record->OV)->first();
 
-                if ($existingRecord && strtotime($existingRecord->dt_status) < strtotime($record->dhStat)) {
+                $nstatsDiverged = $existingRecord
+                    && (string) $existingRecord->nstats !== (string) $record->numStat;
+                $daysLeftDiverged = $existingRecord
+                    && (string) $existingRecord->days_left !== (string) $record->diasPVencimento;
 
-                    if ($existingRecord->nstats != $record->numStat) {
+                if ($existingRecord && (
+                    strtotime($existingRecord->dt_status) < strtotime($record->dhStat)
+                    || $nstatsDiverged
+                    || $daysLeftDiverged
+                )) {
+
+                    if ($nstatsDiverged) {
                         $recordsToHistory[] = [
                             'note_id'  => $existingRecord->id,
                             'old_date' => $existingRecord->dt_status,

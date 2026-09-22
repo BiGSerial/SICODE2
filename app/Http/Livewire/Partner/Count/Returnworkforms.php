@@ -12,13 +12,8 @@ class Returnworkforms extends Component
 
     public function getSumProperty()
     {
-        $query = WorkReport::when(!Auth()->User()->superadm, function ($q) {
-            $q->where(function ($query) {
-                $query->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-            });
-        })
-        ->pendingRejectedForPartner();
+        $query = WorkReport::query()->pendingRejectedForPartner();
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 

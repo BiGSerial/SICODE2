@@ -67,6 +67,10 @@ Route::prefix('v1')->group(function () {
 
     });
 
+    Route::post('/imports/manual-records', [\App\Http\Controllers\Api\ManualRecordImportController::class, 'store'])
+        ->middleware(['application.audit', 'application.token'])
+        ->name('api.v1.imports.manual_records');
+
 
 
 });

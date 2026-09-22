@@ -385,7 +385,7 @@ class ReturnInternResponse extends Component
                                 'note_id' => $production->note_id,
                                 'service_id' => $this->service,
                                 'user_id' => $production->user_id,
-                                'company_id' => isset(Auth()->user()->Company->id) ? Auth()->user()->Company->id : Auth()->user()->Employee->Contract->company->id,
+                                'company_id' => Auth()->user()->company_id,
                                 'dispatch_by' => Auth()->user()->id,
                                 'dispatch_at' => now(),
                                 'att_by' => Auth()->user()->id,

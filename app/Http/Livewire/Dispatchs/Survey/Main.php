@@ -8,7 +8,7 @@ use App\Exports\ExportDDExcel;
 use App\Exports\Reports\SurveyListExport;
 use App\Models\Bancoupdate;
 use App\Models\Company;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\Note;
 use App\Models\Notetimeline;
 use App\Models\Production;
@@ -238,7 +238,7 @@ class Main extends Component
         })
             ->where(function ($q) {
                 $q->where('company_id', $this->company_s)
-                    ->orWhereRelation('Employee.Contract', 'company_id', $this->company_s)
+                    ->orWhere('company_id', $this->company_s)
                     ->orWhereRelation('Companies', 'companies.id', $this->company_s);
             })
             ->when($this->search_user, function ($q) {

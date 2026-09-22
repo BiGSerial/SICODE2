@@ -94,6 +94,7 @@ Route::prefix('/config')->controller(ConfigController::class)->name('config.')->
         Route::get('/history', 'systemHistory')->name('history');
         Route::get('/schedule', 'systemSchedule')->middleware('can:superadm')->name('schedule');
         Route::get('/sqlsrv-health', 'sqlsrvHealth')->middleware('can:superadm')->name('sqlsrv_health');
+        Route::get('/api-tokens', 'applicationApiTokens')->name('api_tokens');
     });
     Route::get('/services', 'services')->name('services');
     Route::get('/ads-request-recipients', 'adsRequestRecipients')->name('ads_request_recipients');
@@ -348,6 +349,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/cancelamentos/aprovacoes', 'cancellationApprovals')->name('cancellations.index');
     Route::get('/cancelamentos/aprovacoes/historico', 'cancellationApprovalsHistory')->name('cancellations.history');
     Route::get('/cancelamentos/aprovacoes/{request}', 'cancellationApprovalShow')->whereNumber('request')->name('cancellations.show');
+    Route::get('/cancelamentos/em-processo', 'cancellationRegional')->name('cancellations.regional');
 
     Route::prefix('/analises')->name('analises.')->group(function () {
         Route::get('/dashboard', 'analises_dashboard')->name('dashboard');
@@ -379,6 +381,7 @@ Route::prefix('/partner/admin')
         Route::get('/users', 'users')->middleware('partner.permission:admin_users.view')->name('users');
         Route::get('/users/create', 'createUser')->middleware('partner.permission:admin_users.create')->name('users.create');
         Route::post('/users', 'storeUser')->middleware('partner.permission:admin_users.create')->name('users.store');
+        Route::post('/users/bulk-update', 'bulkUpdateUsers')->middleware('partner.permission:admin_users.update')->name('users.bulk_update');
         Route::get('/users/import-template', 'importTemplate')->middleware('partner.permission:admin_users.template_export')->name('users.import_template');
         Route::post('/users/import-preview', 'previewImport')->middleware('partner.permission:admin_users.bulk_import')->name('users.import.preview');
         Route::post('/users/import-confirm', 'confirmImport')->middleware('partner.permission:admin_users.bulk_import')->name('users.import.confirm');

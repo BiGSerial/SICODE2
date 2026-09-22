@@ -342,7 +342,7 @@ class UserRegistrationWorkbookService
         $unitIds = $units->pluck('id')->all();
 
         return in_array($user->company_id, $unitIds, true)
-            || in_array($user->Employee?->Contract?->company_id, $unitIds, true);
+            || in_array($user->company_id, $unitIds, true);
     }
 
     private function findUnitByDisplayName(Collection $units, ?string $label): ?Company

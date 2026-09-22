@@ -1,7 +1,7 @@
 @php
     use Carbon\Carbon;
     use App\Custom\Notestatus;
-    use App\Models\Edp_depc\City;
+    use App\Models\City;
 @endphp
 <div>
     {{-- Carrega o Loading da página --}}

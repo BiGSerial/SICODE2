@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs;
 
 use App\Exports\Reports\ReturnInternExport;
 use App\Models\{Company, File, Reclaim, Service, User};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Services\Files\FileStorageService;
 use Livewire\{Component, WithPagination};
 

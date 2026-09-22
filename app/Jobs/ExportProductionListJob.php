@@ -6,6 +6,7 @@ use App\Exports\Reports\ProductionsExportList;
 use App\Models\Notify;
 use App\Models\Production;
 use App\Models\User;
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -70,13 +71,13 @@ class ExportProductionListJob implements ShouldQueue
             }
 
             if ($this->user->contract) {
-                $query->where('company_id', $this->user->employee->contract->company_id);
+                $query->whereIn('company_id', SicodeRules::visibleCompanyIdsFor($this->user));
             }
 
             if ($this->params['monthYear']) {
                 $startDate = Carbon::parse($this->params['monthYear'])->startOfMonth();
                 $endDate = Carbon::parse($this->params['monthYear'])->endOfMonth();
-                if ($this->user->employee && $this->user->employee->contract) {
+                if ($this->user->company_id) {
                     $endDate = Carbon::parse($this->params['monthYear'])->endOfMonth();
                     $query->where(function ($q) use ($column, $startDate, $endDate) {
                         if ($this->params['complete']) {

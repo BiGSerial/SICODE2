@@ -18,6 +18,8 @@ use Livewire\Component;
 
 class Main extends Component
 {
+    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+
     public $pizza1;
     public $pizza2;
     public $backlogChart;
@@ -125,36 +127,19 @@ class Main extends Component
     protected function companyIds(): array
     {
         $user = auth()->user();
+        $companyIds = \App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor($user);
+        $selectedCompanyId = (string) ($this->partnerCompanyFilter ?? '');
 
-        if ($user->superadm) {
-            return [];
+        if ($selectedCompanyId !== '' && (empty($companyIds) || in_array($selectedCompanyId, $companyIds, true))) {
+            return [$selectedCompanyId];
         }
 
-        $ids = [];
-        if ($user->Companies->isNotEmpty()) {
-            $ids = $user->Companies->pluck('id')->toArray();
-        }
-
-        if ($user->Company?->id) {
-            $ids[] = $user->Company->id;
-        }
-
-        return array_values(array_unique($ids));
+        return $companyIds;
     }
 
     protected function scopeByCompany(Builder $query, string $column = 'company_id'): Builder
     {
-        if (auth()->user()->superadm) {
-            return $query;
-        }
-
-        $companyIds = $this->companyIds();
-
-        if (!empty($companyIds)) {
-            $query->whereIn($column, $companyIds);
-        }
-
-        return $query;
+        return $this->applyPartnerCompanyScope($query, $column);
     }
 
     public function getViabilityDueDate(): Collection

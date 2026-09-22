@@ -29,10 +29,20 @@ class PartnerAdminController extends Controller
         $permissionCompanyId = $this->permissionCompanyId($request);
         $companyIds = $this->branchCompanyIdsFor($permissionCompanyId);
         $status = $request->query('status') === 'disabled' ? 'disabled' : 'active';
+        $companyFilter = (string) $request->query('company', '');
+        $presence = (string) $request->query('presence', 'all');
+        $search = trim((string) $request->query('search', ''));
+
+        if ($companyFilter !== '' && in_array($companyFilter, $companyIds, true)) {
+            $companyIds = [$companyFilter];
+        } else {
+            $companyFilter = '';
+        }
 
         $users = User::query()
             ->with([
                 'Company:id,parent_id,name',
+                'Watchdog:id,user_id,watchdog',
                 'partnerBranchAddresses' => fn ($query) => $query
                     ->wherePivot('company_id', $permissionCompanyId)
                     ->with('Company:id,parent_id,name')
@@ -41,6 +51,14 @@ class PartnerAdminController extends Controller
             ])
             ->where('onlyparner', true)
             ->whereIn('company_id', $companyIds)
+            ->when($search !== '', fn ($query) => $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            }))
+            ->when($presence === 'online', fn ($query) => $query->where('last_seen_at', '>=', now()->subMinutes(5)))
+            ->when($presence === 'offline', fn ($query) => $query->where(function ($q) {
+                $q->whereNull('last_seen_at')->orWhere('last_seen_at', '<', now()->subMinutes(5));
+            }))
             ->when($status === 'disabled', fn ($query) => $query->onlyTrashed())
             ->when($status === 'active', fn ($query) => $query->whereNull('deleted_at'))
             ->orderBy('name')
@@ -55,6 +73,12 @@ class PartnerAdminController extends Controller
             ->where('onlyparner', true)
             ->whereIn('company_id', $companyIds)
             ->count();
+        $onlineCount = User::query()
+            ->where('onlyparner', true)
+            ->whereIn('company_id', $this->branchCompanyIdsFor($permissionCompanyId))
+            ->whereNull('deleted_at')
+            ->where('last_seen_at', '>=', now()->subMinutes(5))
+            ->count();
 
         return view('partner.admin.users', [
             'users' => $users,
@@ -64,6 +88,11 @@ class PartnerAdminController extends Controller
             'userCount' => $activeCount + $disabledCount,
             'activeCount' => $activeCount,
             'disabledCount' => $disabledCount,
+            'onlineCount' => $onlineCount,
+            'companyOptions' => Company::query()->whereIn('id', $this->branchCompanyIdsFor($permissionCompanyId))->orderBy('name')->get(),
+            'companyFilter' => $companyFilter,
+            'presence' => $presence,
+            'search' => $search,
         ]);
     }
 
@@ -75,6 +104,7 @@ class PartnerAdminController extends Controller
             'user' => new User(),
             'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
             'branches' => $this->branchesFor($permissionCompanyId),
+            'companies' => $this->managedCompanies($permissionCompanyId),
             'selectedBranches' => collect(),
             'userPermissionCatalog' => [],
             'userPermissionValues' => [],
@@ -86,9 +116,9 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.create'), 403);
 
-        $companyId = $this->companyId($request);
         $permissionCompanyId = $this->permissionCompanyId($request);
-        $data = $this->validateUserData($request);
+        $data = $this->validateUserData($request, null, $permissionCompanyId);
+        $companyId = $data['company_id'];
         $branchIds = $this->validBranchIds($request, $permissionCompanyId);
 
         $user = DB::transaction(function () use ($data, $branchIds, $companyId, $permissionCompanyId, $request) {
@@ -126,6 +156,7 @@ class PartnerAdminController extends Controller
             'user' => $target,
             'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
             'branches' => $this->branchesFor($permissionCompanyId),
+            'companies' => $this->managedCompanies($permissionCompanyId),
             'selectedBranches' => $target->partnerBranches()
                 ->where('company_id', $permissionCompanyId)
                 ->pluck('branch_id'),
@@ -142,14 +173,17 @@ class PartnerAdminController extends Controller
         $companyId = $this->companyId($request);
         $permissionCompanyId = $this->permissionCompanyId($request);
         $target = $this->targetUser($user, $companyId);
-        $data = $this->validateUserData($request, $target);
+        $data = $this->validateUserData($request, $target, $permissionCompanyId);
         $branchIds = $this->validBranchIds($request, $permissionCompanyId);
 
         DB::transaction(function () use ($target, $data, $branchIds, $companyId, $permissionCompanyId, $request) {
             $target->update([
                 'name' => $data['name'],
                 'email' => $data['email'],
+                'company_id' => $data['company_id'],
             ]);
+
+            $target->Companies()->syncWithoutDetaching([$data['company_id']]);
 
             $this->syncBranches($target, $permissionCompanyId, $branchIds, $request->user()->id);
             $this->syncUserPermissions($request, $target, $permissionCompanyId);
@@ -161,6 +195,55 @@ class PartnerAdminController extends Controller
         return redirect()
             ->route('partner.admin.users.edit', $target)
             ->with('status', 'Usuário atualizado.');
+    }
+
+    public function bulkUpdateUsers(Request $request): RedirectResponse
+    {
+        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
+
+        $permissionCompanyId = $this->permissionCompanyId($request);
+        $companyIds = $this->branchCompanyIdsFor($permissionCompanyId);
+        $data = $request->validate([
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['string'],
+            'action' => ['required', 'in:make_admin,remove_admin,reset_password,move_company,disable'],
+            'company_id' => ['nullable', 'string', 'in:' . implode(',', $companyIds)],
+        ]);
+
+        $targets = User::query()
+            ->where('onlyparner', true)
+            ->whereIn('id', $data['user_ids'])
+            ->whereIn('company_id', $companyIds)
+            ->get();
+
+        abort_if($targets->count() !== count(array_unique($data['user_ids'])), 403);
+
+        if ($data['action'] === 'move_company' && empty($data['company_id'])) {
+            return back()->withErrors(['company_id' => 'Selecione a empresa de destino.']);
+        }
+
+        DB::transaction(function () use ($targets, $data, $request, $permissionCompanyId) {
+            foreach ($targets as $target) {
+                abort_if($target->id === $request->user()->id && $data['action'] === 'disable', 403);
+
+                match ($data['action']) {
+                    'make_admin' => $target->update(['admin' => true]),
+                    'remove_admin' => $target->update(['admin' => false]),
+                    'reset_password' => $target->forceFill(['password' => Hash::make(123456), 'first_pass' => true])->save(),
+                    'move_company' => tap($target->update(['company_id' => $data['company_id']]), fn () => $target->Companies()->syncWithoutDetaching([$data['company_id']])),
+                    'disable' => $target->delete(),
+                };
+            }
+
+            $this->audit($request, 'bulk_updated_users', null, [
+                'action' => $data['action'],
+                'users' => $targets->pluck('id')->values()->all(),
+                'company_id' => $data['company_id'] ?? null,
+                'permission_company_id' => $permissionCompanyId,
+            ]);
+        });
+
+        return redirect()->route('partner.admin.users')->with('status', 'Alteração em massa concluída.');
     }
 
     public function disableUser(Request $request, User $user): RedirectResponse
@@ -228,7 +311,6 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
-        $companyId = $this->companyId($request);
         $permissionCompanyId = $this->permissionCompanyId($request);
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt'],
@@ -252,20 +334,26 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
-        $companyId = $this->companyId($request);
         $permissionCompanyId = $this->permissionCompanyId($request);
         $token = $request->validate(['token' => ['required', 'string']])['token'];
         $rows = session()->pull("partner_user_import.{$token}", []);
 
         abort_if(empty($rows), 422);
 
-        $created = DB::transaction(function () use ($rows, $companyId, $permissionCompanyId, $request) {
+        $created = DB::transaction(function () use ($rows, $permissionCompanyId, $request) {
             $count = 0;
 
             foreach ($rows as $row) {
-                $contract = Contract::query()->with('services')->find($row['contract_id']);
+                // A preview can become stale while another administrator imports the same file.
+                // Confirmation is create-only and must never overwrite an existing account.
+                abort_if(User::query()->where('email', $row['email'])->exists(), 422, 'Usuário já cadastrado: ' . $row['email']);
 
-                abort_unless($contract, 422);
+                $contract = !empty($row['contract_id'])
+                    ? Contract::query()->with('services')->find($row['contract_id'])
+                    : null;
+
+                abort_if(!empty($row['contract_id']) && !$contract, 422);
+                $userCompanyId = $row['company_id'] ?? $permissionCompanyId;
 
                 $user = User::query()->create([
                     'name' => $row['name'],
@@ -274,17 +362,19 @@ class PartnerAdminController extends Controller
                     'first_pass' => true,
                     'onlyparner' => true,
                     'user' => true,
-                    'company_id' => $companyId,
+                    'company_id' => $userCompanyId,
                 ]);
 
-                $user->Companies()->syncWithoutDetaching([$companyId]);
-                $user->Employee()->updateOrCreate(
-                    ['user_id' => $user->id],
-                    [
-                        'contract_id' => $contract->id,
-                        'service_id' => $contract->services->first()?->uuid,
-                    ]
-                );
+                $user->Companies()->syncWithoutDetaching([$userCompanyId]);
+                if ($contract) {
+                    $user->Employee()->updateOrCreate(
+                        ['user_id' => $user->id],
+                        [
+                            'contract_id' => $contract->id,
+                            'service_id' => $contract->services->first()?->uuid,
+                        ]
+                    );
+                }
                 $this->syncBranches($user, $permissionCompanyId, [$row['branch_id']], $request->user()->id);
                 $count++;
             }
@@ -293,6 +383,7 @@ class PartnerAdminController extends Controller
                 'created' => $count,
                 'rows' => collect($rows)->map(fn ($row) => [
                     'email' => $row['email'],
+                    'company_id' => $row['company_id'] ?? $permissionCompanyId,
                     'branch_id' => $row['branch_id'],
                     'contract_id' => $row['contract_id'],
                 ])->values()->all(),
@@ -324,16 +415,21 @@ class PartnerAdminController extends Controller
         return $companyId;
     }
 
-    private function validateUserData(Request $request, ?User $user = null): array
+    private function validateUserData(Request $request, ?User $user = null, ?string $permissionCompanyId = null): array
     {
-        return $request->validate([
+        $companyIds = $permissionCompanyId ? $this->branchCompanyIdsFor($permissionCompanyId) : [$this->companyId($request)];
+
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email' . ($user ? ',' . $user->id : '')],
+            'company_id' => ['required', 'string', 'in:' . implode(',', $companyIds)],
             'branches' => ['array'],
             'branches.*' => ['integer'],
             'user_permissions' => ['array'],
             'user_permissions.*' => ['boolean'],
         ]);
+
+        return $data;
     }
 
     private function editablePermissionKeys(string $companyId)
@@ -373,6 +469,14 @@ class PartnerAdminController extends Controller
             ->orderBy('city')
             ->orderBy('street')
             ->get();
+    }
+
+    private function managedCompanies(string $permissionCompanyId)
+    {
+        return Company::query()
+            ->whereIn('id', $this->branchCompanyIdsFor($permissionCompanyId))
+            ->orderBy('name')
+            ->get(['id', 'parent_id', 'name']);
     }
 
     private function targetUser(User $user, string $companyId): User
@@ -503,10 +607,6 @@ class PartnerAdminController extends Controller
 
             $contract = $branch ? $this->defaultContractForCompany($branch->company_id) : null;
 
-            if ($branch && !$contract) {
-                $errors[] = 'Empresa/Filial sem contrato válido para associar ao usuário.';
-            }
-
             $valid = empty($errors);
             $item = compact('line', 'name', 'email', 'branchName', 'errors', 'valid');
             $items[] = $item;
@@ -516,7 +616,8 @@ class PartnerAdminController extends Controller
                     'name' => $name,
                     'email' => $email,
                     'branch_id' => $branch->id,
-                    'contract_id' => $contract->id,
+                    'company_id' => $branch->company_id,
+                    'contract_id' => $contract?->id,
                 ];
             }
         }

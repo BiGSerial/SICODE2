@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Components\Modal;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\Note;
 use Livewire\Component;
 

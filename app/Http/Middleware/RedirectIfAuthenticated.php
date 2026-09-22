@@ -28,7 +28,7 @@ class RedirectIfAuthenticated
 
             $user = User::with('Employee.Contract')->find(Auth()->User()->id);
 
-            if ($user->Employee->Contract->construction && !$user->Employee->Contract->service) {
+            if ($user->Employee?->Contract?->construction && !$user->Employee?->Contract?->service) {
                 $partnerViewOnly = true;
             }
         }

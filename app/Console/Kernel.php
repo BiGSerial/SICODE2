@@ -84,7 +84,7 @@ class Kernel extends ConsoleKernel
             ->cron('30 5,8,10,12,14,16,20 * * *');
 
         $this->scheduleCommand($schedule, 'sicode:upd_baseov --full', 'upd-baseov-full')
-            ->dailyAt('00:05');
+            ->dailyAt('04:05');
 
         $this->scheduleCommand($schedule, 'sicode:upd_baseEP', 'upd-base-ep')
             ->cron('20 9-21 * * *');

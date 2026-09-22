@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
 use App\Models\{Bancoupdate, Company, Note, Production, Service, User, Wpa};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Supervision\BlockEvaluator;
@@ -350,7 +350,7 @@ class Main extends Component
         })
             ->where(function ($q) {
                 $q->where('company_id', $this->company_s)
-                    ->orWhereRelation('Employee.Contract', 'company_id', $this->company_s)
+                    ->orWhere('company_id', $this->company_s)
                     ->orWhereRelation('Companies', 'companies.id', $this->company_s);
             })
             ->when($this->search_user, function ($q) {

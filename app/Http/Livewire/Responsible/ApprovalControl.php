@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Responsible;
 
 use App\Exports\Responsible\Projeto\ControlExport;
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Note};
 use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\DB;

@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Exports\DispatchDesenhoStack;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use Livewire\{Component, WithPagination};
 
 class Stack extends Component
@@ -652,7 +652,7 @@ class Stack extends Component
                 });
             })
             ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
@@ -717,7 +717,7 @@ class Stack extends Component
                 });
             })
             ->when(Auth()->User()->contract, function ($q) {
-                return $q->where('company_id', Auth()->User()->Employee->Contract->company_id);
+                return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);
@@ -779,7 +779,7 @@ class Stack extends Component
                 });
             })
             ->when(Auth()->user()->contract, function ($q) {
-                return $q->where('productions.company_id', Auth()->user()->employee->contract->company_id);
+                return $q->whereIn('productions.company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->user()));
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('productions.company_id', $this->company_fs);
@@ -930,7 +930,7 @@ class Stack extends Component
         })
          ->where(function ($q) {
              $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+                 ->orWhere('company_id', $this->company_s);
          })
         // ->when($this->search_user, function ($q) {
         //     return $q->where('name', 'like', '%' . $this->search_user . '%');
@@ -945,7 +945,7 @@ class Stack extends Component
 
         $this->user_fl = Production::where('service_id', $this->service->uuid)
             ->when(Auth()->user()->contract, function ($q) {
-                return $q->where('company_id', Auth()->user()->employee->contract->company_id);
+                return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->user()));
             })
             ->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);

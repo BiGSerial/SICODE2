@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\{Exportable, FromView, WithEvents, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;

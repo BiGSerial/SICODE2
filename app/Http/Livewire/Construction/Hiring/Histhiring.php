@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Construction\Hiring;
 
 use App\Helpers\TextFormatter;
 use App\Jobs\Construction\ExportHistHiringJob;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\File;
 use App\Models\Note;
 use App\Models\Viability;

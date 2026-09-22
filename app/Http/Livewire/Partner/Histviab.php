@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\Viability\HistoricReport;
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Viability};
 use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
@@ -241,17 +241,7 @@ class Histviab extends Component
         // ->where('approved', true)
         // ->where('hired', true);
 
-        if (!auth()->user()->superadm) {
-
-            if (Auth()->user()->Companies->isNotEmpty()) {
-                $query->where(function ($q) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                });
-            } else {
-                $query->where('company_id', Auth()->user()->Company->id);
-            }
-        }
+        $this->applyPartnerCompanyScope($query);
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 

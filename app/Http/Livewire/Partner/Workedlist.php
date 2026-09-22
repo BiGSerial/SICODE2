@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\WorkInformsExport;
 use App\Models\{Company, File, WorkReport};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Services\Files\FileStorageService;
 use App\Services\WorkReports\WorkReportStatusResolver;
 use Carbon\Carbon;
@@ -162,7 +162,7 @@ class Workedlist extends Component
 
         // $query->where('rejected', false);
 
-        $visibleCompanyIds = $this->visibleCompanyIds();
+        $visibleCompanyIds = collect(\App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor(auth()->user()));
 
         if (!auth()->user()->superadm) {
             if ($visibleCompanyIds->isNotEmpty()) {
@@ -339,12 +339,6 @@ class Workedlist extends Component
             return collect();
         }
 
-        return collect()
-            ->merge($user->Companies?->pluck('id') ?? [])
-            ->push($user->company_id)
-            ->push($user->Employee?->Contract?->company_id)
-            ->filter()
-            ->unique()
-            ->values();
+        return collect(\App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor($user));
     }
 }

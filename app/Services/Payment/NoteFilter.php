@@ -2,7 +2,7 @@
 
 namespace App\Services\Payment;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\Note;
 use Illuminate\Database\Eloquent\Builder;
 

@@ -130,4 +130,9 @@ class EngineerController extends Controller
     {
         return view('engineers.cancellation_approvals_history');
     }
+
+    public function cancellationRegional()
+    {
+        return view('engineers.cancellation_regional');
+    }
 }

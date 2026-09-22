@@ -234,6 +234,24 @@
         color: #9f1239;
     }
 
+    .partner-admin-status.is-online {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .partner-admin-status.is-offline {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .partner-admin-status-dot {
+        width: .45rem;
+        height: .45rem;
+        border-radius: 50%;
+        background: currentColor;
+        margin: .1rem .3rem 0 0;
+    }
+
     .partner-admin-code {
         background: #f8fafc;
         border: 1px solid #e5eaf0;

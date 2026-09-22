@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Default;
 
 use App\Custom\RuleBuilder;
 use App\Exports\ExportDDExcel;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use Livewire\{Component, WithPagination};
 
@@ -544,10 +544,10 @@ class Main extends Component
             $this->company_l = Company::orderBy('name', 'ASC')->get();
         } else {
 
-            $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
+            $this->company_l = Company::whereIn('id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()))->get();
         }
 
-        $this->user_l = User::whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
+        $this->user_l = User::where('company_id', $this->company_s)->orderBy('name')->get();
 
         $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
 

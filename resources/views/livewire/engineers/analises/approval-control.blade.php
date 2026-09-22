@@ -105,7 +105,7 @@
                     [
                         'myKey' => 'region',
                         'sendFilter' => 'city',
-                        'model' => 'App\Models\Edp_depc\City',
+                        'model' => 'App\Models\City',
                         'column' => 'baseConstrucao',
                         'filter' => 'Região',
                         'group_filter' => 'analises',
@@ -121,7 +121,7 @@
                     [
                         'myKey' => 'city',
                         'sendFilter' => '',
-                        'model' => 'App\Models\Edp_depc\City',
+                        'model' => 'App\Models\City',
                         'column' => 'cidade',
                         'filter' => 'Município',
                         'group_filter' => 'analises',

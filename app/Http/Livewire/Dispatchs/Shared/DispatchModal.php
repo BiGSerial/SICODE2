@@ -194,7 +194,7 @@ class DispatchModal extends Component
         })
             ->where(function ($q) {
                 $q->where('company_id', $this->company_s)
-                    ->orWhereRelation('Employee.Contract', 'company_id', $this->company_s)
+                    ->orWhere('company_id', $this->company_s)
                     ->orWhereRelation('Companies', 'companies.id', $this->company_s);
             })
             ->when($this->search_user, function ($q) {

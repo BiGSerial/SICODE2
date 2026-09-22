@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Desenho;
 
 use App\Jobs\Dispatchs\ExportDispatchDrawingMainJob;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Services\Design\BlockEvaluator;
 use App\Services\Dispatchs\DesignDispatchMainQueryService;
 use App\Support\SicodeRules;
@@ -758,7 +758,7 @@ class Main extends Component
         })
          ->where(function ($q) {
              $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+                 ->orWhere('company_id', $this->company_s);
          })
         ->when($this->search_user, function ($q) {
             return $q->where('name', 'like', '%' . $this->search_user . '%');

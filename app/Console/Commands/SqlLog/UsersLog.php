@@ -44,7 +44,7 @@ class UsersLog extends Command
                         'name' => $user->name,
                         'Registration' => $user->Registration,
                         'email' => $user->email,
-                        'company' => isset($user->Employee->Contract->Company) ? $user->Employee->Contract->Company->name : null,
+                        'company' => $user->Company?->name,
                         'superadm' => $user->superadm ? true : false,
                         'admin' => $user->admin ? true : false,
                         'management' => $user->management ? true : false,

@@ -137,8 +137,7 @@
                     <tbody>
                         @forelse ($lists as $list)
                             @php
-                                $contractCompany = $list->User?->Employee?->Contract?->company?->name
-                                    ?? $list->User?->Company?->name
+                                $contractCompany = $list->User?->Company?->name
                                     ?? '---';
                                 $statusMeta = Viabilitiesstatus::status($list->status);
                             @endphp

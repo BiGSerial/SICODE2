@@ -76,6 +76,7 @@
                                 'open' => 'side',
                                 'items' => [
                                     ['label' => 'MONITOR DE PRODUÇÃO', 'route' => 'monitor.services', 'icon' => 'ri-computer-line', 'can' => 'management'],
+                                    ['label' => 'TOKENS DE API', 'route' => 'config.system.api_tokens', 'icon' => 'ri-key-2-line'],
                                 ],
                             ],
                             [

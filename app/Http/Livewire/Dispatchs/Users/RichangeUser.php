@@ -38,7 +38,7 @@ class RichangeUser extends Component
 
     public function getUsersProperty()
     {
-        return User::WhereRelation('Employee.Contract.company', 'id', $this->company)
+        return User::where('company_id', $this->company)
                     ->when(trim($this->search), function ($q) {
                         $q->where('name', 'like', "%".trim($this->search)."%");
                     })
@@ -106,7 +106,7 @@ class RichangeUser extends Component
             DB::beginTransaction();
 
             $check = $this->reclaim->Production->update([
-                'company_id' => $user->Employee->Contract->company->id,
+                'company_id' => $user->company_id,
                 'user_id' => $user->id,
                 'att_by' => Auth()->User()->id,
                 'att_at' => date('Y-m-d H:i:s'),

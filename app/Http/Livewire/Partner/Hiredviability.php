@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, Note};
 use App\Services\Files\FileStorageService;
 use Illuminate\Support\Facades\Crypt;
@@ -166,15 +166,7 @@ class Hiredviability extends Component
                 ->where('hired', true)
                 ->where('completed', false);
 
-            if (!Auth()->User()->superadm) {
-
-                if (isset(Auth()->User()->Employee->Contract->Company->id)) {
-                    $q->whereIn('company_id', Auth()->user()->Companies->pluck('id')->toArray())
-                    ->orWhere('company_id', Auth()->user()->Company->id);
-                } else {
-                    $q->where('company_id', null);
-                }
-            }
+            $this->applyPartnerCompanyScope($q);
 
         })
             ->with(['Viabilities' => function ($query) {

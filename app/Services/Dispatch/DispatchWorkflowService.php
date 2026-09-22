@@ -440,14 +440,7 @@ class DispatchWorkflowService
 
     private function userBelongsToCompany(User $user, string $companyId): bool
     {
-        if ((string) $user->company_id === $companyId) {
-            return true;
-        }
-
-        if ((string) ($user->Employee?->Contract?->company_id ?? '') === $companyId) {
-            return true;
-        }
-
-        return $user->Companies()->where('companies.id', $companyId)->exists();
+        return collect(SicodeRules::visibleCompanyIdsFor($user))->contains((string) $companyId)
+            || $user->Companies()->where('companies.id', $companyId)->exists();
     }
 }

@@ -134,11 +134,9 @@
                             wire:model="companySelected" data-bs-toggle="tooltip" data-bs-placement="top"
                             data-bs-title="Empreiteira">
                             <option value="">Todas Empreiteiras</option>
-                            @if (Auth()->User()->Companies->isNotEmpty())
-                                @foreach (Auth()->User()->Companies as $company)
+                            @foreach ($this->partnerCompanyFilterOptions() as $company)
                                     <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                @endforeach
-                            @endif
+                            @endforeach
                         </select>
                     </div>
                 @endcan
@@ -176,8 +174,8 @@
 
                 <div class="col d-flex justify-content-end">
                     @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'equipment', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'equipment', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'equipment', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
+                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'equipment', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
+                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'equipment', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
                     @livewire('components.filter.remove-all', ['group_filter' => 'equipment'], key('removeAll'))
                 </div>
 

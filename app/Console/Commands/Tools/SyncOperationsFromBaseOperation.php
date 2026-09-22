@@ -182,7 +182,7 @@ class SyncOperationsFromBaseOperation extends Command
                         'fimPlanejado'    => $this->parseDateTime($src->fimPlanejado),
                         'inicioReal'      => $this->parseDateTime($src->inicioReal),
                         'fimReal'         => $this->parseDateTime($src->fimReal),
-                        'status'          => $src->status ?? null,
+                        'status'          => Operation::normalizeStatus($src->status ?? null),
                         'notaOv'          => $src->notaOv ?? null,
                         'cenPlan'         => $src->cenPlan ?? null,
                         'cenTrab'         => $src->cenTrab ?? null,

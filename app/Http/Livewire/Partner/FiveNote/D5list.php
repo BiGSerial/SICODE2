@@ -51,8 +51,6 @@ class D5list extends Component
 
         $this->applyPartnerCompanyScope($query);
 
-        $this->applyPartnerBranchScopeToFiveNotes($query);
-
         $query->where('visible_partner', true)
             ->where('is_completed', false)
             ->where('returned', $this->onlyReturned)
@@ -167,6 +165,7 @@ class D5list extends Component
             'startDate'      => $this->startDate,
             'endDate'        => $this->endDate,
             'passiveFilter'  => $this->passiveFilter,
+            'partnerCompanyFilter' => $this->partnerCompanyFilter,
         ];
     }
 

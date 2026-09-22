@@ -22,7 +22,7 @@
                 <td>{{ $theUser->id }}</td>
                 <td>{{ $theUser->name }}</td>
                 <td>{{ $theUser->email }}</td>
-                <td>{{ isset($theUser->Employee->Contract->Company->name) ? mb_strtoupper($theUser->Employee->Contract->Company->name) : '' }}
+                <td>{{ $theUser->Company?->name ? mb_strtoupper($theUser->Company->name) : '' }}
                 </td>
                 <td>
 

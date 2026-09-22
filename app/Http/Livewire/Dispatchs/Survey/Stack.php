@@ -186,13 +186,9 @@ class Stack extends Component
                 'user:id,name,company_id,deleted_at',
                 'user.Company:id,name',
                 'user.Employee:id,user_id,contract_id',
-                'user.Employee.Contract:id,company_id',
-                'user.Employee.Contract.company:id,name',
                 'dispatcher:id,name,company_id,deleted_at',
                 'dispatcher.Company:id,name',
                 'dispatcher.Employee:id,user_id,contract_id',
-                'dispatcher.Employee.Contract:id,company_id',
-                'dispatcher.Employee.Contract.company:id,name',
                 'note:id,note,dt_created,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
             ]);
     }

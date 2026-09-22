@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Responsible;
 
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{File, WorkReport};
 use App\Services\Files\FileStorageService;
 use Livewire\{Component, WithPagination};

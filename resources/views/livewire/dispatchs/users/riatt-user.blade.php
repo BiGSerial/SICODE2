@@ -81,7 +81,7 @@
                                     <td class="text-center align-middle">{{ $reclaim->Note->rubrica }}</td>
                                     <td class="text-center align-middle">{{ $user ? $user->name : '' }}</td>
                                     <td class="text-center align-middle">
-                                        {{ $user ? explode(' ', $user->Employee->Contract->company->name)[0] : '' }}
+                                        {{ $user ? explode(' ', $user->Company?->name ?? '')[0] : '' }}
                                     </td>
                                 </tr>
                             </tbody>

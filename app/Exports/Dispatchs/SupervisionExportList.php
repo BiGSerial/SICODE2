@@ -236,11 +236,19 @@ class SupervisionExportList implements FromQuery, WithEvents, WithProperties, Wi
 
     private function formatDate($date, string $format): string
     {
-        if (!$date) {
+        if ($date === null || $date === '' || $date === false) {
             return '---';
         }
 
-        return ($date instanceof DateTimeInterface ? $date : Carbon::parse($date))->format($format);
+        try {
+            $formattedDate = $date instanceof DateTimeInterface
+                ? $date
+                : Carbon::parse((string) $date);
+
+            return $formattedDate?->format($format) ?: '---';
+        } catch (\Throwable) {
+            return '---';
+        }
     }
 
     public function properties(): array

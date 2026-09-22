@@ -95,7 +95,7 @@ class Translist extends Component
             try {
                 $production->update([
                     'user_id'     => $this->transfer_prod->to,
-                    'company_id'  => (User::with('Employee.Contract')->find($this->transfer_prod->to))->Employee->Contract->company_id,
+                    'company_id'  => User::find($this->transfer_prod->to)?->company_id,
                     'att_at'      => date('Y-m-d H:i:s'),
                     'status'      => 2,
                     'transferred' => true,

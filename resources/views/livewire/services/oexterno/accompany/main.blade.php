@@ -122,7 +122,7 @@
                             [
                                 'myKey' => 'region',
                                 'sendFilter' => 'city',
-                                'modelClass' => \App\Models\Edp_depc\City::class,
+                                'modelClass' => \App\Models\City::class,
                                 'column' => 'regiao',
                                 'filterLabel' => 'Região',
                                 'groupFilter' => 'oexterno',
@@ -139,7 +139,7 @@
                             [
                                 'myKey' => 'city',
                                 'sendFilter' => '',
-                                'modelClass' => \App\Models\Edp_depc\City::class,
+                                'modelClass' => \App\Models\City::class,
                                 'column' => 'cidade',
                                 'filterLabel' => 'Município',
                                 'groupFilter' => 'oexterno',

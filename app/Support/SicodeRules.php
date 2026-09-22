@@ -145,8 +145,7 @@ class SicodeRules
             return null;
         }
 
-        $companyId = $user->Employee?->Contract?->company_id
-            ?: $user->company_id
+        $companyId = $user->company_id
             ?: self::visibleCompanyIdsCollectionFor($user)->first();
 
         if (!$companyId) {
@@ -322,10 +321,9 @@ class SicodeRules
 
     private static function visibleCompanyIdsCollectionFor(User $user): Collection
     {
-        $ids = collect([
-            $user->company_id,
-            $user->Employee?->Contract?->company_id,
-        ]);
+        // O escopo empresarial vem do cadastro do usuário. O contrato pode ser
+        // inexistente e não deve ser necessário para descobrir a empresa.
+        $ids = collect([$user->company_id]);
 
         if ($user->relationLoaded('Companies')) {
             $ids = $ids->merge($user->Companies->pluck('id'));
@@ -333,8 +331,28 @@ class SicodeRules
             $ids = $ids->merge($user->Companies()->pluck('companies.id'));
         }
 
-        return $ids
+        $ids = $ids
             ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return $ids;
+        }
+
+        // Usuário cadastrado na MATRIZ enxerga a própria empresa e suas filiais.
+        $rootIds = Company::query()
+            ->whereIn('id', $ids->all())
+            ->get(['id', 'parent_id'])
+            ->map(fn (Company $company) => (string) ($company->parent_id ?: $company->id))
+            ->unique()
+            ->values();
+
+        return Company::query()
+            ->whereIn('id', $rootIds->all())
+            ->orWhereIn('parent_id', $rootIds->all())
+            ->pluck('id')
             ->map(fn ($id) => (string) $id)
             ->unique()
             ->values();

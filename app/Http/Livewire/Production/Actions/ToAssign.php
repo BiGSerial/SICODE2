@@ -43,7 +43,7 @@ class ToAssign extends Component
         })
             ->where(function ($q) use ($value) {
                 $q->where('company_id', $value)
-                    ->orWhereRelation('Employee.Contract', 'company_id', $value)
+                    ->orWhere('company_id', $value)
                     ->orWhereRelation('Companies', 'companies.id', $value);
             })
             ->select('id', 'name')

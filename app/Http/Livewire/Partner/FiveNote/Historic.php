@@ -49,7 +49,7 @@ class Historic extends Component
 
         $this->applyPartnerCompanyScope($query);
 
-        $this->applyPartnerBranchScopeToFiveNotes($query);
+        $query->with('company');
 
         $query->where('visible_partner', true)
             ->where('is_completed', true)
@@ -171,6 +171,7 @@ class Historic extends Component
             'startDate'      => $this->startDate,
             'endDate'        => $this->endDate,
             'passiveFilter'  => $this->passiveFilter,
+            'partnerCompanyFilter' => $this->partnerCompanyFilter,
         ];
     }
 

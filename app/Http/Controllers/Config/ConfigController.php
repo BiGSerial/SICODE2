@@ -26,6 +26,11 @@ class ConfigController extends Controller
         return view('config.sqlsrv_health');
     }
 
+    public function applicationApiTokens()
+    {
+        return view('config.application_api_tokens');
+    }
+
     public function main()
     {
         return redirect()->route('config.system.status');

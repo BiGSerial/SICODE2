@@ -471,8 +471,8 @@
                     <span class="small text-uppercase fw-semibold text-secondary me-1">Filtros adicionais</span>
                     <div class="d-flex flex-wrap justify-content-end gap-2">
                         @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'supervision', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\Edp_depc\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
-                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\Edp_depc\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
+                        @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'baseConstrucao', 'filter' => 'Regiao', 'group_filter' => 'supervision', 'values' => 'baseConstrucao', 'direction' => 'ASC', 'query' => ''], key('regional'))
+                        @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'rdMunicipio', 'filter' => 'Municipio', 'group_filter' => 'supervision', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
                         @livewire('components.filter.remove-all', ['group_filter' => 'supervision'], key('removeAll'))
                     </div>
                 </div>

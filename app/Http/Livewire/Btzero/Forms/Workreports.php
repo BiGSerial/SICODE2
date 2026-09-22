@@ -208,7 +208,7 @@ class Workreports extends Component
     public function send_informe()
     {
         $this->form['note_id'] = $this->note->id;
-        $this->form['company_id'] = Auth()->User()->Employee->Contract->company->id;
+        $this->form['company_id'] = Auth()->User()->company_id;
         $this->form['user_id'] = Auth()->User()->id;
         $this->form['informed_at'] = date('Y-m-d H:i:s');
 

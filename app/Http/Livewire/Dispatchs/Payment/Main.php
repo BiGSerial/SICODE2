@@ -6,7 +6,7 @@ use App\Custom\RuleBuilder;
 use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Helpers\TextFormatter;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\BlockEvaluator;
@@ -596,12 +596,16 @@ class Main extends Component
             }
 
             // 2) parcial elegível?
-            $partialModel = $note->partials()->orderByDesc('created_at')->first();
+            $partialModel = $note->partials()
+                ->where('allow', true)
+                ->where('deny', false)
+                ->where('supervision', true)
+                ->where('payment', false)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
 
-            $isPartial = $partialModel
-                && $partialModel->allow
-                && $partialModel->supervision
-                && !$partialModel->payment;
+            $isPartial = (bool) $partialModel;
 
             // 3) dt_note
             $dtNote = $isPartial
@@ -864,7 +868,8 @@ class Main extends Component
             ")
             ->where('p.allow', 1)
             ->where('p.deny', 0)
-            ->where('p.supervision', 1);
+            ->where('p.supervision', 1)
+            ->where('p.payment', 0);
 
         $latestPartials = DB::query()
             ->fromSub($latestPartialBase, 't')
@@ -1120,7 +1125,7 @@ class Main extends Component
         })
             ->where(function ($q) {
                 $q->whereRelation('Company', 'company_id', $this->company_s)
-                  ->orWhereRelation('Employee.Contract.company', 'id', $this->company_s);
+                  ->orWhere('company_id', $this->company_s);
             })
             ->when($this->search_user, fn ($q) => $q->where('name', 'like', '%' . $this->search_user . '%'))
             ->orderBy('name', 'ASC')

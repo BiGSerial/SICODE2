@@ -39,8 +39,8 @@ class TransferLog extends Command
         $transfers = Prodtransfer::whereDate('updated_at', '>=', Carbon::now()->subDays($this->option('days')))
             ->with([
                 'Production.Note',
-                'From.Employee.Contract.company',
-                'To.Employee.Contract.company',
+                'From.Company',
+                'To.Company',
                 'Service',
             ])
             ->get();
@@ -90,9 +90,9 @@ class TransferLog extends Command
             'note'          => $production?->Note?->note ?? '',
             'service'       => $transfer->Service?->service ?? '',
             'from'          => $transfer->From?->name ?? '',
-            'company_from'  => $transfer->From?->Employee?->Contract?->company?->name ?? '',
+            'company_from'  => $transfer->From?->Company?->name ?? '',
             'to'            => $transfer->To?->name ?? '',
-            'company_to'    => $transfer->To?->Employee?->Contract?->company?->name ?? '',
+            'company_to'    => $transfer->To?->Company?->name ?? '',
             'info'          => trim((string) $transfer->info),
             'status'        => Notestatus::status($transfer->status)->status,
             'note_status'   => $production?->status_note ?? '',

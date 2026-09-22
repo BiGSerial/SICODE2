@@ -133,7 +133,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                     <li class="nav-item mx-2"><div class="d-flex align-items-end justify-content-between">
                         <a href="{{ route('home') }}" class="d-flex align-items-end">
                             <span
-                                class="d-none d-lg-block text-white fw-bold fs-4">{{ isset(Auth()->user()->Employee->Contract->company->name) ? mb_strtolower(explode(' ', Auth()->user()->Employee->Contract->company->name)[0]) : '' }}</span>
+                                class="d-none d-lg-block text-white fw-bold fs-4">{{ Auth()->user()->Company?->name ? mb_strtolower(explode(' ', Auth()->user()->Company->name)[0]) : '' }}</span>
                             <span class="d-none d-lg-block text-edp-verde fw-bold fs-4">{{ \App\Support\SicodeRules::displayName() }}</span>
                         </a>
                     </div></li><!-- End Logo -->

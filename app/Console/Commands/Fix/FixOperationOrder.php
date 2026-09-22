@@ -5,6 +5,7 @@ namespace App\Console\Commands\Fix;
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Models\Edp_depc\BaseOperation;
 use App\Models\Order;
+use App\Models\Operation;
 use Illuminate\Console\Command;
 
 class FixOperationOrder extends Command
@@ -33,7 +34,9 @@ class FixOperationOrder extends Command
 
         $chunkSize = 8000;
 
-        $op_count = BaseOperation::where('operacao', $this->option('op'))->count();
+        $sourceQuery = BaseOperation::where('operacao', $this->option('op'));
+
+        $op_count = $sourceQuery->count();
 
 
 
@@ -45,7 +48,7 @@ class FixOperationOrder extends Command
 
 
         $this->info('TRY FIX MISSED OPERATION');
-        BaseOperation::where('operacao', $this->option('op'))->chunk($chunkSize, function ($operations) use (&$count, &$progressBar) {
+        $sourceQuery->chunk($chunkSize, function ($operations) use (&$count, &$progressBar) {
             $theOperations = $operations->pluck('ordem')->unique();
 
             $orders = Order::whereDoesntHave('Operations')->whereIn('ordem', $theOperations)->get();
@@ -60,7 +63,7 @@ class FixOperationOrder extends Command
 
                     if ($operation) {
 
-                        $check = $order->Operations()->updateOrCreate(
+                        $check = $order->Operations()->withoutGlobalScopes()->updateOrCreate(
                             ['operacao' => $operation->operacao],
                             [
                                 'descOperacao'    => $operation->descOperacao,
@@ -68,7 +71,7 @@ class FixOperationOrder extends Command
                                 'fimPlanejado'    => $operation->fimPlanejado,
                                 'inicioReal'      => $operation->inicioReal,
                                 'fimReal'         => $operation->fimReal,
-                                'status'          => $operation->status,
+                                'status'          => Operation::normalizeStatus($operation->status ?? null),
                                 'notaOv'          => $operation->notaOv,
                                 'cenPlan'         => $operation->cenPlan,
                                 'cenTrab'         => $operation->cenTrab,

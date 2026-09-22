@@ -174,7 +174,7 @@ class Manualnote extends Component
                 'note_id'     => $this->note->id,
                 'service_id'  => $this->service,
                 'user_id'     => $this->user,
-                'company_id'  => $user->Employee->Contract->company_id,
+                'company_id'  => $user->company_id,
                 'dispatch_by' => auth()->User()->id,
                 'att_by'      => auth()->User()->id,
                 'dt_note'     => $this->note->dt_status,

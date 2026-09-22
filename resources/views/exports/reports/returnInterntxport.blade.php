@@ -60,11 +60,11 @@
                     </td>
                     <td class="text-center align-middle">
                         @if ($list->Approvals->isNotEmpty())
-                            {{ $list->Approvals->last()->User ? $list->Approvals->last()->User->Employee->Contract->company->name : '' }}
+                            {{ $list->Approvals->last()->User?->Company?->name ?? '' }}
                         @elseif ($list->Waiting)
-                            {{ $list->Waiting->User ? $list->Waiting->User->Employee->Contract->company->name : '' }}
+                            {{ $list->Waiting->User?->Company?->name ?? '' }}
                         @elseif ($list->Viabilities->isNotEmpty())
-                            {{ $list->Viabilities->last()->Engineer ? $list->Viabilities->last()->Engineer->Employee->Contract->company->name : '' }}
+                            {{ $list->Viabilities->last()->Engineer?->Company?->name ?? '' }}
                         @endif
                     </td>
                     <td class="text-center align-middle">{{ $list->category }}</td>

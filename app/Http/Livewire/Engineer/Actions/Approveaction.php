@@ -97,7 +97,7 @@ class Approveaction extends Component
                     $production = Production::Create([
                         'note_id' => $this->list->id,
                         'service_id' => $this->service_s,
-                        'company_id' => User::find($this->lastUser->user_id)->Employee->Contract->company->id ?? null,
+                        'company_id' => User::find($this->lastUser->user_id)?->company_id,
                         'user_id' => $this->lastUser->user_id,
                         'att_by' => Auth()->User()->id,
                         'dispatch_by' => Auth()->User()->id,

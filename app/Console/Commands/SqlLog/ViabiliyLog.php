@@ -86,9 +86,9 @@ class ViabiliyLog extends Command
                                 ],
                                 [
                                     'hired_by' => $viability->User->name,
-                                    'company_hiring' => $viability->User->Employee->Contract ? $viability->User->Employee->Contract->company->name : '---',
+                                    'company_hiring' => $viability->User->Company?->name ?? '---',
                                     'responsible' => $viability->Engineer ? $viability->Engineer->name : 'DESCONHECIDO',
-                                    'company_responsible' => $viability->Engineer->Employee->Contract ? $viability->Engineer->Employee->Contract->company->name : '---',
+                                    'company_responsible' => $viability->Engineer->Company?->name ?? '---',
                                     'viability_by' => $viability->Form ? $viability->Form->responsible : 'NÃO VIABILIZADO',
                                     'company_viability' => $viability->Company->name,
                                     'note' => $viability->Note->note,

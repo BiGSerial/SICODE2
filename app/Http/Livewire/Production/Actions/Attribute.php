@@ -44,7 +44,7 @@ class Attribute extends Component
         $this->dd         = $dd;
         $this->service    = Service::find($this->production->service_id);
 
-        $this->user_l    = User::with('Employee.Contract')->orderBy('name')->get();
+        $this->user_l    = User::with('Company')->orderBy('name')->get();
         $this->company_l = Company::orderBy('name')->get();
     }
 
@@ -147,7 +147,7 @@ class Attribute extends Component
     {
         $users_list = $this->user_l->filter(function ($usuario) {
 
-            return $usuario->Employee->Contract->where('company_id', $this->company_s) ? $usuario->Employee->Contract->where('company_id', $this->company_s) : false;
+            return (string) $usuario->company_id === (string) $this->company_s;
 
         });
 

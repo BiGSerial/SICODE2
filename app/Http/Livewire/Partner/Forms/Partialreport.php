@@ -238,7 +238,7 @@ class Partialreport extends Component
             $partial = Partial::create(
                 [
                     'note_id'     => $this->note->id,
-                    'company_id'  => Auth()->User()->Employee->Contract->company_id,
+                    'company_id'  => Auth()->User()->company_id,
                     'user_id'     => Auth()->User()->id,
                     'observation' => $this->observation,
                     'responsible' => $this->responsible,

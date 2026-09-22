@@ -90,7 +90,9 @@ class ImportSpecificOperations extends Command
                     $operacao = $this->clean($sourceOperation->operacao);
                     $payload = $this->payloadFromSource($sourceOperation);
 
-                    $query = Operation::query()
+                    // Inclui temporariamente registros antigos IMPR LIB para que,
+                    // quando chegar um status válido, eles sejam substituídos.
+                    $query = Operation::withoutGlobalScopes()
                         ->where('order_id', $order->id)
                         ->where('operacao', $operacao);
 
@@ -196,7 +198,7 @@ class ImportSpecificOperations extends Command
             'fimPlanejado' => $this->parseDateTime($sourceOperation->fimPlanejado ?? null),
             'inicioReal' => $this->parseDateTime($sourceOperation->inicioReal ?? null),
             'fimReal' => $this->parseDateTime($sourceOperation->fimReal ?? null),
-            'status' => $this->clean($sourceOperation->status ?? null),
+            'status' => Operation::normalizeStatus($this->clean($sourceOperation->status ?? null)),
             'notaOv' => $this->clean($sourceOperation->notaOv ?? null),
             'cenPlan' => $this->clean($sourceOperation->cenPlan ?? null),
             'cenTrab' => $this->clean($sourceOperation->cenTrab ?? null),

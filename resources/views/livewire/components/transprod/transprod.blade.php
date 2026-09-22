@@ -54,8 +54,7 @@
                                     @php
                                         $nameParts = explode(' ', trim($user->name));
                                         $name = $nameParts[0] . ' ' . end($nameParts);
-                                        $companyName = $user->Employee?->Contract?->company?->name
-                                            ?? $user->Company?->name
+                                        $companyName = $user->Company?->name
                                             ?? $user->Companies?->first()?->name
                                             ?? 'Empresa não informada';
                                     @endphp

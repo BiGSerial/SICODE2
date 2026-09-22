@@ -112,8 +112,7 @@ class viabilityQueryExport implements FromQuery, WithEvents, WithProperties, Wit
             ? $row->Orders->pluck('ordem')->filter()->implode("\n")
             : ($row->Order?->ordem ?? '');
 
-        $contractCompany = $row->User?->Employee?->Contract?->company?->name
-            ?? $row->User?->Company?->name
+        $contractCompany = $row->User?->Company?->name
             ?? '---';
 
         return [

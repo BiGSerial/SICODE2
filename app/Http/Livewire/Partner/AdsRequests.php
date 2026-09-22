@@ -8,6 +8,7 @@ use App\Models\AdsRequest;
 use App\Models\Note;
 use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
 use App\Models\SystemSetting;
+use App\Services\PartnerAccess\PartnerAccessGate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
@@ -118,6 +119,9 @@ class AdsRequests extends Component
             $noteQuery = Note::query()
                 ->where('note', $noteNumber);
 
+            $noteQuery->whereHas('Viabilities', function ($viabilityQuery) {
+                $this->applyPartnerCompanyScope($viabilityQuery);
+            });
             $this->applyPartnerBranchScopeToNotes($noteQuery, $companyId);
 
             $note = $noteQuery
@@ -675,15 +679,14 @@ class AdsRequests extends Component
             return null;
         }
 
-        if ($user->company_id) {
-            return $user->company_id;
+        $selectedCompanyId = (string) ($this->partnerCompanyFilter ?? '');
+        $visibleCompanyIds = PartnerAccessGate::visibleCompanyIdsFor($user);
+
+        if ($selectedCompanyId !== '' && in_array($selectedCompanyId, $visibleCompanyIds, true)) {
+            return $selectedCompanyId;
         }
 
-        if ($user->Companies && $user->Companies->isNotEmpty()) {
-            return $user->Companies->first()->id;
-        }
-
-        return null;
+        return $user->company_id ?: ($visibleCompanyIds[0] ?? null);
     }
 
     protected function parseNotesInput(): array
@@ -764,9 +767,6 @@ class AdsRequests extends Component
     {
         $query = AdsRequest::query()
             ->with(['note', 'company'])
-            ->when(!auth()->user()?->superadm, function ($q) {
-                $q->where('requested_by', auth()->id());
-            })
             ->whereNotIn('status', [
                 AdsRequestStatus::DONE->value,
                 AdsRequestStatus::CANCELED->value,
@@ -774,6 +774,7 @@ class AdsRequests extends Component
             ])
             ->orderByDesc('created_at');
 
+        $this->applyPartnerCompanyScope($query);
         $this->applyPartnerBranchScopeToNoteRelation($query, null, 'note');
 
         if ($this->activeSearch) {
@@ -912,15 +913,13 @@ class AdsRequests extends Component
     {
         $query = AdsRequest::query()
             ->with(['note', 'company'])
-            ->when(!auth()->user()?->superadm, function ($q) {
-                $q->where('requested_by', auth()->id());
-            })
             ->whereIn('status', [
                 AdsRequestStatus::DONE->value,
                 AdsRequestStatus::FAILED->value,
                 AdsRequestStatus::CANCELED->value,
             ]);
 
+        $this->applyPartnerCompanyScope($query);
         $this->applyPartnerBranchScopeToNoteRelation($query, null, 'note');
 
         if ($this->historySearch) {

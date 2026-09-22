@@ -125,19 +125,7 @@ class ExportUserListJob implements ShouldQueue
             ->when(
                 $viewer->contract,
                 function ($q) use ($viewer) {
-                    if ($viewer->Companies->count()) {
-                        return $q->whereRelation('Employee.Contract.company', function ($sq) use ($viewer) {
-                            return $sq->whereIn('id', $viewer->Companies->pluck('id'));
-                        });
-                    }
-
-                    if (isset($viewer->Employee->Contract->company->id)) {
-                        return $q->whereRelation('Employee.Contract.company', function ($sq) use ($viewer) {
-                            return $sq->whereIn('id', [$viewer->Employee->Contract->company->id]);
-                        });
-                    }
-
-                    return $q->whereRaw('1 = 0');
+                    return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor($viewer));
                 }
             )
             ->withTrashed()
@@ -172,7 +160,7 @@ class ExportUserListJob implements ShouldQueue
                 });
             })
             ->when($this->params['selectedCompany'] ?? null, function ($q, $companyId) {
-                return $q->whereRelation('Employee.Contract', 'company_id', $companyId);
+                return $q->where('company_id', $companyId);
             })
             ->when($this->params['multiSearch'] ?? null, function ($q) {
                 $multiSearch = (array) ($this->params['multiSearch'] ?? []);
@@ -196,7 +184,7 @@ class ExportUserListJob implements ShouldQueue
                 $role = (string) $this->params['roleFilter'];
                 return $q->where($role, true);
             })
-            ->with('Employee.Contract.Company', 'Watchdog', 'ToServices.Service')
+            ->with('Company', 'Watchdog', 'ToServices.Service')
             ->orderBy('name');
     }
 }

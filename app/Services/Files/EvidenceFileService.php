@@ -51,25 +51,62 @@ class EvidenceFileService
 
     public function exists(EvidenceFile $file): bool
     {
-        return filled($file->path) && Storage::disk($this->diskName($file))->exists($file->path);
+        return $this->resolveLocation($file) !== null;
     }
 
     public function download(EvidenceFile $file): StreamedResponse
     {
-        return Storage::disk($this->diskName($file))->download(
-            (string) $file->path,
+        $location = $this->resolveLocation($file);
+
+        if ($location === null) {
+            throw new \RuntimeException('Arquivo não encontrado no storage.');
+        }
+
+        [$disk, $path] = $location;
+
+        return Storage::disk($disk)->download(
+            $path,
             $file->original_name ?: $file->stored_name
         );
     }
 
     public function deletePhysical(EvidenceFile $file): bool
     {
-        return $this->exists($file) && Storage::disk($this->diskName($file))->delete((string) $file->path);
+        $location = $this->resolveLocation($file);
+
+        return $location !== null && Storage::disk($location[0])->delete($location[1]);
     }
 
-    private function diskName(EvidenceFile $file): string
+    private function resolveLocation(EvidenceFile $file): ?array
     {
-        return $file->disk ?: 'public';
+        $rawPath = ltrim((string) $file->path, '/');
+
+        if ($rawPath === '') {
+            return null;
+        }
+
+        $paths = array_values(array_unique(array_filter([
+            $rawPath,
+            str_starts_with($rawPath, 'storage/') ? substr($rawPath, 8) : null,
+            str_starts_with($rawPath, 'public/') ? substr($rawPath, 7) : null,
+        ])));
+
+        $disks = array_values(array_unique(array_filter([
+            $file->disk ?: null,
+            $this->context->evidenceDisk(),
+            'local',
+            'public',
+        ])));
+
+        foreach ($disks as $disk) {
+            foreach ($paths as $path) {
+                if (Storage::disk($disk)->exists($path)) {
+                    return [$disk, $path];
+                }
+            }
+        }
+
+        return null;
     }
 
     private function ensureExtension(string $name, string $extension): string

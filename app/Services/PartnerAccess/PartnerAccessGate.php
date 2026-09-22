@@ -127,6 +127,43 @@ class PartnerAccessGate
         return $company?->parent_id ?: $companyId;
     }
 
+    /**
+     * Retorna as empresas que o usuário do PARTNER pode consultar.
+     * Usuários de uma filial ficam restritos à própria filial; usuários
+     * vinculados à MATRIZ também alcançam suas filiais.
+     */
+    public static function visibleCompanyIdsFor(User $user): array
+    {
+        if ($user->superadm) {
+            return [];
+        }
+
+        $companyIds = collect([$user->company_id])
+            ->merge($user->Companies()->pluck('companies.id'))
+            ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($companyIds->isEmpty()) {
+            return [];
+        }
+
+        $rootIds = Company::withTrashed()
+            ->whereIn('id', $companyIds->all())
+            ->whereNull('parent_id')
+            ->pluck('id');
+
+        return Company::withTrashed()
+            ->whereIn('id', $companyIds->all())
+            ->orWhereIn('parent_id', $rootIds->all())
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public static function grantedPermissionKeysForCompany(string $companyId): Collection
     {
         $grants = PartnerCompanyPermissionGrant::query()

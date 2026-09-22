@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Admin\User\Actions;
 use App\Models\{City, Company, Contract, Service, ServiceUser, User};
 use Illuminate\Support\Facades\{Hash, Schema};
 use Illuminate\Validation\Rule;
+use App\Support\SicodeRules;
 use Livewire\Component;
 
 class Usuario extends Component
@@ -49,6 +50,10 @@ class Usuario extends Component
 
     public $region;
 
+    public $regionSelect;
+
+    public $temporaryRegions = [];
+
     public $cities;
 
     public $city;
@@ -77,7 +82,7 @@ class Usuario extends Component
             'user.name'                              => ['required', 'string', 'max:255'],
             'user.Registration'                      => ['nullable', 'string', 'max:80'],
             'user.email'                             => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email')->ignore($this->user?->id)],
-            'contract'                               => ['required', 'exists:contracts,id'],
+            'contract'                               => ['nullable', 'exists:contracts,id'],
             'user.company_id'                        => ['required', 'exists:companies,id'],
             'user.superadm'                          => ['nullable', 'boolean'],
             'user.admin'                             => ['nullable', 'boolean'],
@@ -125,7 +130,6 @@ class Usuario extends Component
         'user.Registration.max'    => 'A matrícula deve ter no máximo 80 caracteres.',
         'user.company_id.required' => 'Selecione a empresa do usuário.',
         'user.company_id.exists'   => 'A empresa selecionada não foi encontrada.',
-        'contract.required'        => 'Selecione o contrato do usuário.',
         'contract.exists'          => 'O contrato selecionado não foi encontrado.',
     ];
 
@@ -140,16 +144,22 @@ class Usuario extends Component
     {
         if (!Auth()->User()->contract) {
             $this->companyList = Company::orderBy('name')->get();
-        } elseif (Auth()->User()->Companies->count()) {
-
-            $this->userCompany = auth()->user();
-            $this->companyList = $this->userCompany->Companies()->get();
         } else {
-            $this->companyList = Company::where('id', Auth()->User()->company_id)->orderBy('name')->get();
+            $this->companyList = Company::whereIn(
+                'id',
+                SicodeRules::visibleCompanyIdsFor(auth()->user())
+            )->orderBy('name')->get();
         }
 
         $this->cities     = City::orderBy('cidade')->get();
-        $this->regionList = City::orderBy('regiao')->distinct()->pluck('regiao');
+        // A associação de acesso é feita pela Regional operacional
+        // (Centro, Norte, Sul...), não pelo campo geográfico "regiao".
+        $this->regionList = City::query()
+            ->whereNotNull('regional')
+            ->where('regional', '<>', '')
+            ->orderBy('regional')
+            ->distinct()
+            ->pluck('regional');
     }
 
     public function updatedRegion()
@@ -166,14 +176,15 @@ class Usuario extends Component
             // dd($this->user);
 
             if (!$this->user->company_id) {
-                $this->user->company_id = $this->user->Employee->Contract->company->id ?? null;
-                $this->user->save();
+                // A empresa do usuário é independente de contrato.
+                $this->user->company_id = $this->user->Company?->id;
             }
 
             $this->contractList           = $this->contractsForCompany($this->user->company_id);
-            $this->company                = $this->user->Employee->Contract->company->id ?? '';
-            $this->contract               = $this->user->Employee->Contract->id ?? '';
+            $this->company                = $this->user->company_id ?? '';
+            $this->contract               = $this->user->Employee?->Contract?->id ?? '';
             $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
+            $this->temporaryRegions = $this->user->regionNames()->values()->all();
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'userModal',
@@ -198,10 +209,6 @@ class Usuario extends Component
             $this->temporaryServices = [];
         }
 
-        if ($this->contractList->count() === 1) {
-            $this->contract = $this->contractList->first()->id;
-            $this->updatedContract($this->contract);
-        }
     }
 
     public function updatedContract($value)
@@ -215,9 +222,8 @@ class Usuario extends Component
             return;
         }
 
-        if (!$this->user?->exists || (!$this->user->ToServices->count() && !count($this->temporaryServices))) {
-            $this->applyContractServices();
-        }
+        // Selecionar um contrato apenas carrega as atividades disponíveis.
+        // A atribuição deve ocorrer somente por ação explícita do administrador.
     }
 
     public function newUser()
@@ -227,6 +233,7 @@ class Usuario extends Component
         $this->user                   = new User();
         $this->user->permission_locks = $this->normalizePermissionLocks([]);
         $this->user->user             = true;
+        $this->temporaryRegions      = [];
 
         $this->temporaryPassword  = Hash::make(123456);
         $this->temporaryFirstPass = 1;
@@ -316,6 +323,30 @@ class Usuario extends Component
         $this->emitSelf('refreshuser');
     }
 
+    public function addRegion(): void
+    {
+        $region = trim((string) $this->regionSelect);
+
+        if ($region === '' || in_array($region, $this->temporaryRegions, true)) {
+            return;
+        }
+
+        $this->temporaryRegions[] = $region;
+        $this->regionSelect = null;
+    }
+
+    public function removeRegion(string $region): void
+    {
+        $this->temporaryRegions = array_values(array_filter(
+            $this->temporaryRegions,
+            fn (string $selectedRegion): bool => $selectedRegion !== $region
+        ));
+
+        if ($this->user?->exists) {
+            $this->user->regions()->where('region', $region)->delete();
+        }
+    }
+
     public function removeCompany($company_id)
     {
 
@@ -383,17 +414,6 @@ class Usuario extends Component
         $effectiveLocks   = $isSuperAdm ? $incomingLocks : $existingLocks;
         $primaryServiceId = $this->resolvePrimaryServiceId();
 
-        if ($this->selectedContractHasServices() && !$primaryServiceId) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Selecione ao menos uma atividade para o usuário.',
-                'timer'    => 2500,
-            ]);
-
-            return;
-        }
-
         if (!$isSuperAdm) {
             foreach ($this->persistablePermissions() as $permission) {
                 if (!empty($actorLocks[$permission])) {
@@ -428,18 +448,31 @@ class Usuario extends Component
 
         $this->user->save();
 
-        if ($this->user->Employee) {
+        $this->user->regions()->delete();
+        $this->user->regions()->createMany(
+            collect($this->temporaryRegions)
+                ->map(fn ($region): string => trim((string) $region))
+                ->filter()
+                ->unique()
+                ->map(fn (string $region): array => ['region' => $region])
+                ->all()
+        );
+
+        if ($this->contract && $this->user->Employee) {
             // Atualiza o Employee existente
             $this->user->Employee()->update([
                 'contract_id' => $this->contract,
-                'service_id'  => $primaryServiceId,
+                'service_id'  => $primaryServiceId ?: $this->user->Employee->service_id,
             ]);
-        } else {
+        } elseif ($this->contract) {
             // Cria um novo Employee
             $this->user->Employee()->create([
                 'contract_id' => $this->contract,
                 'service_id'  => $primaryServiceId,
             ]);
+        } elseif ($this->user->Employee) {
+            // Sem contrato, não há vínculo operacional a manter.
+            $this->user->Employee()->delete();
         }
 
         $this->syncSelectedContractServices();
@@ -480,13 +513,6 @@ class Usuario extends Component
 
     private function resolvePrimaryServiceId(): ?string
     {
-        $contract          = $this->contract ? Contract::with('services')->find($this->contract) : null;
-        $contractServiceId = $contract?->services?->first()?->uuid;
-
-        if ($contractServiceId) {
-            return $contractServiceId;
-        }
-
         $temporaryService = collect($this->temporaryServices)
             ->first(fn ($service) => !empty($service['service_id']));
 
@@ -507,14 +533,15 @@ class Usuario extends Component
 
     private function syncSelectedContractServices(): void
     {
-        $contract   = $this->contract ? Contract::with('services')->find($this->contract) : null;
-        $serviceIds = $contract
-            ? $contract->services->pluck('uuid')->filter()->values()->all()
-            : collect($this->temporaryServices)->pluck('service_id')->filter()->values()->all();
+        // A existência de atividades no contrato não cria atividades para o
+        // usuário. Somente atividades adicionadas explicitamente entram aqui.
+        $serviceIds = collect($this->temporaryServices)
+            ->pluck('service_id')
+            ->filter()
+            ->values()
+            ->all();
 
         if (!$serviceIds) {
-            $this->user->ToServices()->delete();
-
             return;
         }
 
@@ -611,6 +638,8 @@ class Usuario extends Component
         $this->resetValidation();
 
         $this->temporaryServices = [];
+        $this->temporaryRegions = [];
+        $this->regionSelect = null;
 
         $this->user = null;
 

@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Helpers\TextFormatter;
-use App\Models\Edp_depc\City;
+use App\Models\City;
 use App\Models\File;
 use App\Models\WorkReport;
 use App\Services\Files\FileStorageService;
@@ -108,15 +108,7 @@ class Rejectedworkreports extends Component
         $this->filter = $this->loadFilters();
 
         // Iniciar a consulta de WorkReport
-        $query = WorkReport::query()->active()
-            ->where('rejected', true)
-        ->whereDoesntHave('Note', function ($q) {
-            $q->whereIn('nstats', [55])
-            ->orWhere(function ($q) {
-                $q->where('nstats', 99)
-                  ->where('type_note', 1);
-            });
-        });
+        $query = WorkReport::query()->pendingRejectedForPartner();
 
         // Filtros de data
         if ($this->date_in || $this->date_out) {

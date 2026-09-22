@@ -93,10 +93,26 @@
             padding: .25rem .9rem;
             font-size: .78rem;
             font-weight: 600;
+            white-space: nowrap;
+            display: inline-block;
+            color: #fff !important;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, .2);
+        }
+
+        .five-list-page .status-pill.status-success { background: #147d64; }
+        .five-list-page .status-pill.status-warning {
+            background: #f2b705;
+            color: #2d2100 !important;
+            text-shadow: none;
+        }
+        .five-list-page .status-pill.status-info { background: #2563a8; }
+        .five-list-page .status-pill.status-primary { background: #3046b8; }
+        .five-list-page .status-pill.status-secondary { background: #475569; }
         }
     </style>
 
     <x-show-loading />
+    @include('livewire.partner.partials.company-filter')
 
     {{-- === Barra de filtros === --}}
     <div class="card card-soft my-2">
@@ -187,6 +203,7 @@
                                 <tr>
                                     <th class="text-center" style="width:52px;"></th>
                                     <th>Nota D5</th>
+                                    <th>Empresa</th>
                                     <th>Note</th>
                                     <th>Orders</th>
                                     <th>PEP</th>
@@ -212,25 +229,25 @@
                                 @foreach ($fives as $index => $five)
                                     @php
                                         $status = '';
-                                        $statusClass = 'bg-secondary text-white';
+                                        $statusClass = 'status-secondary';
 
                                         if ($five->is_payed) {
                                             if ($five->is_archived) {
                                                 $status = 'Finalizada';
-                                                $statusClass = 'bg-success';
+                                                $statusClass = 'status-success';
                                             } elseif ($five->is_supervisioned) {
                                                 $status = 'Aguardando Liberação Medição';
-                                                $statusClass = 'bg-warning text-dark';
+                                                $statusClass = 'status-warning';
                                             } elseif ($five->is_completed) {
                                                 $status = 'Aguardando Fiscalização';
-                                                $statusClass = 'bg-info text-dark';
+                                                $statusClass = 'status-info';
                                             } elseif ($five->visible_partner) {
                                                 $status = 'Aguardando Conclusão Parceira';
-                                                $statusClass = 'bg-primary';
+                                                $statusClass = 'status-primary';
                                             }
                                         } else {
                                             $status = 'Aguardando Despacho Medição';
-                                            $statusClass = 'bg-primary';
+                                            $statusClass = 'status-primary';
                                         }
                                     @endphp
                                     <tr wire:key="historic-{{ $five->id }}"
@@ -251,6 +268,7 @@
                                                 <small class="text-muted">{{ $five->loc_install }}</small>
                                             </div>
                                         </td>
+                                        <td class="cell-tight">{{ $five->company?->name ?? '—' }}</td>
                                         <td class="cell-tight">{{ $five->note->note }}</td>
                                         <td class="cell-tight">{{ historic_get_order($five->note) }}</td>
                                         <td class="cell-tight">{{ $five->pep }}</td>

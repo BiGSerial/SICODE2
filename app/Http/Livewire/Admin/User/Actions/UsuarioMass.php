@@ -65,7 +65,7 @@ class UsuarioMass extends Component
     protected $rules = [
 
         'company' => 'required|exists:companies,id',
-        'contract' => 'required|exists:contracts,id',
+        'contract' => 'nullable|exists:contracts,id',
         'permissions.company_id' => 'required|string|max:255',
         'permissions.superadm' => 'boolean',
         'permissions.admin' => 'boolean',
@@ -119,34 +119,23 @@ class UsuarioMass extends Component
         $this->contractList = $this->contractsForCompany($this->company);
         $this->contract = null;
         $this->serviceList = null;
+        $this->serviceSelect = null;
         $this->temporaryServices = [];
-
-        if ($this->contractList->count() === 1) {
-            $this->contract = $this->contractList->first()->id;
-            $this->updatedContract($this->contract);
-        }
     }
 
     public function updatedContract($value)
     {
         $contract = $value ? Contract::with('services')->find($value) : null;
         $this->serviceList = $contract?->services;
+        $this->serviceSelect = null;
         $this->temporaryServices = [];
 
         if (!$contract) {
             return;
         }
 
-        $primaryService = $contract->services->first();
-
-        if ($primaryService) {
-            $this->serviceSelect = $primaryService->uuid;
-            $this->temporaryServices = [[
-                'service_id' => $primaryService->uuid,
-                'service'    => true,
-                'dispatch'   => $this->profileCanDispatch(),
-            ]];
-        }
+        // Selecionar o contrato apenas carrega as atividades disponíveis.
+        // A atribuição ocorre somente pela ação explícita "Definir".
     }
 
 
@@ -213,44 +202,40 @@ class UsuarioMass extends Component
         $actorLocks = $this->normalizePermissionLocks((array) ($actor?->permission_locks ?? []));
         $primaryServiceId = $this->resolvePrimaryServiceId();
 
-        if ($this->selectedContractHasServices() && !$primaryServiceId) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Selecione ao menos uma atividade para os usuarios.',
-                'timer'    => 2500,
-            ]);
-
-            return;
-        }
-
         if ($this->users->count()) {
 
             foreach ($this->users as $user) {
                 $shouldPreserveServices = $this->shouldPreserveExistingServices($user);
-                $employeePayload = [
-                    'contract_id' => $this->contract,
-                ];
+                $employeePayload = [];
+
+                // A empresa é o vínculo principal do usuário, independente de
+                // haver contrato ou atividade operacional.
+                $user->company_id = $this->company;
+
+                if ($this->contract) {
+                    $employeePayload['contract_id'] = $this->contract;
+                }
 
                 if (!$shouldPreserveServices) {
                     $employeePayload['service_id'] = $primaryServiceId;
                 }
 
-                if ($user->Employee) {
+                if ($user->Employee && $this->contract) {
                     // Atualiza o Employee existente
                     $user->Employee()->update($employeePayload);
-                } else {
+                } elseif ($this->contract) {
                     // Cria um novo Employee
                     $user->Employee()->create($employeePayload + [
                         'service_id' => $primaryServiceId,
                     ]);
+                } elseif ($user->Employee) {
+                    $user->Employee()->delete();
                 }
 
 
                 if ($this->changePermission) {
 
 
-                    $user->company_id  = $this->company;
                     $locks = $this->normalizePermissionLocks((array) ($user->permission_locks ?? []));
 
                     foreach (self::LOCKABLE_PERMISSIONS as $permission) {
@@ -405,7 +390,6 @@ class UsuarioMass extends Component
 
     private function resolvePrimaryServiceId(): ?string
     {
-        $contract = $this->contract ? Contract::with('services')->find($this->contract) : null;
         $temporaryService = collect($this->temporaryServices)
             ->first(fn ($service) => !empty($service['service_id']));
 

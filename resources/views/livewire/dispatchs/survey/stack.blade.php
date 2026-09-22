@@ -205,7 +205,6 @@
                             {
                                 return $fallbackCompany?->name
                                     ?? $user?->Company?->name
-                                    ?? $user?->Employee?->Contract?->company?->name
                                     ?? null;
                             }
                         }

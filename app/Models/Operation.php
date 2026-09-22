@@ -9,6 +9,32 @@ class Operation extends Model
 {
     use HasFactory;
 
+    public const SAP_PRINT_PREFIX = 'IMPR ';
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $operation) {
+            $operation->status = self::normalizeStatus($operation->status);
+            return true;
+        });
+    }
+
+    public static function normalizeStatus(?string $status): ?string
+    {
+        $status = trim((string) $status);
+
+        if (str_starts_with(strtoupper($status), self::SAP_PRINT_PREFIX)) {
+            return trim(substr($status, strlen(self::SAP_PRINT_PREFIX)));
+        }
+
+        return $status !== '' ? $status : null;
+    }
+
+    public function getStatusAttribute($value): ?string
+    {
+        return self::normalizeStatus($value);
+    }
+
     protected $fillable = [
         'order_id',
         'operacao',

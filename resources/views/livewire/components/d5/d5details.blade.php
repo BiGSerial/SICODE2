@@ -155,9 +155,8 @@
                                                                     alt="{{ $file->original_name ?: 'Evidencia' }}"
                                                                     loading="lazy">
                                                             </button>
-                                                            <a href="{{ asset('storage/' . $file->path) }}"
-                                                                download="{{ $file->original_name ?: basename($file->path) }}"
-                                                                class="five-thumb-download" title="Download">
+                                                            <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
+                                                                class="five-thumb-download" title="Download pelo storage">
                                                                 <i class="ri-download-2-line"></i>
                                                             </a>
                                                         </div>
@@ -171,9 +170,8 @@
                                                         <div class="five-file-item">
                                                             <i class="ri-attachment-2"></i>
                                                             <span>{{ $file->original_name ?: basename($file->path) }}</span>
-                                                            <a href="{{ asset('storage/' . $file->path) }}"
-                                                                download="{{ $file->original_name ?: basename($file->path) }}"
-                                                                class="five-download-link" title="Download">
+                                                            <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
+                                                                class="five-download-link" title="Download pelo storage">
                                                                 <i class="ri-download-2-line"></i>
                                                             </a>
                                                         </div>
@@ -218,9 +216,8 @@
                                         </div>
                                         <div class="five-gallery-caption">
                                             <span>{{ $file->original_name ?: basename($file->path) }}</span>
-                                            <a href="{{ asset('storage/' . $file->path) }}"
-                                                download="{{ $file->original_name ?: basename($file->path) }}"
-                                                class="five-gallery-download" title="Download">
+                                            <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
+                                                class="five-gallery-download" title="Download pelo storage">
                                                 <i class="ri-download-2-line"></i>
                                             </a>
                                         </div>
