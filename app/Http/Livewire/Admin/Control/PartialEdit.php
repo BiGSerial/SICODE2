@@ -357,7 +357,7 @@ class PartialEdit extends Component
             ->orderByDesc('created_at')
             ->get();
 
-        $linkedIds = $this->partial->productions->pluck('id')->all();
+        $linkedIds = $this->partial->productions()->pluck('productions.id')->all();
 
         $this->linkedProductions = $all->whereIn('id', $linkedIds)->values()->all();
         $this->availableProductions = $all->whereNotIn('id', $linkedIds)->values()->all();
