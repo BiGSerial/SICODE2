@@ -618,7 +618,7 @@
                             <tr class="align-middle" wire:key="supervision-row-{{ $list->id }}-{{ $list->dispatch_work_report_id ?? 'note' }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}:{{ (int) ($list->dispatch_work_report_id ?? 0) }}" wire:model.defer="selected"
+                                        value="{{ $list->id }}:{{ (int) ($list->dispatch_work_report_id ?? 0) }}:{{ (int) (($list->dispatch_work_report_id ?? 0) ? 0 : ($latestValidPartial?->id ?? 0)) }}" wire:model.defer="selected"
                                         @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')

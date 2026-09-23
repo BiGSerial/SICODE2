@@ -236,6 +236,7 @@ class DispatchWorkflowService
 
             $serviceKey = $this->contextResolver->serviceKey($service);
             $targetWorkReportIds = [];
+            $explicitWorkReport = null;
 
             if ($partialId) {
                 $partial = $note->Partials->firstWhere('id', $partialId);
@@ -254,16 +255,21 @@ class DispatchWorkflowService
             }
 
             if ($explicitWorkReportId) {
-                $validWorkReport = WorkReport::query()
+                $explicitWorkReport = WorkReport::query()
                     ->whereKey($explicitWorkReportId)
                     ->where('note_id', $note->id)
                     ->where('canceled', false)
-                    ->exists();
+                    ->with(['Note', 'Orders', 'FiveNote'])
+                    ->first();
 
-                if (!$validWorkReport) {
+                if (!$explicitWorkReport) {
                     throw new DispatchException('O informe selecionado nao pertence a esta Nota/OV ou esta cancelado.');
                 }
 
+                // O contexto selecionado precisa continuar disponível para o
+                // BlockEvaluator depois que a Note é recarregada na transação.
+                $note->setAttribute('dispatch_work_report_id', $explicitWorkReportId);
+                $note->setRelation('WorkForm', $explicitWorkReport);
                 $targetWorkReportIds = [$explicitWorkReportId];
             }
 
@@ -300,7 +306,7 @@ class DispatchWorkflowService
                 }
 
                 if ($stackProduction) {
-                    return $this->dispatchFromExistingCompanyStack($stackProduction, $note, $targetUser, $actor, $dd);
+                    return $this->dispatchFromExistingCompanyStack($stackProduction, $note, $targetUser, $actor, $dd, $finalScopes, $explicitWorkReportId, $partialId);
                 }
             }
 
@@ -482,13 +488,18 @@ class DispatchWorkflowService
         Note $note,
         ?User $targetUser,
         User $actor,
-        ?string $dd
+        ?string $dd,
+        array $finalScopes = [],
+        ?int $workReportId = null,
+        ?int $partialId = null
     ): Production {
         if ($dd) {
             $this->attachDd($note, $production, $dd);
         }
 
         if (!$targetUser) {
+            $this->attachPartialContext($production, $partialId);
+            $this->linkWorkReportFlow($production, $this->contextResolver->serviceKey($production->Service), $finalScopes, $workReportId);
             $this->timeline($production, $actor, 'Manteve a NOTA/OV na pilha da empresa', 1);
 
             return $production;
@@ -504,6 +515,8 @@ class DispatchWorkflowService
         ]);
 
         $this->afterAssigned($production, $actor, null);
+        $this->attachPartialContext($production, $partialId);
+        $this->linkWorkReportFlow($production, $this->contextResolver->serviceKey($production->Service), $finalScopes, $workReportId);
         $this->timeline($production, $actor, 'Atribuiu a NOTA/OV para: ' . $targetUser->name, 2);
 
         return $production;
@@ -601,8 +614,14 @@ class DispatchWorkflowService
                     ->all();
 
             foreach ($finalScopes as $finalScope) {
-                $workReport = app(WorkReportFlowProductionLinker::class)
-                    ->resolveCurrentFinalWorkReport((int) $production->note_id, $finalScope);
+                $workReport = $workReportId
+                    ? WorkReport::query()
+                        ->whereKey($workReportId)
+                        ->where('note_id', $production->note_id)
+                        ->where('canceled', false)
+                        ->first()
+                    : app(WorkReportFlowProductionLinker::class)
+                        ->resolveCurrentFinalWorkReport((int) $production->note_id, $finalScope);
 
                 if (!$workReport) {
                     continue;

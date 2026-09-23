@@ -342,7 +342,7 @@
                     </div>
 
                     <div class="card-body border-top">
-                        @livewire('files.manager.create-ads-files', ['note' => $note, 'service' => 'CFINAL'], key('ADS_final_files'))
+                        @livewire('files.manager.create-ads-files', ['note' => $note, 'service' => 'CFINAL', 'workReportId' => $selectedWorkReportId ? (int) $selectedWorkReportId : null], key('ADS_final_files-' . ($selectedWorkReportId ?: 'none')))
                     </div>
 
                     <div class="card-footer bg-white border-0 p-4 pt-0">

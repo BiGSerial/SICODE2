@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Admin\Control;
 
 use App\Models\{Company, Order, Partial, Production, User};
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class PartialEdit extends Component
@@ -157,6 +158,7 @@ class PartialEdit extends Component
         $production->save();
 
         $this->partial->productions()->syncWithoutDetaching([$production->id]);
+        $this->syncPartialStatusFromProduction($production);
         $this->partial->load('productions.service', 'productions.user');
         $this->refreshProductionLists();
         $this->productionId = null;
@@ -306,6 +308,39 @@ class PartialEdit extends Component
 
         $this->linkedOrders = $orders->whereIn('id', $linkedIds)->values()->all();
         $this->availableOrders = $orders->whereNotIn('id', $linkedIds)->values()->all();
+    }
+
+    private function syncPartialStatusFromProduction(Production $production): void
+    {
+        if (!$production->completed) {
+            return;
+        }
+
+        $service = Str::lower(Str::ascii(trim((string) ($production->service?->service ?? ''))));
+        $finishedAt = $production->completed_at ?? $production->confirmed_at ?? now();
+        $userId = $production->user_id ?: null;
+
+        if (Str::contains($service, 'fiscaliz')) {
+            $this->partial->supervision = true;
+            $this->partial->supervision_at = $finishedAt;
+            if ($userId) {
+                $this->partial->supervision_id = $userId;
+            }
+        }
+
+        if (Str::contains($service, 'pagamento') || Str::contains($service, 'medicao')) {
+            $this->partial->payment = true;
+            $this->partial->complete = true;
+            $this->partial->payment_at = $finishedAt;
+            if ($userId) {
+                $this->partial->payment_id = $userId;
+            }
+        }
+
+        $this->partial->save();
+        $this->decisionAt = $this->formatDateTimeLocal($this->partial->decision_at);
+        $this->paymentAt = $this->formatDateTimeLocal($this->partial->payment_at);
+        $this->supervisionAt = $this->formatDateTimeLocal($this->partial->supervision_at);
     }
 
     private function refreshProductionLists(): void

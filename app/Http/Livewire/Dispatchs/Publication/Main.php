@@ -244,7 +244,21 @@ class Main extends Component
             return;
         }
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
+        $noteIds = collect($this->selected)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        $workReportIdsByNote = WorkReport::query()
+            ->whereIn('note_id', $noteIds)
+            ->where('canceled', false)
+            ->orderByRaw('COALESCE(informed_at, created_at) DESC')
+            ->orderByDesc('id')
+            ->get(['id', 'note_id'])
+            ->groupBy('note_id')
+            ->map(fn ($reports) => (int) $reports->first()->id);
+
+        $payload = $noteIds
+            ->map(fn (int $noteId) => ['note_id' => $noteId, 'work_report_id' => $workReportIdsByNote[$noteId] ?? null])
+            ->all();
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
 
     public function confirm_att()

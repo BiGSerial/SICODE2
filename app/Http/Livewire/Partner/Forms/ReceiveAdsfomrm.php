@@ -373,7 +373,7 @@ class ReceiveAdsfomrm extends Component
             return;
         }
 
-        $newName = "ADS_IFINAL_" . $this->note->note;
+        $newName = "ADS_IFINAL_" . $this->note->note . "_INF" . $workReport->id;
         $newName = $newName . "_N" . str_pad((File::where('file_name', 'like', $newName . "%")->count() + 1), 3, '0', STR_PAD_LEFT);
 
         DB::beginTransaction();
@@ -435,7 +435,7 @@ class ReceiveAdsfomrm extends Component
                     $adsForm->files()->attach($file->id);
 
                     if ($this->hasFile) {
-                        $this->emitTo('files.manager.create-ads-files', 'saveFiles');
+                        $this->emitTo('files.manager.create-ads-files', 'saveFiles', (int) $workReport->id);
                     }
                 } catch (\Throwable) {
                     DB::rollback();

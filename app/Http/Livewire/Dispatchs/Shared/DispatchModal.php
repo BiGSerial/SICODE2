@@ -13,12 +13,14 @@ use App\Services\Dispatch\DispatchException;
 use App\Services\Dispatch\DispatchWorkflowService;
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Support\SicodeRules;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class DispatchModal extends Component
 {
     public $service;
+    public array $dispatchContextsByIndex = [];
     public $notes;
     public $company_l;
     public $user_l;
@@ -98,8 +100,9 @@ class DispatchModal extends Component
                 $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']) => $context['partial_id'],
             ])
             ->all();
+        $this->dispatchContextsByIndex = $contexts->values()->all();
 
-        $this->notes = $contexts
+        $this->notes = new EloquentCollection($contexts
             ->map(function (array $context) use ($loadedNotes) {
                 $note = $loadedNotes->get($context['note_id']);
 
@@ -115,7 +118,8 @@ class DispatchModal extends Component
                 return $row;
             })
             ->filter()
-            ->values();
+            ->values()
+            ->all());
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
@@ -157,14 +161,48 @@ class DispatchModal extends Component
 
         $this->resetModalState();
 
-        $productions = Production::with($this->modalProductionRelations())
+        $productions = Production::with(array_merge($this->modalProductionRelations(), ['WorkReportFlowProductions.WorkReport', 'partialInforms']))
             ->whereIn('id', $productionIds)
             ->where('service_id', $this->service->uuid)
             ->where('completed', false)
             ->where('confirmed', false)
             ->get();
 
-        $this->notes = $productions->pluck('Note')->filter()->values();
+        $this->notes = new EloquentCollection($productions
+            ->map(function (Production $production) {
+                $note = $production->Note;
+                if (!$note) {
+                    return null;
+                }
+
+                $link = $production->WorkReportFlowProductions
+                    ->where('is_current', true)
+                    ->whereIn('stage', ['fiscalization', 'payment', 'publication'])
+                    ->sortByDesc('linked_at')
+                    ->first();
+                $partial = $production->partialInforms->sortByDesc('created_at')->first();
+
+                $note->setAttribute('dispatch_work_report_id', $link?->work_report_id);
+                $note->setAttribute('dispatch_partial_id', $partial?->id);
+                $note->setAttribute('dispatch_context_key', $this->contextKey(
+                    (int) $note->id,
+                    $link?->work_report_id,
+                    $partial?->id
+                ));
+
+                return $note;
+            })
+            ->filter()
+            ->values()
+            ->all());
+        $this->dispatchContextsByIndex = $this->notes
+            ->map(fn (Note $note) => [
+                'note_id' => (int) $note->id,
+                'work_report_id' => (int) ($note->dispatch_work_report_id ?? 0) ?: null,
+                'partial_id' => (int) ($note->dispatch_partial_id ?? 0) ?: null,
+            ])
+            ->values()
+            ->all();
         $this->sourceProductionIdsByNote = $productions
             ->filter(fn ($production) => $production->Note)
             ->mapWithKeys(fn ($production) => [(string) $production->note_id => (int) $production->id])
@@ -525,6 +563,31 @@ class DispatchModal extends Component
         $this->sourceProductionIdsByNote = [];
         $this->targetWorkReportIdsByNote = [];
         $this->targetPartialIdsByContext = [];
+        $this->dispatchContextsByIndex = [];
+    }
+
+    public function hydrateNotes($value): void
+    {
+        foreach ($this->notes as $index => $note) {
+            if (!$note instanceof Note) {
+                continue;
+            }
+
+            $context = $this->dispatchContextsByIndex[$index] ?? null;
+            if (!$context) {
+                continue;
+            }
+
+            $workReportId = (int) ($context['work_report_id'] ?? 0) ?: null;
+            $partialId = (int) ($context['partial_id'] ?? 0) ?: null;
+
+            $note->setAttribute('dispatch_work_report_id', $workReportId);
+            $note->setAttribute('dispatch_partial_id', $partialId);
+            $note->setAttribute(
+                'dispatch_context_key',
+                $this->contextKey((int) $context['note_id'], $workReportId, $partialId)
+            );
+        }
     }
 
     private function applyContractModeDefaults(): void
@@ -656,6 +719,7 @@ class DispatchModal extends Component
                 'rejected',
                 'selected_final_scopes',
             ]),
+            'WorkForm.Note:id,type_note',
             'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem']),
             'WorkForms' => fn ($q) => $q->select([
                 'id',
@@ -666,6 +730,7 @@ class DispatchModal extends Component
                 'rejected',
                 'selected_final_scopes',
             ])->where('canceled', false),
+            'WorkForms.Note:id,type_note',
             'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem']),
             'FiveNote:id,note_id,work_report_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Partials' => fn ($q) => $q->select([
@@ -681,8 +746,6 @@ class DispatchModal extends Component
             ])
                 ->where('allow', true)
                 ->where('deny', false)
-                ->where('supervision', true)
-                ->where('payment', false)
                 ->orderByDesc('created_at'),
         ];
     }

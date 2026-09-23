@@ -19,8 +19,8 @@ class BlockEvaluator
     {
         $prod = $this->latestProductionForService($note, $service->uuid);
 
-        $five   = $note->FiveNote;
         $wf     = $note->WorkForm;
+        $five   = $wf?->FiveNote ?? $note->FiveNote;
         $validPartial = $note->Partials
             ?->where('allow', true)
             ->where('supervision', true)

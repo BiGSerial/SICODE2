@@ -14,7 +14,7 @@ class ManageOperationalTestNote extends Command
     private const MARKER = 'SICODE-TESTE-FLOW';
 
     protected $signature = 'sicode:test-note-flow
-        {action=create : create|show|status|purge}
+        {action=create : create|inform|show|status|purge}
         {--note= : Numero da nota de teste}
         {--preset= : publication|publication-confirmed|fiscalization|fiscalization-start|payment|payment-start|closure|finalized|reset}
         {--op= : Operacao SAP para ajuste manual, ex. 0020,0030,0040,0050,0060}
@@ -33,6 +33,7 @@ class ManageOperationalTestNote extends Command
         try {
             return match ((string) $this->argument('action')) {
                 'create' => $this->createScenario($refresher),
+                'inform' => $this->createAdditionalWorkReport($refresher),
                 'show' => $this->showScenario(),
                 'status' => $this->updateScenarioStatus($refresher),
                 'purge' => $this->purgeScenario(),
@@ -182,6 +183,75 @@ class ManageOperationalTestNote extends Command
         return $this->showScenario();
     }
 
+    private function createAdditionalWorkReport(WorkReportCurrentStatusRefresher $refresher): int
+    {
+        $note = $this->testNoteOrFail();
+        if (!$note) {
+            return self::FAILURE;
+        }
+
+        $company = $this->testCompany();
+        $user = $this->testUser($company);
+        $scope = $this->normalizedScope();
+
+        $payload = DB::transaction(function () use ($note, $company, $user, $scope) {
+            $orders = $this->createOrders($note, $scope);
+
+            $workReport = WorkReport::create([
+                'note_id' => $note->id,
+                'company_id' => $company->id,
+                'user_id' => $user->id,
+                'date' => now()->toDateString(),
+                'equipment' => true,
+                'connection' => $scope === 'connection',
+                'changes' => true,
+                'damage' => false,
+                'description' => self::MARKER . ' - informe adicional gerado para teste',
+                'observation' => 'Informe adicional criado por comando artisan para testes operacionais.',
+                'team' => 'TIME TESTE',
+                'responsible' => $user->name,
+                'approved' => true,
+                'rejected' => false,
+                'canceled' => false,
+                'informer' => $user->name,
+                'informed_at' => now(),
+                'acceptance_accepted' => true,
+                'acceptance_at' => now(),
+                'acceptance_name' => $user->name,
+                'acceptance_meta' => ['source' => self::MARKER, 'additional' => true],
+                'selected_final_scopes' => $scope === 'general' ? null : [$scope],
+            ]);
+
+            $workReport->Orders()->sync($orders->pluck('id')->all());
+
+            $ads = Adsform::create([
+                'work_report_id' => $workReport->id,
+                'note_id' => $note->id,
+                'user_id' => $user->id,
+                'name' => self::MARKER . ' ADS ficticia adicional',
+                'obs' => 'ADS ficticia do informe adicional.',
+                'contract' => self::MARKER,
+                'center' => 'TESTE',
+                'deposit' => 'TESTE',
+                'amount' => 123.45,
+                'partial' => false,
+                'tacit' => false,
+            ]);
+
+            return compact('workReport', 'orders', 'ads');
+        });
+
+        $refresher->refresh($payload['workReport']->id);
+
+        $this->info("Informe adicional criado para a nota {$note->note}.");
+        $this->line("Informe: {$payload['workReport']->id}");
+        $this->line('Escopo: ' . $scope);
+        $this->line('Ordens: ' . $payload['orders']->pluck('ordem')->implode(', '));
+        $this->line("ADS: {$payload['ads']->id}");
+
+        return self::SUCCESS;
+    }
+
     private function showScenario(): int
     {
         $note = $this->testNoteOrFail();
@@ -242,7 +312,7 @@ class ManageOperationalTestNote extends Command
             DB::table('notetimelines')
                 ->where('note_id', $note->id)
                 ->orWhereIn('note_id', $productionIds)
-                ->orWhereIn('productionId', $productionIds)
+                ->orWhereIn('production_id', $productionIds)
                 ->delete();
             DB::table('adsforms_files')
                 ->whereIn('adsform_id', Adsform::whereIn('work_report_id', $workReportIds)->pluck('id'))
@@ -465,8 +535,14 @@ class ManageOperationalTestNote extends Command
     private function orderNumber(Note $note, string $prefix, int $index): string
     {
         $noteSuffix = substr(str_pad((string) $note->note, 10, '0', STR_PAD_LEFT), -7);
+        $sequence = $index + 1;
 
-        return $prefix . $noteSuffix . str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
+        do {
+            $number = $prefix . $noteSuffix . str_pad((string) $sequence, 2, '0', STR_PAD_LEFT);
+            $sequence++;
+        } while (Order::where('ordem', $number)->exists());
+
+        return $number;
     }
 
     private function normalizedScope(): string
@@ -478,7 +554,7 @@ class ManageOperationalTestNote extends Command
 
     private function failAction(): int
     {
-        $this->error('Acao invalida. Use create, show, status ou purge.');
+        $this->error('Acao invalida. Use create, inform, show, status ou purge.');
         return self::FAILURE;
     }
 

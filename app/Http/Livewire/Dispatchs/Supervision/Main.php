@@ -536,8 +536,8 @@ class Main extends Component
 
         $payload = collect($this->selected)
             ->map(function ($key) use ($partialIdsByNote) {
-                [$noteId, $workReportId] = $this->parseSelectionKey($key);
-                $partialId = $partialIdsByNote[(int) $noteId] ?? null;
+                [$noteId, $workReportId, $selectedPartialId] = $this->parseSelectionKey($key);
+                $partialId = $selectedPartialId ?: ($partialIdsByNote[(int) $noteId] ?? null);
 
                 if ($workReportId) {
                     return ['note_id' => $noteId, 'work_report_id' => $workReportId];
@@ -1012,22 +1012,6 @@ class Main extends Component
             ->excludeCanceledFullDone()
             ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
 
-        // A D5 is currently anchored to the primary Rede report. When it
-        // returns from the partner, do not clone that activity into the
-        // Ligacao report of the same Note.
-        $query->where(function ($scopeQuery) {
-            $scopeQuery
-                ->whereNotExists(function ($d5Query) {
-                    $d5Query->selectRaw('1')
-                        ->from('five_notes as fn')
-                        ->whereColumn('fn.note_id', 'notes.id')
-                        ->where('fn.is_completed', true)
-                        ->where('fn.is_supervisioned', false)
-                        ->where('fn.is_archived', false);
-                })
-                ->orWhereNull('work_reports.selected_final_scopes')
-                ->orWhereJsonContains('work_reports.selected_final_scopes', 'network');
-        });
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
             Auth()->User(),
@@ -1089,7 +1073,7 @@ class Main extends Component
 
         if ($this->filter_d5) {
             $query->where(function ($q) {
-                $q->whereHas('FiveNote');
+                $q->whereHas('FiveNotes');
             });
         }
 
@@ -1112,6 +1096,7 @@ class Main extends Component
                 $q->with([
                     'Orders:id,ordem',
                     'Adsform:id,work_report_id,tacit,created_at',
+                    'FiveNote:id,note_id,work_report_id,is_completed,is_supervisioned,is_archived,completed_at',
                 ]);
             },
             'Productions.User',
@@ -1202,18 +1187,28 @@ class Main extends Component
 
     private function selectionKey(Note $note): string
     {
-        return $note->id . ':' . (int) ($note->dispatch_work_report_id ?? 0);
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $partialId = $workReportId > 0
+            ? 0
+            : (int) ($note->Partials
+                ?->where('allow', true)
+                ->where('supervision', false)
+                ->where('deny', false)
+                ->sortByDesc('created_at')
+                ->first()?->id ?? 0);
+
+        return $note->id . ':' . $workReportId . ':' . $partialId;
     }
 
     private function parseSelectionKey($key): array
     {
         if (is_string($key) && str_contains($key, ':')) {
-            [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
+            [$noteId, $workReportId, $partialId] = array_pad(explode(':', $key, 3), 3, null);
 
-            return [(int) $noteId, (int) $workReportId];
+            return [(int) $noteId, (int) $workReportId, (int) $partialId];
         }
 
-        return [(int) $key, null];
+        return [(int) $key, null, null];
     }
 
     private function selectedNoteIds(): array

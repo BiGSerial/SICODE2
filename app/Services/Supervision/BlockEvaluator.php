@@ -24,8 +24,8 @@ class BlockEvaluator
         $prod = $this->latestProductionForService($note, $service->uuid);
 
         // Atalhos
-        $five    = $note->FiveNote;
         $wf      = $note->WorkForm;
+        $five    = $wf?->FiveNote ?? $note->FiveNote;
         $hasWorkForm = (bool) $wf;
         $isPartialFromProd = !$hasWorkForm && (bool) ($prod?->partial);
         $validPartial = $this->latestValidPartialForSupervision($note);

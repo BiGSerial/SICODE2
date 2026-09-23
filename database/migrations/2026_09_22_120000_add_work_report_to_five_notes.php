@@ -20,6 +20,9 @@ return new class extends Migration
 
         // D5s vinculados a informes podem coexistir para a mesma Note.
         Schema::table('five_notes', function (Blueprint $table): void {
+            // A FK de note_id precisa continuar indexada depois da remoção
+            // da unicidade herdada da relação legada.
+            $table->index('note_id', 'five_notes_note_id_idx');
             $table->dropUnique(['note_id']);
         });
 
@@ -34,6 +37,7 @@ return new class extends Migration
         Schema::table('five_notes', function (Blueprint $table): void {
             $table->dropUnique('five_notes_work_report_id_unique');
             $table->dropIndex('five_notes_note_work_report_idx');
+            $table->dropIndex('five_notes_note_id_idx');
             $table->dropForeign(['work_report_id']);
             $table->dropColumn('work_report_id');
             $table->unique('note_id');

@@ -39,6 +39,26 @@ class FiveNote extends Model
         'returned',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (FiveNote $fiveNote): void {
+            $fiveNote->d5_origin_key = $fiveNote->originKey();
+        });
+
+        static::updating(function (FiveNote $fiveNote): void {
+            if ($fiveNote->isDirty(['note_id', 'work_report_id'])) {
+                $fiveNote->d5_origin_key = $fiveNote->originKey();
+            }
+        });
+    }
+
+    private function originKey(): string
+    {
+        return $this->work_report_id
+            ? 'work_report:' . $this->work_report_id
+            : 'note:' . $this->note_id;
+    }
+
     protected $casts = [
         'dispatch_at'      => 'datetime',
         'visible_partner'  => 'boolean',
