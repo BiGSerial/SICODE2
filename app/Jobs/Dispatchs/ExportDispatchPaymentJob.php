@@ -256,7 +256,12 @@ class ExportDispatchPaymentJob implements ShouldQueue
             $filePath      = 'exports/' . now()->format('YmdHis') . "{$serviceSuffix}_dispatch_payment.xlsx";
 
             // Exporta (armazenando em disco local)
-            (new DispatchPaymentMain($builder, $service->uuid))->store($filePath, 'local');
+            (new DispatchPaymentMain(
+                $builder,
+                $service->uuid,
+                $this->params['selected_work_report_ids'] ?? [],
+                $this->params['selected_partial_ids'] ?? [],
+            ))->store($filePath, 'local');
 
             // Notifica sucesso
             if ($user && Storage::disk('local')->exists($filePath)) {

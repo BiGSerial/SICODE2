@@ -48,9 +48,15 @@ class Usuario extends Component
 
     public $regionList;
 
+    public $regionGroupList;
+
+    public $baseConstructionList = [];
+
     public $region;
 
-    public $regionSelect;
+    public $regionGroupSelect;
+
+    public $baseConstructionSelect;
 
     public $temporaryRegions = [];
 
@@ -152,8 +158,15 @@ class Usuario extends Component
         }
 
         $this->cities     = City::orderBy('cidade')->get();
-        // A associação de acesso é feita pela Regional operacional
-        // (Centro, Norte, Sul...), não pelo campo geográfico "regiao".
+        // A associação de acesso continua sendo salva pelo nome da regional
+        // operacional, mas a seleção agora é guiada pela hierarquia geográfica.
+        $this->regionGroupList = City::query()
+            ->whereNotNull('regiao')
+            ->where('regiao', '<>', '')
+            ->orderBy('regiao')
+            ->distinct()
+            ->pluck('regiao');
+
         $this->regionList = City::query()
             ->whereNotNull('regional')
             ->where('regional', '<>', '')
@@ -162,10 +175,18 @@ class Usuario extends Component
             ->pluck('regional');
     }
 
-    public function updatedRegion()
+    public function updatedRegionGroupSelect($value): void
     {
-
+        $this->baseConstructionSelect = null;
+        $this->baseConstructionList = City::query()
+            ->where('regiao', $value ?: '__none__')
+            ->whereNotNull('baseConstrucao')
+            ->where('baseConstrucao', '<>', '')
+            ->orderBy('baseConstrucao')
+            ->distinct()
+            ->pluck('baseConstrucao');
     }
+
 
     public function openUser($user)
     {
@@ -185,6 +206,9 @@ class Usuario extends Component
             $this->contract               = $this->user->Employee?->Contract?->id ?? '';
             $this->user->permission_locks = $this->normalizePermissionLocks((array) ($this->user->permission_locks ?? []));
             $this->temporaryRegions = $this->user->regionNames()->values()->all();
+            $this->regionGroupSelect = null;
+            $this->baseConstructionSelect = null;
+                $this->baseConstructionList = [];
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'userModal',
@@ -233,7 +257,12 @@ class Usuario extends Component
         $this->user                   = new User();
         $this->user->permission_locks = $this->normalizePermissionLocks([]);
         $this->user->user             = true;
-        $this->temporaryRegions      = [];
+        $this->temporaryRegions       = [];
+        $this->regionGroupSelect      = null;
+        $this->baseConstructionSelect = null;
+        $this->regionSelect           = null;
+        $this->baseConstructionList   = [];
+        $this->regionalList           = [];
 
         $this->temporaryPassword  = Hash::make(123456);
         $this->temporaryFirstPass = 1;
@@ -325,14 +354,16 @@ class Usuario extends Component
 
     public function addRegion(): void
     {
-        $region = trim((string) $this->regionSelect);
+        // O vínculo de acesso é a base de construção. A regional final
+        // serve apenas para confirmar o recorte da base escolhida.
+        $baseConstruction = trim((string) $this->baseConstructionSelect);
 
-        if ($region === '' || in_array($region, $this->temporaryRegions, true)) {
+        if ($baseConstruction === '' || in_array($baseConstruction, $this->temporaryRegions, true)) {
             return;
         }
 
-        $this->temporaryRegions[] = $region;
-        $this->regionSelect = null;
+        $this->temporaryRegions[] = $baseConstruction;
+        $this->baseConstructionSelect = null;
     }
 
     public function removeRegion(string $region): void
@@ -639,7 +670,9 @@ class Usuario extends Component
 
         $this->temporaryServices = [];
         $this->temporaryRegions = [];
-        $this->regionSelect = null;
+        $this->regionGroupSelect = null;
+        $this->baseConstructionSelect = null;
+        $this->baseConstructionList = [];
 
         $this->user = null;
 

@@ -89,6 +89,10 @@ class Workreports extends Component
 
     public string $selectedFinalScopeMode = '';
 
+    public int $pendingCreatedReportsCount = 0;
+
+    public string $pendingCreatedReportsScopes = '';
+
     public $temp_equipment = [];
 
     public $temp_meeters = [];
@@ -228,10 +232,14 @@ class Workreports extends Component
     {
         // Revebe chamado pelo Component de Arquivos;
         $this->emitTo('files.manager.create-gen-files', 'cleanFiles');
+        $multipleReports = $this->pendingCreatedReportsCount > 1;
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
-            'title'    => 'Informe entregue com sucesso',
+            'title'    => $multipleReports ? 'Informes criados por escopo' : 'Informe entregue com sucesso',
+            'html'     => $multipleReports
+                ? "Foram criados {$this->pendingCreatedReportsCount} informes independentes: {$this->pendingCreatedReportsScopes}."
+                : null,
         ]);
         $this->note = null;
         $this->cleanAll();
@@ -340,12 +348,17 @@ class Workreports extends Component
 
             $this->validate();
 
+            $scopeFeedback = $this->selectedFinalScopeMode === 'both'
+                ? '<div class="alert alert-info"><strong>Dois informes serão gerados:</strong> um informe independente para Rede e outro para Ligação, com os mesmos dados informados e somente as ordens do respectivo escopo.</div>'
+                : '';
+
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'CONFIRMAR CONCLUSÂO OBRA ' . $this->note->note,
                 'msg'   => '
                     <div class="card">
                         <div class="card-body text-start">
                            <p>Você está preste a confirmar a obra ' . $this->note->note . '. Reforçamos que a confirmação PARCIAL da obra poderá acarretar atrasos, incluindo qualquer recursos oriundo em depedência deste informa.</p>
+                           ' . $scopeFeedback . '
                            <p>Você também confirmou que o ASBUILT anexado corresponde à informação declarada sobre alteração de projeto.</p>
                            <h4>Gostaria realmente de confirmar a conclusão desta OBRA?</h4>
                         </div>
@@ -521,27 +534,43 @@ class Workreports extends Component
             return;
         }
 
+        $creationScopes = collect($this->form['selected_final_scopes'] ?? [WorkReportFinalScopeResolver::SCOPE_GENERAL])
+            ->filter()
+            ->values()
+            ->all();
+        $orderIdsByScope = $this->tempOrderIdsByScope();
+
+        if (count($creationScopes) > 1) {
+            $missingScope = collect($creationScopes)
+                ->first(fn (string $scope) => empty($orderIdsByScope[$scope] ?? []));
+
+            if ($missingScope) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon' => 'warning',
+                    'title' => 'Ordens por escopo incompletas',
+                    'html' => 'Não foi possível separar as ordens para cada escopo selecionado.',
+                ]);
+
+                return;
+            }
+        }
+
         DB::beginTransaction();
 
         try {
+            $createdReports = [];
 
-            $form = WorkReport::create($this->form);
-
-            if ($form) {
+            foreach ($creationScopes as $scope) {
+                $payload = $this->form;
+                $payload['selected_final_scopes'] = [$scope];
+                $form = WorkReport::create($payload);
 
                 $form->informed_at = date('Y-m-d H:i:s');
                 $form->save();
 
-                if (!empty($this->temp_orders)) {
-
-                    $ordersId = [];
-
-                    foreach ($this->temp_orders as $order) {
-                        $ordersId[] = $order['id'];
-                    }
-
-                    $form->Orders()->sync($ordersId);
-                }
+                $orderIds = $orderIdsByScope[$scope] ?? collect($this->temp_orders)->pluck('id')->all();
+                $form->Orders()->sync($orderIds);
 
                 if ($form->equipment && !empty($this->temp_equipment)) {
                     foreach ($this->temp_equipment as $equipment) {
@@ -555,44 +584,50 @@ class Workreports extends Component
                     }
                 }
 
-                if ($this->hasPartial) {
-
-                    $user = User::first();
-
-                    $this->hasPartial->update([
-                        'complete'      => true,
-                        'allow'         => false,
-                        'deny'          => true,
-                        'engineer_id'   => $user->id,
-                        'decision_at'   => now(),
-                        'engineer_info' => 'Parcial cancelada automaticamente devido a entrada do informe final. (System Info)',
-                    ]);
-                }
-
-                DB::commit();
-
-                if ($this->hasFiles) {
-                    $this->workReport = $form;
-                    $this->emitTo('files.manager.create-gen-files', 'setWorkReportId', $form->id);
-
-                    // Emite comando SAVE para o componente Laravel.
-                    $this->emitTo('files.manager.create-gen-files', 'saveFiles');
-
-                    return;
-                } else {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'success',
-                        'title'    => 'Informe entregue com sucesso',
-                    ]);
-                    $this->note = null;
-                    $this->cleanAll();
-                    $this->initForm();
-                }
-
-                // return;
-
+                $createdReports[] = $form;
             }
+
+            if ($this->hasPartial) {
+                $user = User::first();
+
+                $this->hasPartial->update([
+                    'complete'      => true,
+                    'allow'         => false,
+                    'deny'          => true,
+                    'engineer_id'   => $user->id,
+                    'decision_at'   => now(),
+                    'engineer_info' => 'Parcial cancelada automaticamente devido a entrada do informe final. (System Info)',
+                ]);
+            }
+
+            DB::commit();
+
+            $createdIds = collect($createdReports)->pluck('id')->values()->all();
+            $scopeLabels = collect($creationScopes)
+                ->map(fn (string $scope) => $this->finalScopeLabel($scope))
+                ->implode(' e ');
+
+            if ($this->hasFiles) {
+                $this->pendingCreatedReportsCount = count($createdIds);
+                $this->pendingCreatedReportsScopes = $scopeLabels;
+                $this->workReport = $createdReports[0];
+                $this->emitTo('files.manager.create-gen-files', 'setWorkReportIds', $createdIds);
+                $this->emitTo('files.manager.create-gen-files', 'saveFiles');
+
+                return;
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'success',
+                'title' => count($createdIds) > 1 ? 'Informes criados por escopo' : 'Informe entregue com sucesso',
+                'html' => count($createdIds) > 1
+                    ? "Foram criados " . count($createdIds) . " informes independentes: {$scopeLabels}."
+                    : null,
+            ]);
+            $this->note = null;
+            $this->cleanAll();
+            $this->initForm();
         } catch (\Throwable $th) {
 
             DB::rollback();
@@ -864,6 +899,8 @@ class Workreports extends Component
         $this->s_order                    = '';
         $this->equipment                  = '';
         $this->hasFiles                   = false;
+        $this->pendingCreatedReportsCount = 0;
+        $this->pendingCreatedReportsScopes = '';
         $this->hasAsbuilt                 = false;
         $this->hasPendingAsbuilt          = false;
         $this->hasEvidenceFile            = false;
@@ -1169,6 +1206,26 @@ class Workreports extends Component
         }
 
         return $valid;
+    }
+
+    protected function tempOrderIdsByScope(): array
+    {
+        $orders = collect($this->temp_orders)
+            ->map(fn (array $order) => (object) [
+                'order_id' => $order['id'] ?? null,
+                'order_number' => $order['ordem'] ?? null,
+            ]);
+
+        return collect(app(WorkReportFinalScopeResolver::class)->resolve($this->note?->type_note, $orders))
+            ->mapWithKeys(fn (array $payload) => [
+                $payload['scope'] => collect($payload['orders'] ?? [])
+                    ->pluck('id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->values()
+                    ->all(),
+            ])
+            ->all();
     }
 
     protected function selectedFinalScopesForSave(): ?array

@@ -204,6 +204,18 @@ class Main extends Component
                 ->unique()
                 ->values()
                 ->all(),
+            'selected_work_report_ids'  => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[1])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'selected_partial_ids'      => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[2])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
             'typeNote'                   => $this->typeNote,
             'not_assigned'               => $this->not_assigned,
             'company_ids'                => $filters['company'] ?? null,

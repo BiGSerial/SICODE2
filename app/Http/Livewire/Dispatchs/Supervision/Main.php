@@ -251,6 +251,18 @@ class Main extends Component
             'serviceUuid'  => $this->service->uuid,
             'user_id'      => auth()->user()->id,
             'filterD5'     => $this->filter_d5,
+            'selected_work_report_ids' => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[1])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'selected_partial_ids' => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[2])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
         ]);
 
         $this->dispatchBrowserEvent('swal', [

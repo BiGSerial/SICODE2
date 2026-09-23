@@ -7,141 +7,169 @@ use App\Helpers\DaysLeft;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\{
-    Exportable, FromQuery, WithMapping, WithHeadings, WithProperties,
-    WithEvents, WithChunkReading, ShouldAutoSize
+    Exportable, FromCollection, WithMapping, WithHeadings, WithProperties,
+    WithEvents, ShouldAutoSize
 };
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithProperties, WithEvents, WithChunkReading, ShouldAutoSize
+class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, WithProperties, WithEvents, ShouldAutoSize
 {
     use Exportable;
 
     /** @var \Illuminate\Database\Eloquent\Builder */
     protected Builder $queryBuilder;
     protected string $serviceUuid;
+    protected array $selectedWorkReportIds;
+    protected array $selectedPartialIds;
 
-    public function __construct(Builder $queryBuilder, string $serviceUuid)
+    public function __construct(
+        Builder $queryBuilder,
+        string $serviceUuid,
+        array $selectedWorkReportIds = [],
+        array $selectedPartialIds = [],
+    )
     {
         $this->queryBuilder = $queryBuilder;
         $this->serviceUuid  = $serviceUuid;
+        $this->selectedWorkReportIds = collect($selectedWorkReportIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        $this->selectedPartialIds = collect($selectedPartialIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
-    public function query()
+    public function collection()
     {
-        return $this->queryBuilder->with([
-            'WorkForm.Orders.Operations',
-            'WorkForm.Company',
-            'WorkForm.Adsform',
-            'WorkFormAny.Orders.Operations',
-            'WorkFormAny.Company',
-            'WorkFormAny.Adsform',
-            'Partials.Orders',
+        $notes = $this->queryBuilder->with([
+            'WorkForms.Note',
+            'WorkForms.Company',
+            'WorkForms.Orders.Operations',
+            'WorkForms.Adsform',
+            'Partials' => fn ($q) => $q
+                ->where('allow', true)
+                ->where('deny', false)
+                ->where('supervision', true)
+                ->where('payment', false)
+                ->orderByDesc('created_at'),
             'Partials.Company',
-            'Productions' => fn ($q) => $q->with(['User','Company']),
-            'FiveNote', // necessário para coluna de D5
-        ]);
-    }
+            'Partials.Orders.Operations',
+            'FiveNote',
+        ])->get();
 
-    public function chunkSize(): int
-    {
-        return 500;
+        $rows = $notes->flatMap(function ($note) {
+            $workForms = $note->WorkForms ?? collect();
+
+            $eligibleWorkForms = $workForms
+                ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
+                ->values();
+
+            if ($eligibleWorkForms->isEmpty()) {
+                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
+                    return [];
+                }
+
+                $partial = ($note->Partials ?? collect())->first();
+
+                $row = clone $note;
+                if ($partial) {
+                    $row->setAttribute('dispatch_partial_id', (int) $partial->id);
+                }
+
+                return [$row];
+            }
+
+            return $eligibleWorkForms->map(function ($workForm) use ($note) {
+                $row = clone $note;
+                $row->setRelation('WorkForm', $workForm);
+                $row->setRelation('WorkForms', collect([$workForm]));
+                $row->setAttribute('payment_work_report_id', (int) $workForm->id);
+
+                return $row;
+            });
+        })->values();
+
+        if (empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds)) {
+            return $rows;
+        }
+
+        return $rows->filter(function ($row): bool {
+            return in_array((int) ($row->payment_work_report_id ?? 0), $this->selectedWorkReportIds, true)
+                || in_array((int) ($row->dispatch_partial_id ?? 0), $this->selectedPartialIds, true);
+        })->values();
     }
 
     public function map($list): array
     {
-        $workForm = $list->WorkForm ?: $list->WorkFormAny;
-        $workFormCanceled = (bool) ($workForm?->canceled);
+        $workForm = $list->WorkForm;
+        $partial = !$workForm ? ($list->Partials?->first()) : null;
+        $orders = $workForm
+            ? ($workForm->Orders ?? collect())
+            : ($partial?->Orders ?? collect());
 
-        if ($workForm) {
-            $type      = 'TOTAL';
-            $order     = $workForm?->Orders;
-            $company   = $workForm?->Company->name;
-            $date_info = $workForm?->informed_at;
-            $pagamento = $list->fimLancado ? Carbon::parse($list->fimLancado) : null;
-            $dt_ads    = $workForm?->Adsform?->created_at ?? null;
+        $type = $partial ? 'PARCIAL' : 'TOTAL';
+        $scope = $workForm
+            ? collect($workForm->finalScopeBadges())->pluck('label')->implode(' / ')
+            : '---';
 
-        } elseif ($list->Partials->count() > 0) {
-            $type      = 'PARCIAL';
-            $order     = $list->Partials?->last()->Orders;
-            $company   = $list->Partials?->last()->Company->name;
-            $date_info = $list->Partials?->last()->created_at;
-            $pagamento = $list->fimLancado ? Carbon::parse($list->fimLancado) : null;
-            $dt_ads    = $date_info;
-        } else {
-            $type      = 'DESCONHECIDO';
-            $order     = null;
-            $company   = null;
-            $date_info = null;
-            $pagamento = null;
-            $dt_ads    = null;
-        }
+        $five = $list->FiveNote;
+        $noteLabel = $five ? 'D5 ' . $list->note : (string) $list->note;
+        $company = $workForm?->Company?->name ?? $partial?->Company?->name ?? '---';
 
-        // Última produção do serviço atual
-        $lastProd = $list->Productions
-            ->where('service_id', $this->serviceUuid)
-            ->sortBy('created_at') // garante última
-            ->last();
+        $statusFor = function ($order, string $operation): string {
+            $match = ($order->Operations ?? collect())->firstWhere('operacao', $operation);
 
-        if ($lastProd) {
-            if ($type === 'TOTAL' && $lastProd->partial) {
-                $lastProd = null;
-            } elseif ($type === 'PARCIAL' && $workForm) {
-                $lastProd = null;
-            }
-        }
+            return $match?->status
+                ? explode(' ', (string) $match->status)[0]
+                : '---';
+        };
 
-        $orders = $order ?? collect();
-        $ops = $orders->first()?->Operations ?? collect();
-        $executionDate = $orders
-            ->flatMap(fn ($item) => $item->Operations ?? collect())
+        $centerFor = function ($order): string {
+            $match = ($order->Operations ?? collect())->firstWhere('operacao', '0010');
+
+            return $match?->cenTrab
+                ? explode(' ', (string) $match->cenTrab)[0]
+                : '---';
+        };
+
+        $finalOp20 = $orders
+            ->flatMap(fn ($order) => $order->Operations ?? collect())
             ->where('operacao', '0020')
             ->pluck('fimReal')
             ->filter()
             ->sort()
             ->first();
 
-        // --- Colunas de D5 ---
-        $fn        = $list->FiveNote;
-        $hasD5     = $fn ? 'SIM' : 'NÃO';
-        $numberD5  = (string) $fn?->note_d5;
-
-        if ($fn && $hasD5) {
-            if (!$fn->is_supervisioned) {
-                $statusD5 = 'Gerar D5';
-            } else {
-                $statusD5 = 'Finalizar D5';
-            }
-        } else {
-            $statusD5 = '---';
-        }
-
-        if (!$fn) {
-            $numberD5 = '-';
-        }
+        $informedAt = $workForm?->informed_at ?? $partial?->created_at;
+        $adsDate = $workForm?->Adsform?->created_at;
+        $inspectionDate = $partial
+            ? ($partial->supervision_at ? Carbon::parse($partial->supervision_at)->addDays(5) : null)
+            : ($list->fimLancado ? Carbon::parse($list->fimLancado) : null);
+        $moa = $workForm ? ($list->total_moaberto ?? 0) : ($partial?->value ?? 0);
 
         return [
-            $list->note,
-            $type.($workFormCanceled ? ' (CANCELADO)' : ''),
-            $order ? implode("\n", $order->pluck('ordem')->toArray()) : '---',
-            $order?->sum('moaberto') ?? 0,
-            $ops->where('operacao', '0030')->first()?->status ? explode(' ', $ops->where('operacao', '0030')->first()->status)[0] : '---',
-            $ops->where('operacao', '0040')->first()?->status ? explode(' ', $ops->where('operacao', '0040')->first()->status)[0] : '---',
-            $ops->where('operacao', '0050')->first()?->status ? explode(' ', $ops->where('operacao', '0050')->first()->status)[0] : '---',
-            $ops->where('operacao', '0010')->first()?->cenTrab ?? '---',
-            $company ? $company.($workFormCanceled ? ' (CANCELADO)' : '') : $company,
-            $list->lexp,
-            $executionDate ? Carbon::parse($executionDate)->format('d/m/Y') : '---',
-            $date_info ? Carbon::parse($date_info)->format('d/m/Y') : '---',
-            $dt_ads ? Carbon::parse($dt_ads)->format('d/m/Y') : '---',
-            $list->type_note == 2 ? $list->nstats : ($list->centerjob ?? '---'),
-            $pagamento ? $pagamento->format('d/m/Y') : '---',
+            $noteLabel,
+            $type . ' / ' . $scope,
+            $orders->isNotEmpty() ? $orders->pluck('ordem')->implode("\n") : '---',
+            $moa,
+            $orders->isNotEmpty() ? $orders->map(fn ($order) => $statusFor($order, '0030'))->implode("\n") : '---',
+            $orders->isNotEmpty() ? $orders->map(fn ($order) => $statusFor($order, '0040'))->implode("\n") : '---',
+            $orders->isNotEmpty() ? $orders->map(fn ($order) => $statusFor($order, '0050'))->implode("\n") : '---',
+            $orders->isNotEmpty() ? $orders->map($centerFor)->implode("\n") : '---',
+            $company,
+            $list->lexp ?? '---',
+            $finalOp20 ? Carbon::parse($finalOp20)->format('d/m/Y') : '---',
+            $informedAt ? Carbon::parse($informedAt)->format('d/m/Y H:i:s') : '---',
+            $adsDate ? Carbon::parse($adsDate)->format('d/m/Y H:i:s') : '----',
+            $inspectionDate ? $inspectionDate->format('d/m/Y') : '---',
             (new DaysLeft($list))->getLastDate(),
-            $lastProd?->User->name ?? '---',
-            $lastProd ? Notestatus::status($lastProd?->status)->status : '---',
-            $hasD5,
-            $numberD5,
-            $statusD5,
         ];
     }
 
@@ -149,7 +177,7 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
     {
         return [
             'Nota',
-            'Tipo',
+            'Tipo / Escopo',
             'Ordem',
             'MOA',
             'OP30',
@@ -158,18 +186,47 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
             'CentroTrab',
             'Empresa',
             'Município',
-            'Data Execução',
+            'Final OP20',
             'Data Informe',
-            'Data Ads',
-            'Status',
-            'Dt Final OP20',
-            'Prazo Obra',
-            'User Production',
-            'Status Production',
-            'Possui D5',
-            'Número D5',
-            'Status D5',
+            'ADS',
+            'Fiscalizado',
+            'Data Vencimento',
         ];
+    }
+
+    private function workReportEligibleForPayment($workForm): bool
+    {
+        $orders = $workForm->Orders ?? collect();
+        $normalizedStatus = fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status);
+
+        return $orders->contains(function ($order) use ($normalizedStatus) {
+            if (!str_starts_with($normalizedStatus($order->statusSist ?? ''), 'LIB')) {
+                return false;
+            }
+
+            $statuses = function (string $operation) use ($order, $normalizedStatus) {
+                return collect($order->Operations ?? [])
+                    ->where('operacao', $operation)
+                    ->pluck('status')
+                    ->map($normalizedStatus);
+            };
+
+            return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+                && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
+                && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
+        });
+    }
+
+    private function isD5ReturnReadyForPayment($note): bool
+    {
+        $five = $note->FiveNote;
+
+        return (bool) (
+            $five
+            && !$five->is_archived
+            && $five->is_completed
+            && $five->is_supervisioned
+        );
     }
 
     public function properties(): array
@@ -229,8 +286,8 @@ class DispatchPaymentMain implements FromQuery, WithMapping, WithHeadings, WithP
                         ->getNumberFormat()->setFormatCode('#');
                     $sheet->getStyle("C2:C{$highestRow}")
                         ->getNumberFormat()->setFormatCode('#');
-                    $sheet->getStyle("T2:T{$highestRow}")
-                        ->getNumberFormat()->setFormatCode('0');
+                    $sheet->getStyle("D2:D{$highestRow}")
+                        ->getNumberFormat()->setFormatCode('#,##0.00');
                 }
             },
         ];

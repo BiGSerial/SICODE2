@@ -35,115 +35,64 @@
                 </div>
             </div>
 
+
             <div class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
                 <div class="card-header bg-white border-0 p-4 pb-2">
-                    <h5 class="fw-bold mb-0">Obras encontradas</h5>
+                    <h5 class="fw-bold mb-1">Informes disponíveis</h5>
+                    <p class="text-muted mb-0">Escolha o informe correto para entregar a ADS.</p>
                 </div>
                 <div class="card-body pt-2">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle modern-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Nota</th>
-                                    <th>Ordens</th>
-                                    <th>Dt solicitação ADS</th>
-                                    <th>Bloqueado</th>
-                                    <th>Motivo</th>
-                                    <th class="text-center">Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($notes as $tNote)
-                                    @php
-                                        $adsOptions = $this->adsDeliveryOptionsForNote($tNote);
-                                        $eligibleOptions = collect($adsOptions)->where('block', false)->values();
-                                        $block = $eligibleOptions->isEmpty();
-                                        $reason = collect($adsOptions)->pluck('reason')->filter()->unique()->implode(' / ');
-                                    @endphp
-                                    <tr wire:key="{{ $tNote->id }}">
-                                        <td class="fw-bold">{{ $tNote->note }}</td>
-                                        <td>
-                                            @if ($tNote->orders->count())
-                                                @foreach ($tNote->orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
-                                                    <span class="badge bg-light text-dark border mb-1">{{ $order->ordem }}</span>
-                                                @endforeach
-                                            @endif
-                                        </td>
-                                        <td>
-                                            {{ $tNote->TempAdsInfos->isNotEmpty() ? $tNote->TempAdsInfos->last()->sended_at->format('d/m/Y') : '---' }}
-                                        </td>
-                                        <td>
-                                            @if ($block)
-                                                <span class="badge bg-danger-subtle text-danger-emphasis">SIM</span>
-                                            @else
-                                                <span class="badge bg-success-subtle text-success-emphasis">NÃO</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if (empty($adsOptions))
-                                                <span class="fw-semibold">SEM INFORME DE OBRA</span>
-                                            @else
-                                                <div class="d-flex flex-column gap-2">
-                                                    @foreach ($adsOptions as $option)
-                                                        <div class="border rounded-3 p-2 bg-white">
-                                                            <div class="d-flex flex-wrap gap-2 align-items-center">
-                                                                <span class="fw-semibold">#{{ $option['id'] }}</span>
-                                                                @foreach ($option['scopes'] as $scope)
-                                                                    <span class="badge {{ $scope['class'] }}">{{ $scope['label'] }}</span>
-                                                                @endforeach
-                                                                @if ($option['block'])
-                                                                    <span class="badge bg-danger-subtle text-danger-emphasis">{{ $option['reason'] }}</span>
-                                                                @else
-                                                                    <span class="badge bg-success-subtle text-success-emphasis">DISPONÍVEL</span>
-                                                                @endif
-                                                            </div>
-                                                            @if ($option['rejected_reason_html'])
-                                                                <div class="small text-muted mt-1">{!! $option['rejected_reason_html'] !!}</div>
-                                                            @endif
-                                                            <div class="small text-muted mt-1">
-                                                                {{ count($option['orders']) ? implode(', ', $option['orders']) : 'Sem ordens vinculadas' }}
-                                                            </div>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
-                                        </td>
-                                        <td class="text-center">
-                                            @if (!$block)
-                                                @if ($eligibleOptions->count() === 1)
-                                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                                        wire:click.prevent="getNote({{ $tNote->id }}, {{ $eligibleOptions->first()['id'] }})">
-                                                        Selecionar
-                                                    </button>
-                                                @else
-                                                    <div class="btn-group">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle"
-                                                            data-bs-toggle="dropdown" aria-expanded="false">
-                                                            Selecionar
-                                                        </button>
-                                                        <ul class="dropdown-menu dropdown-menu-end">
-                                                            @foreach ($eligibleOptions as $option)
-                                                                <li>
-                                                                    <button type="button" class="dropdown-item"
-                                                                        wire:click.prevent="getNote({{ $tNote->id }}, {{ $option['id'] }})">
-                                                                        Informe #{{ $option['id'] }}
-                                                                        {{ collect($option['scopes'])->pluck('label')->implode(', ') }}
-                                                                    </button>
-                                                                </li>
-                                                            @endforeach
-                                                        </ul>
-                                                    </div>
-                                            @endif
-                                            @elseif ($reason)
-                                                <span class="small text-muted">{{ $reason }}</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                    <div class="row g-3">
+                        @forelse ($notes as $tNote)
+                            @php
+                                $adsOptions = $this->adsDeliveryOptionsForNote($tNote);
+                            @endphp
+                            @foreach ($adsOptions as $option)
+                                <div class="col-md-6 col-xl-4" wire:key="ads-gallery-{{ $tNote->id }}-{{ $option['id'] }}">
+                                    <div class="h-100 border rounded-4 p-3 shadow-sm {{ $option['block'] ? 'bg-light' : 'bg-white ads-option-clickable' }}"
+                                        @if (!$option['block'])
+                                            role="button" tabindex="0"
+                                            wire:click.prevent="requestAdsWorkReport({{ $tNote->id }}, {{ $option['id'] }})"
+                                        @endif>
+                                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                            <div>
+                                                <div class="small text-muted">Nota</div>
+                                                <div class="fw-bold">{{ $tNote->note }}</div>
+                                            </div>
+                                            <span class="badge {{ $option['block'] ? 'bg-danger-subtle text-danger-emphasis' : 'bg-success-subtle text-success-emphasis' }}">
+                                                {{ $option['block'] ? 'BLOQUEADO' : 'DISPONÍVEL' }}
+                                            </span>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-1 mb-2">
+                                            <span class="badge bg-primary-subtle text-primary-emphasis">Informe #{{ $option['id'] }}</span>
+                                            @foreach ($option['scopes'] as $scope)
+                                                <span class="badge {{ $scope['class'] }}">{{ $scope['label'] }}</span>
+                                            @endforeach
+                                        </div>
+                                        <div class="small text-muted mb-2">
+                                            <strong>Solicitado:</strong> {{ $option['date'] }}
+                                        </div>
+                                        <div class="small">
+                                            <strong>Ordens:</strong>
+                                            {{ count($option['orders']) ? implode(', ', $option['orders']) : 'Sem ordens vinculadas' }}
+                                        </div>
+                                        @if ($option['block'])
+                                            <div class="small text-danger mt-2">
+                                                <strong>Motivo:</strong> {{ $option['reason'] ?: 'Não disponível para entrega' }}
+                                            </div>
+                                        @else
+                                            <div class="small text-primary fw-semibold mt-3">
+                                                Clique para confirmar e carregar a entrega
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        @empty
+                            <div class="col-12">
+                                <div class="alert alert-danger mb-0">Esta obra não possui informe final ativo para entrega da ADS.</div>
+                            </div>
+                        @endforelse
                     </div>
                 </div>
             </div>
@@ -166,44 +115,6 @@
 
             <div class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
                 <div class="card-header bg-white border-0 p-4 pb-2">
-                    <h5 class="mb-0 fw-bold">Informe vinculado à ADS</h5>
-                </div>
-                <div class="card-body pt-2">
-                    @if (empty($workReportOptions))
-                        <div class="alert alert-danger mb-0">Esta obra não possui informe final ativo para entrega da ADS.</div>
-                    @else
-                        <div class="row g-3">
-                            @foreach ($workReportOptions as $option)
-                                <div class="col-md-6" wire:key="ads-work-report-option-{{ $option['id'] }}">
-                                    <label class="ads-report-option h-100 @if ((string) $selectedWorkReportId === (string) $option['id']) is-selected @endif @if ($option['block']) is-blocked @endif">
-                                        <input class="form-check-input" type="radio" name="selectedWorkReportId"
-                                            value="{{ $option['id'] }}" wire:model="selectedWorkReportId"
-                                            @disabled($option['block'])>
-                                        <span class="d-block flex-grow-1">
-                                            <span class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                                                <strong>Informe #{{ $option['id'] }}</strong>
-                                                @foreach ($option['scopes'] as $scope)
-                                                    <span class="badge {{ $scope['class'] }}">{{ $scope['label'] }}</span>
-                                                @endforeach
-                                            </span>
-                                            <span class="d-block small text-muted">{{ $option['company'] }} • {{ $option['date'] }}</span>
-                                            <span class="d-block small text-muted">
-                                                {{ count($option['orders']) ? implode(', ', $option['orders']) : 'Sem ordens vinculadas' }}
-                                            </span>
-                                            @if ($option['block'])
-                                                <span class="badge bg-danger-subtle text-danger-emphasis mt-2">{{ $option['reason'] }}</span>
-                                            @endif
-                                        </span>
-                                    </label>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            <div class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
-                <div class="card-header bg-white border-0 p-4 pb-2">
                     <h5 class="mb-0 fw-bold">Dados da obra</h5>
                 </div>
                 <div class="card-body pt-2">
@@ -219,8 +130,8 @@
                                 <tr>
                                     <td class="text-end fw-bold">Ordens</td>
                                     <td>
-                                        @if ($note->orders->count())
-                                            @foreach ($note->orders->filter(function ($order) {
+                                        @if ($selectedWorkReportOrders->count())
+                                            @foreach ($selectedWorkReportOrders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
                                                 <span class="badge bg-light text-dark border mb-1">{{ $order->ordem }}</span>

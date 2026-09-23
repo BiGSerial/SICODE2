@@ -42,6 +42,8 @@ class ReceiveAdsfomrm extends Component
 
     public $lateDeliveryAfterSubmit = null;
     public $selectedWorkReportId = null;
+    public $pendingAdsNoteId = null;
+    public $pendingAdsWorkReportId = null;
     public array $workReportOptions = [];
 
     // Serialized state for $theAds
@@ -55,6 +57,7 @@ class ReceiveAdsfomrm extends Component
         'hasFile',
         'hasAsbuiltFile',
         'savedFiles',
+        'confirmAdsWorkReport' => 'confirmAdsWorkReport',
     ];
 
     protected $rules = [
@@ -154,6 +157,50 @@ class ReceiveAdsfomrm extends Component
                 'Orders'
             )
             ->get();
+    }
+
+    public function requestAdsWorkReport(int $noteId, int $workReportId): void
+    {
+        $note = Note::with(['Orders', 'OldAds', 'TempAdsInfos'])->find($noteId);
+        $option = collect($this->adsDeliveryOptionsForNote($note))
+            ->firstWhere('id', (string) $workReportId);
+
+        if (!$option || $option['block']) {
+            return;
+        }
+
+        $this->pendingAdsNoteId = $noteId;
+        $this->pendingAdsWorkReportId = $workReportId;
+        $scopeHtml = collect($option['scopes'])->map(fn ($scope) => '<span class="badge ' . $scope['class'] . '">' . $scope['label'] . '</span>')->implode(' ');
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Confirmar informe para entrega da ADS',
+            'msg' => "A ADS será vinculada ao Informe #{$workReportId} da nota {$note->note}.<br><br><strong>Escopo:</strong><br>{$scopeHtml}<br><br>Deseja continuar?",
+            'icon' => 'question',
+            'btnOktxt' => 'Sim, carregar',
+            'btnCanceltxt' => 'Cancelar',
+            'action' => 'confirmAdsWorkReport',
+            'chave' => "{$noteId}:{$workReportId}",
+            'cancel_titulo' => 'Seleção cancelada',
+            'cancel_msg' => 'Escolha outro informe disponível.',
+        ]);
+    }
+
+    public function confirmAdsWorkReport($key = null): void
+    {
+        if (is_string($key) && $key !== '') {
+            [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
+        } else {
+            $noteId = $this->pendingAdsNoteId;
+            $workReportId = $this->pendingAdsWorkReportId;
+        }
+
+        if (!$noteId || !$workReportId) {
+            return;
+        }
+
+        $this->pendingAdsNoteId = null;
+        $this->pendingAdsWorkReportId = null;
+        $this->getNote((int) $noteId, (int) $workReportId);
     }
 
     public function getNote($id, $workReportId = null)
@@ -535,7 +582,7 @@ class ReceiveAdsfomrm extends Component
                     'reason' => $reason,
                     'company' => $workReport->Company?->name ?? '---',
                     'date' => optional($workReport->informed_at ?? $workReport->created_at)->format('d/m/Y H:i') ?? '---',
-                    'orders' => $workReport->Orders->pluck('ordem')->filter()->values()->all(),
+                    'orders' => $this->ordersForWorkReport($workReport)->pluck('ordem')->filter()->values()->all(),
                     'scopes' => $workReport->finalScopeBadges(),
                     'rejected_reason_html' => $this->buildRejectedWorkFormReasonHtml($workReport),
                 ];
@@ -547,7 +594,7 @@ class ReceiveAdsfomrm extends Component
     private function activeWorkReportsForNote(Note $note): Collection
     {
         return WorkReport::query()
-            ->with(['Company', 'Orders', 'LatestReturnwork.User', 'Adsform.Files', 'Note'])
+            ->with(['Company', 'Orders', 'LatestReturnwork.User', 'Adsform.Files', 'Note.Orders'])
             ->where('note_id', $note->id)
             ->where(function ($query) {
                 $query->where('canceled', false)
@@ -570,19 +617,20 @@ class ReceiveAdsfomrm extends Component
 
     private function isAdsClosed(?WorkReport $workReport = null): bool
     {
-        if (!$this->note) {
+        $workReport = $workReport ?: $this->selectedWorkReport();
+        $note = $this->note ?: $workReport?->Note;
+
+        if (!$note) {
             return false;
         }
 
-        $hasOldAds = $this->note->relationLoaded('OldAds')
-            ? $this->note->OldAds->isNotEmpty()
-            : $this->note->OldAds()->exists();
+        $hasOldAds = $note->relationLoaded('OldAds')
+            ? $note->OldAds->isNotEmpty()
+            : $note->OldAds()->exists();
 
         if ($hasOldAds) {
             return true;
         }
-
-        $workReport = $workReport ?: $this->selectedWorkReport();
 
         if (!$workReport?->Adsform) {
             return false;
@@ -661,6 +709,19 @@ class ReceiveAdsfomrm extends Component
         return "<strong>Motivo do bloqueio:</strong><br>{$text}";
     }
 
+    private function ordersForWorkReport(WorkReport $workReport): Collection
+    {
+        $orders = $workReport->relationLoaded('Orders') ? $workReport->Orders : $workReport->Orders()->get();
+
+        if ($orders->isNotEmpty()) {
+            return $orders;
+        }
+
+        $note = $workReport->relationLoaded('Note') ? $workReport->Note : $workReport->Note()->with('Orders')->first();
+
+        return $note?->Orders ?? collect();
+    }
+
     private function isEligibleByOrderStatusRule(?WorkReport $workReport = null): bool
     {
         $workReport = $workReport ?: $this->selectedWorkReport();
@@ -669,24 +730,28 @@ class ReceiveAdsfomrm extends Component
             return false;
         }
 
-        $hasOrders = $workReport->Orders()->exists();
+        $orders = $this->ordersForWorkReport($workReport);
 
-        if (!$hasOrders) {
+        if ($orders->isEmpty()) {
             return false;
         }
 
-        return $workReport->Orders()
-            ->where(function ($query) {
-                $query->where('statusSist', 'not like', 'ENT%')
-                    ->where('statusSist', 'not like', 'ENC%');
-            })
-            ->exists();
+        return $orders->contains(function ($order) {
+            return !str_starts_with((string) $order->statusSist, 'ENT')
+                && !str_starts_with((string) $order->statusSist, 'ENC');
+        });
     }
 
     public function render()
     {
-        return view('livewire.partner.forms.receive-adsfomrm', [
-            'myAds' => $this->theAds,
+        $selectedWorkReport = $this->selectedWorkReport();
+        $selectedWorkReportOrders = $selectedWorkReport
+            ? $this->ordersForWorkReport($selectedWorkReport)
+            : ($this->note?->Orders ?? collect());
+
+        return view("livewire.partner.forms.receive-adsfomrm", [
+            "myAds" => $this->theAds,
+            "selectedWorkReportOrders" => $selectedWorkReportOrders,
         ]);
     }
 }

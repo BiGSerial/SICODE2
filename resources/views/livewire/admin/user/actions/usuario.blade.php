@@ -404,25 +404,37 @@
                             <div class="col-12 col-lg-6">
                                 <div class="card border-0 shadow-sm h-100">
                                     <div class="card-header bg-white">
-                                        <strong>Regionais associadas</strong>
+                                        <strong>Bases de construção associadas</strong>
                                     </div>
                                     <div class="card-body">
                                         <div class="row g-2 mb-3">
-                                            <div class="col-9">
-                                                <select class="form-select" wire:model.defer="regionSelect">
-                                                    <option value="">Selecione a regional</option>
-                                                    @foreach ($regionList as $regionOption)
-                                                        @if (filled($regionOption) && !in_array($regionOption, $temporaryRegions, true))
-                                                            <option value="{{ $regionOption }}">{{ $regionOption }}</option>
-                                                        @endif
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label">Região</label>
+                                                <select class="form-select" wire:model="regionGroupSelect">
+                                                    <option value="">Selecione a região</option>
+                                                    @foreach ($regionGroupList as $regionOption)
+                                                        <option value="{{ $regionOption }}">{{ $regionOption }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
-                                            <div class="col-3 d-grid">
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label">Base de construção</label>
+                                                <select class="form-select" wire:model="baseConstructionSelect" @disabled(!$regionGroupSelect)>
+                                                    <option value="">Selecione a base</option>
+                                                    @foreach ($baseConstructionList as $baseOption)
+                                                        <option value="{{ $baseOption }}">{{ $baseOption }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-4 d-grid align-items-end">
                                                 <button type="button" class="btn btn-success" wire:click="addRegion">
                                                     <i class="ri-add-line"></i> Add
                                                 </button>
                                             </div>
+                                        </div>
+
+                                        <div class="small text-muted mb-2">
+                                            A permissão será adicionada pela base de construção selecionada.
                                         </div>
 
                                         <div class="table-responsive">
