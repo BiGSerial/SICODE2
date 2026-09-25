@@ -3,6 +3,7 @@
 namespace App\Exports\Dispatchs;
 
 use App\Support\SicodeRules;
+use App\Models\WorkReportFlowProduction;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -37,10 +38,11 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
     {
         $notes = $this->exports->with([
             'orders' => fn ($q) => $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%'),
-            'WorkForms.Orders',
-            'WorkForms.Adsform',
-            'WorkForms.FiveNote',
-            'WorkForms.Company',
+            'WorkReports' => fn ($q) => $q->where('canceled', false),
+            'WorkReports.Orders',
+            'WorkReports.Adsform',
+            'WorkReports.FiveNote',
+            'WorkReports.Company',
             'Productions.User',
             'Productions.Company',
             'Productions.WorkReportFlowProductions',
@@ -51,7 +53,7 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
         ])->get()->unique('id')->values();
 
         $rows = $notes->flatMap(function ($note) {
-            $workForms = $note->WorkForms ?? collect();
+            $workForms = $note->WorkReports ?? collect();
 
             if ($workForms->isNotEmpty()) {
                 return $workForms->map(function ($workForm) use ($note) {
@@ -139,7 +141,7 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
                     ? true
                     : $production->WorkReportFlowProductions
                         ->where('work_report_id', $workReportId)
-                        ->where('stage', AppModelsWorkReportFlowProduction::STAGE_FISCALIZATION)
+                        ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
                         ->where('is_current', true)
                         ->isNotEmpty();
             });

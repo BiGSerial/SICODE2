@@ -86,11 +86,16 @@
                             <th>#</th>
                             <th>Nota</th>
                             <th>Base de construção</th>
+                            <th>Município</th>
+                            <th>Rubrica</th>
+                            <th>Material</th>
+                            <th>Motivo cancelamento</th>
                             <th>Tipo</th>
                             <th>Status</th>
                             <th>Solicitante</th>
                             <th>Executante</th>
                             <th>Aberto em</th>
+                            <th>Ação</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,7 +103,15 @@
                             <tr>
                                 <td>{{ $item->id }}</td>
                                 <td class="fw-semibold">{{ $item->Note->note ?? '-' }}</td>
-                                <td>{{ $item->Note?->city?->baseConstrucao ?? '—' }}</td>
+                                <td>{{ $item->Note?->city?->municipio ?? $item->Note?->city?->cidade ?? '—' }}</td>
+                                <td>{{ $item->Note?->rubrica ?? '—' }}</td>
+                                <td>{{ $item->Note?->material ?? '—' }}</td>
+                                <td title="{{ $item->description ?? '' }}">
+                                    <div>{{ $item->Category->name ?? '—' }}</div>
+                                    @if(filled($item->description))
+                                        <div class="small text-muted text-truncate" style="max-width: 220px;">{{ $item->description }}</div>
+                                    @endif
+                                </td>
                                 <td>{{ $item->scope?->label() ?? $item->scope }}</td>
                                 <td>
                                     <span class="badge {{ $item->status?->badgeClass() ?? 'bg-secondary' }}">
@@ -108,10 +121,15 @@
                                 <td>{{ $item->Requester->name ?? '-' }}</td>
                                 <td>{{ $item->Assignee->name ?? '-' }}</td>
                                 <td>{{ optional($item->submitted_at ?? $item->created_at)->format('d/m/Y H:i') }}</td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('engineers.cancellations.show', ['request' => $item->id]) }}">
+                                        Detalhes
+                                    </a>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-4">
+                                <td colspan="13" class="text-center py-4">
                                     {{ $baseConstructions->isEmpty() ? 'Nenhuma base de construção associada ao usuário.' : 'Nenhuma nota em processo de cancelamento nas suas bases.' }}
                                 </td>
                             </tr>

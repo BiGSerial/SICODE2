@@ -49,7 +49,7 @@ class Show extends Component
     private function loadRequest(): void
     {
         $this->cancellationRequest = CancellationRequest::with([
-            'Note',
+            'Note.City',
             'Orders',
             'Category',
             'EvidenceFiles',
@@ -63,8 +63,18 @@ class Show extends Component
         ])->findOrFail($this->requestId);
 
         $visibleUserIds = Auth::user()?->visibleUserIdsForWork() ?? collect();
+        $isEngineerApprover = $visibleUserIds->contains((string) $this->cancellationRequest->engineer_approver_id);
 
-        if (!$visibleUserIds->contains((string) $this->cancellationRequest->engineer_approver_id)) {
+        $userBases = Auth::user()?->regionNames()
+            ->map(fn ($base) => trim((string) $base))
+            ->filter()
+            ->unique()
+            ->values() ?? collect();
+
+        $canViewByBase = $userBases->isNotEmpty()
+            && $userBases->contains(trim((string) ($this->cancellationRequest->Note?->City?->baseConstrucao)));
+
+        if (!$isEngineerApprover && !$canViewByBase) {
             abort(403);
         }
     }

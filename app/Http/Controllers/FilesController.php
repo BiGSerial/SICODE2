@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{EvidenceFile, File};
+use App\Models\{EvidenceFile, File, FileDownloadBatch};
 use App\Services\Files\{EvidenceFileService, FileStorageService, FileThumbnailService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -249,5 +249,21 @@ class FilesController extends Controller
         }
 
         return response()->download($zipFile)->deleteFileAfterSend(true);
+    }
+    public function downloadBatch(FileDownloadBatch $batch)
+    {
+        abort_unless((string) $batch->user_id === (string) auth()->id(), 403);
+        abort_unless($batch->status === "ready" && $batch->expires_at?->isFuture(), 410, "Este link de download expirou.");
+        $disk = Storage::disk($batch->disk ?: "local");
+        abort_unless($batch->path && $disk->exists($batch->path), 404, "Arquivo ZIP não encontrado.");
+
+        $absolutePath = $disk->path($batch->path);
+        clearstatcache(true, $absolutePath);
+        abort_unless(is_file($absolutePath) && filesize($absolutePath) > 0, 404, "Arquivo ZIP vazio ou indisponível.");
+
+        return response()->download($absolutePath, $batch->download_name ?: "arquivos.zip", [
+            "Content-Type" => "application/zip",
+            "Cache-Control" => "private, no-store",
+        ]);
     }
 }

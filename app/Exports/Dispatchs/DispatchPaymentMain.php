@@ -49,10 +49,12 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
     public function collection()
     {
         $notes = $this->queryBuilder->with([
-            'WorkForms.Note',
-            'WorkForms.Company',
-            'WorkForms.Orders.Operations',
-            'WorkForms.Adsform',
+            'WorkReports' => fn ($q) => $q->where('canceled', false),
+            'WorkReports.Note',
+            'WorkReports.Company',
+            'WorkReports.Orders.Operations',
+            'WorkReports.Adsform',
+            'Productions' => fn ($q) => $q->with(['User', 'Company']),
             'Partials' => fn ($q) => $q
                 ->where('allow', true)
                 ->where('deny', false)
@@ -65,13 +67,13 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
         ])->get();
 
         $rows = $notes->flatMap(function ($note) {
-            $workForms = $note->WorkForms ?? collect();
+            $workForms = $note->WorkReports ?? collect();
 
-            $eligibleWorkForms = $workForms
+            $eligibleWorkReports = $workForms
                 ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
                 ->values();
 
-            if ($eligibleWorkForms->isEmpty()) {
+            if ($eligibleWorkReports->isEmpty()) {
                 if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
                     return [];
                 }
@@ -86,10 +88,10 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
                 return [$row];
             }
 
-            return $eligibleWorkForms->map(function ($workForm) use ($note) {
+            return $eligibleWorkReports->map(function ($workForm) use ($note) {
                 $row = clone $note;
                 $row->setRelation('WorkForm', $workForm);
-                $row->setRelation('WorkForms', collect([$workForm]));
+                $row->setRelation('WorkReports', collect([$workForm]));
                 $row->setAttribute('payment_work_report_id', (int) $workForm->id);
 
                 return $row;
@@ -109,37 +111,40 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
     public function map($list): array
     {
         $workForm = $list->WorkForm;
+        $workFormCanceled = (bool) ($workForm?->canceled);
         $partial = !$workForm ? ($list->Partials?->first()) : null;
-        $orders = $workForm
-            ? ($workForm->Orders ?? collect())
-            : ($partial?->Orders ?? collect());
 
-        $type = $partial ? 'PARCIAL' : 'TOTAL';
-        $scope = $workForm
-            ? collect($workForm->finalScopeBadges())->pluck('label')->implode(' / ')
-            : '---';
+        if ($workForm) {
+            $type = 'TOTAL';
+            $orders = $workForm->Orders ?? collect();
+            $company = $workForm->Company?->name;
+            $dateInfo = $workForm->informed_at;
+            $adsDate = $workForm->Adsform?->created_at;
+        } elseif ($partial) {
+            $type = 'PARCIAL';
+            $orders = $partial->Orders ?? collect();
+            $company = $partial->Company?->name;
+            $dateInfo = $partial->created_at;
+            $adsDate = $dateInfo;
+        } else {
+            $type = 'DESCONHECIDO';
+            $orders = collect();
+            $company = null;
+            $dateInfo = null;
+            $adsDate = null;
+        }
 
-        $five = $list->FiveNote;
-        $noteLabel = $five ? 'D5 ' . $list->note : (string) $list->note;
-        $company = $workForm?->Company?->name ?? $partial?->Company?->name ?? '---';
+        $lastProduction = ($list->Productions ?? collect())
+            ->where('service_id', $this->serviceUuid)
+            ->sortBy('created_at')
+            ->last();
 
-        $statusFor = function ($order, string $operation): string {
-            $match = ($order->Operations ?? collect())->firstWhere('operacao', $operation);
+        if ($lastProduction && (($type === 'TOTAL' && $lastProduction->partial) || ($type === 'PARCIAL' && $workForm))) {
+            $lastProduction = null;
+        }
 
-            return $match?->status
-                ? explode(' ', (string) $match->status)[0]
-                : '---';
-        };
-
-        $centerFor = function ($order): string {
-            $match = ($order->Operations ?? collect())->firstWhere('operacao', '0010');
-
-            return $match?->cenTrab
-                ? explode(' ', (string) $match->cenTrab)[0]
-                : '---';
-        };
-
-        $finalOp20 = $orders
+        $operations = $orders->first()?->Operations ?? collect();
+        $executionDate = $orders
             ->flatMap(fn ($order) => $order->Operations ?? collect())
             ->where('operacao', '0020')
             ->pluck('fimReal')
@@ -147,29 +152,35 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             ->sort()
             ->first();
 
-        $informedAt = $workForm?->informed_at ?? $partial?->created_at;
-        $adsDate = $workForm?->Adsform?->created_at;
-        $inspectionDate = $partial
-            ? ($partial->supervision_at ? Carbon::parse($partial->supervision_at)->addDays(5) : null)
-            : ($list->fimLancado ? Carbon::parse($list->fimLancado) : null);
-        $moa = $workForm ? ($list->total_moaberto ?? 0) : ($partial?->value ?? 0);
+        $five = $list->FiveNote;
+        $hasD5 = $five ? 'SIM' : 'NÃO';
+        $numberD5 = $five ? (string) $five->note_d5 : '-';
+        $statusD5 = $five
+            ? ($five->is_supervisioned ? 'Finalizar D5' : 'Gerar D5')
+            : '---';
 
         return [
-            $noteLabel,
-            $type . ' / ' . $scope,
+            $list->note,
+            $type . ($workFormCanceled ? ' (CANCELADO)' : ''),
             $orders->isNotEmpty() ? $orders->pluck('ordem')->implode("\n") : '---',
-            $moa,
-            $orders->isNotEmpty() ? $orders->map(fn ($order) => $statusFor($order, '0030'))->implode("\n") : '---',
-            $orders->isNotEmpty() ? $orders->map(fn ($order) => $statusFor($order, '0040'))->implode("\n") : '---',
-            $orders->isNotEmpty() ? $orders->map(fn ($order) => $statusFor($order, '0050'))->implode("\n") : '---',
-            $orders->isNotEmpty() ? $orders->map($centerFor)->implode("\n") : '---',
-            $company,
+            $orders->sum('moaberto'),
+            $operations->where('operacao', '0030')->first()?->status ? explode(' ', $operations->where('operacao', '0030')->first()->status)[0] : '---',
+            $operations->where('operacao', '0040')->first()?->status ? explode(' ', $operations->where('operacao', '0040')->first()->status)[0] : '---',
+            $operations->where('operacao', '0050')->first()?->status ? explode(' ', $operations->where('operacao', '0050')->first()->status)[0] : '---',
+            $operations->where('operacao', '0010')->first()?->cenTrab ?? '---',
+            $company ? $company . ($workFormCanceled ? ' (CANCELADO)' : '') : $company,
             $list->lexp ?? '---',
-            $finalOp20 ? Carbon::parse($finalOp20)->format('d/m/Y') : '---',
-            $informedAt ? Carbon::parse($informedAt)->format('d/m/Y H:i:s') : '---',
-            $adsDate ? Carbon::parse($adsDate)->format('d/m/Y H:i:s') : '----',
-            $inspectionDate ? $inspectionDate->format('d/m/Y') : '---',
+            $executionDate ? Carbon::parse($executionDate)->format('d/m/Y') : '---',
+            $dateInfo ? Carbon::parse($dateInfo)->format('d/m/Y') : '---',
+            $adsDate ? Carbon::parse($adsDate)->format('d/m/Y') : '---',
+            $list->type_note == 2 ? $list->nstats : ($list->centerjob ?? '---'),
+            $list->fimLancado ? Carbon::parse($list->fimLancado)->format('d/m/Y') : '---',
             (new DaysLeft($list))->getLastDate(),
+            $lastProduction?->User?->name ?? '---',
+            $lastProduction ? Notestatus::status($lastProduction->status)->status : '---',
+            $hasD5,
+            $numberD5,
+            $statusD5,
         ];
     }
 
@@ -177,7 +188,7 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
     {
         return [
             'Nota',
-            'Tipo / Escopo',
+            'Tipo',
             'Ordem',
             'MOA',
             'OP30',
@@ -186,11 +197,17 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             'CentroTrab',
             'Empresa',
             'Município',
-            'Final OP20',
+            'Data Execução',
             'Data Informe',
-            'ADS',
-            'Fiscalizado',
-            'Data Vencimento',
+            'Data Ads',
+            'Status',
+            'Dt Final OP20',
+            'Prazo Obra',
+            'User Production',
+            'Status Production',
+            'Possui D5',
+            'Número D5',
+            'Status D5',
         ];
     }
 

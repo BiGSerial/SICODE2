@@ -52,9 +52,20 @@ class BaseOV extends Command
         // alterações de days_left dentro da janela sem varrer toda a BaseOV.
         $baseQuery = Edp_depcBaseOV::where('ultimoStatus', 1)
             ->when(!$this->option('full'), fn ($q) => $q->where('diasNoStatus', '<=', $days))
-            ->when($this->option('prazos'), fn ($q) => $q->where('numStat', '<', 98));
+            ->when($this->option('prazos'), function ($q) {
+                $q->where('numStat', '<', 98)
+                    ->where(function ($query) {
+                        $query
+                            ->whereNull('considerarPrazo')
+                            ->orWhereRaw(
+                                "LOWER(LTRIM(RTRIM(considerarPrazo))) <> ?",
+                                ['expurgar']
+                            );
+                    });
+            });
 
-        $total = $baseQuery->count();
+        // A barra avança por OV distinta, não por linha da origem.
+        $total = (clone $baseQuery)->distinct()->count('OV');
         $log->setTotal($total);
 
         $this->info("Starting BaseOV data transfer...(Source daysNoStatus <= {$days})");
@@ -66,18 +77,44 @@ class BaseOV extends Command
         $bar->setMessage('start', 'message');
         $bar->start();
 
-        // Process in chunks by ID for consistency
-        $baseQuery->orderBy('id')->chunkById($chunkSize, function ($records) use ($bar, &$count) {
-            // Unique OV list in this chunk
-            $ovList = $records->pluck('OV')->unique()->values();
-            // Fetch existing notes keyed by 'note'
+        // Processa OVs distintas para manter o total e o avanço da barra coerentes.
+        $ovQuery = (clone $baseQuery)
+            ->select('OV')
+            ->distinct()
+            ->orderBy('OV');
+
+        $ovQuery->chunk($chunkSize, function ($ovRows) use ($baseQuery, $bar, &$count) {
+            $ovList = $ovRows->pluck('OV')->filter()->unique()->values();
+
+            // Uma OV pode aparecer em mais de uma linha na origem. A consulta
+            // vem ordenada pela situação mais recente; se ela não trouxer
+            // prazo, aproveitamos a ocorrência mais recente que o possua.
+            $recordsByOv = (clone $baseQuery)
+                ->whereIn('OV', $ovList)
+                ->orderByDesc('dhStat')
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy('OV');
+
             $existingNotes = Note::whereIn('note', $ovList)->get()->keyBy('note');
 
             foreach ($ovList as $ov) {
-                $record   = $records->firstWhere('OV', $ov);
+                $sourceRecords = $recordsByOv->get($ov, collect());
+                $record = $sourceRecords->first();
+
+                if ($record && !$this->hasSourceValue($record->diasPVencimento)) {
+                    $record = $sourceRecords->first(
+                        fn ($candidate) => $this->hasSourceValue($candidate->diasPVencimento)
+                    ) ?? $record;
+                }
+
+                if (!$record) {
+                    $bar->advance();
+                    continue;
+                }
+
                 $existing = $existingNotes->get($ov);
 
-                // Determine if should update or create
                 $nstatsDiverged = $existing
                     && $this->hasSourceValue($record->numStat)
                     && $this->valuesDiffer($existing->nstats, $record->numStat);
@@ -95,9 +132,7 @@ class BaseOV extends Command
                     || $this->option('full')
                     || $this->option('force');
 
-
-
-                if (! $shouldUpdate) {
+                if (!$shouldUpdate) {
                     $bar->setMessage($count['tins'], 'tins');
                     $bar->setMessage($count['ins'], 'ins');
                     $bar->setMessage($count['upd'], 'upd');
@@ -105,10 +140,6 @@ class BaseOV extends Command
                     continue;
                 }
 
-
-
-
-                // Create historic entry if status changed
                 if ($existing && $existing->nstats != $record->numStat) {
                     HistoricNote::create([
                         'note_id'  => $existing->id,
@@ -119,7 +150,6 @@ class BaseOV extends Command
                     ]);
                 }
 
-                // Update or create note
                 $data = [
                     'created_by'    => $record->criadoPor,
                     'dt_created'    => "$record->dtCriacao $record->hrCriacao",
@@ -139,7 +169,7 @@ class BaseOV extends Command
                     'num_material'  => $record->numMaterial,
                     'material'      => $record->material,
                     'nexp'          => $record->numExp,
-                    'lexp'          => $record->localExp ?? $existing->lexp,
+                    'lexp'          => $record->localExp ?? $existing?->lexp,
                     'pep'           => $record->PEP,
                     'nstats'        => $record->numStat,
                     'status'        => $record->status,
@@ -155,7 +185,7 @@ class BaseOV extends Command
                 ];
 
                 if ($existing) {
-                    // Nunca apaga valor existente quando a origem vier vazia.
+                    // Não substitui um valor existente quando a origem vier vazia.
                     $data = array_filter($data, fn ($value) => $this->hasSourceValue($value));
                     $existing->update($data);
                     $count['upd']++;
@@ -165,7 +195,6 @@ class BaseOV extends Command
                     $count['ins']++;
                 }
 
-                // Advance progress
                 $bar->setMessage($count['tins'], 'tins');
                 $bar->setMessage($count['ins'], 'ins');
                 $bar->setMessage($count['upd'], 'upd');

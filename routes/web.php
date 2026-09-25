@@ -490,6 +490,7 @@ Route::prefix('/files')->controller(FilesController::class)->name('files.')->mid
     Route::get('/files/{file}/preview', 'preview')->name('preview');
     Route::get('/files/{file}/download', 'download')->name('download');
     Route::get('/files/zip', 'zipSelected')->name('zip');
+    Route::get('/batches/{batch}/download', 'downloadBatch')->middleware(['signed', 'throttle:30,1'])->name('batch.download');
 });
 
 Route::get('/info', function () {

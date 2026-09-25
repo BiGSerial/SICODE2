@@ -84,7 +84,10 @@ class Kernel extends ConsoleKernel
             ->cron('30 5,8,10,12,14,16,20 * * *');
 
         $this->scheduleCommand($schedule, 'sicode:upd_baseov --full', 'upd-baseov-full')
-            ->dailyAt('04:05');
+            ->dailyAt('05:05');
+
+        $this->scheduleCommand($schedule, 'sicode:upd_baseov --full --prazos', 'upd-baseov-full-prazos')
+            ->dailyAt('12:05');
 
         $this->scheduleCommand($schedule, 'sicode:upd_baseEP', 'upd-base-ep')
             ->cron('20 9-21 * * *');
@@ -345,7 +348,8 @@ class Kernel extends ConsoleKernel
             'wpas-log' => 'Log de WPAs',
             'collect-sqlsrv1-health' => 'Data Lake SQL Server',
             'sync-base-orders-operations' => 'Base Ordens e Operações',
-            'upd-baseov-full' => 'Base OV Full',
+            'upd-baseov-full' => 'Base OV Full (05:05)',
+            'upd-baseov-full-prazos' => 'Base OV Full Prazos (12:05)',
             'upd-base-ep' => 'Base EP',
             'sync-protests' => 'Sincronizar reclamações',
             'prune-protest-and-check-sla' => 'Limpar MED e SLA',

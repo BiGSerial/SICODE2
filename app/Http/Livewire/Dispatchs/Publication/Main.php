@@ -9,6 +9,7 @@ use App\Helpers\TextFormatter;
 use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, WorkReport};
 use App\Repositories\PublishRepository;
+use App\Support\SicodeRules;
 use App\Services\Publication\NoteFilter;
 use App\Services\WorkReports\{WorkReportFinalScopeResolver, WorkReportFlowProductionLinker};
 use App\Traits\WildcardFormmater;
@@ -524,6 +525,13 @@ class Main extends Component
 
 
         $query = $this->publishRepository->getBaseQuery($this->all_services, $this->service->uuid);
+
+        // Usuários contratados só podem visualizar obras das empresas vinculadas a eles.
+        $query = SicodeRules::applyContractDispatchListVisibility(
+            $query,
+            Auth()->user(),
+            $this->service->uuid
+        );
 
         // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
         if (!$this->all_services) {
