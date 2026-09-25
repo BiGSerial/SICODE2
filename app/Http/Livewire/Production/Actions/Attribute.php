@@ -3,7 +3,6 @@
 namespace App\Http\Livewire\Production\Actions;
 
 use App\Models\{Company, Note, Production, Service, User, Wpa};
-use Carbon\Carbon;
 use Livewire\Component;
 
 class Attribute extends Component
@@ -69,59 +68,35 @@ class Attribute extends Component
 
     public function go_att($chave)
     {
-        if ($chave !== $this->chave) {
+        if ($chave !== $this->chave || !$this->dd) {
             return;
         }
 
-        if ($this->dd) {
-            $check = Wpa::Where('dd', trim($this->additionalData[0]))->first();
+        $dd = trim((string) ($this->additionalData[0] ?? ""));
+        $check = $dd !== "" ? Wpa::where("dd", $dd)->where("note_id", "!=", $this->production->note_id)->first() : null;
 
-            if ($check && $check->note_id !== $this->production->note_id) {
-                if ($this->production->completed) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'DD JÁ UTILIZADA',
-                        'html'     => "A DD <strong>{$this->check->dd}</strong> JA FOI UTILIZADA E NÃO PODERÁ SER ASSOCIADA NESTA NOTA/OV.",
-                        'timer'    => 5000,
-                    ]);
-
-                    return;
-
-                } elseif (Carbon::now()->diffInMinutes($check->created_at) < 60 && $this->production->user_id === null) {
-                    $this->dispatchBrowserEvent('alertar', [
-                        'title'         => 'Confirmar Alterar DD',
-                        'msg'           => "A DD <strong>{$this->check->dd}</strong>, foi atribuída recentemente a outra nota, você deseja alterar para esta nota?",
-                        'icon'          => 'warning',
-                        'btnOktxt'      => 'Sim, Altere!',
-                        'btnCanceltxt'  => 'Não, Cancele',
-                        'action'        => 'confirm_alter_dd',
-                        'chave'         => $this->chave,
-                        'cancel_titulo' => 'Cancelado!',
-                        'cancel_msg'    => 'Nenhuma nota DD foi atribuída.',
-
-                    ]);
-
-                    $this->alter_dd_wpa = $check;
-
-                    return;
-                }
-            } else {
-                $this->dispatchBrowserEvent('alertar', [
-                    'title'         => 'Confirmar Atrinuição',
-                    'msg'           => "Deseja atribuir a Nota <strong>{$this->production->Note->note}</strong>?",
-                    'icon'          => 'warning',
-                    'btnOktxt'      => 'Sim, Atribua!',
-                    'btnCanceltxt'  => 'Não, Cancele',
-                    'action'        => 'confirm_att',
-                    'chave'         => $this->chave,
-                    'cancel_titulo' => 'Cancelado!',
-                    'cancel_msg'    => 'Nenhuma nota foi atribuída.',
-
-                ]);
-            }
+        if ($check) {
+            $this->dispatchBrowserEvent("swal", [
+                "position" => "center",
+                "icon" => "warning",
+                "title" => "DD ja utilizada",
+                "html" => "A DD <strong>{$dd}</strong> ja esta associada a outra Nota/OV.",
+                "timer" => 5000,
+            ]);
+            return;
         }
 
+        $this->dispatchBrowserEvent("alertar", [
+            "title" => "Confirmar Atribuicao",
+            "msg" => "Deseja atribuir a DD a Nota <strong>{$this->production->Note->note}</strong>?",
+            "icon" => "warning",
+            "btnOktxt" => "Sim, Atribua!",
+            "btnCanceltxt" => "Nao, Cancele",
+            "action" => "confirm_att",
+            "chave" => $this->chave,
+            "cancel_titulo" => "Cancelado!",
+            "cancel_msg" => "Nenhuma nota foi atribuida.",
+        ]);
     }
 
     public function confirmed_alter_dd($chave)
@@ -130,17 +105,27 @@ class Attribute extends Component
             return;
         }
 
-        if ($this->alter_dd_wpa->update([
-            'production_id' => $this->production->id,
-            'note_id'       => $this->production->note_id,
-        ])) {
-            $this->confirmed_att($this->chave);
-        }
+        $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "warning", "title" => "DD ja associada a outra Nota/OV.", "timer" => 5000]);
     }
-
     public function confirmed_att($chave)
     {
-        dd($chave, $this->chave);
+        if ($chave !== $this->chave) {
+            return;
+        }
+
+        try {
+            $this->production->loadMissing("Note");
+            app(\App\Services\Dispatch\DdAssignmentService::class)->assign(
+                $this->production->Note,
+                $this->production,
+                $this->additionalData[0] ?? null
+            );
+            $this->production->update(["block_wpa" => false]);
+            $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "success", "title" => "DD atribuída com sucesso.", "timer" => 2500]);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "error", "title" => $e->getMessage(), "timer" => 5000]);
+        }
     }
 
     public function render()

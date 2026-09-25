@@ -643,6 +643,9 @@
                                     data-value="{{ $list->note }}">
                                     @if ($list->FiveNote?->is_completed && !$list->FiveNote?->is_supervisioned)
                                         <span class="badge text-bg-success fs-6">D5 {{ $list->note }}</span>
+                                        @if ((int) ($list->dispatch_work_report_id ?? 0) > 0)
+                                            <small class="d-block text-muted mt-1">Informe #{{ $list->dispatch_work_report_id }}</small>
+                                        @endif
                                     @else
                                         {{ $list->note }}
                                     @endif

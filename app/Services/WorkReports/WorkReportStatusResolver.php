@@ -60,6 +60,10 @@ class WorkReportStatusResolver
             return $this->status('finalized', self::FINALIZED, 'text-bg-success');
         }
 
+        if ($d5Completed && $d5PaymentAssociated && !$d5FiscalAssociated) {
+            return $this->status('waiting_d5_fiscalization', self::WAITING_D5_FISCALIZATION, 'text-bg-secondary');
+        }
+
         if ($paymentWithoutFiscal || ($anyPaymentAssociated && !$anyFiscalAssociated)) {
             return $this->status('inconsistent_payment', self::INCONSISTENT_PAYMENT, 'text-bg-danger');
         }
@@ -70,10 +74,6 @@ class WorkReportStatusResolver
 
         if ($d5PaymentFinished && !$d5Completed) {
             return $this->status('waiting_d5_resolution', self::WAITING_D5_RESOLUTION, 'text-bg-warning');
-        }
-
-        if ($d5AssociatedToProduction && !$d5FiscalAssociated) {
-            return $this->status('waiting_d5_fiscalization', self::WAITING_D5_FISCALIZATION, 'text-bg-secondary');
         }
 
         if ($d5FiscalAssociated && !$d5FiscalFinished) {
@@ -127,7 +127,11 @@ class WorkReportStatusResolver
     {
         $flowProductions = $workReport->FlowProductions ?? collect();
         $fiveNote = $this->fiveNoteFor($workReport);
-        $d5Productions = $this->finalProductions($fiveNote?->productions ?? collect());
+        // A associação na pivot identifica a D5, mas não transforma uma produção
+        // normal (por exemplo, fiscalização da obra) em produção D5.
+        $d5Productions = $this->finalProductions($fiveNote?->productions ?? collect())
+            ->filter(fn ($production) => (bool) ($production->d5 ?? false) || (bool) ($production->dfive ?? false))
+            ->values();
         $d5ProductionIds = $d5Productions->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
         $normalFiscalProductions = $this->finalProductions(
             $flowProductions->where('stage', 'fiscalization')->pluck('Production')->filter()
@@ -159,21 +163,20 @@ class WorkReportStatusResolver
 
     private function fiveNoteFor(WorkReport $workReport): ?\App\Models\FiveNote
     {
-        if ($workReport->relationLoaded('FiveNote') && $workReport->FiveNote) {
+        if ($workReport->relationLoaded("FiveNote") && $workReport->FiveNote) {
             return $workReport->FiveNote;
         }
 
-        if ($workReport->Note?->relationLoaded('LegacyFiveNote')) {
-            return $workReport->Note->LegacyFiveNote;
-        }
-
-        // Compatibilidade com objetos/fluxos legados que carregam apenas Note.FiveNote.
-        if ($workReport->Note?->relationLoaded('FiveNote')) {
-            return $workReport->Note->FiveNote;
+        $loadedLegacy = null;
+        if ($workReport->Note?->relationLoaded("LegacyFiveNote")) {
+            $loadedLegacy = $workReport->Note->LegacyFiveNote;
+        } elseif ($workReport->Note?->relationLoaded("FiveNote")) {
+            $loadedLegacy = $workReport->Note->FiveNote;
         }
 
         if (!$workReport->getKey()) {
-            return null;
+            // Permite os estados em memória usados por fluxos legados/testes.
+            return $loadedLegacy;
         }
 
         $direct = $workReport->FiveNote()->first();
@@ -182,7 +185,41 @@ class WorkReportStatusResolver
             return $direct;
         }
 
-        return $workReport->Note?->LegacyFiveNote()->first();
+        // Compatibilidade com objetos/fluxos legados que carregam apenas Note.FiveNote.
+        $legacy = $loadedLegacy ?? $workReport->Note?->LegacyFiveNote()->first();
+
+        if (!$legacy) {
+            return null;
+        }
+
+        // Uma D5 legada só pertence a este informe quando a produção D5
+        // também está vinculada ao fluxo fiscal do próprio informe.
+        $flowProductions = $workReport->relationLoaded("FlowProductions")
+            ? $workReport->FlowProductions
+            : $workReport->FlowProductions()
+                ->where("stage", "fiscalization")
+                ->where("is_current", true)
+                ->with("Production.fiveNotes")
+                ->get();
+
+        $belongsToWorkReport = $flowProductions
+            ->where("stage", "fiscalization")
+            ->where("is_current", true)
+            ->contains(function ($flow) use ($legacy) {
+                $production = $flow->Production;
+
+                if (!$production) {
+                    return false;
+                }
+
+                $fiveNotes = $production->relationLoaded("fiveNotes")
+                    ? $production->fiveNotes
+                    : $production->fiveNotes()->get();
+
+                return $fiveNotes->contains(fn ($five) => (int) $five->id === (int) $legacy->id);
+            });
+
+        return $belongsToWorkReport ? $legacy : null;
     }
 
     private function sapOperationStatus(WorkReport $workReport): ?array

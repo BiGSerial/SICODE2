@@ -41,6 +41,8 @@ class WorkReportFlowProductionLinker
         }
 
         return DB::transaction(function () use ($production, $workReport, $source, $metadata): WorkReportFlowProduction {
+            $this->deactivateCurrentLinksForProduction($production, $workReport, WorkReportFlowProduction::STAGE_FISCALIZATION);
+
             WorkReportFlowProduction::query()
                 ->where('work_report_id', $workReport->id)
                 ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
@@ -89,6 +91,8 @@ class WorkReportFlowProductionLinker
         }
 
         return DB::transaction(function () use ($production, $workReport, $source, $metadata, $finalScope): WorkReportFlowProduction {
+            $this->deactivateCurrentLinksForProduction($production, $workReport, WorkReportFlowProduction::STAGE_PUBLICATION);
+
             WorkReportFlowProduction::query()
                 ->where('work_report_id', $workReport->id)
                 ->where('stage', WorkReportFlowProduction::STAGE_PUBLICATION)
@@ -153,7 +157,9 @@ class WorkReportFlowProductionLinker
 
     public function linkPaymentForWorkReport(Production $production, WorkReport|int $workReport, array $finalScopes, ?string $source = null, array $metadata = []): array
     {
-        if ((bool) $production->partial || (bool) $production->dfive) {
+        $allowD5PaymentLink = $source === 'services_payment_self_assign';
+
+        if ((bool) $production->partial || ((bool) $production->dfive && !$allowD5PaymentLink)) {
             return [];
         }
 
@@ -183,6 +189,8 @@ class WorkReportFlowProductionLinker
         }
 
         $links = DB::transaction(function () use ($production, $workReport, $source, $metadata, $scopes): array {
+            $this->deactivateCurrentLinksForProduction($production, $workReport, WorkReportFlowProduction::STAGE_PAYMENT);
+
             $created = [];
 
             foreach ($scopes as $finalScope) {
@@ -236,6 +244,8 @@ class WorkReportFlowProductionLinker
         }
 
         return DB::transaction(function () use ($production, $workReport, $stage, $source, $metadata, $finalScope): WorkReportFlowProduction {
+            $this->deactivateCurrentLinksForProduction($production, $workReport, $stage);
+
             WorkReportFlowProduction::query()
                 ->where('work_report_id', $workReport->id)
                 ->where('stage', $stage)
@@ -286,6 +296,8 @@ class WorkReportFlowProductionLinker
         }
 
         return DB::transaction(function () use ($production, $workReport, $stage, $source, $metadata, $finalScope): WorkReportFlowProduction {
+            $this->deactivateCurrentLinksForProduction($production, $workReport, $stage);
+
             WorkReportFlowProduction::query()
                 ->where('work_report_id', $workReport->id)
                 ->where('stage', $stage)
@@ -319,6 +331,18 @@ class WorkReportFlowProductionLinker
 
             return $link;
         });
+    }
+
+    private function deactivateCurrentLinksForProduction(Production $production, WorkReport $workReport, string $stage): void
+    {
+        Production::query()->whereKey($production->id)->lockForUpdate()->first();
+
+        WorkReportFlowProduction::query()
+            ->where("production_id", $production->id)
+            ->where("stage", $stage)
+            ->where("is_current", true)
+            ->where("work_report_id", "!=", $workReport->id)
+            ->update(["is_current" => false, "reversed_at" => now(), "reverse_reason" => "production_reassigned_to_another_work_report"]);
     }
 
     public function resolveCurrentFinalWorkReport(int $noteId, string $finalScope = WorkReportFlowProduction::SCOPE_GENERAL): ?WorkReport

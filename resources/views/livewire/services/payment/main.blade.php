@@ -339,7 +339,7 @@
                                     : collect([$list->WorkForm])->filter();
                                 $wf = $workForms->first() ?? $list->WorkForm;
                                 $selectionKey = (string) ($list->payment_context_key ?? $list->id);
-                                $workReportId = (int) ($list->payment_work_report_id ?? 0);
+                                $workReportId = (int) ($list->payment_work_report_id ?? $wf?->id ?? 0);
                                 $partial = !$wf ? $list->Partials->first() ?? null : null;
 
                                 // Escolhe o conjunto de orders em UM lugar só (evita vários ifs abaixo)

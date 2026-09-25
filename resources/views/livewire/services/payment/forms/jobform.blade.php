@@ -212,6 +212,9 @@
                     $hasPartial = $production->partial && optional($production->Note->Partials->last())->Orders;
                     $ordersPartial = $hasPartial ? $production->Note->Partials->last()->Orders : collect();
                     $orders = $ordersWf->count() ? $ordersWf : $ordersPartial;
+                    $scopeBadge = collect($production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT))->first() ?? ['label' => 'Geral', 'class' => 'text-bg-success'];
+                    $scopeLabel = $scopeBadge['label'] ?? 'Geral';
+                    $scopeClass = $scopeBadge['class'] ?? 'text-bg-success';
                 @endphp
 
                 <div class="modal-content">
@@ -221,6 +224,7 @@
                             <h1 class="modal-title fs-5 m-0" id="formProductionModalLabel">
                                 {{ mb_strtoupper($production->Service->service) }}
                                 <span class="text-white-50 fw-normal"> • Nota/OV {{ $production->Note->note }}</span>
+                                <span class="badge {{ $scopeClass }} ms-2">ESCOPO: {{ $scopeLabel }}</span>
                             </h1>
                             <small class="text-white-50">
                                 Município: {{ $production->Note->lexp }} • Rubrica: {{ $production->Note->rubrica }}

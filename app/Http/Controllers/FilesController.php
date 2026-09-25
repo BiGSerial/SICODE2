@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{EvidenceFile, File, FileDownloadBatch};
-use App\Services\Files\{EvidenceFileService, FileStorageService, FileThumbnailService};
+use App\Services\Files\{EvidenceFileService, EvidenceThumbnailService, FileStorageService, FileThumbnailService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -120,13 +120,31 @@ class FilesController extends Controller
         abort(404, 'Arquivo não encontrado para visualização.');
     }
 
-    public function previewEvidence(EvidenceFile $file, EvidenceFileService $evidence)
-    {
+    public function previewEvidence(
+        EvidenceFile $file,
+        EvidenceFileService $evidence,
+        EvidenceThumbnailService $thumbnails,
+        Request $request
+    ) {
         if (!$evidence->exists($file)) {
             abort(404, 'Arquivo de evidencia nao encontrado para visualizacao.');
         }
 
         $name = $file->original_name ?: $file->stored_name ?: 'evidencia';
+        if ($request->boolean('thumbnail')) {
+            $thumbnail = $thumbnails->ensure($file);
+            if ($thumbnail) {
+                return response(
+                    Storage::disk($thumbnail['disk'])->get($thumbnail['path']),
+                    200,
+                    [
+                        'Content-Type' => 'image/webp',
+                        'Content-Disposition' => 'inline; filename="' . addslashes(pathinfo($name, PATHINFO_FILENAME) . '.webp') . '"',
+                        'Cache-Control' => 'private, max-age=86400',
+                    ]
+                );
+            }
+        }
 
         return response($evidence->get($file), 200, [
             'Content-Type'        => $evidence->mimeType($file),

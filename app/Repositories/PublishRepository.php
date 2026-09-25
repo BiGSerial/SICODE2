@@ -18,7 +18,7 @@ class PublishRepository
         $query = Note::query()->excludeCanceledFullDone();
 
         if (!$all_services) {
-            $query->whereHas('WorkForm', function (Builder $workReport) {
+            $query->whereHas('WorkForms', function (Builder $workReport) {
                 $workReport
                     ->where('rejected', false)
                     ->whereHas('Orders', fn (Builder $order) => $this->publicationEligibleOrder($order));

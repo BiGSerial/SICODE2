@@ -319,9 +319,14 @@
                             $adsForm = $item->note?->Adsform ?? $item->note?->workform?->adsform;
                             $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                             $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
+                            $currentFlow = $item->WorkReportFlowProductions?->first();
+                            if ($type['init'] === 'F' && $currentFlow?->final_scope === \App\Models\WorkReportFlowProduction::SCOPE_CONNECTION) {
+                                $type['color'] = 'text-bg-warning';
+                            }
+                            $workReportId = $currentFlow?->work_report_id;
 
                         @endphp
-                        <tr wire:key="row-{{ $item->id }}" class="align-middle text-center">
+                        <tr wire:key="stack-production-{{ $item->id }}-report-{{ $workReportId ?? 0 }}" class="align-middle text-center">
 
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
@@ -348,7 +353,10 @@
                             </td>
 
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                {{ $item->note?->note }}
+                                <div class="fw-semibold">{{ $item->note?->note }}</div>
+                                @if ($workReportId)
+                                    <div class="small text-muted mt-1">Informe #{{ $workReportId }}</div>
+                                @endif
                                 <x-legal.note-demand-tags :note-id="$item->note_id" :row-key="'dispatchs-supervision-'.$item->id" />
                             </td>
                             <td

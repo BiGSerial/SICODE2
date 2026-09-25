@@ -293,6 +293,7 @@ class Main extends Component
                 'Note.WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
                 'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                 'Note.FiveNote',
+                'Note.FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
                 'Note.Partials.Company:id,name,deleted_at',
                 'Note.Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
                 'Note.Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
@@ -302,6 +303,7 @@ class Main extends Component
                     ->with([
                         'WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
                         'WorkReport.Company:id,name,deleted_at',
+                        "WorkReport.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at",
                         'WorkReport.Orders' => fn ($orders) => $orders->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
                         'WorkReport.Orders.Operations' => fn ($orders) => $orders->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
                         'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',

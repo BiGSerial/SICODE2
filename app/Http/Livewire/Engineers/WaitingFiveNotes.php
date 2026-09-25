@@ -394,6 +394,8 @@ class WaitingFiveNotes extends Component
             'note.Productions.User:id,name',
             'note.Productions.Company:id,name',
             'company:id,name',
+            'WorkReport:id,selected_final_scopes',
+            'productions.WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current',
             'productions:id,service_id,user_id,company_id,created_at,att_at,completed,completed_at,status',
             'productions.User:id,name',
             'productions.Company:id,name',

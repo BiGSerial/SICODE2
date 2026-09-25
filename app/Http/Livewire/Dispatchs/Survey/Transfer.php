@@ -66,7 +66,7 @@ class Transfer extends Component
             ]);
         } else {
 
-            $wpas = Wpa::where('dd', $informedDd)->first();
+            $wpas = Wpa::where('dd', $informedDd)->where('note_id', '!=', $production->note_id)->first();
 
             if ($wpas) {
 

@@ -9,6 +9,7 @@ use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User,
 use Livewire\{Component, WithPagination};
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Support\SicodeRules;
 
 class Stack2 extends Component
 {
@@ -423,6 +424,7 @@ class Stack2 extends Component
 
     public function confirmed_att()
     {
+        if (SicodeRules::requiresDdForSurveyDispatch()) {
         // Verifica se todas as entradas estão com DD atriobuídas.
         if (count($this->additionalData)) {
 
@@ -483,6 +485,7 @@ class Stack2 extends Component
 
             return;
         }
+        }
 
         foreach ($this->notes as $key => $note) {
             $production = $this->productions->where('note_id', $note->id)->first();
@@ -517,11 +520,11 @@ class Stack2 extends Component
                         ]);
                     }
 
-                    Wpa::create([
-                        'production_id' => $production->id,
-                        'note_id' => $note->id,
-                        'dd' => $this->additionalData[$key],
-                    ]);
+                    app(\App\Services\Dispatch\DdAssignmentService::class)->assign(
+                        $note,
+                        $production,
+                        $this->additionalData[$key] ?? null
+                    );
                 } else {
 
 

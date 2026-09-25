@@ -114,6 +114,9 @@ class DispatchModal extends Component
                 $row->setAttribute('dispatch_work_report_id', $context['work_report_id']);
                 $row->setAttribute('dispatch_partial_id', $context['partial_id']);
                 $row->setAttribute('dispatch_context_key', $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']));
+                if ($context["work_report_id"] && $row->relationLoaded("WorkForms")) {
+                    $row->setRelation("WorkForm", $row->WorkForms->firstWhere("id", $context["work_report_id"]));
+                }
 
                 return $row;
             })
@@ -568,26 +571,37 @@ class DispatchModal extends Component
 
     public function hydrateNotes($value): void
     {
-        foreach ($this->notes as $index => $note) {
+        $rows = collect($this->notes)->map(function ($note, $index) {
             if (!$note instanceof Note) {
-                continue;
+                return $note;
             }
 
             $context = $this->dispatchContextsByIndex[$index] ?? null;
             if (!$context) {
-                continue;
+                return $note;
             }
 
-            $workReportId = (int) ($context['work_report_id'] ?? 0) ?: null;
-            $partialId = (int) ($context['partial_id'] ?? 0) ?: null;
+            $row = clone $note;
+            $workReportId = (int) ($context["work_report_id"] ?? 0) ?: null;
+            $partialId = (int) ($context["partial_id"] ?? 0) ?: null;
+            $row->setAttribute("dispatch_work_report_id", $workReportId);
+            $row->setAttribute("dispatch_partial_id", $partialId);
+            $row->setAttribute("dispatch_context_key", $this->contextKey((int) $context["note_id"], $workReportId, $partialId));
 
-            $note->setAttribute('dispatch_work_report_id', $workReportId);
-            $note->setAttribute('dispatch_partial_id', $partialId);
-            $note->setAttribute(
-                'dispatch_context_key',
-                $this->contextKey((int) $context['note_id'], $workReportId, $partialId)
-            );
-        }
+            if ($workReportId) {
+                $workReport = WorkReport::query()
+                    ->whereKey($workReportId)
+                    ->where("note_id", $context["note_id"])
+                    ->where("canceled", false)
+                    ->with(["Orders", "FiveNote"])
+                    ->first();
+                $row->setRelation("WorkForm", $workReport);
+            }
+
+            return $row;
+        })->values();
+
+        $this->notes = new EloquentCollection($rows->all());
     }
 
     private function applyContractModeDefaults(): void

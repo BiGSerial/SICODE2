@@ -522,6 +522,9 @@
                     && (string) ($d5 ?? '') === '1';
                 $hasConclusion = !empty($analise['conclusion'] ?? null);
                 $isInRevision = (bool) ($production->Note->WorkForm?->rejected);
+                $scopeBadge = collect($closeNote['scopeBadges'] ?? [])->first() ?? ['label' => 'Geral', 'class' => 'text-bg-success'];
+                $scopeLabel = $scopeBadge['label'] ?? 'Geral';
+                $scopeClass = $scopeBadge['class'] ?? 'text-bg-success';
             @endphp
 
             <div class="modal-content">
@@ -532,6 +535,7 @@
                             {{ mb_strtoupper($production->Service->service) }}
                             <span class="text-white-50 fw-normal"> • Nota/OV {{ $closeNote['note'] ?? $production->Note->note }}</span>
                             <span class="badge {{ $closeNote['typeClass'] ?? 'text-bg-secondary' }} ms-2">{{ $closeNote['type'] ?? '---' }}</span>
+                            <span class="badge {{ $scopeClass }} ms-2">ESCOPO: {{ $scopeLabel }}</span>
                         </h1>
                         <small class="text-white-50">
                             Município: {{ $closeNote['municipio'] ?? '---' }} • Rubrica: {{ $closeNote['rubrica'] ?? '---' }}

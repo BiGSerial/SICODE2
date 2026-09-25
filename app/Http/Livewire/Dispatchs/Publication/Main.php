@@ -133,7 +133,7 @@ class Main extends Component
         } else {
 
 
-            return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selected), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
+            return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selectedNoteIds()), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
         }
     }
 
@@ -245,19 +245,14 @@ class Main extends Component
             return;
         }
 
-        $noteIds = collect($this->selected)->map(fn ($id) => (int) $id)->filter()->unique()->values();
-        $workReportIdsByNote = WorkReport::query()
-            ->whereIn('note_id', $noteIds)
-            ->where('canceled', false)
-            ->orderByRaw('COALESCE(informed_at, created_at) DESC')
-            ->orderByDesc('id')
-            ->get(['id', 'note_id'])
-            ->groupBy('note_id')
-            ->map(fn ($reports) => (int) $reports->first()->id);
+        $payload = collect($this->selected)->map(function ($key) {
+            [$noteId, $workReportId] = array_pad(explode(':', (string) $key, 3), 3, null);
 
-        $payload = $noteIds
-            ->map(fn (int $noteId) => ['note_id' => $noteId, 'work_report_id' => $workReportIdsByNote[$noteId] ?? null])
-            ->all();
+            return [
+                'note_id' => (int) $noteId,
+                'work_report_id' => $workReportId ? (int) $workReportId : null,
+            ];
+        })->filter(fn ($item) => $item['note_id'] > 0)->values()->all();
 
         $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
@@ -537,7 +532,7 @@ class Main extends Component
         if (!$this->all_services) {
             $query->where(function ($q) {
                 $q->where(function ($wq) {
-                    $wq->whereHas('WorkForm', function ($sq) {
+                    $wq->whereHas('WorkForms', function ($sq) {
                         $sq->where('rejected', false);
                     });
                 });
@@ -567,7 +562,7 @@ class Main extends Component
         // Filtro de Companhia (company_id) no WorkForm
         if (isset($this->filters['company'])) {
             $companies = $this->filters['company'];
-            $query->whereHas('WorkForm', function ($q) use ($companies) {
+            $query->whereHas('WorkForms', function ($q) use ($companies) {
                 $q->whereIn('company_id', $companies);
             });
         }
@@ -604,6 +599,7 @@ class Main extends Component
             'WorkForm.Company',
             'WorkForm.Orders',
             'WorkForm.FlowProductions.Production',
+            'WorkForms' => fn ($q) => $q->where('canceled', false)->with(['Company', 'Orders.Operations', 'FlowProductions.Production', 'FiveNote']),
             'RamalForm',
         ])
             ->select([
@@ -689,6 +685,37 @@ class Main extends Component
     //     }
     // }
 
+    private function expandPublicationRows($notes)
+    {
+        return $notes->flatMap(function (Note $note) {
+            $reports = $note->relationLoaded('WorkForms') ? $note->WorkForms : collect();
+            $eligible = $reports->filter(function ($report) {
+                $orders = $report->relationLoaded('Orders') ? $report->Orders : collect();
+                return $report->rejected === false && $orders->contains(function ($order) {
+                    return str_starts_with(strtoupper((string) $order->statusSist), 'LIB')
+                        && $order->Operations->contains(fn ($operation) => (string) $operation->operacao === '0020'
+                            && (str_starts_with(strtoupper((string) $operation->status), 'LIB')
+                                || str_starts_with(strtoupper((string) $operation->status), 'CNPA')
+                                || str_starts_with(strtoupper((string) $operation->status), 'JBFI LIB')));
+                }) && collect($report->finalScopePayloads())->pluck('scope')->contains(fn ($scope) => app(WorkReportFinalScopeResolver::class)->publicationRequired($scope));
+            })->values();
+
+            if ($eligible->isEmpty()) {
+                $note->setAttribute('publication_context_key', (string) $note->id);
+                return [$note];
+            }
+
+            return $eligible->map(function ($report) use ($note) {
+                $row = clone $note;
+                $row->setRelation('WorkForm', $report);
+                $row->setRelation('WorkForms', collect([$report]));
+                $row->setAttribute('publication_context_key', $note->id . ':' . $report->id);
+                $row->setAttribute('dispatch_work_report_id', (int) $report->id);
+                return $row;
+            });
+        })->values();
+    }
+
     private function dispatchRecipientInfo(): string
     {
         if (trim((string) $this->user_s)) {
@@ -749,8 +776,9 @@ class Main extends Component
     public function render()
     {
         $lists = $this->lists->paginate($this->perPage);
+        $lists->setCollection($this->expandPublicationRows($lists->getCollection()));
 
-        if (empty(array_diff($lists->pluck('id')->toArray(), $this->selected))) {
+        if (empty(array_diff($lists->map(fn ($row) => $row->publication_context_key ?? $row->id)->toArray(), $this->selected))) {
             $this->selectall = true;
         } else {
             $this->selectall = false;
@@ -826,9 +854,18 @@ class Main extends Component
 
     private function currentPageListIds(): array
     {
-        return $this->lists
-            ->paginate($this->perPage)
-            ->pluck('id')
+        return $this->expandPublicationRows($this->lists->paginate($this->perPage)->getCollection())
+            ->map(fn ($row) => $row->publication_context_key ?? $row->id)
             ->toArray();
+    }
+
+    private function selectedNoteIds(): array
+    {
+        return collect($this->selected)
+            ->map(fn ($key) => (int) explode(':', (string) $key, 2)[0])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

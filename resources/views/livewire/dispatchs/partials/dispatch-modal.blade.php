@@ -427,6 +427,7 @@
                                     <th scope="col" class="text-center" style="width:52px;">#</th>
                                     <th scope="col">{{ ucfirst($this->dispatchItemLabel) }}</th>
                                     <th scope="col">Descricao</th>
+                                    <th scope="col">Informe</th>
                                     @if ($requiresFinalScope)
                                         <th scope="col">Escopo</th>
                                     @endif
@@ -437,10 +438,11 @@
                             </thead>
                             <tbody>
                                 @foreach ($notes as $index => $note)
-                                    <tr>
+                                    <tr wire:key="dispatch-context-{{ $note->dispatch_context_key ?? $index }}">
                                         <td class="text-center fw-bold">{{ $index + 1 }}</td>
                                         <td class="dispatch-modal__note">{{ $note->note }}</td>
                                         <td class="dispatch-modal__material">{{ $note->material }}</td>
+                                        <td class="dispatch-modal__work-report">{{ $note->dispatch_work_report_id ? "#" . $note->dispatch_work_report_id : "Legado" }}</td>
                                         @if ($requiresFinalScope)
                                             <td class="dispatch-modal__scope">
                                                 @php($scopeOptions = $finalScopeOptions[$note->dispatch_context_key ?? $note->id] ?? [])

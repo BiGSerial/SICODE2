@@ -301,7 +301,7 @@ class SicodeRules
 
         if (count($openProductionIds)) {
             $dd = $wpas
-                ->where('service_id', $serviceId)
+                ->filter(fn ($wpa) => (string) $wpa->service_id === (string) $serviceId || is_null($wpa->service_id))
                 ->whereIn('production_id', $openProductionIds)
                 ->sortByDesc('id')
                 ->first()?->dd;
@@ -312,7 +312,7 @@ class SicodeRules
         }
 
         $dd = $wpas
-            ->where('service_id', $serviceId)
+            ->filter(fn ($wpa) => (string) $wpa->service_id === (string) $serviceId || is_null($wpa->service_id))
             ->whereNull('production_id')
             ->sortByDesc('id')
             ->first()?->dd;
@@ -321,7 +321,7 @@ class SicodeRules
             return $dd;
         }
 
-        return $wpas->sortByDesc('id')->first()?->dd;
+        return $wpas->filter(fn ($wpa) => is_null($wpa->service_id))->sortByDesc('id')->first()?->dd;
     }
 
     private static function visibleCompanyIdsCollectionFor(User $user): Collection

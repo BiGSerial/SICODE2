@@ -54,6 +54,11 @@ class EvidenceFileService
         return $this->resolveLocation($file) !== null;
     }
 
+    public function location(EvidenceFile $file): ?array
+    {
+        return $this->resolveLocation($file);
+    }
+
     public function get(EvidenceFile $file): string
     {
         [$disk, $path] = $this->requireLocation($file);

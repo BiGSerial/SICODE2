@@ -50,21 +50,22 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
             'Partials.Orders',
             'OldAds',
             'FiveNote',
-        ])->get()->unique('id')->values();
+        ])->get();
 
-        $rows = $notes->flatMap(function ($note) {
-            $workForms = $note->WorkReports ?? collect();
+        $rows = $notes->map(function ($note) {
+            // A lista é montada pelo JOIN de notes com work_reports e, portanto,
+            // cada linha representa um informe específico. Não podemos agrupar
+            // novamente pela nota nem reanexar todos os informes da nota aqui:
+            // isso mistura as ordens de informes diferentes no Excel.
+            $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+            $workForm = $workReportId > 0
+                ? ($note->WorkReports ?? collect())->firstWhere('id', $workReportId)
+                : null;
 
-            if ($workForms->isNotEmpty()) {
-                return $workForms->map(function ($workForm) use ($note) {
-                    $row = clone $note;
-                    $row->setRelation('WorkForm', $workForm);
-                    $row->setAttribute('dispatch_work_report_id', (int) $workForm->id);
-                    return $row;
-                });
-            }
+            $row = clone $note;
+            $row->setRelation('WorkForm', $workForm);
 
-            return [clone $note];
+            return $row;
         })->values();
 
         if (empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds)) {

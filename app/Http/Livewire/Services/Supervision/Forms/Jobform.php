@@ -347,7 +347,7 @@ class Jobform extends Component
 
             if ($this->production->dfive) {
                 $this->d5   = 1;
-                $this->five = $this->production->Note->FiveNote;
+                $this->five = $this->fiveNoteForCurrentProduction($this->currentFiscalizationWorkReportId()) ?? $this->production->Note->FiveNote;
             }
 
             if (isset($this->production->Analise)) {
@@ -808,9 +808,11 @@ class Jobform extends Component
 
                 // ]);
 
-                if (!$this->production->Note->FiveNote) {
+                $workReportId = $this->currentFiscalizationWorkReportId();
+                $fiveNote = $this->fiveNoteForCurrentProduction($workReportId);
+
+                if (!$fiveNote && !$this->production->dfive) {
                     $note             = $this->production->Note;
-                    $existingFiveNote = $note->FiveNote;
                     $order            = null;
 
                     if ($note) {
@@ -818,14 +820,15 @@ class Jobform extends Component
                         $workForm = $note->WorkForm;
                     }
 
-                    $fiveNote = FiveNote::updateOrCreate(
-                        [
+                    $lookup = $workReportId
+                        ? ['note_id' => $this->production->note_id, 'work_report_id' => $workReportId]
+                        : ['note_id' => $this->production->note_id, 'work_report_id' => null];
 
-                            'note_id' => $this->production->note_id,
-                        ],
+                    $fiveNote = FiveNote::updateOrCreate(
+                        $lookup,
                         [
-                            'reason'      => !$this->production->dfive ? $this->return['reason'] : $existingFiveNote?->reason,
-                            'description' => !$this->production->dfive ? $this->return['description'] ?? $this->return['description'] : $existingFiveNote?->description,
+                            'reason'      => $this->return['reason'],
+                            'description' => $this->return['description'] ?? '',
                             'loc_install' => $this->return['loc_install'] ? trim($this->return['loc_install']) : null,
                             'conjunto'    => $this->production->Note->num_material,
                             'pep'         => $order?->pep,
@@ -848,10 +851,10 @@ class Jobform extends Component
                             );
                         }
                     }
-                } else {
+                } elseif ($fiveNote) {
 
                     if (!$this->five) {
-                        $this->five = $this->production->Note->FiveNote;
+                        $this->five = $fiveNote;
                     }
 
                     if (!$this->production->dfive) {
@@ -955,6 +958,39 @@ class Jobform extends Component
 
             return;
         }
+    }
+
+    private function currentFiscalizationWorkReportId(): ?int
+    {
+        return $this->production?->WorkReportFlowProductions()
+            ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+            ->where('is_current', true)
+            ->latest('id')
+            ->value('work_report_id');
+    }
+
+    private function fiveNoteForCurrentProduction(?int $workReportId): ?FiveNote
+    {
+        $query = $this->production?->fiveNotes();
+
+        if (!$query) {
+            return null;
+        }
+
+        return $query
+            ->where('note_id', $this->production->note_id)
+            ->when($workReportId,
+                fn ($q) => $q->where('work_report_id', $workReportId),
+                fn ($q) => $q->whereNull('work_report_id')
+            )
+            ->first()
+            ?? FiveNote::query()
+                ->where('note_id', $this->production->note_id)
+                ->when($workReportId,
+                    fn ($q) => $q->where('work_report_id', $workReportId),
+                    fn ($q) => $q->whereNull('work_report_id')
+                )
+                ->first();
     }
 
     private function shouldCreateD5OnClose(): bool

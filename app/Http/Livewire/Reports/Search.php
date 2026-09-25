@@ -82,6 +82,20 @@ class Search extends Component
                     ]);
                 },
 
+                // Todas as D5 da Nota/OV, incluindo as vinculadas diretamente a informes.
+                "FiveNotes" => function ($q) {
+                    $q->with([
+                        "productions.Service:id,uuid,service",
+                        "productions.WorkReportFlowProductions" => fn ($flow) => $flow
+                            ->where("is_current", true)
+                            ->with("WorkReport:id,selected_final_scopes,current_status_label,current_status_class"),
+                        "WorkReport:id,selected_final_scopes,current_status_label,current_status_class",
+                    ])->select([
+                        "id", "note_id", "work_report_id", "note_d5", "visible_partner",
+                        "is_completed", "is_payed", "is_archived", "is_supervisioned", "completed_at",
+                    ]);
+                },
+
                 // Arquivos
                 'Files:id,note_id,service_id,user_id,file_name,original_name,ext,path,disk,mime,size,sha256,noexists,created_at,updated_at',
                 'Files.Service:id,service',
@@ -110,6 +124,7 @@ class Search extends Component
                           'User:id,name,email',
                           'Company:id,name',
                           'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current',
+                          'partialInforms:id',
                       ])
                       ->select([
                           'id','note_id','service_id','user_id','company_id',
@@ -161,7 +176,7 @@ class Search extends Component
                             $query->with([
                                 'Production.Service:id,uuid,service',
                                 'Production.User:id,name,email',
-                                'Production.Company:id,name',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
                                 'LinkedBy:id,name,email',
                             ])
                                 ->orderBy('stage')
@@ -193,7 +208,7 @@ class Search extends Component
                             $query->with([
                                 'Production.Service:id,uuid,service',
                                 'Production.User:id,name,email',
-                                'Production.Company:id,name',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
                                 'LinkedBy:id,name,email',
                             ])
                                 ->orderBy('stage')
@@ -225,7 +240,7 @@ class Search extends Component
                             $query->with([
                                 'Production.Service:id,uuid,service',
                                 'Production.User:id,name,email',
-                                'Production.Company:id,name',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
                                 'LinkedBy:id,name,email',
                             ])
                                 ->orderBy('stage')
@@ -259,7 +274,7 @@ class Search extends Component
                             $query->with([
                                 'Production.Service:id,uuid,service',
                                 'Production.User:id,name,email',
-                                'Production.Company:id,name',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
                                 'LinkedBy:id,name,email',
                             ])
                                 ->orderBy('stage')

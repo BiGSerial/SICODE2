@@ -16,6 +16,7 @@ use App\Models\Wpa;
 use Livewire\Component;
 use Livewire\WithPagination;
 use PhpParser\Node\Expr\Empty_;
+use App\Support\SicodeRules;
 
 class Main extends Component
 {
@@ -248,23 +249,7 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::with('Wpas')->find($this->selected);
-
-        $this->type = '2';
-
-        $this->additionalData = [];
-
-        if ($this->notes->count()) {
-
-            foreach ($this->notes as $index => $wpa) {
-                $this->additionalData[$index] = $wpa->Wpas->count() ? (!$wpa->Wpas->last()->production_id ? $wpa->Wpas->last()->dd : '') : '';
-            }
-
-
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes'
-            ]);
-        }
+        $this->emitTo("dispatchs.shared.dispatch-modal", "openForNotes", array_values($this->selected));
     }
 
     public function confirm_att()
@@ -355,74 +340,43 @@ class Main extends Component
 
     public function confirmed_att()
     {
-        if ($this->type == "2") {
+        if ($this->type == "2" && SicodeRules::requiresDdForSupervisionDispatch()) {
+            if (!count($this->additionalData)) {
+                $this->dispatchBrowserEvent("swal", [
+                    "position" => "center",
+                    "icon" => "warning",
+                    "title" => "Nenhuma Nota DD associada as Notas/OVs!",
+                    "timer" => 5000,
+                ]);
+                return;
+            }
 
-
-
-            // Verifica se todas as entradas estão com DD atriobuídas.
-            if (count($this->additionalData)) {
-
-
-                // Checa se existe DD não preenchida
-                foreach ($this->additionalData as $key => $value) {
-                    if (!trim($value)) {
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => 'Todas as Notas/OVs precisam estar associadas a uma Nota DD',
-                            'timer' => 5000,
-                        ]);
-
-                        return;
-                    }
-                }
-
-
-                if (count(array_unique($this->additionalData)) !== count($this->additionalData)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon' => 'warning',
-                        'title' => 'Existem Notas DD repetidas atribuídas a Nota/OVs diferentes',
-                        'timer' => 5000,
+            foreach ($this->additionalData as $key => $value) {
+                if (!trim((string) $value)) {
+                    $this->dispatchBrowserEvent("swal", [
+                        "position" => "center",
+                        "icon" => "warning",
+                        "title" => "Todas as Notas/OVs precisam estar associadas a uma Nota DD",
+                        "timer" => 5000,
                     ]);
-
                     return;
                 }
 
-                //Checa se existe DD Repetida
-
-
-                $dds = Wpa::whereIn('dd', $this->additionalData)->with('Note')->get();
-
-                if ($dds->count()) {
-
-                    foreach ($this->additionalData as $key => $value) {
-                        $chk = $dds->where('dd', $value)->first();
-
-                        if ($chk && $chk->Note->note != $this->notes[$key]->note) {
-                            $this->dispatchBrowserEvent('swal', [
-                                'position' => 'center',
-                                'icon' => 'error',
-                                'title' => "DD {$value} já foi associada a Nota/OV {$chk->Note->note}",
-                                'timer' => 5000,
-                            ]);
-
-                            return;
-                        }
-                    }
+                $foreign = Wpa::where("dd", trim($value))
+                    ->where("note_id", "!=", $this->notes[$key]->id)
+                    ->exists();
+                if ($foreign) {
+                    $this->dispatchBrowserEvent("swal", [
+                        "position" => "center",
+                        "icon" => "error",
+                        "title" => "DD {$value} ja foi associada a outra Nota/OV",
+                        "timer" => 5000,
+                    ]);
+                    return;
                 }
-
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Nenhuma Nota DD associada as Notas/OVs!',
-                    'timer' => 5000,
-                ]);
-
-                return;
             }
         }
+
 
 
         if ($this->type == "2") {
@@ -466,82 +420,57 @@ class Main extends Component
                         ]);
                     }
 
-
                     if ($production) {
-
-                        $wpa = Wpa::where('note_id', $note->id)->where('dd', $this->additionalData[$key])->whereNull('production_id')->first();
-
-                        if ($wpa) {
-                            $wpa->update([
-                                 'production_id' => $production->id,
-                             ]);
-                        } else {
-                            Wpa::create([
-                                'production_id' => $production->id,
-                                'note_id' => $note->id,
-                                'dd' => $this->additionalData[$key]
-                            ]);
-                        }
-
-
+                        app(\App\Services\Dispatch\DdAssignmentService::class)->assign(
+                            $note,
+                            $production,
+                            $this->additionalData[$key] ?? null
+                        );
                     }
                 } else {
                     $erros[] = $erro;
                 }
-
-
             }
         } else {
             foreach ($this->notes as $key => $note) {
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
+                if (!$erro = Production::where("note_id", $note->id)->where("service_id", $this->service->uuid)->where("confirmed", false)->first()) {
                     $production = Production::create([
-                        'note_id' => $note->id,
-                        'service_id' => $this->service->uuid,
-                        'company_id' => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'dt_note' => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'status' => 1,
-                        'centroTrab' => $note->centerjob,
+                        "note_id" => $note->id,
+                        "service_id" => $this->service->uuid,
+                        "company_id" => $this->company_s,
+                        "dispatch_by" => Auth()->User()->id,
+                        "dt_note" => $note->dt_status,
+                        "status_note" => $note->nstats,
+                        "dispatch_at" => date("Y-m-d H:i:s"),
+                        "status" => 1,
+                        "centroTrab" => $note->centerjob,
                     ]);
 
                     $user = Auth()->User()->name;
-
-                    if (trim($this->user_s)) {
-                        $user_info = "Atribuiu a NOTA/OV para: " . User::find($this->user_s) ? (User::find($this->user_s))->name : 'Desconhecido';
-                    } else {
-                        $user_info = "Despachou a NOTA/OV para:" . Company::find($this->company_s) ? (Company::find($this->company_s))->name : 'Desconhecido';
-                    }
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id' => $production->id,
-                            'service_id' => $production->service_id,
-                            'user_id' => Auth()->User()->id,
-                            'info' => "Usuário {$user} {$user_info}",
-                            'status' => 1,
-                            'productionId' => $production->id,
-                        ]);
-                    }
+                    $user_info = "Despachou a NOTA/OV para:" . (Company::find($this->company_s)?->name ?? "Desconhecido");
+                    Notetimeline::Create([
+                        "note_id" => $production->id,
+                        "service_id" => $production->service_id,
+                        "user_id" => Auth()->User()->id,
+                        "info" => "Usuário {$user} {$user_info}",
+                        "status" => 1,
+                        "productionId" => $production->id,
+                    ]);
                 } else {
                     $erros[] = $erro;
                 }
-
-
             }
         }
 
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Notas Despachadas com sucesso!',
-            'timer' => 2500,
+        $this->dispatchBrowserEvent("swal", [
+            "position" => "center",
+            "icon" => "success",
+            "title" => "Notas Despachadas com sucesso!",
+            "timer" => 2500,
         ]);
 
         $this->closeall();
-        $this->emit('refresh_dispatch');
+        $this->emit("refresh_dispatch");
     }
 
 

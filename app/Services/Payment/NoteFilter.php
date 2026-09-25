@@ -77,30 +77,28 @@ class NoteFilter
 
             // (C) FiveNote pendente para criacao/despacho pela Medicao, ou ja fiscalizada para liberacao final
             ->orWhere(function (Builder $q) {
-                $q->whereHas('FiveNote', function (Builder $fn) {
-                    $fn->where('is_archived', false)
-                        ->where(function (Builder $d5) {
-                            $d5->where(function (Builder $pendingPayment) {
-                                $pendingPayment->where('is_supervisioned', false)
-                                    ->where('visible_partner', false)
-                                    ->where('is_payed', false);
+                $q->whereHas("FiveNotes", function (Builder $fn) {
+                    $fn->where("is_archived", false)
+                        ->where(function (Builder $state) {
+                            $state->where(function (Builder $pending) {
+                                $pending->where("is_supervisioned", false)
+                                    ->where("visible_partner", false)
+                                    ->where("is_payed", false)
+                                    ->where(function (Builder $ready) {
+                                        $ready->whereHas("WorkReport.Orders", fn (Builder $ord) => $this->wherePaymentReadyOrder($ord))
+                                            ->orWhere(function (Builder $legacy) {
+                                                $legacy->whereNull("work_report_id")
+                                                    ->whereHas("note.WorkForms", function (Builder $wf) {
+                                                        $wf->where("rejected", false)
+                                                            ->whereHas("Orders", fn (Builder $ord) => $this->wherePaymentReadyOrder($ord));
+                                                    });
+                                            });
+                                    });
                             })
-                            ->orWhere(function (Builder $releaseLetter) {
-                                $releaseLetter->where('is_supervisioned', true)
-                                    ->where('is_completed', true);
+                            ->orWhere(function (Builder $released) {
+                                $released->where("is_supervisioned", true)
+                                    ->where("is_completed", true);
                             });
-                        });
-                })
-                ->where(function (Builder $d5Payment) {
-                    $d5Payment
-                        ->whereHas('FiveNote', function (Builder $releaseLetter) {
-                            $releaseLetter->where('is_archived', false)
-                                ->where('is_supervisioned', true)
-                                ->where('is_completed', true);
-                        })
-                        ->orWhereHas('WorkForms', function (Builder $wf) {
-                            $wf->where('rejected', false)
-                               ->whereHas('Orders', fn (Builder $ord) => $this->wherePaymentReadyOrder($ord));
                         });
                 });
             });

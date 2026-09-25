@@ -204,7 +204,7 @@
                                     $soma = 0;
 
                                     if (!function_exists('FiveStatus')) {
-                                        function FiveStatus($list): object
+                                        function FiveStatus($list, $fiveNote = null): object
                                         {
                                             $object = (object) [
                                                 'exists' => false,
@@ -212,7 +212,7 @@
                                                 'message' => '',
                                             ];
 
-                                            if ($five = $list->note->fiveNote) {
+                                            if ($five = ($fiveNote ?: $list->note->fiveNote)) {
                                                 if (!$five->is_supervisioned) {
                                                     $object->exists = true;
                                                     $object->bgColor = 'text-bg-primary';
@@ -248,7 +248,8 @@
                                                 ? $partial->Orders ?? collect()
                                                 : collect());
 
-                                        $five = FiveStatus($list);
+                                        $fiveNote = $flowWorkForm?->FiveNote ?? $list->Note->FiveNote;
+                                        $five = FiveStatus($list, $fiveNote);
                                         $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
@@ -285,7 +286,7 @@
                                                 data-bs-toggle="popover" data-bs-trigger="hover focus"
                                                 data-bs-placement="top" data-bs-title="Nota com D5"
                                                 data-bs-content="{{ $five->message }}"
-                                                wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->Note->id }})"
+                                                wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->Note->id }}, {{ $fiveNote?->id }})"
                                                 style="cursor: pointer;" z-index="0">
                                                 <span class="fw-bold">D5</span>
                                                 {{ $list->Note->note }}
@@ -479,7 +480,7 @@
                                                     data-bs-title="Iniciar.">
                                                     {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
                                                             style="cursor: pointer;"
-                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i> --}}
+                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }}, {{ $fiveNote?->id }})"></i> --}}
                                                     <i class="ri-play-circle-line m-0 align-middle text-success"
                                                         style="cursor: pointer;"
                                                         wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $list }})"></i>

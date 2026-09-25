@@ -26,6 +26,7 @@ class FiveNote extends Model
         'reason',
         'description',
         'name',
+        'answered_by_user_id',
         'dispatch_at',
         'visible_partner',
         'is_completed',
@@ -88,6 +89,11 @@ class FiveNote extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function answeredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'answered_by_user_id')->withTrashed();
+    }
+
     public function productions(): MorphToMany
     {
         return $this->morphToMany(
@@ -118,6 +124,7 @@ class FiveNote extends Model
     public function done(?string $responsible, ?string $comment = null)
     {
         $this->name = $responsible ?? $this->name;
+        $this->answered_by_user_id = auth()->id() ?: $this->answered_by_user_id;
         $this->is_completed = true;
         $this->completed_at = now();
         $this->save();

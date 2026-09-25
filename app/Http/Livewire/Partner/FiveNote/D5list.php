@@ -48,6 +48,11 @@ class D5list extends Component
     public function getFivesProperty()
     {
         $query = FiveNote::query();
+        $query->with([
+            "WorkReport:id,selected_final_scopes",
+            "productions:id,service_id,note_id",
+            "productions.WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current",
+        ]);
 
         $this->applyPartnerCompanyScope($query);
 

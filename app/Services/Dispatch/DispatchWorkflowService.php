@@ -10,7 +10,6 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\WorkReport;
 use App\Models\WorkReportFlowProduction;
-use App\Models\Wpa;
 use App\Services\D5\D5WorkflowService;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
@@ -19,7 +18,10 @@ use Illuminate\Support\Facades\DB;
 
 class DispatchWorkflowService
 {
-    public function __construct(private DispatchContextResolver $contextResolver)
+    public function __construct(
+        private DispatchContextResolver $contextResolver,
+        private DdAssignmentService $ddAssignment,
+    )
     {
     }
 
@@ -119,7 +121,7 @@ class DispatchWorkflowService
 
             $production->update($updateData);
 
-            $this->afterAssigned($production, $actor, $previousUserId);
+            $this->afterAssigned($production, $actor, $previousUserId, $workReportId);
             $this->linkWorkReportFlow($production, $serviceKey, $finalScopes, $workReportId);
             $this->attachPartialContext($production, $partialId);
             $this->timeline($production, $actor, 'Atribuiu a NOTA/OV para: ' . $targetUser->name, 2);
@@ -165,7 +167,9 @@ class DispatchWorkflowService
             $production->update($updateData);
 
             if ($previousUserId) {
-                $five = $production->note?->FiveNote;
+                $five = $workReportId
+                    ? WorkReport::query()->with('FiveNote')->whereKey($workReportId)->where('note_id', $production->note_id)->first()?->FiveNote
+                    : $production->note?->LegacyFiveNote()->first();
                 if ($five) {
                     app(D5WorkflowService::class)->onProductionUnassigned(
                         $five,
@@ -281,6 +285,25 @@ class DispatchWorkflowService
                 }
             }
 
+            if (!$explicitWorkReportId && count($targetWorkReportIds) > 1 && !$this->isD5Dispatch($note, $serviceKey, $finalScopes)) {
+                $productions = collect($targetWorkReportIds)
+                    ->map(function (int $targetWorkReportId) use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $partialId) {
+                        return $this->dispatch(
+                            $note,
+                            $service,
+                            $company,
+                            $targetUser,
+                            $actor,
+                            $dd,
+                            $this->finalScopesForWorkReport($note, $targetWorkReportId, $finalScopes),
+                            $targetWorkReportId,
+                            $partialId
+                        );
+                    });
+
+                return $productions->first();
+            }
+
             $context = $this->contextResolver->for($note, $service);
             $isScopedPaymentDispatch = $serviceKey === 'payment' && !empty($targetWorkReportIds);
 
@@ -299,7 +322,7 @@ class DispatchWorkflowService
                     throw new DispatchException('Usuario com contrato deve atribuir a atividade, nao enviar para pilha.');
                 }
 
-                $stackProduction = $this->openCompanyStackProduction($note, $service, $company);
+                $stackProduction = $this->openCompanyStackProduction($note, $service, $company, $explicitWorkReportId, $partialId);
 
                 if (!$stackProduction && !($context['service_key'] === 'payment' && (string) $targetUser->id === (string) $actor->id)) {
                     throw new DispatchException('Nao existe atividade aberta na pilha desta empresa para atribuir.');
@@ -344,7 +367,7 @@ class DispatchWorkflowService
             $this->linkWorkReportFlow($production, $context['service_key'], $finalScopes, $explicitWorkReportId);
 
             if ($targetUser) {
-                $this->afterAssigned($production, $actor, null);
+                $this->afterAssigned($production, $actor, null, $explicitWorkReportId);
             }
 
             $this->timeline(
@@ -409,6 +432,27 @@ class DispatchWorkflowService
         };
     }
 
+    private function finalScopesForWorkReport(Note $note, int $workReportId, array $requestedScopes): array
+    {
+        $workReport = $note->relationLoaded("WorkForms")
+            ? $note->WorkForms->firstWhere("id", $workReportId)
+            : WorkReport::query()->whereKey($workReportId)->where("note_id", $note->id)->with("Orders")->first();
+
+        if (!$workReport) {
+            return $requestedScopes;
+        }
+
+        $reportScopes = collect($workReport->finalScopePayloads())
+            ->pluck("scope")
+            ->filter()
+            ->values();
+        $requested = collect($requestedScopes)->filter()->values();
+        $scopes = $requested->intersect($reportScopes)->values();
+
+        return ($scopes->isNotEmpty() ? $scopes : $reportScopes)->all();
+    }
+
+
     private function targetWorkReportIdsForDispatch(Note $note, string $serviceKey, array $finalScopes): array
     {
         if (!$this->workReportFlowStageForService($serviceKey)) {
@@ -446,8 +490,8 @@ class DispatchWorkflowService
     private function isD5Dispatch(Note $note, string $serviceKey, array $finalScopes = [], ?int $workReportId = null): bool
     {
         $fiveNote = $workReportId
-            ? WorkReport::query()->with('FiveNote')->whereKey($workReportId)->first()?->FiveNote
-            : $note->FiveNote;
+            ? (WorkReport::query()->with('FiveNote')->whereKey($workReportId)->where('note_id', $note->id)->first()?->FiveNote ?? $note->LegacyFiveNote()->first())
+            : $note->LegacyFiveNote()->first();
 
         return match ($serviceKey) {
             'supervision' => (bool) (
@@ -471,7 +515,7 @@ class DispatchWorkflowService
         return (int) $status;
     }
 
-    private function openCompanyStackProduction(Note $note, Service $service, Company $company): ?Production
+    private function openCompanyStackProduction(Note $note, Service $service, Company $company, ?int $workReportId = null, ?int $partialId = null): ?Production
     {
         return Production::where('note_id', $note->id)
             ->where('service_id', $service->uuid)
@@ -479,6 +523,17 @@ class DispatchWorkflowService
             ->whereNull('user_id')
             ->where('completed', false)
             ->where('confirmed', false)
+            ->when($workReportId, function ($query) use ($service, $workReportId) {
+                $stage = $this->workReportFlowStageForService($this->contextResolver->serviceKey($service));
+
+                return $stage
+                    ? $query->whereHas("WorkReportFlowProductions", fn ($link) => $link
+                        ->where("work_report_id", $workReportId)
+                        ->where("stage", $stage)
+                        ->where("is_current", true))
+                    : $query;
+            })
+            ->when($partialId, fn ($query) => $query->whereHas("partialInforms", fn ($partial) => $partial->whereKey($partialId)))
             ->lockForUpdate()
             ->first();
     }
@@ -514,7 +569,7 @@ class DispatchWorkflowService
             'status' => 2,
         ]);
 
-        $this->afterAssigned($production, $actor, null);
+        $this->afterAssigned($production, $actor, null, $workReportId);
         $this->attachPartialContext($production, $partialId);
         $this->linkWorkReportFlow($production, $this->contextResolver->serviceKey($production->Service), $finalScopes, $workReportId);
         $this->timeline($production, $actor, 'Atribuiu a NOTA/OV para: ' . $targetUser->name, 2);
@@ -524,27 +579,7 @@ class DispatchWorkflowService
 
     private function attachDd(Note $note, Production $production, string $dd): void
     {
-        $existing = Wpa::where('dd', $dd)->lockForUpdate()->first();
-
-        if ($existing && (string) $existing->note_id !== (string) $note->id) {
-            throw new DispatchException("DD {$dd} ja foi associada a outra Nota/OV.");
-        }
-
-        if ($existing) {
-            $existing->update([
-                'production_id' => $production->id,
-                'service_id' => $production->service_id,
-            ]);
-
-            return;
-        }
-
-        Wpa::create([
-            'production_id' => $production->id,
-            'note_id' => $note->id,
-            'service_id' => $production->service_id,
-            'dd' => $dd,
-        ]);
+        $this->ddAssignment->assign($note, $production, $dd);
     }
 
     private function linkWorkReportFlow(Production $production, string $serviceKey, array $finalScopes = [], ?int $workReportId = null): void
@@ -638,9 +673,11 @@ class DispatchWorkflowService
         }
     }
 
-    private function afterAssigned(Production $production, User $actor, ?string $previousUserId): void
+    private function afterAssigned(Production $production, User $actor, ?string $previousUserId, ?int $workReportId = null): void
     {
-        $five = $production->note?->FiveNote;
+        $five = $workReportId
+            ? WorkReport::query()->with('FiveNote')->whereKey($workReportId)->where('note_id', $production->note_id)->first()?->FiveNote
+            : $production->note?->LegacyFiveNote()->first();
         if (!$five) {
             return;
         }
@@ -669,9 +706,7 @@ class DispatchWorkflowService
 
     private function normalizeDd(?string $dd): ?string
     {
-        $dd = trim((string) $dd);
-
-        return $dd !== '' ? $dd : null;
+        return $this->ddAssignment->normalize($dd);
     }
 
     private function userBelongsToCompany(User $user, string $companyId): bool

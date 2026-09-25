@@ -588,52 +588,94 @@
                             <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">CRITICIDADE</dt>
                             <dd class="col-sm-8 text-white text-uppercase">{{ $lists->txpriority ?: '---' }}</dd>
 
-                            {{-- D5 --}}
-                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">NOTA D5</dt>
-                            <dd class="col-sm-8 text-white text-uppercase">
-                                @if ($lists->LegacyFiveNote)
-                                    <span class="fw-bold" style="cursor:pointer"
-                                        wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $lists->id }})">
-                                        {{ $lists->LegacyFiveNote?->note_d5 ?? 'A GERAR D5' }}
-                                        @if ($lists->LegacyFiveNote?->visible_partner && $lists->LegacyFiveNote?->is_completed)
-                                            <small>( {{ $lists->LegacyFiveNote?->completed_at?->format('d/m/Y H:i') }}
-                                                )</small>
-                                        @endif
-                                        <i class="ri-eye-line ms-1 text-primary"></i>
-                                    </span>
-                                @else
-                                    ---
-                                @endif
-                            </dd>
-
-                            @if ($lists->LegacyFiveNote)
-                                @php
-                                    $status = '';
-                                    $color = '';
-                                    if ($lists->LegacyFiveNote?->is_payed) {
-                                        if ($lists->LegacyFiveNote?->is_archived) {
-                                            $status = 'Finalizada';
-                                            $color = 'text-bg-success';
-                                        } elseif ($lists->LegacyFiveNote?->is_supervisioned) {
-                                            $status = 'Aguardando Liberação Medição';
-                                            $color = 'text-bg-danger';
-                                        } elseif ($lists->LegacyFiveNote?->is_completed) {
-                                            $status = 'Aguardando Fiscalização';
-                                            $color = 'text-bg-danger';
-                                        } elseif ($lists->LegacyFiveNote?->visible_partner) {
-                                            $status = 'Aguardando Conclusão Parceira';
-                                            $color = 'text-bg-primary';
+                            {{-- D5s por informe --}}
+                            @php
+                                $d5Items = ($lists->FiveNotes ?? collect())
+                                    ->merge($lists->LegacyFiveNote ? collect([$lists->LegacyFiveNote]) : collect())
+                                    ->unique("id")
+                                    ->values();
+                            @endphp
+                            <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">D5 ASSOCIADAS</dt>
+                            <dd class="col-sm-8 text-white">
+                                @forelse ($d5Items as $fiveNote)
+                                    @php
+                                        $d5Links = collect();
+                                        if ($fiveNote->work_report_id) {
+                                            $reportScopes = collect($fiveNote->WorkReport?->selected_final_scopes ?? [])->filter()->values();
+                                            if ($reportScopes->isEmpty()) {
+                                                $reportScopes = collect(["general"]);
+                                            }
+                                            foreach ($reportScopes as $reportScope) {
+                                                $scope = match ($reportScope) {
+                                                    "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
+                                                    "network" => ["label" => "Rede", "class" => "text-bg-success"],
+                                                    default => ["label" => "Geral", "class" => "text-bg-success"],
+                                                };
+                                                $d5Links->push([
+                                                    "report" => $fiveNote->work_report_id,
+                                                    "scope" => $scope["label"],
+                                                    "class" => $scope["class"],
+                                                    "production" => null,
+                                                    "status" => $fiveNote->WorkReport?->current_status_label,
+                                                    "status_class" => $fiveNote->WorkReport?->current_status_class ?: "text-bg-secondary",
+                                                ]);
+                                            }
                                         }
-                                    } else {
-                                        $status = 'Aguardando Despacho Medição';
-                                        $color = 'text-bg-primary';
-                                    }
-                                @endphp
-                                <dt class="col-sm-4 edp-bg-sprucegreen-100 mb-1">STATUS NOTA D5</dt>
-                                <dd class="col-sm-8 text-white text-uppercase">
-                                    <span class="badge {{ $color }}">{{ $status }}</span>
-                                </dd>
-                            @endif
+                                        if (!$fiveNote->work_report_id) {
+                                        foreach (($fiveNote->productions ?? collect()) as $d5Production) {
+                                            foreach (($d5Production->WorkReportFlowProductions ?? collect())->where("is_current", true) as $d5Flow) {
+                                                $scope = match ($d5Flow->final_scope) {
+                                                    "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
+                                                    "network" => ["label" => "Rede", "class" => "text-bg-success"],
+                                                    default => ["label" => "Geral", "class" => "text-bg-success"],
+                                                };
+                                                $d5Links->push([
+                                                    "report" => $d5Flow->work_report_id,
+                                                    "scope" => $scope["label"],
+                                                    "class" => $scope["class"],
+                                                    "production" => $d5Production->Service?->service,
+                                                    "status" => $d5Flow->WorkReport?->current_status_label,
+                                                    "status_class" => $d5Flow->WorkReport?->current_status_class ?: "text-bg-secondary",
+                                                ]);
+                                            }
+                                            if (!$d5Production->WorkReportFlowProductions?->where("is_current", true)->whereNotNull("work_report_id")->count()) {
+                                                $d5Links->push([
+                                                    "report" => null,
+                                                    "scope" => "Obra",
+                                                    "class" => "text-bg-secondary",
+                                                    "production" => $d5Production->Service?->service,
+                                                ]);
+                                            }
+                                            }
+                                        }
+                                    @endphp
+                                    @forelse ($d5Links as $d5Link)
+                                        <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                                            <span class="fw-bold me-1" style="cursor:pointer"
+                                                wire:click.prevent="$emitTo(&quot;components.d5.d5details&quot;, &quot;openD5Details&quot;, {{ $lists->id }}, {{ $fiveNote->id }})">
+                                                {{ $fiveNote->note_d5 ?: "A GERAR D5" }}
+                                                <i class="ri-eye-line ms-1 text-primary"></i>
+                                            </span>
+                                            @if ($d5Link["report"])
+                                                <span class="badge bg-light text-dark">#{{ $d5Link["report"] }}</span>
+                                            @endif
+                                            <span class="badge {{ $d5Link["class"] }}">{{ $d5Link["scope"] }}</span>
+                                            <span class="badge {{ $d5Link["status_class"] }}">{{ $d5Link["status"] ?: "Status indisponível" }}</span>
+                                        </div>
+                                    @empty
+                                        <div class="d-flex align-items-center gap-1 mb-2">
+                                            <span class="fw-bold" style="cursor:pointer"
+                                                wire:click.prevent="$emitTo(&quot;components.d5.d5details&quot;, &quot;openD5Details&quot;, {{ $lists->id }}, {{ $fiveNote->id }})">
+                                                {{ $fiveNote->note_d5 ?: "A GERAR D5" }}
+                                                <i class="ri-eye-line ms-1 text-primary"></i>
+                                            </span>
+                                            <span class="badge text-bg-secondary">Legada / Nota</span>
+                                        </div>
+                                    @endforelse
+                                @empty
+                                    ---
+                                @endforelse
+                            </dd>
                        
                         {{-- PROTESTOS --}}
                         @if ($lists->Protests->count())
@@ -850,7 +892,15 @@
         </div>
 
         {{-- PROJETO --}}
-        @if ($lists->Productions->count())
+        @php
+            $searchWorkReportIds = ($lists->WorkForms ?? collect())->pluck('id')->map(fn ($id) => (int) $id);
+            $visibleProductions = $lists->Productions->filter(function ($production) use ($searchWorkReportIds) {
+                $currentLinks = $production->relationLoaded('WorkReportFlowProductions') ? $production->WorkReportFlowProductions->where('is_current', true) : collect();
+                return $searchWorkReportIds->isEmpty() || $currentLinks->isEmpty() || $currentLinks->contains(fn ($link) => $searchWorkReportIds->contains((int) $link->work_report_id));
+            })->values();
+
+        @endphp
+        @if ($visibleProductions->count())
             <div class="card border-0 mt-3 shadow">
                 <div class="card-header rs-head-unified">
                     <h5 class="rs-section-title">PROJETO</h5>
@@ -876,16 +926,26 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($lists->Productions as $p)
+                            @foreach ($visibleProductions as $p)
                                 @php
-                                    $finalScopes = $p->relationLoaded('WorkReportFlowProductions')
-                                        ? $p->WorkReportFlowProductions
-                                            ->where('is_current', true)
-                                            ->pluck('final_scope')
-                                            ->filter()
-                                            ->unique()
-                                            ->values()
+                                    $currentFlowLinks = $p->relationLoaded('WorkReportFlowProductions')
+                                        ? $p->WorkReportFlowProductions->where('is_current', true)
                                         : collect();
+                                    $finalScopes = $currentFlowLinks
+                                        ->pluck('final_scope')
+                                        ->filter()
+                                        ->unique()
+                                        ->values();
+                                    $currentWorkReportIds = $currentFlowLinks
+                                        ->pluck('work_report_id')
+                                        ->filter()
+                                        ->map(fn ($id) => (int) $id)
+                                        ->unique()
+                                        ->values();
+                                    $informIds = $currentWorkReportIds
+                                        ->merge($p->partialInforms->pluck("id")->map(fn ($id) => (int) $id))
+                                        ->unique()
+                                        ->values();
                                 @endphp
                                 <tr wire:key="prod-{{ $p->id }}">
                                     <td>
@@ -907,7 +967,12 @@
                                             @endforeach
                                         @endif
                                     </td>
-                                    <td>{{ $p->Service?->service ?? 'Desconhecido' }}</td>
+                                    <td>
+                                        <div>{{ $p->Service?->service ?? 'Desconhecido' }}</div>
+                                        @foreach ($informIds as $informId)
+                                            <div class="small text-muted">#{{ $informId }}</div>
+                                        @endforeach
+                                    </td>
                                     <td>{{ $p->status_note }}</td>
                                     <td>
                                         @if ($p->User?->email)
@@ -1324,7 +1389,7 @@
                                 @foreach ($lists->Partials as $partial)
                                     <tr wire:key="partial-{{ $partial->id }}"
                                         wire:dblclick="$emitTo('partner.show.show-partial-info','show_form',{{ $partial->id }})">
-                                        <td class="text-center text-bg-warning align-middle">PARCIAL</td>
+                                        <td class="text-center text-bg-warning align-middle"><div class="d-grid gap-1"><span>PARCIAL</span><span class="badge bg-light text-dark">#{{ $partial->id }}</span></div></td>
                                         <td class="text-center align-middle">
                                             @foreach ($partial->Orders as $o)
                                                 <p class="my-0">{{ $o->ordem }}</p>
@@ -1437,9 +1502,7 @@
                                                     {{ $scopeBadge['label'] }}
                                                 </span>
                                             @endforeach
-                                            @if ($workForm->FiveNote)
-                                                <span class="badge text-bg-warning">D5: {{ $workForm->FiveNote->note_d5 ?? 'A GERAR D5' }}</span>
-                                            @endif
+                                                <span class="badge bg-light text-dark">#{{ $workForm->id }}</span>
                                         </div>
                                     </td>
                                     <td class="text-center align-middle">

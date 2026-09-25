@@ -404,7 +404,7 @@
                                 wire:key="{{ $list->id }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}" wire:model.defer="selected"
+                                        value="{{ $list->publication_context_key ?? $list->id }}" wire:model.defer="selected"
                                         @disabled($block)>
                                 </td>
 
@@ -516,7 +516,7 @@
                                     @if (!$block)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                            wire:click.prevent="get_single_note({{ json_encode($list->publication_context_key ?? $list->id) }})"></i>
                                     @else
                                         @php
                                             if ($production && $production->User) {
@@ -531,7 +531,7 @@
                                         @if ($command)
                                             <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                                 style="cursor: pointer;"
-                                                wire:click.prevent="get_single_note({{ $list->id }})"></i>
+                                                wire:click.prevent="get_single_note({{ json_encode($list->publication_context_key ?? $list->id) }})"></i>
                                         @endif
                                     @endif
 

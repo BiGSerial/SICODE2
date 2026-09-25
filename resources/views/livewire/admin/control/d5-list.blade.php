@@ -193,6 +193,8 @@
                                 <thead class="table-dark">
                                     <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
                                         <th class="fw-bold text-start">D5 / Nota</th>
+                                        <th class="fw-bold text-center">Informe</th>
+                                        <th class="fw-bold text-center">Escopo</th>
                                         <th class="fw-bold text-center">Empresa</th>
                                         <th class="fw-bold text-center">Local</th>
                                         <th class="fw-bold text-center">PEP</th>
@@ -209,6 +211,40 @@
                                                 <div class="fw-semibold">{{ $list->note_d5 ?? 'SEM D5' }}</div>
                                                 <div class="small text-muted">{{ $list->note?->note ?? '---' }}</div>
                                             </td>
+                                            @php
+                                                $d5Associations = collect();
+                                                if ($list->work_report_id) {
+                                                    foreach (collect($list->WorkReport?->selected_final_scopes ?? ["general"])->filter() as $scope) {
+                                                        $d5Associations->push(["report" => $list->work_report_id, "scope" => $scope]);
+                                                    }
+                                                }
+                                                if (!$list->work_report_id) {
+                                                foreach (($list->productions ?? collect()) as $production) {
+                                                    foreach (($production->WorkReportFlowProductions ?? collect())->where("is_current", true)->whereNotNull("work_report_id") as $flow) {
+                                                        $d5Associations->push(["report" => $flow->work_report_id, "scope" => $flow->final_scope ?: "general"]);
+                                                    }
+                                                }
+                                                }
+                                                $d5Associations = $d5Associations->unique(fn ($item) => $item["report"] . "|" . $item["scope"])->values();
+                                            @endphp
+                                            <td class="text-center">
+                                                @forelse ($d5Associations as $association)
+                                                    <span class="badge bg-light text-dark">#{{ $association["report"] }}</span>
+                                                @empty
+                                                    <span class="text-muted">---</span>
+                                                @endforelse
+                                            </td>
+                                            <td class="text-center">
+                                                @forelse ($d5Associations as $association)
+                                                    @php
+                                                        $scopeLabel = match ($association["scope"]) { "connection" => "Ligação", "network" => "Rede", default => "Geral" };
+                                                        $scopeClass = $association["scope"] === "connection" ? "text-bg-warning" : "text-bg-success";
+                                                    @endphp
+                                                    <span class="badge {{ $scopeClass }}">{{ $scopeLabel }}</span>
+                                                @empty
+                                                    <span class="text-muted">---</span>
+                                                @endforelse
+                                            </td>
                                             <td>{{ $list->company?->name }}</td>
                                             <td>{{ $list->loc_install }}</td>
                                             <td>{{ $list->pep }}</td>
@@ -224,6 +260,9 @@
                                                 <span class="badge {{ $list->is_archived ? 'text-bg-dark' : 'text-bg-light' }}">
                                                     {{ $list->is_archived ? 'Arquivado' : 'Ativo' }}
                                                 </span>
+                                                @if ($list->isPassive)
+                                                    <span class="badge text-bg-warning">Passivo</span>
+                                                @endif
                                             </td>
                                             <td>
                                                 <div class="d-flex justify-content-center gap-1">

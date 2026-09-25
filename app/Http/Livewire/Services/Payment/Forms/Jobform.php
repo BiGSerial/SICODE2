@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Payment\Forms;
 
 use App\Models\Analise;
 use App\Models\Company;
+use App\Models\FiveNote;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Services\D5\D5WorkflowService;
@@ -171,8 +172,8 @@ class Jobform extends Component
         if ($this->production) {
             $this->syncCloseFinalScopeSelections();
 
-            if ($this->production->note->FiveNote?->exists()) {
-                $this->five = $this->production->note->FiveNote;
+            if ($fiveNote = $this->fiveNoteForCurrentProduction()) {
+                $this->five = $fiveNote;
             }
 
             // Garantir a existência de Analise
@@ -191,6 +192,45 @@ class Jobform extends Component
                 'id' => 'formProductionModal',
             ]);
         }
+    }
+
+    private function currentWorkReportIdForPayment(): ?int
+    {
+        foreach ([\App\Models\WorkReportFlowProduction::STAGE_PAYMENT, \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION] as $stage) {
+            $workReportId = $this->production?->WorkReportFlowProductions()
+                ->where('stage', $stage)
+                ->where('is_current', true)
+                ->latest('id')
+                ->value('work_report_id');
+
+            if ($workReportId) {
+                return (int) $workReportId;
+            }
+        }
+
+        return null;
+    }
+
+    private function fiveNoteForCurrentProduction(): ?FiveNote
+    {
+        $workReportId = $this->currentWorkReportIdForPayment();
+
+        if ($workReportId) {
+            return $this->production?->fiveNotes()
+                ->where('note_id', $this->production->note_id)
+                ->where('work_report_id', $workReportId)
+                ->first()
+                ?? FiveNote::query()
+                    ->where('note_id', $this->production->note_id)
+                    ->where('work_report_id', $workReportId)
+                    ->first();
+        }
+
+        return $this->production?->fiveNotes()
+            ->where('note_id', $this->production->note_id)
+            ->whereNull('work_report_id')
+            ->first()
+            ?? $this->production?->note?->FiveNote;
     }
 
     public function status()

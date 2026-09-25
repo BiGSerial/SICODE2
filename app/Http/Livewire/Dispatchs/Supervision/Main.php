@@ -307,12 +307,22 @@ class Main extends Component
             return $productions;
         }
 
-        return $productions->filter(function (Production $production) use ($workReportId) {
+        $scoped = $productions->filter(function (Production $production) use ($workReportId) {
             return $production->WorkReportFlowProductions
                 ->where('work_report_id', $workReportId)
                 ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
                 ->where('is_current', true)
                 ->isNotEmpty();
+        });
+
+        return $scoped->filter(function (Production $production) use ($workReportId) {
+            $latestLink = $production->WorkReportFlowProductions
+                ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+                ->where('is_current', true)
+                ->sortByDesc(fn ($link) => ($link->linked_at?->format('YmdHis') ?? '00000000000000') . str_pad((string) $link->id, 10, '0', STR_PAD_LEFT))
+                ->first();
+
+            return (int) ($latestLink?->work_report_id ?? 0) === $workReportId;
         });
     }
 
@@ -1114,6 +1124,7 @@ class Main extends Component
             'Productions.User',
             'Productions.Company',
             'Productions.WorkReportFlowProductions',
+            'Productions.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
             'Wpas',
             'Partials',
             'TempAdsInfos',
@@ -1180,6 +1191,8 @@ class Main extends Component
                 if ($workForm) {
                     $note->setRelation('WorkForm', $workForm);
                 }
+
+                $note->setRelation('FiveNote', $this->rowFiveNote($note));
             }
 
             return $note;
@@ -1195,6 +1208,30 @@ class Main extends Component
             'lists'  => $this->toLists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
+    }
+
+    private function rowFiveNote(Note $note)
+    {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $workForm = $workReportId > 0 && $note->relationLoaded('WorkForms')
+            ? $note->WorkForms->firstWhere('id', $workReportId)
+            : null;
+
+        if ($workForm?->FiveNote) {
+            return $workForm->FiveNote;
+        }
+
+        if ($workReportId <= 0) {
+            return null;
+        }
+
+        return $this->rowScopedProductions($note)
+            ->sortByDesc('created_at')
+            ->flatMap(fn (Production $production) => $production->relationLoaded('fiveNotes') ? $production->fiveNotes : collect())
+            ->first(function ($five) use ($workReportId) {
+                return (int) ($five->work_report_id ?? 0) === $workReportId
+                    || (is_null($five->work_report_id));
+            });
     }
 
     private function selectionKey(Note $note): string

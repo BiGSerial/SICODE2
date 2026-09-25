@@ -40,6 +40,12 @@ class WorkReportCurrentStatusRefresher
             ->whereHas('FlowProductions', fn ($query) => $query->where('production_id', $productionId))
             ->pluck('id');
 
+        $d5WorkReportIds = \App\Models\FiveNote::query()
+            ->whereNotNull("work_report_id")
+            ->whereHas("productions", fn ($query) => $query->whereKey($productionId))
+            ->pluck("work_report_id");
+
+        $ids = $ids->merge($d5WorkReportIds)->filter()->unique()->values();
         foreach ($ids as $id) {
             $this->refresh((int) $id);
         }
