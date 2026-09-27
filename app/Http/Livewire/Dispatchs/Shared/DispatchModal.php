@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Shared;
 
 use App\Models\Company;
 use App\Models\Note;
+use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\User;
@@ -61,11 +62,12 @@ class DispatchModal extends Component
                     $noteId = (int) ($value['note_id'] ?? $value['id'] ?? 0);
                     $workReportId = (int) ($value['work_report_id'] ?? 0);
                     $partialId = (int) ($value['partial_id'] ?? 0);
+                    $bulkAnyStatus = (bool) ($value['bulk_any_status'] ?? false);
 
-                    return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null];
+                    return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null, 'bulk_any_status' => $bulkAnyStatus];
                 }
 
-                return ['note_id' => (int) $value, 'work_report_id' => null, 'partial_id' => null];
+                return ['note_id' => (int) $value, 'work_report_id' => null, 'partial_id' => null, 'bulk_any_status' => false];
             });
 
         $contexts = $contexts->filter(fn (array $context) => $context['note_id'] > 0)->values();
@@ -113,6 +115,7 @@ class DispatchModal extends Component
                 $row = clone $note;
                 $row->setAttribute('dispatch_work_report_id', $context['work_report_id']);
                 $row->setAttribute('dispatch_partial_id', $context['partial_id']);
+                $row->setAttribute('dispatch_bulk_any_status', (bool) ($context['bulk_any_status'] ?? false));
                 $row->setAttribute('dispatch_context_key', $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']));
                 if ($context["work_report_id"] && $row->relationLoaded("WorkForms")) {
                     $row->setRelation("WorkForm", $row->WorkForms->firstWhere("id", $context["work_report_id"]));
@@ -413,18 +416,18 @@ class DispatchModal extends Component
                         $production = Production::findOrFail($sourceProductionId);
 
                         if ($targetUser) {
-                            $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
+                            $production = $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                         } else {
-                            $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
+                            $production = $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                         }
-
-                        continue;
+                    } elseif ($targetUser) {
+                        $production = $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
+                    } else {
+                        $production = $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                     }
 
-                    if ($targetUser) {
-                        $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
-                    } else {
-                        $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
+                    if ($note->getAttribute('dispatch_bulk_any_status')) {
+                        $this->recordBulkAnyStatusAudit($note, $production, $actor);
                     }
                 }
             });
@@ -586,6 +589,7 @@ class DispatchModal extends Component
             $partialId = (int) ($context["partial_id"] ?? 0) ?: null;
             $row->setAttribute("dispatch_work_report_id", $workReportId);
             $row->setAttribute("dispatch_partial_id", $partialId);
+            $row->setAttribute("dispatch_bulk_any_status", (bool) ($context["bulk_any_status"] ?? false));
             $row->setAttribute("dispatch_context_key", $this->contextKey((int) $context["note_id"], $workReportId, $partialId));
 
             if ($workReportId) {
@@ -702,6 +706,25 @@ class DispatchModal extends Component
     {
         return (string) ($note->getAttribute('dispatch_context_key')
             ?: $this->contextKey((int) $note->id, (int) ($note->dispatch_work_report_id ?? 0), (int) ($note->dispatch_partial_id ?? 0)));
+    }
+
+    /**
+     * A busca "em qualquer situacao / todos os servicos" ignora o criterio padrao
+     * de elegibilidade da pilha (Fluxo Normal, D5 ou Partial). Quando alguem despacha
+     * uma nota que so apareceu por causa dessa busca ampliada, fica registrado no
+     * historico da propria nota para permitir auditoria posterior.
+     */
+    private function recordBulkAnyStatusAudit(Note $note, Production $production, User $actor): void
+    {
+        Notetimeline::create([
+            'note_id' => $production->id,
+            'service_id' => $production->service_id,
+            'user_id' => $actor->id,
+            'info' => "Usuario {$actor->name} despachou esta Nota/OV com a busca \"em qualquer situacao/todos os servicos\" ativa, fora do criterio padrao de elegibilidade da pilha.",
+            'status' => $production->status,
+            'production_id' => $production->id,
+            'category' => 'bulk_any_status_dispatch',
+        ]);
     }
 
     private function modalNoteRelations(): array

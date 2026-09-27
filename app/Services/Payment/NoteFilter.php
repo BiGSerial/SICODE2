@@ -136,6 +136,9 @@ class NoteFilter
     {
         return $ord->where('statusSist', 'LIKE', 'LIB%')
             ->whereHas('Operations', function (Builder $op) {
+                $op->where('operacao', '0010')->where('status', 'like', 'CONF%');
+            })
+            ->whereHas('Operations', function (Builder $op) {
                 $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
             })
             ->whereHas('Operations', function (Builder $op) {

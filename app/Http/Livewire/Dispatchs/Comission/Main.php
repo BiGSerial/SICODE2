@@ -881,7 +881,12 @@ class Main extends Component
         // dd($this->base);
 
         $query = Note::query()->excludeCanceledFullDone();
-        RuleBuilder::applyRules($query, $this->service->Status);
+        SicodeRules::applyContractDispatchMainVisibility(
+            $query,
+            Auth()->User(),
+            $this->service->uuid,
+            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
+        );
 
 
         if (strlen($this->search)) {

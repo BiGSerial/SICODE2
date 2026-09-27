@@ -4,6 +4,17 @@
     use App\Helpers\DaysLeft;
 @endphp
 <div>
+    <style>
+        .ads-info {
+            line-height: 1.2;
+        }
+
+        .ads-info-date {
+            font-size: .78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+    </style>
     {{-- Carrega o Loading da página --}}
     <x-show-loading />
 
@@ -434,10 +445,9 @@
                                 <input class="form-check-input" type="checkbox" wire:model="selectAll"
                                     wire:click="setSelectAll()" @checked($this->checkAllSelect($lists))>
                             </th>
-                            <th class="align-middle text-center">Tipo</th>
+                            <th class="align-middle text-center" style="width:52px;"></th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">Escopo</th>
                             <th class="align-middle text-center">MOA</th>
                             <th class="align-middle text-center">Emp SAP</th>
                             <th class="align-middle text-center">Emp Info</th>
@@ -459,8 +469,14 @@
                         @endphp
                         @foreach ($lists as $list)
                             @php
+                                $flowWorkForm = $list->WorkReportFlowProductions
+                                    ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
+                                    ?->WorkReport;
+                                $workForm = $flowWorkForm ?? $list->Note->WorkForm;
 
-                                $five = $list->note->fiveNote;
+                                // D5 do informe atual tem prioridade; cai pra legada (sem informe)
+                                // so quando o informe atual nao tem D5 propria.
+                                $five = $flowWorkForm?->FiveNote ?? $list->note->fiveNote;
                                 $hasD5 = (bool) $five;
                                 $d5BadgeClass = '';
                                 $d5Msg = '';
@@ -481,10 +497,6 @@
                                 } else {
                                     $partial = null;
                                 }
-                                $flowWorkForm = $list->WorkReportFlowProductions
-                                    ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-                                    ?->WorkReport;
-                                $workForm = $flowWorkForm ?? $list->Note->WorkForm;
                                 $orders = $workForm && !$partial
                                     ? $workForm->Orders ?? collect()
                                     : ($partial
@@ -504,9 +516,15 @@
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
                                         value="{{ $list->id }}" wire:model.defer="selected">
                                 </td>
-                                <td class="{{ $list->partial ? 'text-bg-warning' : 'text-bg-success' }} text-center">
-                                    {{ $list->partial ? 'PARCIAL' : 'TOTAL' }}
-
+                                <td class="text-center">
+                                    @if ($list->partial)
+                                        <span class="badge text-bg-warning">P</span>
+                                    @else
+                                        @php
+                                            $isConnection = $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false;
+                                        @endphp
+                                        <span class="badge {{ $isConnection ? 'text-bg-warning' : 'text-bg-success' }}">F</span>
+                                    @endif
                                 </td>
                                 <td class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
                                     @if ($hasD5 && !$list->d5)
@@ -554,17 +572,6 @@
                                         <p class="my-0 py-0">---</p>
                                     @endforelse
 
-                                </td>
-                                <td class="text-center align-middle">
-                                    @if ($workForm)
-                                        @foreach ($workForm->finalScopeBadges() as $scopeBadge)
-                                            <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
-                                        @endforeach
-                                    @elseif ($partial)
-                                        <span class="badge text-bg-secondary">Parcial</span>
-                                    @else
-                                        <span class="badge text-bg-secondary">Geral</span>
-                                    @endif
                                 </td>
                                 <td class="text-center align-middle fw-bold">
                                     @if ($workForm && $orders->count())
@@ -633,26 +640,36 @@
                                 </td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
+                                    @if ($list->dispatch_at)
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ Carbon::parse($list->dispatch_at)->format('d/m/Y') }}</div>
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->dispatch_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
                                 </td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                    @if ($list->att_at)
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ Carbon::parse($list->att_at)->format('d/m/Y') }}</div>
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
                                 </td>
                                 @php
                                     $daysLeft = Carbon::parse($list->fimLancado)
                                         ->startOfDay()
                                         ->diffInDays(Carbon::now()->startOfDay());
                                 @endphp
-                                <td scope="col"
-                                    class="text-center text-center
-                                @if ($daysLeft <= 2) text-bg-success
-                             @elseif($daysLeft > 5)
-                                 text-bg-danger
-                             @else
-                             text-bg-warning @endif
-                             "
-                                    style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                <td scope="col" class="text-center" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Prazo Medição"
                                     data-bs-content="
@@ -662,7 +679,12 @@
                          <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
                          {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                          ">
-                                    {{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}
+                                    <div class="ads-info">
+                                        <div class="ads-info-date">{{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}</div>
+                                        <span class="badge @if ($daysLeft <= 2) text-bg-success @elseif ($daysLeft > 5) text-bg-danger @else text-bg-warning @endif">
+                                            {{ $daysLeft }}
+                                        </span>
+                                    </div>
                                 </td>
 
                                 <td class="fw-light text-center">
@@ -712,6 +734,13 @@
                                                             class="ri-exchange-line text-primary align-middle"></i>
                                                         Transferir</a></li> --}}
                                             @endif
+                                            <li>
+                                                <a class="dropdown-item" href="#"
+                                                    wire:click.prevent="$emitTo('production.actions.new-production', 'editProduction', {{ $list->id }})">
+                                                    <i class="ri-edit-2-line align-middle"></i>
+                                                    Editar
+                                                </a>
+                                            </li>
                                             {{-- @livewire('production.actions.attribute', ['production' => $list->id, 'chave' => hash('sha512', $list->id)], key('attribute-' . $list->id)) --}}
                                             @livewire('production.actions.reattribute', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('reatt-' . $list->id))
                                             @livewire('production.actions.priority', ['production' => $list, 'chave' => hash('sha512', $list->id)], key('priority-' . $list->id))
@@ -802,6 +831,9 @@
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('components.d5.d5details', key('view_d5_note_details'))
     @livewire('dispatchs.common.reclaim-info', key('reclaim-info-payment-stack'))
+    @once
+        @livewire('production.actions.new-production', key('new_production_payment_stack'))
+    @endonce
 </div>
 
 @push('script')

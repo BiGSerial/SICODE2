@@ -228,7 +228,8 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
                     ->map($normalizedStatus);
             };
 
-            return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+            return $statuses('0010')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+                && $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
                 && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
                 && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
         });

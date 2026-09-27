@@ -76,6 +76,10 @@ class WorkReportStatusResolver
             return $this->status('waiting_d5_resolution', self::WAITING_D5_RESOLUTION, 'text-bg-warning');
         }
 
+        if ($d5AssociatedToProduction && !$d5FiscalAssociated) {
+            return $this->status('waiting_d5_fiscalization', self::WAITING_D5_FISCALIZATION, 'text-bg-secondary');
+        }
+
         if ($d5FiscalAssociated && !$d5FiscalFinished) {
             return $this->status('d5_fiscalization', self::D5_FISCALIZATION, 'text-bg-primary');
         }
@@ -127,10 +131,22 @@ class WorkReportStatusResolver
     {
         $flowProductions = $workReport->FlowProductions ?? collect();
         $fiveNote = $this->fiveNoteFor($workReport);
+        $currentFlowProductionIds = $flowProductions
+            ->where('is_current', true)
+            ->pluck('production_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->all();
         // A associação na pivot identifica a D5, mas não transforma uma produção
-        // normal (por exemplo, fiscalização da obra) em produção D5.
+        // normal (por exemplo, fiscalização da obra) em produção D5 - por isso também
+        // exigimos a flag d5/dfive. Mas essa flag pode faltar em produção D5 legítima
+        // (dado histórico, ex.: criada antes do fluxo atual) - nesse caso, estar
+        // correntemente ligada (via WorkReportFlowProduction) a este mesmo informe já
+        // confirma que é execução desta D5 para este informe especificamente.
         $d5Productions = $this->finalProductions($fiveNote?->productions ?? collect())
-            ->filter(fn ($production) => (bool) ($production->d5 ?? false) || (bool) ($production->dfive ?? false))
+            ->filter(fn ($production) => (bool) ($production->d5 ?? false)
+                || (bool) ($production->dfive ?? false)
+                || in_array((int) ($production->id ?? 0), $currentFlowProductionIds, true))
             ->values();
         $d5ProductionIds = $d5Productions->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
         $normalFiscalProductions = $this->finalProductions(

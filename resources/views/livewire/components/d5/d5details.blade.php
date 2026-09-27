@@ -35,6 +35,9 @@
                             $otherFiles = $five->EvidenceFiles->filter(function ($file) use ($imageFiles) {
                                 return !$imageFiles->contains('id', $file->id);
                             });
+                            // A D5 se liga a UM informe (report) + escopo, ponto. Fiscalizacao/Pagamento/
+                            // Publicacao sao atividades relacionadas (etapas de execucao), nao uma dimensao
+                            // separada de vinculo - por isso nao existe "Obra: Fiscalizacao" vs "Obra: Pagamento".
                             $d5Associations = collect();
                             if ($five->work_report_id) {
                                 $reportScopes = collect($five->WorkReport?->selected_final_scopes ?? [])->filter()->values();
@@ -51,41 +54,32 @@
                                         "report" => $five->work_report_id,
                                         "scope" => $scope["label"],
                                         "class" => $scope["class"],
-                                        "production" => null,
                                     ]);
                                 }
                             }
                             if (!$five->work_report_id) {
-                            foreach (($five->productions ?? collect()) as $d5Production) {
-                                $hasReport = false;
-                                foreach (($d5Production->WorkReportFlowProductions ?? collect())->where("is_current", true) as $d5Flow) {
-                                    if (!$d5Flow->work_report_id) {
-                                        continue;
-                                    }
-                                    $hasReport = true;
-                                    $scope = match ($d5Flow->final_scope) {
-                                        "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
-                                        "network" => ["label" => "Rede", "class" => "text-bg-success"],
-                                        default => ["label" => "Geral", "class" => "text-bg-success"],
-                                    };
-                                    $d5Associations->push([
-                                        "report" => $d5Flow->work_report_id,
-                                        "scope" => $scope["label"],
-                                        "class" => $scope["class"],
-                                        "production" => $d5Production->Service?->service,
-                                    ]);
-                                }
-                                if (!$hasReport) {
-                                    $d5Associations->push([
-                                        "report" => null,
-                                        "scope" => "Obra",
-                                        "class" => "text-bg-secondary",
-                                        "production" => $d5Production->Service?->service,
-                                    ]);
-                                }
+                            $d5LinkedFlows = ($five->productions ?? collect())
+                                ->flatMap(fn ($d5Production) => ($d5Production->WorkReportFlowProductions ?? collect())
+                                    ->where("is_current", true)
+                                    ->whereNotNull("work_report_id"))
+                                // O mesmo informe pode estar linkado por mais de uma producao
+                                // (fiscalizacao e pagamento, por exemplo) - mostra uma vez so.
+                                ->unique("work_report_id");
+
+                            foreach ($d5LinkedFlows as $d5Flow) {
+                                $scope = match ($d5Flow->final_scope) {
+                                    "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
+                                    "network" => ["label" => "Rede", "class" => "text-bg-success"],
+                                    default => ["label" => "Geral", "class" => "text-bg-success"],
+                                };
+                                $d5Associations->push([
+                                    "report" => $d5Flow->work_report_id,
+                                    "scope" => $scope["label"],
+                                    "class" => $scope["class"],
+                                ]);
                             }
                             }
-                            $d5Associations = $d5Associations->unique(fn ($association) => ($association["report"] ?? "obra") . "|" . $association["scope"] . "|" . ($association["production"] ?? ""));
+                            $d5Associations = $d5Associations->unique(fn ($association) => $association["report"] . "|" . $association["scope"]);
                         @endphp
 
                         <div class="row g-3">
@@ -134,9 +128,6 @@
                                                     <span class="badge bg-light text-dark">Informe #{{ $association["report"] }}</span>
                                                 @endif
                                                 <span class="badge {{ $association["class"] }}">{{ $association["scope"] }}</span>
-                                                @if ($association["production"])
-                                                    <span class="badge text-bg-secondary">Obra: {{ $association["production"] }}</span>
-                                                @endif
                                             </div>
                                         @empty
                                             <div><span class="badge text-bg-secondary">Legada / Nota</span></div>

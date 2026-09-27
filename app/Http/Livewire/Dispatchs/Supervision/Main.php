@@ -556,18 +556,22 @@ class Main extends Component
             ->groupBy('note_id')
             ->map(fn ($partials) => (int) $partials->first()->id);
 
+        $bulkAnyStatus = (bool) $this->bulkSearchAnyStatus;
+
         $payload = collect($this->selected)
-            ->map(function ($key) use ($partialIdsByNote) {
+            ->map(function ($key) use ($partialIdsByNote, $bulkAnyStatus) {
                 [$noteId, $workReportId, $selectedPartialId] = $this->parseSelectionKey($key);
                 $partialId = $selectedPartialId ?: ($partialIdsByNote[(int) $noteId] ?? null);
 
+                $context = ['note_id' => $noteId, 'bulk_any_status' => $bulkAnyStatus];
+
                 if ($workReportId) {
-                    return ['note_id' => $noteId, 'work_report_id' => $workReportId];
+                    $context['work_report_id'] = $workReportId;
+                } elseif ($partialId) {
+                    $context['partial_id'] = $partialId;
                 }
 
-                return $partialId
-                    ? ['note_id' => $noteId, 'partial_id' => $partialId]
-                    : $noteId;
+                return $context;
             })
             ->values()
             ->all();
@@ -1032,7 +1036,10 @@ class Main extends Component
 
         $query = Note::query()
             ->excludeCanceledFullDone()
-            ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
+            ->leftjoin('work_reports', function ($join) {
+                $join->on('work_reports.note_id', '=', 'notes.id')
+                    ->where('work_reports.canceled', false);
+            });
 
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
@@ -1222,16 +1229,26 @@ class Main extends Component
         }
 
         if ($workReportId <= 0) {
-            return null;
+            return $note->relationLoaded('FiveNote') ? $note->FiveNote : null;
         }
 
-        return $this->rowScopedProductions($note)
+        $scopedFive = $this->rowScopedProductions($note)
             ->sortByDesc('created_at')
             ->flatMap(fn (Production $production) => $production->relationLoaded('fiveNotes') ? $production->fiveNotes : collect())
             ->first(function ($five) use ($workReportId) {
                 return (int) ($five->work_report_id ?? 0) === $workReportId
                     || (is_null($five->work_report_id));
             });
+
+        if ($scopedFive) {
+            return $scopedFive;
+        }
+
+        // D5 legada (sem work_report_id), ainda sem nenhuma producao criada para
+        // este informe - mesmo fallback usado pela regra de listagem em
+        // SupervisionRepository. Sem isso, o badge da D5 legada some da linha
+        // assim que ela cai num informe, mesmo a nota tendo a D5 elegivel.
+        return $note->relationLoaded('FiveNote') ? $note->FiveNote : null;
     }
 
     private function selectionKey(Note $note): string

@@ -7,6 +7,16 @@
 
     @push('css')
         <style>
+            .ads-info {
+                line-height: 1.2;
+            }
+
+            .ads-info-date {
+                font-size: .78rem;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+
             @keyframes flame {
                 0% {
                     transform: scaleX(1) scaleY(1);
@@ -395,10 +405,28 @@
                                     <x-user.status-name :user="$list->User" />
                                 </td>
                                 <td class="fw-light {{ $color }}">
-                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) }}
+                                    @if ($list->dispatch_at)
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ Carbon::parse($list->dispatch_at)->format('d/m/Y') }}</div>
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->dispatch_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
                                 </td>
                                 <td class="fw-light {{ $color }}">
-                                    {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                    @if ($list->att_at)
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ Carbon::parse($list->att_at)->format('d/m/Y') }}</div>
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
                                 </td>
                                 @php
                                     $daysLeft = new DaysLeft($list->Note);
@@ -413,9 +441,11 @@
                                     }
                                 @endphp
                                 <!-- Prioridade de estilo da célula 'Prazo Restante' -->
-                                <td scope="col" class="text-center {{ $prazoClass }}"
-                                    style="background-color: inherit;">
-                                    {{ $daysLeft->getLastDate() }}
+                                <td scope="col" class="text-center">
+                                    <div class="ads-info">
+                                        <div class="ads-info-date">{{ $daysLeft->getLastDate() }}</div>
+                                        <span class="badge {{ $prazoClass }}">{{ $daysLeft->getDaysLeft() }}</span>
+                                    </div>
                                 </td>
                                 <td class="fw-light text-center {{ $color }}">
                                     @if ($formBlock)

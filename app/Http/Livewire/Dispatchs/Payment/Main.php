@@ -127,19 +127,16 @@ class Main extends Component
         return [(int) $key, null, null];
     }
 
-    private function dispatchPayloadForSelection($key): array|int
+    private function dispatchPayloadForSelection($key): array
     {
         [$noteId, $workReportId, $partialId] = $this->parseSelectionKey($key);
 
-        if ($workReportId || $partialId) {
-            return [
-                'note_id' => $noteId,
-                'work_report_id' => $workReportId ?: null,
-                'partial_id' => $partialId,
-            ];
-        }
-
-        return $noteId;
+        return [
+            'note_id' => $noteId,
+            'work_report_id' => $workReportId ?: null,
+            'partial_id' => $partialId,
+            'bulk_any_status' => (bool) $this->bulkSearchAnyStatus,
+        ];
     }
 
     public function mount($service)
@@ -1245,7 +1242,8 @@ class Main extends Component
                     ->map($normalizedStatus);
             };
 
-            return $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+            return $statuses('0010')->contains(fn ($status) => str_starts_with($status, 'CONF'))
+                && $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
                 && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
                 && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
         });

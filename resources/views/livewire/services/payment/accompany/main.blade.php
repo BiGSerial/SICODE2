@@ -13,6 +13,16 @@
             table-layout: auto;
         }
 
+        .payment-accompany-page .ads-info {
+            line-height: 1.2;
+        }
+
+        .payment-accompany-page .ads-info-date {
+            font-size: .78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
         .payment-accompany-page .activity-filter-card,
         .payment-accompany-page .user-activity-summary {
             margin-left: 0;
@@ -31,14 +41,7 @@
         }
 
         .payment-accompany-page .payment-type-scope-cell {
-            min-width: 96px;
-        }
-
-        .payment-accompany-page .payment-type-scope-cell .badge {
-            display: block;
-            width: 86px;
-            margin: 0 auto 0.25rem;
-            line-height: 1.1;
+            min-width: 52px;
         }
 
         .payment-accompany-page .payment-note-cell {
@@ -266,16 +269,12 @@
                                     @endif
                                     <td class="payment-type-scope-cell align-middle">
                                         @if ($list->partial)
-                                            <span class="badge text-bg-warning">PARCIAL</span>
+                                            <span class="badge text-bg-warning">P</span>
                                         @else
-                                            <span class="badge text-bg-success">TOTAL</span>
-                                            @if ($workForm)
-                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
-                                                    <span class="badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
-                                                @endforeach
-                                            @else
-                                                <span class="badge text-bg-secondary">Geral</span>
-                                            @endif
+                                            @php
+                                                $isConnection = $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false;
+                                            @endphp
+                                            <span class="badge {{ $isConnection ? 'text-bg-warning' : 'text-bg-success' }}">F</span>
                                         @endif
                                     </td>
                                     <td class="payment-note-cell fw-bold @if ($list->priority) text-danger fw-bold @endif">
@@ -446,15 +445,7 @@
                                             $lastDate = Carbon::parse($list->fimLancado)->format('d/m/Y');
                                         }
                                     @endphp
-                                    <td scope="col"
-                                        class="text-center text-center
-                                    @if ($daysLeft <= 2) text-bg-success
-                                 @elseif($daysLeft > 5)
-                                     text-bg-danger
-                                 @else
-                                 text-bg-warning @endif
-                                 "
-                                        style="background-color: inherit;" tabindex="0" data-bs-toggle="popover"
+                                    <td scope="col" class="text-center" tabindex="0" data-bs-toggle="popover"
                                         data-bs-trigger="hover focus" data-bs-placement="top"
                                         data-bs-title="Prazo Medição"
                                         data-bs-content="
@@ -464,7 +455,13 @@
                              <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
                              {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
                              ">
-                                        {{ $lastDate }}
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ $lastDate }}</div>
+                                            <span class="badge @if ($daysLeft <= 2) text-bg-success @elseif ($daysLeft > 5) text-bg-danger @else text-bg-warning @endif">
+                                                {{ $daysLeft }}
+                                                {{ $daysLeft === 1 ? 'dia' : 'dias' }}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="fw-light text-center">
 

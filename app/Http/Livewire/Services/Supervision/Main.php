@@ -226,6 +226,7 @@ class Main extends Component
 
         // Cálculos (MariaDB)
         $daysAssignedExpr = "DATEDIFF(CURDATE(), productions.att_at)";
+        $daysDispatchExpr = "DATEDIFF(CURDATE(), productions.dispatch_at)";
         $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), linked_work_reports.informed_at), 0)";
         $linkedWorkReports = DB::table('work_report_flow_productions as wrfp')
             ->join('work_reports as wr', 'wr.id', '=', 'wrfp.work_report_id')
@@ -242,6 +243,8 @@ class Main extends Component
                 'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                 // belongsToMany via order_work_report: NÃO existe work_form_id em orders
                 'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
+                // D5 legada (sem informe) - fallback quando o informe atual nao tem D5 propria.
+                'Note.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
                 'Note.OldAds:id,note_id,date',
                 'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                 'Wpas:id,production_id,dd,created_at',
@@ -252,6 +255,8 @@ class Main extends Component
                         'WorkReport:id,note_id,informed_at,created_at,rejected,selected_final_scopes',
                         'WorkReport.Orders' => fn ($orders) => $orders->select('orders.id', 'orders.ordem'),
                         'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        // D5 vinculada ao informe atual desta producao.
+                        'WorkReport.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
                     ]),
                 'Note.Files:id,service_id,note_id,file_name,path,ext',
             ])
@@ -311,10 +316,13 @@ class Main extends Component
                 'productions.block_wpa',
                 'productions.completed',
                 'productions.att_at',
+                'productions.dispatch_at',
                 'productions.transferred',
                 'linked_work_reports.created_at as work_dt_created',
+                'linked_work_reports.informed_at as work_informed_at',
             ])
             ->selectRaw("$daysAssignedExpr as days_assigned")
+            ->selectRaw("$daysDispatchExpr as days_dispatch")
             ->selectRaw("$daysLeftExpr as days_left");
     }
 

@@ -6,9 +6,6 @@ use App\Models\FiveNote;
 use App\Models\Production;
 use App\Models\Service;
 use App\Models\TimelineEvent;
-use App\Models\WorkReport;
-use App\Models\WorkReportFlowProduction;
-use App\Services\WorkReports\WorkReportFlowProductionLinker;
 use DomainException;
 
 class D5WorkflowService
@@ -122,7 +119,10 @@ class D5WorkflowService
             'inferred' => false,
         ]);
 
-        $fiscalProduction = $this->ensureFiscalizationProduction($five, $actorUserId);
+        // A conclusao da parceira nao cria producao: o D5 concluido (is_completed=true,
+        // is_supervisioned=false) ja e regra suficiente para o informe/nota aparecer na
+        // fila de Fiscalizacao (SupervisionRepository/isD5Dispatch). A producao real so
+        // nasce quando alguem de fato despachar, com a empresa correta de quem despacha.
         $this->emitIfMissing([
             'five_note_id' => $five->id,
             'note_id' => $five->note_id,
@@ -132,72 +132,9 @@ class D5WorkflowService
             'actor_user_id' => $actorUserId,
             'actor_role' => 'EMPREITEIRA',
             'owner_role' => 'FISCALIZACAO',
-            'service_id' => $fiscalProduction?->service_id,
-            'production_id' => $fiscalProduction?->id,
             'occurred_at' => $five->completed_at ?? now(),
             'inferred' => false,
         ]);
-    }
-
-    protected function ensureFiscalizationProduction(FiveNote $five, ?string $actorUserId = null): ?Production
-    {
-        $this->resolveServiceIds();
-        if (!$this->fiscalizationServiceId) {
-            return null;
-        }
-
-        $five->loadMissing(['productions', 'WorkReport']);
-        $fiscalProduction = $five->productions
-            ->where('service_id', $this->fiscalizationServiceId)
-            ->where('dfive', true)
-            ->where('completed', false)
-            ->sortByDesc('id')
-            ->first();
-
-        if (!$fiscalProduction) {
-            $paymentProduction = $five->productions
-                ->where('service_id', $this->paymentServiceId)
-                ->sortByDesc('id')
-                ->first();
-
-            $fiscalProduction = Production::create([
-                'note_id' => $five->note_id,
-                'service_id' => $this->fiscalizationServiceId,
-                'user_id' => null,
-                'company_id' => $paymentProduction?->company_id ?? $five->company_id,
-                'dispatch_by' => $paymentProduction?->dispatch_by ?? $actorUserId,
-                'att_by' => null,
-                'dt_note' => $paymentProduction?->dt_note ?? $five->completed_at,
-                'status_note' => $paymentProduction?->status_note,
-                'dispatch_at' => now(),
-                'att_at' => null,
-                'status' => 1,
-                'dhstats' => $paymentProduction?->dhstats ?? $five->completed_at,
-                'partial' => false,
-                'dfive' => true,
-                'completed' => false,
-            ]);
-
-            $five->productions()->syncWithoutDetaching([$fiscalProduction->id]);
-        }
-
-        if ($five->work_report_id) {
-            $workReport = $five->WorkReport ?: WorkReport::find($five->work_report_id);
-            $scopes = $workReport?->selectedFinalScopesOrNull() ?: [WorkReportFlowProduction::SCOPE_GENERAL];
-            $linker = app(WorkReportFlowProductionLinker::class);
-
-            foreach ($scopes as $scope) {
-                $linker->linkFiscalizationForWorkReport(
-                    $fiscalProduction,
-                    $workReport,
-                    'd5_partner_completed',
-                    ['five_note_id' => $five->id],
-                    $scope
-                );
-            }
-        }
-
-        return $fiscalProduction;
     }
 
     public function onReturnedWithPending(FiveNote $five, ?string $fromStage, ?string $actorUserId = null, ?Production $production = null): void

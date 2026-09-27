@@ -599,6 +599,9 @@
                             <dd class="col-sm-8 text-white">
                                 @forelse ($d5Items as $fiveNote)
                                     @php
+                                        // A D5 se liga a UM informe (report) + escopo, ponto. Fiscalizacao/Pagamento/
+                                        // Publicacao sao atividades relacionadas (etapas de execucao), nao uma
+                                        // dimensao separada de vinculo.
                                         $d5Links = collect();
                                         if ($fiveNote->work_report_id) {
                                             $reportScopes = collect($fiveNote->WorkReport?->selected_final_scopes ?? [])->filter()->values();
@@ -615,38 +618,34 @@
                                                     "report" => $fiveNote->work_report_id,
                                                     "scope" => $scope["label"],
                                                     "class" => $scope["class"],
-                                                    "production" => null,
                                                     "status" => $fiveNote->WorkReport?->current_status_label,
                                                     "status_class" => $fiveNote->WorkReport?->current_status_class ?: "text-bg-secondary",
                                                 ]);
                                             }
                                         }
                                         if (!$fiveNote->work_report_id) {
-                                        foreach (($fiveNote->productions ?? collect()) as $d5Production) {
-                                            foreach (($d5Production->WorkReportFlowProductions ?? collect())->where("is_current", true) as $d5Flow) {
-                                                $scope = match ($d5Flow->final_scope) {
-                                                    "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
-                                                    "network" => ["label" => "Rede", "class" => "text-bg-success"],
-                                                    default => ["label" => "Geral", "class" => "text-bg-success"],
-                                                };
-                                                $d5Links->push([
-                                                    "report" => $d5Flow->work_report_id,
-                                                    "scope" => $scope["label"],
-                                                    "class" => $scope["class"],
-                                                    "production" => $d5Production->Service?->service,
-                                                    "status" => $d5Flow->WorkReport?->current_status_label,
-                                                    "status_class" => $d5Flow->WorkReport?->current_status_class ?: "text-bg-secondary",
-                                                ]);
-                                            }
-                                            if (!$d5Production->WorkReportFlowProductions?->where("is_current", true)->whereNotNull("work_report_id")->count()) {
-                                                $d5Links->push([
-                                                    "report" => null,
-                                                    "scope" => "Obra",
-                                                    "class" => "text-bg-secondary",
-                                                    "production" => $d5Production->Service?->service,
-                                                ]);
-                                            }
-                                            }
+                                        $d5LinkedFlows = ($fiveNote->productions ?? collect())
+                                            ->flatMap(fn ($d5Production) => ($d5Production->WorkReportFlowProductions ?? collect())
+                                                ->where("is_current", true)
+                                                ->whereNotNull("work_report_id"))
+                                            // O mesmo informe pode estar linkado por mais de uma producao
+                                            // (fiscalizacao e pagamento, por exemplo) - mostra uma vez so.
+                                            ->unique("work_report_id");
+
+                                        foreach ($d5LinkedFlows as $d5Flow) {
+                                            $scope = match ($d5Flow->final_scope) {
+                                                "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
+                                                "network" => ["label" => "Rede", "class" => "text-bg-success"],
+                                                default => ["label" => "Geral", "class" => "text-bg-success"],
+                                            };
+                                            $d5Links->push([
+                                                "report" => $d5Flow->work_report_id,
+                                                "scope" => $scope["label"],
+                                                "class" => $scope["class"],
+                                                "status" => $d5Flow->WorkReport?->current_status_label,
+                                                "status_class" => $d5Flow->WorkReport?->current_status_class ?: "text-bg-secondary",
+                                            ]);
+                                        }
                                         }
                                     @endphp
                                     @forelse ($d5Links as $d5Link)

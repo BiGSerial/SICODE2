@@ -145,6 +145,7 @@ class WorkReportStatusResolverTest extends TestCase
         $firstD5Fiscal = new Production([
             'completed' => true,
             'partial' => false,
+            'dfive' => true,
             'att_at' => '2026-04-02 17:25:55',
             'completed_at' => '2026-04-08 01:44:16',
         ]);
@@ -165,6 +166,7 @@ class WorkReportStatusResolverTest extends TestCase
             'id' => 30,
             'completed' => true,
             'partial' => false,
+            'dfive' => true,
             'att_at' => '2026-05-27 14:29:20',
             'completed_at' => '2026-05-29 17:52:25',
         ]);
@@ -218,6 +220,7 @@ class WorkReportStatusResolverTest extends TestCase
         $d5Fiscal = new Production([
             'completed' => true,
             'partial' => false,
+            'dfive' => true,
         ]);
         $d5Fiscal->setRelation('Service', $fiscalService);
 
@@ -225,6 +228,7 @@ class WorkReportStatusResolverTest extends TestCase
             'completed' => false,
             'confirmed' => false,
             'partial' => false,
+            'dfive' => true,
         ]);
         $d5Payment->setRelation('Service', $paymentService);
 

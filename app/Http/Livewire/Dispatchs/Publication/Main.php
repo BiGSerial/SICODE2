@@ -245,12 +245,15 @@ class Main extends Component
             return;
         }
 
-        $payload = collect($this->selected)->map(function ($key) {
+        $bulkAnyStatus = (bool) $this->all_services;
+
+        $payload = collect($this->selected)->map(function ($key) use ($bulkAnyStatus) {
             [$noteId, $workReportId] = array_pad(explode(':', (string) $key, 3), 3, null);
 
             return [
                 'note_id' => (int) $noteId,
                 'work_report_id' => $workReportId ? (int) $workReportId : null,
+                'bulk_any_status' => $bulkAnyStatus,
             ];
         })->filter(fn ($item) => $item['note_id'] > 0)->values()->all();
 
