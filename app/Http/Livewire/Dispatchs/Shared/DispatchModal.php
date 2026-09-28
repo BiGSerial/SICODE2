@@ -2,16 +2,8 @@
 
 namespace App\Http\Livewire\Dispatchs\Shared;
 
-use App\Models\Company;
-use App\Models\Note;
-use App\Models\Notetimeline;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\WorkReport;
-use App\Services\Dispatch\DispatchContextResolver;
-use App\Services\Dispatch\DispatchException;
-use App\Services\Dispatch\DispatchWorkflowService;
+use App\Models\{Company, Note, Notetimeline, Production, Service, User, WorkReport};
+use App\Services\Dispatch\{DispatchContextResolver, DispatchException, DispatchWorkflowService};
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -21,36 +13,54 @@ use Livewire\Component;
 class DispatchModal extends Component
 {
     public $service;
+
     public array $dispatchContextsByIndex = [];
+
     public $notes;
+
     public $company_l;
+
     public $user_l;
+
     public string $company_s = '';
+
     public string $user_s = '';
+
     public string $type = '1';
+
     public string $search_user = '';
+
     public array $additionalData = [];
+
     public array $finalScopeOptions = [];
+
     public array $finalScopeSelections = [];
+
     public bool $contractMode = false;
+
     public bool $requiresDd = false;
+
     public bool $requiresFinalScope = false;
+
     public array $sourceProductionIdsByNote = [];
+
     public array $targetWorkReportIdsByNote = [];
+
     public array $targetPartialIdsByContext = [];
 
     protected $listeners = [
-        'openForNotes' => 'openForNotes',
-        'openForProductions' => 'openForProductions',
+        'openForNotes'           => 'openForNotes',
+        'openForWorkReports'     => 'openForWorkReports',
+        'openForProductions'     => 'openForProductions',
         'confirm_dispatch_modal' => 'confirmedAtt',
     ];
 
     public function mount(string $serviceId): void
     {
-        $this->service = Service::where('uuid', $serviceId)->firstOrFail();
-        $this->notes = collect();
-        $this->company_l = collect();
-        $this->user_l = collect();
+        $this->service      = Service::where('uuid', $serviceId)->firstOrFail();
+        $this->notes        = collect();
+        $this->company_l    = collect();
+        $this->user_l       = collect();
         $this->contractMode = (bool) auth()->user()?->contract;
     }
 
@@ -59,9 +69,9 @@ class DispatchModal extends Component
         $contexts = collect($noteIds)
             ->map(function ($value) {
                 if (is_array($value)) {
-                    $noteId = (int) ($value['note_id'] ?? $value['id'] ?? 0);
-                    $workReportId = (int) ($value['work_report_id'] ?? 0);
-                    $partialId = (int) ($value['partial_id'] ?? 0);
+                    $noteId        = (int) ($value['note_id'] ?? $value['id'] ?? 0);
+                    $workReportId  = (int) ($value['work_report_id'] ?? 0);
+                    $partialId     = (int) ($value['partial_id'] ?? 0);
                     $bulkAnyStatus = (bool) ($value['bulk_any_status'] ?? false);
 
                     return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null, 'bulk_any_status' => $bulkAnyStatus];
@@ -71,14 +81,14 @@ class DispatchModal extends Component
             });
 
         $contexts = $contexts->filter(fn (array $context) => $context['note_id'] > 0)->values();
-        $noteIds = $contexts->pluck('note_id')->unique()->values();
+        $noteIds  = $contexts->pluck('note_id')->unique()->values();
 
         if (!$noteIds->count()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma nota foi selecionada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -117,6 +127,7 @@ class DispatchModal extends Component
                 $row->setAttribute('dispatch_partial_id', $context['partial_id']);
                 $row->setAttribute('dispatch_bulk_any_status', (bool) ($context['bulk_any_status'] ?? false));
                 $row->setAttribute('dispatch_context_key', $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']));
+
                 if ($context["work_report_id"] && $row->relationLoaded("WorkForms")) {
                     $row->setRelation("WorkForm", $row->WorkForms->firstWhere("id", $context["work_report_id"]));
                 }
@@ -126,8 +137,9 @@ class DispatchModal extends Component
             ->filter()
             ->values()
             ->all());
+
         if ($this->contractMode) {
-            $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+            $companyIds                      = SicodeRules::visibleCompanyIdsFor(auth()->user());
             $this->sourceProductionIdsByNote = Production::query()
                 ->whereIn('note_id', $this->notes->pluck('id'))
                 ->where('service_id', $this->service->uuid)
@@ -145,15 +157,15 @@ class DispatchModal extends Component
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
         $this->additionalData = [];
-        $contextResolver = app(DispatchContextResolver::class);
-        $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
+        $contextResolver      = app(DispatchContextResolver::class);
+        $scopeAwareService    = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
             $this->prepareFinalScopeSelection($note);
 
-            $context = $contextResolver->for($note, $this->service);
-            $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
+            $context                  = $contextResolver->for($note, $this->service);
+            $this->requiresDd         = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
             $this->requiresFinalScope = $this->requiresFinalScope || (
                 $scopeAwareService
                 && count($this->finalScopeOptions[$this->contextKeyFor($note)] ?? []) > 0
@@ -165,6 +177,40 @@ class DispatchModal extends Component
         ]);
     }
 
+    /**
+     * Entrada direta quando o chamador ja resolveu o(s) informe(s) elegivel(is)
+     * (ex.: lista de Fiscalizacao dirigida por WorkReportSupervisionCandidateQuery).
+     * Reaproveita openForNotes montando os mesmos contextos note_id/work_report_id.
+     */
+    public function openForWorkReports(array $workReportIds): void
+    {
+        $workReportIds = collect($workReportIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+
+        if (!$workReportIds->count()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhum informe foi selecionado para despacho!',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $contexts = WorkReport::query()
+            ->whereIn('id', $workReportIds)
+            ->where('canceled', false)
+            ->pluck('note_id', 'id')
+            ->map(fn ($noteId, $workReportId) => [
+                'note_id'        => (int) $noteId,
+                'work_report_id' => (int) $workReportId,
+            ])
+            ->values()
+            ->all();
+
+        $this->openForNotes($contexts);
+    }
+
     public function openForProductions(array $productionIds): void
     {
         $productionIds = collect($productionIds)->filter()->unique()->values();
@@ -172,9 +218,9 @@ class DispatchModal extends Component
         if (!$productionIds->count()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma atividade foi selecionada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma atividade foi selecionada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -192,6 +238,7 @@ class DispatchModal extends Component
         $this->notes = new EloquentCollection($productions
             ->map(function (Production $production) {
                 $note = $production->Note;
+
                 if (!$note) {
                     return null;
                 }
@@ -218,9 +265,9 @@ class DispatchModal extends Component
             ->all());
         $this->dispatchContextsByIndex = $this->notes
             ->map(fn (Note $note) => [
-                'note_id' => (int) $note->id,
+                'note_id'        => (int) $note->id,
                 'work_report_id' => (int) ($note->dispatch_work_report_id ?? 0) ?: null,
-                'partial_id' => (int) ($note->dispatch_partial_id ?? 0) ?: null,
+                'partial_id'     => (int) ($note->dispatch_partial_id ?? 0) ?: null,
             ])
             ->values()
             ->all();
@@ -232,9 +279,9 @@ class DispatchModal extends Component
         if (!$this->notes->count()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma atividade aberta foi encontrada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma atividade aberta foi encontrada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -244,15 +291,15 @@ class DispatchModal extends Component
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
 
-        $contextResolver = app(DispatchContextResolver::class);
+        $contextResolver   = app(DispatchContextResolver::class);
         $scopeAwareService = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
 
         foreach ($this->notes as $index => $note) {
             $this->additionalData[$index] = SicodeRules::dispatchDdFor($note, $this->service->uuid) ?? '';
             $this->prepareFinalScopeSelection($note);
 
-            $context = $contextResolver->for($note, $this->service);
-            $this->requiresDd = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
+            $context                  = $contextResolver->for($note, $this->service);
+            $this->requiresDd         = $this->requiresDd || (bool) ($context['requires_dd'] ?? false);
             $this->requiresFinalScope = $this->requiresFinalScope || (
                 $scopeAwareService
                 && count($this->finalScopeOptions[$this->contextKeyFor($note)] ?? []) > 0
@@ -275,6 +322,7 @@ class DispatchModal extends Component
         if ($this->contractMode && (string) $type !== '2') {
             $this->type = '2';
             $this->loadDispatchUsers();
+
             return;
         }
 
@@ -282,6 +330,7 @@ class DispatchModal extends Component
 
         if ($this->type === '2') {
             $this->loadDispatchUsers();
+
             return;
         }
 
@@ -295,6 +344,7 @@ class DispatchModal extends Component
 
         if (!$this->company_s) {
             $this->user_l = collect();
+
             return;
         }
 
@@ -320,9 +370,9 @@ class DispatchModal extends Component
         if ($this->contractMode && $this->type !== '2') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.',
-                'timer' => 4000,
+                'icon'     => 'warning',
+                'title'    => 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.',
+                'timer'    => 4000,
             ]);
 
             return;
@@ -331,9 +381,9 @@ class DispatchModal extends Component
         if (!$this->company_s) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -342,30 +392,30 @@ class DispatchModal extends Component
         if ($this->type === '2' && !$this->user_s) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Nenhum usuário foi selecionado para despacho individual!',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                'timer'    => 2500,
             ]);
 
             return;
         }
 
-        $company = Company::find($this->company_s);
+        $company    = Company::find($this->company_s);
         $targetUser = $this->type === '2' ? User::find($this->user_s) : null;
-        $para = $targetUser
+        $para       = $targetUser
             ? $targetUser->name . ' da ' . $company?->name
             : $company?->name;
 
         $this->dispatchBrowserEvent('alertar', [
-            'target' => 'dispatchs.shared.dispatch-modal',
-            'title' => 'Confirmar Despachar',
-            'msg' => "Você está prestes a Despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}",
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, Despache!',
-            'btnCanceltxt' => 'Não, Cancele',
-            'action' => 'confirm_dispatch_modal',
+            'target'        => 'dispatchs.shared.dispatch-modal',
+            'title'         => 'Confirmar Despachar',
+            'msg'           => "Você está prestes a Despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Despache!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_dispatch_modal',
             'cancel_titulo' => 'Cancelado!',
-            'cancel_msg' => "Nenhum {$this->dispatchItemLabel} foi despachado.",
+            'cancel_msg'    => "Nenhum {$this->dispatchItemLabel} foi despachado.",
         ]);
     }
 
@@ -374,9 +424,9 @@ class DispatchModal extends Component
         if (!in_array((string) $this->type, ['1', '2'], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione o tipo de despacho.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Selecione o tipo de despacho.',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -385,35 +435,35 @@ class DispatchModal extends Component
         if ($this->contractMode && $this->type !== '2') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.',
-                'timer' => 4000,
+                'icon'     => 'warning',
+                'title'    => 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.',
+                'timer'    => 4000,
             ]);
 
             return;
         }
 
         try {
-            $workflow = app(DispatchWorkflowService::class);
-            $scopeOptions = app(WorkReportFinalScopeOptions::class);
-            $contextResolver = app(DispatchContextResolver::class);
-            $serviceKey = $contextResolver->serviceKey($this->service);
+            $workflow          = app(DispatchWorkflowService::class);
+            $scopeOptions      = app(WorkReportFinalScopeOptions::class);
+            $contextResolver   = app(DispatchContextResolver::class);
+            $serviceKey        = $contextResolver->serviceKey($this->service);
             $scopeAwareService = in_array($serviceKey, ['supervision', 'payment', 'publication'], true);
-            $company = Company::findOrFail($this->company_s);
-            $targetUser = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
-            $actor = auth()->user();
+            $company           = Company::findOrFail($this->company_s);
+            $targetUser        = (string) $this->type === '2' ? User::findOrFail($this->user_s) : null;
+            $actor             = auth()->user();
 
             if ($scopeAwareService) {
                 foreach ($this->notes as $note) {
                     $available = $scopeOptions->forNote($note, $serviceKey === 'publication');
-                    $selected = $this->selectedFinalScopesForNote($note);
+                    $selected  = $this->selectedFinalScopesForNote($note);
 
                     if (count($available) > 1 && empty($selected)) {
                         $this->dispatchBrowserEvent('swal', [
                             'position' => 'center',
-                            'icon' => 'warning',
-                            'title' => "Selecione o escopo fiscalizado para a nota {$note->note}.",
-                            'timer' => 6000,
+                            'icon'     => 'warning',
+                            'title'    => "Selecione o escopo fiscalizado para a nota {$note->note}.",
+                            'timer'    => 6000,
                         ]);
 
                         return;
@@ -423,8 +473,8 @@ class DispatchModal extends Component
 
             DB::transaction(function () use ($workflow, $company, $targetUser, $actor) {
                 foreach ($this->notes as $key => $note) {
-                    $dd = $this->additionalData[$key] ?? null;
-                    $finalScopes = $this->selectedFinalScopesForNote($note);
+                    $dd                 = $this->additionalData[$key] ?? null;
+                    $finalScopes        = $this->selectedFinalScopesForNote($note);
                     $sourceProductionId = $this->sourceProductionIdsByNote[(string) $note->id] ?? null;
 
                     if ($sourceProductionId) {
@@ -449,9 +499,9 @@ class DispatchModal extends Component
         } catch (DispatchException $e) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => $e->getMessage(),
-                'timer' => 6000,
+                'icon'     => 'warning',
+                'title'    => $e->getMessage(),
+                'timer'    => 6000,
             ]);
 
             return;
@@ -460,9 +510,9 @@ class DispatchModal extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'Erro ao despachar as Notas/OVs.',
-                'timer' => 5000,
+                'icon'     => 'error',
+                'title'    => 'Erro ao despachar as Notas/OVs.',
+                'timer'    => 5000,
             ]);
 
             return;
@@ -470,9 +520,9 @@ class DispatchModal extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => "{$this->dispatchItemLabelPlural} despachados com sucesso!",
-            'timer' => 2500,
+            'icon'     => 'success',
+            'title'    => "{$this->dispatchItemLabelPlural} despachados com sucesso!",
+            'timer'    => 2500,
         ]);
 
         $this->closeAll();
@@ -568,23 +618,23 @@ class DispatchModal extends Component
 
     private function resetModalState(): void
     {
-        $this->notes = collect();
-        $this->company_l = collect();
-        $this->user_l = collect();
-        $this->company_s = '';
-        $this->user_s = '';
-        $this->type = '1';
-        $this->search_user = '';
-        $this->additionalData = [];
-        $this->finalScopeOptions = [];
-        $this->finalScopeSelections = [];
-        $this->contractMode = (bool) auth()->user()?->contract;
-        $this->requiresDd = false;
-        $this->requiresFinalScope = false;
+        $this->notes                     = collect();
+        $this->company_l                 = collect();
+        $this->user_l                    = collect();
+        $this->company_s                 = '';
+        $this->user_s                    = '';
+        $this->type                      = '1';
+        $this->search_user               = '';
+        $this->additionalData            = [];
+        $this->finalScopeOptions         = [];
+        $this->finalScopeSelections      = [];
+        $this->contractMode              = (bool) auth()->user()?->contract;
+        $this->requiresDd                = false;
+        $this->requiresFinalScope        = false;
         $this->sourceProductionIdsByNote = [];
         $this->targetWorkReportIdsByNote = [];
         $this->targetPartialIdsByContext = [];
-        $this->dispatchContextsByIndex = [];
+        $this->dispatchContextsByIndex   = [];
     }
 
     public function hydrateNotes($value): void
@@ -595,13 +645,14 @@ class DispatchModal extends Component
             }
 
             $context = $this->dispatchContextsByIndex[$index] ?? null;
+
             if (!$context) {
                 return $note;
             }
 
-            $row = clone $note;
+            $row          = clone $note;
             $workReportId = (int) ($context["work_report_id"] ?? 0) ?: null;
-            $partialId = (int) ($context["partial_id"] ?? 0) ?: null;
+            $partialId    = (int) ($context["partial_id"] ?? 0) ?: null;
             $row->setAttribute("dispatch_work_report_id", $workReportId);
             $row->setAttribute("dispatch_partial_id", $partialId);
             $row->setAttribute("dispatch_bulk_any_status", (bool) ($context["bulk_any_status"] ?? false));
@@ -640,12 +691,12 @@ class DispatchModal extends Component
     private function prepareFinalScopeSelection(Note $note): void
     {
         $targetWorkReport = $this->targetWorkReportFor($note);
-        $options = $targetWorkReport
+        $options          = $targetWorkReport
             ? $this->scopeOptionsForWorkReport($targetWorkReport, $this->currentServiceKey() === 'publication')
             : app(WorkReportFinalScopeOptions::class)->forNote($note, $this->currentServiceKey() === 'publication');
 
-        $contextKey = $this->contextKeyFor($note);
-        $this->finalScopeOptions[$contextKey] = $options;
+        $contextKey                              = $this->contextKeyFor($note);
+        $this->finalScopeOptions[$contextKey]    = $options;
         $this->finalScopeSelections[$contextKey] = [];
 
         if (!empty($options) && ($targetWorkReport || count($options) === 1)) {
@@ -687,8 +738,8 @@ class DispatchModal extends Component
                         ->publicationRequired($payload['scope']);
             })
             ->map(fn (array $payload) => [
-                'scope' => $payload['scope'],
-                'label' => $workReport->finalScopeLabel($payload['scope']),
+                'scope'                => $payload['scope'],
+                'label'                => $workReport->finalScopeLabel($payload['scope']),
                 'publication_required' => app(\App\Services\WorkReports\WorkReportFinalScopeResolver::class)
                     ->publicationRequired($payload['scope']),
             ])
@@ -732,13 +783,13 @@ class DispatchModal extends Component
     private function recordBulkAnyStatusAudit(Note $note, Production $production, User $actor): void
     {
         Notetimeline::create([
-            'note_id' => $production->id,
-            'service_id' => $production->service_id,
-            'user_id' => $actor->id,
-            'info' => "Usuario {$actor->name} despachou esta Nota/OV com a busca \"em qualquer situacao/todos os servicos\" ativa, fora do criterio padrao de elegibilidade da pilha.",
-            'status' => $production->status,
+            'note_id'       => $production->id,
+            'service_id'    => $production->service_id,
+            'user_id'       => $actor->id,
+            'info'          => "Usuario {$actor->name} despachou esta Nota/OV com a busca \"em qualquer situacao/todos os servicos\" ativa, fora do criterio padrao de elegibilidade da pilha.",
+            'status'        => $production->status,
             'production_id' => $production->id,
-            'category' => 'bulk_any_status_dispatch',
+            'category'      => 'bulk_any_status_dispatch',
         ]);
     }
 
@@ -773,7 +824,7 @@ class DispatchModal extends Component
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem']),
-            'WorkForms' => fn ($q) => $q->select([
+            'WorkForms'       => fn ($q) => $q->select([
                 'id',
                 'note_id',
                 'company_id',
@@ -809,6 +860,7 @@ class DispatchModal extends Component
         foreach ($this->modalNoteRelations() as $relation => $constraint) {
             if (is_int($relation)) {
                 $relations[] = 'Note.' . $constraint;
+
                 continue;
             }
 

@@ -4,11 +4,10 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
-use App\Models\{Bancoupdate, Company, Note, Partial, Production, Service, User, WorkReport, Wpa};
+use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport, Wpa};
 use App\Models\City;
-use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
-use App\Services\Supervision\BlockEvaluator;
+use App\Services\Supervision\{BlockEvaluator, WorkReportSupervisionCandidateQuery};
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -117,13 +116,6 @@ class Main extends Component
         'perPage'  => ['as' => 'pp'],
         'typeNote' => ['except' => '', 'as' => 'tipo'],
     ];
-
-    private $supervisionRepository;
-
-    public function boot(SupervisionRepository $supervisionRepository)
-    {
-        $this->supervisionRepository = $supervisionRepository;
-    }
 
     public function view_edit($key)
     {
@@ -242,27 +234,22 @@ class Main extends Component
         }
 
         ExportSupervisionList::dispatch([
-            'search'       => $this->search,
-            'multiSearch'  => $this->multiSearch,
-            'rubrica_s'    => $this->rubrica_s,
-            'typeNote'     => $this->typeNote,
-            'not_assigned' => $this->not_assigned,
-            'filter'       => $this->filter,
-            'serviceUuid'  => $this->service->uuid,
-            'user_id'      => auth()->user()->id,
-            'filterD5'     => $this->filter_d5,
+            'search'                   => $this->search,
+            'multiSearch'              => $this->multiSearch,
+            'rubrica_s'                => $this->rubrica_s,
+            'typeNote'                 => $this->typeNote,
+            'not_assigned'             => $this->not_assigned,
+            'filter'                   => $this->filter,
+            'serviceUuid'              => $this->service->uuid,
+            'user_id'                  => auth()->user()->id,
+            'filterD5'                 => $this->filter_d5,
             'selected_work_report_ids' => collect($this->selected)
-                ->map(fn ($key) => $this->parseSelectionKey($key)[1])
+                ->map(fn ($key) => $this->parseWorkReportSelectionKey($key))
                 ->filter()
                 ->unique()
                 ->values()
                 ->all(),
-            'selected_partial_ids' => collect($this->selected)
-                ->map(fn ($key) => $this->parseSelectionKey($key)[2])
-                ->filter()
-                ->unique()
-                ->values()
-                ->all(),
+            'selected_partial_ids' => [],
         ]);
 
         $this->dispatchBrowserEvent('swal', [
@@ -300,8 +287,8 @@ class Main extends Component
 
     private function rowScopedProductions(Note $note)
     {
-        $productions = $note->Productions->where('service_id', $this->service->uuid);
-        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $productions  = $note->Productions->where('service_id', $this->service->uuid);
+        $workReportId = (int) ($note->operational_work_report_id ?? 0);
 
         if ($workReportId <= 0) {
             return $productions;
@@ -426,7 +413,7 @@ class Main extends Component
 
             // Adicionar os IDs que cumprem as regras à lista de selecionados
             foreach ($this->toLists as $item) {
-                $id = $this->selectionKey($item);
+                $id = $this->selectionKeyFor($item);
 
                 if (!in_array($id, $this->selected)) {
                     if (Auth()->User()?->contract) {
@@ -456,7 +443,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds     = $this->toLists->map(fn ($item) => $this->selectionKey($item))->all();
+            $visibleIds     = $this->toLists->map(fn ($item) => $this->selectionKeyFor($item))->all();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
@@ -466,7 +453,7 @@ class Main extends Component
     public function checkAllSelect($items)
     {
 
-        $items = $items->map(fn ($item) => $this->selectionKey($item))->all();
+        $items = $items->map(fn ($item) => $this->selectionKeyFor($item))->all();
 
         $this->selectAll = empty(array_diff($items, $this->selected));
 
@@ -539,44 +526,25 @@ class Main extends Component
             return;
         }
 
-        $noteIds = collect($this->selected)
-            ->map(fn ($key) => $this->parseSelectionKey($key)[0])
+        $workReportIds = collect($this->selected)
+            ->map(fn ($key) => $this->parseWorkReportSelectionKey($key))
             ->filter()
             ->unique()
-            ->values();
-
-        $partialIdsByNote = Partial::query()
-            ->whereIn('note_id', $noteIds)
-            ->where('allow', true)
-            ->where('supervision', false)
-            ->where('deny', false)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get(['id', 'note_id'])
-            ->groupBy('note_id')
-            ->map(fn ($partials) => (int) $partials->first()->id);
-
-        $bulkAnyStatus = (bool) $this->bulkSearchAnyStatus;
-
-        $payload = collect($this->selected)
-            ->map(function ($key) use ($partialIdsByNote, $bulkAnyStatus) {
-                [$noteId, $workReportId, $selectedPartialId] = $this->parseSelectionKey($key);
-                $partialId = $selectedPartialId ?: ($partialIdsByNote[(int) $noteId] ?? null);
-
-                $context = ['note_id' => $noteId, 'bulk_any_status' => $bulkAnyStatus];
-
-                if ($workReportId) {
-                    $context['work_report_id'] = $workReportId;
-                } elseif ($partialId) {
-                    $context['partial_id'] = $partialId;
-                }
-
-                return $context;
-            })
             ->values()
             ->all();
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
+        if (!count($workReportIds)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para despacho!',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForWorkReports', $workReportIds);
     }
 
     public function confirm_att()
@@ -755,7 +723,7 @@ class Main extends Component
         $this->user_s    = "";
         $this->user_l    = collect();
         // $this->type = "";
-        $this->additionalData = [];
+        $this->additionalData      = [];
         $this->bulkSearchAnyStatus = false;
 
         $this->emit('refresh_dispatch');
@@ -770,11 +738,11 @@ class Main extends Component
         $this->search_user = "";
         $this->user_l      = collect();
         // $this->type = "";
-        $this->additionalData = [];
-        $this->multiSearch = [];
+        $this->additionalData      = [];
+        $this->multiSearch         = [];
         $this->bulkSearchAnyStatus = false;
-        $this->advanceSearch = "";
-        $this->search = "";
+        $this->advanceSearch       = "";
+        $this->search              = "";
     }
 
     public function buscarMulti()
@@ -814,9 +782,9 @@ class Main extends Component
 
         $additionalData    = [];
         $additionalDataUpd = [];
-        $seenDds = [];
-        $unchanged = 0;
-        $moved = 0;
+        $seenDds           = [];
+        $unchanged         = 0;
+        $moved             = 0;
 
         foreach (preg_split('/\r\n|\r|\n/', trim($this->enter_dd)) as $lineNumber => $linha) {
             $linha = trim($linha);
@@ -887,11 +855,13 @@ class Main extends Component
                     'dd'            => $ddNumber,
                 ];
                 $moved++;
+
                 continue;
             }
 
             if ($existingByDd) {
                 $unchanged++;
+
                 continue;
             }
 
@@ -933,9 +903,11 @@ class Main extends Component
         $this->additionalDataUpd = $additionalDataUpd;
 
         $summary = "Você está prestes a associar {$count} Nota(s)/OV(s) e DD(s).";
+
         if ($moved) {
             $summary .= " {$moved} DD(s) serão movidas de outra Nota/OV para a Nota/OV informada.";
         }
+
         if ($unchanged) {
             $summary .= " {$unchanged} vínculo(s) já existiam e serão mantidos.";
         }
@@ -1034,20 +1006,48 @@ class Main extends Component
         //     dd($this->filter);
         // }
 
-        $query = Note::query()
-            ->excludeCanceledFullDone()
-            ->leftjoin('work_reports', function ($join) {
+        $bypassEligibility = $this->bulkSearchAnyStatus && count($this->multiSearch);
+
+        $query = Note::query()->excludeCanceledFullDone()
+            ->leftJoin('work_reports', function ($join) {
                 $join->on('work_reports.note_id', '=', 'notes.id')
                     ->where('work_reports.canceled', false);
             });
+
+        if (!$bypassEligibility) {
+            $candidateWorkReportIds = app(WorkReportSupervisionCandidateQuery::class)->fastIdsSubquery(false);
+            $d5WorkReportIds = DB::table('five_notes')
+                ->where('is_supervisioned', false)
+                ->where('is_completed', true)
+                ->whereNotNull('work_report_id')
+                ->select('work_report_id');
+            $d5LegacyNoteIds = DB::table('five_notes')
+                ->where('is_supervisioned', false)
+                ->where('is_completed', true)
+                ->whereNull('work_report_id')
+                ->select('note_id');
+            $partialNoteIds = DB::table('partials')
+                ->where('supervision', false)
+                ->where('allow', true)
+                ->where('deny', false)
+                ->select('note_id');
+
+            $query->where(function ($eligible) use ($candidateWorkReportIds, $d5WorkReportIds, $d5LegacyNoteIds, $partialNoteIds) {
+                $eligible->whereIn('work_reports.id', $candidateWorkReportIds)
+                    ->orWhereIn('work_reports.id', $d5WorkReportIds)
+                    ->orWhereIn('notes.id', $d5LegacyNoteIds)
+                    ->orWhere(function ($partial) use ($partialNoteIds) {
+                        $partial->whereNull('work_reports.id')
+                            ->whereIn('notes.id', $partialNoteIds);
+                    });
+            });
+        }
 
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
             Auth()->User(),
             $this->service->uuid,
-            fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
-                ? null
-                : $this->supervisionRepository->applyBaseRules($statusQuery)
+            fn ($statusQuery) => null
         );
 
         if (strlen($this->search)) {
@@ -1144,7 +1144,7 @@ class Main extends Component
         ])
             ->select(
                 'notes.*',
-                'work_reports.id as dispatch_work_report_id',
+                'work_reports.id as operational_work_report_id',
                 'work_reports.created_at as work_dt_created'
             )
             ->orderBy('work_dt_created', 'ASC')
@@ -1194,15 +1194,10 @@ class Main extends Component
         $lists = $this->lists->paginate($this->perPage);
 
         $lists->getCollection()->transform(function (Note $note) {
-            $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+            $workReport = $this->operationalWorkReportFor($note);
 
-            if ($workReportId > 0 && $note->relationLoaded('WorkForms')) {
-                $workForm = $note->WorkForms->firstWhere('id', $workReportId);
-
-                if ($workForm) {
-                    $note->setRelation('WorkForm', $workForm);
-                }
-
+            if ($workReport) {
+                $note->setRelation('WorkForm', $workReport);
                 $note->setRelation('FiveNote', $this->rowFiveNote($note));
             }
 
@@ -1223,8 +1218,8 @@ class Main extends Component
 
     private function rowFiveNote(Note $note)
     {
-        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-        $workForm = $workReportId > 0 && $note->relationLoaded('WorkForms')
+        $workReportId = (int) ($note->operational_work_report_id ?? 0);
+        $workForm     = $workReportId > 0 && $note->relationLoaded('WorkForms')
             ? $note->WorkForms->firstWhere('id', $workReportId)
             : null;
 
@@ -1255,21 +1250,46 @@ class Main extends Component
         return $note->relationLoaded('FiveNote') ? $note->FiveNote : null;
     }
 
-    private function selectionKey(Note $note): string
+    public function selectionKeyFor(Note $note): string
     {
-        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-        $partialId = $workReportId > 0
-            ? 0
-            : (int) ($note->Partials
-                ?->where('allow', true)
-                ->where('supervision', false)
-                ->where('deny', false)
-                ->sortByDesc('created_at')
-                ->first()?->id ?? 0);
-
-        return $note->id . ':' . $workReportId . ':' . $partialId;
+        return 'wr:' . (int) ($note->operational_work_report_id ?? 0);
     }
 
+    public function operationalWorkReportFor(Note $note): ?WorkReport
+    {
+        $workReportId = (int) ($note->operational_work_report_id ?? 0);
+
+        if ($workReportId <= 0) {
+            return null;
+        }
+
+        if ($note->relationLoaded('WorkReports')) {
+            return $note->WorkReports->firstWhere('id', $workReportId);
+        }
+
+        if ($note->relationLoaded('WorkForms')) {
+            return $note->WorkForms->firstWhere('id', $workReportId);
+        }
+
+        return $note->WorkReports()->whereKey($workReportId)->first();
+    }
+
+    private function parseWorkReportSelectionKey($key): ?int
+    {
+        if (is_string($key) && str_starts_with($key, 'wr:')) {
+            $id = (int) substr($key, 3);
+
+            return $id > 0 ? $id : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @deprecated Formato de chave antiga (noteId:workReportId:partialId), mantida
+     * apenas para os fluxos legados abaixo (confirm_att/selectedNoteIds) que nao
+     * sao mais acionados pela view atual. A selecao ativa usa selectionKeyFor().
+     */
     private function parseSelectionKey($key): array
     {
         if (is_string($key) && str_contains($key, ':')) {
