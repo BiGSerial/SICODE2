@@ -490,7 +490,7 @@
                     <div class="summary-item">
                         Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
                         <strong>{{ $lists->lastItem() }}</strong> de
-                        <strong>{{ $lists->total() }}</strong> registros.
+                        <strong>{{ $lists->lastItem() }}</strong> registros nesta página{{ $lists->hasMorePages() ? ' (há mais)' : '' }}.
                     </div>
                 </div>
             </div>
@@ -833,7 +833,7 @@
                 <div class="summary-item">
                     Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
                     <strong>{{ $lists->lastItem() }}</strong> de
-                    <strong>{{ $lists->total() }}</strong> registros.
+                    <strong>{{ $lists->lastItem() }}</strong> registros nesta página{{ $lists->hasMorePages() ? ' (há mais)' : '' }}.
                 </div>
             </div>
         </div>

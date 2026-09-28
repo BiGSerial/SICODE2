@@ -1191,7 +1191,7 @@ class Main extends Component
 
     public function getToListsProperty()
     {
-        $lists = $this->lists->paginate($this->perPage);
+        $lists = $this->lists->simplePaginate($this->perPage);
 
         $lists->getCollection()->transform(function (Note $note) {
             $workReport = $this->operationalWorkReportFor($note);
