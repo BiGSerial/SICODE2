@@ -213,24 +213,48 @@ class Jobform extends Component
 
     private function fiveNoteForCurrentProduction(): ?FiveNote
     {
-        $workReportId = $this->currentWorkReportIdForPayment();
-
-        if ($workReportId) {
-            return $this->production?->fiveNotes()
-                ->where('note_id', $this->production->note_id)
-                ->where('work_report_id', $workReportId)
-                ->first()
-                ?? FiveNote::query()
-                    ->where('note_id', $this->production->note_id)
-                    ->where('work_report_id', $workReportId)
-                    ->first();
+        if (!$this->production) {
+            return null;
         }
 
-        return $this->production?->fiveNotes()
-            ->where('note_id', $this->production->note_id)
-            ->whereNull('work_report_id')
-            ->first()
-            ?? $this->production?->note?->FiveNote;
+        $production = $this->production;
+
+        // Primeiro: a própria produção já está associada diretamente à D5.
+        $directFive = $production->fiveNotes()
+            ->where('note_id', $production->note_id)
+            ->latest('id')
+            ->first();
+
+        if ($directFive) {
+            return $directFive;
+        }
+
+        // Segundo: a produção está associada a um informe e o informe possui D5.
+        $workReportIds = $production->WorkReportFlowProductions()
+            ->whereIn('stage', [
+                \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
+                \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION,
+            ])
+            ->orderByDesc('is_current')
+            ->orderByDesc('id')
+            ->pluck('work_report_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        foreach ($workReportIds as $workReportId) {
+            $five = FiveNote::query()
+                ->where('note_id', $production->note_id)
+                ->where('work_report_id', $workReportId)
+                ->first();
+
+            if ($five) {
+                return $five;
+            }
+        }
+
+        // Fallback legado: D5 diretamente associada à Nota/OV.
+        return $production->note?->FiveNote;
     }
 
     public function status()

@@ -1047,16 +1047,20 @@ class PartnerMain extends Component
                 $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
             },
             'WorkForms' => function ($q) {
-                $q->with([
+                $q->where('canceled', false)->with([
                     'Orders:id,ordem',
                     'Adsform:id,work_report_id,tacit,created_at',
                     'FiveNote:id,note_id,work_report_id,is_completed,is_supervisioned,is_archived,completed_at',
                 ]);
             },
-            'Productions.User',
-            'Productions.Company',
-            'Productions.WorkReportFlowProductions',
-            'Productions.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
+            'Productions' => function ($q) {
+                $q->where('service_id', $this->service->uuid)->with([
+                    'User',
+                    'Company',
+                    'WorkReportFlowProductions',
+                    'fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
+                ]);
+            },
             'Wpas',
             'Partials',
             'TempAdsInfos',
