@@ -40,6 +40,12 @@ class WorkReportCurrentStatusRefresher
             ->whereHas('FlowProductions', fn ($query) => $query->where('production_id', $productionId))
             ->pluck('id');
 
+        $d5WorkReportIds = \App\Models\FiveNote::query()
+            ->whereNotNull("work_report_id")
+            ->whereHas("productions", fn ($query) => $query->whereKey($productionId))
+            ->pluck("work_report_id");
+
+        $ids = $ids->merge($d5WorkReportIds)->filter()->unique()->values();
         foreach ($ids as $id) {
             $this->refresh((int) $id);
         }
@@ -52,10 +58,13 @@ class WorkReportCurrentStatusRefresher
         return [
             'Adsform',
             'Orders.Operations',
+            'FiveNote.productions.Service:id,uuid,service',
+            'FiveNote.productions.User:id,name,email',
             'FlowProductions.Production.Service:id,uuid,service',
             'FlowProductions.Production.User:id,name,email',
             'FlowProductions.Production.Company:id,name',
-            'Note.FiveNote.productions.Service:id,uuid,service',
+            'Note.LegacyFiveNote.productions.Service:id,uuid,service',
+            'Note.LegacyFiveNote.productions.User:id,name,email',
         ];
     }
 }

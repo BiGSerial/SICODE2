@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Helpers\TextFormatter;
 use App\Jobs\ExportSupervisionList;
-use App\Models\{Bancoupdate, Company, Note, Production, Service, User, Wpa};
+use App\Models\{Bancoupdate, Company, Note, Partial, Production, Service, User, WorkReport, Wpa};
 use App\Models\City;
 use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
@@ -251,6 +251,18 @@ class Main extends Component
             'serviceUuid'  => $this->service->uuid,
             'user_id'      => auth()->user()->id,
             'filterD5'     => $this->filter_d5,
+            'selected_work_report_ids' => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[1])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'selected_partial_ids' => collect($this->selected)
+                ->map(fn ($key) => $this->parseSelectionKey($key)[2])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
         ]);
 
         $this->dispatchBrowserEvent('swal', [
@@ -264,7 +276,7 @@ class Main extends Component
 
     public function hasPublication(Note $note)
     {
-        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+        $production = $this->rowScopedProductions($note)->last();
 
         if ($production) {
             return $production;
@@ -283,7 +295,35 @@ class Main extends Component
 
     public function hasPublicationCount(Note $note)
     {
-        return $note->Productions->where('service_id', $this->service->uuid)->count();
+        return $this->rowScopedProductions($note)->count();
+    }
+
+    private function rowScopedProductions(Note $note)
+    {
+        $productions = $note->Productions->where('service_id', $this->service->uuid);
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
+        if ($workReportId <= 0) {
+            return $productions;
+        }
+
+        $scoped = $productions->filter(function (Production $production) use ($workReportId) {
+            return $production->WorkReportFlowProductions
+                ->where('work_report_id', $workReportId)
+                ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+                ->where('is_current', true)
+                ->isNotEmpty();
+        });
+
+        return $scoped->filter(function (Production $production) use ($workReportId) {
+            $latestLink = $production->WorkReportFlowProductions
+                ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+                ->where('is_current', true)
+                ->sortByDesc(fn ($link) => ($link->linked_at?->format('YmdHis') ?? '00000000000000') . str_pad((string) $link->id, 10, '0', STR_PAD_LEFT))
+                ->first();
+
+            return (int) ($latestLink?->work_report_id ?? 0) === $workReportId;
+        });
     }
 
     public function updatedCompanyS()
@@ -386,7 +426,7 @@ class Main extends Component
 
             // Adicionar os IDs que cumprem as regras à lista de selecionados
             foreach ($this->toLists as $item) {
-                $id = $item->id;
+                $id = $this->selectionKey($item);
 
                 if (!in_array($id, $this->selected)) {
                     if (Auth()->User()?->contract) {
@@ -416,7 +456,7 @@ class Main extends Component
             }
         } else {
             // Remover os IDs de $selected que estão presentes em $this->lists
-            $visibleIds     = $this->toLists->pluck('id')->toArray();
+            $visibleIds     = $this->toLists->map(fn ($item) => $this->selectionKey($item))->all();
             $this->selected = array_filter($this->selected, function ($id) use ($visibleIds) {
                 return !in_array($id, $visibleIds);
             });
@@ -426,7 +466,7 @@ class Main extends Component
     public function checkAllSelect($items)
     {
 
-        $items = $items->pluck('id')->toArray();
+        $items = $items->map(fn ($item) => $this->selectionKey($item))->all();
 
         $this->selectAll = empty(array_diff($items, $this->selected));
 
@@ -499,7 +539,44 @@ class Main extends Component
             return;
         }
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
+        $noteIds = collect($this->selected)
+            ->map(fn ($key) => $this->parseSelectionKey($key)[0])
+            ->filter()
+            ->unique()
+            ->values();
+
+        $partialIdsByNote = Partial::query()
+            ->whereIn('note_id', $noteIds)
+            ->where('allow', true)
+            ->where('supervision', false)
+            ->where('deny', false)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['id', 'note_id'])
+            ->groupBy('note_id')
+            ->map(fn ($partials) => (int) $partials->first()->id);
+
+        $bulkAnyStatus = (bool) $this->bulkSearchAnyStatus;
+
+        $payload = collect($this->selected)
+            ->map(function ($key) use ($partialIdsByNote, $bulkAnyStatus) {
+                [$noteId, $workReportId, $selectedPartialId] = $this->parseSelectionKey($key);
+                $partialId = $selectedPartialId ?: ($partialIdsByNote[(int) $noteId] ?? null);
+
+                $context = ['note_id' => $noteId, 'bulk_any_status' => $bulkAnyStatus];
+
+                if ($workReportId) {
+                    $context['work_report_id'] = $workReportId;
+                } elseif ($partialId) {
+                    $context['partial_id'] = $partialId;
+                }
+
+                return $context;
+            })
+            ->values()
+            ->all();
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
 
     public function confirm_att()
@@ -533,7 +610,7 @@ class Main extends Component
             $para = (Company::find($this->company_s))->name;
         }
 
-        $partial = Note::whereIn('id', $this->selected)->whereHas('Partials', function ($q) {
+        $partial = Note::whereIn('id', $this->selectedNoteIds())->whereHas('Partials', function ($q) {
             $q->where('allow', true)
                 ->where('supervision', false)
                 ->where('deny', false);
@@ -959,7 +1036,11 @@ class Main extends Component
 
         $query = Note::query()
             ->excludeCanceledFullDone()
-            ->leftjoin('work_reports', 'work_reports.note_id', '=', 'notes.id');
+            ->leftjoin('work_reports', function ($join) {
+                $join->on('work_reports.note_id', '=', 'notes.id')
+                    ->where('work_reports.canceled', false);
+            });
+
         SicodeRules::applyContractDispatchMainVisibility(
             $query,
             Auth()->User(),
@@ -1021,7 +1102,7 @@ class Main extends Component
 
         if ($this->filter_d5) {
             $query->where(function ($q) {
-                $q->whereHas('FiveNote');
+                $q->whereHas('FiveNotes');
             });
         }
 
@@ -1036,10 +1117,36 @@ class Main extends Component
             });
         }
 
-        $query->with(['orders' => function ($q) {
-            $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-        }, 'Productions.User', 'Productions.Company', 'Wpas', 'Partials', 'TempAdsInfos', 'OldAds', 'FiveNote'])
-            ->select('notes.*', 'work_reports.created_at as work_dt_created')
+        $query->with([
+            'orders' => function ($q) {
+                $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
+            },
+            'WorkForms' => function ($q) {
+                $q->where('canceled', false)->with([
+                    'Orders:id,ordem',
+                    'Adsform:id,work_report_id,tacit,created_at',
+                    'FiveNote:id,note_id,work_report_id,is_completed,is_supervisioned,is_archived,completed_at',
+                ]);
+            },
+            'Productions' => function ($q) {
+                $q->where('service_id', $this->service->uuid)->with([
+                    'User',
+                    'Company',
+                    'WorkReportFlowProductions',
+                    'fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
+                ]);
+            },
+            'Wpas',
+            'Partials',
+            'TempAdsInfos',
+            'OldAds',
+            'FiveNote',
+        ])
+            ->select(
+                'notes.*',
+                'work_reports.id as dispatch_work_report_id',
+                'work_reports.created_at as work_dt_created'
+            )
             ->orderBy('work_dt_created', 'ASC')
             ->orderBy('id', 'ASC');
 
@@ -1084,7 +1191,25 @@ class Main extends Component
 
     public function getToListsProperty()
     {
-        return $this->lists->paginate($this->perPage);
+        $lists = $this->lists->paginate($this->perPage);
+
+        $lists->getCollection()->transform(function (Note $note) {
+            $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
+            if ($workReportId > 0 && $note->relationLoaded('WorkForms')) {
+                $workForm = $note->WorkForms->firstWhere('id', $workReportId);
+
+                if ($workForm) {
+                    $note->setRelation('WorkForm', $workForm);
+                }
+
+                $note->setRelation('FiveNote', $this->rowFiveNote($note));
+            }
+
+            return $note;
+        });
+
+        return $lists;
     }
 
     public function render()
@@ -1094,5 +1219,75 @@ class Main extends Component
             'lists'  => $this->toLists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
+    }
+
+    private function rowFiveNote(Note $note)
+    {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $workForm = $workReportId > 0 && $note->relationLoaded('WorkForms')
+            ? $note->WorkForms->firstWhere('id', $workReportId)
+            : null;
+
+        if ($workForm?->FiveNote) {
+            return $workForm->FiveNote;
+        }
+
+        if ($workReportId <= 0) {
+            return $note->relationLoaded('FiveNote') ? $note->FiveNote : null;
+        }
+
+        $scopedFive = $this->rowScopedProductions($note)
+            ->sortByDesc('created_at')
+            ->flatMap(fn (Production $production) => $production->relationLoaded('fiveNotes') ? $production->fiveNotes : collect())
+            ->first(function ($five) use ($workReportId) {
+                return (int) ($five->work_report_id ?? 0) === $workReportId
+                    || (is_null($five->work_report_id));
+            });
+
+        if ($scopedFive) {
+            return $scopedFive;
+        }
+
+        // D5 legada (sem work_report_id), ainda sem nenhuma producao criada para
+        // este informe - mesmo fallback usado pela regra de listagem em
+        // SupervisionRepository. Sem isso, o badge da D5 legada some da linha
+        // assim que ela cai num informe, mesmo a nota tendo a D5 elegivel.
+        return $note->relationLoaded('FiveNote') ? $note->FiveNote : null;
+    }
+
+    private function selectionKey(Note $note): string
+    {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $partialId = $workReportId > 0
+            ? 0
+            : (int) ($note->Partials
+                ?->where('allow', true)
+                ->where('supervision', false)
+                ->where('deny', false)
+                ->sortByDesc('created_at')
+                ->first()?->id ?? 0);
+
+        return $note->id . ':' . $workReportId . ':' . $partialId;
+    }
+
+    private function parseSelectionKey($key): array
+    {
+        if (is_string($key) && str_contains($key, ':')) {
+            [$noteId, $workReportId, $partialId] = array_pad(explode(':', $key, 3), 3, null);
+
+            return [(int) $noteId, (int) $workReportId, (int) $partialId];
+        }
+
+        return [(int) $key, null, null];
+    }
+
+    private function selectedNoteIds(): array
+    {
+        return collect($this->selected)
+            ->map(fn ($key) => $this->parseSelectionKey($key)[0])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

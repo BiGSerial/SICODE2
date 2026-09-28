@@ -16,7 +16,7 @@ class ExportDDExcel implements FromView
 
     public function exportDD($notes, $service)
     {
-        $this->exports = Note::orderBy('type_note', 'DESC')->with('Wpas')->orderBy('days_left')->find($notes);
+        $this->exports = Note::orderBy('type_note', 'DESC')->with(['Wpas', 'Productions:id,note_id,service_id,dispatch_at,att_at,completed_at,created_at'])->orderBy('days_left')->find($notes);
         $this->service = $service;
 
         return $this;

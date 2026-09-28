@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Services\Supervision\Forms;
 
-use App\Models\{Analise, D5Return, EvidenceFile, File, FiveNote, Notetimeline, Production};
+use App\Models\{Analise, D5Return, EvidenceFile, File, FiveNote, Notetimeline, Production, WorkReport};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Files\EvidenceFileService;
 use App\Services\Files\FileStorageService;
@@ -117,7 +117,7 @@ class Jobform extends Component
     {
         $isPartial             = (bool) ($this->production?->partial);
         $d5Selected            = $isPartial || in_array((string) $this->d5, ['0', '1'], true) || (bool) ($this->production?->dfive);
-        $needsD5               = !$isPartial && (string) $this->d5 === '1' && !(bool) ($this->production?->dfive);
+        $needsD5               = $this->hasD5OnClose() && !(bool) ($this->production?->dfive);
         $hasConclusion         = $this->filledValue($this->analise?->conclusion);
         $hasPartnerPhotoAnswer = in_array((string) $this->supervisionByPartnerPhotos, ['0', '1'], true);
         $hasPostes             = $this->filledValue($this->analise?->postes);
@@ -278,6 +278,16 @@ class Jobform extends Component
 
         $this->d5 = $value;
 
+        if ($this->analise && !$this->production?->partial) {
+            if ((string) $value === '1' && $this->analise->conclusion !== 'FISCALIZADO COM PENDENCIAS') {
+                $this->analise->conclusion = 'FISCALIZADO COM PENDENCIAS';
+            }
+
+            if ((string) $value === '0' && $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS') {
+                $this->analise->conclusion = null;
+            }
+        }
+
         if (!$value) {
             $this->return = [
                 // 'note' => '',
@@ -320,6 +330,10 @@ class Jobform extends Component
             'Note.WorkForm.Orders',
             'Note.WorkForm.LatestReturnwork.User',
             'Note.FiveNote.company',
+            'Note.FiveNote.productions.User',
+            'Note.FiveNote.productions.Service',
+            'Note.FiveNote.productions.Analise',
+            'Note.FiveNote.productions.WorkReportFlowProductions',
             'Note.Partials.Orders',
             'Company'
         );
@@ -333,7 +347,7 @@ class Jobform extends Component
 
             if ($this->production->dfive) {
                 $this->d5   = 1;
-                $this->five = $this->production->Note->FiveNote;
+                $this->five = $this->fiveNoteForCurrentProduction($this->currentFiscalizationWorkReportId()) ?? $this->production->Note->FiveNote;
             }
 
             if (isset($this->production->Analise)) {
@@ -365,7 +379,9 @@ class Jobform extends Component
         $latestPartial = $note->Partials?->sortByDesc('created_at')->first();
         $orders        = $workForm?->Orders?->pluck('ordem')->all()
             ?: ($latestPartial?->Orders?->pluck('ordem')->all() ?? []);
-        $scopeBadges = $this->production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
+        $scopeBadges = $this->production->dfive
+            ? $this->d5ScopeBadgesForNote($note)
+            : $this->production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION);
 
         $this->closeNoteDetails = [
             'type'        => $this->production->partial ? 'PARCIAL' : 'FINAL',
@@ -486,7 +502,7 @@ class Jobform extends Component
                     'user_id'      => Auth()->User()->id,
                     'info'         => "Usuário {$user} iniciou a Nota/OV.",
                     'status'       => 3,
-                    'productionId' => $this->production->id,
+                    'production_id' => $this->production->id,
                 ]);
             }
         }
@@ -494,7 +510,7 @@ class Jobform extends Component
         $this->emitUp('refresh_list');
     }
 
-    public function saveForm($end = false)
+    public function saveForm($end = false): bool
     {
 
         try {
@@ -508,6 +524,8 @@ class Jobform extends Component
                 'status'   => 'success',
                 'menssage' => 'SALVO COM SUCESSO',
             ]);
+
+            return true;
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->validator->errors()->all();
             $html   = '<ul>';
@@ -525,7 +543,7 @@ class Jobform extends Component
                 'html'     => '<div class="card"><div class="card-body text-start">' . $html . '</div></div>',
             ]);
 
-            return;
+            return false;
         }
     }
 
@@ -592,7 +610,11 @@ class Jobform extends Component
             return;
         }
 
-        if (!$this->production->partial && $this->d5 == '1' && !$this->production->dfive) {
+        if (!$this->validateD5ConclusionRule()) {
+            return;
+        }
+
+        if ($this->shouldCreateD5OnClose()) {
             $requiredD5Fields = [
                 'reason'      => 'MOTIVO',
                 'codify'      => 'CÓDIGO',
@@ -732,7 +754,9 @@ class Jobform extends Component
 
     public function save()
     {
-        $this->saveForm(true);
+        if (!$this->saveForm(true)) {
+            return;
+        }
 
         DB::beginTransaction();
 
@@ -772,7 +796,7 @@ class Jobform extends Component
 
             }
 
-            if ($this->d5 == 1 || $this->production->dfive) {
+            if ($this->shouldHandleD5OnClose()) {
 
                 // $d5 = D5Return::create([
                 //     'production_id' => $this->production->id,
@@ -784,24 +808,27 @@ class Jobform extends Component
 
                 // ]);
 
-                if (!$this->production->Note->FiveNote) {
+                $workReportId = $this->currentFiscalizationWorkReportId();
+                $fiveNote = $this->fiveNoteForCurrentProduction($workReportId);
+
+                if (!$fiveNote && !$this->production->dfive) {
                     $note             = $this->production->Note;
-                    $existingFiveNote = $note->FiveNote;
                     $order            = null;
 
                     if ($note) {
-                        $order    = $note->WorkForm?->Orders()->orderBy('ordem', 'asc')->first();
+                        $order    = $this->mainNetworkOrderForNote($note);
                         $workForm = $note->WorkForm;
                     }
 
-                    $fiveNote = FiveNote::updateOrCreate(
-                        [
+                    $lookup = $workReportId
+                        ? ['note_id' => $this->production->note_id, 'work_report_id' => $workReportId]
+                        : ['note_id' => $this->production->note_id, 'work_report_id' => null];
 
-                            'note_id' => $this->production->note_id,
-                        ],
+                    $fiveNote = FiveNote::updateOrCreate(
+                        $lookup,
                         [
-                            'reason'      => !$this->production->dfive ? $this->return['reason'] : $existingFiveNote?->reason,
-                            'description' => !$this->production->dfive ? $this->return['description'] ?? $this->return['description'] : $existingFiveNote?->description,
+                            'reason'      => $this->return['reason'],
+                            'description' => $this->return['description'] ?? '',
                             'loc_install' => $this->return['loc_install'] ? trim($this->return['loc_install']) : null,
                             'conjunto'    => $this->production->Note->num_material,
                             'pep'         => $order?->pep,
@@ -824,42 +851,46 @@ class Jobform extends Component
                             );
                         }
                     }
-                } else {
+                } elseif ($fiveNote) {
 
                     if (!$this->five) {
-                        $this->five = $this->production->Note->FiveNote;
+                        $this->five = $fiveNote;
                     }
 
-                    $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
-
-                    if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
-                        $this->five->update([
-                            'is_completed' => false,
-                            'completed_at' => null,
-                            'returned'     => true,
-                        ]);
-
-                        app(D5WorkflowService::class)->onReturnedWithPending(
-                            $this->five,
-                            $fromStage,
-                            auth()->id(),
-                            $this->production
-                        );
+                    if (!$this->production->dfive) {
+                        $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
                     } else {
-                        $this->five->update([
-                            'is_supervisioned' => true,
-                            'supervisioned_at' => now(),
-                        ]);
+                        $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
-                        app(D5WorkflowService::class)->onSupervisionApproved(
-                            $this->five,
-                            $fromStage,
-                            auth()->id(),
-                            $this->production
-                        );
+                        if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
+                            $this->five->update([
+                                'is_completed' => false,
+                                'completed_at' => null,
+                                'returned'     => true,
+                            ]);
+
+                            app(D5WorkflowService::class)->onReturnedWithPending(
+                                $this->five,
+                                $fromStage,
+                                auth()->id(),
+                                $this->production
+                            );
+                        } else {
+                            $this->five->update([
+                                'is_supervisioned' => true,
+                                'supervisioned_at' => now(),
+                            ]);
+
+                            app(D5WorkflowService::class)->onSupervisionApproved(
+                                $this->five,
+                                $fromStage,
+                                auth()->id(),
+                                $this->production
+                            );
+                        }
+
+                        $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
                     }
-
-                    $this->five->Productions()->syncWithoutDetaching([$this->production->id]);
 
                 }
             }
@@ -929,6 +960,137 @@ class Jobform extends Component
         }
     }
 
+    private function currentFiscalizationWorkReportId(): ?int
+    {
+        return $this->production?->WorkReportFlowProductions()
+            ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+            ->where('is_current', true)
+            ->latest('id')
+            ->value('work_report_id');
+    }
+
+    private function fiveNoteForCurrentProduction(?int $workReportId): ?FiveNote
+    {
+        $query = $this->production?->fiveNotes();
+
+        if (!$query) {
+            return null;
+        }
+
+        return $query
+            ->where('note_id', $this->production->note_id)
+            ->when($workReportId,
+                fn ($q) => $q->where('work_report_id', $workReportId),
+                fn ($q) => $q->whereNull('work_report_id')
+            )
+            ->first()
+            ?? FiveNote::query()
+                ->where('note_id', $this->production->note_id)
+                ->when($workReportId,
+                    fn ($q) => $q->where('work_report_id', $workReportId),
+                    fn ($q) => $q->whereNull('work_report_id')
+                )
+                ->first();
+    }
+
+    private function shouldCreateD5OnClose(): bool
+    {
+        return !$this->production?->partial
+            && !$this->production?->dfive
+            && (string) $this->d5 === '1'
+            && $this->analise?->conclusion === 'FISCALIZADO COM PENDENCIAS';
+    }
+
+    private function shouldHandleD5OnClose(): bool
+    {
+        return $this->shouldCreateD5OnClose() || (bool) ($this->production?->dfive);
+    }
+
+    private function hasD5OnClose(): bool
+    {
+        return !$this->production?->partial
+            && ((string) $this->d5 === '1' || (bool) ($this->production?->dfive));
+    }
+
+    private function mainNetworkOrderForNote($note): ?object
+    {
+        $workReports = WorkReport::query()
+            ->with('Orders')
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->orderByDesc('informed_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $networkReport = $workReports->first(function (WorkReport $workReport) {
+            return in_array('network', $workReport->selectedFinalScopesOrNull() ?? [], true);
+        });
+
+        $orders = ($networkReport?->Orders ?? $workReports->first()?->Orders ?? collect())
+            ->sortBy('ordem')
+            ->values();
+
+        return $orders->first(function ($order) {
+            $number = preg_replace('/\D+/', '', (string) ($order->ordem ?? ''));
+
+            return str_starts_with($number, '200')
+                || str_starts_with($number, '170')
+                || str_starts_with($number, '190');
+        }) ?? $orders->first();
+    }
+
+    private function d5ScopeBadgesForNote($note): array
+    {
+        $scopes = WorkReport::query()
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->get()
+            ->flatMap(fn (WorkReport $workReport) => $workReport->selectedFinalScopesOrNull() ?? [])
+            ->filter(fn ($scope) => in_array($scope, ['network', 'connection'], true))
+            ->unique()
+            ->sortBy(fn ($scope) => $scope === 'network' ? 1 : 2)
+            ->values();
+
+        return $scopes->map(fn (string $scope) => [
+            'label' => $scope === 'network' ? 'Rede' : 'Ligacao',
+            'class' => $scope === 'network' ? 'text-bg-primary' : 'text-bg-warning',
+        ])->all();
+    }
+
+    private function validateD5ConclusionRule(): bool
+    {
+        if ($this->production?->partial || !$this->analise?->conclusion) {
+            return true;
+        }
+
+        $withPending = $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS';
+        $isRequestingD5 = !$this->production?->dfive && (string) $this->d5 === '1';
+
+        if ($isRequestingD5 && !$withPending) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Conclusao incompativel com D5',
+                'html'     => '<div class="card"><div class="card-body text-start">Ao solicitar D5 nesta fiscalizacao, a conclusao deve ser Fiscalizado Com Pendencias.</div></div>',
+            ]);
+
+            return false;
+        }
+
+        if (!$isRequestingD5 && !$this->production?->dfive && $withPending) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Conclusao exige D5',
+                'html'     => '<div class="card"><div class="card-body text-start">Fiscalizado Com Pendencias exige D5 = SIM. Sem D5, finalize sem pendencias ou selecione outra conclusao.</div></div>',
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
     public function evidenceSaved()
     {
         if ($this->hasFile) {
@@ -974,6 +1136,51 @@ class Jobform extends Component
     public function render()
     {
         return view('livewire.services.supervision.forms.jobform');
+    }
+
+    public function timelineScopeBadgesForProduction(Production $production): array
+    {
+        $links = $production->relationLoaded('WorkReportFlowProductions')
+            ? $production->WorkReportFlowProductions
+            : $production->WorkReportFlowProductions()->get(['final_scope']);
+
+        $badges = $links
+            ->pluck('final_scope')
+            ->filter()
+            ->unique()
+            ->sortBy(fn (string $scope) => match ($scope) {
+                \App\Models\WorkReportFlowProduction::SCOPE_NETWORK => 1,
+                \App\Models\WorkReportFlowProduction::SCOPE_CONNECTION => 2,
+                default => 3,
+            })
+            ->map(fn (string $scope) => [
+                'scope' => $scope,
+                'label' => $production->workReportFinalScopeLabel($scope),
+                'class' => $production->workReportFinalScopeBadgeClass($scope),
+                'title' => 'Escopo vinculado ao informe desta producao.',
+            ])
+            ->values()
+            ->all();
+
+        if (!empty($badges)) {
+            return $badges;
+        }
+
+        if ($production->dfive) {
+            return [[
+                'scope' => \App\Models\WorkReportFlowProduction::SCOPE_NETWORK,
+                'label' => 'Rede',
+                'class' => 'text-bg-primary',
+                'title' => 'D5 ancorada no informe principal de rede.',
+            ]];
+        }
+
+        return [[
+            'scope' => \App\Models\WorkReportFlowProduction::SCOPE_GENERAL,
+            'label' => 'Geral',
+            'class' => 'text-bg-secondary',
+            'title' => 'Escopo nao identificado no vinculo operacional.',
+        ]];
     }
 
     public function closeFinalScopeOptions(): array

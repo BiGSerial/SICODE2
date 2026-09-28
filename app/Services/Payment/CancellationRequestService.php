@@ -756,13 +756,13 @@ class CancellationRequestService
 
     private function cancelWorkForm(Note $note, User $actor): void
     {
-        $workForm = $note->WorkForm;
+        $workForms = $note->WorkForms()->get();
 
-        if (!$workForm) {
+        if ($workForms->isEmpty()) {
             return;
         }
 
-        $workForm->update([
+        $note->WorkForms()->update([
             'canceled'    => true,
             'canceled_at' => now(),
             'canceled_by' => $actor->id,

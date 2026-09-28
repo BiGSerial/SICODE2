@@ -520,7 +520,7 @@ class AdsRequests extends Component
                 'created_at' => $request->created_at,
                 'updated_at' => $request->updated_at,
             ];
-            $sqlTable = DB::connection('sqlsrv2')->table('sicode.dbo.ads_requests');
+            $sqlTable = DB::connection('sqlsrv2')->table('dbo.ads_requests');
 
             if ($sqlTable->where('sicode_id', $request->id)->exists()) {
                 $sqlTable->where('sicode_id', $request->id)->update($payload);
@@ -651,7 +651,7 @@ class AdsRequests extends Component
     {
         try {
             $affected = DB::connection('sqlsrv2')
-                ->table('sicode.dbo.ads_requests')
+                ->table('dbo.ads_requests')
                 ->where('sicode_id', $request->id)
                 ->update([
                     'status' => AdsRequestStatus::CANCELED->value,

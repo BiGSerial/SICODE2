@@ -38,6 +38,7 @@ class ExecutionHistory extends Component
                 CancellationRequestStatus::DONE->value,
                 CancellationRequestStatus::REJECTED->value,
                 CancellationRequestStatus::ABORTED->value,
+                CancellationRequestStatus::REVERTED->value,
             ])
             ->when($this->dateFrom, fn ($q) => $q->whereDate('closed_at', '>=', $this->dateFrom))
             ->when($this->dateTo, fn ($q) => $q->whereDate('closed_at', '<=', $this->dateTo))

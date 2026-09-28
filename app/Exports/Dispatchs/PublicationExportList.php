@@ -41,7 +41,7 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function headings(): array
     {
         return [
-            'Nota', 'Rubrica', 'Municipio', 'Empreiteira', 'Informe SMC', 'Informe Final Exec', 'Informe Final Data', 'Status', 'CenterJob', 'DataVencimento', 'Empresa', 'Usuario', 'Atribuido Em', 'Completado Em',
+            'Nota', 'Rubrica', 'Municipio', 'Empreiteira', 'Informe SMC', 'Informe Final Exec', 'Informe Final Data', 'Status', 'CenterJob', 'DataVencimento', 'Empresa', 'Usuario', 'Despachado Em', 'Atribuido Em', 'Completado Em',
         ];
     }
 
@@ -73,9 +73,20 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
             isset($row->prazo_final) ? Carbon::parse($row->prazo_final)->format('d/m/Y') : '',
             isset($production->Company->name) ? $production->Company->name : '',
             isset($production->User->name) ? $production->User->name : '',
-            isset($production->att_at) ? $production->att_at->format('d/m/Y H:i:s') : '',
-            isset($production->completed_at) ? $production->completed_at->format('d/m/Y H:i:s') : '',
+            $this->formatProductionDate($production?->dispatch_at),
+            $this->formatProductionDate($production?->att_at),
+            $this->formatProductionDate($production?->completed_at),
         ];
+    }
+
+    private function formatProductionDate($date): string
+    {
+        if (!$date) {
+            return '---';
+        }
+
+        $value = Carbon::parse($date);
+        return $value->format('d/m/Y H:i:s') . ' (' . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . ' dia(s))';
     }
 
     public function registerEvents(): array

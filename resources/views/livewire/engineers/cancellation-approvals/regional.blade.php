@@ -35,10 +35,48 @@
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <strong class="me-auto">Fila Regional</strong>
                 <span class="text-muted small">
-                    Regionais: {{ $regions->isNotEmpty() ? $regions->implode(', ') : 'Nenhuma regional associada' }}
+                    Bases: {{ $baseConstructions->isNotEmpty() ? $baseConstructions->implode(', ') : 'Nenhuma base de construção associada' }}
                 </span>
-                <input type="text" class="form-control w-auto" placeholder="Buscar nota"
-                    wire:model.debounce.500ms="search" />
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-12 col-lg-4">
+                    <label class="form-label small text-muted mb-1">Busca</label>
+                    <input type="text" class="form-control" placeholder="Nota, solicitante ou executante"
+                        wire:model.debounce.500ms="search" />
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label class="form-label small text-muted mb-1">Base de construção</label>
+                    <select class="form-select" wire:model="baseConstructionFilter">
+                        <option value="">Todas as minhas bases</option>
+                        @foreach ($baseConstructions as $baseConstruction)
+                            <option value="{{ $baseConstruction }}">{{ $baseConstruction }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label class="form-label small text-muted mb-1">Tipo</label>
+                    <select class="form-select" wire:model="scopeFilter">
+                        <option value="">Todos os tipos</option>
+                        @foreach ($scopes as $scope)
+                            <option value="{{ $scope->value }}">{{ $scope->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-lg-2">
+                    <label class="form-label small text-muted mb-1">Status</label>
+                    <select class="form-select" wire:model="statusFilter">
+                        <option value="">Todos os status</option>
+                        @foreach ($statuses as $status)
+                            <option value="{{ $status->value }}">{{ $status->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-lg-1 d-grid align-items-end">
+                    <button type="button" class="btn btn-outline-secondary" wire:click="clearFilters" title="Limpar filtros">
+                        <i class="ri-filter-off-line"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -47,12 +85,17 @@
                         <tr>
                             <th>#</th>
                             <th>Nota</th>
-                            <th>Regional</th>
+                            <th>Base de construção</th>
+                            <th>Município</th>
+                            <th>Rubrica</th>
+                            <th>Material</th>
+                            <th>Motivo cancelamento</th>
                             <th>Tipo</th>
                             <th>Status</th>
                             <th>Solicitante</th>
                             <th>Executante</th>
                             <th>Aberto em</th>
+                            <th>Ação</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -60,7 +103,15 @@
                             <tr>
                                 <td>{{ $item->id }}</td>
                                 <td class="fw-semibold">{{ $item->Note->note ?? '-' }}</td>
-                                <td>{{ $item->Note?->city?->regional ?? '—' }}</td>
+                                <td>{{ $item->Note?->city?->municipio ?? $item->Note?->city?->cidade ?? '—' }}</td>
+                                <td>{{ $item->Note?->rubrica ?? '—' }}</td>
+                                <td>{{ $item->Note?->material ?? '—' }}</td>
+                                <td title="{{ $item->description ?? '' }}">
+                                    <div>{{ $item->Category->name ?? '—' }}</div>
+                                    @if(filled($item->description))
+                                        <div class="small text-muted text-truncate" style="max-width: 220px;">{{ $item->description }}</div>
+                                    @endif
+                                </td>
                                 <td>{{ $item->scope?->label() ?? $item->scope }}</td>
                                 <td>
                                     <span class="badge {{ $item->status?->badgeClass() ?? 'bg-secondary' }}">
@@ -70,11 +121,16 @@
                                 <td>{{ $item->Requester->name ?? '-' }}</td>
                                 <td>{{ $item->Assignee->name ?? '-' }}</td>
                                 <td>{{ optional($item->submitted_at ?? $item->created_at)->format('d/m/Y H:i') }}</td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('engineers.cancellations.show', ['request' => $item->id]) }}">
+                                        Detalhes
+                                    </a>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-4">
-                                    {{ $regions->isEmpty() ? 'Nenhuma regional associada ao usuário.' : 'Nenhuma nota em processo de cancelamento nas suas regionais.' }}
+                                <td colspan="13" class="text-center py-4">
+                                    {{ $baseConstructions->isEmpty() ? 'Nenhuma base de construção associada ao usuário.' : 'Nenhuma nota em processo de cancelamento nas suas bases.' }}
                                 </td>
                             </tr>
                         @endforelse

@@ -106,7 +106,7 @@ class Jobform extends Component
                     'user_id'      => Auth()->User()->id,
                     'info'         => "Usuário {$user} iniciou a Nota/OV.",
                     'status'       => 3,
-                    'productionId' => $this->production->id,
+                    'production_id' => $this->production->id,
                 ]);
             }
         }

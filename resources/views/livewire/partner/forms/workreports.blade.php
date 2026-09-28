@@ -190,7 +190,11 @@
                                                     @foreach ($note->Orders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
-                                                        <option value="{{ $order->id }}">{{ $order->ordem }}
+                                                        @php
+                                                            $orderUnavailableReason = $this->orderUnavailableReason($order);
+                                                        @endphp
+                                                        <option value="{{ $order->id }}" @disabled($orderUnavailableReason)>
+                                                            {{ $order->ordem }}{{ $orderUnavailableReason ? ' - ' . $orderUnavailableReason : '' }}
                                                         </option>
                                                     @endforeach
                                                 @endif

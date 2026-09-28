@@ -35,6 +35,51 @@
                             $otherFiles = $five->EvidenceFiles->filter(function ($file) use ($imageFiles) {
                                 return !$imageFiles->contains('id', $file->id);
                             });
+                            // A D5 se liga a UM informe (report) + escopo, ponto. Fiscalizacao/Pagamento/
+                            // Publicacao sao atividades relacionadas (etapas de execucao), nao uma dimensao
+                            // separada de vinculo - por isso nao existe "Obra: Fiscalizacao" vs "Obra: Pagamento".
+                            $d5Associations = collect();
+                            if ($five->work_report_id) {
+                                $reportScopes = collect($five->WorkReport?->selected_final_scopes ?? [])->filter()->values();
+                                if ($reportScopes->isEmpty()) {
+                                    $reportScopes = collect(["general"]);
+                                }
+                                foreach ($reportScopes as $reportScope) {
+                                    $scope = match ($reportScope) {
+                                        "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
+                                        "network" => ["label" => "Rede", "class" => "text-bg-success"],
+                                        default => ["label" => "Geral", "class" => "text-bg-success"],
+                                    };
+                                    $d5Associations->push([
+                                        "report" => $five->work_report_id,
+                                        "scope" => $scope["label"],
+                                        "class" => $scope["class"],
+                                    ]);
+                                }
+                            }
+                            if (!$five->work_report_id) {
+                            $d5LinkedFlows = ($five->productions ?? collect())
+                                ->flatMap(fn ($d5Production) => ($d5Production->WorkReportFlowProductions ?? collect())
+                                    ->where("is_current", true)
+                                    ->whereNotNull("work_report_id"))
+                                // O mesmo informe pode estar linkado por mais de uma producao
+                                // (fiscalizacao e pagamento, por exemplo) - mostra uma vez so.
+                                ->unique("work_report_id");
+
+                            foreach ($d5LinkedFlows as $d5Flow) {
+                                $scope = match ($d5Flow->final_scope) {
+                                    "connection" => ["label" => "Ligação", "class" => "text-bg-warning"],
+                                    "network" => ["label" => "Rede", "class" => "text-bg-success"],
+                                    default => ["label" => "Geral", "class" => "text-bg-success"],
+                                };
+                                $d5Associations->push([
+                                    "report" => $d5Flow->work_report_id,
+                                    "scope" => $scope["label"],
+                                    "class" => $scope["class"],
+                                ]);
+                            }
+                            }
+                            $d5Associations = $d5Associations->unique(fn ($association) => $association["report"] . "|" . $association["scope"]);
                         @endphp
 
                         <div class="row g-3">
@@ -71,6 +116,22 @@
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-1">Detalhes</div>
                                         <div class="five-note-box">{{ $five->description ?: '---' }}</div>
+                                    </div>
+                                </section>
+
+                                <section class="five-panel mt-3">
+                                    <h6 class="five-title"><i class="ri-links-line me-1"></i>Vinculo da D5</h6>
+                                    <div class="d-grid gap-2">
+                                        @forelse ($d5Associations as $association)
+                                            <div class="d-flex flex-wrap align-items-center gap-1 border-bottom pb-2">
+                                                @if ($association["report"])
+                                                    <span class="badge bg-light text-dark">Informe #{{ $association["report"] }}</span>
+                                                @endif
+                                                <span class="badge {{ $association["class"] }}">{{ $association["scope"] }}</span>
+                                            </div>
+                                        @empty
+                                            <div><span class="badge text-bg-secondary">Legada / Nota</span></div>
+                                        @endforelse
                                     </div>
                                 </section>
 
@@ -128,7 +189,16 @@
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-1">Quem respondeu a D5</div>
                                         <div class="five-note-box five-note-box--compact">
-                                            {{ $five->name ?: 'Nao informado' }}
+                                            @if ($five->name || $five->answeredBy)
+                                                <div>{{ $five->name ?: 'Nome não informado' }}</div>
+                                                @if ($five->answeredBy && (!$five->name || strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0))
+                                                    <small class="d-block mt-1 text-muted">
+                                                        Usuário do sistema: {{ $five->answeredBy->name }}
+                                                    </small>
+                                                @endif
+                                            @else
+                                                Não informado
+                                            @endif
                                         </div>
                                     </div>
 
@@ -151,7 +221,7 @@
                                                             <button type="button" class="five-thumb-trigger"
                                                                 data-bs-toggle="modal" data-bs-target="#fiveGalleryModal"
                                                                 data-index="{{ $index }}">
-                                                                <img src="{{ asset('storage/' . $file->path) }}"
+                                                                <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]) }}"
                                                                     alt="{{ $file->original_name ?: 'Evidencia' }}"
                                                                     loading="lazy">
                                                             </button>
@@ -211,7 +281,7 @@
                                 @foreach ($imageFiles as $index => $file)
                                     <div class="carousel-item @if ($index === 0) active @endif">
                                         <div class="five-gallery-image-wrap">
-                                            <img src="{{ asset('storage/' . $file->path) }}" class="d-block w-100"
+                                            <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'v' => optional($file->updated_at)->timestamp]) }}" class="d-block w-100"
                                                 alt="{{ $file->original_name ?: 'Evidencia' }}">
                                         </div>
                                         <div class="five-gallery-caption">

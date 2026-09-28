@@ -118,6 +118,23 @@ class D5WorkflowService
             'occurred_at' => $five->completed_at ?? now(),
             'inferred' => false,
         ]);
+
+        // A conclusao da parceira nao cria producao: o D5 concluido (is_completed=true,
+        // is_supervisioned=false) ja e regra suficiente para o informe/nota aparecer na
+        // fila de Fiscalizacao (SupervisionRepository/isD5Dispatch). A producao real so
+        // nasce quando alguem de fato despachar, com a empresa correta de quem despacha.
+        $this->emitIfMissing([
+            'five_note_id' => $five->id,
+            'note_id' => $five->note_id,
+            'event_type' => 'd5_sent_to_supervision_queue',
+            'from_stage' => 'partner_done',
+            'to_stage' => 'supervision_queue',
+            'actor_user_id' => $actorUserId,
+            'actor_role' => 'EMPREITEIRA',
+            'owner_role' => 'FISCALIZACAO',
+            'occurred_at' => $five->completed_at ?? now(),
+            'inferred' => false,
+        ]);
     }
 
     public function onReturnedWithPending(FiveNote $five, ?string $fromStage, ?string $actorUserId = null, ?Production $production = null): void

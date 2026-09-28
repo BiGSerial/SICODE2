@@ -18,6 +18,7 @@ class ToRemove extends Component
 
     public function toRemove(?Production $production)
     {
+        abort_unless(!auth()->user()?->contract, 403);
         $this->production = $production;
 
         if ($this->production) {

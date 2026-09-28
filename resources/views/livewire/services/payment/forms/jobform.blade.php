@@ -4,8 +4,204 @@
 
 <div>
     <x-show-loading />
+    @once
+        <style>
+            .payment-close-modal .modal-header {
+                background: #123f43;
+                border: 0;
+                color: #f8fafc;
+            }
 
-    <div wire:ignore.self class="modal fade" id="formProductionModal" tabindex="-1"
+            .payment-close-modal .modal-body {
+                background: #eef4f5;
+            }
+
+            .payment-close-modal .close-form-card {
+                background: #ffffff;
+                border: 1px solid #dbe3ef;
+                border-radius: 8px;
+                box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+                margin-bottom: 1rem;
+                overflow: hidden;
+            }
+
+            .payment-close-modal .close-form-card__head {
+                align-items: center;
+                background: #ffffff;
+                border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                justify-content: space-between;
+                padding: 0.85rem 1rem;
+            }
+
+            .payment-close-modal .close-form-card__title {
+                align-items: center;
+                color: #0f172a;
+                display: inline-flex;
+                font-size: 0.96rem;
+                font-weight: 800;
+                gap: 0.45rem;
+                margin: 0;
+            }
+
+            .payment-close-modal .close-form-card__body {
+                padding: 1rem;
+            }
+
+            .payment-close-modal .close-field .form-label {
+                color: #334155;
+                font-size: 0.74rem;
+                font-weight: 800;
+                letter-spacing: 0.02em;
+                margin-bottom: 0.35rem;
+                text-transform: uppercase;
+            }
+
+            .payment-close-modal .close-field .form-control,
+            .payment-close-modal .close-field .form-select {
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 6px;
+                min-height: 40px;
+            }
+
+            .payment-close-modal .close-field textarea.form-control {
+                min-height: 112px;
+            }
+
+            .payment-close-modal .close-required {
+                color: #dc2626;
+                font-weight: 900;
+            }
+
+            .payment-close-modal .close-help {
+                color: #64748b;
+                font-size: 0.76rem;
+                font-weight: 600;
+                margin-top: 0.28rem;
+            }
+
+            .payment-close-modal .close-action-bar {
+                background: #ffffff;
+                border: 1px solid #dbe3ef;
+                border-radius: 8px;
+                bottom: 0;
+                box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.10);
+                margin-top: 1rem;
+                padding: 0.75rem 0.9rem;
+                position: sticky;
+                z-index: 3;
+            }
+
+            .payment-close-modal .close-step {
+                align-items: center;
+                display: flex;
+                gap: 0.55rem;
+                min-width: min(100%, 280px);
+            }
+
+            .payment-close-modal .close-step__icon {
+                align-items: center;
+                background: #0f766e;
+                border-radius: 7px;
+                color: #ffffff;
+                display: inline-flex;
+                flex: 0 0 34px;
+                font-size: 1rem;
+                height: 34px;
+                justify-content: center;
+                width: 34px;
+            }
+
+            .payment-close-modal .close-step__icon.is-warning {
+                background: #d97706;
+            }
+
+            .payment-close-modal .close-step__icon.is-ready {
+                background: #16a34a;
+            }
+
+            .payment-close-modal .close-step__eyebrow {
+                color: #0f766e;
+                font-size: 0.64rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .payment-close-modal .close-step__text {
+                color: #0f172a;
+                font-size: 0.86rem;
+                font-weight: 900;
+                line-height: 1.2;
+            }
+
+            .payment-close-modal .close-step__message {
+                color: #475569;
+                font-size: 0.72rem;
+                font-weight: 700;
+                margin-top: 0.1rem;
+            }
+
+            .payment-close-modal .close-mini-alerts {
+                align-items: center;
+                display: flex;
+                flex: 1 1 auto;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                justify-content: center;
+            }
+
+            .payment-close-modal .close-step-pill {
+                align-items: center;
+                background: #f8fafc;
+                border: 1px solid #cbd5e1;
+                border-radius: 999px;
+                color: #475569;
+                display: inline-flex;
+                font-size: 0.68rem;
+                font-weight: 800;
+                gap: 0.3rem;
+                min-height: 24px;
+                padding: 0.14rem 0.5rem;
+            }
+
+            .payment-close-modal .close-step-pill.is-warning {
+                background: #fff7ed;
+                border-color: #fdba74;
+                color: #9a3412;
+            }
+
+            .payment-close-modal .close-action-bar .btn {
+                align-items: center;
+                border-radius: 6px;
+                display: inline-flex;
+                font-weight: 800;
+                gap: 0.35rem;
+                justify-content: center;
+                min-height: 36px;
+                min-width: 104px;
+            }
+
+            .payment-close-modal .close-action-bar .btn-close-finish {
+                background: #16a34a;
+                border-color: #16a34a;
+                box-shadow: 0 8px 18px rgba(22, 163, 74, 0.20);
+                min-width: 124px;
+            }
+
+            @media (max-width: 767.98px) {
+                .payment-close-modal .close-action-bar {
+                    position: static;
+                }
+
+                .payment-close-modal .close-action-bar .btn {
+                    width: 100%;
+                }
+            }
+        </style>
+    @endonce
+
+    <div wire:ignore.self class="modal fade payment-close-modal" id="formProductionModal" tabindex="-1"
         aria-labelledby="formProductionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
             @if ($production)
@@ -16,6 +212,9 @@
                     $hasPartial = $production->partial && optional($production->Note->Partials->last())->Orders;
                     $ordersPartial = $hasPartial ? $production->Note->Partials->last()->Orders : collect();
                     $orders = $ordersWf->count() ? $ordersWf : $ordersPartial;
+                    $scopeBadge = collect($production->visibleWorkReportScopeBadges(\App\Models\WorkReportFlowProduction::STAGE_PAYMENT))->first() ?? ['label' => 'Geral', 'class' => 'text-bg-success'];
+                    $scopeLabel = $scopeBadge['label'] ?? 'Geral';
+                    $scopeClass = $scopeBadge['class'] ?? 'text-bg-success';
                 @endphp
 
                 <div class="modal-content">
@@ -25,6 +224,7 @@
                             <h1 class="modal-title fs-5 m-0" id="formProductionModalLabel">
                                 {{ mb_strtoupper($production->Service->service) }}
                                 <span class="text-white-50 fw-normal"> • Nota/OV {{ $production->Note->note }}</span>
+                                <span class="badge {{ $scopeClass }} ms-2">ESCOPO: {{ $scopeLabel }}</span>
                             </h1>
                             <small class="text-white-50">
                                 Município: {{ $production->Note->lexp }} • Rubrica: {{ $production->Note->rubrica }}
@@ -663,28 +863,21 @@
                             @endif
 
 
-                            {{-- BLOCO: Resolução (equivalente ao "Parâmetros de Encerramento") --}}
-                            <div class="card shadow-sm mb-3 border-0 rounded-3">
-                                <div class="card-header py-2 bg-white border-0">
-                                    <h5 class="m-0 d-flex align-items-center gap-2">
-                                        <i class="ri-checkbox-circle-line text-success"></i> Resolução
+                            <div class="close-form-card">
+                                <div class="close-form-card__head">
+                                    <h5 class="close-form-card__title">
+                                        <i class="ri-checkbox-circle-line text-success"></i>
+                                        Parâmetros de Encerramento
                                     </h5>
                                 </div>
-                                <div class="card-body">
+                                <div class="close-form-card__body">
                                     <div class="row g-3">
-                                        {{-- Se precisar reativar "Qtd Ativos", descomente este bloco
-                                        <div class="col-md-3">
-                                            <label for="ativos" class="form-label">Qtd Ativos</label>
-                                            <input type="number" id="ativos" class="form-control border border-secondary" wire:model.defer="analise.postes" min="0" placeholder="0">
-                                        </div>
-                                        --}}
-
-                                        <div class="col-md-4">
+                                        <div class="col-md-4 close-field">
                                             <label for="resultado" class="form-label">Resultado <span
-                                                    class="text-danger">*</span></label>
+                                                    class="close-required">*</span></label>
                                             <select id="resultado"
                                                 class="form-select border border-secondary @error('analise.conclusion') is-invalid @enderror"
-                                                wire:model.defer="analise.conclusion">
+                                                wire:model="analise.conclusion">
                                                 <option value="">Selecione...</option>
                                                 @foreach (SelectOptions::getPaymentsOptions() as $item)
                                                     <option value="{{ $item->value }}">{{ $item->info }}</option>
@@ -693,9 +886,42 @@
                                             @error('analise.conclusion')
                                                 <small class="text-danger">{{ $message }}</small>
                                             @enderror
+                                            @if (!data_get($analise, 'conclusion'))
+                                                <div class="close-help text-danger">Selecione um resultado para encerrar.</div>
+                                            @endif
                                         </div>
 
-                                        <div class="col-md-8">
+                                        @if ($this->hasMultipleCloseFinalScopes())
+                                            <div class="col-md-8 close-field">
+                                                <label class="form-label">Escopo a encerrar <span class="close-required">*</span></label>
+                                                <div class="d-flex flex-wrap gap-3 rounded border bg-light p-3">
+                                                    @foreach ($this->closeFinalScopeOptions() as $scopeOption)
+                                                        <label class="form-check d-flex align-items-center gap-2 m-0">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                wire:model="closeFinalScopeSelections.{{ $scopeOption['scope'] }}">
+                                                            <span class="badge {{ $scopeOption['class'] }}">{{ $scopeOption['label'] }}</span>
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                                @if (!$this->hasValidCloseFinalScopeSelection())
+                                                    <div class="close-help text-danger">Selecione ao menos um escopo.</div>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="close-form-card">
+                                <div class="close-form-card__head">
+                                    <h5 class="close-form-card__title">
+                                        <i class="ri-message-3-line text-primary"></i>
+                                        Observações
+                                    </h5>
+                                </div>
+                                <div class="close-form-card__body">
+                                    <div class="row g-3">
+                                        <div class="col-12 close-field">
                                             <label for="info" class="form-label">
                                                 Observação
                                                 <span class="fw-bold">
@@ -704,51 +930,40 @@
                                                 </span>
                                             </label>
                                             <textarea id="infoTextArea2" rows="5" class="form-control border border-secondary"
-                                                wire:model.defer="analise.info" placeholder="Contextualize a fiscalização, apontamentos e demais observações."></textarea>
+                                                wire:model.defer="analise.info" placeholder="Contextualize a medição, liberação de D5 ou demais observações."></textarea>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- (Opcional) BLOCO: Anexos & Observações — adicione se quiser o mesmo gerenciador do layout-base
-                            <div class="card shadow-sm mb-3 border-0 rounded-3">
-                                <div class="card-header py-2 bg-white border-0">
-                                    <h5 class="m-0 d-flex align-items-center gap-2">
-                                        <i class="ri-attachment-2 text-primary"></i> Anexos & Observações
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    @livewire('files.manager.create-prod-files', ['production' => $production, 'needFiles' => false], key('FilesSupervision'))
-                                </div>
-                            </div>
-                            --}}
+                            <div class="close-action-bar d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                @php
+                                    $closeStepSummary = $this->closeStepSummary;
+                                    $canFinish = $this->canCloseFinish;
+                                    $showD5Alert = $five && !$five->is_supervisioned;
+                                @endphp
 
-                        </div>
-                    </div>
-
-                    {{-- FOOTER (mesmo estilo) --}}
-                    <div class="modal-footer edp-bg-stategrey-100 d-flex justify-content-between">
-                        <div class="text-muted small">
-                            <i class="ri-information-line"></i>
-                            Selecione o resultado e preencha as observações (se necessário).
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            @if ($this->hasMultipleCloseFinalScopes())
-                                <div class="border rounded p-2 bg-light me-2">
-                                    <div class="fw-bold small mb-1">Escopo a encerrar</div>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        @foreach ($this->closeFinalScopeOptions() as $scopeOption)
-                                            <label class="form-check d-flex align-items-center gap-1 m-0">
-                                                <input class="form-check-input" type="checkbox"
-                                                    wire:model.defer="closeFinalScopeSelections.{{ $scopeOption['scope'] }}">
-                                                <span class="badge {{ $scopeOption['class'] }}">{{ $scopeOption['label'] }}</span>
-                                            </label>
-                                        @endforeach
+                                <div class="close-step">
+                                    <span class="close-step__icon {{ $closeStepSummary['iconClass'] }}">
+                                        <i class="{{ $closeStepSummary['icon'] }}"></i>
+                                    </span>
+                                    <div>
+                                        <div class="close-step__eyebrow">Próximo passo</div>
+                                        <div class="close-step__text">{{ $closeStepSummary['label'] }}</div>
+                                        <div class="close-step__message">{{ $closeStepSummary['message'] }}</div>
                                     </div>
                                 </div>
-                            @endif
 
+                                @if ($showD5Alert)
+                                    <div class="close-mini-alerts">
+                                        <span class="close-step-pill is-warning" title="A medição irá criar e despachar a D5 para a empreiteira.">
+                                            <i class="ri-file-text-line"></i>
+                                            D5 pendente
+                                        </span>
+                                    </div>
+                                @endif
+
+                                <div class="d-flex gap-2 flex-wrap">
                             <button type="button" class="btn btn-secondary" wire:click.prevent="saveForm()">
                                 <i class="ri-save-3-line me-1"></i> SALVAR
                             </button>
@@ -762,9 +977,13 @@
                                 <i class="ri-pause-line me-1"></i> PAUSAR
                             </button>
 
-                            <button type="button" class="btn btn-success" wire:click.prevent="to_finish()">
+                                    <button type="button" class="btn btn-success btn-close-finish" wire:click.prevent="to_finish()"
+                                        @disabled(!$canFinish) wire:loading.attr="disabled" wire:target="to_finish">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" wire:loading wire:target="to_finish"></span>
                                 <i class="ri-checkbox-circle-line me-1"></i> ENCERRAR
                             </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

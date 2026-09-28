@@ -1,0 +1,741 @@
+<?php
+
+namespace App\Http\Livewire\Dispatchs\Analises;
+
+use App\Custom\RuleBuilder;
+use App\Exports\DispatchDesenhoMain;
+use App\Exports\Services\analisesExport;
+use App\Models\City;
+use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Services\Design\BlockEvaluator;
+use App\Support\SicodeRules;
+use Livewire\{Component, WithPagination};
+
+class PartnerMain extends Component
+{
+    use \App\Traits\QueuesPartnerExports;
+    use WithPagination;
+
+    protected $paginationTheme = 'bootstrap';
+
+    public $service;
+
+    public $perPage = 100;
+
+    public $search;
+
+    public $rubrica_s = [];
+
+    public $rubrica_l;
+
+    public $note;
+
+    public $last_update;
+
+    public $advanceSearch;
+
+    public $multiSearch = [];
+
+    public $selectall;
+
+    public $selected = [];
+
+    public $company_l;
+
+    public $company_s;
+
+    public $user_l;
+
+    public $user_s;
+
+    public $type;
+
+    public $additionalData = [];
+
+    public $notes;
+
+    public $enter_dd;
+
+    public $filteredLists;
+
+    public $search_user;
+
+    public $note_type = '';
+
+    // Filtros
+    public $region_l;
+
+    public $region_s = [];
+
+    public $district_l;
+
+    public $district_s = [];
+
+    public $city_l;
+
+    public $city_s = [];
+
+    public $group1_l;
+
+    public $group1_s = [];
+
+    public $group2_l;
+
+    public $group2_s = [];
+
+    public $group5_l;
+
+    public $group5_s = [];
+
+    public $not_assigned = false;
+    public $mmgd = false;
+
+    // Filters
+    private $filter_group = 'analises';
+
+    private $filter;
+
+    protected $listeners = [
+        'refresh_dispatch'  => '$refresh',
+        'refresh_list'      => '$refresh',
+        'getCopy'           => 'copy',
+        'confirm_accompany' => 'add_to_accompany',
+        'confirm_dispatch'  => 'confirmed_att',
+    ];
+
+
+
+    protected $queryString =  [
+        'search' => ['except' => ''],
+        'page' => ['except' => 1],
+        'perPage' => ['except' => 100],
+        'not_assigned' => ['except' => false],
+        'mmgd' => ['except' => false],
+    ];
+
+    public function mount($service)
+    {
+
+        $this->service     = Service::where('uuid', $service)->with('Status')->first();
+        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+
+        // Evita carregar toda a lista em memória no mount.
+        $this->group1_l = Note::query()->select('group1')->whereNotNull('group1')->distinct()->orderBy('group1')->pluck('group1');
+        $this->group2_l = Note::query()->select('group2')->whereNotNull('group2')->distinct()->orderBy('group2')->pluck('group2');
+        $this->group5_l = Note::query()->select('group5')->whereNotNull('group5')->distinct()->orderBy('group5')->pluck('group5');
+
+
+    }
+
+    public function updatedCompanyS()
+    {
+
+        $this->user_s = '';
+    }
+
+    public function filterMMGD()
+    {
+        $this->mmgd = !$this->mmgd;
+    }
+
+    public function export_excel()
+    {
+        $this->queuePartnerExport("main");
+    }
+
+    public function updatedSelectall($val)
+    {
+
+        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+
+        if ($val) {
+            // Adicionar os IDs ausentes de $selected
+            foreach ($idsToKeep as $id) {
+                if (!in_array($id, $this->selected)) {
+                    $this->selected[] = $id;
+                }
+            }
+        } else {
+            // Criar um novo array $selected com os IDs que devem ser mantidos
+            $newSelected = [];
+
+            foreach ($this->selected as $id) {
+                if (!in_array($id, $idsToKeep)) {
+                    $newSelected[] = $id;
+                }
+            }
+            $this->selected = $newSelected;
+        }
+
+    }
+
+    public function copy($msg)
+    {
+        $this->dispatchBrowserEvent('torrada', [
+            'status'   => 'success',
+            'menssage' => $msg,
+        ]);
+    }
+
+
+
+    public function get_single_note($note)
+    {
+        $this->selected = [$note];
+
+        $this->go_att_mass();
+    }
+
+    public function go_att_mass()
+    {
+
+        $this->clean();
+
+        if (!count($this->selected)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma nota foi selecionada para despacho!',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
+    }
+
+    public function confirm_att()
+    {
+        if ($this->type === '2') {
+
+            if (!$this->user_s) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
+                    'timer'    => 2500,
+                ]);
+
+                return;
+            }
+
+            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
+
+        } else {
+
+            if (!$this->company_s) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                    'timer'    => 2500,
+                ]);
+
+                return;
+            }
+
+            $para = (Company::find($this->company_s))->name;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => 'Confirmar Despachar',
+            'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, Despache!',
+            'btnCanceltxt'  => 'Não, Cancele',
+            'action'        => 'confirm_dispatch',
+            'cancel_titulo' => 'Cancelado!',
+            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
+
+        ]);
+    }
+
+    public function add_dd()
+    {
+        if (!trim($this->enter_dd)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
+                'timer'    => 5000,
+            ]);
+
+            return;
+        }
+
+        $linhas = explode("\n", trim($this->enter_dd));
+
+        if ($linhas && count($linhas)) {
+
+            foreach ($linhas as $linha) {
+
+                if ($linha) {
+
+                    $coluna = explode("\t", $linha);
+
+                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
+
+                        $index = $this->notes->search(function ($note) use ($coluna) {
+                            return $note->note == $coluna[0];
+                        });
+
+                        if ($index !== false) {
+                            $this->additionalData[$index] = $coluna[1];
+                        }
+                    }
+
+                }
+            }
+
+        }
+    }
+
+    public function confirmed_att()
+    {
+
+        $erros = [];
+
+        if ($this->type == '2') {
+
+            foreach ($this->notes as $key => $note) {
+
+                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
+                    $production = Production::create([
+                        'note_id'     => $note->id,
+                        'service_id'  => $this->service->uuid,
+                        'user_id'     => $this->user_s,
+                        'company_id'  => $this->company_s,
+                        'dispatch_by' => Auth()->User()->id,
+                        'att_by'      => Auth()->User()->id,
+                        'dt_note'     => $note->dt_status,
+                        'status_note' => $note->nstats,
+                        'centroTrab'  => $note->centerjob,
+                        'dispatch_at' => date('Y-m-d H:i:s'),
+                        'att_at'      => date('Y-m-d H:i:s'),
+                        'status'      => 2,
+                    ]);
+
+                    $user = Auth()->User()->name;
+
+                    $user_info = $this->dispatchRecipientInfo();
+
+                    if ($production) {
+                        Notetimeline::Create([
+                            'note_id'      => $production->note_id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "Usuário {$user} {$user_info}",
+                            'status'       => 2,
+                            'production_id' => $production->id,
+                        ]);
+                    }
+                } else {
+                    $erros[] = $erro;
+                }
+            }
+
+        } else {
+
+            foreach ($this->notes as $key => $note) {
+
+                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
+                    $production = Production::create([
+                        'note_id'     => $note->id,
+                        'service_id'  => $this->service->uuid,
+                        'company_id'  => $this->company_s,
+                        'dispatch_by' => Auth()->User()->id,
+                        'dt_note'     => $note->dt_status,
+                        'status_note' => $note->nstats,
+                        'centroTrab'  => $note->centerjob,
+                        'dispatch_at' => date('Y-m-d H:i:s'),
+                        'status'      => 1,
+                    ]);
+
+                    $user = Auth()->User()->name;
+
+                    $user_info = $this->dispatchRecipientInfo();
+
+                    if ($production) {
+                        Notetimeline::Create([
+                            'note_id'      => $production->note_id,
+                            'service_id'   => $production->service_id,
+                            'user_id'      => Auth()->User()->id,
+                            'info'         => "Usuário {$user} {$user_info}",
+                            'status'       => 1,
+                            'production_id' => $production->id,
+                        ]);
+                    }
+                } else {
+                    $erros[] = $erro;
+                }
+
+            }
+        }
+
+        if (count($erros)) {
+
+            $info = '<br>';
+
+            foreach ($erros as $err) {
+                $info .= $this->productionAssignmentLabel($err) . '<br>';
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso parcial!',
+                'msg'      => "Foram Despachadas com sucesso, porém, algumas ja se enconram em controle: {$info}",
+                'timer'    => 2500,
+            ]);
+        } else {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'Notas Despachadas com sucesso!',
+                'timer'    => 2500,
+            ]);
+        }
+
+        $this->closeall();
+    }
+
+    public function closeall()
+    {
+        $this->dispatchBrowserEvent('hideModal');
+
+        $this->company_s      = '';
+        $this->selected       = [];
+        $this->user_s         = '';
+        $this->type           = '';
+        $this->additionalData = [];
+        $this->advanceSearch  = '';
+        $this->search         = '';
+        $this->gotoPage(1);
+
+        $this->emit('refresh_dispatch');
+    }
+
+    public function clean()
+    {
+
+        $this->company_s      = '';
+        $this->enter_dd       = '';
+        $this->user_s         = '';
+        $this->type           = '';
+        $this->additionalData = [];
+        $this->multiSearch    = [];
+        $this->advanceSearch  = '';
+        $this->search         = '';
+    }
+
+    public function buscarMulti()
+    {
+
+        if ($this->advanceSearch) {
+
+            $this->gotoPage(1);
+
+            $this->search = '';
+
+            $this->multiSearch = explode("\n", $this->advanceSearch);
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(' ', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(',', $this->advanceSearch);
+            }
+
+            if (!count($this->multiSearch)) {
+                $this->multiSearch = explode(';', $this->advanceSearch);
+            }
+
+            $this->multiSearch = array_map('trim', $this->multiSearch);
+        }
+
+        if (count($this->multiSearch)) {
+            $this->closeall();
+        }
+    }
+
+    public function filterStatus()
+    {
+        if ($this->not_assigned) {
+            $this->not_assigned = false;
+        } else {
+            $this->not_assigned = true;
+        }
+
+    }
+
+    public function getListsProperty()
+    {
+        $this->filter = session('filter.' . $this->filter_group, []);
+
+        $query = Note::query()->excludeCanceledFullDone();
+
+        SicodeRules::applyContractDispatchMainVisibility(
+            $query,
+            Auth()->User(),
+            $this->service->uuid,
+            fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
+        );
+
+        if (count($this->multiSearch)) {
+            $query->whereIn('note', $this->multiSearch);
+        }
+
+        if ($this->not_assigned) {
+            $query->where(function ($q) {
+                $q->doesntHave('Productions')
+                    ->orWhereDoesntHave('Productions', function ($subquery) {
+                        $subquery->where('service_id', $this->service->uuid)
+                            ->where('confirmed', false);
+                    });
+            });
+        }
+
+        $query->when($this->search, function ($q, $s) {
+            $this->gotoPage(1);
+
+            return $q->where(function ($query) use ($s) {
+                $query->where('note', 'like', '%' . $s . '%')
+                    ->orWhere('material', 'like', '%' . $s . '%')
+                    ->orWhere('numPedido', 'like', '%' . $s . '%')
+                    ->orWhere('group2', 'like', '%' . $s . '%')
+                    ->orWhere('group4', 'like', '%' . $s . '%')
+                    ->orWhere('group5', 'like', '%' . $s . '%');
+            });
+        });
+
+        if ($this->mmgd) {
+            # code...
+            $query->where('material', 'not like', '%MMGD%');
+        }
+
+        $activeFilters = is_array($this->filter) ? $this->filter : [];
+
+        if (isset($activeFilters['rubrica'])) {
+            $query->whereIn('rubrica', $activeFilters['rubrica']);
+        }
+
+        if (isset($activeFilters['material'])) {
+            $query->whereIn('material', $activeFilters['material']);
+        }
+
+        $regionValues = collect((array) ($activeFilters['region'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
+        $regionalValues = collect((array) ($activeFilters['regional'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
+        $cityValues = collect((array) ($activeFilters['city'] ?? []))
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v))
+            ->values();
+
+        if ($regionValues->isNotEmpty() || $regionalValues->isNotEmpty() || $cityValues->isNotEmpty()) {
+            $nexpCodes = collect();
+            $nexpCodes = $nexpCodes->merge(
+                $cityValues->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)->values()
+            );
+
+            $mappedQuery = City::query();
+            if ($regionValues->isNotEmpty()) {
+                $mappedQuery->where(function ($sq) use ($regionValues) {
+                    $sq->whereIn('regiao', $regionValues->all())
+                        ->orWhereIn('baseConstrucao', $regionValues->all());
+                });
+            }
+            if ($regionalValues->isNotEmpty()) {
+                $mappedQuery->whereIn('baseConstrucao', $regionalValues->all());
+            }
+            if ($cityValues->isNotEmpty()) {
+                $mappedQuery->where(function ($sq) use ($cityValues) {
+                    $sq->whereIn('cidade', $cityValues->all())
+                        ->orWhereIn('municipio', $cityValues->all())
+                        ->orWhereIn('rdMunicipio', $cityValues->all());
+                });
+            }
+
+            $mappedCodes = $mappedQuery->pluck('rdMunicipio')
+                ->filter(fn ($v) => filled($v))
+                ->map(fn ($v) => trim((string) $v))
+                ->values();
+
+            $query->whereIn('nexp', $nexpCodes->merge($mappedCodes)->unique()->values()->all());
+        }
+
+
+        $query->with(['Productions.User', 'Productions.Company'])
+            ->orderBy('type_note', 'DESC')
+            ->orderBy('dt_created');
+
+        return $query;
+
+    }
+
+    public function needBlock(Note $note): array
+    {
+        return app(BlockEvaluator::class)->evaluate($note, $this->service);
+    }
+
+    private function canDispatchNote(Note $note): bool
+    {
+        $eval = $this->needBlock($note);
+
+        return !$eval['block']
+            || (bool) ($eval['command'] ?? false)
+            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
+    }
+
+    public function getBaseProperty()
+    {
+        try {
+            $query          = City::query();
+            $filtersApplied = false;
+
+            if (!empty($this->region_s)) {
+                $query->whereIn('regiao', $this->region_s);
+                $filtersApplied = true;
+            }
+
+            if (!empty($this->district_s)) {
+                $query->whereIn('baseConstrucao', $this->district_s);
+                $filtersApplied = true;
+            }
+
+            if (!empty($this->city_s)) {
+                $query->whereIn('cidade', $this->city_s);
+                $filtersApplied = true;
+            }
+
+            if (!$filtersApplied) {
+                return [];
+            }
+
+            $result = $query->orderBy('cidade')
+                ->get()
+                ->pluck('rdMunicipio')
+                ->toArray();
+
+            return $result;
+        } catch (\Throwable $th) {
+            return [];
+        }
+    }
+
+    private function dispatchRecipientInfo(): string
+    {
+        if (trim((string) $this->user_s)) {
+            $userName = User::find($this->user_s)?->name ?? 'Desconhecido';
+
+            return "Atribuiu a NOTA/OV para: {$userName}";
+        }
+
+        $companyName = Company::find($this->company_s)?->name ?? 'Desconhecido';
+
+        return "Despachou a NOTA/OV para: {$companyName}";
+    }
+
+    private function productionAssignmentLabel(Production $production): string
+    {
+        $production->loadMissing(['Note', 'User', 'Company']);
+
+        $note = $production->Note?->note ?? $production->note_id;
+
+        if ($production->User) {
+            return "{$note} => {$production->User->name}";
+        }
+
+        if ($production->Company) {
+            return "{$note} => {$production->Company->name} (sem usuário atribuído)";
+        }
+
+        return "{$note} => Desconhecido";
+    }
+
+    public function render()
+    {
+        $paginatedLists = $this->lists->paginate($this->perPage);
+
+        $this->filteredLists = $paginatedLists->filter(fn ($list) => $this->canDispatchNote($list));
+
+        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
+            $this->selectall = true;
+        } else {
+            $this->selectall = false;
+        }
+
+        // if (!Auth()->User()->contract) {
+        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
+        // } else {
+
+        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
+        // }
+
+        $this->company_l = Company::whereHas('toUsers', function ($query) {
+            $query->whereRelation('ToServices', function ($q) {
+                $q->where('service_id', $this->service->uuid)
+                    ->where('service', true);
+            });
+        })
+            ->orderBy('name', 'ASC')
+            ->get();
+
+        $this->user_l = User::whereRelation('ToServices', function ($q) {
+            $q->where('service_id', $this->service->uuid)
+                ->where('service', true);
+        })
+         ->where(function ($q) {
+             $q->whereRelation('Company', 'company_id', $this->company_s)
+                 ->orWhere('company_id', $this->company_s);
+         })
+        ->when($this->search_user, function ($q) {
+            return $q->where('name', 'like', '%' . $this->search_user . '%');
+        })
+        ->orderBy('name', 'ASC')->get();
+
+        // $this->user_l = User::when($this->search_user, function ($q) {
+        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
+        // })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
+
+        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+
+        // Municipios Filtros
+        try {
+
+            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
+
+            $this->district_l = City::when($this->region_s, function ($q) {
+                return $q->whereIn('regiao', $this->region_s);
+
+            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
+            $this->city_l = City::when($this->region_s, function ($q) {
+                return $q->whereIn('regiao', $this->region_s);
+            })
+                ->when($this->district_s, function ($q) {
+                    return $q->whereIn('baseConstrucao', $this->district_s);
+                })
+                ->select('rdMunicipio', 'cidade', 'municipio')
+                ->orderBy('cidade')
+                ->groupBy('rdMunicipio', 'cidade', 'municipio')
+                ->get();
+
+        } catch (\Illuminate\Database\QueryException $e) {
+
+            $this->region_l   = [];
+            $this->district_l = [];
+            $this->city_l     = [];
+        }
+
+        return view('livewire.dispatchs.analises.partner_main', [
+            'lists'  => $paginatedLists,
+            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+        ]);
+    }
+}

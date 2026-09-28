@@ -14,6 +14,7 @@ class UncancellationRequest extends Model
     public const CLOSURE_DONE = 'DONE';
     public const CLOSURE_REJECTED = 'REJECTED';
     public const CLOSURE_ABORTED = 'ABORTED';
+    public const CLOSURE_REVERTED = 'REVERTED';
 
     protected $fillable = [
         'note_id',

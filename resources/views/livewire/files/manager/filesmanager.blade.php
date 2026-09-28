@@ -284,7 +284,7 @@
                 <div class="text-muted">
                     Exibindo <strong>{{ $lists->firstItem() }}</strong> a <strong>{{ $lists->lastItem() }}</strong>
                     de <strong>{{ $lists->total() }}</strong> arquivos.
-                    Selecionados: <strong>{{ count($selectedFiles) }}</strong> de <strong>100</strong>.
+                    Selecionados: <strong>{{ count($selectedFiles) }}</strong>.
                 </div>
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                     <button class="btn btn-outline-primary btn-sm" wire:click.prevent="selectAll">

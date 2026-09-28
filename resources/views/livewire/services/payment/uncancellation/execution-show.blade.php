@@ -47,11 +47,11 @@
                         <span class="badge {{ $uncancellationRequest->Note->canceled ? 'bg-danger' : 'bg-success' }}">
                             Nota {{ $uncancellationRequest->Note->canceled ? 'cancelada' : 'ativa' }}
                         </span>
-                        @if ($uncancellationRequest->Note->WorkFormAny)
-                            <span class="badge {{ $uncancellationRequest->Note->WorkFormAny->canceled ? 'bg-danger' : 'bg-success' }}">
-                                Informe {{ $uncancellationRequest->Note->WorkFormAny->canceled ? 'cancelado' : 'ativo' }}
+                        @foreach ($uncancellationRequest->Note->WorkFormsAny as $workForm)
+                            <span class="badge {{ $workForm->canceled ? 'bg-danger' : 'bg-success' }}">
+                                Informe #{{ $workForm->id }} {{ $workForm->canceled ? 'cancelado' : 'ativo' }}
                             </span>
-                        @endif
+                        @endforeach
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped mb-0">
@@ -82,7 +82,19 @@
                 <div class="oexterno-card p-3">
                     <h5>Ação</h5>
                     @if ($isClosed)
-                        <div class="alert alert-secondary mb-0">Solicitação já finalizada.</div>
+                        <div class="alert alert-secondary">Solicitação já finalizada.</div>
+
+                        @if ($canRevert)
+                            <div class="border-top pt-3">
+                                <label class="form-label">Motivo para desfazer</label>
+                                <textarea class="form-control mb-2" rows="4" wire:model.defer="reversalNote"></textarea>
+                                @error('reversalNote')<span class="text-danger small">{{ $message }}</span>@enderror
+
+                                <button class="btn btn-outline-danger w-100 mt-2" wire:click="revertAction">
+                                    <i class="ri-arrow-go-back-line me-1"></i>Desfazer descancelamento
+                                </button>
+                            </div>
+                        @endif
                     @else
                         <label class="form-label">Resultado</label>
                         <select class="form-select mb-3" wire:model="action">

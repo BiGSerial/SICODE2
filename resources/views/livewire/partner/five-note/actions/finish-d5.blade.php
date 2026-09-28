@@ -37,6 +37,18 @@
                             $otherFiles = $files->filter(function ($file) use ($imageFiles) {
                                 return !$imageFiles->contains('id', $file->id);
                             });
+                            $closingScopes = collect($five->WorkReport?->selected_final_scopes ?? [])
+                                ->filter()
+                                ->map(fn ($scope) => (string) $scope);
+                            if ($closingScopes->isEmpty()) {
+                                $closingScopes = collect($five->productions ?? [])
+                                    ->flatMap(fn ($production) => ($production->WorkReportFlowProductions ?? collect())
+                                        ->where('is_current', true)
+                                        ->pluck('final_scope'))
+                                    ->filter()
+                                    ->map(fn ($scope) => (string) $scope);
+                            }
+                            $closingScopes = $closingScopes->unique()->values();
                         @endphp
 
                         <div class="row g-3">
@@ -67,6 +79,18 @@
                                         <div class="five-field">
                                             <div class="five-k">Codificacao</div>
                                             <div class="five-v">{{ $five->codify ?: '---' }}</div>
+                                        </div>
+                                        <div class="five-field">
+                                            <div class="five-k">Escopo encerrado</div>
+                                            <div class="five-v d-flex flex-wrap gap-1">
+                                                @forelse ($closingScopes as $scope)
+                                                    <span class="badge {{ $scope === 'network' ? 'text-bg-primary' : ($scope === 'connection' ? 'text-bg-warning' : 'text-bg-secondary') }}">
+                                                        {{ $scope === 'network' ? 'Rede' : ($scope === 'connection' ? 'Ligacao' : 'Geral') }}
+                                                    </span>
+                                                @empty
+                                                    ---
+                                                @endforelse
+                                            </div>
                                         </div>
                                     </div>
 
@@ -108,12 +132,11 @@
                                                         <button type="button" class="five-thumb-trigger"
                                                             data-bs-toggle="modal" data-bs-target="#finishD5GalleryModal"
                                                             data-index="{{ $index }}">
-                                                            <img src="{{ asset('storage/' . $file->path) }}"
+                                                            <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]) }}"
                                                                 alt="{{ $file->original_name ?: 'Evidencia' }}"
                                                                 loading="lazy">
                                                         </button>
-                                                        <a href="{{ asset('storage/' . $file->path) }}"
-                                                            download="{{ $file->original_name ?: basename($file->path) }}"
+                                                        <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
                                                             class="five-thumb-download" title="Download">
                                                             <i class="ri-download-2-line"></i>
                                                         </a>
@@ -128,8 +151,7 @@
                                                     <div class="five-file-item">
                                                         <i class="ri-attachment-2"></i>
                                                         <span>{{ $file->original_name ?: basename($file->path) }}</span>
-                                                        <a href="{{ asset('storage/' . $file->path) }}"
-                                                            download="{{ $file->original_name ?: basename($file->path) }}"
+                                                        <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
                                                             class="five-download-link" title="Download">
                                                             <i class="ri-download-2-line"></i>
                                                         </a>
@@ -255,13 +277,12 @@
                                 @foreach ($galleryImageFiles as $index => $file)
                                     <div class="carousel-item @if ($index === 0) active @endif">
                                         <div class="five-gallery-image-wrap">
-                                            <img src="{{ asset('storage/' . $file->path) }}" class="d-block w-100"
+                                            <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'v' => optional($file->updated_at)->timestamp]) }}" class="d-block w-100"
                                                 alt="{{ $file->original_name ?: 'Evidencia' }}">
                                         </div>
                                         <div class="five-gallery-caption">
                                             <span>{{ $file->original_name ?: basename($file->path) }}</span>
-                                            <a href="{{ asset('storage/' . $file->path) }}"
-                                                download="{{ $file->original_name ?: basename($file->path) }}"
+                                            <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
                                                 class="five-gallery-download" title="Download">
                                                 <i class="ri-download-2-line"></i>
                                             </a>

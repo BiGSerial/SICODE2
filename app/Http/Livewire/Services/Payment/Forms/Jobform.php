@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Services\Payment\Forms;
 
 use App\Models\Analise;
 use App\Models\Company;
+use App\Models\FiveNote;
 use App\Models\Notetimeline;
 use App\Models\Production;
 use App\Services\D5\D5WorkflowService;
@@ -65,6 +66,104 @@ class Jobform extends Component
         $this->companies = Company::orderBy('name')->get();
     }
 
+    public function getCloseStepSummaryProperty(): array
+    {
+        $steps   = $this->closeSteps;
+        $current = collect($steps)->firstWhere('state', 'current')
+            ?? collect($steps)->firstWhere('state', 'warning')
+            ?? collect($steps)->firstWhere('state', 'todo')
+            ?? collect($steps)->last();
+
+        return [
+            'icon'      => $current['icon'] ?? 'ri-information-line',
+            'iconClass' => match ($current['state'] ?? 'todo') {
+                'done'    => 'is-ready',
+                'warning' => 'is-warning',
+                default   => ($this->canCloseFinish ? 'is-ready' : 'is-warning'),
+            },
+            'label'   => $current['label'] ?? 'Pronto para encerrar',
+            'message' => $current['message'] ?? 'Todas as etapas obrigatórias foram preenchidas.',
+        ];
+    }
+
+    public function getCanCloseFinishProperty(): bool
+    {
+        return collect($this->closeSteps)
+            ->where('required', true)
+            ->every(fn (array $step) => $step['state'] === 'done');
+    }
+
+    public function getCloseStepsProperty(): array
+    {
+        $needsD5Data = (bool) ($this->five && !$this->five->is_supervisioned);
+        $hasConclusion = $this->filledValue($this->analise?->conclusion);
+        $hasScopeSelection = $this->hasValidCloseFinalScopeSelection();
+
+        $steps = [];
+
+        if ($needsD5Data) {
+            $steps[] = $this->closeStep('Número D5', $this->filledValue($this->five?->note_d5), 'Informe o número da D5.', 'ri-file-text-line');
+            $steps[] = $this->closeStep('Empresa D5', $this->filledValue($this->five?->company_id), 'Selecione a empresa responsável pela D5.', 'ri-building-line');
+        }
+
+        if ($this->hasMultipleCloseFinalScopes()) {
+            $steps[] = $this->closeStep('Escopo medido', $hasScopeSelection, 'Selecione o escopo que será encerrado nesta medição.', 'ri-focus-3-line');
+        }
+
+        $steps[] = $this->closeStep('Resultado', $hasConclusion, 'Selecione o resultado da medição.', 'ri-checkbox-circle-line');
+
+        $steps[] = [
+            'label'    => 'Observações',
+            'message'  => $this->filledValue($this->analise?->info)
+                ? 'Observação registrada.'
+                : 'Observação opcional para contextualizar o encerramento.',
+            'icon'     => 'ri-message-3-line',
+            'required' => false,
+            'state'    => $this->filledValue($this->analise?->info) ? 'done' : 'warning',
+        ];
+
+        if (collect($steps)->where('required', true)->every(fn (array $step) => $step['state'] === 'done')) {
+            $steps[] = [
+                'label'    => 'Encerrar',
+                'message'  => 'Etapas obrigatórias concluídas. Encerramento liberado.',
+                'icon'     => 'ri-checkbox-circle-line',
+                'required' => true,
+                'state'    => 'done',
+            ];
+        }
+
+        return $this->markCurrentCloseStep($steps);
+    }
+
+    private function closeStep(string $label, bool $done, string $message, string $icon): array
+    {
+        return [
+            'label'    => $label,
+            'message'  => $done ? "{$label} preenchido." : $message,
+            'icon'     => $icon,
+            'required' => true,
+            'state'    => $done ? 'done' : 'todo',
+        ];
+    }
+
+    private function markCurrentCloseStep(array $steps): array
+    {
+        foreach ($steps as &$step) {
+            if (($step['required'] ?? false) && $step['state'] === 'todo') {
+                $step['state'] = 'current';
+
+                break;
+            }
+        }
+
+        return $steps;
+    }
+
+    private function filledValue($value): bool
+    {
+        return !is_null($value) && trim((string) $value) !== '';
+    }
+
     public function showProduction(Production $production)
     {
         $this->five = null;
@@ -73,8 +172,8 @@ class Jobform extends Component
         if ($this->production) {
             $this->syncCloseFinalScopeSelections();
 
-            if ($this->production->note->FiveNote?->exists()) {
-                $this->five = $this->production->note->FiveNote;
+            if ($fiveNote = $this->fiveNoteForCurrentProduction()) {
+                $this->five = $fiveNote;
             }
 
             // Garantir a existência de Analise
@@ -93,6 +192,69 @@ class Jobform extends Component
                 'id' => 'formProductionModal',
             ]);
         }
+    }
+
+    private function currentWorkReportIdForPayment(): ?int
+    {
+        foreach ([\App\Models\WorkReportFlowProduction::STAGE_PAYMENT, \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION] as $stage) {
+            $workReportId = $this->production?->WorkReportFlowProductions()
+                ->where('stage', $stage)
+                ->where('is_current', true)
+                ->latest('id')
+                ->value('work_report_id');
+
+            if ($workReportId) {
+                return (int) $workReportId;
+            }
+        }
+
+        return null;
+    }
+
+    private function fiveNoteForCurrentProduction(): ?FiveNote
+    {
+        if (!$this->production) {
+            return null;
+        }
+
+        $production = $this->production;
+
+        // Primeiro: a própria produção já está associada diretamente à D5.
+        $directFive = $production->fiveNotes()
+            ->where('note_id', $production->note_id)
+            ->latest('id')
+            ->first();
+
+        if ($directFive) {
+            return $directFive;
+        }
+
+        // Segundo: a produção está associada a um informe e o informe possui D5.
+        $workReportIds = $production->WorkReportFlowProductions()
+            ->whereIn('stage', [
+                \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
+                \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION,
+            ])
+            ->orderByDesc('is_current')
+            ->orderByDesc('id')
+            ->pluck('work_report_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        foreach ($workReportIds as $workReportId) {
+            $five = FiveNote::query()
+                ->where('note_id', $production->note_id)
+                ->where('work_report_id', $workReportId)
+                ->first();
+
+            if ($five) {
+                return $five;
+            }
+        }
+
+        // Fallback legado: D5 diretamente associada à Nota/OV.
+        return $production->note?->FiveNote;
     }
 
     public function status()
@@ -137,7 +299,7 @@ class Jobform extends Component
                     'user_id'      => Auth()->User()->id,
                     'info'         => "Usuário {$user} iniciou a Nota/OV.",
                     'status'       => 3,
-                    'productionId' => $this->production->id,
+                    'production_id' => $this->production->id,
                 ]);
             }
         }
@@ -145,7 +307,7 @@ class Jobform extends Component
         $this->emitUp('refresh_list');
     }
 
-    public function saveForm($end = false)
+    public function saveForm($end = false): bool
     {
 
 
@@ -168,6 +330,8 @@ class Jobform extends Component
                 'status'   => 'success',
                 'menssage' => 'SALVO COM SUCESSO',
             ]);
+
+            return true;
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->validator->errors()->all();
             $html = '<ul>';
@@ -184,7 +348,7 @@ class Jobform extends Component
                 'html'     => '<div class="card"><div class="card-body text-start">' . $html . '</div></div>',
             ]);
 
-            return;
+            return false;
         }
     }
 
@@ -207,6 +371,21 @@ class Jobform extends Component
 
     public function to_finish()
     {
+        if (!$this->canCloseFinish) {
+            $summary = $this->closeStepSummary;
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Encerramento incompleto',
+                'html'     => '<div class="card"><div class="card-body text-start">'
+                    . e($summary['message'])
+                    . '</div></div>',
+            ]);
+
+            return;
+        }
+
         if (!$this->hasValidCloseFinalScopeSelection()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -265,9 +444,9 @@ class Jobform extends Component
 
     public function save()
     {
-        $this->saveForm(true);
-
-
+        if (!$this->saveForm(true)) {
+            return;
+        }
 
         DB::beginTransaction();
 

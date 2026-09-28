@@ -454,10 +454,10 @@
                                 @foreach($imageFiles as $file)
                                     <div class="evidence-card">
                                         <img
-                                            src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                            src="{{ route("files.evidence.preview", ["file" => $file->id, "v" => optional($file->updated_at)->timestamp]) }}"
                                             class="evidence-thumb mb-2"
                                             alt="{{ $file->original_name }}"
-                                            data-evidence-src="{{ Storage::disk($file->disk)->url($file->path) }}"
+                                            data-evidence-src="{{ route("files.evidence.preview", ["file" => $file->id, "v" => optional($file->updated_at)->timestamp]) }}"
                                             data-evidence-name="{{ $file->original_name }}"
                                             data-bs-toggle="modal"
                                             data-bs-target="#evidenceModal"

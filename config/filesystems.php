@@ -90,4 +90,6 @@ return [
         public_path('storage') => storage_path('app/public'),
     ],
 
+    'download_batch_ttl_hours' => env('FILES_DOWNLOAD_BATCH_TTL_HOURS', 24),
+
 ];

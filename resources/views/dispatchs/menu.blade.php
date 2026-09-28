@@ -25,6 +25,15 @@
                     </li>
                     {{-- @endif --}}
 
+                    @if (Auth()->User()->contract)
+                        <li>
+                            <a href="{{ route('dispatch.partner', ['service' => $service->uuid]) }}"
+                                class="nav-item text-white fw-normal">
+                                <i class="bi bi-person-workspace fs-5 edp-text-verde-dark fw-normal"></i><span>MINHAS ATIVIDADES DESPACHADAS</span>
+                            </a>
+                        </li>
+                    @endif
+
                     <li>
                         <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
                             class="nav-item text-white fw-normal">

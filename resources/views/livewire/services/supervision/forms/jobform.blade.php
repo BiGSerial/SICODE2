@@ -514,8 +514,17 @@
             @php
                 $closeNote = $closeNoteDetails;
                 $hasD5Reason = !empty($return['reason'] ?? null);
+                $requiresD5Fields = (string) ($d5 ?? '') === '1'
+                    && !($production->partial ?? false)
+                    && !($production->dfive ?? false);
+                $isRequestingD5OnFirstClose = !$production->partial
+                    && !$production->dfive
+                    && (string) ($d5 ?? '') === '1';
                 $hasConclusion = !empty($analise['conclusion'] ?? null);
                 $isInRevision = (bool) ($production->Note->WorkForm?->rejected);
+                $scopeBadge = collect($closeNote['scopeBadges'] ?? [])->first() ?? ['label' => 'Geral', 'class' => 'text-bg-success'];
+                $scopeLabel = $scopeBadge['label'] ?? 'Geral';
+                $scopeClass = $scopeBadge['class'] ?? 'text-bg-success';
             @endphp
 
             <div class="modal-content">
@@ -526,6 +535,7 @@
                             {{ mb_strtoupper($production->Service->service) }}
                             <span class="text-white-50 fw-normal"> • Nota/OV {{ $closeNote['note'] ?? $production->Note->note }}</span>
                             <span class="badge {{ $closeNote['typeClass'] ?? 'text-bg-secondary' }} ms-2">{{ $closeNote['type'] ?? '---' }}</span>
+                            <span class="badge {{ $scopeClass }} ms-2">ESCOPO: {{ $scopeLabel }}</span>
                         </h1>
                         <small class="text-white-50">
                             Município: {{ $closeNote['municipio'] ?? '---' }} • Rubrica: {{ $closeNote['rubrica'] ?? '---' }}
@@ -631,7 +641,7 @@
 
                                         @if ((string) $d5 === '1')
                                             <div class="col-md-4 close-field">
-                                                <label class="form-label">Motivo <span class="close-required">*</span></label>
+                                                <label class="form-label">Motivo @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <select class="form-select border border-secondary"
                                                     wire:model.defer="return.reason">
                                                     <option value="" selected>Selecione</option>
@@ -640,13 +650,13 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
-                                                @if (!$hasD5Reason)
-                                                    <div class="close-help text-danger">Obrigatório quando D5 = SIM.</div>
+                                                @if ($requiresD5Fields && !$hasD5Reason)
+                                                    <div class="close-help text-danger">Obrigatório para criar D5 com pendência.</div>
                                                 @endif
                                             </div>
 
                                             <div class="col-md-4 close-field">
-                                                <label class="form-label">Codigo <span class="close-required">*</span></label>
+                                                <label class="form-label">Codigo @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <select class="form-select border border-secondary"
                                                     wire:model.defer="return.codify">
                                                     <option value="" selected>Selecione</option>
@@ -655,12 +665,12 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
-                                                @if (!$hasD5Reason)
-                                                    <div class="close-help text-danger">Obrigatório quando D5 = SIM.</div>
+                                                @if ($requiresD5Fields && empty($return['codify'] ?? null))
+                                                    <div class="close-help text-danger">Obrigatório para criar D5 com pendência.</div>
                                                 @endif
                                             </div>
                                             <div class="col-md-4 close-field">
-                                                <label class="form-label">Local Instalação <span class="close-required">*</span></label>
+                                                <label class="form-label">Local Instalação @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <input type="text" class="form-control border border-secondary"
                                                     wire:model.defer="return.loc_install"
                                                     placeholder="Ex.: 708-EP-00459941" @disabled($return['loc_install'] ?? false)>
@@ -740,12 +750,26 @@
                                             <div class="hi d-flex align-items-start gap-2">
                                                 <div class="hi-ico text-primary"><i class="ri-file-text-line"></i>
                                                 </div>
-                                                <div class="hi-body">
-                                                    <div class="hi-k">Nota D5</div>
-                                                    <div class="hi-v">{{ $five->note_d5 ?? '—' }}</div>
+                                            <div class="hi-body">
+                                                <div class="hi-k">Nota D5</div>
+                                                <div class="hi-v">{{ $five->note_d5 ?? '—' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <div class="hi d-flex align-items-start gap-2">
+                                            <div class="hi-ico text-primary"><i class="ri-focus-3-line"></i></div>
+                                            <div class="hi-body">
+                                                <div class="hi-k">Escopos da D5</div>
+                                                <div class="hi-v">
+                                                    @foreach (($closeNote['scopeBadges'] ?? []) as $scopeBadge)
+                                                        <span class="badge {{ $scopeBadge['class'] ?? 'text-bg-secondary' }} me-1 mb-1">{{ $scopeBadge['label'] ?? 'Geral' }}</span>
+                                                    @endforeach
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
                                         <div class="col-md-3">
                                             <div class="hi d-flex align-items-start gap-2">
@@ -892,6 +916,7 @@
                                                             data_get($p->analise, 'conclusion') ??
                                                             'Conclusão não informada';
                                                         $info = trim((string) data_get($p->analise, 'info', ''));
+                                                        $scopeBadges = $this->timelineScopeBadgesForProduction($p);
                                                     @endphp
 
                                                     <div class="five-tl-item">
@@ -908,6 +933,12 @@
                                                                         <i class="ri-briefcase-line"></i>
                                                                         {{ $serviceName }}
                                                                     </span>
+                                                                    @foreach ($scopeBadges as $scopeBadge)
+                                                                        <span class="badge {{ $scopeBadge['class'] }}"
+                                                                            title="{{ $scopeBadge['title'] }}">
+                                                                            {{ $scopeBadge['label'] }}
+                                                                        </span>
+                                                                    @endforeach
                                                                 </div>
                                                                 <div class="five-tl-date">
                                                                     <i class="ri-time-line"></i> {{ $doneAt }}
@@ -1115,6 +1146,9 @@
                                             wire:model="analise.conclusion">
                                             <option value="" selected>Selecione</option>
                                             @foreach (SelectOptions::getSupervisionEnd() as $supEnd)
+                                                @continue($production->partial && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
+                                                @continue($isRequestingD5OnFirstClose && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
+                                                @continue(!$production->partial && !$production->dfive && !$isRequestingD5OnFirstClose && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
                                                 <option value="{{ $supEnd->value }}">{{ $supEnd->reason }}</option>
                                             @endforeach
                                             @if ($production->partial)
@@ -1124,6 +1158,18 @@
                                         @if ($production->partial)
                                             <div class="close-help text-warning fw-bold">
                                                 Fluxo parcial: a conclusão pode rejeitar a obra e não solicita D5.
+                                            </div>
+                                        @elseif ($isRequestingD5OnFirstClose)
+                                            <div class="close-help text-warning fw-bold">
+                                                D5 marcada: a conclusão permitida é Fiscalizado Com Pendências.
+                                            </div>
+                                        @elseif ($production->dfive)
+                                            <div class="close-help text-warning fw-bold">
+                                                Retorno D5: Fiscalizado Com Pendências devolve a D5 para a empreiteira.
+                                            </div>
+                                        @else
+                                            <div class="close-help text-muted">
+                                                Sem D5: Fiscalizado Com Pendências não fica disponível.
                                             </div>
                                         @endif
                                         @if (!$hasConclusion)

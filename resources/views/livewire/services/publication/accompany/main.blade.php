@@ -245,7 +245,7 @@
                                         <td class="fw-bold text-center align-middle {{ $class }}">
                                             @if ($list->Note->WorkForm)
                                                 @foreach ($list->Note->WorkForm->finalScopeBadges() as $scopeBadge)
-                                                    <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">
+                                                    <span class="badge {{ $scopeBadge['class'] }} mb-1">
                                                         {{ $scopeBadge['label'] }}
                                                         @if ($scopeBadge['scope'] === 'network')
                                                             <span class="ms-1">Publicavel</span>
@@ -281,10 +281,18 @@
                                         <td class="fw-light text-center align-middle {{ $class }}">
                                             {{ $list->Note->material }}</td>
                                         <td class="fw-light text-center align-middle {{ $class }}">
-                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
                                         </td>
                                         <td class="fw-light text-center align-middle {{ $class }}">
-                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->informed_at) : '---' }}
+                                            @if (isset($list->Note->WorkForm))
+                                                <span class="badge text-bg-secondary">
+                                                    {{ Carbon::parse($list->Note->WorkForm->informed_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                                </span>
+                                            @else
+                                                ---
+                                            @endif
                                         </td>
                                         @php
                                             $daysLeft = new DaysLeft($list->Note);
@@ -536,10 +544,18 @@
                                         <td class="fw-light text-center align-middle {{ $class }}">
                                             {{ $list->Note->material }}</td>
                                         <td class="fw-light text-center align-middle {{ $class }}">
-                                            {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
                                         </td>
                                         <td class="fw-light text-center align-middle {{ $class }}">
-                                            {{ isset($list->Note->WorkForm) ? Carbon::now()->diffInDays($list->Note->WorkForm->informed_at) : '---' }}
+                                            @if (isset($list->Note->WorkForm))
+                                                <span class="badge text-bg-secondary">
+                                                    {{ Carbon::parse($list->Note->WorkForm->informed_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                                </span>
+                                            @else
+                                                ---
+                                            @endif
                                         </td>
                                         @php
                                             $daysLeft = new DaysLeft($list->Note);

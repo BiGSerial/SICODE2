@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\{Company, Note, Production, SystemSetting, User};
+use App\Services\Dispatch\PartnerStackQuery;
 use Illuminate\Support\Collection;
 use Throwable;
 
@@ -36,6 +37,11 @@ class SicodeRules
     public static function partnerCanClaimCompanyStack(): bool
     {
         return self::boolRule('dispatch.partner_can_claim_company_stack', true);
+    }
+
+    public static function paymentIgnoresOperation40AfterOperation30Confirmed(): bool
+    {
+        return self::boolRule('dispatch.payment.ignores_operation_40_after_operation_30_confirmed', false);
     }
 
     public static function workReportFieldEnabled(string $field): bool
@@ -232,33 +238,7 @@ class SicodeRules
 
     public static function openCompanyStackProductionFor(Note $note, User $user, string $serviceId): ?Production
     {
-        if (!$user->contract) {
-            return null;
-        }
-
-        $companyIds = self::visibleCompanyIdsFor($user);
-
-        if (!count($companyIds)) {
-            return null;
-        }
-
-        if ($note->relationLoaded('Productions')) {
-            return $note->Productions
-                ->where('service_id', $serviceId)
-                ->whereIn('company_id', $companyIds)
-                ->whereNull('user_id')
-                ->where('completed', false)
-                ->where('confirmed', false)
-                ->first();
-        }
-
-        return $note->Productions()
-            ->where('service_id', $serviceId)
-            ->whereIn('company_id', $companyIds)
-            ->whereNull('user_id')
-            ->where('completed', false)
-            ->where('confirmed', false)
-            ->first();
+        return app(PartnerStackQuery::class)->openFor($note, $serviceId, $user);
     }
 
     public static function dispatchDdFor(Note $note, string $serviceId, ?Production $production = null): ?string
@@ -296,7 +276,7 @@ class SicodeRules
 
         if (count($openProductionIds)) {
             $dd = $wpas
-                ->where('service_id', $serviceId)
+                ->filter(fn ($wpa) => (string) $wpa->service_id === (string) $serviceId || is_null($wpa->service_id))
                 ->whereIn('production_id', $openProductionIds)
                 ->sortByDesc('id')
                 ->first()?->dd;
@@ -307,7 +287,7 @@ class SicodeRules
         }
 
         $dd = $wpas
-            ->where('service_id', $serviceId)
+            ->filter(fn ($wpa) => (string) $wpa->service_id === (string) $serviceId || is_null($wpa->service_id))
             ->whereNull('production_id')
             ->sortByDesc('id')
             ->first()?->dd;
@@ -316,7 +296,7 @@ class SicodeRules
             return $dd;
         }
 
-        return $wpas->sortByDesc('id')->first()?->dd;
+        return $wpas->filter(fn ($wpa) => is_null($wpa->service_id))->sortByDesc('id')->first()?->dd;
     }
 
     private static function visibleCompanyIdsCollectionFor(User $user): Collection

@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Admin\Control;
 
 use App\Models\{Company, EvidenceFile, FiveNote, Production};
 use App\Services\Files\EvidenceFileService;
+use App\Services\WorkReports\WorkReportCurrentStatusRefresher;
 use Livewire\Component;
 
 class D5Edit extends Component
@@ -17,6 +18,7 @@ class D5Edit extends Component
     public $productionId;
 
     public $availableProductions = [];
+    public $availableWorkReports = [];
 
     public $linkedProductions = [];
 
@@ -55,6 +57,7 @@ class D5Edit extends Component
             'five.payed_at'         => ['nullable', 'date'],
             'five.is_archived'      => ['boolean'],
             'five.isPassive'        => ['boolean'],
+            'five.work_report_id'  => ['nullable', 'integer', 'exists:work_reports,id'],
             'five.returned'         => ['boolean'],
         ];
     }
@@ -67,8 +70,9 @@ class D5Edit extends Component
     public function getInfoResponse(FiveNote $five): void
     {
         $this->resetForm(false);
-        $this->five          = $five->load(['note', 'company', 'productions.user', 'productions.service', 'EvidenceFiles']);
+        $this->five          = $five->load(['note.WorkForms', 'note', 'company', 'WorkReport', 'productions.user', 'productions.service', 'EvidenceFiles']);
         $this->note          = $this->five->note;
+        $this->availableWorkReports = $this->five->note?->WorkForms?->sortByDesc("id")->map(fn ($report) => ["id" => $report->id, "selected_final_scopes" => $report->selected_final_scopes])->values()->all() ?? [];
         $this->lockCompleted = (bool) ($this->five->is_supervisioned || $this->five->supervisioned_at || $this->five->is_archived);
 
         $this->five->dispatch_at      = $this->formatDateTimeLocal($this->five->dispatch_at);
@@ -98,7 +102,17 @@ class D5Edit extends Component
             $this->five->completed_at = null;
         }
 
+        $validWorkReportIds = collect($this->availableWorkReports)->pluck("id")->map(fn ($id) => (int) $id);
+        if ($this->five->work_report_id && !$validWorkReportIds->contains((int) $this->five->work_report_id)) {
+            $this->addError("five.work_report_id", "O informe selecionado nao pertence a esta nota.");
+            return;
+        }
+        $previousWorkReportId = (int) ($this->five->getOriginal("work_report_id") ?? 0);
         $this->five->save();
+        $workReportIdsToRefresh = collect([$previousWorkReportId, (int) ($this->five->work_report_id ?? 0)])->filter()->unique();
+        foreach ($workReportIdsToRefresh as $workReportId) {
+            app(WorkReportCurrentStatusRefresher::class)->refresh((int) $workReportId);
+        }
         $this->pendingEvidenceSave = true;
         $this->emitTo('files.evidence.upload-evidence', 'saveEvidences', $this->five->id);
     }
@@ -196,11 +210,20 @@ class D5Edit extends Component
             return;
         }
 
-        $all = Production::with(['service', 'user'])
+        $all = Production::with(['service', 'user', 'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current'])
             ->where('note_id', $this->five->note_id)
             ->orderByDesc('created_at')
             ->get();
 
+        $all->each(function ($production): void {
+            $production->setAttribute("inform_ids", $production->WorkReportFlowProductions
+                ->where("is_current", true)
+                ->pluck("work_report_id")
+                ->filter()
+                ->unique()
+                ->values()
+                ->all());
+        });
         $linkedIds                  = $this->five->productions->pluck('id')->all();
         $this->linkedProductions    = $all->whereIn('id', $linkedIds)->values()->all();
         $this->availableProductions = $all->whereNotIn('id', $linkedIds)->values()->all();
@@ -264,6 +287,7 @@ class D5Edit extends Component
         $this->productionId         = null;
         $this->availableProductions = [];
         $this->linkedProductions    = [];
+        $this->availableWorkReports = [];
         $this->pendingEvidenceSave  = false;
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
 

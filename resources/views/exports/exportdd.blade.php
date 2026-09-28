@@ -15,6 +15,9 @@
             <th>STATUS</th>
             <th>CENTRO DE TRABALHO</th>
             <th>PRAZO REAL</th>
+            <th>DESPACHADO EM</th>
+            <th>ATRIBUÍDO EM</th>
+            <th>FINALIZADO EM</th>
         </tr>
     </thead>
     <tbody>
@@ -42,6 +45,10 @@
                 <td>{{ $export->nstats }}</td>
                 <td>{{ $export->centerjob }}</td>
                 <td>{{ 30 - $export->days_left }}</td>
+                @php($production = $export->Productions->sortByDesc('created_at')->first())
+                @foreach (['dispatch_at', 'att_at', 'completed_at'] as $dateField)
+                    <td>@if ($production?->{$dateField}){{ $production->{$dateField}->format('d/m/Y') }} ({{ $production->{$dateField}->copy()->startOfDay()->diffInDays(now()->startOfDay()) }} dia(s))@else---@endif</td>
+                @endforeach
             </tr>
         @endforeach
     </tbody>

@@ -255,8 +255,6 @@ class Stack extends Component
     public function go_att_mass()
     {
 
-        $this->clean();
-
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -268,17 +266,7 @@ class Stack extends Component
             return;
         }
 
-        $this->productions = Production::find($this->selected);
-
-        $this->notes = Note::whereHas('Productions', function ($query) {
-            return $query->whereIn('id', $this->selected);
-        })->get();
-
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForProductions', array_values($this->selected));
     }
 
     public function go_des_att_mass()
@@ -335,6 +323,7 @@ class Stack extends Component
 
     public function confirm_des_att_mass()
     {
+        abort_unless(!auth()->user()?->contract, 403);
         $erros = 0;
         $total = 0;
 
@@ -476,12 +465,12 @@ class Stack extends Component
                         }
 
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "{$user_info}",
                             'status'       => $this->user_s ? 2 : 1,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
 
                         // Wpa::create([
@@ -593,6 +582,7 @@ class Stack extends Component
 
     public function remove_att()
     {
+        abort_unless(!auth()->user()?->contract, 403);
         if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [

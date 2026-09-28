@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\File;
-use App\Services\Files\{FileStorageService, FileThumbnailService};
+use App\Models\{EvidenceFile, File, FileDownloadBatch};
+use App\Services\Files\{EvidenceFileService, EvidenceThumbnailService, FileStorageService, FileThumbnailService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -120,6 +120,39 @@ class FilesController extends Controller
         abort(404, 'Arquivo não encontrado para visualização.');
     }
 
+    public function previewEvidence(
+        EvidenceFile $file,
+        EvidenceFileService $evidence,
+        EvidenceThumbnailService $thumbnails,
+        Request $request
+    ) {
+        if (!$evidence->exists($file)) {
+            abort(404, 'Arquivo de evidencia nao encontrado para visualizacao.');
+        }
+
+        $name = $file->original_name ?: $file->stored_name ?: 'evidencia';
+        if ($request->boolean('thumbnail')) {
+            $thumbnail = $thumbnails->ensure($file);
+            if ($thumbnail) {
+                return response(
+                    Storage::disk($thumbnail['disk'])->get($thumbnail['path']),
+                    200,
+                    [
+                        'Content-Type' => 'image/webp',
+                        'Content-Disposition' => 'inline; filename="' . addslashes(pathinfo($name, PATHINFO_FILENAME) . '.webp') . '"',
+                        'Cache-Control' => 'private, max-age=86400',
+                    ]
+                );
+            }
+        }
+
+        return response($evidence->get($file), 200, [
+            'Content-Type'        => $evidence->mimeType($file),
+            'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+            'Cache-Control'       => 'private, max-age=300',
+        ]);
+    }
+
     public function zipSelected(Request $request)
     {
         $ids = collect(explode(',', (string) $request->query('ids', '')))
@@ -234,5 +267,21 @@ class FilesController extends Controller
         }
 
         return response()->download($zipFile)->deleteFileAfterSend(true);
+    }
+    public function downloadBatch(FileDownloadBatch $batch)
+    {
+        abort_unless((string) $batch->user_id === (string) auth()->id(), 403);
+        abort_unless($batch->status === "ready" && $batch->expires_at?->isFuture(), 410, "Este link de download expirou.");
+        $disk = Storage::disk($batch->disk ?: "local");
+        abort_unless($batch->path && $disk->exists($batch->path), 404, "Arquivo ZIP não encontrado.");
+
+        $absolutePath = $disk->path($batch->path);
+        clearstatcache(true, $absolutePath);
+        abort_unless(is_file($absolutePath) && filesize($absolutePath) > 0, 404, "Arquivo ZIP vazio ou indisponível.");
+
+        return response()->download($absolutePath, $batch->download_name ?: "arquivos.zip", [
+            "Content-Type" => "application/zip",
+            "Cache-Control" => "private, no-store",
+        ]);
     }
 }
