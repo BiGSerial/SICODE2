@@ -148,7 +148,7 @@ class Main extends Component
                 'user_id'      => Auth()->User()->id,
                 'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
                 'status'       => 2,
-                'productionId' => $production->id,
+                'production_id' => $production->id,
             ]);
 
             $this->dispatchBrowserEvent('swal', [

@@ -55,9 +55,9 @@ class ToAssign extends Component
     {
         $this->production = $production;
 
-        if ($this->production && $this->production->user_id) {
+        if ($this->production && $this->production->user_id && !auth()->user()?->contract) {
             $this->toRemoveAssign();
-        } elseif ($this->production && !$this->production->user_id) {
+        } elseif ($this->production && (!$this->production->user_id || auth()->user()?->contract)) {
             if ($this->production) {
                 if (!SicodeRules::userCanAccessCompany(auth()->user(), $this->production->company_id)) {
                     $this->dispatchBrowserEvent('swal', [

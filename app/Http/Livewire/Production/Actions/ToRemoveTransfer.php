@@ -17,6 +17,7 @@ class ToRemoveTransfer extends Component
 
     public function toRemoveTransfer(?Production $production)
     {
+        abort_unless(!auth()->user()?->contract, 403);
         $this->production = $production;
 
         if ($this->production) {

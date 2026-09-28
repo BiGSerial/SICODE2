@@ -65,21 +65,25 @@
                     </a>
                 </li>
 
-                <li>
-                    <a class="dropdown-item" href="#"
-                        wire:click.prevent="$emitTo('production.actions.to-remove', 'toRemove', {{ $production->id }})">
-                        <i class="ri-delete-bin-2-line text-danger align-middle"></i>
-                        Remover Atividade
-                    </a>
-                </li>
+                @unless (auth()->user()?->contract)
+                    <li>
+                        <a class="dropdown-item" href="#"
+                            wire:click.prevent="$emitTo('production.actions.to-remove', 'toRemove', {{ $production->id }})">
+                            <i class="ri-delete-bin-2-line text-danger align-middle"></i>
+                            Remover Atividade
+                        </a>
+                    </li>
+                @endunless
             @else
-                <li>
-                    <a class="dropdown-item" href="#"
-                        wire:click.prevent="$emitTo('production.actions.to-remove-transfer', 'toRemoveTransfer', {{ $production->id }})">
-                        <i class="ri-delete-row text-danger align-middle"></i>
-                        Remover Transferencia
-                    </a>
-                </li>
+                @unless (auth()->user()?->contract)
+                    <li>
+                        <a class="dropdown-item" href="#"
+                            wire:click.prevent="$emitTo('production.actions.to-remove-transfer', 'toRemoveTransfer', {{ $production->id }})">
+                            <i class="ri-delete-row text-danger align-middle"></i>
+                            Remover Transferencia
+                        </a>
+                    </li>
+                @endunless
             @endif
 
 

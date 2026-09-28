@@ -54,12 +54,12 @@ class Reattribute extends Component
 
                 if ($production) {
                     Notetimeline::Create([
-                        'note_id'      => $production->id,
+                        'note_id'      => $production->note_id,
                         'service_id'   => $production->service_id,
                         'user_id'      => Auth()->User()->id,
                         'info'         => 'A nota foi reatribuída.',
                         'status'       => 26,
-                        'productionId' => $production->id,
+                        'production_id' => $production->id,
                     ]);
                 }
 

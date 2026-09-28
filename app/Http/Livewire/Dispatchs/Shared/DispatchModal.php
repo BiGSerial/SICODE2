@@ -126,6 +126,21 @@ class DispatchModal extends Component
             ->filter()
             ->values()
             ->all());
+        if ($this->contractMode) {
+            $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+            $this->sourceProductionIdsByNote = Production::query()
+                ->whereIn('note_id', $this->notes->pluck('id'))
+                ->where('service_id', $this->service->uuid)
+                ->whereIn('company_id', $companyIds)
+                ->whereNull('user_id')
+                ->where('completed', false)
+                ->where('confirmed', false)
+                ->orderByDesc('dispatch_at')
+                ->get(['id', 'note_id'])
+                ->mapWithKeys(fn (Production $production) => [(string) $production->note_id => (int) $production->id])
+                ->all();
+        }
+
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();

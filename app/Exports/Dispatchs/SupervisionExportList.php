@@ -105,6 +105,9 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
             'Status',
             'Dias D5',
             'Situação',
+            'Despachado Em',
+            'Atribuído Em',
+            'Finalizado Em',
         ];
     }
 
@@ -172,8 +175,19 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
             ($row->nstats ?? '---') . ' / ' . ($row->centerjob ?? '---'),
             $d5Days,
             $row->pze_parecer ?? 'DESCONHECIDO',
+            $this->formatProductionDate($production?->dispatch_at),
+            $this->formatProductionDate($production?->att_at),
+            $this->formatProductionDate($production?->completed_at),
         ];
     }
+
+    private function formatProductionDate($date): string
+    {
+        if (!$date) { return "---"; }
+        $value = Carbon::parse($date);
+        return $value->format("d/m/Y H:i:s") . " (" . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . " dia(s))";
+    }
+
 
     public function properties(): array
     {

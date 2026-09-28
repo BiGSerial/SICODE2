@@ -367,7 +367,7 @@ class Main extends Component
                     'user_id'      => Auth()->User()->id,
                     'info'         => "Usuário {$user} encerrou a Nota/OV.",
                     'status'       => 5,
-                    'productionId' => $production->id,
+                    'production_id' => $production->id,
                 ]);
             }
 

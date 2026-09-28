@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\{Company, Note, Production, SystemSetting, User};
+use App\Services\Dispatch\PartnerStackQuery;
 use Illuminate\Support\Collection;
 use Throwable;
 
@@ -237,33 +238,7 @@ class SicodeRules
 
     public static function openCompanyStackProductionFor(Note $note, User $user, string $serviceId): ?Production
     {
-        if (!$user->contract) {
-            return null;
-        }
-
-        $companyIds = self::visibleCompanyIdsFor($user);
-
-        if (!count($companyIds)) {
-            return null;
-        }
-
-        if ($note->relationLoaded('Productions')) {
-            return $note->Productions
-                ->where('service_id', $serviceId)
-                ->whereIn('company_id', $companyIds)
-                ->whereNull('user_id')
-                ->where('completed', false)
-                ->where('confirmed', false)
-                ->first();
-        }
-
-        return $note->Productions()
-            ->where('service_id', $serviceId)
-            ->whereIn('company_id', $companyIds)
-            ->whereNull('user_id')
-            ->where('completed', false)
-            ->where('confirmed', false)
-            ->first();
+        return app(PartnerStackQuery::class)->openFor($note, $serviceId, $user);
     }
 
     public static function dispatchDdFor(Note $note, string $serviceId, ?Production $production = null): ?string

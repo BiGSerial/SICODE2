@@ -411,12 +411,12 @@ class Main extends Component
 
                     if ($production) {
                         Notetimeline::Create([
-                            'note_id' => $production->id,
+                            'note_id' => $production->note_id,
                             'service_id' => $production->service_id,
                             'user_id' => Auth()->User()->id,
                             'info' => "Usuário {$user} {$user_info}",
                             'status' => 2,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
                     }
 
@@ -449,12 +449,12 @@ class Main extends Component
                     $user = Auth()->User()->name;
                     $user_info = "Despachou a NOTA/OV para:" . (Company::find($this->company_s)?->name ?? "Desconhecido");
                     Notetimeline::Create([
-                        "note_id" => $production->id,
+                        "note_id" => $production->note_id,
                         "service_id" => $production->service_id,
                         "user_id" => Auth()->User()->id,
                         "info" => "Usuário {$user} {$user_info}",
                         "status" => 1,
-                        "productionId" => $production->id,
+                        'production_id' => $production->id,
                     ]);
                 } else {
                     $erros[] = $erro;

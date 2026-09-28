@@ -192,28 +192,18 @@ class Main extends Component
 
     public function hasPublication(Note $note)
     {
-        $workReport = $note->WorkForm;
+        $workReport = $note->WorkForm instanceof WorkReport ? $note->WorkForm : null;
 
-        if ($workReport) {
-            $production = $workReport->FlowProductions
-                ?->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION)
-                ->where('is_current', true)
-                ->pluck('Production')
-                ->filter(fn ($production) => $production && (string) $production->service_id === (string) $this->service->uuid)
-                ->last();
-
-            if ($production) {
-                return $production;
-            }
-        }
-
-        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
-
-        if ($production) {
-            return $production;
-        } else {
+        if (!$workReport) {
             return false;
         }
+
+        return collect($workReport->FlowProductions ?? [])
+            ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION)
+            ->where('is_current', true)
+            ->pluck('Production')
+            ->filter(fn ($production) => $production && (string) $production->service_id === (string) $this->service->uuid)
+            ->last() ?: false;
     }
 
     public function hasPublicationCount(Note $note)
@@ -376,12 +366,12 @@ class Main extends Component
                         $this->linkPublicationWorkReport($production, $note);
 
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "Usuário {$user} {$user_info}",
                             'status'       => 2,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
                     }
                 } else {
@@ -413,12 +403,12 @@ class Main extends Component
                         $this->linkPublicationWorkReport($production, $note);
 
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "Usuário {$user} {$user_info}",
                             'status'       => 1,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
                     }
                 } else {
@@ -598,12 +588,23 @@ class Main extends Component
 
         // Eager Loading e Seleção de Colunas
         $query->with([
-            'Productions',
-            'WorkForm.Company',
-            'WorkForm.Orders',
-            'WorkForm.FlowProductions.Production',
-            'WorkForms' => fn ($q) => $q->where('canceled', false)->with(['Company', 'Orders.Operations', 'FlowProductions.Production', 'FiveNote']),
-            'RamalForm',
+            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)->select([
+                'id', 'note_id', 'service_id', 'user_id', 'company_id',
+                'completed', 'confirmed', 'status', 'created_at',
+            ]),
+            'WorkForms' => fn ($q) => $q->where('canceled', false)->select([
+                'id', 'note_id', 'company_id', 'date', 'informed_at',
+                'created_at', 'rejected', 'canceled', 'selected_final_scopes',
+            ])->with([
+                'Note:id,type_note',
+                'Company:id,name,deleted_at',
+                'Orders:id,note_id,ordem,statusSist',
+                'Orders.Operations:id,order_id,operacao,status',
+                'FlowProductions:id,work_report_id,production_id,stage,is_current',
+                'FlowProductions.Production:id,note_id,service_id,user_id,company_id,completed,confirmed,status,created_at',
+                'FiveNote',
+            ]),
+            'RamalForm.Company',
         ])
             ->select([
                 'notes.*',
@@ -704,8 +705,7 @@ class Main extends Component
             })->values();
 
             if ($eligible->isEmpty()) {
-                $note->setAttribute('publication_context_key', (string) $note->id);
-                return [$note];
+                return [];
             }
 
             return $eligible->map(function ($report) use ($note) {
@@ -751,9 +751,18 @@ class Main extends Component
 
     private function linkPublicationWorkReport(Production $production, Note $note): void
     {
-        $workReport = $note->WorkForm instanceof WorkReport
-            ? $note->WorkForm
-            : $note->WorkForm()->with('Orders')->first();
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
+        if ($workReportId <= 0) {
+            return;
+        }
+
+        $workReport = WorkReport::query()
+            ->whereKey($workReportId)
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->with('Orders')
+            ->first();
 
         if (!$workReport) {
             return;

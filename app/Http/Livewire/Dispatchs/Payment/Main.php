@@ -721,12 +721,12 @@ class Main extends Component
                 }
 
                 Notetimeline::create([
-                    'note_id'      => $production->id, // (verifique se aqui não deveria ser $note->id)
+                    'note_id'      => $note->id,
                     'service_id'   => $production->service_id,
                     'user_id'      => $dispatcherId,
                     'info'         => "Usuário " . auth()->user()->name . " despachou a Nota/OV para: {$targetName}",
                     'status'       => $data['status'],
-                    'productionId' => $production->id,
+                    'production_id' => $production->id,
                 ]);
 
                 $productionFiveNote = $note->WorkForm?->FiveNote ?? $note->FiveNote;

@@ -350,12 +350,12 @@ class Stack extends Component
                         }
 
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "{$user_info}",
                             'status'       => $this->user_s ? 2 : 1,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
 
                         // Wpa::create([
@@ -471,6 +471,7 @@ class Stack extends Component
 
     public function remove_att()
     {
+        abort_unless(!auth()->user()?->contract, 403);
         if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [

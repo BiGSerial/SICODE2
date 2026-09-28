@@ -695,12 +695,12 @@ class DispatchWorkflowService
     private function timeline(Production $production, User $actor, string $info, int $status): void
     {
         Notetimeline::create([
-            'note_id' => $production->id,
+            'note_id' => $production->note_id,
             'service_id' => $production->service_id,
             'user_id' => $actor->id,
             'info' => "Usuario {$actor->name} {$info}",
             'status' => $status,
-            'productionId' => $production->id,
+            'production_id' => $production->id,
         ]);
     }
 
