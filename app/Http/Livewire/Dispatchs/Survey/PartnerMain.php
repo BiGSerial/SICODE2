@@ -895,6 +895,8 @@ class PartnerMain extends Component
             'Productions.User',
             'Productions.Company',
             'Wpas',
+            'WorkForms',
+            'Partials',
         ])
                     ->orderBy('is45', 'DESC')
                     ->orderBy('type_note', 'DESC')

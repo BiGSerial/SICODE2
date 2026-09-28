@@ -721,6 +721,16 @@
                                             </span>
                                         @endif
                                     </span>
+                                    @if (($list->WorkForms ?? collect())->isNotEmpty())
+                                        @foreach ($list->WorkForms as $workForm)
+                                            <small class="d-block text-muted mt-1">Informe #{{ $workForm->id }}</small>
+                                        @endforeach
+                                    @endif
+                                    @if (($list->Partials ?? collect())->isNotEmpty())
+                                        @foreach ($list->Partials as $partial)
+                                            <small class="d-block text-muted mt-1">Parcial #{{ $partial->id }}</small>
+                                        @endforeach
+                                    @endif
                                     <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-survey-main-'.$list->id" />
                                 </td>
                                 <td class="fw-bold text-danger text-center {{ $rowClass }}">

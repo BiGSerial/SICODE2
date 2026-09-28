@@ -335,7 +335,7 @@
                                 $dispatchPayload = $workReportId
                                     ? [['note_id' => (int) $list->id, 'work_report_id' => $workReportId]]
                                     : [(int) $list->id];
-                                $partial = !$wf ? $list->Partials->first() ?? null : null;
+                                $partial = !$wf ? ((int) ($list->dispatch_partial_id ?? 0) > 0 ? ($list->Partials->firstWhere('id', (int) $list->dispatch_partial_id) ?? $list->Partials->first()) : $list->Partials->first()) : null;
                                 $orders = $wf
                                     ? $workForms->flatMap(fn ($workForm) => $workForm->Orders ?? collect())
                                     : ($partial
@@ -402,6 +402,12 @@
                                         </span>
                                     @else
                                         {{ $list->note }}
+                                    @endif
+                                    @if ((int) ($workReportId ?? 0) > 0)
+                                        <small class="d-block text-muted mt-1">Informe #{{ $workReportId }}</small>
+                                    @endif
+                                    @if ((int) ($list->dispatch_partial_id ?? 0) > 0)
+                                        <small class="d-block text-muted mt-1">Parcial #{{ $list->dispatch_partial_id }}</small>
                                     @endif
                                     <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-payment-main-'.$selectionKey" />
                                 </td>
