@@ -948,7 +948,8 @@ class Main extends Component
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)
+        $lists = $this->lists->paginate($this->perPage);
+        $this->filteredLists = $lists
             ->filter(fn ($list) => $this->canDispatchNote($list));
 
         if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
@@ -988,7 +989,7 @@ class Main extends Component
 
 
         return view('livewire.dispatchs.survey.main', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists' => $lists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first()
         ]);
     }

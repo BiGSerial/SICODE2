@@ -4,11 +4,13 @@ namespace App\Http\Livewire\Admin\Control;
 
 use App\Enum\AdsRequestStatus;
 use App\Models\AdsRequest;
+use App\Models\File;
 use App\Models\Company;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\WorkReport;
 use Illuminate\Support\Facades\DB;
+use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Livewire\Component;
 
 class WorkReportEdit extends Component
@@ -23,6 +25,15 @@ class WorkReportEdit extends Component
     public $linkedOrders = [];
     public $deleteAdsFormId = null;
     public ?array $firstValidAdsRequest = null;
+    public array $relatedWorkReports = [];
+    public array $relatedWorkReportOptions = [];
+    public array $availableFinalScopes = [];
+    public array $splitScopeSelection = [];
+    public string $activeTab = 'details';
+    public array $workReportFiles = [];
+    public array $selectedFileIds = [];
+    public array $fileTargetByFile = [];
+    public $fileTargetWorkReportId = null;
 
     public bool $adsFormEnabled = false;
     public ?int $adsFormId = null;
@@ -85,6 +96,10 @@ class WorkReportEdit extends Component
     {
         $this->companies = Company::orderBy('name')->get();
         $this->users = User::orderBy('name')->get();
+        $this->availableFinalScopes = [
+            WorkReportFinalScopeResolver::SCOPE_NETWORK,
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION,
+        ];
     }
 
     public function getInfoResponse(WorkReport $workReport): void
@@ -100,9 +115,343 @@ class WorkReportEdit extends Component
 
         $this->refreshOrders();
         $this->refreshFirstValidAdsRequest();
+        $this->refreshRelatedWorkReports();
+        $this->refreshWorkReportFiles();
+        $this->splitScopeSelection = [];
+        $this->selectedFileIds = [];
+        $this->fileTargetByFile = [];
+        $this->fileTargetWorkReportId = $this->workReport->id;
+        $this->activeTab = 'details';
 
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'adminWorkReportModal',
+        ]);
+    }
+
+    public function switchRelatedWorkReport(int $workReportId): void
+    {
+        $noteId = (int) ($this->workReport?->note_id ?: 0);
+        $target = WorkReport::query()
+            ->whereKey($workReportId)
+            ->where('note_id', $noteId)
+            ->first();
+
+        if ($target) {
+            $this->getInfoResponse($target);
+        }
+    }
+
+    public function splitWorkReportByScopes(): void
+    {
+        if (!$this->workReport) {
+            return;
+        }
+
+        $currentScopes = collect($this->workReport->finalScopeBadges())
+            ->pluck('scope')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($currentScopes->count() !== 2) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'info',
+                'title' => 'Separação indisponível',
+                'html' => 'A separação só pode ser feita quando o informe possuir os dois escopos: Rede e Ligação.',
+                'timer' => 3000,
+            ]);
+
+            return;
+        }
+
+        $scopes = collect($this->splitScopeSelection)
+            ->map(fn ($scope) => (string) $scope)
+            ->intersect($this->availableFinalScopes)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($scopes) < 1) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Selecione o escopo que será separado',
+                'timer' => 2200,
+            ]);
+
+            return;
+        }
+
+        $source = $this->workReport->load([
+            'Note',
+            'Orders',
+            'FlowProductions',
+        ]);
+        $ordersByScope = $this->ordersByScope($source);
+        $sourceOrderIds = $source->Orders->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $selectedOrderIds = collect($scopes)
+            ->flatMap(fn ($scope) => $ordersByScope[$scope] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        $remainingOrderIds = array_values(array_diff($sourceOrderIds, $selectedOrderIds));
+
+        if (empty($selectedOrderIds) || empty($remainingOrderIds)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Não foi possível separar esse escopo',
+                'html' => empty($selectedOrderIds)
+                    ? 'Não existem ordens identificadas para o escopo selecionado.'
+                    : 'O informe original precisa manter ao menos uma ordem.',
+                'timer' => 3000,
+            ]);
+
+            return;
+        }
+
+        $now = now();
+        $created = [];
+
+        DB::transaction(function () use ($source, $scopes, $ordersByScope, $remainingOrderIds, $now, &$created) {
+            $sourceAttributes = $source->getAttributes();
+            $remainingScopes = collect($ordersByScope)
+                ->filter(fn (array $ids, string $scope) => !empty(array_intersect($ids, $remainingOrderIds)))
+                ->keys()
+                ->values()
+                ->all();
+
+            $source->Orders()->sync($remainingOrderIds);
+            $source->selected_final_scopes = $remainingScopes ?: null;
+            $source->save();
+
+            foreach ($scopes as $scope) {
+                $orderIds = array_values(array_diff($ordersByScope[$scope] ?? [], $remainingOrderIds));
+
+                if (empty($orderIds)) {
+                    continue;
+                }
+
+                $alreadyExists = WorkReport::query()
+                    ->where('note_id', $source->note_id)
+                    ->where('id', '!=', $source->id)
+                    ->whereJsonContains('selected_final_scopes', $scope)
+                    ->first();
+
+                if ($alreadyExists) {
+                    $alreadyExists->Orders()->syncWithoutDetaching($orderIds);
+                    $created[] = $alreadyExists->id;
+                    continue;
+                }
+
+                $attributes = $sourceAttributes;
+                unset($attributes['id'], $attributes['created_at'], $attributes['updated_at']);
+                $attributes['selected_final_scopes'] = [$scope];
+                $attributes['date'] = $now->toDateString();
+                $attributes['informed_at'] = $now;
+
+                $clone = new WorkReport();
+                $clone->forceFill($attributes);
+                $clone->save();
+                $clone->Orders()->sync($orderIds);
+
+                foreach ($source->FlowProductions as $flow) {
+                    $flowAttributes = $flow->getAttributes();
+                    unset(
+                        $flowAttributes['id'],
+                        $flowAttributes['created_at'],
+                        $flowAttributes['updated_at'],
+                        $flowAttributes['work_report_id'],
+                        $flowAttributes['production_id'],
+                        $flowAttributes['stage'],
+                        $flowAttributes['final_scope'],
+                    );
+
+                    \App\Models\WorkReportFlowProduction::updateOrCreate(
+                        [
+                            'work_report_id' => $clone->id,
+                            'production_id' => $flow->production_id,
+                            'stage' => $flow->stage,
+                            'final_scope' => $scope,
+                        ],
+                        [
+                            ...$flowAttributes,
+                            'is_current' => $flow->is_current,
+                            'linked_at' => $flow->linked_at,
+                            'linked_by' => $flow->linked_by,
+                            'source' => $flow->source,
+                            'metadata' => $flow->metadata,
+                        ],
+                    );
+                }
+
+                $created[] = $clone->id;
+            }
+        });
+
+        $this->workReport->refresh()->load(['Note', 'Company', 'User', 'Orders', 'Adsform.Files']);
+        $this->informedAt = $this->formatDateTimeLocal($this->workReport->informed_at);
+        $this->splitScopeSelection = [];
+        $this->refreshOrders();
+        $this->refreshRelatedWorkReports();
+        $this->refreshWorkReportFiles();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => 'Escopo separado com sucesso',
+            'html' => 'Novo informe: #' . implode(', #', $created) . '<br>Data da separação: ' . $now->format('d/m/Y H:i'),
+            'timer' => 3500,
+        ]);
+    }
+
+    private function ordersByScope(WorkReport $workReport): array
+    {
+        $payloads = app(WorkReportFinalScopeResolver::class)->resolve(
+            $workReport->Note?->type_note,
+            $workReport->Orders
+        );
+
+        return collect($payloads)
+            ->mapWithKeys(fn (array $payload) => [
+                $payload['scope'] => collect($payload['orders'])
+                    ->pluck('id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->values()
+                    ->all(),
+            ])
+            ->all();
+    }
+
+    private function refreshRelatedWorkReports(): void
+    {
+        if (!$this->workReport?->note_id) {
+            $this->relatedWorkReports = [];
+            $this->relatedWorkReportOptions = [];
+            return;
+        }
+
+        $reports = WorkReport::query()
+            ->with(['Company', 'User'])
+            ->where('note_id', $this->workReport->note_id)
+            ->orderByDesc('id')
+            ->get();
+
+        $this->relatedWorkReports = $reports->all();
+        $this->relatedWorkReportOptions = $reports->map(fn (WorkReport $report): array => [
+            'id' => (int) $report->id,
+            'label' => collect($report->finalScopeBadges())->pluck('label')->implode(' / ') ?: 'Geral',
+        ])->values()->all();
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['details', 'files'], true) ? $tab : 'details';
+
+        if ($this->activeTab === 'files') {
+            $this->refreshWorkReportFiles();
+        }
+    }
+
+    private function refreshWorkReportFiles(): void
+    {
+        $reportIds = collect($this->relatedWorkReports)->pluck('id')->filter()->map(fn ($id) => (int) $id)->values();
+
+        if ($reportIds->isEmpty() && $this->workReport?->id) {
+            $reportIds = collect([(int) $this->workReport->id]);
+        }
+
+        if ($reportIds->isEmpty()) {
+            $this->workReportFiles = [];
+            return;
+        }
+
+        $this->fileTargetByFile = [];
+        $this->workReportFiles = File::query()
+            ->whereHas('WorkReports', fn ($query) => $query->whereIn('work_reports.id', $reportIds->all()))
+            ->with(['WorkReports:id,note_id'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (File $file): array {
+                $relatedReportIds = $file->WorkReports
+                    ->where('note_id', $this->workReport?->note_id)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->values()
+                    ->all();
+
+                $this->fileTargetByFile[(int) $file->id] = $relatedReportIds[0] ?? $this->workReport?->id;
+
+                return [
+                    'id' => (int) $file->id,
+                    'name' => (string) ($file->original_name ?: $file->file_name ?: 'Arquivo sem nome'),
+                    'type' => strtoupper((string) ($file->ext ?: pathinfo((string) $file->file_name, PATHINFO_EXTENSION) ?: 'ARQ')),
+                    'size' => (int) $file->size,
+                    'report_ids' => $relatedReportIds,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function associateFileToWorkReport(int $fileId, int $targetWorkReportId = 0): void
+    {
+        $targetWorkReportId = $targetWorkReportId ?: (int) ($this->fileTargetByFile[$fileId] ?? 0);
+        $this->moveFilesToWorkReport([$fileId], $targetWorkReportId);
+    }
+
+    public function associateSelectedFiles(): void
+    {
+        $this->moveFilesToWorkReport($this->selectedFileIds, (int) $this->fileTargetWorkReportId);
+    }
+
+    private function moveFilesToWorkReport(array $fileIds, int $targetWorkReportId): void
+    {
+        $reportIds = collect($this->relatedWorkReports)->pluck('id')->filter()->map(fn ($id) => (int) $id)->values();
+        $target = WorkReport::query()
+            ->whereKey($targetWorkReportId)
+            ->whereIn('id', $reportIds->all())
+            ->first();
+
+        $fileIds = collect($fileIds)->filter()->map(fn ($id) => (int) $id)->unique()->values();
+
+        if (!$target || $fileIds->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Selecione os arquivos e o informe destino',
+                'timer' => 2200,
+            ]);
+            return;
+        }
+
+        $files = File::query()
+            ->whereIn('id', $fileIds->all())
+            ->whereHas('WorkReports', fn ($query) => $query->whereIn('work_reports.id', $reportIds->all()))
+            ->get();
+
+        DB::transaction(function () use ($files, $reportIds, $target): void {
+            foreach ($files as $file) {
+                $file->WorkReports()->detach($reportIds->all());
+                $target->Files()->syncWithoutDetaching([$file->id]);
+            }
+        });
+
+        $count = $files->count();
+        $this->selectedFileIds = [];
+        $this->fileTargetWorkReportId = $target->id;
+        $this->refreshWorkReportFiles();
+        $this->activeTab = 'files';
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon' => 'success',
+            'title' => $count . ' arquivo(s) atualizado(s)',
+            'html' => 'Associação alterada para o informe #' . $target->id . '.',
+            'timer' => 2500,
         ]);
     }
 
@@ -130,6 +479,8 @@ class WorkReportEdit extends Component
     private function refreshFirstValidAdsRequest(): void
     {
         $this->firstValidAdsRequest = null;
+        $this->relatedWorkReports = [];
+        $this->splitScopeSelection = [];
 
         if (!$this->workReport?->note_id) {
             return;
@@ -265,6 +616,11 @@ class WorkReportEdit extends Component
         $this->availableOrders = [];
         $this->linkedOrders = [];
         $this->firstValidAdsRequest = null;
+        $this->workReportFiles = [];
+        $this->selectedFileIds = [];
+        $this->fileTargetByFile = [];
+        $this->fileTargetWorkReportId = null;
+        $this->activeTab = 'details';
         $this->deleteAdsFormId = null;
         $this->resetAdsFormState();
 

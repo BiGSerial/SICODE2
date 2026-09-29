@@ -13,6 +13,9 @@
                         <h6 class="modal-title d-flex align-items-center gap-2">
                             <i class="ri-edit-2-line me-1"></i>
                             <span>Editar D5</span>
+                            @if ($five?->isPassive)
+                                <span class="badge text-bg-warning">Passivo</span>
+                            @endif
                             @if ($five?->note_d5)
                                 <span class="fivefx-pill">D5: {{ $five->note_d5 }}</span>
                             @endif
@@ -97,6 +100,20 @@
                                         </div>
                                     </div>
 
+                                    <div class="row g-3 mt-1">
+                                        <div class="col-md-6">
+                                            <label class="form-label fivefx-k">Informe associado</label>
+                                            <select class="form-select fivefx-select @error("five.work_report_id") is-invalid @enderror" wire:model.defer="five.work_report_id">
+                                                <option value="">Sem informe (legado/passivo)</option>
+                                                @foreach ($availableWorkReports as $workReport)
+                                                    <option value="{{ $workReport["id"] }}">#{{ $workReport["id"] }} — {{ collect($workReport["selected_final_scopes"] ?? ["general"])->map(fn ($scope) => match ($scope) { "connection" => "Ligação", "network" => "Rede", default => "Geral" })->implode(", ") }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error("five.work_report_id")
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
                                     <div class="row g-3 mt-1">
                                         <div class="col-md-6">
                                             <label class="form-label fivefx-k">Codificacao</label>
@@ -280,6 +297,7 @@
                                                     <tr class="text-secondary">
                                                         <th scope="col">ID</th>
                                                         <th scope="col">Servico</th>
+                                                        <th scope="col">Informe</th>
                                                         <th scope="col">Usuario</th>
                                                         <th scope="col"></th>
                                                     </tr>
@@ -289,6 +307,13 @@
                                                         <tr>
                                                             <td>{{ $production['id'] ?? '' }}</td>
                                                             <td>{{ $production['service']['service'] ?? '---' }}</td>
+                                                            <td>
+                                                                @forelse (($production['inform_ids'] ?? []) as $informId)
+                                                                    <span class="badge bg-light text-dark">#{{ $informId }}</span>
+                                                                @empty
+                                                                    <span class="text-muted">---</span>
+                                                                @endforelse
+                                                            </td>
                                                             <td>{{ $production['user']['name'] ?? '---' }}</td>
                                                             <td class="text-end">
                                                                 <button type="button"
@@ -320,6 +345,7 @@
                                                     <tr class="text-secondary">
                                                         <th scope="col">ID</th>
                                                         <th scope="col">Servico</th>
+                                                        <th scope="col">Informe</th>
                                                         <th scope="col">Usuario</th>
                                                         <th scope="col">D5</th>
                                                         <th scope="col"></th>
@@ -330,6 +356,13 @@
                                                         <tr>
                                                             <td>{{ $production['id'] ?? '' }}</td>
                                                             <td>{{ $production['service']['service'] ?? '---' }}</td>
+                                                            <td>
+                                                                @forelse (($production['inform_ids'] ?? []) as $informId)
+                                                                    <span class="badge bg-light text-dark">#{{ $informId }}</span>
+                                                                @empty
+                                                                    <span class="text-muted">---</span>
+                                                                @endforelse
+                                                            </td>
                                                             <td>{{ $production['user']['name'] ?? '---' }}</td>
                                                             <td>
                                                                 <button type="button"

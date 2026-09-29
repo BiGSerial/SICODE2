@@ -43,7 +43,8 @@ class Search extends Component
             ->where(function ($q) use ($term) {
                 $q->where('note', $term)
                   ->orWhereHas('Orders', fn ($qq) => $qq->where('ordem', $term))
-                  ->orWhereHas('FiveNote', fn ($qq) => $qq->where('note_d5', $term));
+                  ->orWhereHas('FiveNote', fn ($qq) => $qq->where('note_d5', $term))
+                  ->orWhereHas('FiveNotes', fn ($qq) => $qq->where('note_d5', $term));
             })
             ->with([
                 // D5
@@ -61,6 +62,37 @@ class Search extends Component
                         'is_archived',
                         'is_supervisioned',
                         'completed_at',
+                    ]);
+                },
+                'LegacyFiveNote' => function ($q) {
+                    $q->with([
+                        'productions.Service:id,uuid,service',
+                        'productions.User:id,name,email',
+                    ])->select([
+                        'id',
+                        'note_id',
+                        'work_report_id',
+                        'note_d5',
+                        'visible_partner',
+                        'is_completed',
+                        'is_payed',
+                        'is_archived',
+                        'is_supervisioned',
+                        'completed_at',
+                    ]);
+                },
+
+                // Todas as D5 da Nota/OV, incluindo as vinculadas diretamente a informes.
+                "FiveNotes" => function ($q) {
+                    $q->with([
+                        "productions.Service:id,uuid,service",
+                        "productions.WorkReportFlowProductions" => fn ($flow) => $flow
+                            ->where("is_current", true)
+                            ->with("WorkReport:id,selected_final_scopes,current_status_label,current_status_class"),
+                        "WorkReport:id,selected_final_scopes,current_status_label,current_status_class",
+                    ])->select([
+                        "id", "note_id", "work_report_id", "note_d5", "visible_partner",
+                        "is_completed", "is_payed", "is_archived", "is_supervisioned", "completed_at",
                     ]);
                 },
 
@@ -91,6 +123,8 @@ class Search extends Component
                           'Service:id,uuid,service',
                           'User:id,name,email',
                           'Company:id,name',
+                          'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current',
+                          'partialInforms:id',
                       ])
                       ->select([
                           'id','note_id','service_id','user_id','company_id',
@@ -127,6 +161,10 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                         'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
 
                         // CORRETO: equipamentos referenciam work_report_id
                         'Equipment:id,work_report_id',
@@ -138,7 +176,7 @@ class Search extends Component
                             $query->with([
                                 'Production.Service:id,uuid,service',
                                 'Production.User:id,name,email',
-                                'Production.Company:id,name',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
                                 'LinkedBy:id,name,email',
                             ])
                                 ->orderBy('stage')
@@ -150,7 +188,8 @@ class Search extends Component
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
                         'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
                     ]);
                 },
 
@@ -158,6 +197,10 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                         'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
                         'Equipment:id,work_report_id',
                         'Returnwork:id,work_report_id,created_at',
                         'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
@@ -165,7 +208,7 @@ class Search extends Component
                             $query->with([
                                 'Production.Service:id,uuid,service',
                                 'Production.User:id,name,email',
-                                'Production.Company:id,name',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
                                 'LinkedBy:id,name,email',
                             ])
                                 ->orderBy('stage')
@@ -177,8 +220,77 @@ class Search extends Component
                     ->select([
                         'id','note_id','company_id','user_id','team','responsible','date','created_at',
                         'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta'
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
                     ]);
+                },
+
+                'WorkForms' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
+                        'Equipment:id,work_report_id',
+                        'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'FlowProductions' => function ($query) {
+                            $query->with([
+                                'Production.Service:id,uuid,service',
+                                'Production.User:id,name,email',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
+                                'LinkedBy:id,name,email',
+                            ])
+                                ->orderBy('stage')
+                                ->orderByDesc('is_current')
+                                ->orderBy('linked_at')
+                                ->orderBy('id');
+                        },
+                    ])
+                    ->select([
+                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
+                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
+                    ])
+                    ->orderBy('created_at')
+                    ->orderBy('id');
+                },
+
+                'WorkFormsAny' => function ($q) {
+                    $q->with([
+                        'Orders:id,ordem',
+                        'Company:id,name',
+                        'FiveNote' => fn ($five) => $five->with([
+                            'productions.Service:id,uuid,service',
+                            'productions.User:id,name,email',
+                        ])->select(['id', 'note_id', 'work_report_id', 'note_d5', 'visible_partner', 'is_completed', 'is_payed', 'is_archived', 'is_supervisioned', 'completed_at']),
+                        'Equipment:id,work_report_id',
+                        'Returnwork:id,work_report_id,created_at',
+                        'Adsform:id,work_report_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'FlowProductions' => function ($query) {
+                            $query->with([
+                                'Production.Service:id,uuid,service',
+                                'Production.User:id,name,email',
+                                'Production.fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
+                                'LinkedBy:id,name,email',
+                            ])
+                                ->orderBy('stage')
+                                ->orderByDesc('is_current')
+                                ->orderBy('linked_at')
+                                ->orderBy('id');
+                        },
+                    ])
+                    ->select([
+                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
+                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
+                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
+                        'selected_final_scopes'
+                    ])
+                    ->orderBy('created_at')
+                    ->orderBy('id');
                 },
 
                 'RamalForm' => function ($q) {

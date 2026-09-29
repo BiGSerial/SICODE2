@@ -188,6 +188,8 @@ Route::prefix('/construction/{service}')->controller(ConstructionController::cla
 
 Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->name('dispatch.')->middleware('auth')->middleware('check.service.dispatch:services')->group(function () {
     Route::get('/main', 'survey_main')->name('main');
+    Route::get('/partner', 'partner')->name('partner');
+    Route::get('/partner/stack', 'partner_stack')->name('partner.stack');
     Route::get('/stack', 'survey_stack')->name('stack');
     Route::get('/stack2', 'survey_stack2')->name('stack2');
     Route::get('/transfer', 'survey_transfer')->name('transprod');
@@ -487,9 +489,11 @@ Route::prefix('/PDF')->controller(PdfController::class)->name('pdf.')->middlewar
 // Files Controller Manager
 Route::prefix('/files')->controller(FilesController::class)->name('files.')->middleware('auth')->group(function () {
     Route::get('/', 'main')->name('main');
+    Route::get('/evidence/{file}/preview', 'previewEvidence')->name('evidence.preview');
     Route::get('/files/{file}/preview', 'preview')->name('preview');
     Route::get('/files/{file}/download', 'download')->name('download');
     Route::get('/files/zip', 'zipSelected')->name('zip');
+    Route::get('/batches/{batch}/download', 'downloadBatch')->middleware(['signed', 'throttle:30,1'])->name('batch.download');
 });
 
 Route::get('/info', function () {

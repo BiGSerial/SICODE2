@@ -189,24 +189,11 @@
                                                 @foreach ($flowProductions as $flowProduction)
                                                     @php
                                                         $production = $flowProduction->Production;
-                                                        $stageLabel = match ($flowProduction->stage) {
-                                                            \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION => 'Fiscalização',
-                                                            \App\Models\WorkReportFlowProduction::STAGE_PAYMENT => 'Medição',
-                                                            default => mb_strtoupper($flowProduction->stage ?? '-'),
-                                                        };
-                                                        $sourceLabel = match ($flowProduction->source) {
-                                                            'retrofill_inference' => 'Retrofill',
-                                                            'dispatch_supervision_main' => 'Despacho Fiscalização',
-                                                            'dispatch_payment_main' => 'Despacho Medição',
-                                                            'dispatch_payment_stack' => 'Pilha Medição',
-                                                            'services_payment_self_assign' => 'Autoatribuição Medição',
-                                                            default => $flowProduction->source ?: '-',
-                                                        };
                                                     @endphp
                                                     <tr>
                                                         <td class="text-center">
-                                                            <span class="badge {{ $flowProduction->stage === \App\Models\WorkReportFlowProduction::STAGE_PAYMENT ? 'text-bg-primary' : 'text-bg-success' }}">
-                                                                {{ $stageLabel }}
+                                                            <span class="badge {{ $flowProduction->stageBadgeClass() }}">
+                                                                {{ $flowProduction->stageLabel() }}
                                                             </span>
                                                         </td>
                                                         <td class="text-center">
@@ -230,7 +217,7 @@
                                                             {{ $production?->completed_at ? $production->completed_at->format('d/m/Y H:i') : '-' }}
                                                         </td>
                                                         <td class="text-center">
-                                                            <span class="badge text-bg-light border">{{ $sourceLabel }}</span>
+                                                            <span class="badge text-bg-light border">{{ $flowProduction->sourceLabel() }}</span>
                                                         </td>
                                                         <td class="text-center">
                                                             <span class="badge {{ $flowProduction->is_current ? 'text-bg-success' : 'text-bg-secondary' }}">

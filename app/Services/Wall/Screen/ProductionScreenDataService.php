@@ -280,7 +280,7 @@ class ProductionScreenDataService implements WallScreenDataService
                 $sourceConfig['search'] ?? null,
                 (string) ($sourceConfig['filter_group'] ?? 'payment')
             ),
-            'publish_repository'     => $this->publishRepository->getBaseQuery((bool) ($sourceConfig['all_services'] ?? false)),
+            'publish_repository'     => $this->publishRepository->getBaseQuery((bool) ($sourceConfig['all_services'] ?? false), $service->uuid),
             'supervision_repository' => $this->supervisionRepository->getBaseQuery(),
             'survey_repository'      => $this->surveyRepository->getBaseQuery(),
             default                  => $this->buildLegacyProductionQuery($service, $useRuleBuilder),

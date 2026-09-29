@@ -54,15 +54,32 @@ class EvidenceFileService
         return $this->resolveLocation($file) !== null;
     }
 
-    public function download(EvidenceFile $file): StreamedResponse
+    public function location(EvidenceFile $file): ?array
     {
-        $location = $this->resolveLocation($file);
+        return $this->resolveLocation($file);
+    }
 
-        if ($location === null) {
-            throw new \RuntimeException('Arquivo não encontrado no storage.');
+    public function get(EvidenceFile $file): string
+    {
+        [$disk, $path] = $this->requireLocation($file);
+
+        return Storage::disk($disk)->get($path);
+    }
+
+    public function mimeType(EvidenceFile $file): string
+    {
+        if ($file->mime) {
+            return (string) $file->mime;
         }
 
-        [$disk, $path] = $location;
+        [$disk, $path] = $this->requireLocation($file);
+
+        return (string) (Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream');
+    }
+
+    public function download(EvidenceFile $file): StreamedResponse
+    {
+        [$disk, $path] = $this->requireLocation($file);
 
         return Storage::disk($disk)->download(
             $path,
@@ -74,39 +91,13 @@ class EvidenceFileService
     {
         $location = $this->resolveLocation($file);
 
-        return $location !== null && Storage::disk($location[0])->delete($location[1]);
-    }
-
-    private function resolveLocation(EvidenceFile $file): ?array
-    {
-        $rawPath = ltrim((string) $file->path, '/');
-
-        if ($rawPath === '') {
-            return null;
+        if ($location === null) {
+            return false;
         }
 
-        $paths = array_values(array_unique(array_filter([
-            $rawPath,
-            str_starts_with($rawPath, 'storage/') ? substr($rawPath, 8) : null,
-            str_starts_with($rawPath, 'public/') ? substr($rawPath, 7) : null,
-        ])));
+        [$disk, $path] = $location;
 
-        $disks = array_values(array_unique(array_filter([
-            $file->disk ?: null,
-            $this->context->evidenceDisk(),
-            'local',
-            'public',
-        ])));
-
-        foreach ($disks as $disk) {
-            foreach ($paths as $path) {
-                if (Storage::disk($disk)->exists($path)) {
-                    return [$disk, $path];
-                }
-            }
-        }
-
-        return null;
+        return Storage::disk($disk)->delete($path);
     }
 
     private function ensureExtension(string $name, string $extension): string
@@ -118,5 +109,59 @@ class EvidenceFileService
         }
 
         return $name;
+    }
+
+    private function requireLocation(EvidenceFile $file): array
+    {
+        $location = $this->resolveLocation($file);
+
+        if ($location === null) {
+            throw new \RuntimeException('Arquivo de evidencia nao encontrado no storage.');
+        }
+
+        return $location;
+    }
+
+    private function resolveLocation(EvidenceFile $file): ?array
+    {
+        foreach ($this->locationCandidates($file) as [$disk, $path]) {
+            if ($path !== '' && Storage::disk($disk)->exists($path)) {
+                return [$disk, $path];
+            }
+        }
+
+        return null;
+    }
+
+    private function locationCandidates(EvidenceFile $file): array
+    {
+        $rawPath = ltrim((string) $file->path, '/');
+
+        if ($rawPath === '') {
+            return [];
+        }
+
+        $paths = array_values(array_unique(array_filter([
+            $rawPath,
+            str_starts_with($rawPath, 'storage/') ? substr($rawPath, strlen('storage/')) : null,
+            str_starts_with($rawPath, 'public/') ? substr($rawPath, strlen('public/')) : null,
+        ])));
+
+        $disks = array_values(array_unique(array_filter([
+            $file->disk ?: null,
+            $this->context->evidenceDisk(),
+            'public',
+            'local',
+        ])));
+
+        $candidates = [];
+
+        foreach ($disks as $disk) {
+            foreach ($paths as $path) {
+                $candidates[] = [$disk, $path];
+            }
+        }
+
+        return $candidates;
     }
 }

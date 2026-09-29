@@ -138,7 +138,12 @@ class ExportSupervisionList implements ShouldQueue
             $filePath = "exports/{$stamp}-exportSupervisionList.xlsx";
             $disk->makeDirectory('exports');
 
-            $stored = (new \App\Exports\Dispatchs\SupervisionExportList($query, $this->params['serviceUuid']))
+            $stored = (new \App\Exports\Dispatchs\SupervisionExportList(
+                $query,
+                $this->params['serviceUuid'],
+                $this->params['selected_work_report_ids'] ?? [],
+                $this->params['selected_partial_ids'] ?? [],
+            ))
                 ->store($filePath, 'local');
 
             if (!$stored || !$disk->exists($filePath)) {

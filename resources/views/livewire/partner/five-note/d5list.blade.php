@@ -306,6 +306,8 @@
                             <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
                                 <th class="text-center" style="width:52px;">#</th>
                                 <th>Nota D5</th>
+                                <th>Informe</th>
+                                <th>Escopo</th>
                                 <th>Note</th>
                                 <th>Orders</th>
                                 <th>PEP</th>
@@ -348,6 +350,43 @@
                                             </div>
                                             <small class="text-muted">{{ $five->loc_install }}</small>
                                         </div>
+                                    </td>
+                                    @php
+                                        $d5Associations = collect();
+                                        if ($five->work_report_id) {
+                                            $scopes = collect($five->WorkReport?->selected_final_scopes ?? ["general"])->filter();
+                                            foreach ($scopes as $scope) {
+                                                $d5Associations->push(["report" => $five->work_report_id, "scope" => $scope]);
+                                            }
+                                        }
+                                        foreach (($five->productions ?? collect()) as $production) {
+                                            foreach (($production->WorkReportFlowProductions ?? collect())->where("is_current", true)->whereNotNull("work_report_id") as $flow) {
+                                                $d5Associations->push(["report" => $flow->work_report_id, "scope" => $flow->final_scope ?: "general"]);
+                                            }
+                                        }
+                                        $d5Associations = $d5Associations->unique(fn ($item) => $item["report"] . "|" . $item["scope"])->values();
+                                    @endphp
+                                    <td>
+                                        @forelse ($d5Associations as $association)
+                                            <span class="badge bg-light text-dark">#{{ $association["report"] }}</span>
+                                        @empty
+                                            <span class="text-muted">---</span>
+                                        @endforelse
+                                    </td>
+                                    <td>
+                                        @forelse ($d5Associations as $association)
+                                            @php
+                                                $scopeLabel = match ($association["scope"]) {
+                                                    "connection" => "Ligação",
+                                                    "network" => "Rede",
+                                                    default => "Geral",
+                                                };
+                                                $scopeClass = $association["scope"] === "connection" ? "text-bg-warning" : "text-bg-success";
+                                            @endphp
+                                            <span class="badge {{ $scopeClass }}">{{ $scopeLabel }}</span>
+                                        @empty
+                                            <span class="text-muted">---</span>
+                                        @endforelse
                                     </td>
                                     <td>{{ $five->note->note }}</td>
                                     <td>{{ d5list_get_order($five->note) }}</td>

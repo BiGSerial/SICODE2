@@ -22,14 +22,15 @@ class DispatchContextResolver
 
         if ($serviceKey === 'supervision') {
             $eval = app(\App\Services\Supervision\BlockEvaluator::class)->evaluate($note, $service);
+            $fiveNote = $note->WorkForm?->FiveNote ?? $note->FiveNote;
 
             $context['is_partial'] = (bool) ($eval['isPartial'] ?? false);
             $context['can_dispatch'] = (bool) ($eval['command'] ?? false);
             $context['block_reason'] = $eval['reason'] ?? null;
             $context['is_d5_fiscalization'] = (bool) (
-                $note->FiveNote
-                && $note->FiveNote->is_completed
-                && !$note->FiveNote->is_supervisioned
+                $fiveNote
+                && $fiveNote->is_completed
+                && !$fiveNote->is_supervisioned
             );
         } elseif ($serviceKey === 'survey') {
             $eval = app(\App\Services\Design\BlockEvaluator::class)->evaluate($note, $service);
@@ -48,11 +49,12 @@ class DispatchContextResolver
             $context['block_reason'] = $eval['reason'] ?? null;
         } elseif ($serviceKey === 'payment') {
             $eval = app(\App\Services\Payment\BlockEvaluator::class)->evaluate($note, $service);
+            $fiveNote = $note->WorkForm?->FiveNote ?? $note->FiveNote;
 
             $context['is_partial'] = (bool) ($eval['isPartial'] ?? false);
             $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);
             $context['block_reason'] = $eval['reason'] ?? null;
-            $context['is_d5_fiscalization'] = (bool) $note->FiveNote;
+            $context['is_d5_fiscalization'] = (bool) $fiveNote;
         }
 
         return $context;
@@ -64,6 +66,7 @@ class DispatchContextResolver
             'levantamento' => 'survey',
             'fiscalizacao' => 'supervision',
             'pagamento' => 'payment',
+            'publicacao' => 'publication',
             default => (string) $service->folder,
         };
     }

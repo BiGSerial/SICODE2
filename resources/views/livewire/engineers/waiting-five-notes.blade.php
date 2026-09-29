@@ -316,6 +316,8 @@
                                 <th style="width:15px;"> <input class="form-check-input" type="checkbox" wire:model="selectall"
                                         wire:click="setSelectAll" @checked($this->checkAllSelect($lists))></th>
                                 <th>Nota D5</th>
+                                <th>Informe</th>
+                                <th>Escopo</th>
                                 <th>Nota</th>
                                 <th>Rubrica</th>
                                 <th>Empreiteira</th>
@@ -376,6 +378,44 @@
                                         @if ($list->isPassive)
                                             <span class="badge text-bg-info ms-2">Passiva</span>
                                         @endif
+                                    </td>
+                                    @php
+                                        $d5Associations = collect();
+                                        if ($list->work_report_id) {
+                                            foreach (collect($list->WorkReport?->selected_final_scopes ?? ["general"])->filter() as $scope) {
+                                                $d5Associations->push(["report" => $list->work_report_id, "scope" => $scope]);
+                                            }
+                                        }
+                                        if (!$list->work_report_id) {
+                                        foreach (($list->productions ?? collect()) as $production) {
+                                            foreach (($production->WorkReportFlowProductions ?? collect())->where("is_current", true)->whereNotNull("work_report_id") as $flow) {
+                                                $d5Associations->push(["report" => $flow->work_report_id, "scope" => $flow->final_scope ?: "general"]);
+                                            }
+                                        }
+                                        }
+                                        $d5Associations = $d5Associations->unique(fn ($item) => $item["report"] . "|" . $item["scope"])->values();
+                                    @endphp
+                                    <td>
+                                        @forelse ($d5Associations as $association)
+                                            <span class="badge bg-light text-dark">#{{ $association["report"] }}</span>
+                                        @empty
+                                            <span class="text-muted">---</span>
+                                        @endforelse
+                                    </td>
+                                    <td>
+                                        @forelse ($d5Associations as $association)
+                                            @php
+                                                $scopeLabel = match ($association["scope"]) {
+                                                    "connection" => "Ligação",
+                                                    "network" => "Rede",
+                                                    default => "Geral",
+                                                };
+                                                $scopeClass = $association["scope"] === "connection" ? "text-bg-warning" : "text-bg-success";
+                                            @endphp
+                                            <span class="badge {{ $scopeClass }}">{{ $scopeLabel }}</span>
+                                        @empty
+                                            <span class="text-muted">---</span>
+                                        @endforelse
                                     </td>
                                     <td>{{ $list->note->note }}</td>
                                     <td>{{ $list->note->rubrica }}</td>

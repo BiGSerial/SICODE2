@@ -151,8 +151,19 @@ class FinishD5 extends Component
         try {
             $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
-            $this->five->done(null, $this->observations);
+            $this->five->done($this->five->name, $this->observations);
             app(D5WorkflowService::class)->onPartnerCompleted($this->five, $fromStage, auth()->id());
+
+            // A conclusao da parceira libera a D5 para a fila da fiscalizacao.
+            // Recalcula o status consolidado do informe imediatamente.
+            $statusRefresher = app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class);
+            if ($this->five->work_report_id) {
+                $statusRefresher->refresh((int) $this->five->work_report_id);
+            } else {
+                foreach ($this->five->productions ?? collect() as $production) {
+                    $statusRefresher->refreshByProductionId((int) $production->id);
+                }
+            }
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -233,7 +244,13 @@ class FinishD5 extends Component
 
     private function scopedFiveNote(int $id): FiveNote
     {
-        $query = FiveNote::query()->whereKey($id);
+        $query = FiveNote::query()
+            ->whereKey($id)
+            ->with([
+                'WorkReport:id,selected_final_scopes',
+                'productions:id,note_id',
+                'productions.WorkReportFlowProductions:id,production_id,work_report_id,final_scope,is_current',
+            ]);
 
         $this->applyPartnerCompanyScope($query);
         return $query->firstOrFail();

@@ -335,7 +335,7 @@ class SyncFiveNotesReportToSqlServer extends Command
             'note_number' => $five->note_number,
             'order_number' => $context['orders'][$five->note_id] ?? null,
             'rubrica' => $five->rubrica,
-            'company_id_local' => $five->company_id,
+            'company_id_local' => $this->uuidOrNull($five->company_id),
             'company_name' => $five->company_name,
             'pep' => $five->pep,
             'e_pep' => $five->e_pep,
@@ -356,7 +356,7 @@ class SyncFiveNotesReportToSqlServer extends Command
             'phase_key' => $activity['phase_key'],
             'phase_label' => $activity['phase_label'],
             'status_label' => $activity['status_label'],
-            'responsible_user_id' => $assignee['user_id'],
+            'responsible_user_id' => $this->uuidOrNull($assignee['user_id']),
             'responsible_name' => $assignee['name'],
             'responsible_company' => $assignee['company'],
             'assignment_status' => $assignee['status'],
@@ -538,6 +538,20 @@ class SyncFiveNotesReportToSqlServer extends Command
     private function isBlank($value): bool
     {
         return $value === null || trim((string) $value) === '';
+    }
+
+    private function uuidOrNull($value): ?string
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        return preg_match(
+            '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/',
+            $value
+        ) === 1 ? $value : null;
     }
 
     private function safeBatchSize(int $columnsPerRow): int

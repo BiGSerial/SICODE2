@@ -64,7 +64,7 @@ class D5List extends Component
 
     private function baseQuery(): Builder
     {
-        $base = FiveNote::query()->with(['note', 'company']);
+        $base = FiveNote::query()->with(["note", "company", "WorkReport:id,selected_final_scopes", "productions:id,note_id", "productions.WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current"]);
 
         if ($this->search) {
             $search = $this->formatWithWildcard($this->search);

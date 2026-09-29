@@ -16,24 +16,36 @@ class D5details extends Component
         'openD5Details',
     ];
 
-    public function openD5Details(Note $note)
+    public function openD5Details(Note $note, ?int $fiveNoteId = null)
     {
-        $this->five = $note->load([
-            'FiveNote.note:id,note',
-            'FiveNote.company:id,name',
-            'FiveNote.EvidenceFiles',
-            'FiveNote.Comments',
-            'FiveNote.Productions:id,note_id,service_id,user_id,company_id,created_at,completed,completed_at,status',
-            'FiveNote.Productions.User:id,name',
-            'FiveNote.Productions.Service:uuid,service',
-            'FiveNote.Productions.Company:id,name',
-            'FiveNote.Productions.Analise:id,production_id,conclusion,info',
-        ])?->fiveNote;
+        $note->load([
+            "FiveNotes" => fn ($q) => $q->with([
+                "note:id,note,rubrica",
+                "note.Productions:id,note_id,service_id,user_id,company_id,created_at,att_at,completed,completed_at,status",
+                "note.Productions.User:id,name",
+                "WorkReport:id,selected_final_scopes",
+                "company:id,name",
+                "answeredBy:id,name",
+                "EvidenceFiles",
+                "Comments",
+                "productions:id,note_id,service_id,user_id,company_id,created_at,att_at,completed,completed_at,status",
+                "productions.User:id,name",
+                "productions.Service:uuid,service",
+                "productions.Company:id,name",
+                "productions.Analise:id,production_id,conclusion,info",
+                "productions.WorkReportFlowProductions.WorkReport:id,selected_final_scopes",
+            ]),
+        ]);
+
+        $fiveNotes = $note->FiveNotes ?? collect();
+        $this->five = $fiveNoteId
+            ? $fiveNotes->firstWhere("id", $fiveNoteId)
+            : ($fiveNotes->firstWhere("work_report_id", null) ?? $fiveNotes->first());
 
         if ($this->five) {
-            $this->dispatchBrowserEvent('showModal', [
-            'id' => 'fiveNoteModal',
-        ]);
+            $this->dispatchBrowserEvent("showModal", [
+                "id" => "fiveNoteModal",
+            ]);
         }
     }
 

@@ -15,15 +15,17 @@ class ExecutionShow extends Component
     public UncancellationRequest $uncancellationRequest;
     public string $action = 'DONE';
     public ?string $closureNote = null;
+    public ?string $reversalNote = null;
 
     protected $listeners = [
         'confirm_uncancellation_execution_run_action' => 'confirmRunAction',
+        'confirm_uncancellation_execution_revert_action' => 'confirmRevertAction',
     ];
 
     public function mount(string $service, int $request): void
     {
         $this->service = $service;
-        $this->uncancellationRequest = UncancellationRequest::with(['Note.WorkFormAny', 'Orders', 'Requester', 'Assignee', 'Events.User'])
+        $this->uncancellationRequest = UncancellationRequest::with(['Note.WorkFormsAny', 'Orders', 'Requester', 'Assignee', 'Events.User'])
             ->findOrFail($request);
     }
 
@@ -59,8 +61,38 @@ class ExecutionShow extends Component
                 $message = 'Solicitação rejeitada.';
             }
 
-            $this->uncancellationRequest->refresh()->load(['Note.WorkFormAny', 'Orders', 'Requester', 'Assignee', 'Events.User']);
+            $this->uncancellationRequest->refresh()->load(['Note.WorkFormsAny', 'Orders', 'Requester', 'Assignee', 'Events.User']);
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => $message]);
+        } catch (RuntimeException $e) {
+            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
+        }
+    }
+
+    public function revertAction(): void
+    {
+        if (trim((string) $this->reversalNote) === '') {
+            $this->addError('reversalNote', 'Informe o motivo para desfazer.');
+            return;
+        }
+
+        $this->dispatchBrowserEvent('alertar', [
+            'title' => 'Desfazer descancelamento',
+            'msg' => "Deseja recancelar os alvos do descancelamento da Nota/OV <strong>" . e($this->uncancellationRequest->Note->note ?? '-') . "</strong>?",
+            'icon' => 'warning',
+            'btnOktxt' => 'Sim, desfazer',
+            'btnCanceltxt' => 'Não, cancelar',
+            'action' => 'confirm_uncancellation_execution_revert_action',
+            'cancel_titulo' => 'Cancelado',
+            'cancel_msg' => 'Nenhuma ação foi executada.',
+        ]);
+    }
+
+    public function confirmRevertAction(UncancellationRequestService $service): void
+    {
+        try {
+            $service->revertDone($this->uncancellationRequest, Auth::user(), (string) $this->reversalNote);
+            $this->uncancellationRequest->refresh()->load(['Note.WorkFormsAny', 'Orders', 'Requester', 'Assignee', 'Events.User']);
+            $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Descancelamento desfeito.']);
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
         }
@@ -73,7 +105,10 @@ class ExecutionShow extends Component
                 CancellationRequestStatus::DONE,
                 CancellationRequestStatus::REJECTED,
                 CancellationRequestStatus::ABORTED,
+                CancellationRequestStatus::REVERTED,
             ], true),
+            'canRevert' => $this->uncancellationRequest->status === CancellationRequestStatus::DONE
+                && $this->uncancellationRequest->closure_type === UncancellationRequest::CLOSURE_DONE,
         ]);
     }
 }

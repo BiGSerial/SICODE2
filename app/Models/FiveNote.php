@@ -15,6 +15,7 @@ class FiveNote extends Model
     protected $fillable = [
         'note_d5',
         'note_id',
+        'work_report_id',
         'loc_install',
         'conjunto',
         'pep',
@@ -25,6 +26,7 @@ class FiveNote extends Model
         'reason',
         'description',
         'name',
+        'answered_by_user_id',
         'dispatch_at',
         'visible_partner',
         'is_completed',
@@ -37,6 +39,26 @@ class FiveNote extends Model
         'isPassive',
         'returned',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (FiveNote $fiveNote): void {
+            $fiveNote->d5_origin_key = $fiveNote->originKey();
+        });
+
+        static::updating(function (FiveNote $fiveNote): void {
+            if ($fiveNote->isDirty(['note_id', 'work_report_id'])) {
+                $fiveNote->d5_origin_key = $fiveNote->originKey();
+            }
+        });
+    }
+
+    private function originKey(): string
+    {
+        return $this->work_report_id
+            ? 'work_report:' . $this->work_report_id
+            : 'note:' . $this->note_id;
+    }
 
     protected $casts = [
         'dispatch_at'      => 'datetime',
@@ -57,9 +79,19 @@ class FiveNote extends Model
         return $this->belongsTo(Note::class);
     }
 
+    public function WorkReport(): BelongsTo
+    {
+        return $this->belongsTo(WorkReport::class);
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function answeredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'answered_by_user_id')->withTrashed();
     }
 
     public function productions(): MorphToMany
@@ -92,6 +124,7 @@ class FiveNote extends Model
     public function done(?string $responsible, ?string $comment = null)
     {
         $this->name = $responsible ?? $this->name;
+        $this->answered_by_user_id = auth()->id() ?: $this->answered_by_user_id;
         $this->is_completed = true;
         $this->completed_at = now();
         $this->save();

@@ -619,6 +619,7 @@
 
                             <th scope="col" class="fw-bold text-center">Prazo Real</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
+                            @if (request()->routeIs('dispatch.partner'))<th class="fw-bold text-center">Despachado Em</th><th class="fw-bold text-center">Atribuído Em</th><th class="fw-bold text-center">Finalizado Em</th>@endif
                             <th scope="col" class="fw-bold text-center"></th>
                         </tr>
                     </thead>

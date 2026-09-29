@@ -86,7 +86,7 @@ class JobsServices extends Component
                     'id'        => $j->id,
                     'uuid'      => $j->uuid ?? ($p['uuid'] ?? null),
                     'queue'     => $j->queue,
-                    'name'      => $p['displayName'] ?? ($p['data']['commandName'] ?? '—'),
+                    'name'      => $p['displayName'] ?? data_get($p, 'data.commandName', '—'),
                     'exception' => $this->shortException($j->exception),
                     'failed_at' => Carbon::parse($j->failed_at),
                     'payload'   => $p,
@@ -220,7 +220,7 @@ class JobsServices extends Component
     private function decorateJobRow($j, bool $isRunning = false)
     {
         $p = json_decode($j->payload, true) ?: [];
-        $name = $p['displayName'] ?? ($p['data']['commandName'] ?? '—');
+        $name = $p['displayName'] ?? data_get($p, 'data.commandName', '—');
 
         $createdAt   = is_numeric($j->created_at) ? Carbon::createFromTimestamp($j->created_at) : Carbon::parse($j->created_at);
         $availableAt = is_numeric($j->available_at) ? Carbon::createFromTimestamp($j->available_at) : Carbon::parse($j->available_at);

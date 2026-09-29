@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Support\Collection;
 
 class Production extends Model
 {
@@ -221,6 +222,44 @@ class Production extends Model
     public function WorkReportFlowProductions()
     {
         return $this->hasMany(WorkReportFlowProduction::class);
+    }
+
+    public function currentWorkReportsForStage(?string $stage = null): Collection
+    {
+        $links = $this->relationLoaded('WorkReportFlowProductions')
+            ? $this->WorkReportFlowProductions
+            : $this->WorkReportFlowProductions()
+                ->with(['WorkReport.Orders.Operations', 'WorkReport.Company'])
+                ->get();
+
+        return $links
+            ->filter(function (WorkReportFlowProduction $link) use ($stage) {
+                return $link->is_current
+                    && (!$stage || $link->stage === $stage)
+                    && $link->WorkReport;
+            })
+            ->sortBy(fn (WorkReportFlowProduction $link) => match ($link->final_scope) {
+                WorkReportFinalScopeResolver::SCOPE_NETWORK => 1,
+                WorkReportFinalScopeResolver::SCOPE_CONNECTION => 2,
+                default => 3,
+            })
+            ->pluck('WorkReport')
+            ->unique('id')
+            ->values();
+    }
+
+    public function currentWorkReportOrders(?string $stage = null): Collection
+    {
+        $orders = $this->currentWorkReportsForStage($stage)
+            ->flatMap(fn (WorkReport $workReport) => $workReport->Orders ?? collect())
+            ->unique('id')
+            ->values();
+
+        if ($orders->isNotEmpty()) {
+            return $orders;
+        }
+
+        return $this->Note?->WorkForm?->Orders ?? collect();
     }
 
     public function currentWorkReportFlowScopeBadges(?string $stage = null): array

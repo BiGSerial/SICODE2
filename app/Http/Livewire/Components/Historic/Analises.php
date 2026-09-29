@@ -62,7 +62,7 @@ class Analises extends Component
                 'card as Carta',
                 'preresult as Finalidade',
                 'info as Informação',
-                'conclusion as Conclusão',
+                'conclusion',
                 'protocol as Protocolo'
             );
         }])->find($productionId);
@@ -78,7 +78,7 @@ class Analises extends Component
                 ];
             });
 
-            $this->conclusion = $this->production->Analise['Conclusão'];
+            $this->conclusion = $this->production->Analise->conclusion;
         }
     }
 

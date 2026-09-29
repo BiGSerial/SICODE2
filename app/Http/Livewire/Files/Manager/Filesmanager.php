@@ -4,7 +4,8 @@ namespace App\Http\Livewire\Files\Manager;
 
 use App\Exports\Files\FilesList;
 use App\Helpers\TextFormatter;
-use App\Models\{Company, File, Note, Service};
+use App\Jobs\Files\GenerateFileDownloadBatchJob;
+use App\Models\{Company, File, FileDownloadBatch, Note, Service};
 use App\Services\Files\FileStorageService;
 use Illuminate\Support\Str;
 use Livewire\{Component, WithPagination};
@@ -44,7 +45,6 @@ class Filesmanager extends Component
 
     public $outputNamePattern = '';
 
-    private const MAX_DOWNLOAD_SELECTION = 100;
 
     public $fileTypeOptions = [
         ''           => 'Todos os tipos',
@@ -86,7 +86,6 @@ class Filesmanager extends Component
         }
 
         $this->selectedFiles = $query
-            ->limit(self::MAX_DOWNLOAD_SELECTION)
             ->pluck('id')
             ->toArray();
     }
@@ -196,18 +195,9 @@ class Filesmanager extends Component
 
         $this->selectedFiles = $selected
             ->reject(fn ($id) => in_array($id, $restrictedIds, true))
-            ->take(self::MAX_DOWNLOAD_SELECTION)
             ->values()
             ->all();
 
-        if ($selected->count() > self::MAX_DOWNLOAD_SELECTION) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Limite de 100 arquivos por download.',
-                'timer'    => 3000,
-            ]);
-        }
     }
 
     public function export_excel()
@@ -303,147 +293,24 @@ class Filesmanager extends Component
     public function downloadZip()
     {
         if (empty($this->selectedFiles)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nenhum arquivo selecionado!',
-                'timer'    => 3000,
-            ]);
-
+            $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "warning", "title" => "Nenhum arquivo selecionado!", "timer" => 3000]);
             return;
         }
 
-        if (count($this->selectedFiles) > self::MAX_DOWNLOAD_SELECTION) {
-            $this->selectedFiles = array_slice($this->selectedFiles, 0, self::MAX_DOWNLOAD_SELECTION);
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Foram considerados apenas os 100 primeiros arquivos.',
-                'timer'    => 3500,
-            ]);
-        }
-
-        $files = File::with(['Note.Orders', 'Service', 'Adsforms'])
-            ->whereIn('id', $this->selectedFiles)
-            ->get();
-
+        $files = File::with(["Note.Orders", "Service", "Adsforms"])->whereIn("id", $this->selectedFiles)->get();
         if ($files->isEmpty()) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Arquivos não encontrados!',
-                'timer'    => 3000,
-            ]);
-
+            $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "error", "title" => "Arquivos não encontrados!", "timer" => 3000]);
             return;
         }
-
         if (!auth()->user()?->superadm && $files->contains(fn (File $file) => $file->isTacitAdsRestricted())) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'DOWNLOAD ZIP BLOQUEADO',
-                'html'     => 'O lote contém ADS tácita. Apenas SUPERADM pode baixar.',
-                'timer'    => 5000,
-            ]);
-
+            $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "warning", "title" => "DOWNLOAD ZIP BLOQUEADO", "html" => "O lote contém ADS tácita. Apenas SUPERADM pode baixar.", "timer" => 5000]);
             return;
         }
 
-        $zip         = new \ZipArchive();
-        $zipFileName = 'arquivos_' . date('YmdHis') . '.zip';
-        $zipPath     = storage_path('app/temp/' . $zipFileName);
-
-        // Criar diretório temp se não existir
-        if (!file_exists(storage_path('app/temp'))) {
-            mkdir(storage_path('app/temp'), 0755, true);
-        }
-
-        if ($zip->open($zipPath, \ZipArchive::CREATE) === true) {
-            $addedFiles = 0;
-
-            $usedNames  = [];
-            $tempCopies = [];
-            $storage    = app(FileStorageService::class);
-
-            foreach ($files as $index => $file) {
-                // Copia o conteúdo (independente do disco: local, Blob ou S3) para um
-                // arquivo temporário, já que ZipArchive::addFile exige caminho físico.
-                $tempCopy = $storage->temporaryLocalCopy($file);
-
-                if ($tempCopy !== null) {
-                    if (!$storage->matchesStoredChecksum($file, $tempCopy)) {
-                        $zip->close();
-
-                        foreach (array_merge($tempCopies, [$tempCopy]) as $copy) {
-                            if (is_file($copy)) {
-                                @unlink($copy);
-                            }
-                        }
-
-                        if (file_exists($zipPath)) {
-                            @unlink($zipPath);
-                        }
-
-                        $this->dispatchBrowserEvent('swal', [
-                            'position' => 'center',
-                            'icon'     => 'error',
-                            'title'    => 'Checksum divergente!',
-                            'html'     => 'O arquivo ' . e($file->original_name ?: $file->file_name) . ' não confere com o hash gravado no servidor.',
-                            'timer'    => 5000,
-                        ]);
-
-                        return;
-                    }
-
-                    $fileName = $this->buildOutputFileName($file, $index + 1, $usedNames);
-                    $zip->addFile($tempCopy, $fileName);
-                    $tempCopies[] = $tempCopy;
-                    $addedFiles++;
-                }
-            }
-
-            $zip->close();
-
-            foreach ($tempCopies as $tempCopy) {
-                if (is_file($tempCopy)) {
-                    @unlink($tempCopy);
-                }
-            }
-
-            if ($addedFiles > 0) {
-                // Verificar se o ZIP foi criado com sucesso antes de fazer download
-                if (file_exists($zipPath)) {
-                    return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
-                } else {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'error',
-                        'title'    => 'Erro ao gerar arquivo ZIP!',
-                        'timer'    => 3000,
-                    ]);
-                }
-            } else {
-                // Verificar se o arquivo ZIP existe antes de tentar removê-lo
-                if (file_exists($zipPath)) {
-                    unlink($zipPath);
-                }
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'Nenhum arquivo válido encontrado!',
-                    'timer'    => 3000,
-                ]);
-            }
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'Erro ao criar arquivo ZIP!',
-                'timer'    => 3000,
-            ]);
-        }
+        $batch = FileDownloadBatch::create(["user_id" => auth()->id(), "status" => "queued", "file_ids" => $files->pluck("id")->all(), "output_pattern" => trim((string) $this->outputNamePattern) ?: null]);
+        GenerateFileDownloadBatchJob::dispatch($batch->file_ids, $batch->id);
+        $this->selectedFiles = [];
+        $this->dispatchBrowserEvent("swal", ["position" => "center", "icon" => "info", "title" => "Download em preparação", "html" => "A compactação continuará em segundo plano. Você será avisado na Central de Notificações quando o link estiver pronto.", "timer" => 5000]);
     }
 
     public function getListsProperty()

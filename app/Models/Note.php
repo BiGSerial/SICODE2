@@ -147,9 +147,24 @@ class Note extends Model
         return $this->hasOne(WorkReport::class)->where('canceled', false);
     }
 
+    public function WorkReports()
+    {
+        return $this->hasMany(WorkReport::class);
+    }
+
     public function WorkFormAny()
     {
         return $this->hasOne(WorkReport::class);
+    }
+
+    public function WorkForms()
+    {
+        return $this->hasMany(WorkReport::class)->where('canceled', false);
+    }
+
+    public function WorkFormsAny()
+    {
+        return $this->hasMany(WorkReport::class);
     }
 
     public function d5Return()
@@ -194,7 +209,19 @@ class Note extends Model
 
     public function FiveNote()
     {
-        return $this->hasOne(FiveNote::class);
+        // Mantém a relação histórica apontando apenas para a D5 sem informe.
+        // D5s vinculadas a um WorkReport devem ser acessadas pelo próprio informe.
+        return $this->hasOne(FiveNote::class)->whereNull('work_report_id');
+    }
+
+    public function FiveNotes()
+    {
+        return $this->hasMany(FiveNote::class);
+    }
+
+    public function LegacyFiveNote()
+    {
+        return $this->hasOne(FiveNote::class)->whereNull('work_report_id');
     }
 
     public function City()

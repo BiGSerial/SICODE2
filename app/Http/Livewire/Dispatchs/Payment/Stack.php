@@ -8,6 +8,7 @@ use App\Helpers\TextFormatter;
 use App\Models\City;
 use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
+use App\Models\WorkReportFlowProduction;
 use App\Services\D5\D5WorkflowService;
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Services\WorkReports\WorkReportFlowProductionLinker;
@@ -361,6 +362,7 @@ class Stack extends Component
 
     public function confirm_des_att_mass()
     {
+        abort_unless(!auth()->user()?->contract, 403);
         $erros = 0;
         $total = 0;
 
@@ -531,12 +533,12 @@ class Stack extends Component
                         }
 
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "{$user_info}",
                             'status'       => $this->user_s ? 2 : 1,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
 
                         app(WorkReportFlowProductionLinker::class)->linkPaymentForScopes(
@@ -665,6 +667,7 @@ class Stack extends Component
 
     public function remove_att()
     {
+        abort_unless(!auth()->user()?->contract, 403);
         $previousUserId = $this->production->user_id;
 
         if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
@@ -702,7 +705,29 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with(['Note'])
+        return Production::with([
+                'Note.FiveNote',
+                'Note.Files',
+                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                'Note.WorkForm:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+                'Note.WorkForm.Company:id,name,deleted_at',
+                'Note.WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+                'Note.WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                'Note.Partials.Company:id,name,deleted_at',
+                'Note.Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+                'Note.Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                'WorkReportFlowProductions' => fn ($q) => $q
+                    ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                    ->where('is_current', true)
+                    ->with([
+                        'WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+                        'WorkReport.Company:id,name,deleted_at',
+                        'WorkReport.Orders' => fn ($orders) => $orders->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+                        'WorkReport.Orders.Operations' => fn ($orders) => $orders->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                        'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                    ]),
+            ])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->leftJoinSub(
                 DB::table('operation_resps')

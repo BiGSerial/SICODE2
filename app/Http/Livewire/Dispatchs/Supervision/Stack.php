@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 use App\Helpers\TextFormatter;
 use App\Models\Production;
 use App\Models\Service;
+use App\Models\WorkReportFlowProduction;
 use App\Support\SicodeRules;
 use App\Traits\WildcardFormatter;
 use Illuminate\Support\Facades\DB;
@@ -194,7 +195,22 @@ class Stack extends Component
                     : $q->whereRaw('0 = 1');
             })
             ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
-            ->leftJoin('work_reports as wr', 'n.id', '=', 'wr.note_id')
+            ->leftJoin('work_report_flow_productions as wrfp', function ($join) {
+                $join->on('wrfp.production_id', '=', 'productions.id')
+                    ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('wrfp.is_current', true)
+                    ->whereRaw("wrfp.id = (
+                        SELECT MAX(wrfp_latest.id)
+                        FROM work_report_flow_productions wrfp_latest
+                        WHERE wrfp_latest.production_id = productions.id
+                          AND wrfp_latest.stage = 'fiscalization'
+                          AND wrfp_latest.is_current = 1
+                    )");
+            })
+            ->leftJoin('work_reports as wr', function ($join) {
+                $join->on('wr.id', '=', 'wrfp.work_report_id')
+                    ->where('wr.canceled', false);
+            })
             ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
             ->addSelect('productions.*')
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
@@ -215,6 +231,11 @@ class Stack extends Component
                 'note.workform:id,company_id,note_id,informed_at,rejected',
                 'note.workform.adsform:id,work_report_id,amount,created_at',
                 'note.orders:id,note_id,moaberto',
+                'WorkReportFlowProductions' => fn ($q) => $q
+                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true)
+                    ->orderByDesc('id')
+                    ->with('WorkReport:id'),
             ])
         ;
     }

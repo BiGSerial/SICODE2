@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Files\Manager;
 
 use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
-use App\Models\{File, Note};
+use App\Models\{File, Note, WorkReport};
 use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
 
@@ -47,6 +47,8 @@ class CreateAdsFiles extends Component
 
     public ?Note $note = null;
 
+    public ?int $workReportId = null;
+
     public bool $alertFile = false;
 
     public string $service;
@@ -65,10 +67,16 @@ class CreateAdsFiles extends Component
 
     ];
 
-    public function mount(Note $note, string $service)
+    public function mount(Note $note, string $service, ?int $workReportId = null)
     {
-        $this->note    = $note;
-        $this->service = $service;
+        $this->note         = $note;
+        $this->service      = $service;
+        $this->workReportId = $workReportId;
+    }
+
+    public function setWorkReport(int $workReportId): void
+    {
+        $this->workReportId = $workReportId;
     }
 
     public function updatedFiles()
@@ -209,7 +217,7 @@ class CreateAdsFiles extends Component
 
             if ($temp['uploadType'] === $type && !$temp['newName']) {
                 $service_abrev   = mb_strtoupper(substr($this->service, 0, 4));
-                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->note->note . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
+                $temp['newName'] = $type . "_" . $service_abrev . "_" . $this->note->note . "_INF" . ($this->workReportId ?: "NA") . "_F" . str_pad($item, 2, '0', STR_PAD_LEFT) . "-" . str_pad($count, 2, '0', STR_PAD_LEFT);
             }
 
             $item++;
@@ -217,8 +225,12 @@ class CreateAdsFiles extends Component
 
     }
 
-    public function saveFiles()
+    public function saveFiles(?int $workReportId = null)
     {
+        if ($workReportId) {
+            $this->workReportId = $workReportId;
+        }
+
         if (count($this->tempFiles)) {
             foreach ($this->tempFiles as $tempFile) {
                 $this->rename($this->tempFiles, $tempFile['uploadType']);
@@ -241,8 +253,13 @@ class CreateAdsFiles extends Component
                     ['service_id' => null],
                 );
 
-                if ($this->note->WorkForm->Adsform) {
-                    $this->note->WorkForm->Adsform->files()->attach($chk->id);
+                $workReport = $this->workReportId
+                    ? WorkReport::query()->whereKey($this->workReportId)->where('note_id', $this->note->id)->first()
+                    : null;
+                $adsForm = $workReport?->Adsform;
+
+                if ($adsForm) {
+                    $adsForm->files()->attach($chk->id);
                 }
             } catch (\Throwable) {
                 DB::rollback();

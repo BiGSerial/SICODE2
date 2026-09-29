@@ -35,136 +35,64 @@
                 </div>
             </div>
 
+
             <div class="card shadow-sm rounded-4 mx-auto mt-3" style="max-width: 56rem;">
                 <div class="card-header bg-white border-0 p-4 pb-2">
-                    <h5 class="fw-bold mb-0">Obras encontradas</h5>
+                    <h5 class="fw-bold mb-1">Informes disponíveis</h5>
+                    <p class="text-muted mb-0">Escolha o informe correto para entregar a ADS.</p>
                 </div>
                 <div class="card-body pt-2">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle modern-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Nota</th>
-                                    <th>Ordens</th>
-                                    <th>Dt solicitação ADS</th>
-                                    <th>Bloqueado</th>
-                                    <th>Motivo</th>
-                                    <th class="text-center">Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($notes as $tNote)
-                                    @php
-                                        $block = false;
-                                        $reason = '';
-
-                                        if (!$tNote->WorkForm) {
-                                            $block = true;
-                                            $reason = 'SEM INFORME DE OBRA';
-                                        } elseif ($tNote->WorkForm->rejected) {
-                                            $block = true;
-                                            $latestReturn = $tNote->WorkForm->LatestReturnwork;
-                                            $rejectCategory = trim((string) ($latestReturn?->category ?? ''));
-                                            $rejectObs = trim((string) ($latestReturn?->text_obs ?? ''));
-                                            $rejectUser = trim((string) ($latestReturn?->User?->name ?? ''));
-                                            $rejectUserEmail = trim((string) ($latestReturn?->User?->email ?? ''));
-                                            $rejectAt = $latestReturn?->created_at?->format('d/m/Y H:i');
-                                            $reason = 'INFORME REJEITADO';
-                                        } else {
-                                            $adsForm = $tNote->WorkForm->Adsform;
-                                            $hasOldAds = $tNote->OldAds->isNotEmpty();
-                                            $hasAdsFile = $adsForm ? $adsForm->Files->isNotEmpty() : false;
-                                            $hasTacitDelivered = (bool) ($adsForm?->tacit_delivered_at);
-
-                                            if ($hasOldAds || $hasAdsFile || $hasTacitDelivered) {
-                                                $block = true;
-                                                $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
-                                            }
-                                        }
-                                    @endphp
-                                    <tr wire:key="{{ $tNote->id }}">
-                                        <td class="fw-bold">{{ $tNote->note }}</td>
-                                        <td>
-                                            @if ($tNote->orders->count())
-                                                @foreach ($tNote->orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
-                                                    <span class="badge bg-light text-dark border mb-1">{{ $order->ordem }}</span>
-                                                @endforeach
-                                            @endif
-                                        </td>
-                                        <td>
-                                            {{ $tNote->TempAdsInfos->isNotEmpty() ? $tNote->TempAdsInfos->last()->sended_at->format('d/m/Y') : '---' }}
-                                        </td>
-                                        <td>
-                                            @if ($block)
-                                                <span class="badge bg-danger-subtle text-danger-emphasis">SIM</span>
-                                            @else
-                                                <span class="badge bg-success-subtle text-success-emphasis">NÃO</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if ($tNote->WorkForm?->rejected)
-                                                <div class="card border-danger-subtle shadow-sm mb-0">
-                                                    <div class="card-header bg-danger-subtle py-2 px-3 border-0">
-                                                        <div class="fw-bold text-danger mb-1">INFORME REJEITADO</div>
-                                                        <div class="small text-muted">
-                                                            Motivo: {{ $rejectCategory !== '' ? $rejectCategory : 'Não informado' }}
-                                                        </div>
-                                                    </div>
-                                                    <div class="card-body py-2 px-3">
-                                                        <div class="small">
-                                                            {{ $rejectObs !== '' ? $rejectObs : 'Sem observação registrada.' }}
-                                                        </div>
-                                                    </div>
-                                                    <div class="card-footer bg-white py-2 px-3 border-0 border-top">
-                                                        <div class="d-flex align-items-center gap-2 text-muted small">
-                                                            @if ($rejectUserEmail !== '')
-                                                                @php
-                                                                    $teamsWebUrl = 'https://teams.microsoft.com/l/chat/0/0?users=' . urlencode($rejectUserEmail);
-                                                                    $teamsDesktopUrl = 'msteams://teams.microsoft.com/l/chat/0/0?users=' . urlencode($rejectUserEmail);
-                                                                @endphp
-                                                                <a href="{{ $teamsWebUrl }}"
-                                                                    target="_blank" rel="noopener noreferrer"
-                                                                    class="text-decoration-none text-reset"
-                                                                    style="color: inherit;"
-                                                                    title="Conversar no Teams com {{ $rejectUserEmail }}"
-                                                                    onclick="openTeamsDesktopWithFallback(event, '{{ $teamsDesktopUrl }}', '{{ $teamsWebUrl }}')">
-                                                                    <i class="ri-microsoft-fill"></i>
-                                                                </a>
-                                                                <a href="{{ $teamsWebUrl }}"
-                                                                    target="_blank" rel="noopener noreferrer"
-                                                                    class="text-decoration-none text-reset"
-                                                                    style="color: inherit;"
-                                                                    title="Conversar no Teams com {{ $rejectUserEmail }}"
-                                                                    onclick="openTeamsDesktopWithFallback(event, '{{ $teamsDesktopUrl }}', '{{ $teamsWebUrl }}')">
-                                                                    {{ $rejectUser !== '' ? $rejectUser : 'Usuário não identificado' }}
-                                                                </a>
-                                                            @else
-                                                                <i class="ri-microsoft-fill"></i>
-                                                                <span>{{ $rejectUser !== '' ? $rejectUser : 'Usuário não identificado' }}</span>
-                                                            @endif
-                                                            <span>•</span>
-                                                            <span>{{ $rejectAt ?? 'Data não registrada' }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            @else
-                                                <span class="fw-semibold">{{ $reason }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-center">
-                                            @if (!$block)
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    wire:click.prevent="getNote({{ $tNote->id }})">
-                                                    Selecionar
-                                                </button>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                    <div class="row g-3">
+                        @forelse ($notes as $tNote)
+                            @php
+                                $adsOptions = $this->adsDeliveryOptionsForNote($tNote);
+                            @endphp
+                            @foreach ($adsOptions as $option)
+                                <div class="col-md-6 col-xl-4" wire:key="ads-gallery-{{ $tNote->id }}-{{ $option['id'] }}">
+                                    <div class="h-100 border rounded-4 p-3 shadow-sm {{ $option['block'] ? 'bg-light' : 'bg-white ads-option-clickable' }}"
+                                        @if (!$option['block'])
+                                            role="button" tabindex="0"
+                                            wire:click.prevent="requestAdsWorkReport({{ $tNote->id }}, {{ $option['id'] }})"
+                                        @endif>
+                                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                            <div>
+                                                <div class="small text-muted">Nota</div>
+                                                <div class="fw-bold">{{ $tNote->note }}</div>
+                                            </div>
+                                            <span class="badge {{ $option['block'] ? 'bg-danger-subtle text-danger-emphasis' : 'bg-success-subtle text-success-emphasis' }}">
+                                                {{ $option['block'] ? 'BLOQUEADO' : 'DISPONÍVEL' }}
+                                            </span>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-1 mb-2">
+                                            <span class="badge bg-primary-subtle text-primary-emphasis">Informe #{{ $option['id'] }}</span>
+                                            @foreach ($option['scopes'] as $scope)
+                                                <span class="badge {{ $scope['class'] }}">{{ $scope['label'] }}</span>
+                                            @endforeach
+                                        </div>
+                                        <div class="small text-muted mb-2">
+                                            <strong>Solicitado:</strong> {{ $option['date'] }}
+                                        </div>
+                                        <div class="small">
+                                            <strong>Ordens:</strong>
+                                            {{ count($option['orders']) ? implode(', ', $option['orders']) : 'Sem ordens vinculadas' }}
+                                        </div>
+                                        @if ($option['block'])
+                                            <div class="small text-danger mt-2">
+                                                <strong>Motivo:</strong> {{ $option['reason'] ?: 'Não disponível para entrega' }}
+                                            </div>
+                                        @else
+                                            <div class="small text-primary fw-semibold mt-3">
+                                                Clique para confirmar e carregar a entrega
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        @empty
+                            <div class="col-12">
+                                <div class="alert alert-danger mb-0">Esta obra não possui informe final ativo para entrega da ADS.</div>
+                            </div>
+                        @endforelse
                     </div>
                 </div>
             </div>
@@ -202,8 +130,8 @@
                                 <tr>
                                     <td class="text-end fw-bold">Ordens</td>
                                     <td>
-                                        @if ($note->orders->count())
-                                            @foreach ($note->orders->filter(function ($order) {
+                                        @if ($selectedWorkReportOrders->count())
+                                            @foreach ($selectedWorkReportOrders->filter(function ($order) {
         return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
     }) as $order)
                                                 <span class="badge bg-light text-dark border mb-1">{{ $order->ordem }}</span>
@@ -233,8 +161,8 @@
                 </div>
                 <div class="card-body pt-2">
                     <div class="input-group mb-2">
-                        <input type="file" class="form-control" wire:model="file" accept=".xlsx,.xls">
-                        <button class="btn btn-primary" wire:click.prevent="processFile" @disabled(!$file)>
+                        <input type="file" class="form-control" wire:model="file" accept=".xlsx,.xls" @disabled(!$selectedWorkReportId)>
+                        <button class="btn btn-primary" wire:click.prevent="processFile" @disabled(!$file || !$selectedWorkReportId)>
                             <span wire:loading.remove wire:target="processFile">Processar</span>
                             <span wire:loading wire:target="processFile" class="spinner-border spinner-border-sm" role="status"
                                 aria-hidden="true"></span>
@@ -325,7 +253,7 @@
                     </div>
 
                     <div class="card-body border-top">
-                        @livewire('files.manager.create-ads-files', ['note' => $note, 'service' => 'CFINAL'], key('ADS_final_files'))
+                        @livewire('files.manager.create-ads-files', ['note' => $note, 'service' => 'CFINAL', 'workReportId' => $selectedWorkReportId ? (int) $selectedWorkReportId : null], key('ADS_final_files-' . ($selectedWorkReportId ?: 'none')))
                     </div>
 
                     <div class="card-footer bg-white border-0 p-4 pt-0">
@@ -433,6 +361,29 @@
             padding: 12px;
             background: #fff;
             height: 100%;
+        }
+
+        .ads-report-option {
+            align-items: flex-start;
+            background: #fff;
+            border: 1px solid var(--ads-border);
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            gap: 12px;
+            padding: 14px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .ads-report-option.is-selected {
+            border-color: #0ea5a4;
+            box-shadow: 0 0 0 0.2rem rgba(14, 165, 164, 0.16);
+        }
+
+        .ads-report-option.is-blocked {
+            background: #f8fafc;
+            cursor: not-allowed;
+            opacity: 0.72;
         }
 
         .search-wrap {

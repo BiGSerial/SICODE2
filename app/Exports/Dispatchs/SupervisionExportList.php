@@ -2,11 +2,11 @@
 
 namespace App\Exports\Dispatchs;
 
-use App\Custom\Notestatus;
+use App\Support\SicodeRules;
+use App\Models\WorkReportFlowProduction;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -15,241 +15,179 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use DateTimeInterface;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class SupervisionExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
+class SupervisionExportList implements FromCollection, WithEvents, WithProperties, WithHeadings, WithMapping
 {
     use Exportable;
 
     protected $exports;
     protected $service;
     protected $serviceUuid;
+    protected array $selectedWorkReportIds;
+    protected array $selectedPartialIds;
 
-    public function __construct($data, $service)
+    public function __construct($data, $service, array $selectedWorkReportIds = [], array $selectedPartialIds = [])
     {
         $this->exports = $data;
         $this->service = $service;
         $this->serviceUuid = $service;
+        $this->selectedWorkReportIds = collect($selectedWorkReportIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $this->selectedPartialIds = collect($selectedPartialIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
-    public function query()
+    public function collection()
     {
-        $query = $this->exports;
+        $notes = $this->exports->with([
+            'orders' => fn ($q) => $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%'),
+            'WorkReports' => fn ($q) => $q->where('canceled', false),
+            'WorkReports.Orders',
+            'WorkReports.Adsform',
+            'WorkReports.FiveNote',
+            'WorkReports.Company',
+            'Productions.User',
+            'Productions.Company',
+            'Productions.WorkReportFlowProductions',
+            'Wpas',
+            'Partials.Orders',
+            'OldAds',
+            'FiveNote',
+        ])->get();
 
-        // Selecionar as colunas necessárias
-        $query->select([
-            'notes.id',
-            'notes.note',
-            'notes.numPedido',
-            'notes.rubrica',
-            'notes.lexp',
-            'notes.type_note',
-            'notes.nstats',
-            'notes.centerjob',
-            'work_reports.created_at as work_dt_created', // Assumindo que 'work_dt_created' está correto
-            'work_reports.informed_at as work_dt_informed',
-            'notes.postes',
-        ]);
+        $rows = $notes->map(function ($note) {
+            // A lista é montada pelo JOIN de notes com work_reports e, portanto,
+            // cada linha representa um informe específico. Não podemos agrupar
+            // novamente pela nota nem reanexar todos os informes da nota aqui:
+            // isso mistura as ordens de informes diferentes no Excel.
+            $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+            $workForm = $workReportId > 0
+                ? ($note->WorkReports ?? collect())->firstWhere('id', $workReportId)
+                : null;
 
-        // Eager load relacionamentos
-        $query->with([
-            'orders' => function ($q) {
-                $q->select(['note_id', 'ordem', 'statusSist', 'service_cost']);
-            },
-            'wpas' => function ($q) {
-                $q->select(['note_id', 'dd']);
-            },
-            'productions' => function ($q) {
-                $q->where('service_id', $this->serviceUuid);
-                $q->with(['Company' => function ($q) {
-                    $q->select(['id', 'name']);
-                }, 'User' => function ($q) {
-                    $q->select(['id', 'name']);
-                }]);
-            },
-            'Adsform', 'OldAds'
-        ]);
+            $row = clone $note;
+            $row->setRelation('WorkForm', $workForm);
 
-        return $query;
-    }
+            return $row;
+        })->values();
 
-    public function chunkSize(): int
-    {
-        return 1000; // Experimente valores maiores
+        if (empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds)) {
+            return $rows;
+        }
+
+        return $rows->filter(function ($row): bool {
+            $workReportId = (int) ($row->dispatch_work_report_id ?? 0);
+            $partialId = (int) (($row->Partials ?? collect())
+                ->where('allow', true)
+                ->where('supervision', false)
+                ->where('deny', false)
+                ->sortByDesc('created_at')
+                ->first()?->id ?? 0);
+
+            return in_array($workReportId, $this->selectedWorkReportIds, true)
+                || in_array($partialId, $this->selectedPartialIds, true);
+        })->values();
     }
 
     public function headings(): array
     {
         return [
-            'Tipo','Note', 'Nota D5', 'Ordem', 'DD', 'ADS', 'ADS Origem', 'Tipo ADS', 'Data ADS', 'Entrega ADS Tácita', 'Prazo ADS', 'Informado Em', 'Prazo Informe', 'Usuario Informe', 'Parceira', 'CentroTrab', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Custo', 'Status', 'Dias Informe', 'Dias D5', 'D5 Criada Em', 'D5 Despachada Em', 'D5 Entregue Em', 'Entregue Por', 'Empresa D5', 'Situação', 'Despachado em', 'Atribuido em', 'Empresa', 'Usuario'
+            'Tipo',
+            'Nota',
+            'Ordem',
+            'DD',
+            'MMGD',
+            'Postes',
+            'Informado Em',
+            'Dt ADS',
+            'numPedido',
+            'Rubrica',
+            'Municipio',
+            'Custo',
+            'Fiscalizações',
+            'Status',
+            'Dias D5',
+            'Situação',
+            'Despachado Em',
+            'Atribuído Em',
+            'Finalizado Em',
         ];
     }
 
     public function map($row): array
     {
-        // Processamento das ordens
-        $ordens = '';
-        $sumOrders = 0;
-        $centrojob = '';
-        $partner = '';
-        $userInform = '';
+        $workForm = $row->WorkForm;
+        $partial = !$workForm
+            ? ($row->Partials?->where('allow', true)->where('supervision', false)->where('deny', false)->sortByDesc('created_at')->first())
+            : null;
+        $orders = $workForm?->Orders ?? $partial?->Orders ?? collect();
+        $production = ($row->Productions ?? collect())
+            ->where('service_id', $this->serviceUuid)
+            ->sortByDesc('created_at')
+            ->first();
+        $informedAt = $workForm?->informed_at ?? $partial?->created_at;
 
-        if ($row->Orders && $row->Orders->isNotEmpty()) {
+        $scope = $workForm
+            ? collect($workForm->finalScopeBadges())->pluck('label')->implode(' / ')
+            : '---';
+        $typeLabel = ($partial ? 'P' : 'F') . ($scope !== '---' ? ' / ' . $scope : '');
 
+        $ads = $workForm?->Adsform;
+        $oldAds = $row->OldAds?->last();
+        $adsDate = $oldAds?->date ?? $ads?->created_at;
+        $adsLabel = $adsDate ? Carbon::parse($adsDate)->format('d/m/Y H:i:s') : '---';
+        if ($ads?->tacit) {
+            $adsLabel .= ' (TÁCITO)';
+        }
 
-            $ordensArray = $row->Orders->filter(function ($order) {
-                return !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT');
-            })->pluck('ordem')->toArray();
-
-            $ordensMoa = $row->Orders->filter(function ($order) {
-                return !str_starts_with($order->statusSist, 'ENCE') && !str_starts_with($order->statusSist, 'ENT');
+        $fiscalizations = ($row->Productions ?? collect())
+            ->where('service_id', $this->serviceUuid)
+            ->filter(function ($production) use ($workForm) {
+                $workReportId = (int) ($workForm?->id ?? 0);
+                return $workReportId === 0
+                    ? true
+                    : $production->WorkReportFlowProductions
+                        ->where('work_report_id', $workReportId)
+                        ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                        ->where('is_current', true)
+                        ->isNotEmpty();
             });
+        $fiscalizationValue = $fiscalizations->count()
+            ? $fiscalizations->count() . ' - ' . ($fiscalizations->first()?->User?->name ?? '--')
+            : '--';
 
-            $sumOrders = (float) $ordensMoa->sum('service_cost');
-            $ordens = implode(" \n", $ordensArray);
-
-            if (count($ordensArray) > 0) {
-                // Pega o centro de trabalho da primeira ordem válida
-                $centrojob = $row->Orders()->where('ordem', $ordensArray[0])->first()?->operations?->where('operacao', '0010')->first()?->cenTrab;
-            }
-        }
-
-        $notaD5 = $row->FiveNote ?? null;
-        $diasD5 = '---';
-
-        if ($notaD5 && $notaD5->completed_at) {
-            $completedAt = $notaD5->completed_at instanceof Carbon
-                ? $notaD5->completed_at->copy()
-                : Carbon::parse($notaD5->completed_at);
-
-            $diasD5 = $completedAt->startOfDay()->diffInDays(Carbon::now(), false);
-        }
-
-        $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
-
-        //Calculando os dias informados
-        $informe = '';
-        $diasInforme = '---';
-        $workForm = $row->WorkForm ?: $row->WorkFormAny;
-        if ($workForm) {
-            $partner = $workForm->company?->name;
-            $userInform = $workForm->user?->name;
-            $informe = 'FINAL';
-            $diasInforme = $row->work_dt_created ? Carbon::parse($row->work_dt_created)->diffInDays(Carbon::now(), false) : 0;
-            if ($workForm->canceled) {
-                $informe = 'FINAL (CANCELADO)';
-            }
-        } elseif ($row->Partials->isNotEmpty()) {
-            $informe = 'PARCIAL';
-            $diasInforme = $row->Partials->last() ? Carbon::parse($row->Partials->last()->created_at)->diffInDays(Carbon::now(), false) : 0;
-        }
-
-
-        // Obtendo a production relacionada
-        $production = $row->productions->isNotEmpty() ? $row->productions->last() : null;
-
-        $status = $row->productions->isNotEmpty() ? Notestatus::status($row->productions->last()->status)->status : null;
-
-        $empresa = $production && $production->Company ? $production->Company->name : '---';
-        $usuario = $production && $production->User ? $production->User->name : '---';
-
-
-        $adsType = null;
-        $tacitDeliveredAt = null;
-        if ($row->adsform) {
-            $ads_origin = 'NOVO';
-            $ads = $this->adsDate($row->adsform);
-            if ($row->adsform->tacit) {
-                $adsType = 'TACITA';
-                $tacitDeliveredAt = $row->adsform->tacit_delivered_at;
-            } else {
-                $adsType = 'NORMAL';
-            }
-        } elseif ($row->OldAds->isNotEmpty()) {
-            $ads_origin = 'ANTIGO';
-            $ads =  $row->OldAds->last()->date;
-        } else {
-            $ads_origin = 'SEM ADS';
-            $ads = null;
-        }
-
-        $inPrazo = null;
-
-
-        $prazoAds = $row->adsform?->tacit_due_at ?? ($row->work_dt_created ? Carbon::parse($row->work_dt_created)->endOfDay()->addDays(6) : null);
-
-        if ($row->work_dt_created) {
-            $refDate = $prazoAds ?? $row->work_dt_created;
-
-            if ($ads) {
-                $diff = Carbon::parse($refDate)->diffInDays(Carbon::parse($ads), false);
-                $inPrazo = $diff > 6 ? 'FORA DO PRAZO' : 'DENTRO DO PRAZO';
-            } else {
-                $diff = Carbon::parse($refDate)->diffInDays(Carbon::now(), false);
-                $inPrazo = $diff > 6 ? 'ATRASADO' : 'EM PRAZO';
-            }
-        } else {
-            $inPrazo = '---';
-        }
-
+        $d5 = $row->FiveNote;
+        $d5Days = $d5?->completed_at
+            ? Carbon::parse($d5->completed_at)->startOfDay()->diffInDays(Carbon::now())
+            : '---';
 
         return [
-            $informe,
-            $row->note,
-            $notaD5 ? $notaD5->note_d5 : '---',
-            $ordens,
-            $dd,
-            $ads ? 'SIM' : 'NÃO',
-            $ads_origin,
-            $adsType ?? '---',
-            $this->formatDate($ads, 'd/m/Y'),
-            $this->formatDate($tacitDeliveredAt, 'd/m/Y'),
-            $this->formatDate($prazoAds, 'd/m/Y'),
-            $this->formatDate($row->work_dt_informed, 'd/m/Y'),
-            $inPrazo,
-            $userInform,
-            $partner,
-            $centrojob,
+            $typeLabel,
+            $d5?->is_completed && !$d5?->is_supervisioned ? 'D5 ' . $row->note : $row->note,
+            $orders->isNotEmpty() ? $orders->pluck('ordem')->implode("\n") : '---',
+            SicodeRules::dispatchDdFor($row, $this->serviceUuid, $production) ?? '',
+            $row->mmgd ? 'MMGD' : '---',
             $row->postes ?? '---',
-            $row->numPedido,
-            $row->rubrica,
-            $row->lexp,
-            "R$ ".number_format($sumOrders, 2, ',', '.'),
-            $row->type_note == 2 ? $row->nstats : $row->centerjob,
-            $diasInforme,
-            $diasD5,
-            $this->formatDate($notaD5?->created_at, 'd/m/Y H:i:s'),
-            $this->formatDate($notaD5?->dispatch_at, 'd/m/Y H:i:s'),
-            $this->formatDate($notaD5?->completed_at, 'd/m/Y H:i:s'),
-            $notaD5 ? ($notaD5->name ? $notaD5->name : '---') : '---',
-            $notaD5 && $notaD5->company ? $notaD5->company->name : '---',
-            $status,
-            $this->formatDate($production?->dispatch_at, 'd/m/Y H:i:s'),
-            $this->formatDate($production?->att_at, 'd/m/Y H:i:s'),
-            $empresa,
-            $usuario,
+            $informedAt ? Carbon::parse($informedAt)->format('d/m/Y') : '---',
+            $adsLabel,
+            mb_strtoupper((string) ($row->numPedido ?? '')),
+            $row->rubrica ?? '---',
+            $row->lexp ?? '---',
+            'R$ ' . number_format((float) ($row->orders?->sum('service_cost') ?? 0), 2, ',', '.'),
+            $fiscalizationValue,
+            ($row->nstats ?? '---') . ' / ' . ($row->centerjob ?? '---'),
+            $d5Days,
+            $row->pze_parecer ?? 'DESCONHECIDO',
+            $this->formatProductionDate($production?->dispatch_at),
+            $this->formatProductionDate($production?->att_at),
+            $this->formatProductionDate($production?->completed_at),
         ];
     }
 
-    private function adsDate($adsForm): ?Carbon
+    private function formatProductionDate($date): string
     {
-        return $adsForm->created_at ? Carbon::parse($adsForm->created_at) : null;
+        if (!$date) { return "---"; }
+        $value = Carbon::parse($date);
+        return $value->format("d/m/Y H:i:s") . " (" . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . " dia(s))";
     }
 
-    private function formatDate($date, string $format): string
-    {
-        if ($date === null || $date === '' || $date === false) {
-            return '---';
-        }
-
-        try {
-            $formattedDate = $date instanceof DateTimeInterface
-                ? $date
-                : Carbon::parse((string) $date);
-
-            return $formattedDate?->format($format) ?: '---';
-        } catch (\Throwable) {
-            return '---';
-        }
-    }
 
     public function properties(): array
     {

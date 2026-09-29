@@ -53,6 +53,8 @@ class CreateGenFiles extends Component
 
     public ?WorkReport $workReport = null;
 
+    public array $workReportIds = [];
+
     public ?int $viabilityId = null;
 
     public bool $alertFile = false;
@@ -79,6 +81,7 @@ class CreateGenFiles extends Component
         'saveFiles',
         'cleanFiles' => 'closeAll',
         'setWorkReportId',
+        'setWorkReportIds',
     ];
 
     public function mount(Note $note, string $service, ?ViabilityModel $viability = null, ?int $viability_id = null, bool $manage_existing = false, array $existing_file_types = [], ?WorkReport $work_report = null, ?string $fileable_type = null, ?int $fileable_id = null)
@@ -95,7 +98,22 @@ class CreateGenFiles extends Component
 
     public function setWorkReportId(int $workReportId): void
     {
+        $this->workReportIds = [];
         $this->workReport = $this->persistedWorkReport(WorkReport::find($workReportId));
+    }
+
+    public function setWorkReportIds(array $workReportIds): void
+    {
+        $this->workReportIds = collect($workReportIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->workReport = $this->persistedWorkReport(
+            WorkReport::find($this->workReportIds[0] ?? null)
+        );
     }
 
     public function setFileable(?string $fileableType = null, ?int $fileableId = null): void
@@ -475,6 +493,17 @@ class CreateGenFiles extends Component
 
     private function associateFileToTarget(File $file): void
     {
+        if (!empty($this->workReportIds)) {
+            WorkReport::query()
+                ->whereKey($this->workReportIds)
+                ->get()
+                ->each(function (WorkReport $workReport) use ($file): void {
+                    $workReport->Files()->syncWithoutDetaching([$file->id]);
+                });
+
+            return;
+        }
+
         $target = $this->fileableModel() ?: $this->workReport;
 
         if (!$target?->getKey() || !method_exists($target, 'Files')) {

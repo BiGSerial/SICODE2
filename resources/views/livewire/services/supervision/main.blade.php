@@ -205,8 +205,7 @@
                         <table class="table table-sm table-striped table-condensed">
                             <thead class="table-dark">
                                 <tr class="text-center align-middle">
-                                    <th>Tipo</th>
-                                    <th>Escopo</th>
+                                    <th style="width:52px;"></th>
                                     <th>Note</th>
                                     <th>Ordens</th>
                                     <th>DD</th>
@@ -216,6 +215,7 @@
                                     <th>Rubrica</th>
                                     <th>Municipio</th>
                                     <th>Descrição</th>
+                                    <th>Dias Despacho</th>
                                     <th>Dias Atribuido</th>
                                     <th>Dias Informe</th>
                                     <th>ADS</th>
@@ -227,11 +227,13 @@
                                 @foreach ($lists as $list)
                                     @php
                                         $note = $list->Note;
-                                        $workForm = $note->WorkForm;
+                                        $flowWorkForm = $list->WorkReportFlowProductions
+                                            ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
+                                            ?->WorkReport;
+                                        $workForm = $flowWorkForm ?? $note->WorkForm;
                                         $formBlock = $workForm ? (bool) $workForm->rejected : false;
 
-                                        $dfive = $list->dfive ? optional($note->FiveNote) : null;
-                                        $colorCell = $list->partial ? 'table-warning' : 'table-success';
+                                        $dfive = $list->dfive ? ($workForm?->FiveNote ?: $note->FiveNote) : null;
                                         $rowWarn = $list->priority
                                             ? 'table-danger'
                                             : ($formBlock
@@ -239,6 +241,7 @@
                                                 : '');
                                         $daysLeft = (int) $list->days_left; // vindo do SQL
                                         $daysAss = (int) $list->days_assigned; // vindo do SQL
+                                        $daysDispatch = $list->dispatch_at ? (int) $list->days_dispatch : null; // vindo do SQL
 
                                         $lastWpa = $list->Wpas->last(); // 1 item (latest()->limit(1))
                                         $hasOld = $note->OldAds && $note->OldAds->isNotEmpty();
@@ -267,19 +270,14 @@
                                             wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $note->Partials->last() }})" @endif
                                         class="{{ $rowWarn }}">
 
-                                        <td class="{{ $colorCell }} fw-bold">
-                                            {{ $list->partial ? 'Parcial' : 'Final' }}
-                                        </td>
-
-                                        <td class="fw-bold">
-                                            @if ($workForm)
-                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
-                                                    <span class="badge {{ $scopeBadge['class'] }} fs-6 mb-1">{{ $scopeBadge['label'] }}</span>
-                                                @endforeach
-                                            @elseif ($list->partial)
-                                                <span class="badge text-bg-secondary">Parcial</span>
+                                        <td class="text-center">
+                                            @if ($list->partial)
+                                                <span class="badge text-bg-warning">P</span>
                                             @else
-                                                <span class="badge text-bg-secondary">Geral</span>
+                                                @php
+                                                    $isConnection = $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false;
+                                                @endphp
+                                                <span class="badge {{ $isConnection ? 'text-bg-warning' : 'text-bg-success' }}">F</span>
                                             @endif
                                         </td>
 
@@ -349,14 +347,57 @@
                                         <td class="fw-light">{{ $note->lexp }}</td>
                                         <td class="fw-light">{{ $note->material }}</td>
 
-                                        <td class="fw-light">{{ $daysAss }}</td>
+                                        <td class="fw-light">
+                                            <div class="ads-info">
+                                                @if ($list->dispatch_at)
+                                                    <div class="ads-info-date">
+                                                        {{ Carbon::parse($list->dispatch_at)->format('d/m/Y') }}
+                                                    </div>
+                                                    <span class="badge text-bg-secondary">
+                                                        {{ max(0, $daysDispatch) }}
+                                                        {{ max(0, $daysDispatch) === 1 ? 'dia' : 'dias' }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </div>
+                                        </td>
 
-                                        <td
-                                            class="text-center
-                                            @if ($daysLeft <= 20) text-bg-success
-                                            @elseif ($daysLeft >= 28) text-bg-danger
-                                            @else text-bg-warning @endif">
-                                            {{ $daysLeft }}
+                                        <td class="fw-light">
+                                            <div class="ads-info">
+                                                @if ($list->att_at)
+                                                    <div class="ads-info-date">
+                                                        {{ Carbon::parse($list->att_at)->format('d/m/Y') }}
+                                                    </div>
+                                                    <span class="badge text-bg-secondary">
+                                                        {{ max(0, $daysAss) }}
+                                                        {{ max(0, $daysAss) === 1 ? 'dia' : 'dias' }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </div>
+                                        </td>
+
+                                        @php
+                                            $daysLeftClass = match (true) {
+                                                $daysLeft <= 20 => 'text-bg-success',
+                                                $daysLeft >= 28 => 'text-bg-danger',
+                                                default => 'text-bg-warning',
+                                            };
+                                        @endphp
+                                        <td class="fw-light">
+                                            <div class="ads-info">
+                                                @if ($list->work_informed_at)
+                                                    <div class="ads-info-date">
+                                                        {{ Carbon::parse($list->work_informed_at)->format('d/m/Y') }}
+                                                    </div>
+                                                @endif
+                                                <span class="badge {{ $daysLeftClass }}">
+                                                    {{ $daysLeft }}
+                                                    {{ $daysLeft === 1 ? 'dia' : 'dias' }}
+                                                </span>
+                                            </div>
                                         </td>
 
                                         <td class="fw-light {{ $adsDeadlineClass }}">

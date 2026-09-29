@@ -97,6 +97,7 @@ return [
                 'partner_can_claim_company_stack' => true,
                 'survey'                          => ['requires_dd' => false],
                 'supervision'                     => ['requires_dd' => false],
+                'payment'                         => ['ignores_operation_40_after_operation_30_confirmed' => true],
             ],
 
             'work_report' => [

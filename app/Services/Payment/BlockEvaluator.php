@@ -5,6 +5,7 @@ namespace App\Services\Payment;
 use App\Models\Note;
 use App\Models\Service;
 use App\Models\Production;
+use App\Models\WorkReportFlowProduction;
 
 class BlockEvaluator
 {
@@ -18,8 +19,8 @@ class BlockEvaluator
     {
         $prod = $this->latestProductionForService($note, $service->uuid);
 
-        $five   = $note->FiveNote;
         $wf     = $note->WorkForm;
+        $five   = $wf?->FiveNote ?? $note->FiveNote;
         $validPartial = $note->Partials
             ?->where('allow', true)
             ->where('supervision', true)
@@ -109,6 +110,15 @@ class BlockEvaluator
             }
         }
 
+        // ===== Produção aberta
+        if (empty($prod->user_id)) {
+            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
+        }
+
+        if (!$prod->completed && !$prod->confirmed) {
+            return $this->res(self::HOLD_BLUE, false, 'prod_open_generic', $prod);
+        }
+
         // ===== 4) FALLBACK SAP (dt e status iguais => não refletiu)
         if (
             ($prod->dt_note ?? null) && ($note->dt_status ?? null) &&
@@ -118,11 +128,6 @@ class BlockEvaluator
             $prod->status_note == $note->nstats
         ) {
             return $this->res(self::HOLD_RED, true, 'sap_not_reflected_same_dt_and_status', $prod);
-        }
-
-        // ===== Produção sem atribuição
-        if (empty($prod->user_id)) {
-            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
         }
 
         // ===== 5) Estados herdados
@@ -141,17 +146,54 @@ class BlockEvaluator
 
     private function latestProductionForService(Note $note, string $serviceUuid): ?Production
     {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
         if ($note->relationLoaded('Productions')) {
-            return $note->Productions
+            $productions = $note->Productions
                 ->where('service_id', $serviceUuid)
-                ->sortByDesc('created_at')
-                ->first();
+                ->sortByDesc('created_at');
+
+            if ($workReportId > 0) {
+                $scopedProduction = $productions
+                    ->first(function (Production $production) use ($workReportId) {
+                        return $production->WorkReportFlowProductions
+                            ->where('work_report_id', $workReportId)
+                            ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                            ->where('is_current', true)
+                            ->isNotEmpty();
+                    });
+
+                if ($scopedProduction) {
+                    return $scopedProduction;
+                }
+
+                return null;
+            }
+
+            return $productions->first();
         }
 
-        return Production::where('note_id', $note->id)
+        $query = Production::where('note_id', $note->id)
             ->where('service_id', $serviceUuid)
-            ->orderByDesc('created_at')
-            ->first();
+            ->orderByDesc('created_at');
+
+        if ($workReportId > 0) {
+            $query->whereHas('WorkReportFlowProductions', function ($q) use ($workReportId) {
+                $q->where('work_report_id', $workReportId)
+                    ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                    ->where('is_current', true);
+            });
+
+            $scopedProduction = $query->first();
+
+            if ($scopedProduction) {
+                return $scopedProduction;
+            }
+
+            return null;
+        }
+
+        return $query->first();
     }
 
     private function res(int $block, bool $command, string $reason, ?Production $prod = null): array

@@ -5,6 +5,7 @@ namespace App\Services\Supervision;
 use App\Models\Note;
 use App\Models\Service;
 use App\Models\Production;
+use App\Models\WorkReportFlowProduction;
 
 class BlockEvaluator
 {
@@ -23,11 +24,15 @@ class BlockEvaluator
         $prod = $this->latestProductionForService($note, $service->uuid);
 
         // Atalhos
-        $five    = $note->FiveNote;
-        $wf      = $note->WorkForm;
-        $hasWorkForm = (bool) $wf;
+        $wf           = $note->WorkForm;
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $partialId = (int) ($note->dispatch_partial_id ?? 0);
+        $five = $workReportId > 0 ? $wf?->FiveNote : $note->FiveNote;
+        $hasWorkForm  = (bool) $wf;
         $isPartialFromProd = !$hasWorkForm && (bool) ($prod?->partial);
-        $validPartial = $this->latestValidPartialForSupervision($note);
+        $validPartial = $partialId > 0
+            ? $note->Partials?->firstWhere("id", $partialId)
+            : ((int) ($note->dispatch_five_note_id ?? 0) > 0 ? null : $this->latestValidPartialForSupervision($note));
 
         // ===== 0) SEM PRODUÇÃO NO BANCO =====
         if (!$prod) {
@@ -150,17 +155,93 @@ class BlockEvaluator
 
     private function latestProductionForService(Note $note, string $serviceUuid): ?Production
     {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $fiveNoteId   = (int) ($note->dispatch_five_note_id ?? 0);
+        $partialId    = (int) ($note->dispatch_partial_id ?? 0);
+
         if ($note->relationLoaded('Productions')) {
-            return $note->Productions
+            $productions = $note->Productions
                 ->where('service_id', $serviceUuid)
-                ->sortByDesc('created_at')
-                ->first();
+                ->sortByDesc('created_at');
+
+            if ($partialId > 0) {
+                $direct = $productions->first(fn (Production $production) => $production->partialInforms->contains("id", $partialId));
+
+                if ($direct) {
+                    return $direct;
+                }
+
+                $validPartials = $note->relationLoaded('Partials')
+                    ? $note->Partials->where('allow', true)->where('deny', false)->where('supervision', false)->where('payment', false)
+                    : $note->Partials()->where('allow', true)->where('deny', false)->where('supervision', false)->where('payment', false)->get();
+
+                if ($validPartials->count() === 1 && (int) $validPartials->first()->id === $partialId) {
+                    $legacyOpen = $productions->filter(fn (Production $production) =>
+                        (bool) $production->partial
+                        && !$production->completed
+                        && !$production->confirmed
+                        && $production->partialInforms->isEmpty()
+                    );
+
+                    if ($legacyOpen->count() === 1) {
+                        return $legacyOpen->first();
+                    }
+                }
+
+                return null;
+            }
+
+            if ($fiveNoteId > 0) {
+                $linked = $productions->filter(fn (Production $production) => $production->fiveNotes->contains("id", $fiveNoteId));
+                $legacyD5Count = $note->relationLoaded("FiveNotes")
+                    ? $note->FiveNotes->whereNull("work_report_id")->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->count()
+                    : 0;
+                $fallback = $productions->filter(fn (Production $production) =>
+                    $production->dfive && !$production->completed && !$production->confirmed
+                    && $production->fiveNotes->isEmpty()
+                    && $production->WorkReportFlowProductions
+                        ->where("stage", WorkReportFlowProduction::STAGE_FISCALIZATION)
+                        ->where("is_current", true)->isNotEmpty()
+                );
+                if ($legacyD5Count === 1 && $fallback->count() === 1) {
+                    return $linked->concat($fallback)->sortByDesc("created_at")->first();
+                }
+                return $linked->sortByDesc("created_at")->first();
+            }
+
+            if ($workReportId > 0) {
+                $linkedProduction = $productions
+                    ->first(function (Production $production) use ($workReportId) {
+                        return $production->WorkReportFlowProductions
+                            ->where('work_report_id', $workReportId)
+                            ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                            ->where('is_current', true)
+                            ->isNotEmpty();
+                    });
+
+                return $linkedProduction;
+            }
+
+            return $productions->first();
         }
 
-        return Production::where('note_id', $note->id)
+        $query = Production::where('note_id', $note->id)
             ->where('service_id', $serviceUuid)
-            ->orderByDesc('created_at')
-            ->first();
+            ->orderByDesc('created_at');
+
+        if ($partialId > 0) {
+            $query->whereHas('partialInforms', fn ($partial) => $partial->whereKey($partialId));
+        } elseif ($fiveNoteId > 0) {
+            $query->whereHas('fiveNotes', fn ($five) => $five->whereKey($fiveNoteId));
+        } elseif ($workReportId > 0) {
+            $query->whereHas('WorkReportFlowProductions', function ($q) use ($workReportId) {
+                $q->where('work_report_id', $workReportId)
+                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true);
+            });
+        }
+
+        return $query->first();
     }
 
     private function latestValidPartialForSupervision(Note $note): ?\App\Models\Partial
@@ -170,6 +251,7 @@ class BlockEvaluator
                 ->where('allow', true)
                 ->where('supervision', false)
                 ->where('deny', false)
+                ->where('payment', false)
                 ->sortByDesc('created_at')
                 ->first();
         }
@@ -178,6 +260,7 @@ class BlockEvaluator
             ->where('allow', true)
             ->where('supervision', false)
             ->where('deny', false)
+            ->where('payment', false)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->first();

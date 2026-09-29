@@ -3,6 +3,7 @@
 namespace App\Exports\Dispatchs;
 
 use App\Helpers\DaysLeft;
+use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -70,7 +71,7 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
     public function headings(): array
     {
         return [
-            'Note', 'Ordem', 'DD', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Prazo', 'Empresa', 'Usuario'
+            'Note', 'Ordem', 'DD', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Prazo', 'Empresa', 'Usuario', 'Despachado Em', 'Atribuído Em', 'Finalizado Em'
         ];
     }
 
@@ -112,8 +113,19 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
             $daysLeft,
             $empresa,
             $usuario,
+            $this->formatProductionDate($row->productions->last()?->dispatch_at),
+            $this->formatProductionDate($row->productions->last()?->att_at),
+            $this->formatProductionDate($row->productions->last()?->completed_at),
         ];
     }
+
+    private function formatProductionDate($date): string
+    {
+        if (!$date) { return "---"; }
+        $value = Carbon::parse($date);
+        return $value->format("d/m/Y H:i:s") . " (" . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . " dia(s))";
+    }
+
 
     public function properties(): array
     {
@@ -134,7 +146,7 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:P1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
                         'color' => ['rgb' => 'FFFFFF'],

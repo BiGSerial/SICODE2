@@ -7,6 +7,7 @@ use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Exports\Services\Payment\D5tolistExport;
 use App\Exports\Services\ServicePaymentStack;
 use App\Models\{File, Note, Production, Service, User};
+use App\Models\WorkReportFlowProduction;
 use App\Helpers\TextFormatter;
 use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
@@ -280,9 +281,34 @@ class Main extends Component
                     $q->whereIn('rubrica', $this->filters['rubrica']);
                 });
             })
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc');
-            }])
+            ->with([
+                'Note' => function ($query) {
+                    $query->orderBy('dt_status', 'asc');
+                },
+                'Note.Files',
+                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                'Note.WorkForm:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+                'Note.WorkForm.Company:id,name,deleted_at',
+                'Note.WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+                'Note.WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                'Note.FiveNote',
+                'Note.FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
+                'Note.Partials.Company:id,name,deleted_at',
+                'Note.Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+                'Note.Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                'WorkReportFlowProductions' => fn ($q) => $q
+                    ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                    ->where('is_current', true)
+                    ->with([
+                        'WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+                        'WorkReport.Company:id,name,deleted_at',
+                        "WorkReport.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at",
+                        'WorkReport.Orders' => fn ($orders) => $orders->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
+                        'WorkReport.Orders.Operations' => fn ($orders) => $orders->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                        'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                    ]),
+            ])
             ->select('productions.*', 'notes.dt_created as note_dt_created', 'latest_operation_resps.latest_fimLancado as fimLancado')
             ->orderBy('priority', 'DESC')
             ->orderBy('d5', 'DESC')

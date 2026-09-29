@@ -15,15 +15,42 @@ class Regional extends Component
 
     public string $search = '';
 
+    public string $baseConstructionFilter = '';
+
+    public string $scopeFilter = '';
+
+    public string $statusFilter = '';
+
     public function updatingSearch(): void
     {
         $this->resetPage();
     }
 
+    public function updatingBaseConstructionFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingScopeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'baseConstructionFilter', 'scopeFilter', 'statusFilter']);
+        $this->resetPage();
+    }
+
     public function render()
     {
-        $regionals = auth()->user()->regionNames()
-            ->map(fn ($regional) => trim((string) $regional))
+        $baseConstructions = auth()->user()->regionNames()
+            ->map(fn ($base) => trim((string) $base))
             ->filter()
             ->unique()
             ->values();
@@ -36,12 +63,12 @@ class Regional extends Component
                 CancellationRequestStatus::ASSIGNED->value,
                 CancellationRequestStatus::PAUSED->value,
             ])
-            ->when($regionals->isNotEmpty(), function ($query) use ($regionals) {
-                $query->whereHas('Note', function ($noteQuery) use ($regionals) {
+            ->when($baseConstructions->isNotEmpty(), function ($query) use ($baseConstructions) {
+                $query->whereHas('Note', function ($noteQuery) use ($baseConstructions) {
                     $noteQuery->whereIn(
                         'nexp',
                         \App\Models\City::query()
-                            ->whereIn('regional', $regionals->all())
+                            ->whereIn('baseConstrucao', $baseConstructions->all())
                             ->whereNotNull('rdMunicipio')
                             ->pluck('rdMunicipio')
                     );
@@ -49,16 +76,41 @@ class Regional extends Component
             }, function ($query) {
                 $query->whereRaw('1 = 0');
             })
+            ->when($this->baseConstructionFilter !== '' && $baseConstructions->contains($this->baseConstructionFilter), function ($query) {
+                $query->whereHas('Note', function ($noteQuery) {
+                    $noteQuery->whereIn(
+                        'nexp',
+                        \App\Models\City::query()
+                            ->where('baseConstrucao', $this->baseConstructionFilter)
+                            ->whereNotNull('rdMunicipio')
+                            ->pluck('rdMunicipio')
+                    );
+                });
+            })
+            ->when($this->scopeFilter !== '', fn ($query) => $query->where('scope', $this->scopeFilter))
+            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
             ->when(trim($this->search) !== '', function ($query) {
                 $term = trim($this->search);
-                $query->whereHas('Note', fn ($noteQuery) => $noteQuery->where('note', 'like', "%{$term}%"));
+                $query->where(function ($searchQuery) use ($term) {
+                    $searchQuery
+                        ->whereHas('Note', fn ($noteQuery) => $noteQuery->where('note', 'like', "%{$term}%"))
+                        ->orWhereHas('Requester', fn ($userQuery) => $userQuery->where('name', 'like', "%{$term}%"))
+                        ->orWhereHas('Assignee', fn ($userQuery) => $userQuery->where('name', 'like', "%{$term}%"));
+                });
             })
             ->orderByDesc('created_at')
             ->paginate(15);
 
         return view('livewire.engineers.cancellation-approvals.regional', [
             'items' => $items,
-            'regions' => $regionals,
+            'baseConstructions' => $baseConstructions,
+            'scopes' => CancellationRequestScope::cases(),
+            'statuses' => [
+                CancellationRequestStatus::DRAFT,
+                CancellationRequestStatus::SUBMITTED,
+                CancellationRequestStatus::ASSIGNED,
+                CancellationRequestStatus::PAUSED,
+            ],
         ]);
     }
 }

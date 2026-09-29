@@ -10,6 +10,9 @@ class DispatchController extends Controller
 {
     public function survey_main(Request $request)
     {
+        if (Auth()->user()?->contract) {
+            return redirect()->route('dispatch.partner', ['service' => $request->route('service')]);
+        }
         $service = Service::where('uuid', $request->route('service'))->first();
 
         if (view()->exists('dispatchs.' . $service->folder . '.main')) {
@@ -37,8 +40,33 @@ class DispatchController extends Controller
         }
     }
 
+    public function partner(Request $request)
+    {
+        abort_unless(Auth()->user()?->contract, 403);
+        $service = Service::where('uuid', $request->route('service'))->firstOrFail();
+        $view = 'dispatchs.' . $service->folder . '.partner_main';
+
+        return view(view()->exists($view) ? $view : 'dispatchs.default.partner_main', [
+            'service' => $service,
+        ]);
+    }
+
+    public function partner_stack(Request $request)
+    {
+        abort_unless(Auth()->user()?->contract, 403);
+        $service = Service::where('uuid', $request->route('service'))->firstOrFail();
+        $view = 'dispatchs.' . $service->folder . '.partner_stack';
+
+        return view(view()->exists($view) ? $view : 'dispatchs.default.partner_stack', [
+            'service' => $service,
+        ]);
+    }
+
     public function survey_stack(Request $request)
     {
+        if (Auth()->user()?->contract) {
+            return redirect()->route('dispatch.partner.stack', ['service' => $request->route('service')]);
+        }
         $service = Service::where('uuid', $request->route('service'))->first();
 
 
@@ -56,6 +84,9 @@ class DispatchController extends Controller
 
     public function survey_stack2(Request $request)
     {
+        if (Auth()->user()?->contract) {
+            return redirect()->route('dispatch.partner.stack', ['service' => $request->route('service')]);
+        }
         $service = Service::where('uuid', $request->route('service'))->first();
 
         if (view()->exists('dispatchs.' . $service->folder . '.stack2')) {

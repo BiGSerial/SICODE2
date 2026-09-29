@@ -7,9 +7,11 @@ use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
 use App\Helpers\TextFormatter;
 use App\Models\City;
-use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, WorkReport};
 use App\Repositories\PublishRepository;
+use App\Support\SicodeRules;
 use App\Services\Publication\NoteFilter;
+use App\Services\WorkReports\{WorkReportFinalScopeResolver, WorkReportFlowProductionLinker};
 use App\Traits\WildcardFormmater;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -59,8 +61,6 @@ class Main extends Component
     public $notes;
 
     public $enter_dd;
-
-    public $filteredLists;
 
     public $search_user;
 
@@ -133,7 +133,7 @@ class Main extends Component
         } else {
 
 
-            return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selected), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
+            return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selectedNoteIds()), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
         }
     }
 
@@ -149,7 +149,7 @@ class Main extends Component
     public function updatedSelectall($val)
     {
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+        $idsToKeep = $this->currentPageListIds();
 
         if ($val) {
             // Adicionar os IDs ausentes de $selected
@@ -192,13 +192,18 @@ class Main extends Component
 
     public function hasPublication(Note $note)
     {
-        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+        $workReport = $note->WorkForm instanceof WorkReport ? $note->WorkForm : null;
 
-        if ($production) {
-            return $production;
-        } else {
+        if (!$workReport) {
             return false;
         }
+
+        return collect($workReport->FlowProductions ?? [])
+            ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION)
+            ->where('is_current', true)
+            ->pluck('Production')
+            ->filter(fn ($production) => $production && (string) $production->service_id === (string) $this->service->uuid)
+            ->last() ?: false;
     }
 
     public function hasPublicationCount(Note $note)
@@ -219,8 +224,6 @@ class Main extends Component
     public function go_att_mass()
     {
 
-        $this->clean();
-
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -232,13 +235,19 @@ class Main extends Component
             return;
         }
 
-        $this->notes = Note::find($this->selected);
+        $bulkAnyStatus = (bool) $this->all_services;
 
-        if ($this->notes->count()) {
-            $this->dispatchBrowserEvent('showModal', [
-                'id' => 'add_mass_notes',
-            ]);
-        }
+        $payload = collect($this->selected)->map(function ($key) use ($bulkAnyStatus) {
+            [$noteId, $workReportId] = array_pad(explode(':', (string) $key, 3), 3, null);
+
+            return [
+                'note_id' => (int) $noteId,
+                'work_report_id' => $workReportId ? (int) $workReportId : null,
+                'bulk_any_status' => $bulkAnyStatus,
+            ];
+        })->filter(fn ($item) => $item['note_id'] > 0)->values()->all();
+
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
 
     public function confirm_att()
@@ -354,13 +363,15 @@ class Main extends Component
                     $user_info = $this->dispatchRecipientInfo();
 
                     if ($production) {
+                        $this->linkPublicationWorkReport($production, $note);
+
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "Usuário {$user} {$user_info}",
                             'status'       => 2,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
                     }
                 } else {
@@ -389,13 +400,15 @@ class Main extends Component
                     $user_info = $this->dispatchRecipientInfo();
 
                     if ($production) {
+                        $this->linkPublicationWorkReport($production, $note);
+
                         Notetimeline::Create([
-                            'note_id'      => $production->id,
+                            'note_id'      => $production->note_id,
                             'service_id'   => $production->service_id,
                             'user_id'      => Auth()->User()->id,
                             'info'         => "Usuário {$user} {$user_info}",
                             'status'       => 1,
-                            'productionId' => $production->id,
+                            'production_id' => $production->id,
                         ]);
                     }
                 } else {
@@ -499,19 +512,21 @@ class Main extends Component
         }
 
 
-        $query = $this->publishRepository->getBaseQuery($this->all_services);
+        $query = $this->publishRepository->getBaseQuery($this->all_services, $this->service->uuid);
+
+        // Usuários contratados só podem visualizar obras das empresas vinculadas a eles.
+        $query = SicodeRules::applyContractDispatchListVisibility(
+            $query,
+            Auth()->user(),
+            $this->service->uuid
+        );
 
         // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
         if (!$this->all_services) {
             $query->where(function ($q) {
                 $q->where(function ($wq) {
-                    $wq->whereHas('WorkForm', function ($sq) {
+                    $wq->whereHas('WorkForms', function ($sq) {
                         $sq->where('rejected', false);
-                    })->orWhere(function ($sq) {
-                        if ($this->btzeroform) {
-                            $sq->doesntHave('WorkForm')
-                               ->whereHas('RamalForm');
-                        }
                     });
                 });
             });
@@ -540,7 +555,7 @@ class Main extends Component
         // Filtro de Companhia (company_id) no WorkForm
         if (isset($this->filters['company'])) {
             $companies = $this->filters['company'];
-            $query->whereHas('WorkForm', function ($q) use ($companies) {
+            $query->whereHas('WorkForms', function ($q) use ($companies) {
                 $q->whereIn('company_id', $companies);
             });
         }
@@ -550,7 +565,7 @@ class Main extends Component
             $multiSearchTerms = $this->multiSearch;
             $query->where(function ($q1) use ($multiSearchTerms) {
                 $q1->whereIn('note', $multiSearchTerms)
-                    ->orWhereHas('Orders', function ($q2) use ($multiSearchTerms) {
+                    ->orWhereHas('WorkForm.Orders', function ($q2) use ($multiSearchTerms) {
                         $q2->whereIn('ordem', $multiSearchTerms);
                     });
             });
@@ -572,7 +587,25 @@ class Main extends Component
 
 
         // Eager Loading e Seleção de Colunas
-        $query->with('Productions', 'WorkForm', 'RamalForm')
+        $query->with([
+            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)->select([
+                'id', 'note_id', 'service_id', 'user_id', 'company_id',
+                'completed', 'confirmed', 'status', 'created_at',
+            ]),
+            'WorkForms' => fn ($q) => $q->where('canceled', false)->select([
+                'id', 'note_id', 'company_id', 'date', 'informed_at',
+                'created_at', 'rejected', 'canceled', 'selected_final_scopes',
+            ])->with([
+                'Note:id,type_note',
+                'Company:id,name,deleted_at',
+                'Orders:id,note_id,ordem,statusSist',
+                'Orders.Operations:id,order_id,operacao,status',
+                'FlowProductions:id,work_report_id,production_id,stage,is_current',
+                'FlowProductions.Production:id,note_id,service_id,user_id,company_id,completed,confirmed,status,created_at',
+                'FiveNote',
+            ]),
+            'RamalForm.Company',
+        ])
             ->select([
                 'notes.*',
                     DB::raw("
@@ -656,6 +689,36 @@ class Main extends Component
     //     }
     // }
 
+    private function expandPublicationRows($notes)
+    {
+        return $notes->flatMap(function (Note $note) {
+            $reports = $note->relationLoaded('WorkForms') ? $note->WorkForms : collect();
+            $eligible = $reports->filter(function ($report) {
+                $orders = $report->relationLoaded('Orders') ? $report->Orders : collect();
+                return $report->rejected === false && $orders->contains(function ($order) {
+                    return str_starts_with(strtoupper((string) $order->statusSist), 'LIB')
+                        && $order->Operations->contains(fn ($operation) => (string) $operation->operacao === '0020'
+                            && (str_starts_with(strtoupper((string) $operation->status), 'LIB')
+                                || str_starts_with(strtoupper((string) $operation->status), 'CNPA')
+                                || str_starts_with(strtoupper((string) $operation->status), 'JBFI LIB')));
+                }) && collect($report->finalScopePayloads())->pluck('scope')->contains(fn ($scope) => app(WorkReportFinalScopeResolver::class)->publicationRequired($scope));
+            })->values();
+
+            if ($eligible->isEmpty()) {
+                return [];
+            }
+
+            return $eligible->map(function ($report) use ($note) {
+                $row = clone $note;
+                $row->setRelation('WorkForm', $report);
+                $row->setRelation('WorkForms', collect([$report]));
+                $row->setAttribute('publication_context_key', $note->id . ':' . $report->id);
+                $row->setAttribute('dispatch_work_report_id', (int) $report->id);
+                return $row;
+            });
+        })->values();
+    }
+
     private function dispatchRecipientInfo(): string
     {
         if (trim((string) $this->user_s)) {
@@ -686,17 +749,48 @@ class Main extends Component
         return "{$note} => Desconhecido";
     }
 
+    private function linkPublicationWorkReport(Production $production, Note $note): void
+    {
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
+        if ($workReportId <= 0) {
+            return;
+        }
+
+        $workReport = WorkReport::query()
+            ->whereKey($workReportId)
+            ->where('note_id', $note->id)
+            ->where('canceled', false)
+            ->with('Orders')
+            ->first();
+
+        if (!$workReport) {
+            return;
+        }
+
+        $scope = collect($workReport->finalScopePayloads())
+            ->pluck('scope')
+            ->first(fn (string $scope) => app(WorkReportFinalScopeResolver::class)->publicationRequired($scope));
+
+        if (!$scope) {
+            return;
+        }
+
+        app(WorkReportFlowProductionLinker::class)->linkPublicationForWorkReport(
+            $production,
+            $workReport,
+            'dispatch_publication_main',
+            [],
+            $scope
+        );
+    }
+
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(function ($list) {
+        $lists = $this->lists->paginate($this->perPage);
+        $lists->setCollection($this->expandPublicationRows($lists->getCollection()));
 
-            return !$list->Productions
-                ->where('status_note', $list->nstats)
-                ->where('dt_note', $list->dt_status)
-                ->first();
-        });
-
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
+        if (empty(array_diff($lists->map(fn ($row) => $row->publication_context_key ?? $row->id)->toArray(), $this->selected))) {
             $this->selectall = true;
         } else {
             $this->selectall = false;
@@ -765,8 +859,25 @@ class Main extends Component
         // }
 
         return view('livewire.dispatchs.publication.main', [
-            'lists'  => $this->lists->paginate($this->perPage),
+            'lists'  => $lists,
             'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
+    }
+
+    private function currentPageListIds(): array
+    {
+        return $this->expandPublicationRows($this->lists->paginate($this->perPage)->getCollection())
+            ->map(fn ($row) => $row->publication_context_key ?? $row->id)
+            ->toArray();
+    }
+
+    private function selectedNoteIds(): array
+    {
+        return collect($this->selected)
+            ->map(fn ($key) => (int) explode(':', (string) $key, 2)[0])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

@@ -81,6 +81,11 @@ class WorkReport extends Model
         return $this->belongsTo(Note::class);
     }
 
+    public function FiveNote()
+    {
+        return $this->hasOne(FiveNote::class, 'work_report_id');
+    }
+
     public function User()
     {
         return $this->belongsTo(User::class)->withTrashed();
