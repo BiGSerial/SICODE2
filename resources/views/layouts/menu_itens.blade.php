@@ -161,6 +161,7 @@
         ['route' => 'reports.return_work_reports', 'label' => 'INFORMES REJEITADOS (RETURNWORK)', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.complaints_mede', 'label' => 'RELATÓRIO DE RECLAMAÇÃO', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.five_notes', 'label' => 'RELATÓRIO NOTAS D5', 'visible' => Auth()->user()->can('management')],
+        ['route' => 'reports.post_work_process', 'label' => 'PROCESSO MEDIÇÃO PÓS OBRA', 'visible' => Auth()->user()->can('management')],
         ['route' => 'reports.project_review_dashboard', 'label' => 'RELATÓRIO ANÁLISE PROJETOS', 'visible' => Auth()->user()->can('projectReviewReports')],
         ['route' => 'reports.advancedsearch', 'label' => 'BUSCAR AVANÇADA', 'visible' => Auth()->user()->can('management')],
     ];

@@ -24,6 +24,11 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{{ route('reports.post_work_process') }}" class="nav-item text-white fw-normal">
+                            <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i><span>PROCESSO MEDIÇÃO PÓS OBRA</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('reports.complaints_mede') }}" class="nav-item text-white fw-normal">
                             <i class="bi bi-file-earmark-excel fs-5 edp-text-verde-dark fw-normal"></i><span>RELATÓRIO DE RECLAMAÇÃO</span>
                         </a>

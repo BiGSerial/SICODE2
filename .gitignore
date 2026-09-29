@@ -29,3 +29,6 @@ registroUpdate.json
 /.cursor/
 .cursorrules
 .windsurfrules
+
+# Orca worktree (porta/projeto locais)
+.env.orca

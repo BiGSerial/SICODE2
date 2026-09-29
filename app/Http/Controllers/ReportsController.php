@@ -104,6 +104,11 @@ class ReportsController extends Controller
         return view('reports.five-notes-report');
     }
 
+    public function postWorkProcessReport()
+    {
+        return view('reports.post-work-process-report');
+    }
+
     public function complaintsMedeReport()
     {
         return view('reports.protest-mede');
