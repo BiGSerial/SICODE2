@@ -248,7 +248,7 @@ class DispatchWorkflowService
                     && $partial->allow
                     && !$partial->deny
                     && match ($serviceKey) {
-                        'supervision' => !$partial->supervision,
+                        'supervision' => !$partial->supervision && !$partial->payment,
                         'payment' => $partial->supervision && !$partial->payment,
                         default => true,
                     };
@@ -256,6 +256,9 @@ class DispatchWorkflowService
                 if (!$partialIsAvailable) {
                     throw new DispatchException('O informe parcial selecionado nao esta disponivel para este servico.');
                 }
+
+                // The blocker must evaluate the selected partial, including legacy productions without a pivot.
+                $note->setAttribute('dispatch_partial_id', $partialId);
             }
 
             if ($explicitWorkReportId) {
@@ -359,6 +362,11 @@ class DispatchWorkflowService
             ]);
 
             $this->attachPartialContext($production, $partialId);
+
+            if ($production->dfive) {
+                $fiveNote = $this->fiveNoteForDispatchContext($note, $explicitWorkReportId);
+                $fiveNote?->productions()->syncWithoutDetaching([$production->id]);
+            }
 
             if ($dd) {
                 $this->attachDd($note, $production, $dd);
@@ -487,19 +495,25 @@ class DispatchWorkflowService
             ->all();
     }
 
+    private function fiveNoteForDispatchContext(Note $note, ?int $workReportId = null): ?\App\Models\FiveNote
+    {
+        if ($workReportId) {
+            $workReportFive = WorkReport::query()->with("FiveNote")->whereKey($workReportId)->where("note_id", $note->id)->first()?->FiveNote;
+            if ($workReportFive) {
+                return $workReportFive;
+            }
+        }
+
+        return $note->LegacyFiveNote()->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->first();
+    }
+
     private function isD5Dispatch(Note $note, string $serviceKey, array $finalScopes = [], ?int $workReportId = null): bool
     {
-        $fiveNote = $workReportId
-            ? (WorkReport::query()->with('FiveNote')->whereKey($workReportId)->where('note_id', $note->id)->first()?->FiveNote ?? $note->LegacyFiveNote()->first())
-            : $note->LegacyFiveNote()->first();
+        $fiveNote = $this->fiveNoteForDispatchContext($note, $workReportId);
 
         return match ($serviceKey) {
-            'supervision' => (bool) (
-                $fiveNote
-                && $fiveNote->is_completed
-                && !$fiveNote->is_supervisioned
-            ),
-            'payment' => (bool) $fiveNote && empty($finalScopes),
+            "supervision" => (bool) ($fiveNote && $fiveNote->is_completed && !$fiveNote->is_supervisioned),
+            "payment" => (bool) $fiveNote && empty($finalScopes),
             default => false,
         };
     }
@@ -585,13 +599,19 @@ class DispatchWorkflowService
     private function linkWorkReportFlow(Production $production, string $serviceKey, array $finalScopes = [], ?int $workReportId = null): void
     {
         if ($production->dfive) {
-            if ($serviceKey === 'supervision') {
+            if ($serviceKey === 'supervision' && $workReportId) {
                 app(WorkReportFlowProductionLinker::class)->linkD5FiscalizationToNetwork(
                     $production,
                     'dispatch_d5_fiscalization',
                     [],
                     $workReportId
                 );
+            } elseif ($serviceKey === 'supervision') {
+                WorkReportFlowProduction::query()
+                    ->where('production_id', $production->id)
+                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                    ->where('is_current', true)
+                    ->update(['is_current' => false, 'reversed_at' => now(), 'reverse_reason' => 'D5 passiva sem informe']);
             }
 
             return;
@@ -675,11 +695,21 @@ class DispatchWorkflowService
 
     private function afterAssigned(Production $production, User $actor, ?string $previousUserId, ?int $workReportId = null): void
     {
-        $five = $workReportId
-            ? WorkReport::query()->with('FiveNote')->whereKey($workReportId)->where('note_id', $production->note_id)->first()?->FiveNote
-            : $production->note?->LegacyFiveNote()->first();
+        if (!$production->dfive) {
+            return;
+        }
+
+        $note = $production->Note ?? Note::find($production->note_id);
+        $workReportId = $workReportId ?: $production->WorkReportFlowProductions()
+            ->where("stage", WorkReportFlowProduction::STAGE_FISCALIZATION)
+            ->where("is_current", true)->orderByDesc("linked_at")->value("work_report_id");
+        $five = $note ? $this->fiveNoteForDispatchContext($note, $workReportId) : null;
         if (!$five) {
             return;
+        }
+
+        if ($workReportId && empty($five->work_report_id)) {
+            $five->update(["work_report_id" => $workReportId]);
         }
 
         $five->productions()->syncWithoutDetaching([$production->id]);

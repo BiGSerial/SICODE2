@@ -563,19 +563,21 @@
                                 $command = $e['command'];
                                 $production = $e['production'];
                                 $reason = $e['reason'];
-                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+                                $stackProductionAvailable = $this->rowOpenCompanyStackProduction($list);
                                 $canDispatch = !$block || $command || $stackProductionAvailable;
                                 if ($stackProductionAvailable) {
                                     $rowClass = '';
                                 }
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
-                                $partial = $e['isPartial'];
-                                $latestValidPartial = $list->Partials
+                                $isPassiveD5Row = (int) ($list->dispatch_five_note_id ?? 0) > 0;
+                                $partial = !$isPassiveD5Row && $e['isPartial'];
+                                $rowPartialId = (int) ($list->dispatch_partial_id ?? 0);
+                                $latestValidPartial = $isPassiveD5Row ? null : ($rowPartialId > 0 ? $list->Partials?->firstWhere("id", $rowPartialId) : $list->Partials
                                     ?->where('allow', true)
                                     ->where('deny', false)
                                     ->sortByDesc('created_at')
-                                    ->first();
+                                    ->first());
 
                                 if ($list->FiveNote) {
                                     $dateFive = Carbon::parse($list->FiveNote->completed_at);
@@ -789,7 +791,8 @@
                                                 wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [@js([
                                                     'note_id' => $list->id,
                                                     'work_report_id' => null,
-                                                    'partial_id' => optional(collect($list->Partials ?? [])->where('allow', true)->where('supervision', false)->where('deny', false)->sortByDesc('created_at')->first())->id,
+                                                    'five_note_id' => (int) ($list->dispatch_five_note_id ?? 0) ?: null,
+                                                    'partial_id' => (int) ($list->dispatch_partial_id ?? 0) ?: null,
                                                     'bulk_any_status' => true,
                                                 ])])"
                                             @endif

@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Dispatchs\Shared;
 
-use App\Models\{Company, Note, Notetimeline, Production, Service, User, WorkReport};
+use App\Models\{Company, FiveNote, Note, Notetimeline, Production, Service, User, WorkReport};
 use App\Services\Dispatch\{DispatchContextResolver, DispatchException, DispatchWorkflowService};
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Support\SicodeRules;
@@ -72,15 +72,26 @@ class DispatchModal extends Component
                     $noteId        = (int) ($value['note_id'] ?? $value['id'] ?? 0);
                     $workReportId  = (int) ($value['work_report_id'] ?? 0);
                     $partialId     = (int) ($value['partial_id'] ?? 0);
+                    $fiveNoteId   = (int) ($value['five_note_id'] ?? 0);
                     $bulkAnyStatus = (bool) ($value['bulk_any_status'] ?? false);
 
-                    return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null, 'bulk_any_status' => $bulkAnyStatus];
+                    return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null, 'five_note_id' => $fiveNoteId ?: null, 'bulk_any_status' => $bulkAnyStatus];
                 }
 
-                return ['note_id' => (int) $value, 'work_report_id' => null, 'partial_id' => null, 'bulk_any_status' => false];
+                return ['note_id' => (int) $value, 'work_report_id' => null, 'partial_id' => null, 'five_note_id' => null, 'bulk_any_status' => false];
             });
 
-        $contexts = $contexts->filter(fn (array $context) => $context['note_id'] > 0)->values();
+        $contexts = $contexts
+            ->filter(fn (array $context) => $context['note_id'] > 0)
+            ->filter(fn (array $context) => empty($context['five_note_id']) || DB::table('five_notes')
+                ->where('id', $context['five_note_id'])
+                ->where('note_id', $context['note_id'])
+                ->whereNull('work_report_id')
+                ->where('is_completed', true)
+                ->where('is_supervisioned', false)
+                ->where('is_archived', false)
+                ->exists())
+            ->values();
         $noteIds  = $contexts->pluck('note_id')->unique()->values();
 
         if (!$noteIds->count()) {
@@ -125,6 +136,7 @@ class DispatchModal extends Component
                 $row = clone $note;
                 $row->setAttribute('dispatch_work_report_id', $context['work_report_id']);
                 $row->setAttribute('dispatch_partial_id', $context['partial_id']);
+                $row->setAttribute('dispatch_five_note_id', $context['five_note_id']);
                 $row->setAttribute('dispatch_bulk_any_status', (bool) ($context['bulk_any_status'] ?? false));
                 $row->setAttribute('dispatch_context_key', $this->contextKey($context['note_id'], $context['work_report_id'], $context['partial_id']));
 
@@ -139,18 +151,15 @@ class DispatchModal extends Component
             ->all());
 
         if ($this->contractMode) {
-            $companyIds                      = SicodeRules::visibleCompanyIdsFor(auth()->user());
-            $this->sourceProductionIdsByNote = Production::query()
-                ->whereIn('note_id', $this->notes->pluck('id'))
-                ->where('service_id', $this->service->uuid)
-                ->whereIn('company_id', $companyIds)
-                ->whereNull('user_id')
-                ->where('completed', false)
-                ->where('confirmed', false)
-                ->orderByDesc('dispatch_at')
-                ->get(['id', 'note_id'])
-                ->mapWithKeys(fn (Production $production) => [(string) $production->note_id => (int) $production->id])
-                ->all();
+            $this->sourceProductionIdsByNote = [];
+
+            foreach ($this->notes as $note) {
+                $sourceProduction = $this->sourceProductionForContext($note);
+
+                if ($sourceProduction) {
+                    $this->sourceProductionIdsByNote[$this->contextKeyFor($note)] = (int) $sourceProduction->id;
+                }
+            }
         }
 
         $this->loadDispatchCompanies();
@@ -273,7 +282,7 @@ class DispatchModal extends Component
             ->all();
         $this->sourceProductionIdsByNote = $productions
             ->filter(fn ($production) => $production->Note)
-            ->mapWithKeys(fn ($production) => [(string) $production->note_id => (int) $production->id])
+            ->mapWithKeys(fn ($production) => [$this->contextKeyFor($production->Note) => (int) $production->id])
             ->all();
 
         if (!$this->notes->count()) {
@@ -475,7 +484,7 @@ class DispatchModal extends Component
                 foreach ($this->notes as $key => $note) {
                     $dd                 = $this->additionalData[$key] ?? null;
                     $finalScopes        = $this->selectedFinalScopesForNote($note);
-                    $sourceProductionId = $this->sourceProductionIdsByNote[(string) $note->id] ?? null;
+                    $sourceProductionId = $this->sourceProductionIdsByNote[$this->contextKeyFor($note)] ?? null;
 
                     if ($sourceProductionId) {
                         $production = Production::findOrFail($sourceProductionId);
@@ -558,17 +567,67 @@ class DispatchModal extends Component
             : 'Marque o escopo exato desta fiscalizacao.';
     }
 
+    private function sourceProductionForContext(Note $note): ?Production
+    {
+        $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
+        $query = Production::query()
+            ->where("note_id", $note->id)
+            ->where("service_id", $this->service->uuid)
+            ->whereIn("company_id", $companyIds)
+            ->whereNull("user_id")
+            ->where("completed", false)
+            ->where("confirmed", false);
+
+        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+        $fiveNoteId = (int) ($note->dispatch_five_note_id ?? 0);
+        $partialId = (int) ($note->dispatch_partial_id ?? 0);
+        $stage = match ($this->currentServiceKey()) {
+            "supervision" => \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION,
+            "payment" => \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
+            "publication" => \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION,
+            default => null,
+        };
+
+        if ($workReportId > 0 && $stage) {
+            $query->whereHas("WorkReportFlowProductions", fn ($link) => $link
+                ->where("work_report_id", $workReportId)
+                ->where("stage", $stage)
+                ->where("is_current", true));
+        } elseif ($fiveNoteId > 0) {
+            $direct = (clone $query)->whereHas("fiveNotes", fn ($five) => $five->whereKey($fiveNoteId))
+                ->orderByDesc("dispatch_at")->orderByDesc("id")->first();
+            if ($direct) {
+                return $direct;
+            }
+
+            $legacyD5Count = DB::table("five_notes")->where("note_id", $note->id)->whereNull("work_report_id")
+                ->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->count();
+            if ($legacyD5Count !== 1 || !$stage) {
+                return null;
+            }
+
+            $fallback = (clone $query)->where("dfive", true)->whereDoesntHave("fiveNotes")
+                ->whereHas("WorkReportFlowProductions", fn ($link) => $link->where("stage", $stage)->where("is_current", true));
+            if ($fallback->count() !== 1) {
+                return null;
+            }
+
+            return $fallback->orderByDesc("dispatch_at")->orderByDesc("id")->first();
+        } elseif ($partialId > 0) {
+            $query->whereHas("partialInforms", fn ($partial) => $partial->whereKey($partialId));
+        }
+
+        return $query->orderByDesc("dispatch_at")->orderByDesc("id")->first();
+    }
+
     private function loadDispatchCompanies(): void
     {
         if (auth()->user()?->contract && $this->notes->count()) {
-            $companyIds = Production::whereIn('note_id', $this->notes->pluck('id'))
-                ->where('service_id', $this->service->uuid)
-                ->whereIn('company_id', SicodeRules::visibleCompanyIdsFor(auth()->user()))
-                ->whereNull('user_id')
-                ->where('completed', false)
-                ->where('confirmed', false)
+            $sourceIds = collect($this->sourceProductionIdsByNote)->values()->all();
+            $companyIds = Production::query()
+                ->whereIn("id", $sourceIds)
                 ->distinct()
-                ->pluck('company_id');
+                ->pluck("company_id");
 
             if (!$companyIds->count()) {
                 $companyIds = collect(SicodeRules::visibleCompanyIdsFor(auth()->user()));
@@ -604,9 +663,9 @@ class DispatchModal extends Component
             return;
         }
 
-        $companyIds = $this->notes
-            ->map(fn ($note) => SicodeRules::openCompanyStackProductionFor($note, auth()->user(), $this->service->uuid)?->company_id)
-            ->filter()
+        $companyIds = Production::query()
+            ->whereIn("id", collect($this->sourceProductionIdsByNote)->values()->all())
+            ->pluck("company_id")
             ->map(fn ($id) => (string) $id)
             ->unique()
             ->values();
