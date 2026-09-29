@@ -21,6 +21,9 @@ class PostWorkProcessReport extends Component
     public ?string $search = null;
     public bool $only_late = false;
     public int $perPage = 30;
+    public string $view = 'table';
+    public ?string $cell_stage = null;
+    public ?int $cell_day = null;
 
     public function mount(): void
     {
@@ -33,6 +36,27 @@ class PostWorkProcessReport extends Component
         if ($name !== 'page') {
             $this->resetPage();
         }
+    }
+
+    /** Clique numa célula da matriz: filtra a lista por etapa atual + idade (clicar de novo limpa). */
+    public function pickCell(string $stage, int $day): void
+    {
+        if ($this->cell_stage === $stage && $this->cell_day === $day) {
+            $this->clearCell();
+
+            return;
+        }
+
+        $this->cell_stage = $stage;
+        $this->cell_day = $day;
+        $this->resetPage();
+    }
+
+    public function clearCell(): void
+    {
+        $this->cell_stage = null;
+        $this->cell_day = null;
+        $this->resetPage();
     }
 
     public function exportReport(): void
@@ -65,19 +89,32 @@ class PostWorkProcessReport extends Component
         $service = app(PostWorkProcessReportService::class);
         $all = $service->rows($this->filters());
 
+        // A matriz sempre conta o conjunto filtrado por tipo/período/empresa; a célula só filtra a lista abaixo.
+        $matrix = $service->matrix($all);
+        $list = $service->filterByCell($all, $this->cell_stage, $this->cell_day);
+
         $page = $this->page ?? 1;
         $rows = new \Illuminate\Pagination\LengthAwarePaginator(
-            $all->forPage($page, $this->perPage)->values(),
-            $all->count(),
+            $list->forPage($page, $this->perPage)->values(),
+            $list->count(),
             $this->perPage,
             $page,
             ['path' => request()->url()]
         );
 
+        $ganttMax = max(
+            $service->limits()['total'] + 2,
+            (int) $rows->getCollection()->flatMap(fn ($r) => collect($r['gantt'])->pluck('end'))->max()
+        );
+
         return view('livewire.reports.post-work-process-report', [
-            'rows'      => $rows,
-            'summary'   => $service->summarize($all),
-            'companies' => Company::query()->orderBy('name')->get(['id', 'name']),
+            'rows'        => $rows,
+            'summary'     => $service->summarize($all),
+            'matrix'      => $matrix,
+            'limits'      => $service->limits(),
+            'stageLabels' => $service->stageLabels(),
+            'ganttMax'    => min($ganttMax, 30),
+            'companies'   => Company::query()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 }

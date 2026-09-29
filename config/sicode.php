@@ -32,6 +32,14 @@ return [
     // cada região roda em seu próprio banco/deployment, então não existe "es vs sp" a
     // resolver em runtime, é só documentar a exceção daquele deployment específico.
     //
+    // post_work_process (relatório Processo de Medição – Pós Obra): só declare aqui o que fugir do padrão.
+    // Padrão: limits = fiscal_dispatch 2 · fiscalization 3 · measurement 3 · total 8 (dias úteis);
+    // measurement_label = "Medição/Pagamento". Exemplo de exceção para uma região:
+    //   'post_work_process' => [
+    //       'limits'             => ['fiscal_dispatch' => 1, 'fiscalization' => 4, 'measurement' => 3, 'total' => 8],
+    //       'measurement_label'  => 'Pagamento',
+    //   ],
+    //
     // work_report.fields: campos Sim/Não do Informe de Obra (default true = aparece e é
     // obrigatório). 'team' é texto (não Sim/Não): quando false, some e fica nulo.
     // work_report.dd_mode: required (default) | optional | hidden.

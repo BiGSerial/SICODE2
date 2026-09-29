@@ -87,6 +87,30 @@ class SicodeRules
             ->all();
     }
 
+    /**
+     * Prazos (dias úteis) do relatório "Processo de Medição – Pós Obra".
+     * Etapas: fiscal_dispatch, fiscalization, measurement, total.
+     * Regra por região: sicode.rules.{ruleset}.post_work_process.limits.{etapa}.
+     */
+    public static function postWorkProcessLimit(string $stage): int
+    {
+        $default = ['fiscal_dispatch' => 2, 'fiscalization' => 3, 'measurement' => 3, 'total' => 8][$stage] ?? 0;
+
+        $value = self::databaseRule("post_work_process.limits.{$stage}")
+            ?? config('sicode.rules.' . self::ruleset() . ".post_work_process.limits.{$stage}");
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : $default;
+    }
+
+    /** Nome da última etapa: "Medição/Pagamento" (padrão) ou o termo usado pela região. */
+    public static function postWorkProcessMeasurementLabel(): string
+    {
+        $value = self::databaseRule('post_work_process.measurement_label')
+            ?? config('sicode.rules.' . self::ruleset() . '.post_work_process.measurement_label');
+
+        return filled($value) ? (string) $value : 'Medição/Pagamento';
+    }
+
     public static function analysisEnvironmentWithoutReason(): bool
     {
         return self::boolRule('analysis.environment_without_reason', false);

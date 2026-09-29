@@ -3,6 +3,7 @@
 namespace App\Jobs\Reports;
 
 use App\Exports\Reports\PostWorkProcessReportExport;
+use App\Models\Company;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Support\Notifications\UserNotificationData;
@@ -43,7 +44,18 @@ class ExportPostWorkProcessReportJob implements ShouldQueue
             $rows = app(PostWorkProcessReportService::class)->rows($this->filters);
 
             Storage::disk('local')->makeDirectory('exports');
-            Excel::store(new PostWorkProcessReportExport($rows), $filePath, 'local');
+            $auditRows = [
+                ['Usuário solicitante', $user?->name ?? '---'],
+                ['Email', $user?->email ?? '---'],
+                ['Data/Hora da solicitação', now()->format('d/m/Y H:i:s')],
+                ['Tipo de exportação', 'Processo de Medição - Pós Obra'],
+            ];
+
+            $filters = $this->filters + ['company_name' => $this->filters['company_id'] ?? null
+                ? Company::find($this->filters['company_id'])?->name
+                : null];
+
+            Excel::store(new PostWorkProcessReportExport($rows, $filters, $auditRows), $filePath, 'local');
 
             if (!Storage::disk('local')->exists($filePath)) {
                 throw new \RuntimeException('Arquivo não foi gerado.');

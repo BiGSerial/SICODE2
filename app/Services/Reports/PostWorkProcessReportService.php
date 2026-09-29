@@ -11,6 +11,7 @@ use App\Models\WorkReportFlowProduction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use App\Support\SicodeRules;
 
 /**
  * Relatório "Processo de medição – Pós Obra".
@@ -27,10 +28,17 @@ class PostWorkProcessReportService
     public const TYPE_PARTIAL = 'partial';
     public const TYPE_D5 = 'd5';
 
-    public const LIMIT_FISCAL_DISPATCH = 2;
-    public const LIMIT_FISCALIZATION = 3;
-    public const LIMIT_MEASUREMENT = 3;
-    public const LIMIT_TOTAL = 8;
+    /** Etapas em que o informe pode estar "parado" (linhas da matriz de envelhecimento). */
+    public const CURRENT_STAGES = [
+        'await_fiscal_dispatch'       => 'Aguardando despacho fiscal',
+        'in_fiscalization'            => 'Em fiscalização',
+        'await_measurement_dispatch'  => 'Aguardando despacho da medição',
+        'in_measurement'              => 'Em medição/pagamento',
+        'done'                        => 'Concluído',
+    ];
+
+    /** Colunas da matriz: 0..MATRIX_MAX_DAY-1 e a última agrupa "MATRIX_MAX_DAY ou mais". */
+    public const MATRIX_MAX_DAY = 12;
 
     /** @var array<string, true>|null */
     private ?array $holidays = null;
@@ -85,9 +93,10 @@ class PostWorkProcessReportService
     {
         $query = WorkReport::query()
             ->with([
-                'Note:id,note',
+                'Note:id,note,type_note',
                 'Company:id,name',
                 'User:id,name',
+                'Orders:id,ordem',
                 'Adsform:id,work_report_id,amount,created_at',
                 'FlowProductions' => fn ($q) => $q->where('is_current', true)
                     ->with(['Production' => fn ($p) => $p->with($this->productionRelations())]),
@@ -109,7 +118,12 @@ class PostWorkProcessReportService
                 $flows->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)->pluck('Production')->filter()
             );
 
+            $scopes = $report->finalScopeBadges();
+
             return $this->buildRow(self::TYPE_FINAL, $report->informed_at, $fiscal, $payment, [
+                'id'            => $report->id,
+                'scopes'        => collect($scopes)->map(fn ($b) => ['label' => $b['label'], 'class' => $b['class']])->all(),
+                'orders'        => $report->Orders->pluck('ordem')->filter()->values()->all(),
                 'note'          => $report->Note?->note,
                 'company'       => $report->Company?->name,
                 'informer'      => $report->informer ?? $report->User?->name,
@@ -135,6 +149,7 @@ class PostWorkProcessReportService
                 'engineer:id,name',
                 'supervisor:id,name',
                 'payer:id,name',
+                'orders:id,ordem',
                 'productions' => fn ($q) => $q->with($this->productionRelations()),
             ]);
 
@@ -146,6 +161,8 @@ class PostWorkProcessReportService
             [$fiscal, $payment] = $this->pickStages($partial->productions, $partial->created_at);
 
             return $this->buildRow(self::TYPE_PARTIAL, $partial->created_at, $fiscal, $payment, [
+                'id'             => $partial->id,
+                'orders'         => $partial->orders->pluck('ordem')->filter()->values()->all(),
                 'note'           => $partial->Note?->note,
                 'company'        => $partial->company?->name,
                 'informer'       => $partial->user?->name,
@@ -190,6 +207,7 @@ class PostWorkProcessReportService
             [$fiscal, $payment] = $this->pickStages($five->productions, $five->completed_at);
 
             return $this->buildRow(self::TYPE_D5, $five->completed_at, $fiscal, $payment, [
+                'id'             => $five->id,
                 'note'           => $five->note?->note,
                 'note_d5'        => $five->note_d5,
                 'company'        => $five->company?->name,
@@ -203,6 +221,97 @@ class PostWorkProcessReportService
     }
 
     // ---------------------------------------------------------------------
+    // Regras por região, matriz e filtros
+    // ---------------------------------------------------------------------
+
+    /** @return array{fiscal_dispatch: int, fiscalization: int, measurement: int, total: int} */
+    public function limits(): array
+    {
+        return collect(['fiscal_dispatch', 'fiscalization', 'measurement', 'total'])
+            ->mapWithKeys(fn (string $k) => [$k => SicodeRules::postWorkProcessLimit($k)])
+            ->all();
+    }
+
+    /** @return array<string, string> */
+    public function stageLabels(): array
+    {
+        return [
+            'fiscal_dispatch' => 'Despacho Fiscal',
+            'fiscalization'   => 'Fiscalização',
+            'measurement'     => SicodeRules::postWorkProcessMeasurementLabel(),
+            'total'           => 'Total',
+        ];
+    }
+
+    /** Limite acumulado (dias úteis desde o informe) até o qual cada etapa "parada" ainda é aceitável. */
+    public function cumulativeLimit(string $currentStage): int
+    {
+        $l = $this->limits();
+
+        return match ($currentStage) {
+            'await_fiscal_dispatch' => $l['fiscal_dispatch'],
+            'in_fiscalization'      => $l['fiscal_dispatch'] + $l['fiscalization'],
+            default                 => $l['total'],
+        };
+    }
+
+    /**
+     * Acumulador: quantos informes (Final + Parcial + D5 mesclados) há em cada etapa e idade em dias úteis.
+     *
+     * @return array{days: array<int, int>, rows: array<string, array<string, mixed>>, col_totals: array<int, int>, total: int}
+     */
+    public function matrix(Collection $rows): array
+    {
+        $days = range(0, self::MATRIX_MAX_DAY);
+        $out = [];
+
+        foreach (self::CURRENT_STAGES as $key => $label) {
+            $limit = $this->cumulativeLimit($key);
+            $cells = [];
+            foreach ($days as $d) {
+                $cells[$d] = ['count' => 0, 'by_type' => [], 'status' => $d > $limit ? 'late' : ($d === $limit ? 'limit' : 'ok')];
+            }
+            $out[$key] = ['label' => $label, 'limit' => $limit, 'cells' => $cells, 'total' => 0];
+        }
+
+        foreach ($rows as $row) {
+            $day = min($row['age_days'], self::MATRIX_MAX_DAY);
+            $cell = &$out[$row['current_stage']]['cells'][$day];
+            $cell['count']++;
+            $cell['by_type'][$row['type_label']] = ($cell['by_type'][$row['type_label']] ?? 0) + 1;
+            unset($cell);
+            $out[$row['current_stage']]['total']++;
+        }
+
+        $colTotals = [];
+        foreach ($days as $d) {
+            $colTotals[$d] = collect($out)->sum(fn ($r) => $r['cells'][$d]['count']);
+        }
+
+        return ['days' => $days, 'rows' => $out, 'col_totals' => $colTotals, 'total' => $rows->count()];
+    }
+
+    /** Filtra pela célula clicada na matriz (etapa atual + idade; a última coluna agrupa "N ou mais"). */
+    public function filterByCell(Collection $rows, ?string $stage, ?int $day): Collection
+    {
+        if (!$stage) {
+            return $rows;
+        }
+
+        return $rows->filter(function (array $row) use ($stage, $day) {
+            if ($row['current_stage'] !== $stage) {
+                return false;
+            }
+
+            if ($day === null) {
+                return true;
+            }
+
+            return $day >= self::MATRIX_MAX_DAY ? $row['age_days'] >= self::MATRIX_MAX_DAY : $row['age_days'] === $day;
+        })->values();
+    }
+
+    // ---------------------------------------------------------------------
     // Núcleo
     // ---------------------------------------------------------------------
 
@@ -212,14 +321,35 @@ class PostWorkProcessReportService
      */
     private function buildRow(string $type, ?Carbon $start, ?Production $fiscal, ?Production $payment, array $extra): array
     {
+        $limits = $this->limits();
+
         $stages = [
-            'fiscal_dispatch' => $this->stage($start, $fiscal?->dispatch_at, self::LIMIT_FISCAL_DISPATCH),
-            'fiscalization'   => $this->stage($fiscal?->dispatch_at, $fiscal?->completed_at, self::LIMIT_FISCALIZATION),
-            'measurement'     => $this->stage($payment?->dispatch_at, $payment?->completed_at, self::LIMIT_MEASUREMENT),
-            'total'           => $this->stage($start, $payment?->completed_at, self::LIMIT_TOTAL),
+            'fiscal_dispatch' => $this->stage($start, $fiscal?->dispatch_at, $limits['fiscal_dispatch']),
+            'fiscalization'   => $this->stage($fiscal?->dispatch_at, $fiscal?->completed_at, $limits['fiscalization']),
+            'measurement'     => $this->stage($payment?->dispatch_at, $payment?->completed_at, $limits['measurement']),
+            'total'           => $this->stage($start, $payment?->completed_at, $limits['total']),
         ];
 
+        $labels = $this->stageLabels();
+        $lateStages = collect($labels)
+            ->filter(fn ($label, $key) => $stages[$key]['late'])
+            ->values()
+            ->all();
+
+        $currentStage = match (true) {
+            $payment?->completed_at !== null => 'done',
+            $payment !== null                => 'in_measurement',
+            $fiscal?->completed_at !== null  => 'await_measurement_dispatch',
+            $fiscal !== null                 => 'in_fiscalization',
+            default                          => 'await_fiscal_dispatch',
+        };
+
         return array_merge([
+            'id'            => null,
+            'scopes'        => [],
+            'orders'        => [],
+            'overall'       => $lateStages ? 'late' : ($stages['total']['to'] ? 'on_time' : 'open'),
+            'late_stages'   => $lateStages,
             'type'          => $type,
             'type_label'    => ['final' => 'Informe Final', 'partial' => 'Informe Parcial', 'd5' => 'Informe D5'][$type],
             'start_at'      => $start,
@@ -228,7 +358,44 @@ class PostWorkProcessReportService
             'payment'       => $this->productionInfo($payment),
             'stages'        => $stages,
             'any_late'      => collect($stages)->contains(fn (array $s) => $s['late']),
+            'current_stage' => $currentStage,
+            'age_days'      => $stages['total']['days'] ?? 0,
+            'gantt'         => $start ? $this->gantt($start, $fiscal, $payment, $limits) : [],
         ], $extra);
+    }
+
+    /**
+     * Segmentos do Gantt em dias úteis desde o informe. Etapa em aberto vai até "agora".
+     * `limit_end` marca onde o prazo da etapa acaba (o que passar disso é atraso).
+     *
+     * @return array<int, array{key: string, start: int, end: int, open: bool, limit_end: ?int}>
+     */
+    private function gantt(Carbon $start, ?Production $fiscal, ?Production $payment, array $limits): array
+    {
+        $at = fn (?Carbon $d) => $d ? $this->businessDaysBetween($start, $d) : null;
+        $now = $this->businessDaysBetween($start, now());
+
+        $tfd = $at($fiscal?->dispatch_at);
+        $tfc = $at($fiscal?->completed_at);
+        $tpd = $at($payment?->dispatch_at);
+        $tpc = $at($payment?->completed_at);
+
+        $segments = [];
+        $segments[] = ['key' => 'fiscal_dispatch', 'start' => 0, 'end' => $tfd ?? $now, 'open' => $tfd === null, 'limit_end' => $limits['fiscal_dispatch']];
+
+        if ($tfd !== null) {
+            $segments[] = ['key' => 'fiscalization', 'start' => $tfd, 'end' => max($tfd, $tfc ?? $now), 'open' => $tfc === null, 'limit_end' => $tfd + $limits['fiscalization']];
+        }
+
+        if ($tfc !== null) {
+            $segments[] = ['key' => 'measurement_dispatch', 'start' => $tfc, 'end' => max($tfc, $tpd ?? $now), 'open' => $tpd === null, 'limit_end' => null];
+        }
+
+        if ($tpd !== null) {
+            $segments[] = ['key' => 'measurement', 'start' => $tpd, 'end' => max($tpd, $tpc ?? $now), 'open' => $tpc === null, 'limit_end' => $tpd + $limits['measurement']];
+        }
+
+        return $segments;
     }
 
     /**
