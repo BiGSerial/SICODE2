@@ -53,6 +53,44 @@ class WorkReportSupervisionCandidateQuery
             ->groupBy('note_id');
     }
 
+    public function dispatchRowsSubquery(bool $includeAnyNonCanceledReport = false): QueryBuilder
+    {
+        $reports = $includeAnyNonCanceledReport
+            ? DB::table("work_reports as wr")
+                ->where("wr.canceled", false)
+                ->selectRaw("wr.id as work_report_id, wr.note_id, COALESCE(wr.informed_at, wr.created_at) as row_created_at, NULL as passive_d5_id, NULL as partial_id")
+            : $this->fastBaseSubquery(false)
+                ->selectRaw("wr.id as work_report_id, wr.note_id, COALESCE(wr.informed_at, wr.created_at) as row_created_at, NULL as passive_d5_id, NULL as partial_id");
+
+        $d5WorkReports = DB::table("five_notes as fn")
+            ->join("work_reports as wr", function ($join) {
+                $join->on("wr.id", "=", "fn.work_report_id")
+                    ->on("wr.note_id", "=", "fn.note_id")
+                    ->where("wr.canceled", false);
+            })
+            ->where("fn.is_completed", true)
+            ->where("fn.is_supervisioned", false)
+            ->where("fn.is_archived", false)
+            ->selectRaw("wr.id as work_report_id, wr.note_id, COALESCE(wr.informed_at, wr.created_at) as row_created_at, NULL as passive_d5_id, NULL as partial_id")
+            ->distinct();
+
+        $partials = DB::table("partials as pt")
+            ->where("pt.allow", true)
+            ->where("pt.deny", false)
+            ->where("pt.supervision", false)
+            ->where("pt.payment", false)
+            ->selectRaw("NULL as work_report_id, pt.note_id, pt.created_at as row_created_at, NULL as passive_d5_id, pt.id as partial_id");
+
+        $passiveD5 = DB::table("five_notes as fn")
+            ->whereNull("fn.work_report_id")
+            ->where("fn.is_completed", true)
+            ->where("fn.is_supervisioned", false)
+            ->where("fn.is_archived", false)
+            ->selectRaw("NULL as work_report_id, fn.note_id, fn.created_at as row_created_at, fn.id as passive_d5_id, NULL as partial_id");
+
+        return $reports->union($d5WorkReports)->unionAll($partials)->unionAll($passiveD5);
+    }
+
     private function fastBaseSubquery(bool $excludeOpenProduction = true): QueryBuilder
     {
         $query = DB::table('work_reports as wr')
@@ -111,7 +149,7 @@ class WorkReportSupervisionCandidateQuery
                     });
                 }
             })
-            ->groupBy('wr.id', 'wr.note_id', 'wr.created_at');
+            ->groupBy('wr.id', 'wr.note_id', 'wr.created_at', 'wr.informed_at');
 
         if ($excludeOpenProduction) {
             $query->whereNotExists(function ($query) {

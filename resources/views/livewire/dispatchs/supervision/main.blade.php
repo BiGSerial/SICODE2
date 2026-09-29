@@ -490,7 +490,7 @@
                     <div class="summary-item">
                         Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
                         <strong>{{ $lists->lastItem() }}</strong> de
-                        <strong>{{ $lists->total() }}</strong> registros.
+                        <strong>{{ $lists->lastItem() }}</strong> registros nesta página{{ $lists->hasMorePages() ? ' (há mais)' : '' }}.
                     </div>
                 </div>
             </div>
@@ -563,19 +563,21 @@
                                 $command = $e['command'];
                                 $production = $e['production'];
                                 $reason = $e['reason'];
-                                $stackProductionAvailable = \App\Support\SicodeRules::openCompanyStackProductionFor($list, Auth()->User(), $service->uuid);
+                                $stackProductionAvailable = $this->rowOpenCompanyStackProduction($list);
                                 $canDispatch = !$block || $command || $stackProductionAvailable;
                                 if ($stackProductionAvailable) {
                                     $rowClass = '';
                                 }
 
                                 // mantém tua lógica de “parcial” apenas pra exibir a tag:
-                                $partial = $e['isPartial'];
-                                $latestValidPartial = $list->Partials
+                                $isPassiveD5Row = (int) ($list->dispatch_five_note_id ?? 0) > 0;
+                                $partial = !$isPassiveD5Row && $e['isPartial'];
+                                $rowPartialId = (int) ($list->dispatch_partial_id ?? 0);
+                                $latestValidPartial = $isPassiveD5Row ? null : ($rowPartialId > 0 ? $list->Partials?->firstWhere("id", $rowPartialId) : $list->Partials
                                     ?->where('allow', true)
                                     ->where('deny', false)
                                     ->sortByDesc('created_at')
-                                    ->first();
+                                    ->first());
 
                                 if ($list->FiveNote) {
                                     $dateFive = Carbon::parse($list->FiveNote->completed_at);
@@ -616,10 +618,10 @@
                             @endphp
 
 
-                            <tr class="align-middle" wire:key="supervision-row-{{ $list->id }}-{{ $list->dispatch_work_report_id ?? 'note' }}">
+                            <tr class="align-middle" wire:key="supervision-row-{{ $list->id }}-{{ $list->operational_work_report_id ?? 'note' }}">
                                 <td class="{{ $rowClass }}">
                                     <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                        value="{{ $list->id }}:{{ (int) ($list->dispatch_work_report_id ?? 0) }}:{{ (int) (($list->dispatch_work_report_id ?? 0) ? 0 : ($latestValidPartial?->id ?? 0)) }}" wire:model.defer="selected"
+                                        value="{{ $this->selectionKeyFor($list) }}" wire:model.defer="selected"
                                         @disabled(!$canDispatch)>
                                 </td>
                                 {{-- @can('management')
@@ -647,8 +649,8 @@
                                     @else
                                         {{ $list->note }}
                                     @endif
-                                    @if ((int) ($list->dispatch_work_report_id ?? 0) > 0)
-                                        <small class="d-block text-muted mt-1">Informe #{{ $list->dispatch_work_report_id }}</small>
+                                    @if ((int) ($list->operational_work_report_id ?? 0) > 0)
+                                        <small class="d-block text-muted mt-1">Informe #{{ $list->operational_work_report_id }}</small>
                                     @endif
                                     @if ($list->pze == "25")
                                         <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
@@ -658,7 +660,7 @@
                                             <i class="ri-fire-line text-danger fw-bold"></i>
                                         </span>
                                     @endif
-                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$list->id.'-'.($list->dispatch_work_report_id ?? 'note')" />
+                                    <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-supervision-main-'.$list->id.'-'.($list->operational_work_report_id ?? 'note')" />
                                 </td>
                                 <td class="text-center {{ $rowClass }} text-nowrap">
                                     @if ($workForm)
@@ -781,11 +783,19 @@
                                     @if ($canDispatch)
                                         <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
                                             style="cursor: pointer;"
-                                            wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [@js([
-                                                'note_id' => $list->id,
-                                                'work_report_id' => (int) ($list->dispatch_work_report_id ?? 0),
-                                                'partial_id' => (int) (($list->dispatch_work_report_id ?? 0) ? 0 : optional(collect($list->Partials ?? [])->where('allow', true)->where('supervision', false)->where('deny', false)->sortByDesc('created_at')->first())->id),
-                                            ])])"
+                                            @if ((int) ($list->operational_work_report_id ?? 0) > 0)
+                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForWorkReports', [{{ (int) $list->operational_work_report_id }}])"
+                                            @else
+                                                {{-- Linha vinda da busca "em qualquer situacao" (sem informe elegivel);
+                                                    mantem o fluxo antigo, resolvendo por parcial quando existir. --}}
+                                                wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [@js([
+                                                    'note_id' => $list->id,
+                                                    'work_report_id' => null,
+                                                    'five_note_id' => (int) ($list->dispatch_five_note_id ?? 0) ?: null,
+                                                    'partial_id' => (int) ($list->dispatch_partial_id ?? 0) ?: null,
+                                                    'bulk_any_status' => true,
+                                                ])])"
+                                            @endif
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
                                             data-bs-title="{{ $stackProductionAvailable ? 'Assumir/atribuir Nota/OV da pilha da empresa' : 'Despachar esta Nota/OV' }}"></i>
@@ -826,7 +836,7 @@
                 <div class="summary-item">
                     Exibindo <strong>{{ $lists->firstItem() }}</strong> ate
                     <strong>{{ $lists->lastItem() }}</strong> de
-                    <strong>{{ $lists->total() }}</strong> registros.
+                    <strong>{{ $lists->lastItem() }}</strong> registros nesta página{{ $lists->hasMorePages() ? ' (há mais)' : '' }}.
                 </div>
             </div>
         </div>
