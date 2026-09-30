@@ -2,8 +2,7 @@
 
 namespace App\Services\Payment;
 
-use App\Models\City;
-use App\Models\Note;
+use App\Models\{City, Note};
 use Illuminate\Database\Eloquent\Builder;
 
 class NoteFilter
@@ -28,15 +27,18 @@ class NoteFilter
     {
         // Carrega filtros de sessão se existirem
         if (\PHP_SESSION_ACTIVE !== session_status()) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
+
         if (isset($_SESSION['filter'][$filterGroup]) && is_array($_SESSION['filter'][$filterGroup])) {
             $this->filters = $_SESSION['filter'][$filterGroup];
         }
 
         $companyIds = $this->filters['company'] ?? null;
         $rubricas   = $this->filters['rubrica'] ?? null;
-        $cityCodes   = $this->municipioFilterValues();
+        $cityCodes  = $this->municipioFilterValues();
 
         $query = Note::query();
 
@@ -134,35 +136,13 @@ class NoteFilter
 
     private function wherePaymentReadyOrder(Builder $ord): Builder
     {
-        return $ord->where('statusSist', 'LIKE', 'LIB%')
-            ->whereHas('Operations', function (Builder $op) {
-                $op->where('operacao', '0010')->where('status', 'like', 'CONF%');
-            })
-            ->whereHas('Operations', function (Builder $op) {
-                $op->where('operacao', '0030')->where('status', 'like', 'CONF%');
-            })
-            ->whereHas('Operations', function (Builder $op) {
-                $op->where('operacao', '0040')
-                   ->where(function (Builder $qq) {
-                       $qq->where('status', 'like', 'LIB%')
-                          ->orWhere('status', 'like', 'CONF%')
-                          ->orWhere('status', 'like', 'CNPA%');
-                   });
-            })
-            ->whereHas('Operations', function (Builder $op) {
-                $op->where('operacao', '0050')
-                   ->where(function (Builder $qq) {
-                       $qq->where('status', 'like', 'LIB%')
-                          ->orWhere('status', 'like', 'CNPA%')
-                          ->orWhere('status', 'like', 'JBFI LIB%');
-                   });
-            });
+        return app(WorkReportPaymentCandidateQuery::class)->whereEligibleOrder($ord);
     }
 
     private function municipioFilterValues(): array
     {
-        $cities = $this->filters['city'] ?? [];
-        $regions = $this->filters['region'] ?? [];
+        $cities    = $this->filters['city'] ?? [];
+        $regions   = $this->filters['region'] ?? [];
         $regionals = $this->filters['regional'] ?? [];
 
         if (empty($cities) && empty($regions) && empty($regionals)) {

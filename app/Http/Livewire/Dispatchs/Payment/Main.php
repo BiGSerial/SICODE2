@@ -2,17 +2,13 @@
 
 namespace App\Http\Livewire\Dispatchs\Payment;
 
-use App\Custom\RuleBuilder;
-use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Helpers\TextFormatter;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
-use App\Models\City;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Models\City;
 use App\Services\D5\D5WorkflowService;
-use App\Services\Payment\BlockEvaluator;
-use App\Services\Payment\NoteFilter;
-use App\Services\WorkReports\WorkReportFinalScopeOptions;
-use App\Services\WorkReports\WorkReportFlowProductionLinker;
+use App\Services\Payment\{BlockEvaluator, NoteFilter};
+use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -28,61 +24,86 @@ class Main extends Component
 
     // Estado / filtros
     public $service;
+
     public $perPage = 100;
+
     public $search;
+
     public $search_user;
 
     public $rubrica_s = [];
+
     public $rubrica_l;
 
     public $note;
+
     public $last_update;
 
     public $advanceSearch;
+
     public $multiSearch = [];
 
     public $selectall = false;
+
     public $selected = [];
 
     public $company_l;
+
     public $company_s;
+
     public $user_l;
+
     public $user_s;
 
     public $type;
+
     public $additionalData = [];
+
     public array $finalScopeOptions = [];
+
     public array $finalScopeSelections = [];
+
     public $notes;
+
     public $enter_dd;
 
     public $filteredLists;
+
     public $note_type = '';
 
     // Filtros de localidade/grupos
     public $region_l;
+
     public $region_s = [];
 
     public $district_l;
+
     public $district_s = [];
 
     public $city_l;
+
     public $city_s = [];
 
     public $group1_l;
+
     public $group1_s = [];
 
     public $group2_l;
+
     public $group2_s = [];
 
     public $group5_l;
+
     public $group5_s = [];
 
     public $not_assigned = false;
+
     public $typeNote = '';
 
     public $filter_d5 = false;
+
     public $multi_search_any_situation = false;
+
     public bool $bulkSearchAnyStatus = false;
 
     // Grupo de filtro (usado pelo NoteFilter)
@@ -119,7 +140,7 @@ class Main extends Component
     {
         if (is_string($key) && str_contains($key, ':')) {
             [$noteId, $workReportId, $partialToken] = array_pad(explode(':', $key, 3), 3, null);
-            $partialId = str_starts_with((string) $partialToken, 'p') ? (int) substr((string) $partialToken, 1) : null;
+            $partialId                              = str_starts_with((string) $partialToken, 'p') ? (int) substr((string) $partialToken, 1) : null;
 
             return [(int) $noteId, (int) $workReportId, $partialId ?: null];
         }
@@ -132,9 +153,9 @@ class Main extends Component
         [$noteId, $workReportId, $partialId] = $this->parseSelectionKey($key);
 
         return [
-            'note_id' => $noteId,
-            'work_report_id' => $workReportId ?: null,
-            'partial_id' => $partialId,
+            'note_id'         => $noteId,
+            'work_report_id'  => $workReportId ?: null,
+            'partial_id'      => $partialId,
             'bulk_any_status' => (bool) $this->bulkSearchAnyStatus,
         ];
     }
@@ -143,7 +164,7 @@ class Main extends Component
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
         $this->last_update = optional(Note::orderByDesc('dt_status')->first())->dt_status;
-        $this->company_l = Company::whereHas('toUsers', function ($query) {
+        $this->company_l   = Company::whereHas('toUsers', function ($query) {
             $query->whereRelation('ToServices', function ($q) {
                 $q->where('service_id', $this->service->uuid)
                   ->where('service', true);
@@ -183,7 +204,9 @@ class Main extends Component
     public function export_excel()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
@@ -201,26 +224,26 @@ class Main extends Component
                 ->unique()
                 ->values()
                 ->all(),
-            'selected_work_report_ids'  => collect($this->selected)
+            'selected_work_report_ids' => collect($this->selected)
                 ->map(fn ($key) => $this->parseSelectionKey($key)[1])
                 ->filter()
                 ->unique()
                 ->values()
                 ->all(),
-            'selected_partial_ids'      => collect($this->selected)
+            'selected_partial_ids' => collect($this->selected)
                 ->map(fn ($key) => $this->parseSelectionKey($key)[2])
                 ->filter()
                 ->unique()
                 ->values()
                 ->all(),
-            'typeNote'                   => $this->typeNote,
-            'not_assigned'               => $this->not_assigned,
-            'company_ids'                => $filters['company'] ?? null,
-            'rubricas'                   => $filters['rubrica'] ?? null,
-            'regions'                    => $filters['region'] ?? null,
-            'regionals'                  => $filters['regional'] ?? null,
-            'cities'                     => $filters['city'] ?? null,
-            'filter_d5'                  => property_exists($this, 'filter_d5') ? (bool) $this->filter_d5 : false,
+            'typeNote'     => $this->typeNote,
+            'not_assigned' => $this->not_assigned,
+            'company_ids'  => $filters['company'] ?? null,
+            'rubricas'     => $filters['rubrica'] ?? null,
+            'regions'      => $filters['region'] ?? null,
+            'regionals'    => $filters['regional'] ?? null,
+            'cities'       => $filters['city'] ?? null,
+            'filter_d5'    => property_exists($this, 'filter_d5') ? (bool) $this->filter_d5 : false,
         ];
 
         ExportDispatchPaymentJob::dispatch($params, (string)auth()->id());
@@ -276,6 +299,7 @@ class Main extends Component
     public function needBlock(Note $note): array
     {
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
         // retorna estrutura pra view usar diretamente
         return $eval;
     }
@@ -341,14 +365,17 @@ class Main extends Component
 
         // selectall fica true quando TODOS os elegíveis da página estão selecionados
         $selectedSet = array_fill_keys(array_map('strval', $this->selected), true);
+
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectall = false;
+
                 return false;
             }
         }
 
         $this->selectall = true;
+
         return true;
     }
 
@@ -365,13 +392,16 @@ class Main extends Component
         // se não há elegíveis na página, não marcar o master
         if (empty($eligiblePage)) {
             $this->selectall = false;
+
             return;
         }
 
         $selectedSet = array_fill_keys(array_map('strval', $this->selected), true);
+
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectall = false;
+
                 return;
             }
         }
@@ -394,8 +424,10 @@ class Main extends Component
 
         if ($date_forms) {
             $deadline_date = Carbon::parse($date_forms)->addDays($days);
+
             return Carbon::now()->diffInDays($deadline_date, false);
         }
+
         return 0;
     }
 
@@ -404,7 +436,9 @@ class Main extends Component
         $this->gotoPage(1);
 
         if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
         $_SESSION['filtro']['desenho']['rubrica']  = $this->rubrica_s;
         $_SESSION['filtro']['desenho']['city']     = $this->city_s;
@@ -430,12 +464,15 @@ class Main extends Component
         $this->group2_s   = [];
         $this->group5_s   = [];
 
-        $this->multiSearch = [];
+        $this->multiSearch                = [];
         $this->multi_search_any_situation = false;
 
         if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
+
         if (isset($_SESSION['filtro']['desenho'])) {
             unset($_SESSION['filtro']['desenho']);
         }
@@ -460,6 +497,7 @@ class Main extends Component
                 'title'    => 'Nenhuma nota foi selecionada para despacho!',
                 'timer'    => 2500,
             ]);
+
             return;
         }
 
@@ -474,28 +512,22 @@ class Main extends Component
     public function confirm_att()
     {
 
-        $errors       = new Collection();
+        $errors = new Collection();
         // 1) Carrega as notas selecionadas
         $this->notes = Note::find($this->selected);
 
         // 2) Verifica bloqueios
         $blocked = [];
 
-
-
-
-
         foreach ($this->notes as $note) {
 
             $note->loadMissing([
-               'WorkForm',
-               'FiveNote',
-               'Partials',
-               'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
-                                           ->orderByDesc('created_at'),
-           ]);
-
-
+                'WorkForm',
+                'FiveNote',
+                'Partials',
+                'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
+                                            ->orderByDesc('created_at'),
+            ]);
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
@@ -504,6 +536,7 @@ class Main extends Component
                     'note' => $note->note,
                     'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),
                 ]);
+
                 continue;
             }
 
@@ -512,6 +545,7 @@ class Main extends Component
                     'note' => $note->note,
                     'when' => 'selecione Rede, Ligacao ou ambos para medicao',
                 ]);
+
                 continue;
             }
 
@@ -523,12 +557,11 @@ class Main extends Component
             }
         }
 
-
-
         if ($errors->isNotEmpty()) {
             $lines = $errors
                 ->map(fn ($e) => "{$e['note']} (já em {$e['when']})")
                 ->implode("<br>– ");
+
             return $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -540,12 +573,14 @@ class Main extends Component
 
         // 3) Monta string "para"
         $para = $this->getDispatchTargetName();
+
         if ($para === false) {
             return;
         }
 
         // 4) Confirmação
         $message = "Você está prestes a despachar {$this->notes->count()} nota(s) para {$para}.";
+
         if ($this->multi_search_any_situation && !empty($this->multiSearch)) {
             $message .= "<br><br><div class='text-start'><strong>Atenção:</strong> a busca em qualquer situação da busca em massa está ativa. Esta operação pode incluir notas fora do fluxo padrão. Revise a seleção antes de confirmar.</div>";
         }
@@ -574,6 +609,7 @@ class Main extends Component
                 'title'    => 'Nenhuma empresa foi selecionada para despacho!',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
@@ -607,6 +643,7 @@ class Main extends Component
         $errors       = new Collection();
 
         $targetName = $this->getDispatchTargetName();
+
         if ($targetName === false) {
             return;
         }
@@ -618,12 +655,11 @@ class Main extends Component
                 'title'    => 'Nenhuma nota selecionada!',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
         foreach ($this->notes as $note) {
-
-
 
             $note->loadMissing([
                 'WorkForm',
@@ -637,12 +673,12 @@ class Main extends Component
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
-
             if ($eval['block'] && !($eval['command'] ?? false)) {
                 $errors->push([
                     'note' => $note->note,
                     'when' => $eval['production']?->dt_note?->format('d/m/Y H:i'),
                 ]);
+
                 continue;
             }
 
@@ -702,11 +738,9 @@ class Main extends Component
                 'completed'  => false,
             ], $data);
 
-
-
             if ($production) {
-                $linker = app(WorkReportFlowProductionLinker::class);
-                $finalScopes = $this->selectedFinalScopesForNote($note);
+                $linker       = app(WorkReportFlowProductionLinker::class);
+                $finalScopes  = $this->selectedFinalScopesForNote($note);
                 $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
 
                 if ($workReportId) {
@@ -721,11 +755,11 @@ class Main extends Component
                 }
 
                 Notetimeline::create([
-                    'note_id'      => $note->id,
-                    'service_id'   => $production->service_id,
-                    'user_id'      => $dispatcherId,
-                    'info'         => "Usuário " . auth()->user()->name . " despachou a Nota/OV para: {$targetName}",
-                    'status'       => $data['status'],
+                    'note_id'       => $note->id,
+                    'service_id'    => $production->service_id,
+                    'user_id'       => $dispatcherId,
+                    'info'          => "Usuário " . auth()->user()->name . " despachou a Nota/OV para: {$targetName}",
+                    'status'        => $data['status'],
                     'production_id' => $production->id,
                 ]);
 
@@ -777,10 +811,12 @@ class Main extends Component
                     'title'    => 'Nenhum usuário selecionado para despacho individual!',
                     'timer'    => 2500,
                 ]);
+
                 return false;
             }
             $user    = User::find($this->user_s);
             $company = Company::find($this->company_s);
+
             return ($user->name ?? 'Desconhecido') . ' da ' . ($company->name ?? 'Desconhecido');
         }
 
@@ -791,16 +827,18 @@ class Main extends Component
                 'title'    => 'Nenhuma empresa selecionada para despacho!',
                 'timer'    => 2500,
             ]);
+
             return false;
         }
         $company = Company::find($this->company_s);
+
         return $company->name ?? 'Desconhecido';
     }
 
     private function prepareFinalScopeSelection(Note $note): void
     {
-        $options = app(WorkReportFinalScopeOptions::class)->forNote($note);
-        $this->finalScopeOptions[$note->id] = $options;
+        $options                               = app(WorkReportFinalScopeOptions::class)->forNote($note);
+        $this->finalScopeOptions[$note->id]    = $options;
         $this->finalScopeSelections[$note->id] = [];
 
         if (count($options) === 1) {
@@ -830,17 +868,17 @@ class Main extends Component
     {
         $this->dispatchBrowserEvent('hideModal');
 
-        $this->company_s      = '';
-        $this->selected       = [];
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->finalScopeOptions = [];
-        $this->finalScopeSelections = [];
-        $this->advanceSearch  = '';
-        $this->search         = '';
+        $this->company_s                  = '';
+        $this->selected                   = [];
+        $this->user_s                     = '';
+        $this->type                       = '';
+        $this->additionalData             = [];
+        $this->finalScopeOptions          = [];
+        $this->finalScopeSelections       = [];
+        $this->advanceSearch              = '';
+        $this->search                     = '';
         $this->multi_search_any_situation = false;
-        $this->bulkSearchAnyStatus = false;
+        $this->bulkSearchAnyStatus        = false;
         $this->gotoPage(1);
 
         $this->emit('refresh_dispatch');
@@ -848,16 +886,16 @@ class Main extends Component
 
     public function clean()
     {
-        $this->company_s      = '';
-        $this->enter_dd       = '';
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->multiSearch    = [];
+        $this->company_s                  = '';
+        $this->enter_dd                   = '';
+        $this->user_s                     = '';
+        $this->type                       = '';
+        $this->additionalData             = [];
+        $this->multiSearch                = [];
         $this->multi_search_any_situation = false;
-        $this->bulkSearchAnyStatus = false;
-        $this->advanceSearch  = '';
-        $this->search         = '';
+        $this->bulkSearchAnyStatus        = false;
+        $this->advanceSearch              = '';
+        $this->search                     = '';
     }
 
     public function buscarMulti()
@@ -868,14 +906,14 @@ class Main extends Component
 
             $this->multiSearch = array_values($this->formatTextToArray($this->advanceSearch));
         } else {
-            $this->multiSearch = [];
+            $this->multiSearch                = [];
             $this->multi_search_any_situation = false;
-            $this->bulkSearchAnyStatus = false;
+            $this->bulkSearchAnyStatus        = false;
         }
 
         if (count($this->multiSearch)) {
             $this->gotoPage(1);
-            $this->selected = [];
+            $this->selected  = [];
             $this->selectall = false;
             $this->dispatchBrowserEvent('hideModal');
         }
@@ -907,16 +945,16 @@ class Main extends Component
         );
 
         $base = $base->select([
-                'notes.id',
-                'notes.note',
-                'notes.lexp',
-                'notes.mesalization',
-                'notes.days_left',
-                'notes.type_note',
-                'notes.nstats',
-                'notes.dt_status',
-                DB::raw('(SELECT COALESCE(SUM(o.moaberto),0) FROM orders o WHERE o.note_id = notes.id) AS total_moaberto'),
-            ]);
+            'notes.id',
+            'notes.note',
+            'notes.lexp',
+            'notes.mesalization',
+            'notes.days_left',
+            'notes.type_note',
+            'notes.nstats',
+            'notes.dt_status',
+            DB::raw('(SELECT COALESCE(SUM(o.moaberto),0) FROM orders o WHERE o.note_id = notes.id) AS total_moaberto'),
+        ]);
 
         // latest_ops (MAX fimLancado)
         $latestOps = DB::table('operation_resps')
@@ -1098,7 +1136,7 @@ class Main extends Component
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
             'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
-            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
             'WorkForms' => fn ($q) => $q->select([
@@ -1117,7 +1155,7 @@ class Main extends Component
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
             'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
-            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,created_at',
             'Partials' => fn ($q) => $q->select([
@@ -1138,7 +1176,7 @@ class Main extends Component
                 ->where('payment', false)
                 ->orderByDesc('created_at'),
             'Partials.Company:id,name,deleted_at',
-            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
@@ -1199,6 +1237,7 @@ class Main extends Component
                     $row = clone $note;
                     $row->setAttribute('payment_context_key', $note->id . ':0:p' . $partial->id);
                     $row->setAttribute('dispatch_partial_id', (int) $partial->id);
+
                     return [$row];
                 }
 
@@ -1228,25 +1267,9 @@ class Main extends Component
             ? $workForm->Orders
             : $workForm->Orders()->with('Operations')->get();
 
-        $normalizedStatus = fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status);
+        $candidates = app(\App\Services\Payment\WorkReportPaymentCandidateQuery::class);
 
-        return $orders->contains(function ($order) use ($normalizedStatus) {
-            if (!str_starts_with($normalizedStatus($order->statusSist ?? ''), 'LIB')) {
-                return false;
-            }
-
-            $statuses = function (string $operation) use ($order, $normalizedStatus) {
-                return collect($order->Operations ?? [])
-                    ->where('operacao', $operation)
-                    ->pluck('status')
-                    ->map($normalizedStatus);
-            };
-
-            return $statuses('0010')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-                && $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-                && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
-                && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
-        });
+        return $orders->contains(fn ($order) => $candidates->orderIsEligible($order));
     }
 
     private function isD5ReturnReadyForPayment(Note $note): bool
@@ -1298,9 +1321,6 @@ class Main extends Component
         }
     }
 
-
-
-
     public function chargerList()
     {
         $this->company_l = Company::whereHas('toUsers', function ($query) {
@@ -1339,7 +1359,6 @@ class Main extends Component
         // ->orderBy('name', 'ASC')
         // ->get();
 
-
         // $this->user_l = User::whereRelation('ToServices', function ($q) {
         //     $q->where('service_id', $this->service->uuid)
         //       ->where('service', true);
@@ -1352,13 +1371,11 @@ class Main extends Component
         //     ->orderBy('name', 'ASC')
         //     ->get();
 
-
         // $this->rubrica_l = Note::select('rubrica')
         //     ->where('nstats', optional($this->service)->status)
         //     ->orderBy('rubrica')
         //     ->groupBy('rubrica')
         //     ->get();
-
 
         // try {
         //     $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
