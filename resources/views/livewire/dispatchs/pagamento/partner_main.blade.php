@@ -63,6 +63,31 @@
             padding: 0.35rem 0.5rem;
         }
 
+        .payment-dispatch-page .row-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 66px;
+            padding: 0.2rem 0.55rem;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .payment-dispatch-page .chip-partial {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+
+        .payment-dispatch-page .chip-final {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
+            color: #065f46;
+        }
+
         .payment-dispatch-page .bulk-search-modal .modal-content {
             border: 0;
             border-radius: 0.75rem;
@@ -284,8 +309,8 @@
                                 <input class="form-check-input" type="checkbox" wire:model="selectall"
                                     wire:click="setSelectAll" @checked($this->checkAllSelect($lists))>
                             </th>
-                            <th class="align-middle text-center">Nota</th>
-                            <th class="align-middle text-center">Tipo / Escopo</th>
+                            <th class="align-middle text-center">Tipo</th>
+                            <th class="align-middle text-center">Note</th>
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">MOA</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
@@ -392,7 +417,22 @@
                                         @disabled(!$canDispatch)>
                                 </td>
 
-                                <td class="fw-light fw-bold text-center {{ $rowClass }}">
+                                <td class="text-center {{ $rowClass }}">
+                                    <div class="d-grid gap-1 justify-items-center">
+                                        <span class="row-chip {{ $partial ? 'chip-partial' : 'chip-final' }}">
+                                            {{ $partial ? 'P' : 'F' }}
+                                        </span>
+                                        @if (!$partial && $wf)
+                                            @foreach ($wf->finalScopeBadges() as $scopeBadge)
+                                                <span class="badge {{ $scopeBadge['class'] }}">
+                                                    {{ $scopeBadge['label'] }}
+                                                </span>
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                </td>
+
+                                <td class="fw-bold copy-text text-center {{ $rowClass }}" data-value="{{ $list->note }}">
                                     @if ($hasD5)
                                         <span class="badge {{ $d5BadgeClass }} fs-6" tabindex="0"
                                             data-bs-toggle="popover" data-bs-trigger="hover focus"
@@ -410,25 +450,6 @@
                                         <small class="d-block text-muted mt-1">Parcial #{{ $list->dispatch_partial_id }}</small>
                                     @endif
                                     <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-payment-main-'.$selectionKey" />
-                                </td>
-
-                                <td class="fw-bold text-center {{ $rowClass }}">
-                                    <div class="d-grid gap-1 justify-items-center">
-                                        <span class="badge {{ $partial ? 'text-bg-warning' : 'text-bg-success' }}">
-                                            {{ $partial ? 'PARCIAL' : 'TOTAL' }}
-                                        </span>
-                                        @if ($wf)
-                                            @foreach ($workForms as $workForm)
-                                                @foreach ($workForm->finalScopeBadges() as $scopeBadge)
-                                                    <span class="badge scope-badge {{ $scopeBadge['class'] }}">{{ $scopeBadge['label'] }}</span>
-                                                @endforeach
-                                            @endforeach
-                                        @elseif ($partial)
-                                            {{-- Parcial não possui escopo. --}}
-                                        @else
-                                            <span class="badge scope-badge text-bg-secondary">Geral</span>
-                                        @endif
-                                    </div>
                                 </td>
 
                                 <td class="text-center align-middle {{ $rowClass }}">

@@ -2,10 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Note;
-use App\Models\Operation;
-use App\Models\Order;
-use App\Models\WorkReport;
+use App\Models\{Note, Operation, Order, WorkReport};
 use App\Repositories\SupervisionRepository;
 use App\Services\Payment\NoteFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,17 +67,42 @@ class SicodeSpFiscalizationPaymentRulesTest extends TestCase
         );
     }
 
+    /** @dataProvider esOperation40Statuses */
+    public function test_es_enters_payment_with_confirmed_30_accepted_40_and_released_50(string $operation40Status): void
+    {
+        config(['sicode.ruleset' => 'es']);
+
+        $note = $this->makeFinalWorkReportNote('4000001040', [
+            ['operacao' => '0030', 'status' => 'CONF'],
+            ['operacao' => '0040', 'status' => $operation40Status],
+            ['operacao' => '0050', 'status' => 'LIB'],
+        ]);
+
+        $this->assertTrue(
+            app(NoteFilter::class)->filter(null, 'payments')->where('notes.id', $note->id)->exists()
+        );
+    }
+
+    public static function esOperation40Statuses(): array
+    {
+        return [
+            'cnpa'     => ['CNPA'],
+            'jbfi lib' => ['JBFI LIB'],
+            'lib'      => ['LIB'],
+        ];
+    }
+
     private function makeFinalWorkReportNote(string $number, array $operations): Note
     {
         $note = Note::create([
-            'note' => $number,
+            'note'      => $number,
             'dt_status' => now(),
-            'nstats' => 'NEW',
+            'nstats'    => 'NEW',
         ]);
 
         $order = Order::create([
-            'note_id' => $note->id,
-            'ordem' => '1700001030',
+            'note_id'    => $note->id,
+            'ordem'      => '1700001030',
             'statusSist' => 'LIB',
         ]);
 
@@ -88,17 +110,18 @@ class SicodeSpFiscalizationPaymentRulesTest extends TestCase
             Operation::create([
                 'order_id' => $order->id,
                 'operacao' => $operation['operacao'],
-                'status' => $operation['status'],
+                'status'   => $operation['status'],
             ]);
         }
 
-        WorkReport::create([
-            'note_id' => $note->id,
-            'date' => '2026-09-10',
+        $workReport = WorkReport::create([
+            'note_id'     => $note->id,
+            'date'        => '2026-09-10',
             'informed_at' => '2026-09-10 08:00:00',
-            'rejected' => false,
-            'canceled' => false,
+            'rejected'    => false,
+            'canceled'    => false,
         ]);
+        $workReport->Orders()->sync([$order->id]);
 
         return $note;
     }
