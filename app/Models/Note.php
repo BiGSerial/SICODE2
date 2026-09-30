@@ -76,6 +76,11 @@ class Note extends Model
         return $this->hasMany(Production::class);
     }
 
+    public function QualityProcesses()
+    {
+        return $this->hasMany(QualityProcess::class);
+    }
+
     public function latestProduction()
     {
         return $this->hasOne(Production::class)->latestOfMany('created_at');

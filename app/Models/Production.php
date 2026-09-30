@@ -6,18 +6,16 @@ use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Database\Eloquent\Relations\MorphOne;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\Relations\{MorphToMany};
 use Illuminate\Support\Collection;
 
 class Production extends Model
 {
     use HasFactory;
 
-    public const STATUS_IN_PROJECT_REVIEW = 30;
+    public const STATUS_IN_PROJECT_REVIEW       = 30;
     public const STATUS_REJECTED_PROJECT_REVIEW = 31;
-    public const STATUS_RELEASED_TO_FINISH = 32;
+    public const STATUS_RELEASED_TO_FINISH      = 32;
 
     protected $fillable = [
         'note_id',
@@ -68,29 +66,43 @@ class Production extends Model
     ];
 
     protected $casts = [
-        'manual'     => 'boolean',
-        'mmgd'     => 'boolean',
-        'dfive' => 'boolean',
-        'd5'     => 'boolean',
-        'cad'    => 'boolean',
-        'partial' => 'boolean',
+        'manual'                        => 'boolean',
+        'mmgd'                          => 'boolean',
+        'dfive'                         => 'boolean',
+        'd5'                            => 'boolean',
+        'cad'                           => 'boolean',
+        'partial'                       => 'boolean',
         'supervision_by_partner_photos' => 'boolean',
-        'completed'   => 'boolean',
-        'confirmed'   => 'boolean',
-        'returned'    => 'boolean',
-        'priority'    => 'boolean',
-        'block'  => 'boolean',
-        'dispatch_at' => 'datetime',
-        'att_at'        => 'datetime',
-        'completed_at'  => 'datetime',
-        'partial_at'    => 'datetime',
-        'confirmed_at'  => 'datetime',
-        'dt_note'       => 'datetime',
-        'dhstats' => 'datetime',
+        'completed'                     => 'boolean',
+        'confirmed'                     => 'boolean',
+        'returned'                      => 'boolean',
+        'priority'                      => 'boolean',
+        'block'                         => 'boolean',
+        'dispatch_at'                   => 'datetime',
+        'att_at'                        => 'datetime',
+        'completed_at'                  => 'datetime',
+        'partial_at'                    => 'datetime',
+        'confirmed_at'                  => 'datetime',
+        'dt_note'                       => 'datetime',
+        'dhstats'                       => 'datetime',
     ];
 
     protected static function booted(): void
     {
+        // Impede abrir nova atividade (no serviço da Qualidade) para uma Nota com Qualidade aberta.
+        // Só o workflow da Qualidade cria a sua (Production::withoutQualityGuard).
+        static::creating(function (Production $production) {
+            if (self::$qualityGuardBypass) {
+                return;
+            }
+
+            $serviceIds = app(\App\Services\Quality\QualityActivities::class)->serviceIds();
+
+            if ($serviceIds && in_array($production->service_id, $serviceIds, true) && QualityProcess::query()->where('note_id', $production->note_id)->active()->exists()) {
+                throw new \App\Services\Quality\QualityWorkflowException('Esta Nota está em processo de Qualidade: somente o N1 da Qualidade pode despachá-la ao desenhista.');
+            }
+        });
+
         static::updated(function (Production $production) {
             if (!$production->wasChanged(['completed', 'confirmed', 'completed_at', 'confirmed_at', 'status', 'att_at'])) {
                 return;
@@ -197,6 +209,34 @@ class Production extends Model
         return $this->hasMany(ProjectReviewMessage::class);
     }
 
+    private static bool $qualityGuardBypass = false;
+
+    public static function withoutQualityGuard(callable $callback): mixed
+    {
+        self::$qualityGuardBypass = true;
+
+        try {
+            return $callback();
+        } finally {
+            self::$qualityGuardBypass = false;
+        }
+    }
+
+    public function QualityProcess()
+    {
+        return $this->hasOne(QualityProcess::class);
+    }
+
+    public function activeQualityProcess()
+    {
+        return $this->hasOne(QualityProcess::class)->where('status', \App\Enum\QualityProcessStatus::ACTIVE->value);
+    }
+
+    public function hasActiveQualityProcess(): bool
+    {
+        return $this->activeQualityProcess()->exists();
+    }
+
     public function fiveNotes(): MorphToMany
     {
         return $this->morphedByMany(
@@ -239,9 +279,9 @@ class Production extends Model
                     && $link->WorkReport;
             })
             ->sortBy(fn (WorkReportFlowProduction $link) => match ($link->final_scope) {
-                WorkReportFinalScopeResolver::SCOPE_NETWORK => 1,
+                WorkReportFinalScopeResolver::SCOPE_NETWORK    => 1,
                 WorkReportFinalScopeResolver::SCOPE_CONNECTION => 2,
-                default => 3,
+                default                                        => 3,
             })
             ->pluck('WorkReport')
             ->unique('id')
@@ -304,28 +344,26 @@ class Production extends Model
     public function workReportFinalScopeLabel(string $scope): string
     {
         return match ($scope) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'Rede',
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligacao',
-            default => 'Geral',
+            default                                        => 'Geral',
         };
     }
 
     public function workReportFinalScopeBadgeClass(string $scope): string
     {
         return match ($scope) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'text-bg-primary',
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'text-bg-primary',
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'text-bg-warning',
-            default => 'text-bg-secondary',
+            default                                        => 'text-bg-secondary',
         };
     }
-
 
     // Redução para ultimo registro
     public function latestWpa()
     {
         return $this->hasOne(Wpa::class)->latest('id');
     }
-
 
     // Encerramento de Parcial
     public function partialFiscalDone(): ?\App\Models\Partial
@@ -339,7 +377,7 @@ class Production extends Model
             ->first();
 
         if ($partial) {
-            $partial->supervision = true;
+            $partial->supervision    = true;
             $partial->supervision_at = now();
             $partial->supervision_id = auth()->user()->id;
             $partial->save();
@@ -348,7 +386,7 @@ class Production extends Model
         return $partial;
     }
 
-     public function partialPaymentDone(): ?\App\Models\Partial
+    public function partialPaymentDone(): ?\App\Models\Partial
     {
         $partial = $this->Note->Partials()
             ->orderBy('id', 'desc')
@@ -360,8 +398,8 @@ class Production extends Model
             ->first();
 
         if ($partial) {
-            $partial->payment = true;
-            $partial->complete = true;
+            $partial->payment    = true;
+            $partial->complete   = true;
             $partial->payment_at = now();
             $partial->payment_id = auth()->user()->id;
             $partial->save();
@@ -372,7 +410,7 @@ class Production extends Model
         return $partial;
     }
 
-     public function partialReject(string $motivo, bool $payment = false): ?\App\Models\Partial
+    public function partialReject(string $motivo, bool $payment = false): ?\App\Models\Partial
     {
         $partial = $this->Note->Partials()
             ->orderBy('id', 'desc')
@@ -383,18 +421,17 @@ class Production extends Model
 
         if ($partial) {
 
-
-            $partial->payment = $payment;
-            $partial->complete = false;
-            $partial->payment_at = $payment ? now() : null;
-            $partial->payment_id = $payment ? auth()->user()->id : null;
-            $partial->engineer_info = $motivo;
-            $partial->complete = false;
-            $partial->supervision = !$payment ? true : false;
+            $partial->payment        = $payment;
+            $partial->complete       = false;
+            $partial->payment_at     = $payment ? now() : null;
+            $partial->payment_id     = $payment ? auth()->user()->id : null;
+            $partial->engineer_info  = $motivo;
+            $partial->complete       = false;
+            $partial->supervision    = !$payment ? true : false;
             $partial->supervision_at = !$payment ? now() : null;
             $partial->supervision_id = !$payment ? auth()->user()->id : null;
-            $partial->allow = false;
-            $partial->deny = true;
+            $partial->allow          = false;
+            $partial->deny           = true;
             $partial->save();
 
         } else {

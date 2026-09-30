@@ -518,6 +518,14 @@
                                             <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
                                                 wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
                                                 style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                            @php $qualityProcess = $list->activeQualityProcess; @endphp
+                                            @if ($qualityProcess)
+                                                <div class="mt-1">
+                                                    <span class="badge text-bg-dark" data-bs-toggle="tooltip" data-bs-title="Atividade originada pela Qualidade: use o formulário da Qualidade para enviar ao N1.">
+                                                        <i class="ri-shield-check-line"></i> QUALIDADE · {{ $qualityProcess->phase->short() }} · rodada {{ $qualityProcess->round_number }}
+                                                    </span>
+                                                </div>
+                                            @endif
                                         </td>
                                         <td class="{{ $tableRowClass }}">
                                             <div class="activity-row-actions">
@@ -526,6 +534,9 @@
                                                         @if ($isProjectReviewTracked && (int) $list->status === 30)
                                                             {{-- Em Análise de Projeto: sem ícones de ação para evitar reencerramento por engano. --}}
                                                         @else
+                                                            @if ($list->activeQualityProcess)
+                                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ver detalhes (somente leitura)" wire:click.prevent="getQualityDetails({{ $list->id }})"><i class="ri-eye-line"></i></button>
+                                                            @endif
                                                             <button type="button"
                                                                 class="btn btn-sm btn-outline-success"
                                                                 data-bs-toggle="tooltip" data-bs-placement="top"
@@ -534,7 +545,7 @@
                                                                 <i class="ri-play-circle-line"></i>
                                                             </button>
                                                         @endif
-                                                        @if (!$isProjectReviewTracked)
+                                                        @if (!$isProjectReviewTracked && !$list->activeQualityProcess)
                                                             <button type="button"
                                                                 class="btn btn-sm btn-outline-primary"
                                                                 data-bs-toggle="tooltip" data-bs-placement="top"
@@ -583,6 +594,20 @@
     </div>
 
 
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="quality_closing_form" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="qualityClosingLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+            <div class="modal-content h-100">
+                <div class="modal-header text-bg-primary">
+                    <h1 class="modal-title fs-5" id="qualityClosingLabel">ATIVIDADE DE QUALIDADE</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    @livewire('services.desenho.forms.quality-closing', key('quality-closing-form'))
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Modal -->

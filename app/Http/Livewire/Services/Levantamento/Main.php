@@ -90,6 +90,12 @@ class Main extends Component
      * ===================== */
     public function goTransferProd($prod_id)
     {
+        if (Production::find($prod_id)?->hasActiveQualityProcess()) {
+            $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'warning', 'title' => 'TRANSFERÊNCIA BLOQUEADA', 'html' => 'Atividades da Qualidade só podem ser redirecionadas pelo N1.', 'timer' => 3500]);
+
+            return;
+        }
+
         $this->emit('transfer_production_lev', $prod_id);
     }
 
@@ -136,8 +142,29 @@ class Main extends Component
     /** =====================
      * 🔹 ABERTURA DE ANÁLISE
      * ===================== */
+    /** Consulta somente leitura de uma atividade da Qualidade (sem iniciar nem finalizar). */
+    public function getQualityDetails($production)
+    {
+        $this->emitTo('services.desenho.forms.quality-closing', 'openQualityDetails', (int) $production);
+        $this->dispatchBrowserEvent('showModal', ['id' => 'quality_closing_form']);
+    }
+
     public function getAnalise($production, $note)
     {
+        // Atividade originada pela Qualidade: nunca usa o encerramento normal do Levantamento.
+        $qualityProcess = Production::query()->where('id', $production)->where('user_id', Auth::id())->first()?->activeQualityProcess()->first();
+
+        if ($qualityProcess) {
+            if ($qualityProcess->state === \App\Enum\QualityProcessState::AWAITING_DESIGNER) {
+                $this->emitTo('services.desenho.forms.quality-closing', 'openQualityClosing', (int) $production);
+                $this->dispatchBrowserEvent('showModal', ['id' => 'quality_closing_form']);
+            } else {
+                $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'info', 'title' => 'AGUARDANDO QUALIDADE', 'html' => 'Esta atividade está em análise da Qualidade (' . $qualityProcess->state->label() . ').', 'timer' => 3500]);
+            }
+
+            return;
+        }
+
         $this->analise = ['productionId' => $production, 'noteId' => $note];
 
         $pausedCount = Production::where('status', 4)
@@ -254,6 +281,10 @@ class Main extends Component
             ->where('productions.service_id', $this->service->uuid)
             ->where('productions.user_id', Auth::id())
             ->where('productions.completed', false)
+            ->where(function ($quality) {
+                $quality->whereDoesntHave('activeQualityProcess')
+                    ->orWhereHas('activeQualityProcess', fn ($process) => $process->where('state', \App\Enum\QualityProcessState::AWAITING_DESIGNER->value));
+            })
             ->when(Auth::user()?->contract, function ($q) {
                 $companyIds = SicodeRules::visibleCompanyIdsFor(Auth::user());
 

@@ -254,17 +254,26 @@
                                                         {{ Notestatus::status($item->status)->status }}
                                                     </span>
                                                 @endif
+                                                @php $qualityProcess = $item->activeQualityProcess; @endphp
+                                                @if ($qualityProcess)
+                                                    <div class="mt-1"><span class="badge text-bg-dark" title="Atividade originada pela Qualidade: finalize pelo formulário da Qualidade."><i class="ri-shield-check-line"></i> QUALIDADE · {{ $qualityProcess->phase->short() }} · rodada {{ $qualityProcess->round_number }}</span></div>
+                                                @endif
                                             </td>
 
                                             {{-- Ações --}}
                                             <td class="fw-bold fs-5">
                                                 @if (!$item->block && !$item->block_wpa && !$item->completed)
+                                                    @if ($item->activeQualityProcess)
+                                                        <i class="ri-eye-line text-primary mx-1" wire:click.prevent="getQualityDetails({{ $item->id }})" title="Ver detalhes (somente leitura)" style="cursor: pointer;"></i>
+                                                    @endif
                                                     <i class="ri-play-circle-line text-success mx-1"
                                                         wire:click.prevent="getAnalise({{ $item->id }}, {{ $item->Note->id }})"
                                                         title="Iniciar" style="cursor: pointer;"></i>
-                                                    <i class="ri-exchange-fill text-primary mx-1"
-                                                        wire:click.prevent="goTransferProd({{ $item->id }})"
-                                                        title="Transferir" style="cursor: pointer;"></i>
+                                                    @if (!$item->activeQualityProcess)
+                                                        <i class="ri-exchange-fill text-primary mx-1"
+                                                            wire:click.prevent="goTransferProd({{ $item->id }})"
+                                                            title="Transferir" style="cursor: pointer;"></i>
+                                                    @endif
                                                 @endif
                                             </td>
                                         </tr>
@@ -304,6 +313,20 @@
                 </div>
                 <div class="modal-body">
                     @livewire('services.levantamento.forms.analise', key('levantamento-form'))
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="quality_closing_form" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="qualityClosingLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+            <div class="modal-content h-100">
+                <div class="modal-header text-bg-primary">
+                    <h1 class="modal-title fs-5" id="qualityClosingLabel">ATIVIDADE DE QUALIDADE</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    @livewire('services.desenho.forms.quality-closing', key('quality-closing-form'))
                 </div>
             </div>
         </div>

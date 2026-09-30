@@ -375,6 +375,44 @@ Route::prefix('/project-review')->controller(ProjectReviewController::class)->mi
     Route::get('/categories', 'categories')->name('categories');
 });
 
+Route::prefix('/quality')->controller(\App\Http\Controllers\QualityController::class)->middleware('auth')->name('quality.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/view-as', 'viewAs')->name('view-as');
+    Route::post('/busca-em-massa', 'bulkSearch')->middleware('can:quality.access')->name('bulk-search');
+    Route::get('/n1/meus-usuarios', 'n1Users')->middleware('can:quality.access')->name('n1.users');
+    Route::get('/n1/{tab?}', 'n1')->middleware('can:quality.access')->where('tab', 'despachar|com-usuarios|analisar|devolvidos|no-n2')->name('n1');
+    Route::post('/n1/despachar', 'n1Dispatch')->middleware('can:quality.access')->name('n1.dispatch');
+    Route::post('/n1/reatribuir', 'n1Reassign')->middleware('can:quality.access')->name('n1.reassign');
+    Route::get('/n2/{tab?}', 'n2')->middleware('can:quality.access')->where('tab', 'decidir|encerrar|com-n1|empresas')->name('n2');
+    Route::get('/dashboard', 'dashboard')->middleware('can:quality.access')->name('dashboard');
+    Route::get('/pool', 'pool')->middleware('can:quality.pool')->name('pool');
+    Route::post('/dispatch', 'dispatch')->middleware('can:quality.pool')->name('dispatch');
+    Route::get('/queue', 'queue')->middleware('can:quality.access')->name('queue');
+    Route::get('/history', 'history')->middleware('can:quality.access')->name('history');
+    Route::get('/processes/{qualityProcess}', 'show')->name('process');
+    Route::get('/processes/{qualityProcess}/arquivos.zip', [\App\Http\Controllers\QualityFilesController::class, 'zip'])->name('process.files.zip');
+    Route::get('/processes/{qualityProcess}/arquivos/{file}', [\App\Http\Controllers\QualityFilesController::class, 'download'])->name('process.file');
+    Route::get('/processes/{qualityProcess}/arquivos/{file}/visualizar', [\App\Http\Controllers\QualityFilesController::class, 'preview'])->name('process.file.preview');
+    Route::post('/processes/{qualityProcess}/assign', 'assign')->name('process.assign');
+    Route::post('/processes/{qualityProcess}/approve', 'approve')->name('process.approve');
+    Route::post('/processes/{qualityProcess}/reject', 'reject')->name('process.reject');
+    Route::post('/processes/{qualityProcess}/contest', 'contest')->name('process.contest');
+    Route::post('/processes/{qualityProcess}/comment', 'comment')->name('process.comment');
+    Route::post('/processes/{qualityProcess}/retry-closing', 'retryClosing')->name('process.retry-closing');
+    Route::get('/categories', 'categories')->middleware('can:quality.manage')->name('categories');
+    Route::post('/categories', 'storeCategory')->middleware('can:quality.manage')->name('categories.store');
+    Route::put('/categories/{category}', 'updateCategory')->middleware('can:quality.manage')->name('categories.update');
+    Route::patch('/categories/{category}/toggle', 'toggleCategory')->middleware('can:quality.manage')->name('categories.toggle');
+    Route::get('/settings', 'settings')->middleware('can:quality.manage')->name('settings');
+    Route::put('/settings', 'saveSettings')->middleware('can:quality.manage')->name('settings.save');
+    Route::post('/settings/rules', 'storeRule')->middleware('can:quality.manage')->name('rules.store');
+    Route::delete('/settings/rules/{rule}', 'destroyRule')->middleware('can:quality.manage')->name('rules.destroy');
+    Route::get('/team', 'team')->middleware('can:quality.manage')->name('team');
+    Route::post('/team', 'storeMember')->middleware('can:quality.manage')->name('team.store');
+    Route::patch('/team/{member}/toggle', 'toggleMember')->middleware('can:quality.manage')->name('team.toggle');
+    Route::delete('/team/{member}', 'destroyMember')->middleware('can:quality.manage')->name('team.destroy');
+});
+
 // Partners Route's
 Route::prefix('/partner/admin')
     ->controller(\App\Http\Controllers\PartnerAdminController::class)

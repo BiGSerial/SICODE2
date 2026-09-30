@@ -165,6 +165,16 @@ class User extends Authenticatable
         return $this->hasMany(Production::class);
     }
 
+    public function QualityProcessesAsDesigner()
+    {
+        return $this->hasMany(QualityProcess::class, 'original_designer_id');
+    }
+
+    public function QualityEvents()
+    {
+        return $this->hasMany(QualityEvent::class, 'actor_id');
+    }
+
     public function Watchdog()
     {
         return $this->hasOne(Activeuser::class);

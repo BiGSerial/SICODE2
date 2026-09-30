@@ -3,10 +3,7 @@
 namespace App\Services\Dispatchs;
 
 use App\Custom\RuleBuilder;
-use App\Models\City;
-use App\Models\Note;
-use App\Models\Service;
-use App\Models\User;
+use App\Models\{City, Note, Service, User};
 use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -15,6 +12,11 @@ class DesignDispatchMainQueryService
     public function build(Service $service, User $user, array $params = []): Builder
     {
         $query = Note::query()->excludeCanceledFullDone();
+
+        // Nota com Qualidade aberta só é despachada pelo N1 da Qualidade, nunca por esta lista.
+        if (in_array($service->uuid, app(\App\Services\Quality\QualityActivities::class)->serviceIds(), true)) {
+            $query->whereDoesntHave('QualityProcesses', fn ($process) => $process->where('status', \App\Enum\QualityProcessStatus::ACTIVE->value));
+        }
 
         if ($this->shouldBypassStatusFilter($params)) {
             SicodeRules::applyContractDispatchListVisibility($query, $user, $service->uuid);
@@ -60,12 +62,12 @@ class DesignDispatchMainQueryService
             });
         }
 
-        $filters = (array) ($params['filters'] ?? []);
-        $group1 = $filters['group1'] ?? ($params['group1_s'] ?? []);
-        $group2 = $filters['group2'] ?? ($params['group2_s'] ?? []);
-        $group5 = $filters['group5'] ?? ($params['group5_s'] ?? []);
+        $filters  = (array) ($params['filters'] ?? []);
+        $group1   = $filters['group1'] ?? ($params['group1_s'] ?? []);
+        $group2   = $filters['group2'] ?? ($params['group2_s'] ?? []);
+        $group5   = $filters['group5'] ?? ($params['group5_s'] ?? []);
         $rubricas = $filters['rubrica'] ?? ($params['rubrica_s'] ?? []);
-        $base = $this->municipioFilterValues($filters, $params);
+        $base     = $this->municipioFilterValues($filters, $params);
 
         $query->when($params['search'] ?? null, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
@@ -127,8 +129,8 @@ class DesignDispatchMainQueryService
 
     private function municipioFilterValues(array $filters, array $params): array
     {
-        $cities = $filters['city'] ?? ($params['city_s'] ?? []);
-        $regions = $filters['region'] ?? ($params['region_s'] ?? []);
+        $cities    = $filters['city'] ?? ($params['city_s'] ?? []);
+        $regions   = $filters['region'] ?? ($params['region_s'] ?? []);
         $districts = $filters['regional'] ?? ($filters['district'] ?? ($params['district_s'] ?? []));
 
         if (empty($cities) && empty($regions) && empty($districts)) {

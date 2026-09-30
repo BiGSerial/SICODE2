@@ -89,6 +89,11 @@ class File extends Model
         return $this->morphedByMany(WorkReport::class, 'fileable')->withTimestamps();
     }
 
+    public function QualityStageFiles()
+    {
+        return $this->hasMany(QualityStageFile::class);
+    }
+
     public function Reclaims()
     {
         return $this->morphedByMany(Reclaim::class, 'fileable')->withTimestamps();

@@ -24,6 +24,7 @@
 
     $showProjeto = $projectDispatchItems->isNotEmpty() || $projectServiceItems->isNotEmpty();
     $showConstrucao = $constructionDispatchItems->isNotEmpty() || $constructionServiceItems->isNotEmpty();
+    $showQualityShortcut = auth()->user()->can('quality.access');
     $showProjectReviewShortcut = auth()->user()->can('analyst');
     $showClosureShortcut = auth()->user()->can('closure.manager');
 
@@ -52,6 +53,14 @@
         ->all();
 
     $nodes = collect([
+        $showQualityShortcut
+            ? [
+                'kind' => 'item',
+                'label' => 'QUALIDADE',
+                'route' => 'quality.index',
+                'icon' => 'ri-shield-check-line',
+            ]
+            : null,
         $showProjectReviewShortcut
             ? [
                 'kind' => 'item',
@@ -126,7 +135,7 @@
         ->all();
 @endphp
 
-@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut || $showClosureShortcut)
+@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut || $showClosureShortcut || $showQualityShortcut)
     <x-menu.dynamic-dropdown
         title="ATIVIDADES"
         :nodes="$nodes"

@@ -2,8 +2,9 @@
 
 namespace App\Providers;
 
-use App\Models\{CancellationCategory, CancellationRequest, User};
-use App\Policies\{CancellationCategoryPolicy, CancellationRequestPolicy};
+use App\Models\{CancellationCategory, CancellationRequest, QualityProcess, User};
+use App\Policies\{CancellationCategoryPolicy, CancellationRequestPolicy, QualityProcessPolicy};
+use App\Services\Quality\QualityRoles;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -18,6 +19,7 @@ class AuthServiceProvider extends ServiceProvider
     protected $policies = [
         CancellationRequest::class  => CancellationRequestPolicy::class,
         CancellationCategory::class => CancellationCategoryPolicy::class,
+        QualityProcess::class       => QualityProcessPolicy::class,
     ];
 
     /**
@@ -57,6 +59,12 @@ class AuthServiceProvider extends ServiceProvider
                 ? Response::allow()
                 : Response::deny('Você não possui permissão para acessar os relatórios de Análise de Projeto.');
         });
+
+        Gate::define('quality.access', fn (User $user) => app(QualityRoles::class)->canAccess($user));
+        Gate::define('quality.n1', fn (User $user) => app(QualityRoles::class)->isN1($user));
+        Gate::define('quality.n2', fn (User $user) => app(QualityRoles::class)->isN2($user));
+        Gate::define('quality.pool', fn (User $user) => app(QualityRoles::class)->canDispatch($user));
+        Gate::define('quality.manage', fn (User $user) => app(QualityRoles::class)->canManage($user));
 
         // Módulo Jurídico — mapeamento coerente com flags existentes em users:
         // legal_controller, legal_field, legal_manager (+ admin/superadm).

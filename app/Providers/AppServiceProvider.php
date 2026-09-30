@@ -2,14 +2,9 @@
 
 namespace App\Providers;
 
-use App\Models\CancellationRequest;
-use App\Models\Form;
-use App\Models\Production;
-use App\Models\ProtestJob;
+use App\Models\{CancellationRequest, Form, Production, ProtestJob};
 use App\Notifications\Channels\IdempotentDatabaseChannel;
-use App\Observers\AuditObserver;
-use App\Observers\FormObserver;
-use App\Observers\ProtestJobObserver;
+use App\Observers\{AuditObserver, FormObserver, ProtestJobObserver};
 use App\Repositories\SurveyRepository;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\ServiceProvider;

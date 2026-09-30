@@ -87,6 +87,18 @@ class Main extends Component
             return;
         }
 
+        if ($production->hasActiveQualityProcess()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'TRANSFERÊNCIA BLOQUEADA',
+                'html'     => 'Atividades da Qualidade só podem ser redirecionadas pelo N1.',
+                'timer'    => 3500,
+            ]);
+
+            return;
+        }
+
         if ($this->isProjectReviewTracked($production)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -192,6 +204,13 @@ class Main extends Component
         ]);
     }
 
+    /** Consulta somente leitura de uma atividade da Qualidade (sem iniciar nem finalizar). */
+    public function getQualityDetails($production)
+    {
+        $this->emitTo('services.desenho.forms.quality-closing', 'openQualityDetails', (int) $production);
+        $this->dispatchBrowserEvent('showModal', ['id' => 'quality_closing_form']);
+    }
+
     public function getAnalise($production, $note)
     {
         $this->reviewCanFinish = false;
@@ -203,6 +222,28 @@ class Main extends Component
             ->first();
 
         if (!$productionModel) {
+            return;
+        }
+
+        $qualityProcess = $productionModel->activeQualityProcess()->first();
+
+        if ($qualityProcess) {
+            // Atividade originada pela Qualidade: nunca usa o encerramento normal do Desenho.
+            if ($qualityProcess->state === \App\Enum\QualityProcessState::AWAITING_DESIGNER) {
+                $this->emitTo('services.desenho.forms.quality-closing', 'openQualityClosing', (int) $productionModel->id);
+                $this->dispatchBrowserEvent('showModal', ['id' => 'quality_closing_form']);
+
+                return;
+            }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'info',
+                'title'    => 'AGUARDANDO QUALIDADE',
+                'html'     => 'Esta atividade está em análise da Qualidade (' . $qualityProcess->state->label() . ').',
+                'timer'    => 3500,
+            ]);
+
             return;
         }
 
@@ -505,6 +546,11 @@ class Main extends Component
                         ->orWhereRelation('Note', 'numPedido', 'like', '%' . $s . '%')
                         ->orWhereRelation('Note', 'centerjob', 'like', '%' . $s . '%');
                 });
+            })
+            ->where(function ($qualityQuery) {
+                $qualityQuery
+                    ->whereDoesntHave('activeQualityProcess')
+                    ->orWhereHas('activeQualityProcess', fn ($processQuery) => $processQuery->where('state', \App\Enum\QualityProcessState::AWAITING_DESIGNER->value));
             })
             ->when($this->note_type, function ($q) {
                 return $q->whereHas('Note', function ($query) {

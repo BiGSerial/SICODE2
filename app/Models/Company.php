@@ -75,6 +75,11 @@ class Company extends Model
         return $this->hasMany(WorkReport::class);
     }
 
+    public function QualityProcesses()
+    {
+        return $this->hasMany(QualityProcess::class);
+    }
+
     public function getLogoUrlAttribute(): string
     {
         $images = app(EntityImageService::class);
