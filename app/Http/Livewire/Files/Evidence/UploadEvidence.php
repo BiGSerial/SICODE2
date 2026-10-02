@@ -5,7 +5,9 @@ namespace App\Http\Livewire\Files\Evidence;
 use App\Models\FiveNote;
 use App\Services\Files\{FileStorageService, StorageContextResolver};
 use Illuminate\Support\Facades\{Auth, DB};
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\{Component, WithFileUploads};
 
 class UploadEvidence extends Component
@@ -55,7 +57,20 @@ class UploadEvidence extends Component
 
     public function updatedFiles(): void
     {
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (ValidationException) {
+            $this->files = [];
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Arquivo não aceito',
+                'html'     => "Cada evidência deve ter no máximo {$this->config['max_size_mb']} MB e estar em um dos formatos permitidos.",
+            ]);
+
+            return;
+        }
 
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
@@ -129,9 +144,16 @@ class UploadEvidence extends Component
             $this->tempFiles = [];
             $this->emitUp('evidenceSaved');
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Salvo!']);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
+
+            Log::error('Falha ao salvar evidências da D5.', [
+                'five_note_id' => $this->five?->id,
+                'user_id'      => Auth::id(),
+                'exception'    => $e,
+            ]);
+
+            $this->emitUp('evidenceSaveFailed');
         }
     }
 

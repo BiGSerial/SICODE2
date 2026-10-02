@@ -243,8 +243,12 @@
                 <div class="modal-footer five-footer">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal" wire:click="clearAll">Cancelar</button>
                     <button class="btn btn-success" wire:click="finishD5" @disabled($isSaving)
-                        wire:loading.attr="disabled" wire:target="finishD5,toSave">
-                        <i class="ri-checkbox-circle-line me-1"></i>Encerrar
+                        wire:loading.attr="disabled" wire:target="finishD5,toSave,evidenceSaved,evidenceSaveFailed">
+                        @if ($isSaving)
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Encerrando...
+                        @else
+                            <i class="ri-checkbox-circle-line me-1"></i>Encerrar
+                        @endif
                     </button>
                 </div>
             </div>

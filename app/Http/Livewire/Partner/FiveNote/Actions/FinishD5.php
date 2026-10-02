@@ -6,6 +6,7 @@ use App\Models\{EvidenceFile, FiveNote};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class FinishD5 extends Component
@@ -30,6 +31,7 @@ class FinishD5 extends Component
         'getInfoResponse',
         'hasEvidence',
         'evidenceSaved',
+        'evidenceSaveFailed',
         'samuca158012Encerrar' => 'toSave',
     ];
 
@@ -140,15 +142,33 @@ class FinishD5 extends Component
         $this->finish();
     }
 
-    public function finish()
+    public function evidenceSaveFailed(): void
     {
-        $this->authorizePartnerAccess('d5_notes.finish');
+        $this->isSaving = false;
 
-        $this->five = $this->scopedFiveNote($this->five->id);
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'Não foi possível salvar as evidências',
+            'html'     => 'Revise os arquivos anexados e tente encerrar a D5 novamente.',
+        ]);
+    }
 
-        DB::beginTransaction();
-
+    public function finish(): void
+    {
         try {
+            $this->authorizePartnerAccess('d5_notes.finish');
+
+            if (!$this->five) {
+                throw new \RuntimeException('D5 não encontrada para encerramento.');
+            }
+
+            // Recarrega a D5 dentro do tratamento de erro. Antes, uma alteração de
+            // escopo/permissão nesta etapa gerava uma exceção sem retorno visual e
+            // mantinha o botão de encerramento bloqueado.
+            $this->five = $this->scopedFiveNote($this->five->id);
+
+            DB::beginTransaction();
             $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
             $this->five->done($this->five->name, $this->observations);
@@ -165,6 +185,8 @@ class FinishD5 extends Component
                 }
             }
 
+            DB::commit();
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'success',
@@ -173,26 +195,25 @@ class FinishD5 extends Component
                 'timer'    => 5000,
             ]);
 
-            DB::commit();
-
             $this->clearAll();
 
         } catch (\Throwable $th) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             $this->isSaving = false;
 
-            if ($files = $this->five->EvidenceFiles()->where('origin', $this->origin)->get()) {
-                foreach ($files as $f) {
-                    $f->delete();
-                }
-            }
+            Log::error('Falha ao encerrar D5 pelo parceiro.', [
+                'five_note_id' => $this->five?->id,
+                'user_id'      => auth()->id(),
+                'exception'    => $th,
+            ]);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OPERAÇÃO FALHOU',
-                'html'     => 'A operação de encerramento do D5 falhou.',
-                'timer'    => 5000,
+                'html'     => 'Não foi possível encerrar a D5. Tente novamente. Se o problema continuar, entre em contato com o suporte.',
             ]);
         }
     }
