@@ -46,6 +46,27 @@ class FiveNote extends Model
             $fiveNote->d5_origin_key = $fiveNote->originKey();
         });
 
+        // O status materializado do informe depende do estado da D5: recalcula quando ele muda.
+        static::updated(function (FiveNote $fiveNote): void {
+            if (!$fiveNote->wasChanged(['is_completed', 'returned', 'is_supervisioned', 'is_archived', 'is_payed'])) {
+                return;
+            }
+
+            $refresher = app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class);
+
+            $ids = $fiveNote->work_report_id
+                ? [(int) $fiveNote->work_report_id]
+                : \App\Models\WorkReport::query()
+                    ->where('note_id', $fiveNote->note_id)
+                    ->where('canceled', false)
+                    ->pluck('id')
+                    ->all();
+
+            foreach ($ids as $id) {
+                $refresher->refresh((int) $id);
+            }
+        });
+
         static::updating(function (FiveNote $fiveNote): void {
             if ($fiveNote->isDirty(['note_id', 'work_report_id'])) {
                 $fiveNote->d5_origin_key = $fiveNote->originKey();
