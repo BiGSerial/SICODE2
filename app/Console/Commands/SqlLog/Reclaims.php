@@ -76,13 +76,13 @@ class Reclaims extends Command
                         'origin'          => $data['origin'],
                         'service'         => $reclaim->Service?->service,
                         'category'        => $reclaim->category,
-                        'emissor'         => $data['requester'] ?: 'Desconhecido',
-                        'company_emissor' => $data['requester_company'] ?: 'Desconhecido',
+                        'emissor'         => $data['requester'],
+                        'company_emissor' => $data['requester_company'],
                         'received_at'     => $reclaim->created_at,
                         'att_at'          => $data['att_at'],
                         'completed_at'    => $reclaim->completed_at,
-                        'user'            => $data['responsible'] ?: 'Desconhecido',
-                        'company_user'    => $data['responsible_company'] ?: 'Desconhecido',
+                        'user'            => $data['responsible'],
+                        'company_user'    => $data['responsible_company'],
                     ];
 
                     $extra = [
@@ -100,11 +100,12 @@ class Reclaims extends Command
                 }
 
                 if ($rows) {
-                    ReclaimLog::upsert(
-                        $rows,
-                        ['reclaim_id'],
-                        array_values(array_diff(array_keys($rows[0]), ['reclaim_id']))
-                    );
+                    $updateColumns = array_values(array_diff(array_keys($rows[0]), ['reclaim_id']));
+                    $perBatch      = max(1, intdiv(self::SQLSERVER_PARAM_LIMIT, count($rows[0]) + 2));
+
+                    foreach (array_chunk($rows, $perBatch) as $batch) {
+                        ReclaimLog::upsert($batch, ['reclaim_id'], $updateColumns);
+                    }
 
                     $bar->setMessage($message);
                     $bar->advance(count($rows));
