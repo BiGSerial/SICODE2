@@ -143,7 +143,22 @@
 
                                 <section class="five-panel mt-3">
                                     <h6 class="five-title"><i class="ri-attachment-2 me-1"></i>Evidencias anexadas</h6>
+                                    <nav class="five-evidence-tabs" aria-label="Origem das evidências">
+                                        @foreach ($evidenceGroups as $group)
+                                            <button type="button"
+                                                class="five-evidence-tab @if ($evidenceTab === $group['key']) is-active @endif"
+                                                wire:click="selectEvidenceTab('{{ $group['key'] }}')"
+                                                wire:key="finish-d5-evidence-tab-{{ $group['key'] }}">
+                                                {{ $group['title'] }}
+                                                <span>{{ $group['files']->count() }}</span>
+                                            </button>
+                                        @endforeach
+                                    </nav>
+
                                     @foreach ($evidenceGroups as $group)
+                                        @if ($evidenceTab !== $group['key'])
+                                            @continue
+                                        @endif
                                         @php
                                             $groupFiles = $group['files'];
                                             $lastPage = max(1, (int) ceil($groupFiles->count() / $evidencePerPage));
@@ -517,6 +532,52 @@
             border-top: 1px solid #e2e8f0;
             margin-top: .85rem;
             padding-top: .85rem;
+        }
+
+        .five-modal .five-evidence-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            margin-bottom: .85rem;
+        }
+
+        .five-modal .five-evidence-tab {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            color: #475569;
+            display: inline-flex;
+            font-size: .72rem;
+            font-weight: 700;
+            gap: .35rem;
+            padding: .35rem .6rem;
+        }
+
+        .five-modal .five-evidence-tab:hover {
+            background: #eef2ff;
+            border-color: #818cf8;
+        }
+
+        .five-modal .five-evidence-tab.is-active {
+            background: #0f766e;
+            border-color: #0f766e;
+            color: #fff;
+        }
+
+        .five-modal .five-evidence-tab span {
+            align-items: center;
+            background: rgba(15, 23, 42, .1);
+            border-radius: 999px;
+            display: inline-flex;
+            height: 1.15rem;
+            justify-content: center;
+            min-width: 1.15rem;
+            padding: 0 .25rem;
+        }
+
+        .five-modal .five-evidence-tab.is-active span {
+            background: rgba(255, 255, 255, .22);
         }
 
         .five-modal .five-evidence-group:first-of-type {

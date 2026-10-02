@@ -33,6 +33,8 @@ class FinishD5 extends Component
 
     public int $evidencePerPage = 6;
 
+    public string $evidenceTab = 'partner';
+
     public $origin = 'EMPREITEIRA';
 
     protected $listeners = [
@@ -168,6 +170,12 @@ class FinishD5 extends Component
         $this->{$property} = max(1, $this->{$property} - 1);
     }
 
+    public function selectEvidenceTab(string $group): void
+    {
+        $this->evidencePageProperty($group);
+        $this->evidenceTab = $group;
+    }
+
     public function nextEvidencePage(string $group, int $lastPage): void
     {
         $property = $this->evidencePageProperty($group);
@@ -286,6 +294,7 @@ class FinishD5 extends Component
             'partnerEvidencePage',
             'inspectionEvidencePage',
             'legacyEvidencePage',
+            'evidenceTab',
         ]);
         $this->resetErrorBag();
         $this->resetValidation();

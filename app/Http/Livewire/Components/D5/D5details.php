@@ -19,6 +19,8 @@ class D5details extends Component
 
     public int $evidencePerPage = 6;
 
+    public string $evidenceTab = 'partner';
+
     protected $listeners = [
         'refreshComponent' => '$refresh',
         'openD5Details',
@@ -26,7 +28,7 @@ class D5details extends Component
 
     public function openD5Details(Note $note, ?int $fiveNoteId = null)
     {
-        $this->reset(['partnerEvidencePage', 'inspectionEvidencePage', 'legacyEvidencePage']);
+        $this->reset(['partnerEvidencePage', 'inspectionEvidencePage', 'legacyEvidencePage', 'evidenceTab']);
 
         $note->load([
             "FiveNotes" => fn ($q) => $q->with([
@@ -90,6 +92,12 @@ class D5details extends Component
     {
         $property = $this->evidencePageProperty($group);
         $this->{$property} = min($lastPage, $this->{$property} + 1);
+    }
+
+    public function selectEvidenceTab(string $group): void
+    {
+        $this->evidencePageProperty($group);
+        $this->evidenceTab = $group;
     }
 
     private function evidencePageProperty(string $group): string
