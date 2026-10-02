@@ -2,8 +2,7 @@
 
 namespace App\Models;
 
-use App\Enum\CancellationRequestScope;
-use App\Enum\CancellationRequestStatus;
+use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,9 +10,9 @@ class UncancellationRequest extends Model
 {
     use HasFactory;
 
-    public const CLOSURE_DONE = 'DONE';
+    public const CLOSURE_DONE     = 'DONE';
     public const CLOSURE_REJECTED = 'REJECTED';
-    public const CLOSURE_ABORTED = 'ABORTED';
+    public const CLOSURE_ABORTED  = 'ABORTED';
     public const CLOSURE_REVERTED = 'REVERTED';
 
     protected $fillable = [
@@ -32,11 +31,11 @@ class UncancellationRequest extends Model
     ];
 
     protected $casts = [
-        'scope' => CancellationRequestScope::class,
-        'status' => CancellationRequestStatus::class,
+        'scope'        => CancellationRequestScope::class,
+        'status'       => CancellationRequestStatus::class,
         'submitted_at' => 'datetime',
-        'assigned_at' => 'datetime',
-        'closed_at' => 'datetime',
+        'assigned_at'  => 'datetime',
+        'closed_at'    => 'datetime',
     ];
 
     public function Note()
@@ -62,6 +61,11 @@ class UncancellationRequest extends Model
     public function Orders()
     {
         return $this->belongsToMany(Order::class, 'uncancellation_request_orders')->withTimestamps();
+    }
+
+    public function WorkReports()
+    {
+        return $this->belongsToMany(WorkReport::class, 'uncancellation_request_work_reports')->withTimestamps();
     }
 
     public function Events()

@@ -111,7 +111,7 @@
                 </div>
                 <div class="col-12">
                     <small class="text-muted">
-                        Encerramento em lote só é permitido para solicitações do mesmo escopo (Nota inteira ou WorkForm).
+                        Encerramento em lote só é permitido para solicitações do mesmo escopo (Nota inteira ou Informe).
                     </small>
                 </div>
             </div>

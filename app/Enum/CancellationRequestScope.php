@@ -4,23 +4,32 @@ namespace App\Enum;
 
 enum CancellationRequestScope: string
 {
-    case NOTE_FULL = 'NOTE_FULL';
+    case NOTE_FULL      = 'NOTE_FULL';
     case ORDERS_PARTIAL = 'ORDERS_PARTIAL';
     case WORK_FORM_ONLY = 'WORK_FORM_ONLY';
 
     public function label(): string
     {
         return match ($this) {
-            self::NOTE_FULL => 'Nota inteira',
+            self::NOTE_FULL      => 'Nota inteira',
             self::ORDERS_PARTIAL => 'Ordens específicas',
-            self::WORK_FORM_ONLY => 'Somente WorkForm',
+            self::WORK_FORM_ONLY => 'Somente informe(s)',
+        };
+    }
+
+    public function description(): string
+    {
+        return match ($this) {
+            self::NOTE_FULL      => 'Cancelar a nota inteira, as ordens vinculadas e todos os informes (se existirem).',
+            self::ORDERS_PARTIAL => 'Cancelar somente as ordens selecionadas.',
+            self::WORK_FORM_ONLY => 'Cancelar somente os informes selecionados, sem cancelar a nota nem as ordens.',
         };
     }
 
     public function badgeClass(): string
     {
         return match ($this) {
-            self::NOTE_FULL => 'bg-primary',
+            self::NOTE_FULL      => 'bg-primary',
             self::ORDERS_PARTIAL => 'bg-warning text-dark',
             self::WORK_FORM_ONLY => 'bg-danger',
         };

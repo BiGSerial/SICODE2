@@ -2,9 +2,7 @@
 
 namespace App\Models;
 
-use App\Enum\CancellationEngineerApprovalStatus;
-use App\Enum\CancellationRequestStatus;
-use App\Enum\CancellationRequestScope;
+use App\Enum\{CancellationEngineerApprovalStatus, CancellationRequestScope, CancellationRequestStatus};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,17 +10,17 @@ class CancellationRequest extends Model
 {
     use HasFactory;
 
-    public const STATUS_DRAFT = 'DRAFT';
+    public const STATUS_DRAFT     = 'DRAFT';
     public const STATUS_SUBMITTED = 'SUBMITTED';
-    public const STATUS_ASSIGNED = 'ASSIGNED';
-    public const STATUS_PAUSED = 'PAUSED';
-    public const STATUS_DONE = 'DONE';
-    public const STATUS_REJECTED = 'REJECTED';
-    public const STATUS_ABORTED = 'ABORTED';
+    public const STATUS_ASSIGNED  = 'ASSIGNED';
+    public const STATUS_PAUSED    = 'PAUSED';
+    public const STATUS_DONE      = 'DONE';
+    public const STATUS_REJECTED  = 'REJECTED';
+    public const STATUS_ABORTED   = 'ABORTED';
 
-    public const CLOSURE_DONE = 'DONE';
+    public const CLOSURE_DONE     = 'DONE';
     public const CLOSURE_REJECTED = 'REJECTED';
-    public const CLOSURE_ABORTED = 'ABORTED';
+    public const CLOSURE_ABORTED  = 'ABORTED';
 
     protected $fillable = [
         'note_id',
@@ -49,15 +47,15 @@ class CancellationRequest extends Model
     ];
 
     protected $casts = [
-        'status' => CancellationRequestStatus::class,
-        'scope' => CancellationRequestScope::class,
-        'requires_engineer_approval' => 'boolean',
-        'engineer_approval_status' => CancellationEngineerApprovalStatus::class,
+        'status'                         => CancellationRequestStatus::class,
+        'scope'                          => CancellationRequestScope::class,
+        'requires_engineer_approval'     => 'boolean',
+        'engineer_approval_status'       => CancellationEngineerApprovalStatus::class,
         'engineer_approval_requested_at' => 'datetime',
-        'engineer_approval_decided_at' => 'datetime',
-        'submitted_at' => 'datetime',
-        'assigned_at' => 'datetime',
-        'closed_at' => 'datetime',
+        'engineer_approval_decided_at'   => 'datetime',
+        'submitted_at'                   => 'datetime',
+        'assigned_at'                    => 'datetime',
+        'closed_at'                      => 'datetime',
     ];
 
     public function Note()
@@ -103,6 +101,11 @@ class CancellationRequest extends Model
     public function Orders()
     {
         return $this->belongsToMany(Order::class, 'cancellation_request_orders')->withTimestamps();
+    }
+
+    public function WorkReports()
+    {
+        return $this->belongsToMany(WorkReport::class, 'cancellation_request_work_reports')->withTimestamps();
     }
 
     public function Events()

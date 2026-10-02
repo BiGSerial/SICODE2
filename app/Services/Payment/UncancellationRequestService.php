@@ -2,13 +2,8 @@
 
 namespace App\Services\Payment;
 
-use App\Enum\CancellationRequestScope;
-use App\Enum\CancellationRequestStatus;
-use App\Models\CancellationRequest;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\UncancellationRequest;
-use App\Models\User;
+use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
+use App\Models\{CancellationRequest, Note, Order, UncancellationRequest, User, WorkReport};
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -21,27 +16,31 @@ class UncancellationRequestService
         string $scope,
         array $orders,
         User $requestedBy,
-        ?string $description = null
+        ?string $description = null,
+        array $workReportIds = []
     ): UncancellationRequest {
-        return DB::transaction(function () use ($note, $scope, $orders, $requestedBy, $description) {
+        return DB::transaction(function () use ($note, $scope, $orders, $requestedBy, $description, $workReportIds) {
             $ordersCollection = $this->resolveOrders($note, $scope, $orders);
+            $workReports      = $this->resolveWorkReports($note, $scope, $workReportIds);
 
-            $this->ensureNoOpenRequest($note, $scope, $ordersCollection);
+            $this->ensureNoOpenRequest($note, $scope, $ordersCollection, $workReports);
 
             $request = UncancellationRequest::create([
-                'note_id' => $note->id,
-                'scope' => $scope,
+                'note_id'      => $note->id,
+                'scope'        => $scope,
                 'requested_by' => $requestedBy->id,
-                'description' => $description,
-                'status' => CancellationRequestStatus::SUBMITTED,
+                'description'  => $description,
+                'status'       => CancellationRequestStatus::SUBMITTED,
                 'submitted_at' => now(),
             ]);
 
             $request->Orders()->sync($ordersCollection->pluck('id')->all());
+            $request->WorkReports()->sync($workReports->pluck('id')->all());
 
             $this->logEvent($request, $requestedBy, 'submitted', [
-                'scope' => $scope,
-                'orders' => $ordersCollection->pluck('id')->all(),
+                'scope'        => $scope,
+                'orders'       => $ordersCollection->pluck('id')->all(),
+                'work_reports' => $workReports->pluck('id')->all(),
             ]);
 
             return $request;
@@ -57,8 +56,8 @@ class UncancellationRequestService
             ->update([
                 'assigned_to' => $user->id,
                 'assigned_at' => now(),
-                'status' => CancellationRequestStatus::ASSIGNED->value,
-                'updated_at' => now(),
+                'status'      => CancellationRequestStatus::ASSIGNED->value,
+                'updated_at'  => now(),
             ]);
 
         if ($updated === 0) {
@@ -91,24 +90,24 @@ class UncancellationRequestService
             if ($request->scope === CancellationRequestScope::NOTE_FULL) {
                 if ($request->Note->canceled) {
                     $request->Note->update([
-                        'canceled' => false,
+                        'canceled'    => false,
                         'canceled_at' => null,
                         'canceled_by' => null,
                     ]);
                 }
 
                 $request->Orders()->update([
-                    'canceled' => false,
+                    'canceled'    => false,
                     'canceled_at' => null,
                     'canceled_by' => null,
                 ]);
 
-                $this->uncancelWorkForm($request->Note);
+                $this->uncancelWorkReports($request->Note);
             } elseif ($request->scope === CancellationRequestScope::WORK_FORM_ONLY) {
-                $this->uncancelWorkForm($request->Note);
+                $this->uncancelWorkReports($request->Note, $request);
             } else {
                 $request->Orders()->update([
-                    'canceled' => false,
+                    'canceled'    => false,
                     'canceled_at' => null,
                     'canceled_by' => null,
                 ]);
@@ -117,15 +116,15 @@ class UncancellationRequestService
             $abortedCancellationIds = $this->abortOpenCancellationRequests($request, $user);
 
             $request->update([
-                'status' => CancellationRequestStatus::DONE,
-                'closed_by' => $user->id,
-                'closed_at' => now(),
+                'status'       => CancellationRequestStatus::DONE,
+                'closed_by'    => $user->id,
+                'closed_at'    => now(),
                 'closure_type' => UncancellationRequest::CLOSURE_DONE,
             ]);
 
             $this->logEvent($request, $user, 'done', [
                 'aborted_cancellation_request_ids' => $abortedCancellationIds,
-                'affected_targets' => $affectedTargets,
+                'affected_targets'                 => $affectedTargets,
             ]);
 
             return $request;
@@ -146,53 +145,57 @@ class UncancellationRequestService
             }
 
             $reversalReason = trim((string) $reason);
+
             if ($reversalReason === '') {
                 throw new RuntimeException('Informe o motivo para desfazer o descancelamento.');
             }
 
             $targets = $this->targetsFromDoneEvent($request) ?? $this->fallbackReversalTargets($request);
-            $now = now();
+            $now     = now();
 
             if (($targets['note'] ?? false) && $request->Note) {
                 $request->Note->update([
-                    'canceled' => true,
+                    'canceled'    => true,
                     'canceled_at' => $now,
                     'canceled_by' => $user->id,
                 ]);
             }
 
             $orderIds = array_values(array_filter($targets['order_ids'] ?? []));
+
             if (!empty($orderIds)) {
                 Order::where('note_id', $request->note_id)
                     ->whereIn('id', $orderIds)
                     ->update([
-                        'canceled' => true,
+                        'canceled'    => true,
                         'canceled_at' => $now,
                         'canceled_by' => $user->id,
                     ]);
             }
 
             $workReportIds = array_values(array_filter($targets['work_report_ids'] ?? []));
+
             if (!empty($workReportIds)) {
-                $request->Note->WorkFormsAny()
-                    ->whereIn('id', $workReportIds)
-                    ->update([
-                        'canceled' => true,
+                // Por model (não em massa) para atualizar o status materializado do informe.
+                foreach ($request->Note->WorkFormsAny()->whereIn('id', $workReportIds)->get() as $workReport) {
+                    $workReport->update([
+                        'canceled'    => true,
                         'canceled_at' => $now,
                         'canceled_by' => $user->id,
                     ]);
+                }
             }
 
             $request->update([
-                'status' => CancellationRequestStatus::REVERTED,
-                'closed_by' => $user->id,
-                'closed_at' => $now,
+                'status'       => CancellationRequestStatus::REVERTED,
+                'closed_by'    => $user->id,
+                'closed_at'    => $now,
                 'closure_type' => UncancellationRequest::CLOSURE_REVERTED,
                 'closure_note' => $reversalReason,
             ]);
 
             $this->logEvent($request, $user, 'reverted', [
-                'reason' => $reversalReason,
+                'reason'           => $reversalReason,
                 'affected_targets' => $targets,
             ]);
 
@@ -210,14 +213,15 @@ class UncancellationRequestService
             }
 
             $rejectedReason = trim((string) $reason);
+
             if ($rejectedReason === '') {
                 throw new RuntimeException('Informe o motivo da rejeição.');
             }
 
             $request->update([
-                'status' => CancellationRequestStatus::REJECTED,
-                'closed_by' => $user->id,
-                'closed_at' => now(),
+                'status'       => CancellationRequestStatus::REJECTED,
+                'closed_by'    => $user->id,
+                'closed_at'    => now(),
                 'closure_type' => UncancellationRequest::CLOSURE_REJECTED,
                 'closure_note' => $rejectedReason,
             ]);
@@ -269,27 +273,60 @@ class UncancellationRequestService
         return $selected;
     }
 
+    /**
+     * Informes escolhidos para o descancelamento: precisam pertencer à nota e estar cancelados
+     * (ou em processo de cancelamento em aberto, que será abortado).
+     */
+    private function resolveWorkReports(Note $note, string $scope, array $workReportIds): Collection
+    {
+        if ($scope !== CancellationRequestScope::WORK_FORM_ONLY->value) {
+            return new Collection();
+        }
+
+        $ids = collect(Arr::flatten($workReportIds))->filter()->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            throw new RuntimeException('Selecione ao menos um informe para descancelar.');
+        }
+
+        $reports = WorkReport::query()->where('note_id', $note->id)->whereIn('id', $ids)->get();
+
+        if ($reports->count() !== $ids->count()) {
+            throw new RuntimeException('Informe selecionado não pertence à nota.');
+        }
+
+        $invalid = $reports->first(fn (WorkReport $report) => !$report->canceled
+            && !$this->hasOpenCancellationRequest($note, CancellationRequestScope::WORK_FORM_ONLY->value, [], [$report->id]));
+
+        if ($invalid) {
+            throw new RuntimeException("O informe #{$invalid->id} não está cancelado nem em processo de cancelamento.");
+        }
+
+        return $reports;
+    }
+
     private function abortOpenCancellationRequests(UncancellationRequest $request, User $user): array
     {
         $openRequests = $this->openCancellationRequestQuery(
             $request->Note,
             $request->scope->value,
-            $request->Orders->pluck('id')->all()
+            $request->Orders->pluck('id')->all(),
+            $request->WorkReports()->pluck('work_reports.id')->all()
         )->get();
 
         foreach ($openRequests as $cancellationRequest) {
             $cancellationRequest->update([
-                'status' => CancellationRequestStatus::ABORTED,
-                'closed_by' => $user->id,
-                'closed_at' => now(),
+                'status'       => CancellationRequestStatus::ABORTED,
+                'closed_by'    => $user->id,
+                'closed_at'    => now(),
                 'closure_type' => CancellationRequest::CLOSURE_ABORTED,
                 'closure_note' => "Processo encerrado pelo descancelamento #{$request->id}.",
             ]);
 
             $cancellationRequest->Events()->create([
                 'actor_id' => $user->id,
-                'type' => 'aborted_by_uncancellation',
-                'meta' => [
+                'type'     => 'aborted_by_uncancellation',
+                'meta'     => [
                     'uncancellation_request_id' => $request->id,
                 ],
             ]);
@@ -303,13 +340,11 @@ class UncancellationRequestService
         $request->loadMissing(['Note.WorkFormsAny', 'Orders']);
 
         return [
-            'note' => $request->scope === CancellationRequestScope::NOTE_FULL && (bool) $request->Note?->canceled,
+            'note'      => $request->scope === CancellationRequestScope::NOTE_FULL && (bool) $request->Note?->canceled,
             'order_ids' => $request->scope === CancellationRequestScope::WORK_FORM_ONLY
                 ? []
                 : $request->Orders->where('canceled', true)->pluck('id')->values()->all(),
-            'work_report_ids' => in_array($request->scope, [CancellationRequestScope::NOTE_FULL, CancellationRequestScope::WORK_FORM_ONLY], true)
-                ? $request->Note->WorkFormsAny->where('canceled', true)->pluck('id')->values()->all()
-                : [],
+            'work_report_ids' => $this->canceledWorkReportsInScope($request)->pluck('id')->values()->all(),
         ];
     }
 
@@ -330,22 +365,20 @@ class UncancellationRequestService
         $request->loadMissing(['Note.WorkFormsAny', 'Orders']);
 
         return [
-            'note' => $request->scope === CancellationRequestScope::NOTE_FULL,
+            'note'      => $request->scope === CancellationRequestScope::NOTE_FULL,
             'order_ids' => $request->scope === CancellationRequestScope::WORK_FORM_ONLY
                 ? []
                 : $request->Orders->pluck('id')->values()->all(),
-            'work_report_ids' => in_array($request->scope, [CancellationRequestScope::NOTE_FULL, CancellationRequestScope::WORK_FORM_ONLY], true)
-                ? $request->Note->WorkFormsAny->pluck('id')->values()->all()
-                : [],
+            'work_report_ids' => $this->workReportsInScope($request)->pluck('id')->values()->all(),
         ];
     }
 
-    private function hasOpenCancellationRequest(Note $note, string $scope, array $orderIds = []): bool
+    private function hasOpenCancellationRequest(Note $note, string $scope, array $orderIds = [], array $workReportIds = []): bool
     {
-        return $this->openCancellationRequestQuery($note, $scope, $orderIds)->exists();
+        return $this->openCancellationRequestQuery($note, $scope, $orderIds, $workReportIds)->exists();
     }
 
-    private function openCancellationRequestQuery(Note $note, string $scope, array $orderIds = [])
+    private function openCancellationRequestQuery(Note $note, string $scope, array $orderIds = [], array $workReportIds = [])
     {
         $openStatuses = [
             CancellationRequestStatus::DRAFT->value,
@@ -360,10 +393,17 @@ class UncancellationRequestService
             ->whereIn('status', $openStatuses)
             ->when($scope === CancellationRequestScope::ORDERS_PARTIAL->value && !empty($orderIds), function ($query) use ($orderIds) {
                 $query->whereHas('Orders', fn ($order) => $order->whereIn('orders.id', $orderIds));
+            })
+            ->when($scope === CancellationRequestScope::WORK_FORM_ONLY->value && !empty($workReportIds), function ($query) use ($workReportIds) {
+                // Solicitação legada (sem informe escolhido) vale para todos os informes da nota.
+                $query->where(function ($q) use ($workReportIds) {
+                    $q->whereDoesntHave('WorkReports')
+                        ->orWhereHas('WorkReports', fn ($w) => $w->whereIn('work_reports.id', $workReportIds));
+                });
             });
     }
 
-    private function ensureNoOpenRequest(Note $note, string $scope, Collection $orders): void
+    private function ensureNoOpenRequest(Note $note, string $scope, Collection $orders, ?Collection $workReports = null): void
     {
         $openStatuses = [
             CancellationRequestStatus::DRAFT->value,
@@ -382,29 +422,63 @@ class UncancellationRequestService
             $query->whereHas('Orders', fn ($q) => $q->whereIn('orders.id', $orderIds));
         }
 
+        if ($scope === CancellationRequestScope::WORK_FORM_ONLY->value) {
+            $reportIds = ($workReports ?? new Collection())->pluck('id')->all();
+            $query->where(function ($q) use ($reportIds) {
+                $q->whereDoesntHave('WorkReports')
+                    ->orWhereHas('WorkReports', fn ($w) => $w->whereIn('work_reports.id', $reportIds));
+            });
+        }
+
         if ($query->exists()) {
             throw new RuntimeException('Já existe solicitação de descancelamento em aberto para este escopo.');
         }
     }
 
-    private function uncancelWorkForm(Note $note): void
+    /** Informes que a solicitação abrange: os escolhidos; sem escolha (legado) ou nota inteira, todos. */
+    private function workReportsInScope(UncancellationRequest $request): Collection
     {
-        if (!$note->WorkFormsAny()->where('canceled', true)->exists()) {
-            return;
+        if ($request->scope === CancellationRequestScope::WORK_FORM_ONLY) {
+            $selected = $request->WorkReports()->get();
+
+            if ($selected->isNotEmpty()) {
+                return $selected;
+            }
         }
 
-        $note->WorkFormsAny()->where('canceled', true)->update([
-            'canceled' => false,
-            'canceled_at' => null,
-            'canceled_by' => null,
-        ]);
+        if (in_array($request->scope, [CancellationRequestScope::NOTE_FULL, CancellationRequestScope::WORK_FORM_ONLY], true)) {
+            return $request->Note->WorkFormsAny()->get();
+        }
+
+        return new Collection();
+    }
+
+    private function canceledWorkReportsInScope(UncancellationRequest $request): Collection
+    {
+        return $this->workReportsInScope($request)->where('canceled', true)->values();
+    }
+
+    /** Usa o model (não update em massa) para atualizar o status materializado do informe. */
+    private function uncancelWorkReports(Note $note, ?UncancellationRequest $request = null): void
+    {
+        $reports = $request
+            ? $this->workReportsInScope($request)
+            : $note->WorkFormsAny()->get();
+
+        foreach ($reports->where('canceled', true) as $report) {
+            $report->update([
+                'canceled'    => false,
+                'canceled_at' => null,
+                'canceled_by' => null,
+            ]);
+        }
     }
 
     private function logEvent(UncancellationRequest $request, User $user, string $event, array $payload = []): void
     {
         $request->Events()->create([
             'user_id' => $user->id,
-            'event' => $event,
+            'event'   => $event,
             'payload' => empty($payload) ? null : $payload,
         ]);
     }

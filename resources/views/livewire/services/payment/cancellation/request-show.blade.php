@@ -206,8 +206,8 @@
             $isClosedRequest = in_array($requestStatusValue, ['DONE', 'REJECTED', 'ABORTED'], true);
 
             $requestedTarget = match ($cancellationRequest->scope?->value ?? $cancellationRequest->scope) {
-                \App\Enum\CancellationRequestScope::NOTE_FULL->value => 'Cancelar nota inteira, ordens vinculadas e WorkForm (se existir).',
-                \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value => 'Cancelar somente o WorkForm da nota.',
+                \App\Enum\CancellationRequestScope::NOTE_FULL->value => 'Cancelar nota inteira, ordens vinculadas e todos os informes (se existirem).',
+                \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value => 'Cancelar somente o(s) informe(s) selecionado(s) da nota.',
                 default => 'Cancelar somente as ordens selecionadas nesta solicitacao.',
             };
 
@@ -378,6 +378,18 @@
                                 <div class="info-kv-key">Total ordens</div>
                                 <div class="info-kv-val">{{ $orderSummary->count() }}</div>
                             </div>
+                            @if(($cancellationRequest->scope?->value ?? $cancellationRequest->scope) === \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value)
+                                <div class="info-kv-row">
+                                    <div class="info-kv-key">Informes</div>
+                                    <div class="info-kv-val">
+                                        @forelse($cancellationRequest->WorkReports as $requestedReport)
+                                            <div>{{ $requestedReport->displayLabel() }}</div>
+                                        @empty
+                                            Todos os informes ativos (solicitação anterior)
+                                        @endforelse
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

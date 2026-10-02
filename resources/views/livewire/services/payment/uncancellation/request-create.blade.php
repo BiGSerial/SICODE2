@@ -96,8 +96,8 @@
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="text-muted small">Ordens canceladas</div>
                                 <div class="fw-semibold">{{ collect($orders)->where('canceled', true)->count() }}</div>
-                                <div class="text-muted small mt-2">Informe cancelado</div>
-                                <div class="fw-semibold">{{ $note->WorkFormAny?->canceled ? 'Sim' : 'Não' }}</div>
+                                <div class="text-muted small mt-2">Informes cancelados</div>
+                                <div class="fw-semibold">{{ collect($workReports)->where('canceled', true)->count() }} de {{ count($workReports) }}</div>
                             </div>
                         </div>
                     </div>
@@ -144,6 +144,49 @@
                             </div>
                         </div>
                     </div>
+
+                    @if (count($workReports))
+                        <div class="row g-3 mt-2">
+                            <div class="col-12">
+                                <label class="form-label">Informes da nota</label>
+                                @if ($scope === \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value)
+                                    <div class="small text-muted mb-1">Marque o(s) informe(s) que devem ser descancelados.</div>
+                                @endif
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th>Informe</th>
+                                                <th>Informado em</th>
+                                                <th>Cancelado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($workReports as $report)
+                                                <tr wire:key="uncancel-report-{{ $report['id'] }}">
+                                                    <td>
+                                                        @if ($report['selectable'])
+                                                            <input class="form-check-input" type="checkbox" wire:model="selectedWorkReports" value="{{ $report['id'] }}" @if($scope !== \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value) disabled @endif>
+                                                        @endif
+                                                    </td>
+                                                    <td>{{ $report['label'] }}</td>
+                                                    <td>{{ $report['informed_at'] ?? '-' }}</td>
+                                                    <td>
+                                                        {{ $report['canceled'] ? 'Sim' : 'Não' }}
+                                                        @if ($report['in_process'])
+                                                            <span class="badge text-bg-warning ms-1">Cancelamento em andamento</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                                @error('selectedWorkReports')<span class="text-danger small">{{ $message }}</span>@enderror
+                            </div>
+                        </div>
+                    @endif
                 @endif
             @else
                 <div class="row g-3 align-items-end">
