@@ -25,10 +25,12 @@ class UploadEvidence extends Component
     public $tempFiles = []; // Lista visual de arquivos prontos para salvar
 
     public array $config = [
-        'disk'         => 'public',
-        'base_path'    => 'evidences',
-        'max_size_mb'  => 10,
-        'allowed_exts' => [
+        'disk'                 => 'public',
+        'base_path'            => 'evidences',
+        'max_size_mb'          => 10,
+        'max_total_size_mb'    => 45,
+        'max_files_per_upload' => 100,
+        'allowed_exts'         => [
             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
             'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
             'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
@@ -52,7 +54,10 @@ class UploadEvidence extends Component
         $maxKb = $this->config['max_size_mb'] * 1024;
         $mimes = implode(',', $this->config['allowed_exts']);
 
-        return ['files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}"];
+        return [
+            'files'   => "nullable|array|max:{$this->config['max_files_per_upload']}",
+            'files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}",
+        ];
     }
 
     public function updatedFiles(): void
@@ -64,7 +69,7 @@ class UploadEvidence extends Component
 
             $this->dispatchBrowserEvent('evidence-upload-rejected', [
                 'componentId' => $this->id,
-                'message'     => "Arquivo não aceito: cada evidência deve ter no máximo {$this->config['max_size_mb']} MB e usar um dos formatos permitidos.",
+                'message'     => "Arquivo não aceito: cada evidência deve ter no máximo {$this->config['max_size_mb']} MB, o lote pode ter até {$this->config['max_files_per_upload']} arquivos e deve usar um dos formatos permitidos.",
             ]);
 
             return;
@@ -80,7 +85,7 @@ class UploadEvidence extends Component
         }
 
         $uploadedCount = count($this->files);
-        $this->files = []; // Limpa o input para novos uploads
+        $this->files   = []; // Limpa o input para novos uploads
         $this->emitUp('hasEvidence', count($this->tempFiles) > 0);
         $this->dispatchBrowserEvent('evidence-upload-accepted', [
             'componentId' => $this->id,
