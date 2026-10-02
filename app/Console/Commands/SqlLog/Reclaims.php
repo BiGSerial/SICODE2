@@ -17,6 +17,7 @@ class Reclaims extends Command
     private const EXTRA_COLUMNS              = ['rubrica', 'municipality', 'group5', 'material', 'text', 'status', 'completed'];
     private const FALLBACK_HOURS             = 2;
     private const WATERMARK_LOOKBACK_MINUTES = 5;
+    private const SQLSERVER_PARAM_LIMIT      = 2000; // SQL Server aceita 2100 parâmetros por request; upsert soma created_at/updated_at (+2 por linha)
 
     /**
      * The name and signature of the console command.
