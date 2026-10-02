@@ -4,8 +4,7 @@ namespace App\Http\Livewire\Services\Supervision\Forms;
 
 use App\Models\{Analise, D5Return, EvidenceFile, File, FiveNote, Notetimeline, Production, WorkReport};
 use App\Services\D5\D5WorkflowService;
-use App\Services\Files\EvidenceFileService;
-use App\Services\Files\FileStorageService;
+use App\Services\Files\{EvidenceFileService, FileStorageService};
 use App\Services\WorkReports\WorkReportScopedProductionSplitter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -308,7 +307,7 @@ class Jobform extends Component
             } else {
                 $this->return['reason']      = '';
                 $this->return['description'] = '';
-                $this->return['loc_install'] = $this->production->Note->WorkForm?->Orders?->sortBy('ordem')->first()?->locInstalacao;
+                $this->return['loc_install'] = $this->workFormForCurrentProduction()?->Orders?->sortBy('ordem')->first()?->locInstalacao;
                 $this->return['codify']      = '';
                 $this->return['sintoms']     = '';
             }
@@ -341,9 +340,11 @@ class Jobform extends Component
         if ($this->production) {
             $this->syncCloseFinalScopeSelections();
 
-            $this->lastReturnwork = $this->production->Note->WorkForm?->LatestReturnwork;
+            $workForm = $this->workFormForCurrentProduction();
 
-            $this->return['loc_install'] = $this->production->Note->WorkForm?->Orders?->sortBy('ordem')->first()?->loc_install ?? '';
+            $this->lastReturnwork = $workForm?->LatestReturnwork;
+
+            $this->return['loc_install'] = $workForm?->Orders?->sortBy('ordem')->first()?->loc_install ?? '';
 
             if ($this->production->dfive) {
                 $this->d5   = 1;
@@ -375,7 +376,7 @@ class Jobform extends Component
     private function prepareCloseFormSnapshot(): void
     {
         $note          = $this->production->Note;
-        $workForm      = $note->WorkForm;
+        $workForm      = $this->workFormForCurrentProduction();
         $latestPartial = $note->Partials?->sortByDesc('created_at')->first();
         $orders        = $workForm?->Orders?->pluck('ordem')->all()
             ?: ($latestPartial?->Orders?->pluck('ordem')->all() ?? []);
@@ -497,11 +498,11 @@ class Jobform extends Component
                 $user = Auth()->User()->name;
 
                 Notetimeline::Create([
-                    'note_id'      => $this->note->id,
-                    'service_id'   => $this->production->service_id,
-                    'user_id'      => Auth()->User()->id,
-                    'info'         => "Usuário {$user} iniciou a Nota/OV.",
-                    'status'       => 3,
+                    'note_id'       => $this->note->id,
+                    'service_id'    => $this->production->service_id,
+                    'user_id'       => Auth()->User()->id,
+                    'info'          => "Usuário {$user} iniciou a Nota/OV.",
+                    'status'        => 3,
                     'production_id' => $this->production->id,
                 ]);
             }
@@ -730,7 +731,7 @@ class Jobform extends Component
 
     private function buildRevisionAlert(): string
     {
-        $workForm = $this->production?->Note?->WorkForm;
+        $workForm = $this->workFormForCurrentProduction();
 
         if (!$workForm || !$workForm->rejected) {
             return '';
@@ -809,15 +810,18 @@ class Jobform extends Component
                 // ]);
 
                 $workReportId = $this->currentFiscalizationWorkReportId();
-                $fiveNote = $this->fiveNoteForCurrentProduction($workReportId);
+                $fiveNote     = $this->fiveNoteForCurrentProduction($workReportId);
+
+                if (!$fiveNote && $this->production->dfive) {
+                    throw new \DomainException('D5 do informe/obra não encontrada para esta produção; encerramento cancelado.');
+                }
 
                 if (!$fiveNote && !$this->production->dfive) {
-                    $note             = $this->production->Note;
-                    $order            = null;
+                    $note  = $this->production->Note;
+                    $order = null;
 
                     if ($note) {
-                        $order    = $this->mainNetworkOrderForNote($note);
-                        $workForm = $note->WorkForm;
+                        $order = $this->mainNetworkOrderForNote($note);
                     }
 
                     $lookup = $workReportId
@@ -833,7 +837,7 @@ class Jobform extends Component
                             'conjunto'    => $this->production->Note->num_material,
                             'pep'         => $order?->pep,
                             'e_pep'       => $order?->pep,
-                            'company_id'  => $this->production->Note?->WorkForm?->company_id,
+                            'company_id'  => $this->workFormForCurrentProduction()?->company_id,
                             'codify'      => $this->return['codify'] ? trim($this->return['codify']) : null,
                             'sintoms'     => $this->return['sintoms'] ? trim($this->return['sintoms']) : null,
                             'codify'      => $this->return['codify'] ? trim($this->return['codify']) : null,
@@ -853,7 +857,7 @@ class Jobform extends Component
                     }
                 } elseif ($fiveNote) {
 
-                    if (!$this->five) {
+                    if (!$this->five || $this->five->id !== $fiveNote->id) {
                         $this->five = $fiveNote;
                     }
 
@@ -862,7 +866,7 @@ class Jobform extends Component
                     } else {
                         $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
-                        if ($this->analise->conclusion == 'FISCALIZADO COM PENDENCIAS') {
+                        if (in_array($this->analise->conclusion, ['FISCALIZADO COM PENDENCIAS', 'NAO RESOLVIDO'], true)) {
                             $this->five->update([
                                 'is_completed' => false,
                                 'completed_at' => null,
@@ -897,22 +901,24 @@ class Jobform extends Component
 
             if ($this->analise->conclusion == 'OBRA NAO EXECUTADA') {
 
-                $wf = $this->production->Note->WorkForm;
+                $wf = $this->workFormForCurrentProduction();
 
-                if ($wf) {
-                    $wf->update([
-                        'rejected'    => true,
-                        'approved'    => false,
-                        'informed_at' => null,
-                    ]);
-
-                    $wf->ReturnWork()->create([
-                        'service_id' => $this->production->service_id,
-                        'user_id'    => Auth()->User()->id,
-                        'category'   => 'OBRA NÃO EXECUTADA',
-                        'text_obs'   => 'Retorno via Fiscalização: ' . ($this->analise->info ?? 'Não informado.'),
-                    ]);
+                if (!$wf) {
+                    throw new \DomainException('Informe da obra não encontrado para registrar a rejeição.');
                 }
+
+                $wf->update([
+                    'rejected'    => true,
+                    'approved'    => false,
+                    'informed_at' => null,
+                ]);
+
+                $wf->ReturnWork()->create([
+                    'service_id' => $this->production->service_id,
+                    'user_id'    => Auth()->User()->id,
+                    'category'   => 'OBRA NÃO EXECUTADA',
+                    'text_obs'   => 'Retorno via Fiscalização: ' . ($this->analise->info ?? 'Não informado.'),
+                ]);
 
             }
 
@@ -969,28 +975,60 @@ class Jobform extends Component
             ->value('work_report_id');
     }
 
+    /**
+     * D5 correta da produção. A D5 pertence ao INFORME; só quando legada (work_report_id NULL)
+     * ela pertence à obra (nota). Ordem: D5 do informe da produção (preferindo a vinculada
+     * à produção) -> D5 vinculada à produção sem ambiguidade -> D5 legada da nota.
+     */
     private function fiveNoteForCurrentProduction(?int $workReportId): ?FiveNote
     {
-        $query = $this->production?->fiveNotes();
-
-        if (!$query) {
+        if (!$this->production) {
             return null;
         }
 
-        return $query
-            ->where('note_id', $this->production->note_id)
-            ->when($workReportId,
-                fn ($q) => $q->where('work_report_id', $workReportId),
-                fn ($q) => $q->whereNull('work_report_id')
-            )
-            ->first()
-            ?? FiveNote::query()
-                ->where('note_id', $this->production->note_id)
-                ->when($workReportId,
-                    fn ($q) => $q->where('work_report_id', $workReportId),
-                    fn ($q) => $q->whereNull('work_report_id')
-                )
+        $noteId    = $this->production->note_id;
+        $linkedIds = $this->production->fiveNotes()->pluck('five_notes.id');
+
+        if ($workReportId) {
+            $byReport = FiveNote::query()
+                ->where('note_id', $noteId)
+                ->where('work_report_id', $workReportId)
+                ->orderByRaw('CASE WHEN id IN (' . ($linkedIds->isNotEmpty() ? $linkedIds->implode(',') : '0') . ') THEN 0 ELSE 1 END')
+                ->orderByDesc('id')
                 ->first();
+
+            if ($byReport) {
+                return $byReport;
+            }
+        }
+
+        // Sem informe resolvido: só aceita a D5 vinculada à produção se não houver ambiguidade.
+        if (!$workReportId) {
+            $linked = FiveNote::query()->whereIn('id', $linkedIds)->where('note_id', $noteId)->get();
+
+            if ($linked->count() === 1) {
+                return $linked->first();
+            }
+        }
+
+        // Legado: D5 da obra sem informe.
+        return FiveNote::query()
+            ->where('note_id', $noteId)
+            ->whereNull('work_report_id')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /** Informe da produção atual; cai no informe ativo da nota apenas se não houver vínculo. */
+    private function workFormForCurrentProduction(): ?WorkReport
+    {
+        $workReportId = $this->currentFiscalizationWorkReportId();
+
+        if ($workReportId && ($workReport = WorkReport::query()->where('canceled', false)->find($workReportId))) {
+            return $workReport;
+        }
+
+        return $this->production?->Note?->WorkForm;
     }
 
     private function shouldCreateD5OnClose(): bool
@@ -1063,7 +1101,18 @@ class Jobform extends Component
             return true;
         }
 
-        $withPending = $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS';
+        if ($this->production?->dfive && !in_array($this->analise->conclusion, ['RESOLVIDO', 'NAO RESOLVIDO'], true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Conclusao invalida para retorno de D5',
+                'html'     => '<div class="card"><div class="card-body text-start">Na fiscalizacao de retorno de D5, a conclusao deve ser Resolvido ou Nao Resolvido.</div></div>',
+            ]);
+
+            return false;
+        }
+
+        $withPending    = $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS';
         $isRequestingD5 = !$this->production?->dfive && (string) $this->d5 === '1';
 
         if ($isRequestingD5 && !$withPending) {
@@ -1149,9 +1198,9 @@ class Jobform extends Component
             ->filter()
             ->unique()
             ->sortBy(fn (string $scope) => match ($scope) {
-                \App\Models\WorkReportFlowProduction::SCOPE_NETWORK => 1,
+                \App\Models\WorkReportFlowProduction::SCOPE_NETWORK    => 1,
                 \App\Models\WorkReportFlowProduction::SCOPE_CONNECTION => 2,
-                default => 3,
+                default                                                => 3,
             })
             ->map(fn (string $scope) => [
                 'scope' => $scope,
