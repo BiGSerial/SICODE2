@@ -5,6 +5,8 @@
     progress: 0,
     totalSize: 0,
     uploaded: 0,
+    feedback: '',
+    feedbackType: 'info',
     human(bytes) {
         if (!bytes) return '0 B';
         const u = ['B', 'KB', 'MB', 'GB'];
@@ -15,22 +17,45 @@
     },
     // Função disparada tanto pelo clique quanto pelo drop
     uploadFiles(files) {
-        if (!files || files.length === 0) return;
+        if (!files || files.length === 0) {
+            this.feedback = 'Nenhum arquivo foi selecionado.';
+            this.feedbackType = 'warning';
+            return;
+        }
 
         this.isUploading = true;
         this.progress = 0;
+        this.uploaded = 0;
         this.totalSize = Array.from(files).reduce((s, f) => s + f.size, 0);
+        this.feedback = `Enviando ${files.length} arquivo(s)...`;
+        this.feedbackType = 'info';
 
         @this.uploadMultiple('files', files,
-            () => { this.isUploading = false;
-                this.progress = 100; },
-            () => { this.isUploading = false;
-                alert('Erro no upload'); },
+            () => {
+                this.isUploading = false;
+                this.progress = 100;
+                this.feedback = 'Upload concluído. Validando os arquivos...';
+                this.feedbackType = 'info';
+            },
+            () => {
+                this.isUploading = false;
+                this.feedback = 'Não foi possível enviar os arquivos. Verifique a conexão e tente novamente.';
+                this.feedbackType = 'danger';
+            },
             (e) => { this.progress = e.detail.progress;
                 this.uploaded = Math.round(this.totalSize * (this.progress / 100)); }
         );
+    },
+    showFeedback(message, type) {
+        this.isUploading = false;
+        this.feedback = message;
+        this.feedbackType = type;
     }
-}" class="w-100">
+}"
+    x-on:evidence-upload-accepted.window="if ($event.detail.componentId === @js($this->id)) showFeedback(`${$event.detail.count} arquivo(s) adicionado(s) à fila. Clique em Encerrar para salvar e concluir a D5.`, 'success')"
+    x-on:evidence-upload-rejected.window="if ($event.detail.componentId === @js($this->id)) showFeedback($event.detail.message, 'warning')"
+    x-on:evidence-save-failed.window="if ($event.detail.componentId === @js($this->id)) showFeedback('Não foi possível salvar as evidências. Revise os arquivos e tente novamente.', 'danger')"
+    class="w-100">
 
     <div class="upload-zone border border-2 border-dashed rounded-3 p-4 text-center position-relative"
         style="cursor: pointer; background: rgba(13, 110, 253, 0.03);" {{-- Previne comportamento padrão do navegador --}}
@@ -41,12 +66,24 @@
             <i class="ri-cloud-line fs-1 text-primary"></i>
         </div>
         <div class="fw-bold text-primary">Arraste ou Clique para Upload</div>
-        <div class="small text-muted">Limite: {{ $config['max_size_mb'] }}MB por arquivo</div>
+        <div class="small text-muted">Limite: {{ $config['max_size_mb'] }} MB por arquivo</div>
+        <div class="small text-muted mt-1">Formatos aceitos: {{ strtoupper(implode(', ', $config['allowed_exts'])) }}</div>
 
         {{-- Input REAL (escondido) --}}
         <input type="file" x-ref="fileInput" class="d-none" multiple
             accept=".{{ implode(',.', $config['allowed_exts']) }}" x-on:change="uploadFiles($event.target.files)">
     </div>
+
+    <div class="alert py-2 px-3 mt-3 mb-0" role="status" x-show="feedback" x-cloak
+        x-bind:class="`alert-${feedbackType}`" x-text="feedback"></div>
+
+    @if ($errors->any())
+        <div class="alert alert-warning py-2 px-3 mt-3 mb-0" role="alert">
+            @foreach ($errors->all() as $message)
+                <div>{{ $message }}</div>
+            @endforeach
+        </div>
+    @endif
 
     <div class="mt-3" x-show="isUploading" x-cloak>
         <div class="progress" style="height: 10px;">

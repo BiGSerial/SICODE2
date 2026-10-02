@@ -62,11 +62,9 @@ class UploadEvidence extends Component
         } catch (ValidationException) {
             $this->files = [];
 
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Arquivo não aceito',
-                'html'     => "Cada evidência deve ter no máximo {$this->config['max_size_mb']} MB e estar em um dos formatos permitidos.",
+            $this->dispatchBrowserEvent('evidence-upload-rejected', [
+                'componentId' => $this->id,
+                'message'     => "Arquivo não aceito: cada evidência deve ter no máximo {$this->config['max_size_mb']} MB e usar um dos formatos permitidos.",
             ]);
 
             return;
@@ -81,8 +79,13 @@ class UploadEvidence extends Component
             ];
         }
 
+        $uploadedCount = count($this->files);
         $this->files = []; // Limpa o input para novos uploads
         $this->emitUp('hasEvidence', count($this->tempFiles) > 0);
+        $this->dispatchBrowserEvent('evidence-upload-accepted', [
+            'componentId' => $this->id,
+            'count'       => $uploadedCount,
+        ]);
     }
 
     public function removeTemp($index): void
@@ -154,6 +157,9 @@ class UploadEvidence extends Component
             ]);
 
             $this->emitUp('evidenceSaveFailed');
+            $this->dispatchBrowserEvent('evidence-save-failed', [
+                'componentId' => $this->id,
+            ]);
         }
     }
 
