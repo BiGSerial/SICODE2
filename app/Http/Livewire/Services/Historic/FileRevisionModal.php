@@ -37,8 +37,8 @@ class FileRevisionModal extends Component
     ];
 
     protected $rules = [
-        'upload'       => 'nullable|file|max:41943',
-        'newUploads.*' => 'nullable|file|max:41943',
+        'upload'       => 'nullable|file|max:40960',
+        'newUploads.*' => 'nullable|file|max:40960',
     ];
 
     public function mount(?Production $production = null, ?string $historicServiceId = null, bool $isSingleton = false): void
@@ -191,7 +191,7 @@ class FileRevisionModal extends Component
 
         $this->validate([
             'selectedFileId' => 'required|integer|exists:files,id',
-            'upload'         => 'required|file|max:41943',
+            'upload'         => 'required|file|max:40960',
         ]);
 
         $selected = $this->selectedFile;
@@ -253,7 +253,7 @@ class FileRevisionModal extends Component
             $this->validate([
                 'uploadType'   => 'required|string',
                 'newUploads'   => 'required|array|min:1',
-                'newUploads.*' => 'required|file|max:41943',
+                'newUploads.*' => 'required|file|max:40960',
             ]);
 
             $this->dispatchBrowserEvent('confirm-file-revision-upload', [
@@ -270,7 +270,7 @@ class FileRevisionModal extends Component
             $this->validate([
                 'selectedFileId' => 'required|integer|exists:files,id',
                 'newUploads'     => 'required|array|min:1',
-                'newUploads.*'   => 'required|file|max:41943',
+                'newUploads.*'   => 'required|file|max:40960',
             ]);
 
             $uploads = $this->normalizedNewUploads();
@@ -295,7 +295,7 @@ class FileRevisionModal extends Component
 
         $this->validate([
             'selectedFileId' => 'required|integer|exists:files,id',
-            'upload'         => 'required|file|max:41943',
+            'upload'         => 'required|file|max:40960',
         ]);
 
         $selected = $this->selectedFile;
@@ -386,7 +386,7 @@ class FileRevisionModal extends Component
         $this->validate([
             'uploadType'   => 'required|string',
             'newUploads'   => 'required|array|min:1',
-            'newUploads.*' => 'required|file|max:41943',
+            'newUploads.*' => 'required|file|max:40960',
         ]);
 
         if (!is_array($this->newUploads)) {
@@ -463,7 +463,7 @@ class FileRevisionModal extends Component
         $this->validate([
             'selectedFileId' => 'required|integer|exists:files,id',
             'newUploads'     => 'required|array|min:1',
-            'newUploads.*'   => 'required|file|max:41943',
+            'newUploads.*'   => 'required|file|max:40960',
         ]);
 
         if (!is_array($this->newUploads)) {

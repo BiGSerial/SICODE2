@@ -274,11 +274,11 @@ class Analise extends Component
                     $user = Auth()->User()->name;
 
                     Notetimeline::Create([
-                        'note_id'      => $this->note->id,
-                        'service_id'   => $this->production->service_id,
-                        'user_id'      => Auth()->User()->id,
-                        'info'         => "Usuário {$user} iniciou a Nota/OV.",
-                        'status'       => 3,
+                        'note_id'       => $this->note->id,
+                        'service_id'    => $this->production->service_id,
+                        'user_id'       => Auth()->User()->id,
+                        'info'          => "Usuário {$user} iniciou a Nota/OV.",
+                        'status'        => 3,
                         'production_id' => $this->production->id,
                     ]);
                 }
@@ -525,7 +525,7 @@ class Analise extends Component
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,jpg,png,webp,gif,tiff,bmp,dwg,dxf,dwf,doc,docx,xls,xlsx,ppt,pptx',
+                'files.*' => 'file|mimes:pdf,jpeg,jpg,png,webp,gif,tiff,bmp,dwg,dxf,dwf,doc,docx,xls,xlsx,ppt,pptx|max:40960',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [

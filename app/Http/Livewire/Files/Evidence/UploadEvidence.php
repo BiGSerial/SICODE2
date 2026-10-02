@@ -27,9 +27,9 @@ class UploadEvidence extends Component
     public array $config = [
         'disk'                 => 'public',
         'base_path'            => 'evidences',
-        'max_size_mb'          => 10,
-        'max_total_size_mb'    => 45,
-        'max_files_per_upload' => 100,
+        'max_size_mb'          => 40,
+        'max_total_size_mb'    => 90,
+        'max_files_per_upload' => 40,
         'allowed_exts'         => [
             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
             'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',

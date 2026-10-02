@@ -1,26 +1,8 @@
 <?php
 
 use Laravel\Octane\Contracts\OperationTerminated;
-use Laravel\Octane\Events\RequestHandled;
-use Laravel\Octane\Events\RequestReceived;
-use Laravel\Octane\Events\RequestTerminated;
-use Laravel\Octane\Events\TaskReceived;
-use Laravel\Octane\Events\TaskTerminated;
-use Laravel\Octane\Events\TickReceived;
-use Laravel\Octane\Events\TickTerminated;
-use Laravel\Octane\Events\WorkerErrorOccurred;
-use Laravel\Octane\Events\WorkerStarting;
-use Laravel\Octane\Events\WorkerStopping;
-use Laravel\Octane\Listeners\CloseMonologHandlers;
-use Laravel\Octane\Listeners\CollectGarbage;
-use Laravel\Octane\Listeners\DisconnectFromDatabases;
-use Laravel\Octane\Listeners\EnsureUploadedFilesAreValid;
-use Laravel\Octane\Listeners\EnsureUploadedFilesCanBeMoved;
-use Laravel\Octane\Listeners\FlushOnce;
-use Laravel\Octane\Listeners\FlushTemporaryContainerInstances;
-use Laravel\Octane\Listeners\FlushUploadedFiles;
-use Laravel\Octane\Listeners\ReportException;
-use Laravel\Octane\Listeners\StopWorkerIfNecessary;
+use Laravel\Octane\Events\{RequestHandled, RequestReceived, RequestTerminated, TaskReceived, TaskTerminated, TickReceived, TickTerminated, WorkerErrorOccurred, WorkerStarting, WorkerStopping};
+use Laravel\Octane\Listeners\{CloseMonologHandlers, CollectGarbage, DisconnectFromDatabases, EnsureUploadedFilesAreValid, EnsureUploadedFilesCanBeMoved, FlushOnce, FlushTemporaryContainerInstances, FlushUploadedFiles, ReportException, StopWorkerIfNecessary};
 use Laravel\Octane\Octane;
 
 return [
@@ -127,14 +109,14 @@ return [
     |
     | These options are merged into the default Swoole server configuration.
     | package_max_length controls the maximum HTTP request body size —
-    | must be at least as large as post_max_size in php.ini (55 MB).
+    | must be at least as large as post_max_size in php.ini (100 MB).
     |
     */
 
     'swoole' => [
         'options' => [
-            'package_max_length' => 55 * 1024 * 1024, // 55 MB — alinhado com post_max_size no php.ini
-            'socket_buffer_size' => 55 * 1024 * 1024,
+            'package_max_length' => 100 * 1024 * 1024, // 100 MB — alinhado com post_max_size no php.ini
+            'socket_buffer_size' => 100 * 1024 * 1024,
         ],
     ],
 

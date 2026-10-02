@@ -7,8 +7,7 @@ use App\Models\{Analise as ModelsAnalise, Note, Notetimeline, Production, Reclai
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 
 class Analise extends Component
 {
@@ -98,7 +97,6 @@ class Analise extends Component
 
     public $preresult;
 
-
     // Files
     public $files = [];
 
@@ -112,8 +110,8 @@ class Analise extends Component
         'open_analise_draw' => 'openAnalise',
         'analise_clean'     => 'clean',
         'confirm_goFinish'  => 'goFinish',
-        'clean' => 'clean',
-        'hasFile' => 'hasFile',
+        'clean'             => 'clean',
+        'hasFile'           => 'hasFile',
 
     ];
 
@@ -176,11 +174,11 @@ class Analise extends Component
                 $user = Auth()->User()->name;
 
                 Notetimeline::Create([
-                    'note_id'      => $this->note->id,
-                    'service_id'   => $this->production->service_id,
-                    'user_id'      => Auth()->User()->id,
-                    'info'         => "Usuário {$user} iniciou a Nota/OV.",
-                    'status'       => 3,
+                    'note_id'       => $this->note->id,
+                    'service_id'    => $this->production->service_id,
+                    'user_id'       => Auth()->User()->id,
+                    'info'          => "Usuário {$user} iniciou a Nota/OV.",
+                    'status'        => 3,
                     'production_id' => $this->production->id,
                 ]);
             }
@@ -189,7 +187,7 @@ class Analise extends Component
 
                 if ($this->production->Reclaim->category && ($this->production->Reclaim->category != 'LIBERAR EO')) {
                     $this->conclusion = $this->production->Reclaim->category;
-                    $this->needFiles = true;
+                    $this->needFiles  = true;
                     $this->updatedConclusion();
                 }
             }
@@ -204,7 +202,7 @@ class Analise extends Component
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,png,webp',
+                'files.*' => 'file|mimes:pdf,jpeg,png,webp|max:40960',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
@@ -227,7 +225,6 @@ class Analise extends Component
                 $skip_file = false;
 
                 if (!$skip_file) {
-
 
                     if (strpos(explode('.', $file->getClientOriginalName())[0], $this->production->Note->note) !== false) {
                         $this->nota_divergente = false;
@@ -263,8 +260,6 @@ class Analise extends Component
 
         $this->updatedFiles();
     }
-
-
 
     //     public function updatedConclusion($value)
     //     {
@@ -378,13 +373,12 @@ class Analise extends Component
                 $this->info .= 'POSTES: ' . $this->postes_c . "\n";
             }
 
-
         }
 
         if ($this->production->d5) {
             $this->info .= "\n";
             $this->info .= "Resolução Interna (RI): \n";
-            $this->info .= $this->conclusion ."\n";
+            $this->info .= $this->conclusion . "\n";
         }
 
         $this->info .= "-------------------- \n";
@@ -453,9 +447,6 @@ class Analise extends Component
         $this->production = $production;
         $this->note       = Note::find($this->production->note_id);
 
-
-
-
         if ($this->postes == '') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -480,8 +471,6 @@ class Analise extends Component
             return;
         }
 
-
-
         if ($this->needFiles && SelectOptions::verifyNeedFilesReclaims($this->conclusion)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -494,8 +483,6 @@ class Analise extends Component
 
             return;
         }
-
-       
 
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENCERRAMENTO DE SERVIÇO',
@@ -558,21 +545,19 @@ class Analise extends Component
 
                     if ($d5) {
                         $d5->update([
-                            'completed' => true,
+                            'completed'    => true,
                             'completed_at' => date('Y-m-d H:i:s'),
                         ]);
 
                         if ($d5->Viabilities->count()) {
                             foreach ($d5->Viabilities as $viab) {
                                 $viab->update([
-                                    'status' => 13
+                                    'status' => 13,
                                 ]);
                             }
                         }
                     }
                 }
-
-
 
                 // if (count($this->show_files)) {
 
@@ -602,10 +587,8 @@ class Analise extends Component
                 //     }
                 // }
 
-
                 DB::commit();
                 $this->emit('save_files');
-
 
             }
 
@@ -616,7 +599,7 @@ class Analise extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'NÃO FINALIZADO',
-                'html'     => 'Não COnseguimos encerrar a atividade, tente novamente.<br>'.$th->getMessage(),
+                'html'     => 'Não COnseguimos encerrar a atividade, tente novamente.<br>' . $th->getMessage(),
             ]);
 
             return;

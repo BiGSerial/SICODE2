@@ -47,7 +47,7 @@ class Filepartners extends Component
     {
         try {
             $this->validate([
-                'uploadsfiles.*' => 'mimes:pdf,jpeg,png,webp,xls,xlsx,zip',
+                'uploadsfiles.*' => 'file|mimes:pdf,jpeg,png,webp,xls,xlsx,zip|max:40960',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [

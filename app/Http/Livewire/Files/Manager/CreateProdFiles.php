@@ -318,7 +318,7 @@ class CreateProdFiles extends Component
 
     protected $rules = [
 
-        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:41943', // 40MB
+        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:40960', // 40 MB
     ];
 
     private function associateFileToProduction(File $file): void

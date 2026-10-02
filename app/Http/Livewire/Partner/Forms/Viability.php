@@ -73,7 +73,7 @@ class Viability extends Component
 
         try {
             $this->validate([
-                'files.*' => 'mimes:pdf,jpeg,png,webp,xls,xlsx',
+                'files.*' => 'file|mimes:pdf,jpeg,png,webp,xls,xlsx|max:40960',
             ]);
         } catch (ValidationException $e) {
             $this->dispatchBrowserEvent('swal', [
