@@ -24,6 +24,8 @@
                     @if ($five)
                         @php
                             $lastComment = $five->Comments?->sortByDesc('created_at')->first();
+                            $d5Status = \App\Services\D5\D5StatusPresenter::status($five);
+                            $d5Solution = \App\Services\D5\D5StatusPresenter::solution($five);
                             $orderedProductions = $five->productions->sortByDesc(function ($p) {
                                 return $p->completed_at ?? $p->created_at;
                             });
@@ -198,6 +200,33 @@
                             <div class="col-12 col-lg-4">
                                 <section class="five-panel h-100">
                                     <h6 class="five-title"><i class="ri-chat-1-line me-1"></i>Resumo</h6>
+
+                                    <div class="five-details mb-3">
+                                        <div class="five-k mb-1">Status da D5</div>
+                                        <div class="five-note-box five-note-box--compact">
+                                            <span class="badge {{ $d5Status['color'] }}">{{ $d5Status['label'] }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="five-details mb-3">
+                                        <div class="five-k mb-1">Solução (última fiscalização)</div>
+                                        <div class="five-note-box">
+                                            @if ($d5Solution)
+                                                <span class="badge {{ $d5Solution['color'] }}">{{ $d5Solution['label'] }}</span>
+                                                <small class="d-block mt-1 text-muted">
+                                                    {{ $d5Solution['by'] ?: '---' }}
+                                                    @if ($d5Solution['at'])
+                                                        · {{ $d5Solution['at']->format('d/m/Y H:i') }}
+                                                    @endif
+                                                </small>
+                                                @if ($d5Solution['info'])
+                                                    <div class="mt-2">{{ $d5Solution['info'] }}</div>
+                                                @endif
+                                            @else
+                                                Ainda não fiscalizada.
+                                            @endif
+                                        </div>
+                                    </div>
 
                                     <div class="five-stats">
                                         <div class="five-stat">
