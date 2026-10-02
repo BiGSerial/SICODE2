@@ -201,36 +201,39 @@
                                 <section class="five-panel h-100">
                                     <h6 class="five-title"><i class="ri-chat-1-line me-1"></i>Resumo</h6>
 
-                                    <div class="five-details mb-3">
-                                        <div class="five-k mb-1">Status da D5</div>
-                                        <div class="five-note-box five-note-box--compact">
+                                    <div class="five-state-card mb-3">
+                                        <div class="five-state-row">
+                                            <span class="five-k">Status da D5</span>
                                             <span class="badge {{ $d5Status['color'] }}">{{ $d5Status['label'] }}</span>
                                         </div>
-                                    </div>
 
-                                    <div class="five-details mb-3">
-                                        <div class="five-k mb-1">Solução (última fiscalização)</div>
-                                        <div class="five-note-box">
+                                        <div class="five-state-divider"></div>
+
+                                        <div class="five-state-row">
+                                            <span class="five-k">Solução</span>
                                             @if ($d5Solution)
                                                 <span class="badge {{ $d5Solution['color'] }}">{{ $d5Solution['label'] }}</span>
-                                                <small class="d-block mt-1 text-muted">
-                                                    {{ $d5Solution['by'] ?: '---' }}
-                                                    @if ($d5Solution['at'])
-                                                        · {{ $d5Solution['at']->format('d/m/Y H:i') }}
-                                                    @endif
-                                                </small>
-                                                @if ($d5Solution['info'])
-                                                    <div class="mt-2">{{ $d5Solution['info'] }}</div>
-                                                @endif
                                             @else
-                                                Ainda não fiscalizada.
+                                                <span class="five-state-muted">Ainda não fiscalizada</span>
                                             @endif
                                         </div>
+
+                                        @if ($d5Solution)
+                                            <div class="five-state-meta">
+                                                <span><i class="ri-user-line me-1"></i>{{ $d5Solution['by'] ?: '---' }}</span>
+                                                @if ($d5Solution['at'])
+                                                    <span><i class="ri-time-line me-1"></i>{{ $d5Solution['at']->format('d/m/Y H:i') }}</span>
+                                                @endif
+                                            </div>
+                                            @if ($d5Solution['info'])
+                                                <p class="five-state-info">{{ $d5Solution['info'] }}</p>
+                                            @endif
+                                        @endif
                                     </div>
 
                                     <div class="five-stats">
                                         <div class="five-stat">
-                                            <span>Producoes</span>
+                                            <span>Produções</span>
                                             <strong>{{ $five->productions->count() }}</strong>
                                         </div>
                                         <div class="five-stat">
@@ -239,27 +242,26 @@
                                         </div>
                                     </div>
 
+                                    @php
+                                        $answeredName = $five->name ?: ($five->answeredBy ? null : 'Não informado');
+                                        $answeredUser = ($five->answeredBy && (!$five->name || strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0))
+                                            ? $five->answeredBy->name
+                                            : null;
+                                    @endphp
+
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-1">Quem respondeu a D5</div>
                                         <div class="five-note-box five-note-box--compact">
-                                            @if ($five->name || $five->answeredBy)
-                                                <div>{{ $five->name ?: 'Nome não informado' }}</div>
-                                                @if ($five->answeredBy && (!$five->name || strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0))
-                                                    <small class="d-block mt-1 text-muted">
-                                                        Usuário do sistema: {{ $five->answeredBy->name }}
-                                                    </small>
-                                                @endif
-                                            @else
-                                                Não informado
+                                            <div class="five-answer-name">{{ $answeredName ?? 'Nome não informado' }}</div>
+                                            @if ($answeredUser)
+                                                <div class="five-answer-sub">Usuário do sistema: {{ $answeredUser }}</div>
                                             @endif
                                         </div>
                                     </div>
 
                                     <div class="five-details mt-3">
-                                        <div class="five-k mb-1">Ultima observacao</div>
-                                        <div class="five-note-box">
-                                            {{ $lastComment?->message ?: 'Sem observacoes registradas.' }}
-                                        </div>
+                                        <div class="five-k mb-1">Última observação</div>
+                                        <div class="five-note-box five-note-box--scrollable @if (!$lastComment?->message) is-empty @endif">{{ $lastComment?->message ?: 'Sem observações registradas.' }}</div>
                                     </div>
 
                                     <div class="five-details mt-3">
@@ -501,6 +503,7 @@
         }
 
         .five-modal .five-note-box {
+            text-align: left;
             border: 1px dashed #cbd5e1;
             border-radius: 10px;
             padding: .7rem;
@@ -510,9 +513,82 @@
             word-break: break-word;
         }
 
+        .five-modal .five-state-card {
+            text-align: left;
+            border: 1px solid #dbe3ef;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: .7rem .8rem;
+        }
+
+        .five-modal .five-state-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+        }
+
+        .five-modal .five-state-row .five-k {
+            margin: 0;
+        }
+
+        .five-modal .five-state-row .badge {
+            white-space: normal;
+            text-align: right;
+        }
+
+        .five-modal .five-state-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: .6rem 0;
+        }
+
+        .five-modal .five-state-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .25rem .9rem;
+            margin-top: .5rem;
+            font-size: .78rem;
+            color: #64748b;
+        }
+
+        .five-modal .five-state-info {
+            margin: .5rem 0 0;
+            padding: .5rem .6rem;
+            border-left: 3px solid #cbd5e1;
+            background: #fff;
+            border-radius: 0 6px 6px 0;
+            color: #334155;
+            font-size: .85rem;
+            white-space: pre-line;
+            word-break: break-word;
+        }
+
+        .five-modal .five-state-muted {
+            font-size: .82rem;
+            color: #94a3b8;
+        }
+
         .five-modal .five-note-box--scrollable {
             max-height: 9rem;
             overflow-y: auto;
+        }
+
+        .five-modal .five-note-box.is-empty {
+            color: #94a3b8;
+            font-size: .85rem;
+        }
+
+        .five-modal .five-answer-name {
+            color: #0f172a;
+            font-weight: 600;
+            font-size: .9rem;
+        }
+
+        .five-modal .five-answer-sub {
+            margin-top: .15rem;
+            font-size: .75rem;
+            color: #64748b;
         }
 
         .five-modal .five-note-box--compact {
