@@ -25,6 +25,14 @@ class FinishD5 extends Component
 
     public int $evidenceKey = 0;
 
+    public int $partnerEvidencePage = 1;
+
+    public int $inspectionEvidencePage = 1;
+
+    public int $legacyEvidencePage = 1;
+
+    public int $evidencePerPage = 6;
+
     public $origin = 'EMPREITEIRA';
 
     protected $listeners = [
@@ -154,6 +162,18 @@ class FinishD5 extends Component
         ]);
     }
 
+    public function previousEvidencePage(string $group): void
+    {
+        $property = $this->evidencePageProperty($group);
+        $this->{$property} = max(1, $this->{$property} - 1);
+    }
+
+    public function nextEvidencePage(string $group, int $lastPage): void
+    {
+        $property = $this->evidencePageProperty($group);
+        $this->{$property} = min($lastPage, $this->{$property} + 1);
+    }
+
     public function finish(): void
     {
         try {
@@ -257,7 +277,16 @@ class FinishD5 extends Component
 
     private function resetState(): void
     {
-        $this->reset(['five', 'observations', 'hasEvidence', 'editingDescription', 'isSaving']);
+        $this->reset([
+            'five',
+            'observations',
+            'hasEvidence',
+            'editingDescription',
+            'isSaving',
+            'partnerEvidencePage',
+            'inspectionEvidencePage',
+            'legacyEvidencePage',
+        ]);
         $this->resetErrorBag();
         $this->resetValidation();
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
@@ -275,6 +304,16 @@ class FinishD5 extends Component
 
         $this->applyPartnerCompanyScope($query);
         return $query->firstOrFail();
+    }
+
+    private function evidencePageProperty(string $group): string
+    {
+        return match ($group) {
+            'partner'    => 'partnerEvidencePage',
+            'inspection' => 'inspectionEvidencePage',
+            'legacy'     => 'legacyEvidencePage',
+            default      => throw new \InvalidArgumentException('Grupo de evidências inválido.'),
+        };
     }
 
     public function startEditDescription(): void

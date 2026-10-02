@@ -11,6 +11,14 @@ class D5details extends Component
 {
     public $five;
 
+    public int $partnerEvidencePage = 1;
+
+    public int $inspectionEvidencePage = 1;
+
+    public int $legacyEvidencePage = 1;
+
+    public int $evidencePerPage = 6;
+
     protected $listeners = [
         'refreshComponent' => '$refresh',
         'openD5Details',
@@ -18,6 +26,8 @@ class D5details extends Component
 
     public function openD5Details(Note $note, ?int $fiveNoteId = null)
     {
+        $this->reset(['partnerEvidencePage', 'inspectionEvidencePage', 'legacyEvidencePage']);
+
         $note->load([
             "FiveNotes" => fn ($q) => $q->with([
                 "note:id,note,rubrica",
@@ -68,6 +78,28 @@ class D5details extends Component
         }
 
         return $service->download($file);
+    }
+
+    public function previousEvidencePage(string $group): void
+    {
+        $property = $this->evidencePageProperty($group);
+        $this->{$property} = max(1, $this->{$property} - 1);
+    }
+
+    public function nextEvidencePage(string $group, int $lastPage): void
+    {
+        $property = $this->evidencePageProperty($group);
+        $this->{$property} = min($lastPage, $this->{$property} + 1);
+    }
+
+    private function evidencePageProperty(string $group): string
+    {
+        return match ($group) {
+            'partner'    => 'partnerEvidencePage',
+            'inspection' => 'inspectionEvidencePage',
+            'legacy'     => 'legacyEvidencePage',
+            default      => throw new \InvalidArgumentException('Grupo de evidências inválido.'),
+        };
     }
 
     public function render()

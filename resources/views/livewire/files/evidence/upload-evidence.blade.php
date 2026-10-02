@@ -103,7 +103,7 @@
                 <button type="button" class="btn btn-sm btn-link text-danger" wire:click="cancelEvidences">Limpar
                     Tudo</button>
             </div>
-            <ul class="list-group">
+            <ul class="list-group evidence-upload-queue">
                 @foreach ($tempFiles as $i => $t)
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div class="text-truncate">
@@ -139,6 +139,11 @@
             border-color: #198754 !important;
             background: rgba(25, 135, 84, 0.1) !important;
             transform: scale(1.01);
+        }
+
+        .evidence-upload-queue {
+            max-height: 14rem;
+            overflow-y: auto;
         }
     </style>
 </div>
