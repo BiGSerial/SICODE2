@@ -3,9 +3,9 @@
 namespace App\Console\Commands\SqlLog;
 
 use App\Console\Commands\Concerns\ShowsProgress;
-use App\Models\Reclaim;
-use App\Models\ScheduleExecutionLog;
+use App\Models\{Reclaim, ScheduleExecutionLog};
 use App\Models\SicodeSql\ReclaimLog;
+use App\Services\Reclaims\ReclaimRowPresenter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 
@@ -13,8 +13,9 @@ class Reclaims extends Command
 {
     use ShowsProgress;
 
-    private const CHUNK_SIZE = 100;
-    private const FALLBACK_HOURS = 2;
+    private const CHUNK_SIZE                 = 100;
+    private const EXTRA_COLUMNS              = ['rubrica', 'municipality', 'group5', 'material', 'text', 'status', 'completed'];
+    private const FALLBACK_HOURS             = 2;
     private const WATERMARK_LOOKBACK_MINUTES = 5;
 
     /**
@@ -38,115 +39,117 @@ class Reclaims extends Command
     {
 
         $date = $this->syncSince();
-        $totalSteps = Reclaim::when($date, function ($query) use ($date) {
-            return $query->where('updated_at', '>=', $date);
-        })->count();
 
-
-
-        // Configure o ProgressBar
-        $bar = $this->createProgressBar($totalSteps);
-
-        // Estilo customizado para uma aparência moderna e elegante
-        // $bar->setFormatDefinition('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
-
-        // Defina o formato customizado
-        $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
-
-        //  Caracteres para um visual mais limpo (opcional, mas recomendado)
-        $bar->setBarCharacter('<fg=green>█</>'); // Barra preenchida
-        $bar->setEmptyBarCharacter('<fg=red>░</>'); // Barra vazia
-        $bar->setProgressCharacter('<fg=green>█</>'); // Caractere de progresso (pode ser o mesmo da barra preenchida)
-
-        // Adicione informações úteis
-        $bar->setMessage('Iniciando...'); // Mensagem inicial
-
-
-        $bar->start();
-
-        Reclaim::when($date, function ($query) use ($date) {
-            return $query->where('updated_at', '>=', $date);
-        })->with([
-            'Production.User.Company',
-            'Production.Company',
-            'Note',
-            'Approvals.User.Company',
-            'Viabilities.User.Company',
-            'Waiting.User.Company',
-            'Service',
-        ])->chunkById(self::CHUNK_SIZE, function ($reclaims) use (&$bar) {
-
-            $rows = [];
-            $message = '';
-            foreach ($reclaims as $reclaim) {
-
-                $origem['origem'] = 'Desconhecida';
-                $work = null;
-
-                if ($reclaim->Approvals->isNotEmpty()) {
-                    $origem['origem'] = 'Analise Projeto';
-                    $work = $reclaim->Approvals->first();
-                }
-
-                if ($reclaim->Viabilities->isNotEmpty()) {
-                    $origem['origem'] = 'Viabilidade';
-                    $work = $reclaim->Viabilities->first();
-                }
-
-                if ($reclaim->Waiting) {
-                    $origem['origem'] = 'Contratação';
-                    $work = $reclaim->Waiting;
-                }
-
-                $rows[] = [
-                    'reclaim_id' => $reclaim->id,
-                    'note' => $reclaim->Note->note,
-                    'origin' => $origem['origem'],
-                    'service' => $reclaim->Service->service,
-                    'category' => $reclaim->category,
-                    'emissor' => $work?->User?->name ?? 'Desconhecido',
-                    'company_emissor' => $work?->User?->Company?->name ?? 'Desconhecido',
-                    'received_at' => $reclaim->created_at,
-                    'att_at' => $reclaim->Production ? $reclaim->Production->att_at : '',
-                    'completed_at' => $reclaim->completed_at,
-                    'user' => $reclaim->Production?->User?->name ?? 'Desconhecido',
-                    'company_user' => $reclaim->Production?->Company?->name ?? 'Desconhecido',
-                ];
-
-                $message = $reclaim->Note->note." - ".$reclaim->Service->service;
-            }
-
-            if ($rows) {
-                ReclaimLog::upsert(
-                    $rows,
-                    ['reclaim_id'],
-                    [
-                        'note',
-                        'origin',
-                        'service',
-                        'category',
-                        'emissor',
-                        'company_emissor',
-                        'received_at',
-                        'att_at',
-                        'completed_at',
-                        'user',
-                        'company_user',
-                    ]
-                );
-
-                $bar->setMessage($message);
-                $bar->advance(count($rows));
-            }
+        // Reclaims ativos (os exibidos na tela) são sempre ressincronizados: mudanças em
+        // Production/Approvals/etc. não atualizam reclaims.updated_at.
+        $scope = fn ($query) => $query->when($date, function ($query) use ($date) {
+            return $query->where(function ($q) use ($date) {
+                $q->where('reclaims.updated_at', '>=', $date)
+                    ->orWhere('reclaims.completed', false);
+            });
         });
 
-        // Mensagem de finalização
-        $bar->setMessage('<info>Concluído!</info>'); // Use um estilo para destacar
+        $totalSteps = $scope(Reclaim::query())->count();
 
+        $extraColumns = $this->availableExtraColumns();
+
+        $bar = $this->createProgressBar($totalSteps);
+        $bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% | %message%');
+        $bar->setBarCharacter('<fg=green>█</>');
+        $bar->setEmptyBarCharacter('<fg=red>░</>');
+        $bar->setProgressCharacter('<fg=green>█</>');
+        $bar->setMessage('Iniciando...');
+        $bar->start();
+
+        $scope(Reclaim::query())
+            ->with(ReclaimRowPresenter::RELATIONS)
+            ->chunkById(self::CHUNK_SIZE, function ($reclaims) use (&$bar, $extraColumns) {
+                $rows    = [];
+                $message = '';
+
+                foreach ($reclaims as $reclaim) {
+                    $data = ReclaimRowPresenter::row($reclaim);
+
+                    $row = [
+                        'reclaim_id'      => $reclaim->id,
+                        'note'            => $data['note'],
+                        'origin'          => $data['origin'],
+                        'service'         => $reclaim->Service?->service,
+                        'category'        => $reclaim->category,
+                        'emissor'         => $data['requester'] ?: 'Desconhecido',
+                        'company_emissor' => $data['requester_company'] ?: 'Desconhecido',
+                        'received_at'     => $reclaim->created_at,
+                        'att_at'          => $data['att_at'],
+                        'completed_at'    => $reclaim->completed_at,
+                        'user'            => $data['responsible'] ?: 'Desconhecido',
+                        'company_user'    => $data['responsible_company'] ?: 'Desconhecido',
+                    ];
+
+                    $extra = [
+                        'rubrica'      => $data['rubrica'],
+                        'municipality' => $data['municipality'],
+                        'group5'       => $data['group5'],
+                        'material'     => $data['material'],
+                        'text'         => $data['text'],
+                        'status'       => $data['status'],
+                        'completed'    => $reclaim->completed ? 1 : 0,
+                    ];
+
+                    $rows[]  = $row + array_intersect_key($extra, array_flip($extraColumns));
+                    $message = $data['note'] . ' - ' . $reclaim->Service?->service;
+                }
+
+                if ($rows) {
+                    ReclaimLog::upsert(
+                        $rows,
+                        ['reclaim_id'],
+                        array_values(array_diff(array_keys($rows[0]), ['reclaim_id']))
+                    );
+
+                    $bar->setMessage($message);
+                    $bar->advance(count($rows));
+                }
+            }, 'reclaims.id', 'id');
+
+        if ($this->option('full')) {
+            $this->purgeDeleted();
+        }
+
+        $bar->setMessage('<info>Concluído!</info>');
         $bar->finish();
+        $this->output->writeln('');
 
-        // Adicione uma nova linha após a barra de progresso
-        $this->output->writeln(''); // Garante que a saída seguinte não fique na mesma linha da barra
+        if ($missing = array_diff(self::EXTRA_COLUMNS, $extraColumns)) {
+            $this->warn('Colunas ausentes em log_reclaims (não sincronizadas): ' . implode(', ', $missing));
+            $this->line('Veja docs/sql/log_reclaims_extra_columns.sql');
+        }
+    }
+
+    /** Colunas opcionais: gravadas apenas se já existirem no SQL Server. */
+    private function availableExtraColumns(): array
+    {
+        try {
+            $existing = array_map('strtolower', Schema::connection((new ReclaimLog())->getConnectionName())
+                ->getColumnListing((new ReclaimLog())->getTable()));
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return array_values(array_filter(self::EXTRA_COLUMNS, fn ($c) => in_array($c, $existing, true)));
+    }
+
+    /** Remove do SQL Server reclaims que não existem mais no MySQL (só no --full). */
+    private function purgeDeleted(): void
+    {
+        $existing = Reclaim::query()->pluck('id')->all();
+
+        ReclaimLog::query()->pluck('reclaim_id')->chunk(1000)->each(function ($ids) use ($existing) {
+            $gone = $ids->diff($existing)->values()->all();
+
+            if ($gone) {
+                ReclaimLog::whereIn('reclaim_id', $gone)->delete();
+            }
+        });
     }
 
     private function syncSince(): ?string
