@@ -44,7 +44,7 @@ class PostWorkProcessReportService
     private ?array $holidays = null;
 
     /**
-     * @param array{type?: string, from?: ?string, to?: ?string, company_id?: ?string, only_late?: bool|string, search?: ?string} $filters
+     * @param array{type?: string, from?: ?string, to?: ?string, company_id?: ?string, only_late?: bool|string, only_open?: bool|string, search?: ?string} $filters
      * @return Collection<int, array<string, mixed>>
      */
     public function rows(array $filters): Collection
@@ -67,6 +67,11 @@ class PostWorkProcessReportService
 
         if (filter_var($filters['only_late'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             $rows = $rows->filter(fn (array $row) => $row['any_late']);
+        }
+
+        // Somente em aberto: exclui informes cujo Pagamento/Medição já foi concluído.
+        if (filter_var($filters['only_open'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $rows = $rows->filter(fn (array $row) => $row['current_stage'] !== 'done');
         }
 
         return $rows->sortByDesc('start_at_raw')->values();

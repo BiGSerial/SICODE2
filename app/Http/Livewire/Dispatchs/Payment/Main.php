@@ -669,7 +669,7 @@ class Main extends Component
                                             ->orderByDesc('created_at'),
             ]);
 
-            $fiveNote = (bool) ($note->WorkForm?->FiveNote ?? $note->FiveNote);
+            $fiveNote = (bool) (($note->WorkForm?->FiveNote ?? $note->FiveNote)?->needsPaymentAction());
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
@@ -1044,8 +1044,17 @@ class Main extends Component
                       AND (
                           (
                               COALESCE(fn.is_supervisioned, 0) = 0
+                              AND COALESCE(fn.is_completed, 0) = 0
                               AND COALESCE(fn.visible_partner, 0) = 0
                               AND COALESCE(fn.is_payed, 0) = 0
+                              AND fn.dispatch_at IS NULL
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM productionables pa
+                                  JOIN productions pp ON pp.id = pa.production_id
+                                  JOIN services sv ON sv.uuid = pp.service_id AND sv.service = 'Pagamento'
+                                  WHERE pa.productionable_type = 'App\\Models\\FiveNote'
+                                    AND pa.productionable_id = fn.id
+                              )
                           )
                           OR (
                               COALESCE(fn.is_supervisioned, 0) = 1
@@ -1135,7 +1144,7 @@ class Main extends Component
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
-            'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
+            'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at,visible_partner,dispatch_at',
             'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
@@ -1154,7 +1163,7 @@ class Main extends Component
             ])->where('canceled', false),
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
-            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
+            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at,visible_partner,dispatch_at',
             'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,created_at',
@@ -1178,7 +1187,7 @@ class Main extends Component
             'Partials.Company:id,name,deleted_at',
             'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
+            'FiveNote:id,note_id,work_report_id,is_supervisioned,is_completed,is_archived,is_payed,completed_at,visible_partner,dispatch_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
                                           ->select([
                                               'id',
@@ -1217,7 +1226,7 @@ class Main extends Component
                 ->values();
 
             if ($eligibleWorkForms->isEmpty()) {
-                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
+                if ($workForms->isNotEmpty() && !$note->FiveNote?->needsPaymentAction()) {
                     return [];
                 }
 
@@ -1244,8 +1253,10 @@ class Main extends Component
                 return [$note];
             }
 
-            return $eligibleWorkForms->map(function ($workForm) use ($note) {
+            $informeRows = $eligibleWorkForms->map(function ($workForm) use ($note) {
                 $row = clone $note;
+                // D5 legada e D5 de informe coexistem: a linha do informe só carrega a D5 do próprio informe.
+                $row->setRelation('FiveNote', $workForm->relationLoaded('FiveNote') ? $workForm->FiveNote : null);
                 $row->setRelation('WorkForm', $workForm);
                 $row->setRelation('WorkForms', collect([$workForm]));
                 $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
@@ -1254,6 +1265,15 @@ class Main extends Component
 
                 return $row;
             });
+
+            // D5 legada tem ciclo próprio: linha da nota enquanto ainda exige ação da Medição.
+            if ($note->FiveNote?->needsPaymentAction()) {
+                $legacyRow = clone $note;
+                $legacyRow->setAttribute('payment_context_key', (string) $note->id);
+                $informeRows = collect([$legacyRow])->concat($informeRows);
+            }
+
+            return $informeRows;
         })->values();
     }
 
@@ -1270,18 +1290,6 @@ class Main extends Component
         $candidates = app(\App\Services\Payment\WorkReportPaymentCandidateQuery::class);
 
         return $orders->contains(fn ($order) => $candidates->orderIsEligible($order));
-    }
-
-    private function isD5ReturnReadyForPayment(Note $note): bool
-    {
-        $five = $note->FiveNote;
-
-        return (bool) (
-            $five
-            && !$five->is_archived
-            && $five->is_completed
-            && $five->is_supervisioned
-        );
     }
 
     /**

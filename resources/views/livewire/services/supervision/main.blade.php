@@ -233,7 +233,7 @@
                                         $workForm = $flowWorkForm ?? $note->WorkForm;
                                         $formBlock = $workForm ? (bool) $workForm->rejected : false;
 
-                                        $dfive = $list->dfive ? ($workForm?->FiveNote ?: $note->FiveNote) : null;
+                                        $dfive = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
                                         $rowWarn = $list->priority
                                             ? 'table-danger'
                                             : ($formBlock

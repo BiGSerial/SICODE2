@@ -310,11 +310,6 @@ class DispatchWorkflowService
             $context = $this->contextResolver->for($note, $service);
             $isScopedPaymentDispatch = $serviceKey === 'payment' && !empty($targetWorkReportIds);
 
-            if ($explicitWorkReportId && $this->isD5Dispatch($note, $serviceKey, $finalScopes, $explicitWorkReportId)) {
-                $legacyFive = $note->LegacyFiveNote()->first();
-                $legacyFive?->update(['work_report_id' => $explicitWorkReportId]);
-            }
-
             $dd = $this->normalizeDd($dd);
             if ($context['requires_dd'] && !$dd) {
                 throw new DispatchException('Todas as Notas/OVs precisam estar associadas a uma Nota DD.');
@@ -364,7 +359,7 @@ class DispatchWorkflowService
             $this->attachPartialContext($production, $partialId);
 
             if ($production->dfive) {
-                $fiveNote = $this->fiveNoteForDispatchContext($note, $explicitWorkReportId);
+                $fiveNote = $this->fiveNoteForDispatchContext($note, $explicitWorkReportId, $serviceKey);
                 $fiveNote?->productions()->syncWithoutDetaching([$production->id]);
             }
 
@@ -495,13 +490,19 @@ class DispatchWorkflowService
             ->all();
     }
 
-    private function fiveNoteForDispatchContext(Note $note, ?int $workReportId = null): ?\App\Models\FiveNote
+    /**
+     * D5 legada (sem informe) e D5 de informe coexistem, cada uma com seu ciclo. Com informe
+     * explicito vale somente a D5 daquele informe; a legada nunca e atribuida ao informe por palpite.
+     */
+    private function fiveNoteForDispatchContext(Note $note, ?int $workReportId = null, string $serviceKey = "supervision"): ?\App\Models\FiveNote
     {
         if ($workReportId) {
-            $workReportFive = WorkReport::query()->with("FiveNote")->whereKey($workReportId)->where("note_id", $note->id)->first()?->FiveNote;
-            if ($workReportFive) {
-                return $workReportFive;
-            }
+            return WorkReport::query()->with("FiveNote")->whereKey($workReportId)->where("note_id", $note->id)->first()?->FiveNote;
+        }
+
+        if ($serviceKey === "payment") {
+            return $note->LegacyFiveNote()->where("is_archived", false)->get()
+                ->first(fn (\App\Models\FiveNote $five) => $five->needsPaymentAction());
         }
 
         return $note->LegacyFiveNote()->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->first();
@@ -509,11 +510,11 @@ class DispatchWorkflowService
 
     private function isD5Dispatch(Note $note, string $serviceKey, array $finalScopes = [], ?int $workReportId = null): bool
     {
-        $fiveNote = $this->fiveNoteForDispatchContext($note, $workReportId);
+        $fiveNote = $this->fiveNoteForDispatchContext($note, $workReportId, $serviceKey);
 
         return match ($serviceKey) {
             "supervision" => (bool) ($fiveNote && $fiveNote->is_completed && !$fiveNote->is_supervisioned),
-            "payment" => (bool) $fiveNote && empty($finalScopes),
+            "payment" => (bool) ($fiveNote && $fiveNote->needsPaymentAction()) && empty($finalScopes),
             default => false,
         };
     }
@@ -703,13 +704,10 @@ class DispatchWorkflowService
         $workReportId = $workReportId ?: $production->WorkReportFlowProductions()
             ->where("stage", WorkReportFlowProduction::STAGE_FISCALIZATION)
             ->where("is_current", true)->orderByDesc("linked_at")->value("work_report_id");
-        $five = $note ? $this->fiveNoteForDispatchContext($note, $workReportId) : null;
+        // D5 explicita: vinculo da producao (criado no despacho); sem palpite pela nota.
+        $five = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($production);
         if (!$five) {
             return;
-        }
-
-        if ($workReportId && empty($five->work_report_id)) {
-            $five->update(["work_report_id" => $workReportId]);
         }
 
         $five->productions()->syncWithoutDetaching([$production->id]);

@@ -49,7 +49,12 @@ class DispatchContextResolver
             $context['block_reason'] = $eval['reason'] ?? null;
         } elseif ($serviceKey === 'payment') {
             $eval = app(\App\Services\Payment\BlockEvaluator::class)->evaluate($note, $service);
-            $fiveNote = $note->WorkForm?->FiveNote ?? $note->FiveNote;
+            // D5 legada e D5 de informe coexistem: linha de informe só olha a D5 do próprio informe;
+            // linha da nota só olha a legada. Só conta se ainda exige ação da Medição.
+            $fiveNote = (int) ($note->dispatch_work_report_id ?? 0) > 0
+                ? $note->WorkForm?->FiveNote
+                : $note->FiveNote;
+            $fiveNote = $fiveNote?->needsPaymentAction() ? $fiveNote : null;
 
             $context['is_partial'] = (bool) ($eval['isPartial'] ?? false);
             $context['can_dispatch'] = !$eval['block'] || (bool) ($eval['command'] ?? false);

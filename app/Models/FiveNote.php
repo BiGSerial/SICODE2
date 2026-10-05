@@ -95,6 +95,40 @@ class FiveNote extends Model
         'returned'          => 'boolean',
     ];
 
+    /**
+     * D5 que a Medição/Pagamento ainda precisa criar/despachar: não arquivada, sem
+     * retorno/fiscalização/pagamento, nunca liberada ao parceiro e sem produção de Pagamento.
+     * D5 já despachada (mesmo sem fiscalização) NÃO entra aqui.
+     */
+    public function scopeAwaitingPaymentCreation($query)
+    {
+        return $query->where('is_archived', false)
+            ->where('is_supervisioned', false)
+            ->where('is_completed', false)
+            ->where('visible_partner', false)
+            ->where('is_payed', false)
+            ->whereNull('dispatch_at')
+            ->whereDoesntHave('productions', fn ($p) => $p->whereHas('Service', fn ($s) => $s->where('service', 'Pagamento')));
+    }
+
+    public function isAwaitingPaymentCreation(): bool
+    {
+        return !$this->is_archived
+            && !$this->is_supervisioned
+            && !$this->is_completed
+            && !$this->visible_partner
+            && !$this->is_payed
+            && !$this->dispatch_at
+            && !$this->productions()->whereHas('Service', fn ($s) => $s->where('service', 'Pagamento'))->exists();
+    }
+
+    /** D5 que ainda exige ação da Medição/Pagamento: criar/despachar ou liberar carta após fiscalização. */
+    public function needsPaymentAction(): bool
+    {
+        return $this->isAwaitingPaymentCreation()
+            || ($this->is_completed && $this->is_supervisioned && !$this->is_archived);
+    }
+
     public function note(): BelongsTo
     {
         return $this->belongsTo(Note::class);

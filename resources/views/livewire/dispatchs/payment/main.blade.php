@@ -375,9 +375,12 @@
                                     if ($five->is_supervisioned ?? false) {
                                         $d5BadgeClass = 'text-bg-success';
                                         $d5Msg = 'D5 Fiscalizada – liberar carta';
-                                    } else {
+                                    } elseif ($five->isAwaitingPaymentCreation()) {
                                         $d5BadgeClass = 'text-bg-primary';
                                         $d5Msg = 'Gerar D5 e reter carta';
+                                    } else {
+                                        $d5BadgeClass = 'text-bg-secondary';
+                                        $d5Msg = 'D5 já despachada – aguardando fiscalização';
                                     }
                                 }
 
