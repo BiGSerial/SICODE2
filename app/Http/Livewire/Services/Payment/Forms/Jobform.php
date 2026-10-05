@@ -211,50 +211,14 @@ class Jobform extends Component
         return null;
     }
 
+    /**
+     * Produção `dfive` com D5 associada resolve a D5; caso contrário resolve o informe normalmente.
+     */
     private function fiveNoteForCurrentProduction(): ?FiveNote
     {
-        if (!$this->production) {
-            return null;
-        }
-
-        $production = $this->production;
-
-        // Primeiro: a própria produção já está associada diretamente à D5.
-        $directFive = $production->fiveNotes()
-            ->where('note_id', $production->note_id)
-            ->latest('id')
-            ->first();
-
-        if ($directFive) {
-            return $directFive;
-        }
-
-        // Segundo: a produção está associada a um informe e o informe possui D5.
-        $workReportIds = $production->WorkReportFlowProductions()
-            ->whereIn('stage', [
-                \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
-                \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION,
-            ])
-            ->orderByDesc('is_current')
-            ->orderByDesc('id')
-            ->pluck('work_report_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-        foreach ($workReportIds as $workReportId) {
-            $five = FiveNote::query()
-                ->where('note_id', $production->note_id)
-                ->where('work_report_id', $workReportId)
-                ->first();
-
-            if ($five) {
-                return $five;
-            }
-        }
-
-        // Fallback legado: D5 diretamente associada à Nota/OV.
-        return $production->note?->FiveNote;
+        return $this->production
+            ? app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($this->production)
+            : null;
     }
 
     public function status()

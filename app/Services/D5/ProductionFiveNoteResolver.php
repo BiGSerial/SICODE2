@@ -10,8 +10,8 @@ use Illuminate\Support\Collection;
  * Resolve a D5 que uma produção (Fiscalização/Pagamento) deve tratar.
  *
  * Uma produção só trata D5 quando está marcada com `dfive` E associada a uma D5.
- * A associação é sempre explícita (pivot `productionables`, depois informe atual
- * da produção). Nunca se assume a "D5 da nota" quando há mais de uma candidata.
+ * A associação é sempre explícita (pivot `productionables`, depois a D5 do informe
+ * atual da produção). Nunca se assume a "D5 da nota" quando há mais de uma candidata.
  */
 class ProductionFiveNoteResolver
 {
@@ -29,7 +29,33 @@ class ProductionFiveNoteResolver
             return $this->pickLinked($production, $linked);
         }
 
-        return null;
+        // Sem vínculo direto: vale a D5 do informe ao qual a produção está associada.
+        $reportIds = $this->currentReportIds($production);
+        if ($reportIds->isEmpty()) {
+            return null;
+        }
+
+        $byReport = FiveNote::query()
+            ->where('note_id', $production->note_id)
+            ->whereIn('work_report_id', $reportIds)
+            ->where('is_archived', false)
+            ->limit(2)
+            ->get();
+
+        return $byReport->count() === 1 ? $byReport->first() : null;
+    }
+
+    private function currentReportIds(Production $production): Collection
+    {
+        return ($production->relationLoaded('WorkReportFlowProductions')
+            ? $production->WorkReportFlowProductions
+            : $production->WorkReportFlowProductions()->get())
+            ->where('is_current', true)
+            ->pluck('work_report_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
     }
 
     private function pickLinked(Production $production, Collection $linked): ?FiveNote
@@ -41,13 +67,7 @@ class ProductionFiveNoteResolver
             return $pool->first();
         }
 
-        $reportIds = ($production->relationLoaded('WorkReportFlowProductions')
-            ? $production->WorkReportFlowProductions
-            : $production->WorkReportFlowProductions()->get())
-            ->where('is_current', true)
-            ->pluck('work_report_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id);
+        $reportIds = $this->currentReportIds($production);
 
         $byReport = $pool->filter(fn (FiveNote $five) => $reportIds->contains((int) $five->work_report_id));
 

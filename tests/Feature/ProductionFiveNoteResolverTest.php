@@ -32,6 +32,21 @@ class ProductionFiveNoteResolverTest extends TestCase
         $this->assertSame($linked->id, app(ProductionFiveNoteResolver::class)->resolve($production->fresh())->id);
     }
 
+    public function test_dfive_production_resolves_the_d5_of_its_informe_without_pivot(): void
+    {
+        [$note, $payment] = $this->fixture();
+        $report = $this->report($note);
+        $this->five($note); // legada: nunca assumida
+        $own = $this->five($note, ['work_report_id' => $report->id]);
+        $production = $this->production($note, $payment);
+        \App\Models\WorkReportFlowProduction::create([
+            'work_report_id' => $report->id, 'production_id' => $production->id,
+            'stage' => \App\Models\WorkReportFlowProduction::STAGE_PAYMENT, 'is_current' => true,
+        ]);
+
+        $this->assertSame($own->id, app(ProductionFiveNoteResolver::class)->resolve($production->fresh())->id);
+    }
+
     public function test_ambiguous_note_without_link_does_not_guess(): void
     {
         [$note, $payment] = $this->fixture();
