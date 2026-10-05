@@ -309,6 +309,9 @@ class DispatchWorkflowService
 
             $context = $this->contextResolver->for($note, $service);
             $isScopedPaymentDispatch = $serviceKey === 'payment' && !empty($targetWorkReportIds);
+            $isPaymentD5ForInforme = $serviceKey === 'payment'
+                && $explicitWorkReportId
+                && $this->isD5Dispatch($note, $serviceKey, $finalScopes, $explicitWorkReportId);
 
             $dd = $this->normalizeDd($dd);
             if ($context['requires_dd'] && !$dd) {
@@ -351,9 +354,12 @@ class DispatchWorkflowService
                 'status' => $targetUser ? 2 : 1,
                 'centroTrab' => $note->centerjob,
                 'partial' => (bool) ($partialId || ($context['is_partial'] ?? false)),
-                'dfive' => !$isScopedPaymentDispatch
-                    && ($this->isD5Dispatch($note, $serviceKey, $finalScopes, $explicitWorkReportId)
-                        || (bool) ($context['is_d5_fiscalization'] ?? false)),
+                // Informe com D5 própria que ainda exige a Medição: a produção é da D5 (e será vinculada a ela),
+                // mesmo sendo um despacho por informe/escopo.
+                'dfive' => $isPaymentD5ForInforme
+                    || (!$isScopedPaymentDispatch
+                        && ($this->isD5Dispatch($note, $serviceKey, $finalScopes, $explicitWorkReportId)
+                            || (bool) ($context['is_d5_fiscalization'] ?? false))),
             ]);
 
             $this->attachPartialContext($production, $partialId);
@@ -514,7 +520,8 @@ class DispatchWorkflowService
 
         return match ($serviceKey) {
             "supervision" => (bool) ($fiveNote && $fiveNote->is_completed && !$fiveNote->is_supervisioned),
-            "payment" => (bool) ($fiveNote && $fiveNote->needsPaymentAction()) && empty($finalScopes),
+            // Com informe explicito os escopos do informe nao descaracterizam a D5 daquele informe.
+            "payment" => (bool) ($fiveNote && $fiveNote->needsPaymentAction()) && ($workReportId || empty($finalScopes)),
             default => false,
         };
     }
