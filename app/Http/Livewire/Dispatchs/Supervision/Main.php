@@ -7,7 +7,7 @@ use App\Jobs\ExportSupervisionList;
 use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport, Wpa};
 use App\Models\City;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
-use App\Services\Supervision\{BlockEvaluator, WorkReportSupervisionCandidateQuery};
+use App\Services\Supervision\{BlockEvaluator, SupervisionDispatchListQuery};
 use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -243,13 +243,25 @@ class Main extends Component
             'serviceUuid'              => $this->service->uuid,
             'user_id'                  => auth()->user()->id,
             'filterD5'                 => $this->filter_d5,
+            'bulkSearchAnyStatus'      => (bool) $this->bulkSearchAnyStatus,
             'selected_work_report_ids' => collect($this->selected)
                 ->map(fn ($key) => $this->parseWorkReportSelectionKey($key))
                 ->filter()
                 ->unique()
                 ->values()
                 ->all(),
-            'selected_partial_ids' => [],
+            'selected_partial_ids' => collect($this->selected)
+                ->map(fn ($key) => $this->parsePartialSelectionKey($key)['partial_id'] ?? null)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'selected_five_note_ids' => collect($this->selected)
+                ->map(fn ($key) => $this->parsePassiveD5SelectionKey($key)['five_note_id'] ?? null)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
         ]);
 
         $this->dispatchBrowserEvent('swal', [
@@ -288,8 +300,8 @@ class Main extends Component
 
         $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
 
-        return $this->rowScopedProductions($note)->first(fn (Production $production) =>
-            in_array((string) $production->company_id, array_map("strval", $companyIds), true)
+        return $this->rowScopedProductions($note)->first(
+            fn (Production $production) => in_array((string) $production->company_id, array_map("strval", $companyIds), true)
             && is_null($production->user_id)
             && !$production->completed
             && !$production->confirmed
@@ -306,7 +318,7 @@ class Main extends Component
         $productions  = $note->Productions->where('service_id', $this->service->uuid);
         $workReportId = (int) ($note->operational_work_report_id ?? 0);
         $fiveNoteId   = (int) ($note->dispatch_five_note_id ?? 0);
-        $partialId   = (int) ($note->dispatch_partial_id ?? 0);
+        $partialId    = (int) ($note->dispatch_partial_id ?? 0);
 
         if ($workReportId <= 0) {
             if ($partialId > 0) {
@@ -323,8 +335,8 @@ class Main extends Component
                     ->where('payment', false);
 
                 if ($eligiblePartials->count() === 1 && (int) $eligiblePartials->first()->id === $partialId) {
-                    $legacyOpen = $productions->filter(fn (Production $production) =>
-                        (bool) $production->partial
+                    $legacyOpen = $productions->filter(
+                        fn (Production $production) => (bool) $production->partial
                         && !$production->completed
                         && !$production->confirmed
                         && $production->partialInforms->isEmpty()
@@ -337,13 +349,14 @@ class Main extends Component
 
                 return collect();
             }
+
             if ($fiveNoteId > 0) {
-                $linked = $productions->filter(fn (Production $production) => $production->fiveNotes->contains("id", $fiveNoteId));
+                $linked        = $productions->filter(fn (Production $production) => $production->fiveNotes->contains("id", $fiveNoteId));
                 $legacyD5Count = $note->relationLoaded("FiveNotes")
                     ? $note->FiveNotes->whereNull("work_report_id")->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->count()
                     : 0;
-                $unlinkedD5Productions = $productions->filter(fn (Production $production) =>
-                    $production->dfive
+                $unlinkedD5Productions = $productions->filter(
+                    fn (Production $production) => $production->dfive
                     && !$production->completed
                     && !$production->confirmed
                     && $production->fiveNotes->isEmpty()
@@ -584,7 +597,7 @@ class Main extends Component
             return;
         }
 
-        $selectedKeys = collect($this->selected);
+        $selectedKeys  = collect($this->selected);
         $workReportIds = $selectedKeys
             ->map(fn ($key) => $this->parseWorkReportSelectionKey($key))
             ->filter()
@@ -622,7 +635,9 @@ class Main extends Component
             ->get(['id', 'note_id'])
             ->map(fn (WorkReport $report) => ['note_id' => (int) $report->note_id, 'work_report_id' => (int) $report->id]);
 
-        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes',
+        $this->emitTo(
+            'dispatchs.shared.dispatch-modal',
+            'openForNotes',
             $reportContexts->concat($partialContexts)->concat($passiveD5Contexts)->all()
         );
     }
@@ -1086,201 +1101,23 @@ class Main extends Component
         //     dd($this->filter);
         // }
 
-        $bypassEligibility = $this->bulkSearchAnyStatus && count($this->multiSearch);
-
-        $dispatchRows = app(WorkReportSupervisionCandidateQuery::class)
-            ->dispatchRowsSubquery((bool) $bypassEligibility);
-
-        $query = Note::query()
-            ->excludeCanceledFullDone()
-            ->joinSub($dispatchRows, "dispatch_rows", function ($join) {
-                $join->on("dispatch_rows.note_id", "=", "notes.id");
-            })
-            ->leftJoin("work_reports", "work_reports.id", "=", "dispatch_rows.work_report_id");
-
-        if (Auth()->User()?->contract) {
-            $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
-
-            if (empty($companyIds)) {
-                $query->whereRaw("0 = 1");
-            } else {
-                $query->where(function ($visible) use ($companyIds) {
-                    $visible->whereExists(function ($production) use ($companyIds) {
-                        $production->selectRaw("1")
-                            ->from("work_report_flow_productions as wrfp")
-                            ->join("productions as p", "p.id", "=", "wrfp.production_id")
-                            ->whereColumn("wrfp.work_report_id", "dispatch_rows.work_report_id")
-                            ->where("wrfp.stage", "fiscalization")
-                            ->where("wrfp.is_current", true)
-                            ->where("p.service_id", $this->service->uuid)
-                            ->whereIn("p.company_id", $companyIds)
-                            ->where("p.completed", false);
-                    })->orWhereExists(function ($production) use ($companyIds) {
-                        $production->selectRaw("1")
-                            ->from("productionables as pa")
-                            ->join("productions as p", "p.id", "=", "pa.production_id")
-                            ->whereColumn("pa.productionable_id", "dispatch_rows.partial_id")
-                            ->where("pa.productionable_type", (new \App\Models\Partial())->getMorphClass())
-                            ->where("p.service_id", $this->service->uuid)
-                            ->whereIn("p.company_id", $companyIds)
-                            ->where("p.completed", false);
-                    })->orWhereExists(function ($production) use ($companyIds) {
-                        $production->selectRaw("1")
-                            ->from("productionables as pa")
-                            ->join("productions as p", "p.id", "=", "pa.production_id")
-                            ->whereColumn("pa.productionable_id", "dispatch_rows.passive_d5_id")
-                            ->where("pa.productionable_type", (new \App\Models\FiveNote())->getMorphClass())
-                            ->where("p.service_id", $this->service->uuid)
-                            ->whereIn("p.company_id", $companyIds)
-                            ->where("p.completed", false);
-                    });
-                });
-            }
-        }
-
-        if (strlen($this->search)) {
-
-            $query->where(function ($q) {
-                return $q->where('note', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('material', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('numPedido', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('group1', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('group2', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('group4', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('group5', 'like', '%' . trim($this->search) . '%')
-                    ->orWhereRelation('Orders', 'ordem', 'like', '%' . trim($this->search) . '%');
-            });
-        }
+        $query = app(SupervisionDispatchListQuery::class)->build([
+            'serviceUuid'         => $this->service->uuid,
+            'user'                => Auth()->User(),
+            'search'              => $this->search,
+            'multiSearch'         => $this->multiSearch,
+            'rubrica_s'           => $this->rubrica_s,
+            'typeNote'            => $this->typeNote,
+            'not_assigned'        => (bool) $this->not_assigned,
+            'filterD5'            => (bool) $this->filter_d5,
+            'filter'              => (array) $this->filter,
+            'bulkSearchAnyStatus' => (bool) $this->bulkSearchAnyStatus,
+        ]);
 
         if (count($this->multiSearch)) {
             $this->gotoPage(1);
             $this->search = "";
-
-            $query->where(function ($q) {
-                return $q->WhereIn('note', $this->multiSearch)
-                    ->orWhereRelation('Orders', function ($q) {
-                        $q->WhereIn('ordem', $this->multiSearch);
-                    });
-            });
         }
-
-        if (count($this->rubrica_s)) {
-            $query->where(function ($q) {
-                return $q->whereIn('rubrica', $this->rubrica_s)
-                    ->orWhereNull('rubrica');
-            });
-        }
-
-        if ($this->typeNote) {
-            $query->where(function ($q) {
-                return $q->where('type_note', $this->typeNote)
-                    ->orWhereNull('type_note');
-            });
-        }
-
-        if ($this->not_assigned) {
-            $query->where(function ($unassigned) {
-                $unassigned->where(function ($report) {
-                    $report->whereNotNull("dispatch_rows.work_report_id")
-                        ->whereNotExists(function ($production) {
-                            $production->selectRaw("1")
-                                ->from("work_report_flow_productions as wrfp")
-                                ->join("productions as p", "p.id", "=", "wrfp.production_id")
-                                ->whereColumn("wrfp.work_report_id", "dispatch_rows.work_report_id")
-                                ->where("wrfp.stage", "fiscalization")
-                                ->where("wrfp.is_current", true)
-                                ->where("p.service_id", $this->service->uuid)
-                                ->where("p.completed", false)
-                                ->where("p.confirmed", false);
-                        });
-                })->orWhere(function ($partial) {
-                    $partial->whereNotNull("dispatch_rows.partial_id")
-                        ->whereNotExists(function ($production) {
-                            $production->selectRaw("1")->from("productionables as pa")
-                                ->join("productions as p", "p.id", "=", "pa.production_id")
-                                ->whereColumn("pa.productionable_id", "dispatch_rows.partial_id")
-                                ->where("pa.productionable_type", (new \App\Models\Partial())->getMorphClass())
-                                ->where("p.service_id", $this->service->uuid)
-                                ->where("p.completed", false)->where("p.confirmed", false);
-                        });
-                })->orWhere(function ($d5) {
-                    $d5->whereNotNull("dispatch_rows.passive_d5_id")
-                        ->whereNotExists(function ($production) {
-                            $production->selectRaw("1")
-                                ->from("productionables as pa")
-                                ->join("productions as p", "p.id", "=", "pa.production_id")
-                                ->whereColumn("pa.productionable_id", "dispatch_rows.passive_d5_id")
-                                ->where("pa.productionable_type", (new \App\Models\FiveNote())->getMorphClass())
-                                ->where("p.service_id", $this->service->uuid)
-                                ->where("p.completed", false)
-                                ->where("p.confirmed", false);
-                        });
-                });
-            });
-        }
-
-        if ($this->filter_d5) {
-            $query->where(function ($d5) {
-                $d5->whereExists(function ($linked) {
-                    $linked->selectRaw("1")
-                        ->from("five_notes as fn")
-                        ->whereColumn("fn.work_report_id", "dispatch_rows.work_report_id")
-                        ->where("fn.is_completed", true)
-                        ->where("fn.is_supervisioned", false)
-                        ->where("fn.is_archived", false);
-                })->orWhereNotNull("dispatch_rows.passive_d5_id");
-            });
-        }
-
-        if (isset($this->filter['rubrica'])) {
-            $query->whereIn('rubrica', $this->filter['rubrica']);
-        }
-
-        if (isset($this->filter['city'])) {
-
-            $query->whereRelation('City', function ($q) {
-                $q->whereIn('rdMunicipio', $this->filter['city']);
-            });
-        }
-
-        $query->with([
-            'orders' => function ($q) {
-                $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%');
-            },
-            'WorkForms' => function ($q) {
-                $q->where('canceled', false)->with([
-                    'Orders:id,ordem',
-                    'Adsform:id,work_report_id,tacit,created_at',
-                    'FiveNote:id,note_id,work_report_id,is_completed,is_supervisioned,is_archived,completed_at',
-                ]);
-            },
-            'Productions' => function ($q) {
-                $q->where('service_id', $this->service->uuid)->with([
-                    'User',
-                    'Company',
-                    'WorkReportFlowProductions',
-                    'fiveNotes:id,note_d5,work_report_id,note_id,is_completed,is_supervisioned,is_archived,completed_at',
-                    'partialInforms:id',
-                ]);
-            },
-            'Wpas',
-            'Partials',
-            'TempAdsInfos',
-            'OldAds',
-            'FiveNote',
-            'FiveNotes:id,note_id,work_report_id,is_completed,is_supervisioned,is_archived',
-        ])
-            ->select(
-                "notes.*",
-                "dispatch_rows.partial_id as row_partial_id",
-                "work_reports.id as operational_work_report_id",
-                "dispatch_rows.passive_d5_id",
-                "dispatch_rows.row_created_at as work_dt_created"
-            )
-            ->orderBy("work_dt_created", "ASC")
-            ->orderBy("notes.id", "ASC")
-            ->orderBy("dispatch_rows.work_report_id", "ASC")
-            ->orderBy("dispatch_rows.partial_id", "ASC");
 
         return $query;
     }
@@ -1392,7 +1229,7 @@ class Main extends Component
     public function selectionKeyFor(Note $note): string
     {
         $workReportId = (int) ($note->operational_work_report_id ?? 0);
-        $partialId = (int) ($note->dispatch_partial_id ?? 0);
+        $partialId    = (int) ($note->dispatch_partial_id ?? 0);
 
         if ($workReportId > 0) {
             return "wr:" . $workReportId;
@@ -1429,6 +1266,7 @@ class Main extends Component
         }
 
         [, $noteId, $partialId] = array_pad(explode(":", $key, 3), 3, null);
+
         return (int) $noteId > 0 && (int) $partialId > 0
             ? ["note_id" => (int) $noteId, "work_report_id" => null, "partial_id" => (int) $partialId, "five_note_id" => null]
             : null;
