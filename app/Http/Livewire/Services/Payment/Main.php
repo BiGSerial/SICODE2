@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Services\Payment;
 use App\Helpers\TextFormatter;
 use App\Http\Livewire\Concerns\Services\BulkSelfAssignable;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User, WorkReport};
+use App\Models\{Bancoupdate, Note, Production, Service, User, WorkReport};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Payment\{BlockEvaluator, NoteFilter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
@@ -36,6 +36,7 @@ class Main extends Component
     public $rubrica_l;
 
     public $note;
+
     public ?int $paymentTargetWorkReportId = null;
 
     public $last_update;
@@ -95,6 +96,7 @@ class Main extends Component
     private function rowSelectionKey(Note $note): string
     {
         $contextKey = $note->getAttribute('payment_context_key');
+
         if ($contextKey) {
             return (string) $contextKey;
         }
@@ -123,12 +125,12 @@ class Main extends Component
         $page->load([
             'WorkForm:id,note_id,company_id,informed_at,created_at,rejected,selected_final_scopes,equipment,changes,damage,connection',
             'WorkForm.Note:id,type_note',
-            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForms' => fn ($q) => $q->select(['id', 'note_id', 'company_id', 'informed_at', 'created_at', 'rejected', 'selected_final_scopes', 'equipment', 'changes', 'damage', 'connection'])
+            'WorkForms'                  => fn ($q) => $q->select(['id', 'note_id', 'company_id', 'informed_at', 'created_at', 'rejected', 'selected_final_scopes', 'equipment', 'changes', 'damage', 'connection'])
                 ->where('canceled', false),
             'WorkForms.Note:id,type_note',
-            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
         ]);
@@ -300,8 +302,8 @@ class Main extends Component
     public function to_accompany($noteId, ?int $workReportId = null)
     {
         $this->paymentTargetWorkReportId = $workReportId ?: null;
-        $note = Note::findOrFail($noteId);
-        $this->note = $note->loadMissing([
+        $note                            = Note::findOrFail($noteId);
+        $this->note                      = $note->loadMissing([
             'WorkForm',
             'FiveNote',
             'FiveNotes',
@@ -356,7 +358,7 @@ class Main extends Component
     public function add_to_accompany()
     {
         $workReportId = (int) ($this->paymentTargetWorkReportId ?: $this->note->getAttribute('payment_target_work_report_id'));
-        $result = $this->assignNoteToSelf(
+        $result       = $this->assignNoteToSelf(
             $this->note,
             $this->finalScopesForWorkReportId($workReportId),
             $workReportId ?: null
@@ -394,7 +396,7 @@ class Main extends Component
             return;
         }
 
-        $count = count($this->selected);
+        $count      = count($this->selected);
         $targetName = auth()->user()?->name ?? 'voce';
 
         $this->dispatchBrowserEvent('alertar', [
@@ -416,14 +418,14 @@ class Main extends Component
 
     public function add_to_accompany_mass(): void
     {
-        $success = 0;
-        $errors = [];
+        $success      = 0;
+        $errors       = [];
         $selectedRows = [];
 
         foreach ($this->selected as $selectedKey) {
             [$noteId, $workReportId] = $this->parseSelectionKey($selectedKey);
-            $selectedRows[] = [
-                'note_id' => $noteId,
+            $selectedRows[]          = [
+                'note_id'        => $noteId,
                 'work_report_id' => $workReportId ?: null,
             ];
         }
@@ -437,7 +439,7 @@ class Main extends Component
 
         foreach ($selectedRows as $selectedRow) {
             $workReportId = $selectedRow['work_report_id'];
-            $note = $notes->get($selectedRow['note_id']);
+            $note         = $notes->get($selectedRow['note_id']);
 
             if (!$note) {
                 continue;
@@ -456,7 +458,7 @@ class Main extends Component
             }
         }
 
-        $this->selected = [];
+        $this->selected  = [];
         $this->selectAll = false;
 
         if (count($errors)) {
@@ -465,9 +467,9 @@ class Main extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => $success ? 'warning' : 'error',
-                'title' => "Atribuição concluída ({$success} sucesso, " . count($errors) . ' falha)',
-                'html' => $msg,
+                'icon'     => $success ? 'warning' : 'error',
+                'title'    => "Atribuição concluída ({$success} sucesso, " . count($errors) . ' falha)',
+                'html'     => $msg,
             ]);
 
             return;
@@ -475,9 +477,9 @@ class Main extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => "Atribuição em massa concluída ({$success})",
-            'timer' => 2500,
+            'icon'     => 'success',
+            'title'    => "Atribuição em massa concluída ({$success})",
+            'timer'    => 2500,
         ]);
     }
 
@@ -512,8 +514,8 @@ class Main extends Component
 
         if ($workFormForValidation && !$d5ReturnReady && !$this->workReportEligibleForPayment($workFormForValidation)) {
             return [
-                'ok' => false,
-                'note' => $note->note,
+                'ok'     => false,
+                'note'   => $note->note,
                 'reason' => 'status das operacoes ainda nao permite assumir para medicao',
             ];
         }
@@ -534,6 +536,7 @@ class Main extends Component
         }
 
         $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
+
         // Em uma atribuicao por informe, somente o vinculo ativo daquele informe bloqueia.
         if ($targetWorkReportId) {
             $scopedProduction = Production::query()
@@ -548,9 +551,10 @@ class Main extends Component
                 ->first();
 
             $eval["command"] = !$scopedProduction;
+
             if ($scopedProduction) {
                 $eval["production"] = $scopedProduction;
-                $eval["reason"] = "prod_open_for_work_report";
+                $eval["reason"]     = "prod_open_for_work_report";
             }
         }
 
@@ -577,7 +581,7 @@ class Main extends Component
 
         $dt       = $isPartial ? $partialDate : $note->dt_status;
         $fiveNote = (bool) $targetFiveNote;
-        $data = [
+        $data     = [
             'note_id'     => $note->id,
             'service_id'  => $this->service->uuid,
             'user_id'     => $user->id,
@@ -612,10 +616,10 @@ class Main extends Component
         $production ??= $targetWorkReportId
             ? Production::create($data)
             : Production::firstOrCreate([
-                "note_id" => $note->id,
+                "note_id"    => $note->id,
                 "service_id" => $this->service->uuid,
-                "user_id" => $user->id,
-                "completed" => false,
+                "user_id"    => $user->id,
+                "completed"  => false,
             ], $data);
 
         if (!$production) {
@@ -639,6 +643,7 @@ class Main extends Component
                 'services_payment_self_assign'
             );
         }
+
         if ($targetFiveNote) {
             $targetFiveNote->productions()->syncWithoutDetaching([$production->id]);
 
@@ -717,10 +722,10 @@ class Main extends Component
 
         if ($workForm && !$this->isD5ReturnReadyForPayment($note) && !$this->workReportEligibleForPayment($workForm)) {
             return [
-                'block' => BlockEvaluator::HOLD_RED,
-                'command' => false,
-                'color' => 'table-danger',
-                'reason' => 'operations_not_ready_for_payment',
+                'block'      => BlockEvaluator::HOLD_RED,
+                'command'    => false,
+                'color'      => 'table-danger',
+                'reason'     => 'operations_not_ready_for_payment',
                 'production' => $note->Productions?->first(),
             ];
         }
@@ -1048,7 +1053,7 @@ class Main extends Component
 
             if ($d5WorkForms->isNotEmpty()) {
                 return $d5WorkForms->map(function ($workForm) use ($note, $d5ByWorkReport) {
-                    $row = clone $note;
+                    $row  = clone $note;
                     $five = $d5ByWorkReport->get((int) $workForm->id);
                     $row->setRelation('FiveNote', $five);
                     $row->setRelation('WorkForm', $workForm);
@@ -1100,25 +1105,12 @@ class Main extends Component
             ? $workForm->Orders
             : $workForm->Orders()->with('Operations')->get();
 
-        $normalizedStatus = fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status);
+        // Deve ser a mesma regra da consulta-base da pilha. A validação legada daqui
+        // exigia a operação 0010, removendo na expansão uma linha já elegível para o
+        // segundo ciclo de Medição/Pagamento.
+        $candidates = app(\App\Services\Payment\WorkReportPaymentCandidateQuery::class);
 
-        return $orders->contains(function ($order) use ($normalizedStatus) {
-            if (!str_starts_with($normalizedStatus($order->statusSist ?? ''), 'LIB')) {
-                return false;
-            }
-
-            $statuses = function (string $operation) use ($order, $normalizedStatus) {
-                return collect($order->Operations ?? [])
-                    ->where('operacao', $operation)
-                    ->pluck('status')
-                    ->map($normalizedStatus);
-            };
-
-            return $statuses('0010')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-                && $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-                && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
-                && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
-        });
+        return $orders->contains(fn ($order) => $candidates->orderIsEligible($order));
     }
 
     private function d5MustUsePrimaryNetworkReport(Note $note): bool
