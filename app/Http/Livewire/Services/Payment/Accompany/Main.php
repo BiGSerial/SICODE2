@@ -87,7 +87,7 @@ class Main extends Component
 
     public function export_d5tolist()
     {
-        return (new D5tolistExport($this->service, auth()->user()->id))->download(date('YmdHis-') . 'exportD5tolist.xlsx');
+        return (new D5tolistExport($this->service, $this->user_s ?: auth()->user()->id))->download(date('YmdHis-') . 'exportD5tolist.xlsx');
     }
 
     public function buscarMulti()

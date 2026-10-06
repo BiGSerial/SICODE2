@@ -329,11 +329,11 @@
                                 <textarea class="form-control" id="bulkD5Input" style="height: 260px;"
                                     placeholder="Cole aqui os valores (Nota e D5)"
                                     wire:model.debounce.500ms="bulkD5Input"></textarea>
-                                <label for="bulkD5Input">Cole os pares (Nota/Ordem e D5)</label>
+                                <label for="bulkD5Input">Cole as linhas (Nota/Ordem, D5 e Informe)</label>
                             </div>
                             <div class="form-text">
                                 Separe com espaco, virgula, ponto e virgula, quebra de linha ou qualquer separador nao
-                                numerico. A sequencia sempre sera: <strong>Nota ou Ordem</strong> e <strong>Nota D5</strong>.
+                                numerico. A sequencia por linha e: <strong>Nota ou Ordem</strong>, <strong>Nota D5</strong> e <strong>N&ordm; do informe</strong>. O informe e obrigatorio quando a nota tiver mais de uma D5 (use as colunas Nota, Nota D5 e Informe da exportacao).
                             </div>
                         </div>
                         <div class="col-12 col-lg-6">
@@ -389,7 +389,13 @@
                                             <ul class="list-group list-group-flush">
                                                 @foreach ($bulkD5Ready as $item)
                                                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                        <span>Nota {{ $item['note'] }}</span>
+                                                        <span>Nota {{ $item['note'] }}
+                                                            @if (!empty($item['work_report_id']))
+                                                                <small class="text-muted">· informe {{ $item['work_report_id'] }}</small>
+                                                            @else
+                                                                <small class="text-muted">· D5 legada</small>
+                                                            @endif
+                                                        </span>
                                                         <span class="badge text-bg-success">D5 {{ $item['d5'] }}</span>
                                                     </li>
                                                 @endforeach
@@ -412,7 +418,11 @@
                                                     <li class="list-group-item">
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <div>
-                                                                <div class="fw-semibold">Nota {{ $item['note'] }}</div>
+                                                                <div class="fw-semibold">Nota {{ $item['note'] }}
+                                                                    @if (!empty($item['work_report_id']))
+                                                                        <small class="text-muted">· informe {{ $item['work_report_id'] }}</small>
+                                                                    @endif
+                                                                </div>
                                                                 <div class="small text-muted">
                                                                     Atual: {{ $item['current_d5'] }} · Novo:
                                                                     {{ $item['new_d5'] }}
@@ -426,7 +436,7 @@
                                                                     <span class="badge text-bg-secondary">DESPACHADA</span>
                                                                 @endif
                                                                 <button class="btn btn-outline-danger btn-sm"
-                                                                    wire:click="removeBulkD5Divergent('{{ $item['note'] }}')">
+                                                                    wire:click="removeBulkD5Divergent({{ (int) $item['five_note_id'] }})">
                                                                     Remover
                                                                 </button>
                                                             </div>

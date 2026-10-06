@@ -4,11 +4,11 @@ namespace App\Exports\Services\Payment;
 
 use App\Models\City;
 use App\Models\Production;
+use App\Services\D5\ProductionFiveNoteResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -19,7 +19,7 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProperties, WithEvents, WithChunkReading
+class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithProperties, WithEvents
 {
     use Exportable;
 
@@ -36,18 +36,34 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
         $this->data = collect();
     }
 
-    public function query()
+    /**
+     * Produções D5 do usuário (mesmo recorte da lista de Acompanhamento: abertas, do usuário selecionado).
+     * A D5 de cada produção é a associada a ela (vínculo direto ou D5 do informe da produção) — não só a
+     * D5 legada da nota, que deixava a planilha vazia para quem só tem D5 vinculada a informe.
+     */
+    public function collection()
     {
-        return Production::where('service_id', $this->service->uuid)
-            ->whereHas('note.fiveNote')
-            ->where('user_id', $this->user_id)
-            ->where('status', '!=', 5)
-            ->with(['note.WorkForm.Company', 'note.WorkForm.Orders', 'note.WorkFormAny.Company', 'note.WorkFormAny.Orders', 'note.fiveNote']);
-    }
+        $resolver = app(ProductionFiveNoteResolver::class);
 
-    public function chunkSize(): int
-    {
-        return 1000;
+        return Production::query()
+            ->where('service_id', $this->service->uuid)
+            ->where('user_id', $this->user_id)
+            ->where('completed', false)
+            ->where('status', '!=', 5)
+            ->where('dfive', true)
+            ->with([
+                'note.WorkForm.Company', 'note.WorkForm.Orders',
+                'note.WorkFormAny.Company', 'note.WorkFormAny.Orders',
+                'fiveNotes', 'WorkReportFlowProductions',
+            ])
+            ->get()
+            ->each(function (Production $production) use ($resolver) {
+                $five = $resolver->resolve($production);
+                $five?->loadMissing('WorkReport.Company', 'WorkReport.Orders');
+                $production->setRelation('resolvedFive', $five);
+            })
+            ->filter(fn (Production $production) => $production->getRelation('resolvedFive') !== null)
+            ->values();
     }
 
     public function headings(): array
@@ -71,13 +87,17 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
             'Centro',                   // P
             'OV/NOTA',                  // Q
             'Valor da Obra Estimado',   // R
+            'Id Informe',               // S
+            'Escopo do Informe',        // T
         ];
     }
 
     public function map($row): array
     {
 
-        $workForm = $row->note?->WorkForm ?: $row->note?->WorkFormAny;
+        $five = $row->getRelation('resolvedFive');
+        // O informe da D5 é o dono das ordens; D5 legada (sem informe) usa o informe da nota.
+        $workForm = $five?->WorkReport ?: $row->note?->WorkForm ?: $row->note?->WorkFormAny;
         $order = $workForm?->Orders?->sortBy('ordem')->first();
 
         // CORREÇÃO DE PERFORMANCE (N+1): Cacheia a consulta de cidades
@@ -93,17 +113,17 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
         $moa = $workForm?->Orders?->sum('moaberto');
 
         // CORREÇÃO DE SEGURANÇA: explode()
-        $reasonParts = explode('_', $row->note->fiveNote?->reason ?? '');
-        $codifyParts = explode('_', $row->note->fiveNote?->codify ?? '');
+        $reasonParts = explode('_', $five?->reason ?? '');
+        $codifyParts = explode('_', $five?->codify ?? '');
 
         return [
             $workForm?->Company?->name ? $workForm?->Company?->name.($workForm?->canceled ? ' (CANCELADO)' : '') : null,
             '', // Centro /Resp
             $order?->ordem, // CORREÇÃO: Usar uma propriedade, não o objeto inteiro
-            $row->note?->fiveNote?->description,
-            $row->note?->fiveNote?->loc_install,
-            '', // Nota Gerada
-            $row->note?->fiveNote?->conjunto,
+            $five?->description,
+            $five?->loc_install,
+            $five?->note_d5 ?: '', // Nota Gerada (D5 já existente)
+            $five?->conjunto,
             $row->note?->material, // Texto - Conjunto
             $order?->pep, // CORREÇÃO: Usar operador null-safe
             $reasonParts[1] ?? null, // CORREÇÃO: Acesso seguro ao índice
@@ -115,7 +135,21 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
             $city?->centro,
             $row->note?->note, // CORRIGIDO: Adicionado null-safe para consistência
             $moa,
+            $five?->work_report_id ?: ($workForm?->id ?: ''),
+            $this->scopeLabel($five, $workForm),
         ];
+    }
+
+    private function scopeLabel($five, $workForm): string
+    {
+        $report = $five?->WorkReport ?: ($five?->work_report_id ? null : $workForm);
+        $labels = collect($report?->finalScopeBadges() ?? [])->pluck('label')->filter()->implode(' / ');
+
+        if ($labels !== '') {
+            return $labels;
+        }
+
+        return $five && !$five->work_report_id ? 'Legada (sem informe)' : 'Geral';
     }
 
     public function properties(): array
@@ -158,7 +192,7 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
                     'A' => 'FFA500', 'B' => 'FFA500', 'C' => 'FFA500', 'E' => 'FFA500',
                     'G' => 'FFA500', 'I' => 'FFA500', 'J' => 'FFA500', 'K' => 'FFA500',
                     'L' => 'FFA500', 'O' => 'FFA500', 'P' => 'FFA500', 'Q' => 'FFA500',
-                    'R' => 'FFA500', 'S' => 'FFA500', // Laranja
+                    'R' => 'FFA500', 'S' => 'FFA500', 'T' => 'FFA500', // Laranja
                     'D' => 'FFFF00', 'F' => 'FFFF00', 'N' => 'FFFF00', // Amarelo
                     'H' => 'FFDAB9', 'M' => 'FFDAB9', // Pêssego
                 ];
@@ -201,7 +235,9 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
                 $sheet->getColumnDimension('O')->setWidth(10); // GPM
                 $sheet->getColumnDimension('P')->setWidth(10); // Centro
                 $sheet->getColumnDimension('Q')->setWidth(15); // OV/NOTA
-                $sheet->getColumnDimension('S')->setWidth(20); // Valor da Obra
+                $sheet->getColumnDimension('R')->setWidth(20); // Valor da Obra
+                $sheet->getColumnDimension('S')->setWidth(12); // Id Informe
+                $sheet->getColumnDimension('T')->setWidth(22); // Escopo do Informe
 
                 // Usa AutoSize apenas para colunas com texto longo e imprevisível
                 $sheet->getColumnDimension('D')->setAutoSize(true); // Descricao Texto
@@ -222,7 +258,7 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
                 // ------------------------------------------------------------------
 
                 // Colunas que devem ser formatadas como números inteiros (sem decimais)
-                $integerColumns = ['C', 'G', 'P', 'Q', 'R']; // Diagrama, Conjunto, GPM, Centro, OV/NOTA
+                $integerColumns = ['C', 'G', 'P', 'Q', 'S']; // Diagrama, Conjunto, GPM, Centro, OV/NOTA
                 foreach ($integerColumns as $column) {
                     $sheet->getStyle($column . '2:' . $column . $highestRow)
                         ->getNumberFormat()
@@ -238,7 +274,7 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
                 }
 
                 // Coluna que deve ser formatada como moeda (Real Brasileiro)
-                $sheet->getStyle('S2:S' . $highestRow)
+                $sheet->getStyle('R2:R' . $highestRow)
                     ->getNumberFormat()
                     ->setFormatCode('R$ #,##0.00');
 
@@ -248,7 +284,7 @@ class D5tolistExport implements FromQuery, WithMapping, WithHeadings, WithProper
                 // ------------------------------------------------------------------
 
                 // Centraliza o conteúdo de colunas específicas para melhor legibilidade
-                $centerAlignColumns = ['B', 'C', 'E', 'F', 'G', 'K', 'L', 'O', 'P', 'Q', 'R'];
+                $centerAlignColumns = ['B', 'C', 'E', 'F', 'G', 'K', 'L', 'O', 'P', 'Q', 'R', 'S', 'T'];
                 foreach ($centerAlignColumns as $column) {
                     $sheet->getStyle($column . '2:' . $column . $highestRow)
                         ->getAlignment()
