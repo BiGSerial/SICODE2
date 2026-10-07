@@ -23,6 +23,7 @@ class DeduplicatePaymentProductions extends Command
     protected $signature = 'sicode:deduplicate-payment-productions
                             {--json : Emite o diagnóstico em JSON}
                             {--limit=200 : Máximo de grupos exibidos}
+                            {--inspect-d5=* : IDs de D5 para detalhar antes do saneamento}
                             {--keep= : ID da Production correta a preservar}
                             {--remove=* : IDs das Productions duplicadas a remover}
                             {--cycle= : partial, cycle_1 ou d5_return}
@@ -57,6 +58,12 @@ class DeduplicatePaymentProductions extends Command
             ],
         ];
 
+        $d5Ids = collect($this->option('inspect-d5'))->map(fn ($id) => (int) $id)->filter()->unique()->values();
+
+        if ($d5Ids->isNotEmpty()) {
+            $result['d5_inspection'] = $this->inspectD5($d5Ids, $services);
+        }
+
         if ($this->option('json')) {
             $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
@@ -73,6 +80,15 @@ class DeduplicatePaymentProductions extends Command
 
             if ($groups !== []) {
                 $this->table(['identidade', 'productions_abertas', 'sugestão_manter', 'observação'], $groups);
+            }
+        }
+
+        if (isset($result['d5_inspection'])) {
+            foreach ($result['d5_inspection'] as $inspection) {
+                $this->newLine();
+                $this->comment('D5 #' . $inspection['d5']['id'] . ' — ' . $inspection['cycle_hint']);
+                $this->table(array_keys($inspection['d5']), [$inspection['d5']]);
+                $this->table(array_keys($inspection['productions'][0] ?? ['mensagem' => 'Nenhuma Production de Pagamento encontrada']), $inspection['productions'] ?: [['mensagem' => 'Nenhuma Production de Pagamento encontrada']]);
             }
         }
 
@@ -275,11 +291,11 @@ class DeduplicatePaymentProductions extends Command
     /** @return array<int, array<string, mixed>> */
     private function legacyD5Groups(array $services): array
     {
-        return $this->legacyPivotGroups($services, FiveNote::class, 'd5', 'five_note_id', 'D5: informe --cycle antes de qualquer remoção');
+        return $this->legacyPivotGroups($services, FiveNote::class, 'd5', 'five_note_id', 'D5: execute --inspect-d5=ID; --cycle é obrigatório antes de qualquer remoção', false);
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function legacyPivotGroups(array $services, string $type, string $label, string $idColumn, string $note): array
+    private function legacyPivotGroups(array $services, string $type, string $label, string $idColumn, string $note, bool $suggestFirst = true): array
     {
         return DB::table('productions as p')->join('productionables as pa', function ($join) use ($type) {
             $join->on('pa.production_id', '=', 'p.id')->where('pa.productionable_type', $type);
@@ -290,7 +306,7 @@ class DeduplicatePaymentProductions extends Command
                 . ($idColumn === 'partial_id' ? 'pa.productionable_id' : 'null') . ' as partial_id, '
                 . ($idColumn === 'five_note_id' ? 'pa.productionable_id' : 'null') . ' as five_note_id, '
                 . 'GROUP_CONCAT(p.id ORDER BY p.dispatch_at, p.id) as production_ids')
-            ->limit((int) $this->option('limit'))->get()->map(fn ($row) => $this->reportRow($row, $note))->all();
+            ->limit((int) $this->option('limit'))->get()->map(fn ($row) => $this->reportRow($row, $note, $suggestFirst))->all();
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -305,15 +321,59 @@ class DeduplicatePaymentProductions extends Command
             ->limit((int) $this->option('limit'))->get()->map(fn ($row) => $this->reportRow($row, 'legado sem D5'))->all();
     }
 
-    private function reportRow(object $row, string $note): array
+    private function reportRow(object $row, string $note, bool $suggestFirst = true): array
     {
         $ids = array_values(array_filter(explode(',', (string) $row->production_ids)));
 
         return [
             'identidade'          => ($row->cycle ?? 'desconhecida') . ' / relatório:' . ($row->work_report_id ?? '-') . ' / parcial:' . ($row->partial_id ?? '-') . ' / d5:' . ($row->five_note_id ?? '-'),
             'productions_abertas' => implode(', ', $ids),
-            'sugestão_manter'     => $ids[0] ?? '-',
+            'sugestão_manter'     => $suggestFirst ? ($ids[0] ?? '-') : 'revisar ciclo',
             'observação'          => $note,
         ];
+    }
+
+    /** @return array<int, array{d5: array<string, mixed>, cycle_hint: string, productions: array<int, array<string, mixed>>}> */
+    private function inspectD5(Collection $d5Ids, array $services): array
+    {
+        return FiveNote::query()->whereIn('id', $d5Ids)->get()->map(function (FiveNote $d5) use ($services): array {
+            $productions = Production::query()
+                ->whereIn('service_id', $services)
+                ->whereHas('fiveNotes', fn ($query) => $query->whereKey($d5->id))
+                ->with([
+                    'measurementContext',
+                    'WorkReportFlowProductions' => fn ($query) => $query->where('stage', WorkReportFlowProduction::STAGE_PAYMENT),
+                ])
+                ->orderBy('dispatch_at')->orderBy('id')->get()
+                ->map(fn (Production $production) => [
+                    'production_id'      => $production->id,
+                    'aberta'             => $this->isOpen($production) ? 'sim' : 'não',
+                    'status'             => $production->status,
+                    'usuario'            => $production->user_id ?? '-',
+                    'atribuido_em'       => $production->att_at?->toDateTimeString() ?? '-',
+                    'despachado_em'      => $production->dispatch_at?->toDateTimeString() ?? '-',
+                    'contexto'           => $production->measurementContext?->cycle ?? 'legado sem contexto',
+                    'informe_no_vinculo' => $production->WorkReportFlowProductions->pluck('work_report_id')->unique()->implode(', ') ?: '-',
+                ])->all();
+
+            $hint = $d5->isEligibleForPaymentReturn()
+                ? 'estado atual elegível para Ciclo 2 (confirme o histórico antes de remover)'
+                : 'estado atual não elegível para Ciclo 2; se for Medição, trate como possível Ciclo 1';
+
+            return [
+                'd5' => [
+                    'id'          => $d5->id,
+                    'nota'        => $d5->note_id,
+                    'informe'     => $d5->work_report_id ?? '-',
+                    'passiva'     => $d5->isPassive ? 'sim' : 'não',
+                    'concluida'   => $d5->is_completed ? 'sim' : 'não',
+                    'fiscalizada' => $d5->is_supervisioned ? 'sim' : 'não',
+                    'arquivada'   => $d5->is_archived ? 'sim' : 'não',
+                    'retornada'   => $d5->returned ? 'sim' : 'não',
+                ],
+                'cycle_hint'  => $hint,
+                'productions' => $productions,
+            ];
+        })->values()->all();
     }
 }

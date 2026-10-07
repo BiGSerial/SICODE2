@@ -138,6 +138,10 @@ Nenhuma tela, job, controller ou comando pode criar Production de Pagamento dire
 # somente leitura; deve ser executado primeiro
 php artisan sicode:deduplicate-payment-productions
 
+# detalha a D5, seu Informe, os quatro estados do retorno e cada Production;
+# use antes de decidir se o grupo legado é Ciclo 1 ou Ciclo 2
+php artisan sicode:deduplicate-payment-productions --inspect-d5=600
+
 # exemplo: Parcial  — IDs revisados manualmente
 php artisan sicode:deduplicate-payment-productions \
   --keep=100 --remove=101 --remove=102 --cycle=partial \
