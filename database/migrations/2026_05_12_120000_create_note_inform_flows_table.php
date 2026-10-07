@@ -2,11 +2,9 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\{DB, Schema};
 
-return new class extends Migration
-{
+return new class () extends Migration {
     public function up(): void
     {
         Schema::create('note_inform_flows', function (Blueprint $table) {
@@ -79,7 +77,10 @@ return new class extends Migration
             $table->string('fiscal_user_name', 255)->nullable();
             $table->timestamp('fiscalization_completed_at')->nullable();
 
-            // Baixa da fiscalizacao
+            // Baixa administrativa da fiscalizacao no SICODE. Em parciais, a
+            // etapa nao possui uma confirmacao independente: o sync usa
+            // partials.supervision/supervision_at. partials.complete e
+            // payment_at pertencem somente a Medicao/Pagamento.
             $table->boolean('fiscalization_closed_in_sicode')->default(false);
             $table->timestamp('fiscalization_closed_in_sicode_at')->nullable();
 
