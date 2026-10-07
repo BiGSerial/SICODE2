@@ -3,7 +3,7 @@
 namespace App\Console\Commands\Tools;
 
 use App\Custom\Notestatus;
-use App\Models\{FiveNote, MeasurementProductionContext, Partial, Production, WorkReport, WorkReportFlowProduction};
+use App\Models\{Analise, FiveNote, MeasurementProductionContext, Partial, Production, WorkReport, WorkReportFlowProduction};
 use App\Services\Payment\MeasurementProductionContextService;
 use DomainException;
 use Illuminate\Console\Command;
@@ -33,6 +33,7 @@ class DeduplicatePaymentProductions extends Command
                             {--apply : Executa o saneamento explicitamente informado}
                             {--yes : Confirma a exclusão definitiva das duplicadas abertas}
                             {--force-assigned : Permite remover abertas já atribuídas; exige --apply e --reason}
+                            {--move-analysis : Move análise da duplicada para a Production mantida, quando não houver conflito}
                             {--reason= : Justificativa obrigatória do saneamento}';
 
     protected $description = 'Localiza duplicidades de Medição/Pagamento e, com confirmação explícita, remove apenas duplicadas abertas';
@@ -180,9 +181,14 @@ class DeduplicatePaymentProductions extends Command
                     }
                 }
 
-                $identity = $this->assertSameExplicitIdentity($productions, $cycle);
-                $keep     = $productions->get($keepId);
-                $this->assertCanRemove($productions->only($removeIds->all()), (bool) $this->option('force-assigned'));
+                $identity      = $this->assertSameExplicitIdentity($productions, $cycle);
+                $keep          = $productions->get($keepId);
+                $movedAnalyses = $this->assertCanRemove(
+                    $productions->only($removeIds->all()),
+                    $keep,
+                    (bool) $this->option('force-assigned'),
+                    (bool) $this->option('move-analysis'),
+                );
                 $this->ensureCorrectContext($keep, $cycle, $identity);
 
                 // work_report_flow_productions não possui cascade para production_id.
@@ -199,6 +205,7 @@ class DeduplicatePaymentProductions extends Command
                     'identity'               => $identity,
                     'reason'                 => $reason,
                     'force_assigned'         => (bool) $this->option('force-assigned'),
+                    'moved_analysis_ids'     => $movedAnalyses,
                 ];
             }, 3);
         } catch (Throwable $exception) {
@@ -300,11 +307,29 @@ class DeduplicatePaymentProductions extends Command
         };
     }
 
-    private function assertCanRemove(Collection $productions, bool $forceAssigned): void
+    /** @return array<int, int> */
+    private function assertCanRemove(Collection $productions, Production $keep, bool $forceAssigned, bool $moveAnalysis): array
     {
+        $movedAnalyses = [];
+
         foreach ($productions as $production) {
-            if ($production->Analise()->exists() || $production->d5Return()->exists()) {
-                throw new DomainException("Production {$production->id} possui análise ou retorno D5; ela exige saneamento manual e não será apagada.");
+            if ($production->d5Return()->exists()) {
+                throw new DomainException("Production {$production->id} possui retorno D5. Ela representa outro ciclo e não será apagada por este saneamento.");
+            }
+
+            $analyses = Analise::query()->where('production_id', $production->id)->get();
+
+            if ($analyses->isNotEmpty()) {
+                if (!$moveAnalysis) {
+                    throw new DomainException("Production {$production->id} possui análise(s) #" . $analyses->pluck('id')->implode(', ') . '. Use --move-analysis após revisar o conteúdo.');
+                }
+
+                if (Analise::query()->where('production_id', $keep->id)->exists()) {
+                    throw new DomainException("A Production mantida {$keep->id} já possui análise; a ferramenta não mescla análises automaticamente.");
+                }
+
+                Analise::query()->whereIn('id', $analyses->pluck('id'))->update(['production_id' => $keep->id]);
+                $movedAnalyses = [...$movedAnalyses, ...$analyses->pluck('id')->map(fn ($id) => (int) $id)->all()];
             }
 
             $hasAssignment = $production->user_id || $production->att_by || $production->att_at;
@@ -313,6 +338,8 @@ class DeduplicatePaymentProductions extends Command
                 throw new DomainException("Production {$production->id} possui atribuição ou evidência de execução; ela exige saneamento manual e não será apagada.");
             }
         }
+
+        return $movedAnalyses;
     }
 
     private function isOpen(Production $production): bool
@@ -440,6 +467,8 @@ class DeduplicatePaymentProductions extends Command
                     'despachado_em'      => $production->dispatch_at?->toDateTimeString() ?? '-',
                     'contexto'           => $production->measurementContext?->cycle ?? 'legado sem contexto',
                     'informe_no_vinculo' => $production->WorkReportFlowProductions->pluck('work_report_id')->unique()->implode(', ') ?: '-',
+                    'analises'           => Analise::query()->where('production_id', $production->id)->pluck('id')->implode(', ') ?: '-',
+                    'retorno_d5'         => $production->d5Return()->value('id') ?: '-',
                 ])->all();
 
             $hint = $d5->isEligibleForPaymentReturn()

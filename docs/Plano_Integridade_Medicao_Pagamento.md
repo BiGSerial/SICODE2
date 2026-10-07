@@ -155,13 +155,16 @@ php artisan sicode:deduplicate-payment-productions \
 # que já foram atribuídas. Use somente após conferir a D5 com --inspect-d5.
 php artisan sicode:deduplicate-payment-productions \
   --keep=4430 --remove-others --cycle=cycle_1 \
-  --force-assigned --reason="Duplicidade aberta de Ciclo 1 da D5 600" --apply
+  --force-assigned --move-analysis \
+  --reason="Duplicidade aberta de Ciclo 1 da D5 600" --apply
 ```
 
 Para `cycle_1` e `d5_return`, a opção `--cycle` é obrigatória justamente porque
 uma D5 pode fazer parte tanto do Ciclo 1 quanto do retorno. Duplicadas com
-usuário, atribuição, conclusão, análise ou retorno D5 não são removidas pela
-ferramenta: precisam de saneamento manual documentado.
+usuário, atribuição, conclusão ou retorno D5 não são removidos silenciosamente.
+Uma análise pode ser transferida para a Production mantida com `--move-analysis`,
+mas somente se ela for a única análise e a Production mantida ainda não possuir
+outra; retorno D5 sempre exige saneamento manual documentado.
 
 ## Criterios de aceite
 
