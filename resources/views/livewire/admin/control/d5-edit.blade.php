@@ -6,7 +6,7 @@
     <x-show-loading />
 
     <div class="modal fade" id="adminEditFiveModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
-        <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-xxl-down">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable modal-fullscreen-xxl-down">
             @if ($five)
                 <form class="modal-content fivefx-card" wire:submit.prevent="save">
                     <div class="modal-header fivefx-header py-2">
@@ -186,21 +186,20 @@
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Despachado em</label>
                                             <input type="datetime-local"
-                                                class="form-control fivefx-control @error('five.dispatch_at') is-invalid @enderror"
-                                                wire:model.defer="five.dispatch_at">
+                                                class="form-control fivefx-control @error('dateInputs.dispatch_at') is-invalid @enderror"
+                                                wire:model.defer="dateInputs.dispatch_at">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Concluido em</label>
                                             <input type="datetime-local"
-                                                class="form-control fivefx-control @error('five.completed_at') is-invalid @enderror"
-                                                wire:model.defer="five.completed_at"
-                                                @if ($lockCompleted) disabled @endif>
+                                                class="form-control fivefx-control @error('dateInputs.completed_at') is-invalid @enderror"
+                                                wire:model.defer="dateInputs.completed_at">
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Fiscalizado em</label>
                                             <input type="datetime-local"
-                                                class="form-control fivefx-control @error('five.supervisioned_at') is-invalid @enderror"
-                                                wire:model.defer="five.supervisioned_at">
+                                                class="form-control fivefx-control @error('dateInputs.supervisioned_at') is-invalid @enderror"
+                                                wire:model.defer="dateInputs.supervisioned_at">
                                         </div>
                                     </div>
 
@@ -208,8 +207,8 @@
                                         <div class="col-md-4">
                                             <label class="form-label fivefx-k">Pago em</label>
                                             <input type="datetime-local"
-                                                class="form-control fivefx-control @error('five.payed_at') is-invalid @enderror"
-                                                wire:model.defer="five.payed_at">
+                                                class="form-control fivefx-control @error('dateInputs.payed_at') is-invalid @enderror"
+                                                wire:model.defer="dateInputs.payed_at">
                                         </div>
                                     </div>
 
@@ -217,7 +216,7 @@
                                         <div class="col-md-3">
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" id="isCompleted"
-                                                    wire:model.defer="five.is_completed" @if ($lockCompleted) disabled @endif>
+                                                    wire:model.defer="five.is_completed">
                                                 <label class="form-check-label" for="isCompleted">Concluido</label>
                                             </div>
                                         </div>
@@ -264,11 +263,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    @if ($lockCompleted)
-                                        <div class="alert alert-warning mt-2 mb-0">
-                                            Concluido e data ficam bloqueados quando fiscalizado ou arquivado.
-                                        </div>
-                                    @endif
                                 </div>
                             </div>
 
@@ -286,8 +280,8 @@
                             </div>
                         </div>
 
-                        <div class="row g-4 mt-2">
-                            <div class="col-12">
+                        <div class="row g-3 mt-1">
+                            <div class="col-12 col-xl-5">
                                 <div class="fivefx-section">
                                     <h6 class="fivefx-k mb-2">Producoes disponiveis</h6>
                                     @if (!empty($availableProductions))
@@ -335,7 +329,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-12">
+                            <div class="col-12 col-xl-7">
                                 <div class="fivefx-section">
                                     <h6 class="fivefx-k mb-2">Producoes vinculadas</h6>
                                     @if (!empty($linkedProductions))
@@ -345,7 +339,7 @@
                                                     <tr class="text-secondary">
                                                         <th scope="col">ID</th>
                                                         <th scope="col">Servico</th>
-                                                        <th scope="col">Informe</th>
+                                                        <th scope="col">Informe da Production</th>
                                                         <th scope="col">Usuario</th>
                                                         <th scope="col">D5</th>
                                                         <th scope="col"></th>
@@ -357,11 +351,19 @@
                                                             <td>{{ $production['id'] ?? '' }}</td>
                                                             <td>{{ $production['service']['service'] ?? '---' }}</td>
                                                             <td>
-                                                                @forelse (($production['inform_ids'] ?? []) as $informId)
-                                                                    <span class="badge bg-light text-dark">#{{ $informId }}</span>
-                                                                @empty
-                                                                    <span class="text-muted">---</span>
-                                                                @endforelse
+                                                                <div class="d-flex gap-1">
+                                                                    <select class="form-select form-select-sm fivefx-select"
+                                                                        wire:model.defer="productionWorkReportIds.{{ $production['id'] }}">
+                                                                        <option value="">Selecione...</option>
+                                                                        @foreach ($availableWorkReports as $workReport)
+                                                                            <option value="{{ $workReport['id'] }}">#{{ $workReport['id'] }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    <button type="button" class="btn btn-outline-primary btn-sm fivefx-btn text-nowrap"
+                                                                        wire:click="associateWorkReport({{ $production['id'] ?? 0 }})">
+                                                                        Associar
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                             <td>{{ $production['user']['name'] ?? '---' }}</td>
                                                             <td>
@@ -376,6 +378,11 @@
                                                                     class="btn btn-outline-danger btn-sm fivefx-btn"
                                                                     wire:click="removeProduction({{ $production['id'] ?? 0 }})">
                                                                     <i class="ri-link-unlink-m me-1"></i>Desatribuir
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="btn btn-outline-danger btn-sm fivefx-btn ms-1"
+                                                                    wire:click="requestDeleteProduction({{ $production['id'] ?? 0 }})">
+                                                                    <i class="ri-delete-bin-6-line me-1"></i>Excluir
                                                                 </button>
                                                             </td>
                                                         </tr>
@@ -392,228 +399,6 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 d-none">
-                            <div class="col-md-3">
-                                <label class="form-label fivefx-k">Nota D5</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.note_d5') is-invalid @enderror"
-                                    wire:model.defer="five.note_d5">
-                                @error('five.note_d5')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label fivefx-k">Local de Instalacao</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.loc_install') is-invalid @enderror"
-                                    wire:model.defer="five.loc_install">
-                                @error('five.loc_install')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-2">
-                                <label class="form-label fivefx-k">Conjunto</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.conjunto') is-invalid @enderror"
-                                    wire:model.defer="five.conjunto">
-                                @error('five.conjunto')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fivefx-k">PEP</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.pep') is-invalid @enderror"
-                                    wire:model.defer="five.pep">
-                                @error('five.pep')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mt-1 d-none">
-                            <div class="col-md-3">
-                                <label class="form-label fivefx-k">E-PEP</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.e_pep') is-invalid @enderror"
-                                    wire:model.defer="five.e_pep">
-                                @error('five.e_pep')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fivefx-k">Codificacao</label>
-                                <div class="fivefx-select-wrap">
-                                    <select class="form-select fivefx-select @error('five.codify') is-invalid @enderror"
-                                        wire:model.defer="five.codify">
-                                        <option value="" selected>Selecione</option>
-                                        @foreach (SelectOptions::getD5codify() as $codifyD5)
-                                            <option value="{{ $codifyD5->value }}">{{ $codifyD5->reason }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                @error('five.codify')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fivefx-k">Motivo</label>
-                                <div class="fivefx-select-wrap">
-                                    <select class="form-select fivefx-select @error('five.reason') is-invalid @enderror"
-                                        wire:model.defer="five.reason">
-                                        <option value="" selected>Selecione</option>
-                                        @foreach (SelectOptions::getD5Reasons() as $reasonD5)
-                                            <option value="{{ $reasonD5->value }}">{{ $reasonD5->reason }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                @error('five.reason')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fivefx-k">Empresa</label>
-                                <input type="text" class="form-control fivefx-control" value="{{ $five->company?->name }}"
-                                    readonly>
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mt-1 d-none">
-                            <div class="col-md-6">
-                                <label class="form-label fivefx-k">Sintomas</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.sintoms') is-invalid @enderror"
-                                    wire:model.defer="five.sintoms">
-                                @error('five.sintoms')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fivefx-k">Responsavel</label>
-                                <input type="text"
-                                    class="form-control fivefx-control @error('five.name') is-invalid @enderror"
-                                    wire:model.defer="five.name">
-                                @error('five.name')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <div class="mt-3 d-none">
-                            <label for="fiveDescription" class="form-label fivefx-k mb-0">Descricao</label>
-                            <textarea id="fiveDescription"
-                                class="form-control fivefx-control fivefx-textarea @error('five.description') is-invalid @enderror"
-                                wire:model.defer="five.description"></textarea>
-                            @error('five.description')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="mt-3 d-none">
-                            <label class="form-label fivefx-k">Datas</label>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label fivefx-k">Despachado em</label>
-                                    <input type="datetime-local"
-                                        class="form-control fivefx-control @error('five.dispatch_at') is-invalid @enderror"
-                                        wire:model.defer="five.dispatch_at">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fivefx-k">Concluido em</label>
-                                    <input type="datetime-local"
-                                        class="form-control fivefx-control @error('five.completed_at') is-invalid @enderror"
-                                        wire:model.defer="five.completed_at"
-                                        @if ($lockCompleted) disabled @endif>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fivefx-k">Fiscalizado em</label>
-                                    <input type="datetime-local"
-                                        class="form-control fivefx-control @error('five.supervisioned_at') is-invalid @enderror"
-                                        wire:model.defer="five.supervisioned_at">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-3 d-none">
-                            <label class="form-label fivefx-k">Status</label>
-                            <div class="row g-2">
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isCompleted"
-                                            wire:model.defer="five.is_completed" @if ($lockCompleted) disabled @endif>
-                                        <label class="form-check-label" for="isCompleted">Concluido</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isSupervisioned"
-                                            wire:model.defer="five.is_supervisioned">
-                                        <label class="form-check-label" for="isSupervisioned">Fiscalizado</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isPayed"
-                                            wire:model.defer="five.is_payed">
-                                        <label class="form-check-label" for="isPayed">Pago</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isArchived"
-                                            wire:model.defer="five.is_archived">
-                                        <label class="form-check-label" for="isArchived">Arquivado</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isPassive"
-                                            wire:model.defer="five.isPassive">
-                                        <label class="form-check-label" for="isPassive">Passivo</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isReturned"
-                                            wire:model.defer="five.returned">
-                                        <label class="form-check-label" for="isReturned">Retornado</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="isVisible"
-                                            wire:model.defer="five.visible_partner">
-                                        <label class="form-check-label" for="isVisible">Visivel</label>
-                                    </div>
-                                </div>
-                            </div>
-                            @if ($lockCompleted)
-                                <div class="alert alert-warning mt-2 mb-0">
-                                    Concluido e data ficam bloqueados quando fiscalizado ou arquivado.
-                                </div>
-                            @endif
-                        </div>
-
-                        <div class="mt-3">
-                            <label class="form-label fivefx-k">Pagamentos</label>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label fivefx-k">Pago em</label>
-                                    <input type="datetime-local"
-                                        class="form-control fivefx-control @error('five.payed_at') is-invalid @enderror"
-                                        wire:model.defer="five.payed_at">
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
                     <div class="modal-footer fivefx-footer py-2 d-flex align-items-center">
                         <button type="button" class="btn btn-light fivefx-btn"
                             data-bs-dismiss="modal">Cancelar</button>
@@ -629,7 +414,7 @@
 
     <style>
         .finish-five .fivefx-section {
-            padding: 1rem;
+            padding: .8rem;
             background: rgba(255, 255, 255, .04);
             border: 1px solid rgba(255, 255, 255, .08);
             border-radius: 14px;
@@ -665,6 +450,14 @@
             transition: transform .18s ease, box-shadow .18s ease
         }
 
+        .finish-five .modal-dialog {
+            max-width: min(1320px, calc(100vw - 2rem));
+        }
+
+        .finish-five .modal-dialog-scrollable .modal-content {
+            max-height: calc(100vh - 2rem);
+        }
+
         .finish-five .fivefx-header {
             background: rgba(17, 24, 39, .9);
             border: 0;
@@ -687,7 +480,7 @@
         }
 
         .finish-five .fivefx-body {
-            padding: 1.1rem 1.25rem
+            padding: .85rem 1rem
         }
 
         .finish-five .fivefx-pill {
@@ -731,7 +524,7 @@
         }
 
         .finish-five .fivefx-textarea {
-            min-height: 160px;
+            min-height: 96px;
             max-height: 60vh;
             resize: vertical;
             overflow: auto;
@@ -778,6 +571,16 @@
         .finish-five .fivefx-btn {
             font-weight: 700;
             border-radius: 10px
+        }
+
+        .finish-five .table-sm > :not(caption) > * > * {
+            padding: .42rem .5rem;
+            vertical-align: middle;
+        }
+
+        .finish-five .fivefx-section .alert {
+            padding: .6rem .75rem;
+            font-size: .82rem;
         }
 
         .finish-five .btn-light {
