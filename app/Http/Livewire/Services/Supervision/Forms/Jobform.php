@@ -817,6 +817,13 @@ class Jobform extends Component
                 }
 
                 if (!$fiveNote && !$this->isD5Production()) {
+                    // A D5 solicitada no encerramento da Fiscalização nasce da
+                    // demanda fiscalizada. Sem o Informe explícito não há como
+                    // criar uma D5 não passiva de forma segura.
+                    if (!$workReportId) {
+                        throw new \DomainException('Não foi possível identificar o Informe fiscalizado para criar a D5.');
+                    }
+
                     $note  = $this->production->Note;
                     $order = null;
 
@@ -824,9 +831,7 @@ class Jobform extends Component
                         $order = $this->mainNetworkOrderForNote($note);
                     }
 
-                    $lookup = $workReportId
-                        ? ['note_id' => $this->production->note_id, 'work_report_id' => $workReportId]
-                        : ['note_id' => $this->production->note_id, 'work_report_id' => null];
+                    $lookup = ['note_id' => $this->production->note_id, 'work_report_id' => $workReportId];
 
                     $fiveNote = FiveNote::updateOrCreate(
                         $lookup,

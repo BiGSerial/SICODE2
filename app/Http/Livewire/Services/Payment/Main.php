@@ -5,10 +5,11 @@ namespace App\Http\Livewire\Services\Payment;
 use App\Helpers\TextFormatter;
 use App\Http\Livewire\Concerns\Services\BulkSelfAssignable;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
-use App\Models\{Bancoupdate, Note, Production, Service, User, WorkReport};
-use App\Services\D5\D5WorkflowService;
+use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport};
+use App\Services\D5\D5WorkReportAssociationResolver;
+use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Payment\{BlockEvaluator, NoteFilter};
-use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
+use App\Services\WorkReports\{WorkReportFinalScopeOptions};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\{Auth, DB};
 use Livewire\{Component, WithPagination};
@@ -132,7 +133,7 @@ class Main extends Component
             'WorkForms.Note:id,type_note',
             'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
+            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
         ]);
 
         return $this->expandPaymentRows($page)
@@ -508,9 +509,10 @@ class Main extends Component
         $workFormForValidation = $targetWorkReport ?: $note->WorkForm;
 
         $targetFiveNote = $targetWorkReportId
-            ? $note->FiveNotes->firstWhere("work_report_id", $targetWorkReportId)
+            ? ($note->FiveNotes->firstWhere("work_report_id", $targetWorkReportId)
+                ?: $this->legacyD5ForWorkReport($note, $targetWorkReport))
             : $note->FiveNote;
-        $d5ReturnReady = (bool) ($targetFiveNote?->is_completed && $targetFiveNote?->is_supervisioned && !$targetFiveNote?->is_archived);
+        $d5ReturnReady = (bool) $targetFiveNote?->isEligibleForPaymentReturn();
 
         if ($workFormForValidation && !$d5ReturnReady && !$this->workReportEligibleForPayment($workFormForValidation)) {
             return [
@@ -520,52 +522,20 @@ class Main extends Component
             ];
         }
 
-        $latestPartial = $note->Partials?->sortByDesc('created_at')->first();
-        $isPartial     = false;
-        $partialDate   = null;
+        $partialCandidates = $note->Partials
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('supervision', true)
+            ->where('payment', false)
+            ->values();
+        $targetPartialId = null;
 
-        if (!$note->WorkForm) {
-            if ($latestPartial
-                && $latestPartial->allow
-                && $latestPartial->supervision
-                && !$latestPartial->payment
-            ) {
-                $isPartial   = true;
-                $partialDate = $latestPartial->created_at;
-            }
+        if (!$targetWorkReportId && !$workFormForValidation && $partialCandidates->count() === 1) {
+            $targetPartialId = (int) $partialCandidates->first()->id;
         }
 
-        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
-
-        // Em uma atribuicao por informe, somente o vinculo ativo daquele informe bloqueia.
-        if ($targetWorkReportId) {
-            $scopedProduction = Production::query()
-                ->where("note_id", $note->id)
-                ->where("service_id", $this->service->uuid)
-                ->whereHas("WorkReportFlowProductions", function ($query) use ($targetWorkReportId) {
-                    $query->where("work_report_id", $targetWorkReportId)
-                        ->where("stage", \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-                        ->where("is_current", true);
-                })
-                ->latest("id")
-                ->first();
-
-            $eval["command"] = !$scopedProduction;
-
-            if ($scopedProduction) {
-                $eval["production"] = $scopedProduction;
-                $eval["reason"]     = "prod_open_for_work_report";
-            }
-        }
-
-        if (!$eval['command']) {
-            $when = $eval['production']?->dt_note ? Carbon::parse($eval['production']->dt_note)->format('d/m/Y H:i') : '---';
-
-            return [
-                'ok'     => false,
-                'note'   => $note->note,
-                'reason' => "já foi atribuída em {$when} — {$eval['reason']}",
-            ];
+        if (!$targetWorkReportId && !$workFormForValidation && $partialCandidates->count() > 1) {
+            return ['ok' => false, 'note' => $note->note, 'reason' => 'possui mais de um Informe Parcial elegível; selecione-o na fila de despacho'];
         }
 
         $finalScopes = $targetFinalScopes
@@ -579,80 +549,21 @@ class Main extends Component
             ];
         }
 
-        $dt       = $isPartial ? $partialDate : $note->dt_status;
-        $fiveNote = (bool) $targetFiveNote;
-        $data     = [
-            'note_id'     => $note->id,
-            'service_id'  => $this->service->uuid,
-            'user_id'     => $user->id,
-            'company_id'  => $user->company_id,
-            'dispatch_by' => $user->id,
-            'att_by'      => $user->id,
-            'dt_note'     => $dt,
-            'status_note' => $note->nstats,
-            'dispatch_at' => now(),
-            'att_at'      => now(),
-            'status'      => 2,
-            'dhstats'     => $dt,
-            'partial'     => $isPartial,
-            'dfive'       => $fiveNote,
-        ];
-
-        $production = null;
-
-        if ($targetWorkReportId) {
-            $production = Production::query()
-                ->where("note_id", $note->id)
-                ->where("service_id", $this->service->uuid)
-                ->whereHas("WorkReportFlowProductions", function ($query) use ($targetWorkReportId) {
-                    $query->where("work_report_id", $targetWorkReportId)
-                        ->where("stage", \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-                        ->where("is_current", true);
-                })
-                ->latest("id")
-                ->first();
-        }
-
-        $production ??= $targetWorkReportId
-            ? Production::create($data)
-            : Production::firstOrCreate([
-                "note_id"    => $note->id,
-                "service_id" => $this->service->uuid,
-                "user_id"    => $user->id,
-                "completed"  => false,
-            ], $data);
-
-        if (!$production) {
-            return ['ok' => false, 'note' => $note->note, 'reason' => 'erro ao tentar atribuir'];
-        }
-
-        // O fallback legado (D5 diretamente na nota) também deve permanecer identificado como D5,
-        // inclusive quando a produção já existia antes desta regra.
-        if ($targetFiveNote && !(bool) $production->dfive) {
-            $production->forceFill(['dfive' => true])->save();
-        }
-
-        $linker = app(WorkReportFlowProductionLinker::class);
-
-        if ($targetWorkReportId) {
-            $linker->linkPaymentForWorkReport($production, $targetWorkReportId, $finalScopes, 'services_payment_self_assign');
-        } else {
-            $linker->linkPaymentForScopes(
-                $production,
+        try {
+            $company = Company::findOrFail($user->company_id);
+            DB::transaction(fn () => app(DispatchWorkflowService::class)->dispatchToUser(
+                $note,
+                $this->service,
+                $company,
+                $user,
+                $user,
+                null,
                 $finalScopes,
-                'services_payment_self_assign'
-            );
-        }
-
-        if ($targetFiveNote) {
-            $targetFiveNote->productions()->syncWithoutDetaching([$production->id]);
-
-            app(D5WorkflowService::class)->onProductionAssigned(
-                $targetFiveNote,
-                $production,
-                auth()->id(),
-                null
-            );
+                $targetWorkReportId,
+                $targetPartialId
+            ));
+        } catch (DispatchException $exception) {
+            return ['ok' => false, 'note' => $note->note, 'reason' => $exception->getMessage()];
         }
 
         return ['ok' => true, 'note' => $note->note, 'reason' => null];
@@ -719,8 +630,11 @@ class Main extends Component
             ? $note->WorkForms
             : collect([$note->WorkForm])->filter();
         $workForm = $workForms->first();
+        $fiveNote = $workForm?->FiveNote
+            ?: $this->legacyD5ForWorkReport($note, $workForm)
+            ?: $note->FiveNote;
 
-        if ($workForm && !$this->isD5ReturnReadyForPayment($note) && !$this->workReportEligibleForPayment($workForm)) {
+        if ($workForm && !$fiveNote?->isEligibleForPaymentReturn() && !$this->workReportEligibleForPayment($workForm)) {
             return [
                 'block'      => BlockEvaluator::HOLD_RED,
                 'command'    => false,
@@ -972,9 +886,9 @@ class Main extends Component
             'WorkForms.Company:id,name,deleted_at',
             'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
+            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
             'WorkForms.Adsform:id,work_report_id,created_at',
-            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
+            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
             'Partials' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -995,8 +909,8 @@ class Main extends Component
             'Partials.Company:id,name,deleted_at',
             'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
-            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
+            'FiveNote:id,note_id,work_report_id,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
+            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
                 ->select([
                     'id',
@@ -1014,7 +928,7 @@ class Main extends Component
                     'dt_note',
                     'status_note',
                 ])
-                ->with('User')
+                ->with(['User', 'WorkReportFlowProductions', 'measurementContext'])
                 ->orderByDesc('created_at'),
         ]);
 
@@ -1034,33 +948,28 @@ class Main extends Component
                 ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
                 ->values();
 
-            // Cada D5 associado a um informe deve aparecer de forma independente.
-            // A relacao Note->FiveNote e legada e so representa D5 sem informe.
-            $d5ByWorkReport = ($note->FiveNotes ?? collect())
-                ->filter(fn ($five) => !$five->is_archived && !$five->is_payed && $five->work_report_id)
-                ->keyBy(fn ($five) => (int) $five->work_report_id);
-
             $d5WorkForms = $workForms
-                ->filter(function ($workForm) use ($d5ByWorkReport) {
-                    $five = $d5ByWorkReport->get((int) $workForm->id);
+                ->filter(function ($workForm) use ($note) {
+                    $five = $workForm->FiveNote ?: $this->legacyD5ForWorkReport($note, $workForm);
 
                     return $five && (
-                        ($five->is_supervisioned && $five->is_completed)
+                        $five->isEligibleForPaymentReturn()
                         || $this->workReportEligibleForPayment($workForm)
                     );
                 })
                 ->values();
 
             if ($d5WorkForms->isNotEmpty()) {
-                return $d5WorkForms->map(function ($workForm) use ($note, $d5ByWorkReport) {
+                return $d5WorkForms->map(function ($workForm) use ($note) {
                     $row  = clone $note;
-                    $five = $d5ByWorkReport->get((int) $workForm->id);
+                    $five = $workForm->FiveNote ?: $this->legacyD5ForWorkReport($note, $workForm);
                     $row->setRelation('FiveNote', $five);
                     $row->setRelation('WorkForm', $workForm);
                     $row->setRelation('WorkForms', collect([$workForm]));
                     $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
                     $row->setAttribute('payment_work_report_id', (int) $workForm->id);
                     $row->setAttribute('dispatch_work_report_id', (int) $workForm->id);
+                    $row->setAttribute('dispatch_five_note_id', (int) $five->id);
 
                     return $row;
                 });
@@ -1113,6 +1022,23 @@ class Main extends Component
         return $orders->contains(fn ($order) => $candidates->orderIsEligible($order));
     }
 
+    /** D5 legada não passiva só acompanha o Informe apontado pelo resolvedor temporal. */
+    private function legacyD5ForWorkReport(Note $note, $workForm): ?\App\Models\FiveNote
+    {
+        if (!$workForm || !$note->relationLoaded('FiveNotes')) {
+            return null;
+        }
+
+        $matches = $note->FiveNotes
+            ->filter(fn ($five) => !$five->work_report_id
+                && !$five->isPassive
+                && $five->needsPaymentAction()
+                && app(D5WorkReportAssociationResolver::class)->closestFor($five)?->is($workForm))
+            ->values();
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
     private function d5MustUsePrimaryNetworkReport(Note $note): bool
     {
         $five = $note->FiveNote;
@@ -1129,12 +1055,7 @@ class Main extends Component
     {
         $five = $note->FiveNote;
 
-        return (bool) (
-            $five
-            && !$five->is_archived
-            && $five->is_completed
-            && $five->is_supervisioned
-        );
+        return (bool) $five?->isEligibleForPaymentReturn();
     }
 
     private function isNetworkWorkReport($workForm): bool

@@ -2,12 +2,9 @@
 
 namespace App\Http\Livewire\Services\Payment\Forms;
 
-use App\Models\Analise;
-use App\Models\Company;
-use App\Models\FiveNote;
-use App\Models\Notetimeline;
-use App\Models\Production;
+use App\Models\{Analise, Company, FiveNote, Notetimeline, Production};
 use App\Services\D5\D5WorkflowService;
+use App\Services\Payment\MeasurementProductionContextService;
 use App\Services\WorkReports\WorkReportScopedProductionSplitter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -16,9 +13,13 @@ use Livewire\Component;
 class Jobform extends Component
 {
     public ?Production $production = null;
+
     public ?Analise $analise = null;
+
     public $companies;
+
     public $five;
+
     public array $closeFinalScopeSelections = [];
 
     protected $listeners = [
@@ -28,36 +29,34 @@ class Jobform extends Component
     ];
 
     protected $rules = [
-        'analise.postes' => 'required|numeric',
-        'analise.info' => 'nullable|string',
-        'analise.conclusion' => 'required|min:1',
-        'five.note_d5' => 'required|numeric',
-        'five.reason' => 'nullable|string',
-        'five.description' => 'nullable|string',
-        'five.loc_install' => 'nullable|string',
-        'five.codify' => 'nullable|string',
-        'five.sintoms' => 'nullable|string',
-        'five.pep' => 'nullable|string',
-        'five.conjunto' => 'nullable|string',
-        'five.dispatch_at' => 'nullable|date',
+        'analise.postes'        => 'required|numeric',
+        'analise.info'          => 'nullable|string',
+        'analise.conclusion'    => 'required|min:1',
+        'five.note_d5'          => 'required|numeric',
+        'five.reason'           => 'nullable|string',
+        'five.description'      => 'nullable|string',
+        'five.loc_install'      => 'nullable|string',
+        'five.codify'           => 'nullable|string',
+        'five.sintoms'          => 'nullable|string',
+        'five.pep'              => 'nullable|string',
+        'five.conjunto'         => 'nullable|string',
+        'five.dispatch_at'      => 'nullable|date',
         'five.supervisioned_at' => 'nullable|date',
-        'five.payed_at' => 'nullable|date',
-        'five.company_id' => 'required|exists:companies,id'
-
-
+        'five.payed_at'         => 'nullable|date',
+        'five.company_id'       => 'required|exists:companies,id',
 
     ];
 
     public function messages()
     {
         return [
-            'analise.postes.required' => 'O campo [Qtd de Ativos] é obrigatório.',
-            'analise.postes.numeric' => 'O campo [Qtd de Ativos] só aceita números.',
+            'analise.postes.required'     => 'O campo [Qtd de Ativos] é obrigatório.',
+            'analise.postes.numeric'      => 'O campo [Qtd de Ativos] só aceita números.',
             'analise.conclusion.required' => 'O campo [Resultado] é Obrigatório.',
-            'five.note_d5.required' => 'O campo [Número da D5] é obrigatório.',
-            'five.note_d5.numeric' => 'O campo [Número da D5] dev ser apenas números.',
-            'five.note_d5.unique' => 'O D5 informado já está em uso.',
-            'five.company_id.required' => 'O campo [Empresa] é obrigatório.',
+            'five.note_d5.required'       => 'O campo [Número da D5] é obrigatório.',
+            'five.note_d5.numeric'        => 'O campo [Número da D5] dev ser apenas números.',
+            'five.note_d5.unique'         => 'O D5 informado já está em uso.',
+            'five.company_id.required'    => 'O campo [Empresa] é obrigatório.',
         ];
     }
 
@@ -95,8 +94,8 @@ class Jobform extends Component
 
     public function getCloseStepsProperty(): array
     {
-        $needsD5Data = (bool) ($this->five && !$this->five->is_supervisioned);
-        $hasConclusion = $this->filledValue($this->analise?->conclusion);
+        $needsD5Data       = (bool) ($this->five && !$this->five->is_supervisioned);
+        $hasConclusion     = $this->filledValue($this->analise?->conclusion);
         $hasScopeSelection = $this->hasValidCloseFinalScopeSelection();
 
         $steps = [];
@@ -113,8 +112,8 @@ class Jobform extends Component
         $steps[] = $this->closeStep('Resultado', $hasConclusion, 'Selecione o resultado da medição.', 'ri-checkbox-circle-line');
 
         $steps[] = [
-            'label'    => 'Observações',
-            'message'  => $this->filledValue($this->analise?->info)
+            'label'   => 'Observações',
+            'message' => $this->filledValue($this->analise?->info)
                 ? 'Observação registrada.'
                 : 'Observação opcional para contextualizar o encerramento.',
             'icon'     => 'ri-message-3-line',
@@ -166,7 +165,7 @@ class Jobform extends Component
 
     public function showProduction(Production $production)
     {
-        $this->five = null;
+        $this->five       = null;
         $this->production = $production;
 
         if ($this->production) {
@@ -180,8 +179,8 @@ class Jobform extends Component
             $this->analise = $this->production->Analise()->firstOrCreate(
                 [], // Condições de busca (vazias pois já está relacionado à production)
                 [   // Valores padrão caso precise criar
-                    'postes' => 0,
-                    'info' => null,
+                    'postes'     => 0,
+                    'info'       => null,
                     'conclusion' => null,
                 ]
             );
@@ -216,6 +215,12 @@ class Jobform extends Component
      */
     private function fiveNoteForCurrentProduction(): ?FiveNote
     {
+        $contextFive = $this->production?->measurementContext?->fiveNote;
+
+        if ($contextFive) {
+            return $contextFive;
+        }
+
         return $this->production
             ? app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($this->production)
             : null;
@@ -226,7 +231,9 @@ class Jobform extends Component
         if ($this->production->status != 4) {
 
             if (!(session_status() == PHP_SESSION_ACTIVE)) {
-                if (!session()->isStarted()) { session()->start(); }
+                if (!session()->isStarted()) {
+                    session()->start();
+                }
             }
 
             if (isset($_SESSION['waitingForm'])) {
@@ -252,17 +259,16 @@ class Jobform extends Component
                 'stopped' => $this->production->stopped + $time,
             ]);
 
-
             if ($update && $this->production->status !== 3) {
                 // Registra Movimento Nota
                 $user = Auth()->User()->name;
 
                 Notetimeline::Create([
-                    'note_id'      => $this->note->id,
-                    'service_id'   => $this->production->service_id,
-                    'user_id'      => Auth()->User()->id,
-                    'info'         => "Usuário {$user} iniciou a Nota/OV.",
-                    'status'       => 3,
+                    'note_id'       => $this->note->id,
+                    'service_id'    => $this->production->service_id,
+                    'user_id'       => Auth()->User()->id,
+                    'info'          => "Usuário {$user} iniciou a Nota/OV.",
+                    'status'        => 3,
                     'production_id' => $this->production->id,
                 ]);
             }
@@ -274,15 +280,14 @@ class Jobform extends Component
     public function saveForm($end = false): bool
     {
 
-
         try {
             if ($end) {
                 if ($this->five) {
                     $this->validate();
                 } else {
                     $this->validate([
-                        'analise.postes' => 'required|numeric',
-                        'analise.info' => 'nullable|string',
+                        'analise.postes'     => 'required|numeric',
+                        'analise.info'       => 'nullable|string',
                         'analise.conclusion' => 'required|min:1',
                     ]);
                 }
@@ -298,7 +303,8 @@ class Jobform extends Component
             return true;
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->validator->errors()->all();
-            $html = '<ul>';
+            $html   = '<ul>';
+
             foreach ($errors as $error) {
                 $html .= '<li>' . $error . '</li>';
             }
@@ -319,12 +325,12 @@ class Jobform extends Component
     public function waitingForm()
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
-
         $_SESSION['waitingForm'] = true;
-
 
         $this->saveForm();
         $this->production->update(['status' => 27]);
@@ -431,40 +437,44 @@ class Jobform extends Component
             ]);
 
             if ($this->production->partial) {
+                // Nunca escolher o último parcial da Nota: a Production traz a
+                // identidade do parcial que ela está efetivamente encerrando.
+                $partial = $this->production->measurementContext?->partial;
 
-                if ($partial = $this->production->Note->Partials->sortByDesc('created_at')->first()) {
-
+                if ($partial) {
 
                     if ($partial->allow && !$partial->deny && $partial->supervision && !$partial->payment) {
                         $partial->update([
-                            'payment' => true,
-                            'complete' => true,
+                            'payment'    => true,
+                            'complete'   => true,
                             'payment_at' => date('Y-m-d H:i:s'),
                             'payment_id' => Auth()->User()->id,
                         ]);
                     }
                 }
-            }
 
+                app(MeasurementProductionContextService::class)->releasePartial($this->production);
+            }
 
             if ($this->five) {
                 $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
                 if (!$this->five->is_supervisioned) {
                     $this->validate([
-                        'five.note_d5' => 'required|numeric',
-                        'five.company_id' => 'required|exists:companies,id'
+                        'five.note_d5'    => 'required|numeric',
+                        'five.company_id' => 'required|exists:companies,id',
                     ]);
-                    $this->five->dispatch_at = now();
+                    $this->five->dispatch_at     = now();
                     $this->five->visible_partner = true;
-                    $this->five->is_payed = true;
-                    $this->five->payed_at = now();
+                    $this->five->is_payed        = true;
+                    $this->five->payed_at        = now();
 
                 } else {
                     $this->five->is_archived = true;
                 }
 
                 $this->five->save();
+
                 if (!$this->five->is_supervisioned) {
                     app(D5WorkflowService::class)->onReleasedToPartner(
                         $this->five,
@@ -497,7 +507,6 @@ class Jobform extends Component
 
                 DB::commit();
 
-
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
                     'icon'     => 'success',
@@ -511,7 +520,7 @@ class Jobform extends Component
 
             DB::rollback();
 
-            $this->addError('general', 'Não conseguimos encerrar a atividade. '.$th->getMessage());
+            $this->addError('general', 'Não conseguimos encerrar a atividade. ' . $th->getMessage());
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -528,9 +537,9 @@ class Jobform extends Component
 
     public function closeAll()
     {
-        $this->production = null;
-        $this->analise = null;
-        $this->five = null;
+        $this->production                = null;
+        $this->analise                   = null;
+        $this->five                      = null;
         $this->closeFinalScopeSelections = [];
         $this->emitUp('refresh_list');
         $this->dispatchBrowserEvent('hideModal');
