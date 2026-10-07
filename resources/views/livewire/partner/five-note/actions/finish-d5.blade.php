@@ -30,13 +30,34 @@
                             });
                             $files = $five->EvidenceFiles ?? collect();
                             $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-                            $imageFiles = $files->filter(function ($file) use ($imageExtensions) {
+                            $allImageFiles = $files->filter(function ($file) use ($imageExtensions) {
                                 $ext = strtolower(pathinfo($file->original_name ?: $file->path ?: '', PATHINFO_EXTENSION));
                                 return in_array($ext, $imageExtensions, true);
                             })->values();
-                            $otherFiles = $files->filter(function ($file) use ($imageFiles) {
-                                return !$imageFiles->contains('id', $file->id);
-                            });
+                            $galleryIndexById = $allImageFiles->pluck('id')->flip();
+                            $evidenceGroups = [
+                                [
+                                    'key' => 'partner',
+                                    'title' => 'Evidências da empreiteira',
+                                    'empty' => 'A empreiteira ainda não anexou evidências.',
+                                    'files' => $files->filter(fn ($file) => strtoupper((string) $file->origin) === 'EMPREITEIRA')->values(),
+                                    'page' => $partnerEvidencePage,
+                                ],
+                                [
+                                    'key' => 'inspection',
+                                    'title' => 'Evidências da fiscalização',
+                                    'empty' => 'A fiscalização ainda não anexou evidências.',
+                                    'files' => $files->filter(fn ($file) => strtoupper((string) $file->origin) === 'FISCALIZACAO')->values(),
+                                    'page' => $inspectionEvidencePage,
+                                ],
+                                [
+                                    'key' => 'legacy',
+                                    'title' => 'Evidências sem origem identificada',
+                                    'empty' => 'Não há anexos antigos sem origem identificada.',
+                                    'files' => $files->filter(fn ($file) => blank($file->origin))->values(),
+                                    'page' => $legacyEvidencePage,
+                                ],
+                            ];
                             $closingScopes = collect($five->WorkReport?->selected_final_scopes ?? [])
                                 ->filter()
                                 ->map(fn ($scope) => (string) $scope);
@@ -104,7 +125,7 @@
                                                 </button>
                                             @endif
                                         </div>
-                                        <div class="five-note-box">{{ $five->description ?: '---' }}</div>
+                                        <div class="five-note-box five-note-box--scrollable">{{ $five->description ?: '---' }}</div>
                                     </div>
                                 </section>
 
@@ -122,46 +143,98 @@
 
                                 <section class="five-panel mt-3">
                                     <h6 class="five-title"><i class="ri-attachment-2 me-1"></i>Evidencias anexadas</h6>
-                                    @if ($files->isEmpty())
-                                        <div class="five-empty">Nenhum arquivo de evidencia anexado.</div>
-                                    @else
-                                        @if ($imageFiles->isNotEmpty())
-                                            <div class="five-gallery-grid">
-                                                @foreach ($imageFiles as $index => $file)
-                                                    <div class="five-thumb-card">
-                                                        <button type="button" class="five-thumb-trigger"
-                                                            data-bs-toggle="modal" data-bs-target="#finishD5GalleryModal"
-                                                            data-index="{{ $index }}">
-                                                            <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]) }}"
-                                                                alt="{{ $file->original_name ?: 'Evidencia' }}"
-                                                                loading="lazy">
-                                                        </button>
-                                                        <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
-                                                            class="five-thumb-download" title="Download">
-                                                            <i class="ri-download-2-line"></i>
-                                                        </a>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endif
+                                    <nav class="five-evidence-tabs" aria-label="Origem das evidências">
+                                        @foreach ($evidenceGroups as $group)
+                                            <button type="button"
+                                                class="five-evidence-tab @if ($evidenceTab === $group['key']) is-active @endif"
+                                                wire:click="selectEvidenceTab('{{ $group['key'] }}')"
+                                                wire:key="finish-d5-evidence-tab-{{ $group['key'] }}">
+                                                {{ $group['title'] }}
+                                                <span>{{ $group['files']->count() }}</span>
+                                            </button>
+                                        @endforeach
+                                    </nav>
 
-                                        @if ($otherFiles->isNotEmpty())
-                                            <div class="five-file-list mt-2">
-                                                @foreach ($otherFiles as $file)
-                                                    <div class="five-file-item">
-                                                        <i class="ri-attachment-2"></i>
-                                                        <span>{{ $file->original_name ?: basename($file->path) }}</span>
-                                                        <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
-                                                            class="five-download-link" title="Download">
-                                                            <i class="ri-download-2-line"></i>
-                                                        </a>
-                                                    </div>
-                                                @endforeach
-                                            </div>
+                                    @foreach ($evidenceGroups as $group)
+                                        @if ($evidenceTab !== $group['key'])
+                                            @continue
                                         @endif
-                                    @endif
+                                        @php
+                                            $groupFiles = $group['files'];
+                                            $lastPage = max(1, (int) ceil($groupFiles->count() / $evidencePerPage));
+                                            $currentPage = min($group['page'], $lastPage);
+                                            $pagedFiles = $groupFiles->forPage($currentPage, $evidencePerPage)->values();
+                                            $imageFiles = $pagedFiles->filter(function ($file) use ($imageExtensions) {
+                                                $ext = strtolower(pathinfo($file->original_name ?: $file->path ?: '', PATHINFO_EXTENSION));
+                                                return in_array($ext, $imageExtensions, true);
+                                            })->values();
+                                            $otherFiles = $pagedFiles->filter(fn ($file) => !$imageFiles->contains('id', $file->id));
+                                        @endphp
+
+                                        <section class="five-evidence-group">
+                                            <div class="five-evidence-group-title">
+                                                <span>{{ $group['title'] }}</span>
+                                                <span class="badge text-bg-light">{{ $groupFiles->count() }}</span>
+                                            </div>
+
+                                            @if ($groupFiles->isEmpty())
+                                                <div class="five-empty">{{ $group['empty'] }}</div>
+                                            @else
+                                                @if ($imageFiles->isNotEmpty())
+                                                    <div class="five-gallery-grid">
+                                                        @foreach ($imageFiles as $index => $file)
+                                                            <div class="five-thumb-card">
+                                                                <button type="button" class="five-thumb-trigger"
+                                                                    data-bs-toggle="modal" data-bs-target="#finishD5GalleryModal"
+                                                                    data-index="{{ $galleryIndexById[$file->id] ?? $index }}">
+                                                                    <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]) }}"
+                                                                        alt="{{ $file->original_name ?: 'Evidencia' }}"
+                                                                        loading="lazy">
+                                                                </button>
+                                                                <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
+                                                                    class="five-thumb-download" title="Download">
+                                                                    <i class="ri-download-2-line"></i>
+                                                                </a>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+
+                                                @if ($otherFiles->isNotEmpty())
+                                                    <div class="five-file-list mt-2">
+                                                        @foreach ($otherFiles as $file)
+                                                            <div class="five-file-item">
+                                                                <i class="ri-attachment-2"></i>
+                                                                <span>{{ $file->original_name ?: basename($file->path) }}</span>
+                                                                <a href="#" wire:click.prevent="dowloadFile({{ $file->id }})"
+                                                                    class="five-download-link" title="Download">
+                                                                    <i class="ri-download-2-line"></i>
+                                                                </a>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+
+                                                @if ($lastPage > 1)
+                                                    <nav class="five-evidence-pagination mt-3" aria-label="Paginação de evidências">
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                            wire:click="previousEvidencePage('{{ $group['key'] }}')" @disabled($currentPage === 1)>
+                                                            <i class="ri-arrow-left-s-line"></i> Anterior
+                                                        </button>
+                                                        <span>Página {{ $currentPage }} de {{ $lastPage }}</span>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                            wire:click="nextEvidencePage('{{ $group['key'] }}', {{ $lastPage }})"
+                                                            @disabled($currentPage === $lastPage)>
+                                                            Próxima <i class="ri-arrow-right-s-line"></i>
+                                                        </button>
+                                                    </nav>
+                                                @endif
+                                            @endif
+                                        </section>
+                                    @endforeach
 
                                     <div class="mt-3">
+                                        <div class="five-evidence-upload-title">Adicionar evidências da empreiteira</div>
                                         @livewire('files.evidence.upload-evidence', ['five' => $five, 'type' => 'D5', 'origin' => 'EMPREITEIRA'], key('finish-d5-evidence-' . $five->id . '-' . $evidenceKey))
                                     </div>
                                 </section>
@@ -199,10 +272,11 @@
                                         </ul>
                                     </div>
 
-                                    <div class="five-details mt-3">
+                                    <div class="five-details five-history mt-3">
                                         <div class="five-k mb-2">Historico de conclusoes</div>
-                                        @forelse ($orderedProductions as $production)
-                                            <article class="five-item">
+                                        <div class="five-history-scroll">
+                                            @forelse ($orderedProductions as $production)
+                                                <article class="five-item">
                                                 <div class="five-dot"></div>
                                                 <div class="five-item-body">
                                                     <div class="five-item-head">
@@ -227,10 +301,11 @@
                                                         <div class="five-subnote">{!! nl2br(e($production->analise?->info)) !!}</div>
                                                     @endif
                                                 </div>
-                                            </article>
-                                        @empty
-                                            <div class="five-empty">Sem historico de conclusoes.</div>
-                                        @endforelse
+                                                </article>
+                                            @empty
+                                                <div class="five-empty">Sem historico de conclusoes.</div>
+                                            @endforelse
+                                        </div>
                                     </div>
                                 </section>
                             </div>
@@ -243,8 +318,12 @@
                 <div class="modal-footer five-footer">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal" wire:click="clearAll">Cancelar</button>
                     <button class="btn btn-success" wire:click="finishD5" @disabled($isSaving)
-                        wire:loading.attr="disabled" wire:target="finishD5,toSave">
-                        <i class="ri-checkbox-circle-line me-1"></i>Encerrar
+                        wire:loading.attr="disabled" wire:target="finishD5,toSave,evidenceSaved,evidenceSaveFailed">
+                        @if ($isSaving)
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Encerrando...
+                        @else
+                            <i class="ri-checkbox-circle-line me-1"></i>Encerrar
+                        @endif
                     </button>
                 </div>
             </div>
@@ -319,6 +398,7 @@
             border: 0;
             border-radius: 18px;
             overflow: hidden;
+            max-height: calc(100vh - 2rem);
             background: #f3f6fb;
             box-shadow: 0 24px 55px rgba(15, 23, 42, .28);
         }
@@ -339,6 +419,7 @@
 
         .five-modal .five-body {
             padding: 1rem;
+            overflow-y: auto;
             background:
                 radial-gradient(circle at 10% 0%, rgba(226, 232, 240, .8), transparent 45%),
                 radial-gradient(circle at 90% 100%, rgba(204, 251, 241, .65), transparent 50%),
@@ -406,6 +487,11 @@
             word-break: break-word;
         }
 
+        .five-modal .five-note-box--scrollable {
+            max-height: 9rem;
+            overflow-y: auto;
+        }
+
         .five-modal .five-inline-btn {
             border-radius: 999px;
             font-weight: 600;
@@ -440,6 +526,86 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
             gap: .5rem;
+        }
+
+        .five-modal .five-evidence-group {
+            border-top: 1px solid #e2e8f0;
+            margin-top: .85rem;
+            padding-top: .85rem;
+        }
+
+        .five-modal .five-evidence-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            margin-bottom: .85rem;
+        }
+
+        .five-modal .five-evidence-tab {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            color: #475569;
+            display: inline-flex;
+            font-size: .72rem;
+            font-weight: 700;
+            gap: .35rem;
+            padding: .35rem .6rem;
+        }
+
+        .five-modal .five-evidence-tab:hover {
+            background: #eef2ff;
+            border-color: #818cf8;
+        }
+
+        .five-modal .five-evidence-tab.is-active {
+            background: #0f766e;
+            border-color: #0f766e;
+            color: #fff;
+        }
+
+        .five-modal .five-evidence-tab span {
+            align-items: center;
+            background: rgba(15, 23, 42, .1);
+            border-radius: 999px;
+            display: inline-flex;
+            height: 1.15rem;
+            justify-content: center;
+            min-width: 1.15rem;
+            padding: 0 .25rem;
+        }
+
+        .five-modal .five-evidence-tab.is-active span {
+            background: rgba(255, 255, 255, .22);
+        }
+
+        .five-modal .five-evidence-group:first-of-type {
+            border-top: 0;
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        .five-modal .five-evidence-group-title,
+        .five-modal .five-evidence-upload-title {
+            color: #475569;
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            margin-bottom: .55rem;
+            text-transform: uppercase;
+        }
+
+        .five-modal .five-evidence-group-title {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .five-modal .five-evidence-upload-title {
+            border-top: 1px solid #e2e8f0;
+            margin-top: 1rem;
+            padding-top: .85rem;
         }
 
         .five-modal .five-thumb-card {
@@ -495,6 +661,15 @@
             gap: .45rem;
         }
 
+        .five-modal .five-evidence-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            color: #64748b;
+            font-size: .82rem;
+        }
+
         .five-modal .five-file-item {
             border: 1px solid #e2e8f0;
             border-radius: 8px;
@@ -548,6 +723,12 @@
 
         .five-modal .five-item:last-child::before {
             bottom: 14px;
+        }
+
+        .five-modal .five-history-scroll {
+            max-height: 27rem;
+            overflow-y: auto;
+            padding-right: .35rem;
         }
 
         .five-modal .five-dot {

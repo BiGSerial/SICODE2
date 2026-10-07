@@ -30,6 +30,8 @@ class PendingD5CreateExport implements FromQuery, WithHeadings, WithMapping, Wit
         return [
             'Nota',
             'Nota D5',
+            'Informe',
+            'Escopo',
             'Empresa',
             'Local Instalacao',
             'Conjunto',
@@ -53,6 +55,8 @@ class PendingD5CreateExport implements FromQuery, WithHeadings, WithMapping, Wit
         return [
             optional($five->note)->note,
             $five->note_d5,
+            $five->work_report_id ?: '',
+            $this->scopeLabel($five),
             optional($five->company)->name,
             $five->loc_install,
             $five->conjunto,
@@ -69,6 +73,17 @@ class PendingD5CreateExport implements FromQuery, WithHeadings, WithMapping, Wit
             optional($five->created_at)->format('d/m/Y H:i'),
             optional($five->updated_at)->format('d/m/Y H:i'),
         ];
+    }
+
+    private function scopeLabel($five): string
+    {
+        if (!$five->work_report_id) {
+            return 'Legada (sem informe)';
+        }
+
+        $labels = collect($five->WorkReport?->finalScopeBadges() ?? [])->pluck('label')->filter()->implode(' / ');
+
+        return $labels !== '' ? $labels : 'Geral';
     }
 
     public function properties(): array

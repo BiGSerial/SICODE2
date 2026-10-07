@@ -6,7 +6,7 @@ use App\Helpers\TextFormatter;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Models\City;
-use App\Services\D5\D5WorkflowService;
+use App\Services\D5\{D5WorkReportAssociationResolver, D5WorkflowService};
 use App\Services\Payment\{BlockEvaluator, NoteFilter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use App\Support\SicodeRules;
@@ -114,7 +114,6 @@ class Main extends Component
         'refresh_list'      => '$refresh',
         'getCopy'           => 'copy',
         'confirm_accompany' => 'add_to_accompany',
-        'confirm_dispatch'  => 'confirmed_att',
     ];
 
     protected $queryString = [
@@ -151,11 +150,14 @@ class Main extends Component
     private function dispatchPayloadForSelection($key): array
     {
         [$noteId, $workReportId, $partialId] = $this->parseSelectionKey($key);
+        $row                                 = collect($this->lists?->items() ?? [])
+            ->first(fn (Note $candidate) => $this->rowSelectionKey($candidate) === (string) $key);
 
         return [
             'note_id'         => $noteId,
             'work_report_id'  => $workReportId ?: null,
             'partial_id'      => $partialId,
+            'five_note_id'    => (int) ($row?->dispatch_five_note_id ?? 0) ?: null,
             'bulk_any_status' => (bool) $this->bulkSearchAnyStatus,
         ];
     }
@@ -218,7 +220,10 @@ class Main extends Component
             'multiSearch'                => $this->multiSearch,
             'multi_search_any_situation' => (bool) $this->multi_search_any_situation,
             'bulkSearchAnyStatus'        => (bool) $this->bulkSearchAnyStatus,
-            'selected_ids'               => collect($this->selected)
+            // Chave da linha, e não apenas da Nota: uma Nota pode conter vários
+            // Informes/Parciais e o export precisa reproduzir a seleção visual.
+            'selected_context_keys' => array_values(array_map('strval', $this->selected)),
+            'selected_ids'          => collect($this->selected)
                 ->map(fn ($key) => $this->parseSelectionKey($key)[0])
                 ->filter()
                 ->unique()
@@ -482,7 +487,26 @@ class Main extends Component
 
     public function get_single_note($note)
     {
-        $this->selected = [(string) $note];
+        // O clique individual recebia apenas note_id e descartava a identidade
+        // já calculada na linha (Informe/Parcial). Reaproveite a chave da linha
+        // exibida; se a Nota tiver mais de uma demanda, o usuário deve usar os
+        // checkboxes específicos da fila.
+        $matches = collect($this->lists?->items() ?? [])
+            ->filter(fn (Note $row) => (int) $row->id === (int) $note)
+            ->values();
+
+        if ($matches->count() !== 1) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione o Informe ou Parcial específico na lista.',
+                'timer'    => 3000,
+            ]);
+
+            return;
+        }
+
+        $this->selected = [$this->rowSelectionKey($matches->first())];
         $this->go_att_mass();
     }
 
@@ -511,6 +535,18 @@ class Main extends Component
 
     public function confirm_att()
     {
+        // Fluxo removido: o único despacho permitido nesta tela é
+        // go_att_mass() -> DispatchModal -> DispatchWorkflowService.
+        // Mantido temporariamente como resposta segura para chamadas Livewire
+        // antigas, sem emitir evento que possa criar Production.
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Use o modal de despacho atual para continuar.',
+            'timer'    => 3500,
+        ]);
+
+        return;
 
         $errors = new Collection();
         // 1) Carrega as notas selecionadas
@@ -638,6 +674,17 @@ class Main extends Component
 
     public function confirmed_att()
     {
+        // Defesa em profundidade para requisições antigas: este método não pode
+        // mais criar Production por fora do DispatchWorkflowService.
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'Este fluxo de despacho foi substituído pelo modal atual.',
+            'timer'    => 3500,
+        ]);
+
+        return;
+
         $dispatcherId = auth()->id();
         $now          = now()->format('Y-m-d H:i:s');
         $errors       = new Collection();
@@ -669,7 +716,7 @@ class Main extends Component
                                             ->orderByDesc('created_at'),
             ]);
 
-            $fiveNote = (bool) ($note->WorkForm?->FiveNote ?? $note->FiveNote);
+            $fiveNote = (bool) (($note->WorkForm?->FiveNote ?? $note->FiveNote)?->needsPaymentAction());
 
             $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
 
@@ -1044,8 +1091,17 @@ class Main extends Component
                       AND (
                           (
                               COALESCE(fn.is_supervisioned, 0) = 0
+                              AND COALESCE(fn.is_completed, 0) = 0
                               AND COALESCE(fn.visible_partner, 0) = 0
                               AND COALESCE(fn.is_payed, 0) = 0
+                              AND fn.dispatch_at IS NULL
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM productionables pa
+                                  JOIN productions pp ON pp.id = pa.production_id
+                                  JOIN services sv ON sv.uuid = pp.service_id AND sv.service = 'Pagamento'
+                                  WHERE pa.productionable_type = 'App\\Models\\FiveNote'
+                                    AND pa.productionable_id = fn.id
+                              )
                           )
                           OR (
                               COALESCE(fn.is_supervisioned, 0) = 1
@@ -1135,7 +1191,7 @@ class Main extends Component
             ]),
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
-            'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
+            'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at',
             'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,created_at',
@@ -1154,7 +1210,7 @@ class Main extends Component
             ])->where('canceled', false),
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
-            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,completed_at',
+            'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at',
             'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,created_at',
@@ -1178,7 +1234,8 @@ class Main extends Component
             'Partials.Company:id,name,deleted_at',
             'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'FiveNote:id,note_id,is_supervisioned,is_completed,is_archived,completed_at',
+            'FiveNote:id,note_id,work_report_id,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at',
+            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at,created_at',
             'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)
                                           ->select([
                                               'id',
@@ -1196,7 +1253,7 @@ class Main extends Component
                                               'dt_note',
                                               'status_note',
                                           ])
-                                          ->with('User')
+                                          ->with(['User', 'WorkReportFlowProductions', 'measurementContext'])
                                           ->orderByDesc('created_at'),
         ]);
 
@@ -1212,12 +1269,26 @@ class Main extends Component
                 ? $note->WorkForms
                 : collect([$note->WorkForm])->filter();
 
+            // Retorno D5 é Ciclo 2 do informe: não depende das operações do
+            // Ciclo 1, mas precisa manter work_report_id e five_note_id.
             $eligibleWorkForms = $workForms
-                ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
+                ->filter(function ($workForm) use ($note) {
+                    $fiveNote = $workForm->relationLoaded('FiveNote') ? $workForm->FiveNote : null;
+                    $fiveNote ??= $this->legacyD5ForWorkReport($note, $workForm);
+
+                    // D5 devolvida nunca pode vazar para a fila por causa das
+                    // operações ainda válidas do Informe.
+                    if ($fiveNote?->returned) {
+                        return false;
+                    }
+
+                    return $this->workReportEligibleForPayment($workForm)
+                        || $fiveNote?->isEligibleForPaymentReturn();
+                })
                 ->values();
 
             if ($eligibleWorkForms->isEmpty()) {
-                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
+                if ($workForms->isNotEmpty() && !$note->FiveNote?->needsPaymentAction()) {
                     return [];
                 }
 
@@ -1244,16 +1315,35 @@ class Main extends Component
                 return [$note];
             }
 
-            return $eligibleWorkForms->map(function ($workForm) use ($note) {
+            $informeRows = $eligibleWorkForms->map(function ($workForm) use ($note) {
                 $row = clone $note;
+                // Uma D5 antiga sem Informe só acompanha este Ciclo 1 quando o
+                // resolvedor temporal a aponta inequivocamente para este Informe.
+                // Não cria segunda linha e nunca escolhe a D5 por ordem arbitrária.
+                $fiveNote = $workForm->relationLoaded('FiveNote') ? $workForm->FiveNote : null;
+                $fiveNote ??= $this->legacyD5ForWorkReport($note, $workForm);
+
+                $row->setRelation('FiveNote', $fiveNote);
                 $row->setRelation('WorkForm', $workForm);
                 $row->setRelation('WorkForms', collect([$workForm]));
                 $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
                 $row->setAttribute('payment_work_report_id', (int) $workForm->id);
                 $row->setAttribute('dispatch_work_report_id', (int) $workForm->id);
+                $row->setAttribute('dispatch_five_note_id', $fiveNote?->id);
 
                 return $row;
             });
+
+            // D5 legada só vira uma demanda própria quando não existe Informe
+            // Final candidato. Com Informe elegível ela integra o Ciclo 1 e não
+            // pode duplicar a mesma Nota na fila.
+            if ($informeRows->isEmpty() && $note->FiveNote?->needsPaymentAction()) {
+                $legacyRow = clone $note;
+                $legacyRow->setAttribute('payment_context_key', (string) $note->id);
+                $informeRows = collect([$legacyRow])->concat($informeRows);
+            }
+
+            return $informeRows;
         })->values();
     }
 
@@ -1272,16 +1362,25 @@ class Main extends Component
         return $orders->contains(fn ($order) => $candidates->orderIsEligible($order));
     }
 
-    private function isD5ReturnReadyForPayment(Note $note): bool
+    /**
+     * Fallback exclusivamente de leitura para D5s antigas que ainda não carregam
+     * work_report_id. A escrita definitiva ocorre no DispatchWorkflowService,
+     * dentro da transação do despacho.
+     */
+    private function legacyD5ForWorkReport(Note $note, $workForm): ?\App\Models\FiveNote
     {
-        $five = $note->FiveNote;
+        if (!$workForm || !$note->relationLoaded('FiveNotes')) {
+            return null;
+        }
 
-        return (bool) (
-            $five
-            && !$five->is_archived
-            && $five->is_completed
-            && $five->is_supervisioned
-        );
+        $matches = $note->FiveNotes
+            ->filter(fn ($five) => !$five->work_report_id
+                && !$five->isPassive
+                && $five->needsPaymentAction()
+                && app(D5WorkReportAssociationResolver::class)->closestFor($five)?->is($workForm))
+            ->values();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     /**

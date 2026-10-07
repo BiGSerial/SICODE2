@@ -83,9 +83,7 @@ class NoteFilter
                     $fn->where("is_archived", false)
                         ->where(function (Builder $state) {
                             $state->where(function (Builder $pending) {
-                                $pending->where("is_supervisioned", false)
-                                    ->where("visible_partner", false)
-                                    ->where("is_payed", false)
+                                $pending->awaitingPaymentCreation()
                                     ->where(function (Builder $ready) {
                                         $ready->whereHas("WorkReport.Orders", fn (Builder $ord) => $this->wherePaymentReadyOrder($ord))
                                             ->orWhere(function (Builder $legacy) {

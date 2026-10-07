@@ -47,11 +47,20 @@
                         <span class="badge {{ $uncancellationRequest->Note->canceled ? 'bg-danger' : 'bg-success' }}">
                             Nota {{ $uncancellationRequest->Note->canceled ? 'cancelada' : 'ativa' }}
                         </span>
-                        @foreach ($uncancellationRequest->Note->WorkFormsAny as $workForm)
+                        @php
+                            $isWorkReportScope = ($uncancellationRequest->scope?->value ?? $uncancellationRequest->scope) === \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value;
+                            $targetReports = $isWorkReportScope && $uncancellationRequest->WorkReports->isNotEmpty()
+                                ? $uncancellationRequest->WorkReports
+                                : $uncancellationRequest->Note->WorkFormsAny;
+                        @endphp
+                        @foreach ($targetReports as $workForm)
                             <span class="badge {{ $workForm->canceled ? 'bg-danger' : 'bg-success' }}">
-                                Informe #{{ $workForm->id }} {{ $workForm->canceled ? 'cancelado' : 'ativo' }}
+                                {{ $workForm->displayLabel() }} {{ $workForm->canceled ? 'cancelado' : 'ativo' }}
                             </span>
                         @endforeach
+                        @if ($isWorkReportScope && $uncancellationRequest->WorkReports->isEmpty())
+                            <div class="small text-muted mt-1">Solicitação anterior à escolha de informe: restaura todos os informes cancelados da nota.</div>
+                        @endif
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped mb-0">

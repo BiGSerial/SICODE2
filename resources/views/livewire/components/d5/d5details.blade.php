@@ -24,17 +24,41 @@
                     @if ($five)
                         @php
                             $lastComment = $five->Comments?->sortByDesc('created_at')->first();
+                            $d5Status = \App\Services\D5\D5StatusPresenter::status($five);
+                            $d5Solution = \App\Services\D5\D5StatusPresenter::solution($five);
                             $orderedProductions = $five->productions->sortByDesc(function ($p) {
                                 return $p->completed_at ?? $p->created_at;
                             });
+                            $files = $five->EvidenceFiles ?? collect();
                             $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-                            $imageFiles = $five->EvidenceFiles->filter(function ($file) use ($imageExtensions) {
+                            $allImageFiles = $files->filter(function ($file) use ($imageExtensions) {
                                 $ext = strtolower(pathinfo($file->original_name ?: $file->path ?: '', PATHINFO_EXTENSION));
                                 return in_array($ext, $imageExtensions, true);
                             })->values();
-                            $otherFiles = $five->EvidenceFiles->filter(function ($file) use ($imageFiles) {
-                                return !$imageFiles->contains('id', $file->id);
-                            });
+                            $galleryIndexById = $allImageFiles->pluck('id')->flip();
+                            $evidenceGroups = [
+                                [
+                                    'key' => 'partner',
+                                    'title' => 'Evidências da empreiteira',
+                                    'empty' => 'A empreiteira ainda não anexou evidências.',
+                                    'files' => $files->filter(fn ($file) => strtoupper((string) $file->origin) === 'EMPREITEIRA')->values(),
+                                    'page' => $partnerEvidencePage,
+                                ],
+                                [
+                                    'key' => 'inspection',
+                                    'title' => 'Evidências da fiscalização',
+                                    'empty' => 'A fiscalização ainda não anexou evidências.',
+                                    'files' => $files->filter(fn ($file) => strtoupper((string) $file->origin) === 'FISCALIZACAO')->values(),
+                                    'page' => $inspectionEvidencePage,
+                                ],
+                                [
+                                    'key' => 'legacy',
+                                    'title' => 'Evidências sem origem identificada',
+                                    'empty' => 'Não há anexos antigos sem origem identificada.',
+                                    'files' => $files->filter(fn ($file) => blank($file->origin))->values(),
+                                    'page' => $legacyEvidencePage,
+                                ],
+                            ];
                             // A D5 se liga a UM informe (report) + escopo, ponto. Fiscalizacao/Pagamento/
                             // Publicacao sao atividades relacionadas (etapas de execucao), nao uma dimensao
                             // separada de vinculo - por isso nao existe "Obra: Fiscalizacao" vs "Obra: Pagamento".
@@ -115,7 +139,7 @@
 
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-1">Detalhes</div>
-                                        <div class="five-note-box">{{ $five->description ?: '---' }}</div>
+                                        <div class="five-note-box five-note-box--scrollable">{{ $five->description ?: '---' }}</div>
                                     </div>
                                 </section>
 
@@ -138,36 +162,38 @@
                                 <section class="five-panel mt-3">
                                     <h6 class="five-title"><i class="ri-history-line me-1"></i>Historico de producoes</h6>
 
-                                    @forelse($orderedProductions as $p)
-                                        @php
-                                            $dotClass = 'is-assigned';
-                                            if ((bool) $p->completed || (int) $p->status === 5) {
-                                                $dotClass = 'is-finished';
-                                            } elseif ((int) $p->status === 4) {
-                                                $dotClass = 'is-paused';
-                                            }
-                                        @endphp
-                                        <article class="five-item">
-                                            <div class="five-dot {{ $dotClass }}"></div>
-                                            <div class="five-item-body">
-                                                <div class="five-item-head">
-                                                    <span class="five-badge">{{ $p->Service->service ?? 'Servico' }}</span>
-                                                    <span class="five-date">
-                                                        {{ ($p->completed_at ?? $p->created_at)?->format('d/m/Y H:i') ?: '---' }}
-                                                    </span>
+                                    <div class="five-history-scroll">
+                                        @forelse($orderedProductions as $p)
+                                            @php
+                                                $dotClass = 'is-assigned';
+                                                if ((bool) $p->completed || (int) $p->status === 5) {
+                                                    $dotClass = 'is-finished';
+                                                } elseif ((int) $p->status === 4) {
+                                                    $dotClass = 'is-paused';
+                                                }
+                                            @endphp
+                                            <article class="five-item">
+                                                <div class="five-dot {{ $dotClass }}"></div>
+                                                <div class="five-item-body">
+                                                    <div class="five-item-head">
+                                                        <span class="five-badge">{{ $p->Service->service ?? 'Servico' }}</span>
+                                                        <span class="five-date">
+                                                            {{ ($p->completed_at ?? $p->created_at)?->format('d/m/Y H:i') ?: '---' }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="five-line"><strong>Responsavel:</strong> {{ $p->User->name ?? '---' }}</div>
+                                                    <div class="five-line"><strong>Resultado:</strong>
+                                                        {{ $p->Analise->conclusion ?? 'Nao informado' }}
+                                                    </div>
+                                                    @if (!empty($p->Analise?->info))
+                                                        <div class="five-subnote">{{ $p->Analise->info }}</div>
+                                                    @endif
                                                 </div>
-                                                <div class="five-line"><strong>Responsavel:</strong> {{ $p->User->name ?? '---' }}</div>
-                                                <div class="five-line"><strong>Resultado:</strong>
-                                                    {{ $p->Analise->conclusion ?? 'Nao informado' }}
-                                                </div>
-                                                @if (!empty($p->Analise?->info))
-                                                    <div class="five-subnote">{{ $p->Analise->info }}</div>
-                                                @endif
-                                            </div>
-                                        </article>
-                                    @empty
-                                        <div class="five-empty">Nenhuma producao relacionada.</div>
-                                    @endforelse
+                                            </article>
+                                        @empty
+                                            <div class="five-empty">Nenhuma producao relacionada.</div>
+                                        @endforelse
+                                    </div>
                                 </section>
                             </div>
 
@@ -175,9 +201,39 @@
                                 <section class="five-panel h-100">
                                     <h6 class="five-title"><i class="ri-chat-1-line me-1"></i>Resumo</h6>
 
+                                    <div class="five-state-card mb-3">
+                                        <div class="five-state-row">
+                                            <span class="five-k">Status da D5</span>
+                                            <span class="badge {{ $d5Status['color'] }}">{{ $d5Status['label'] }}</span>
+                                        </div>
+
+                                        <div class="five-state-divider"></div>
+
+                                        <div class="five-state-row">
+                                            <span class="five-k">Solução</span>
+                                            @if ($d5Solution)
+                                                <span class="badge {{ $d5Solution['color'] }}">{{ $d5Solution['label'] }}</span>
+                                            @else
+                                                <span class="five-state-muted">Ainda não fiscalizada</span>
+                                            @endif
+                                        </div>
+
+                                        @if ($d5Solution)
+                                            <div class="five-state-meta">
+                                                <span><i class="ri-user-line me-1"></i>{{ $d5Solution['by'] ?: '---' }}</span>
+                                                @if ($d5Solution['at'])
+                                                    <span><i class="ri-time-line me-1"></i>{{ $d5Solution['at']->format('d/m/Y H:i') }}</span>
+                                                @endif
+                                            </div>
+                                            @if ($d5Solution['info'])
+                                                <p class="five-state-info">{{ $d5Solution['info'] }}</p>
+                                            @endif
+                                        @endif
+                                    </div>
+
                                     <div class="five-stats">
                                         <div class="five-stat">
-                                            <span>Producoes</span>
+                                            <span>Produções</span>
                                             <strong>{{ $five->productions->count() }}</strong>
                                         </div>
                                         <div class="five-stat">
@@ -186,69 +242,119 @@
                                         </div>
                                     </div>
 
+                                    @php
+                                        $answeredName = $five->name ?: ($five->answeredBy ? null : 'Não informado');
+                                        $answeredUser = ($five->answeredBy && (!$five->name || strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0))
+                                            ? $five->answeredBy->name
+                                            : null;
+                                    @endphp
+
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-1">Quem respondeu a D5</div>
                                         <div class="five-note-box five-note-box--compact">
-                                            @if ($five->name || $five->answeredBy)
-                                                <div>{{ $five->name ?: 'Nome não informado' }}</div>
-                                                @if ($five->answeredBy && (!$five->name || strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0))
-                                                    <small class="d-block mt-1 text-muted">
-                                                        Usuário do sistema: {{ $five->answeredBy->name }}
-                                                    </small>
-                                                @endif
-                                            @else
-                                                Não informado
+                                            <div class="five-answer-name">{{ $answeredName ?? 'Nome não informado' }}</div>
+                                            @if ($answeredUser)
+                                                <div class="five-answer-sub">Usuário do sistema: {{ $answeredUser }}</div>
                                             @endif
                                         </div>
                                     </div>
 
                                     <div class="five-details mt-3">
-                                        <div class="five-k mb-1">Ultima observacao</div>
-                                        <div class="five-note-box">
-                                            {{ $lastComment?->message ?: 'Sem observacoes registradas.' }}
-                                        </div>
+                                        <div class="five-k mb-1">Última observação</div>
+                                        <div class="five-note-box five-note-box--scrollable @if (!$lastComment?->message) is-empty @endif">{{ $lastComment?->message ?: 'Sem observações registradas.' }}</div>
                                     </div>
 
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-2">Galeria de arquivos</div>
-                                        @if ($five->EvidenceFiles->isEmpty())
-                                            <div class="five-empty">Nenhum arquivo de evidencia anexado.</div>
-                                        @else
-                                            @if ($imageFiles->isNotEmpty())
-                                                <div class="five-gallery-grid">
-                                                    @foreach ($imageFiles as $index => $file)
-                                                        <div class="five-thumb-card">
-                                                            <button type="button" class="five-thumb-trigger"
-                                                                data-bs-toggle="modal" data-bs-target="#fiveGalleryModal"
-                                                                data-index="{{ $index }}">
-                                                                <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]) }}"
-                                                                    alt="{{ $file->original_name ?: 'Evidencia' }}"
-                                                                    loading="lazy">
-                                                            </button>
-                                                            <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
-                                                                class="five-thumb-download" title="Download pelo storage">
-                                                                <i class="ri-download-2-line"></i>
-                                                            </a>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
+                                        <nav class="five-evidence-tabs" aria-label="Origem das evidências">
+                                            @foreach ($evidenceGroups as $group)
+                                                <button type="button"
+                                                    class="five-evidence-tab @if ($evidenceTab === $group['key']) is-active @endif"
+                                                    wire:click="selectEvidenceTab('{{ $group['key'] }}')"
+                                                    wire:key="d5-details-evidence-tab-{{ $group['key'] }}">
+                                                    {{ $group['title'] }}
+                                                    <span>{{ $group['files']->count() }}</span>
+                                                </button>
+                                            @endforeach
+                                        </nav>
 
-                                            @if ($otherFiles->isNotEmpty())
-                                                <div class="five-file-list mt-2">
-                                                    @foreach ($otherFiles as $file)
-                                                        <div class="five-file-item">
-                                                            <i class="ri-attachment-2"></i>
-                                                            <span>{{ $file->original_name ?: basename($file->path) }}</span>
-                                                            <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
-                                                                class="five-download-link" title="Download pelo storage">
-                                                                <i class="ri-download-2-line"></i>
-                                                            </a>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
+                                        @foreach ($evidenceGroups as $group)
+                                            @if ($evidenceTab !== $group['key'])
+                                                @continue
                                             @endif
-                                        @endif
+                                            @php
+                                                $groupFiles = $group['files'];
+                                                $lastPage = max(1, (int) ceil($groupFiles->count() / $evidencePerPage));
+                                                $currentPage = min($group['page'], $lastPage);
+                                                $pagedFiles = $groupFiles->forPage($currentPage, $evidencePerPage)->values();
+                                                $imageFiles = $pagedFiles->filter(function ($file) use ($imageExtensions) {
+                                                    $ext = strtolower(pathinfo($file->original_name ?: $file->path ?: '', PATHINFO_EXTENSION));
+                                                    return in_array($ext, $imageExtensions, true);
+                                                })->values();
+                                                $otherFiles = $pagedFiles->filter(fn ($file) => !$imageFiles->contains('id', $file->id));
+                                            @endphp
+
+                                            <section class="five-evidence-group">
+                                                <div class="five-evidence-group-title">
+                                                    <span>{{ $group['title'] }}</span>
+                                                    <span class="badge text-bg-light">{{ $groupFiles->count() }}</span>
+                                                </div>
+
+                                                @if ($groupFiles->isEmpty())
+                                                    <div class="five-empty">{{ $group['empty'] }}</div>
+                                                @else
+                                                    @if ($imageFiles->isNotEmpty())
+                                                        <div class="five-gallery-grid">
+                                                            @foreach ($imageFiles as $index => $file)
+                                                                <div class="five-thumb-card">
+                                                                    <button type="button" class="five-thumb-trigger"
+                                                                        data-bs-toggle="modal" data-bs-target="#fiveGalleryModal"
+                                                                        data-index="{{ $galleryIndexById[$file->id] ?? $index }}">
+                                                                        <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'thumbnail' => 1, 'v' => optional($file->updated_at)->timestamp]) }}"
+                                                                            alt="{{ $file->original_name ?: 'Evidencia' }}"
+                                                                            loading="lazy">
+                                                                    </button>
+                                                                    <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
+                                                                        class="five-thumb-download" title="Download pelo storage">
+                                                                        <i class="ri-download-2-line"></i>
+                                                                    </a>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+
+                                                    @if ($otherFiles->isNotEmpty())
+                                                        <div class="five-file-list mt-2">
+                                                            @foreach ($otherFiles as $file)
+                                                                <div class="five-file-item">
+                                                                    <i class="ri-attachment-2"></i>
+                                                                    <span>{{ $file->original_name ?: basename($file->path) }}</span>
+                                                                    <a href="#" wire:click.prevent="downloadFile({{ $file->id }})"
+                                                                        class="five-download-link" title="Download pelo storage">
+                                                                        <i class="ri-download-2-line"></i>
+                                                                    </a>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+
+                                                    @if ($lastPage > 1)
+                                                        <nav class="five-evidence-pagination mt-3" aria-label="Paginação de evidências">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                wire:click="previousEvidencePage('{{ $group['key'] }}')" @disabled($currentPage === 1)>
+                                                                <i class="ri-arrow-left-s-line"></i> Anterior
+                                                            </button>
+                                                            <span>Página {{ $currentPage }} de {{ $lastPage }}</span>
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                wire:click="nextEvidencePage('{{ $group['key'] }}', {{ $lastPage }})"
+                                                                @disabled($currentPage === $lastPage)>
+                                                                Próxima <i class="ri-arrow-right-s-line"></i>
+                                                            </button>
+                                                        </nav>
+                                                    @endif
+                                                @endif
+                                            </section>
+                                        @endforeach
                                     </div>
                                 </section>
                             </div>
@@ -275,10 +381,10 @@
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    @if (!empty($imageFiles) && $imageFiles->isNotEmpty())
+                    @if (!empty($allImageFiles) && $allImageFiles->isNotEmpty())
                         <div id="fiveGalleryCarousel" class="carousel slide" data-bs-ride="false" data-bs-interval="false">
                             <div class="carousel-inner">
-                                @foreach ($imageFiles as $index => $file)
+                                @foreach ($allImageFiles as $index => $file)
                                     <div class="carousel-item @if ($index === 0) active @endif">
                                         <div class="five-gallery-image-wrap">
                                             <img src="{{ route('files.evidence.preview', ['file' => $file->id, 'v' => optional($file->updated_at)->timestamp]) }}" class="d-block w-100"
@@ -323,6 +429,7 @@
             border: 0;
             border-radius: 18px;
             overflow: hidden;
+            max-height: calc(100vh - 2rem);
             background: #f3f6fb;
             box-shadow: 0 24px 55px rgba(15, 23, 42, .28);
         }
@@ -343,6 +450,7 @@
 
         .five-modal .five-body {
             padding: 1rem;
+            overflow-y: auto;
             background:
                 radial-gradient(circle at 10% 0%, rgba(226, 232, 240, .8), transparent 45%),
                 radial-gradient(circle at 90% 100%, rgba(204, 251, 241, .65), transparent 50%),
@@ -395,6 +503,7 @@
         }
 
         .five-modal .five-note-box {
+            text-align: left;
             border: 1px dashed #cbd5e1;
             border-radius: 10px;
             padding: .7rem;
@@ -402,6 +511,84 @@
             color: #334155;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+
+        .five-modal .five-state-card {
+            text-align: left;
+            border: 1px solid #dbe3ef;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: .7rem .8rem;
+        }
+
+        .five-modal .five-state-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+        }
+
+        .five-modal .five-state-row .five-k {
+            margin: 0;
+        }
+
+        .five-modal .five-state-row .badge {
+            white-space: normal;
+            text-align: right;
+        }
+
+        .five-modal .five-state-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: .6rem 0;
+        }
+
+        .five-modal .five-state-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .25rem .9rem;
+            margin-top: .5rem;
+            font-size: .78rem;
+            color: #64748b;
+        }
+
+        .five-modal .five-state-info {
+            margin: .5rem 0 0;
+            padding: .5rem .6rem;
+            border-left: 3px solid #cbd5e1;
+            background: #fff;
+            border-radius: 0 6px 6px 0;
+            color: #334155;
+            font-size: .85rem;
+            white-space: pre-line;
+            word-break: break-word;
+        }
+
+        .five-modal .five-state-muted {
+            font-size: .82rem;
+            color: #94a3b8;
+        }
+
+        .five-modal .five-note-box--scrollable {
+            max-height: 9rem;
+            overflow-y: auto;
+        }
+
+        .five-modal .five-note-box.is-empty {
+            color: #94a3b8;
+            font-size: .85rem;
+        }
+
+        .five-modal .five-answer-name {
+            color: #0f172a;
+            font-weight: 600;
+            font-size: .9rem;
+        }
+
+        .five-modal .five-answer-sub {
+            margin-top: .15rem;
+            font-size: .75rem;
+            color: #64748b;
         }
 
         .five-modal .five-note-box--compact {
@@ -431,6 +618,12 @@
 
         .five-modal .five-item:last-child::before {
             bottom: 14px;
+        }
+
+        .five-modal .five-history-scroll {
+            max-height: 27rem;
+            overflow-y: auto;
+            padding-right: .35rem;
         }
 
         .five-modal .five-dot {
@@ -545,6 +738,85 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
             gap: .5rem;
+        }
+
+        .five-modal .five-evidence-group {
+            border-top: 1px solid #e2e8f0;
+            margin-top: .85rem;
+            padding-top: .85rem;
+        }
+
+        .five-modal .five-evidence-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            margin-bottom: .85rem;
+        }
+
+        .five-modal .five-evidence-tab {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            color: #475569;
+            display: inline-flex;
+            font-size: .72rem;
+            font-weight: 700;
+            gap: .35rem;
+            padding: .35rem .6rem;
+        }
+
+        .five-modal .five-evidence-tab:hover {
+            background: #eef2ff;
+            border-color: #818cf8;
+        }
+
+        .five-modal .five-evidence-tab.is-active {
+            background: #0f766e;
+            border-color: #0f766e;
+            color: #fff;
+        }
+
+        .five-modal .five-evidence-tab span {
+            align-items: center;
+            background: rgba(15, 23, 42, .1);
+            border-radius: 999px;
+            display: inline-flex;
+            height: 1.15rem;
+            justify-content: center;
+            min-width: 1.15rem;
+            padding: 0 .25rem;
+        }
+
+        .five-modal .five-evidence-tab.is-active span {
+            background: rgba(255, 255, 255, .22);
+        }
+
+        .five-modal .five-evidence-group:first-of-type {
+            border-top: 0;
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        .five-modal .five-evidence-group-title {
+            align-items: center;
+            color: #475569;
+            display: flex;
+            font-size: .75rem;
+            font-weight: 700;
+            justify-content: space-between;
+            letter-spacing: .05em;
+            margin-bottom: .55rem;
+            text-transform: uppercase;
+        }
+
+        .five-modal .five-evidence-pagination {
+            align-items: center;
+            color: #64748b;
+            display: flex;
+            font-size: .82rem;
+            gap: .5rem;
+            justify-content: space-between;
         }
 
         .five-modal .five-thumb-card {

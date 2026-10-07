@@ -5,6 +5,10 @@
     progress: 0,
     totalSize: 0,
     uploaded: 0,
+    feedback: '',
+    feedbackType: 'info',
+    maxFiles: {{ $config['max_files_per_upload'] }},
+    maxTotalBytes: {{ $config['max_total_size_mb'] * 1024 * 1024 }},
     human(bytes) {
         if (!bytes) return '0 B';
         const u = ['B', 'KB', 'MB', 'GB'];
@@ -15,22 +19,60 @@
     },
     // Função disparada tanto pelo clique quanto pelo drop
     uploadFiles(files) {
-        if (!files || files.length === 0) return;
+        if (!files || files.length === 0) {
+            this.feedback = 'Nenhum arquivo foi selecionado.';
+            this.feedbackType = 'warning';
+            return;
+        }
+
+        const selectedFiles = Array.from(files);
+        const selectedSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+
+        if (selectedFiles.length > this.maxFiles) {
+            this.feedback = `Selecione no máximo ${this.maxFiles} arquivos por envio.`;
+            this.feedbackType = 'warning';
+            return;
+        }
+
+        if (selectedSize > this.maxTotalBytes) {
+            this.feedback = `O lote selecionado tem ${this.human(selectedSize)}. Envie no máximo ${this.human(this.maxTotalBytes)} por vez.`;
+            this.feedbackType = 'warning';
+            return;
+        }
 
         this.isUploading = true;
         this.progress = 0;
-        this.totalSize = Array.from(files).reduce((s, f) => s + f.size, 0);
+        this.uploaded = 0;
+        this.totalSize = selectedSize;
+        this.feedback = `Enviando ${files.length} arquivo(s)...`;
+        this.feedbackType = 'info';
 
-        @this.uploadMultiple('files', files,
-            () => { this.isUploading = false;
-                this.progress = 100; },
-            () => { this.isUploading = false;
-                alert('Erro no upload'); },
+        @this.uploadMultiple('files', selectedFiles,
+            () => {
+                this.isUploading = false;
+                this.progress = 100;
+                this.feedback = 'Upload concluído. Validando os arquivos...';
+                this.feedbackType = 'info';
+            },
+            () => {
+                this.isUploading = false;
+                this.feedback = 'Não foi possível enviar os arquivos. Verifique a conexão e tente novamente.';
+                this.feedbackType = 'danger';
+            },
             (e) => { this.progress = e.detail.progress;
                 this.uploaded = Math.round(this.totalSize * (this.progress / 100)); }
         );
+    },
+    showFeedback(message, type) {
+        this.isUploading = false;
+        this.feedback = message;
+        this.feedbackType = type;
     }
-}" class="w-100">
+}"
+    x-on:evidence-upload-accepted.window="if ($event.detail.componentId === @js($this->id)) showFeedback(`${$event.detail.count} arquivo(s) adicionado(s) à fila. Clique em Encerrar para salvar e concluir a D5.`, 'success')"
+    x-on:evidence-upload-rejected.window="if ($event.detail.componentId === @js($this->id)) showFeedback($event.detail.message, 'warning')"
+    x-on:evidence-save-failed.window="if ($event.detail.componentId === @js($this->id)) showFeedback('Não foi possível salvar as evidências. Revise os arquivos e tente novamente.', 'danger')"
+    class="w-100">
 
     <div class="upload-zone border border-2 border-dashed rounded-3 p-4 text-center position-relative"
         style="cursor: pointer; background: rgba(13, 110, 253, 0.03);" {{-- Previne comportamento padrão do navegador --}}
@@ -41,12 +83,24 @@
             <i class="ri-cloud-line fs-1 text-primary"></i>
         </div>
         <div class="fw-bold text-primary">Arraste ou Clique para Upload</div>
-        <div class="small text-muted">Limite: {{ $config['max_size_mb'] }}MB por arquivo</div>
+        <div class="small text-muted">Limite: {{ $config['max_size_mb'] }} MB por arquivo · até {{ $config['max_files_per_upload'] }} arquivos e {{ $config['max_total_size_mb'] }} MB por lote</div>
+        <div class="small text-muted mt-1">Formatos aceitos: {{ strtoupper(implode(', ', $config['allowed_exts'])) }}</div>
 
         {{-- Input REAL (escondido) --}}
         <input type="file" x-ref="fileInput" class="d-none" multiple
             accept=".{{ implode(',.', $config['allowed_exts']) }}" x-on:change="uploadFiles($event.target.files)">
     </div>
+
+    <div class="alert py-2 px-3 mt-3 mb-0" role="status" x-show="feedback" x-cloak
+        x-bind:class="`alert-${feedbackType}`" x-text="feedback"></div>
+
+    @if ($errors->any())
+        <div class="alert alert-warning py-2 px-3 mt-3 mb-0" role="alert">
+            @foreach ($errors->all() as $message)
+                <div>{{ $message }}</div>
+            @endforeach
+        </div>
+    @endif
 
     <div class="mt-3" x-show="isUploading" x-cloak>
         <div class="progress" style="height: 10px;">
@@ -66,7 +120,7 @@
                 <button type="button" class="btn btn-sm btn-link text-danger" wire:click="cancelEvidences">Limpar
                     Tudo</button>
             </div>
-            <ul class="list-group">
+            <ul class="list-group evidence-upload-queue">
                 @foreach ($tempFiles as $i => $t)
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div class="text-truncate">
@@ -102,6 +156,11 @@
             border-color: #198754 !important;
             background: rgba(25, 135, 84, 0.1) !important;
             transform: scale(1.01);
+        }
+
+        .evidence-upload-queue {
+            max-height: 14rem;
+            overflow-y: auto;
         }
     </style>
 </div>

@@ -2,88 +2,134 @@
 
 namespace App\Exports\Dispatchs;
 
-use App\Support\SicodeRules;
 use App\Models\WorkReportFlowProduction;
+use App\Support\SicodeRules;
 use Carbon\Carbon;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\{Exportable, FromCollection, WithEvents, WithHeadings, WithMapping, WithProperties, WithTitle};
 use Maatwebsite\Excel\Events\AfterSheet;
-use DateTimeInterface;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill};
 
-class SupervisionExportList implements FromCollection, WithEvents, WithProperties, WithHeadings, WithMapping
+/**
+ * Exportação da lista de despacho de Fiscalização.
+ *
+ * Cada linha representa exatamente o que a tela mostra: um informe de obra (com as ordens
+ * DAQUELE informe), um informe parcial ou uma D5 sem informe (passiva).
+ */
+class SupervisionExportList implements FromCollection, WithEvents, WithProperties, WithHeadings, WithMapping, WithTitle
 {
     use Exportable;
 
+    private const HEADER_BG = '0B3C49';
+    private const ZEBRA_BG  = 'F3F7F8';
+    private const BORDER    = 'D5DEE1';
+
+    private const TYPE_COLORS = [
+        'FINAL'   => ['bg' => 'D1FAE5', 'fg' => '065F46'],
+        'PARCIAL' => ['bg' => 'FEF3C7', 'fg' => '92400E'],
+        'D5'      => ['bg' => 'DBEAFE', 'fg' => '1E40AF'],
+    ];
+
     protected $exports;
+
     protected $service;
+
     protected $serviceUuid;
+
     protected array $selectedWorkReportIds;
+
     protected array $selectedPartialIds;
 
-    public function __construct($data, $service, array $selectedWorkReportIds = [], array $selectedPartialIds = [])
+    protected array $selectedFiveNoteIds;
+
+    public function __construct($data, $service, array $selectedWorkReportIds = [], array $selectedPartialIds = [], array $selectedFiveNoteIds = [])
     {
-        $this->exports = $data;
-        $this->service = $service;
-        $this->serviceUuid = $service;
-        $this->selectedWorkReportIds = collect($selectedWorkReportIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
-        $this->selectedPartialIds = collect($selectedPartialIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $this->exports               = $data;
+        $this->service               = $service;
+        $this->serviceUuid           = $service;
+        $this->selectedWorkReportIds = $this->ids($selectedWorkReportIds);
+        $this->selectedPartialIds    = $this->ids($selectedPartialIds);
+        $this->selectedFiveNoteIds   = $this->ids($selectedFiveNoteIds);
+    }
+
+    private function ids(array $ids): array
+    {
+        return collect($ids)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     public function collection()
     {
-        $notes = $this->exports->with([
-            'orders' => fn ($q) => $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%'),
-            'WorkReports' => fn ($q) => $q->where('canceled', false),
-            'WorkReports.Orders',
-            'WorkReports.Adsform',
-            'WorkReports.FiveNote',
-            'WorkReports.Company',
-            'Productions.User',
-            'Productions.Company',
-            'Productions.WorkReportFlowProductions',
-            'Wpas',
-            'Partials.Orders',
-            'OldAds',
-            'FiveNote',
-        ])->get();
+        $notes = $this->exports instanceof Collection
+            ? $this->exports
+            : $this->exports->with([
+                'orders'      => fn ($q) => $q->where('statusSist', 'not like', 'ENT%')->where('statusSist', 'not like', 'ENC%'),
+                'WorkReports' => fn ($q) => $q->where('canceled', false),
+                'WorkReports.Orders',
+                'WorkReports.Adsform',
+                'WorkReports.FiveNote',
+                'WorkReports.Company',
+                'Productions.User',
+                'Productions.Company',
+                'Productions.WorkReportFlowProductions',
+                'Wpas',
+                'Partials.Orders',
+                'OldAds',
+                'FiveNote',
+                'FiveNotes',
+            ])->get();
 
         $rows = $notes->map(function ($note) {
-            // A lista é montada pelo JOIN de notes com work_reports e, portanto,
-            // cada linha representa um informe específico. Não podemos agrupar
-            // novamente pela nota nem reanexar todos os informes da nota aqui:
-            // isso mistura as ordens de informes diferentes no Excel.
-            $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+            // Cada linha da lista é um contexto específico (informe, parcial ou D5 passiva).
+            // Nunca reanexamos todos os informes da nota: isso misturaria ordens de informes diferentes.
+            $workReportId = (int) ($note->operational_work_report_id ?? $note->dispatch_work_report_id ?? 0);
+            $partialId    = (int) ($note->row_partial_id ?? $note->dispatch_partial_id ?? 0);
+            $fiveNoteId   = (int) ($note->passive_d5_id ?? $note->dispatch_five_note_id ?? 0);
+
+            $row = clone $note;
+            $row->setAttribute('export_work_report_id', $workReportId);
+            $row->setAttribute('export_partial_id', $partialId);
+            $row->setAttribute('export_five_note_id', $fiveNoteId);
+
             $workForm = $workReportId > 0
                 ? ($note->WorkReports ?? collect())->firstWhere('id', $workReportId)
                 : null;
-
-            $row = clone $note;
             $row->setRelation('WorkForm', $workForm);
+
+            if ($workForm) {
+                $five = $workForm->FiveNote;
+            } elseif ($fiveNoteId > 0) {
+                $five = ($note->FiveNotes ?? collect())->firstWhere('id', $fiveNoteId);
+            } elseif ($partialId > 0) {
+                $five = null;
+            } else {
+                $five = $note->FiveNote;
+            }
+            $row->setRelation('FiveNote', $five);
 
             return $row;
         })->values();
 
-        if (empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds)) {
+        if (empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds) && empty($this->selectedFiveNoteIds)) {
             return $rows;
         }
 
         return $rows->filter(function ($row): bool {
-            $workReportId = (int) ($row->dispatch_work_report_id ?? 0);
-            $partialId = (int) (($row->Partials ?? collect())
-                ->where('allow', true)
-                ->where('supervision', false)
-                ->where('deny', false)
-                ->sortByDesc('created_at')
-                ->first()?->id ?? 0);
+            $partialId = (int) $row->export_partial_id;
 
-            return in_array($workReportId, $this->selectedWorkReportIds, true)
-                || in_array($partialId, $this->selectedPartialIds, true);
+            if ($partialId <= 0 && (int) $row->export_work_report_id <= 0 && (int) $row->export_five_note_id <= 0) {
+                $partialId = (int) ($this->legacyPartial($row)?->id ?? 0);
+            }
+
+            return in_array((int) $row->export_work_report_id, $this->selectedWorkReportIds, true)
+                || in_array($partialId, $this->selectedPartialIds, true)
+                || in_array((int) $row->export_five_note_id, $this->selectedFiveNoteIds, true);
         })->values();
+    }
+
+    public function title(): string
+    {
+        return 'Fiscalização';
     }
 
     public function headings(): array
@@ -91,56 +137,97 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
         return [
             'Tipo',
             'Nota',
-            'Ordem',
+            'Informe',
+            'Escopo',
+            'Ordens',
             'DD',
             'MMGD',
             'Postes',
-            'Informado Em',
+            'Empresa do informe',
+            'Informado em',
             'Dt ADS',
-            'numPedido',
+            'Nº Pedido',
             'Rubrica',
-            'Municipio',
-            'Custo',
+            'Município',
+            'Custo (R$)',
             'Fiscalizações',
-            'Status',
+            'Status / Centro',
             'Dias D5',
             'Situação',
-            'Despachado Em',
-            'Atribuído Em',
-            'Finalizado Em',
+            'Despachado em',
+            'Atribuído em',
+            'Finalizado em',
         ];
+    }
+
+    private function legacyPartial($row)
+    {
+        return ($row->Partials ?? collect())
+            ->where('allow', true)
+            ->where('supervision', false)
+            ->where('deny', false)
+            ->sortByDesc('created_at')
+            ->first();
+    }
+
+    private function partialFor($row)
+    {
+        if ($row->WorkForm) {
+            return null;
+        }
+
+        $partialId = (int) ($row->export_partial_id ?? 0);
+
+        if ($partialId > 0) {
+            return ($row->Partials ?? collect())->firstWhere('id', $partialId);
+        }
+
+        // Linha de D5 passiva não tem parcial; só o formato antigo (sem contexto) cai no último parcial.
+        return (int) ($row->export_five_note_id ?? 0) > 0 ? null : $this->legacyPartial($row);
     }
 
     public function map($row): array
     {
-        $workForm = $row->WorkForm;
-        $partial = !$workForm
-            ? ($row->Partials?->where('allow', true)->where('supervision', false)->where('deny', false)->sortByDesc('created_at')->first())
-            : null;
-        $orders = $workForm?->Orders ?? $partial?->Orders ?? collect();
+        $workForm    = $row->WorkForm;
+        $partial     = $this->partialFor($row);
+        $d5          = $row->FiveNote;
+        $isPassiveD5 = !$workForm && !$partial && (int) ($row->export_five_note_id ?? 0) > 0;
+
+        $orders = $workForm?->Orders
+            ?? $partial?->Orders
+            ?? ($isPassiveD5 ? ($row->orders ?? collect()) : collect());
+
         $production = ($row->Productions ?? collect())
             ->where('service_id', $this->serviceUuid)
             ->sortByDesc('created_at')
             ->first();
-        $informedAt = $workForm?->informed_at ?? $partial?->created_at;
+
+        [$type, $typeLabel, $reference] = match (true) {
+            (bool) $partial  => ['PARCIAL', 'Parcial', '#' . $partial->id],
+            $isPassiveD5     => ['D5', 'D5', $d5?->note_d5 ? 'D5 ' . $d5->note_d5 : 'D5 #' . $d5?->id],
+            (bool) $workForm => ['FINAL', 'Final', '#' . $workForm->id],
+            default          => ['FINAL', 'Final', '---'],
+        };
+
+        if ($workForm && $d5 && $d5->is_completed && !$d5->is_supervisioned) {
+            $typeLabel = 'Final + D5';
+        }
 
         $scope = $workForm
             ? collect($workForm->finalScopeBadges())->pluck('label')->implode(' / ')
-            : '---';
-        $typeLabel = ($partial ? 'P' : 'F') . ($scope !== '---' ? ' / ' . $scope : '');
+            : '';
 
-        $ads = $workForm?->Adsform;
-        $oldAds = $row->OldAds?->last();
+        $ads     = $workForm?->Adsform;
+        $oldAds  = $row->OldAds?->last();
         $adsDate = $oldAds?->date ?? $ads?->created_at;
-        $adsLabel = $adsDate ? Carbon::parse($adsDate)->format('d/m/Y H:i:s') : '---';
-        if ($ads?->tacit) {
-            $adsLabel .= ' (TÁCITO)';
-        }
+        $adsCell = $adsDate ? $this->excelDate($adsDate) : '---';
+        $adsNote = $ads?->tacit ? 'TÁCITO' : '';
 
         $fiscalizations = ($row->Productions ?? collect())
             ->where('service_id', $this->serviceUuid)
             ->filter(function ($production) use ($workForm) {
                 $workReportId = (int) ($workForm?->id ?? 0);
+
                 return $workReportId === 0
                     ? true
                     : $production->WorkReportFlowProductions
@@ -153,52 +240,63 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
             ? $fiscalizations->count() . ' - ' . ($fiscalizations->first()?->User?->name ?? '--')
             : '--';
 
-        $d5 = $row->FiveNote;
         $d5Days = $d5?->completed_at
             ? Carbon::parse($d5->completed_at)->startOfDay()->diffInDays(Carbon::now())
             : '---';
 
+        $informedAt = $workForm?->informed_at ?? $partial?->created_at;
+
+        $this->typeByRow[] = $type;
+
         return [
             $typeLabel,
             $d5?->is_completed && !$d5?->is_supervisioned ? 'D5 ' . $row->note : $row->note,
-            $orders->isNotEmpty() ? $orders->pluck('ordem')->implode("\n") : '---',
+            $reference,
+            $scope !== '' ? $scope : '---',
+            $orders->isNotEmpty() ? $orders->pluck('ordem')->filter()->implode("\n") : '---',
             SicodeRules::dispatchDdFor($row, $this->serviceUuid, $production) ?? '',
             $row->mmgd ? 'MMGD' : '---',
             $row->postes ?? '---',
-            $informedAt ? Carbon::parse($informedAt)->format('d/m/Y') : '---',
-            $adsLabel,
+            $workForm?->Company?->name ?? $partial?->company?->name ?? '---',
+            $informedAt ? $this->excelDate($informedAt) : '---',
+            $adsNote ? ($adsDate ? Carbon::parse($adsDate)->format('d/m/Y H:i') . ' (TÁCITO)' : 'TÁCITO') : $adsCell,
             mb_strtoupper((string) ($row->numPedido ?? '')),
             $row->rubrica ?? '---',
             $row->lexp ?? '---',
-            'R$ ' . number_format((float) ($row->orders?->sum('service_cost') ?? 0), 2, ',', '.'),
+            (float) $orders->sum('service_cost'),
             $fiscalizationValue,
             ($row->nstats ?? '---') . ' / ' . ($row->centerjob ?? '---'),
             $d5Days,
             $row->pze_parecer ?? 'DESCONHECIDO',
-            $this->formatProductionDate($production?->dispatch_at),
-            $this->formatProductionDate($production?->att_at),
-            $this->formatProductionDate($production?->completed_at),
+            $this->productionDate($production?->dispatch_at),
+            $this->productionDate($production?->att_at),
+            $this->productionDate($production?->completed_at),
         ];
     }
 
-    private function formatProductionDate($date): string
+    /** @var array<int, string> tipo (FINAL/PARCIAL/D5) por linha, na ordem de map() */
+    private array $typeByRow = [];
+
+    private function excelDate($date)
     {
-        if (!$date) { return "---"; }
-        $value = Carbon::parse($date);
-        return $value->format("d/m/Y H:i:s") . " (" . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . " dia(s))";
+        return ExcelDate::dateTimeToExcel(Carbon::parse($date));
     }
 
+    private function productionDate($date)
+    {
+        return $date ? $this->excelDate($date) : '---';
+    }
 
     public function properties(): array
     {
         return [
             'creator'        => 'Sicode',
             'lastModifiedBy' => 'Sicode',
-            'title'          => 'Supervision List',
-            'description'    => 'List of all supervision notes',
-            'subject'        => 'Supervision List',
-            'keywords'       => 'supervision, list, sicode',
-            'category'       => 'Supervision',
+            'title'          => 'Lista de despacho - Fiscalização',
+            'description'    => 'Informes, parciais e D5 aguardando despacho de Fiscalização',
+            'subject'        => 'Fiscalização',
+            'keywords'       => 'fiscalização, despacho, sicode',
+            'category'       => 'Fiscalização',
             'manager'        => 'Sicode',
             'company'        => 'Sicode',
         ];
@@ -208,31 +306,78 @@ class SupervisionExportList implements FromCollection, WithEvents, WithPropertie
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                // Centraliza verticalmente e horizontalmente todas as células e habilita quebras de linha
-                $sheet = $event->sheet->getDelegate();
-                $lastCol   = $sheet->getHighestColumn();
+                $sheet   = $event->sheet->getDelegate();
+                $lastCol = $sheet->getHighestColumn();
+                $lastRow = $sheet->getHighestRow();
 
-                $sheet->getStyle('A:' . $lastCol)->getAlignment()
-                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+                // Larguras fixas (autoSize com quebra de linha estoura em células com várias ordens).
+                $widths = [
+                    'A' => 13, 'B' => 17, 'C' => 15, 'D' => 14, 'E' => 17, 'F' => 13, 'G' => 9, 'H' => 9,
+                    'I' => 30, 'J' => 13, 'K' => 19, 'L' => 24, 'M' => 16, 'N' => 22, 'O' => 14, 'P' => 26,
+                    'Q' => 15, 'R' => 9, 'S' => 24, 'T' => 17, 'U' => 17, 'V' => 17,
+                ];
 
-                $sheet->getStyle('A:' . $lastCol)->getAlignment()->setWrapText(true);
+                foreach ($widths as $col => $width) {
+                    $sheet->getColumnDimension($col)->setWidth($width);
+                }
 
-                $event->sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
-                    'font' => [
-                    'bold'  => true,
-                    'color' => ['rgb' => 'FFFFFF'],
-                    ],
-                    'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '0000FF'],
-                    ],
+                $range = 'A1:' . $lastCol . $lastRow;
+                $sheet->getStyle($range)->applyFromArray([
+                    'font'      => ['name' => 'Calibri', 'size' => 10],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                    'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => self::BORDER]]],
                 ]);
-                $event->sheet->getStyle('B')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('C')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('D')->getNumberFormat()->setFormatCode('0');
-                $event->sheet->getStyle('I:L')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-                $event->sheet->autoSize();
+                $sheet->getStyle('A2:' . $lastCol . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('I2:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle('P2:P' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+
+                // Cabeçalho
+                $sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
+                    'font'      => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::HEADER_BG]],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getRowDimension(1)->setRowHeight(30);
+
+                if ($lastRow < 2) {
+                    return;
+                }
+
+                // Formatos
+                $sheet->getStyle('B2:B' . $lastRow)->getNumberFormat()->setFormatCode('@');
+                $sheet->getStyle('E2:F' . $lastRow)->getNumberFormat()->setFormatCode('@');
+                $sheet->getStyle('J2:J' . $lastRow)->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                $sheet->getStyle('K2:K' . $lastRow)->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+                $sheet->getStyle('O2:O' . $lastRow)->getNumberFormat()->setFormatCode('"R$" #,##0.00');
+                $sheet->getStyle('T2:V' . $lastRow)->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm');
+
+                // Zebra
+                for ($r = 3; $r <= $lastRow; $r += 2) {
+                    $sheet->getStyle('A' . $r . ':' . $lastCol . $r)->getFill()
+                        ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(self::ZEBRA_BG);
+                }
+
+                // Etiqueta colorida do tipo (Final / Parcial / D5)
+                foreach ($this->typeByRow as $i => $type) {
+                    $colors = self::TYPE_COLORS[$type] ?? null;
+
+                    if (!$colors) {
+                        continue;
+                    }
+                    $cell = 'A' . ($i + 2);
+                    $sheet->getStyle($cell)->applyFromArray([
+                        'font' => ['bold' => true, 'color' => ['rgb' => $colors['fg']]],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $colors['bg']]],
+                    ]);
+                }
+
+                $sheet->freezePane('C2');
+                $sheet->setAutoFilter('A1:' . $lastCol . $lastRow);
+                $sheet->getTabColor()->setRGB(self::HEADER_BG);
+                $sheet->setShowGridlines(false);
+                $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)
+                    ->setFitToWidth(1)->setFitToHeight(0);
+                $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 1);
             },
         ];
     }

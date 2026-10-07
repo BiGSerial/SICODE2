@@ -3,26 +3,27 @@
 namespace App\Exports\Workreports;
 
 use App\Models\WorkReport;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\RegistersEventListeners;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, RegistersEventListeners, WithChunkReading, WithEvents, WithHeadings, WithMapping, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Conditional, Fill};
 
 class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
     use RegistersEventListeners;
 
+    private const HEADER_COLOR = '0B3C49';
+    private const BORDER_COLOR = 'D8E2E7';
+    private const ZEBRA_COLOR  = 'F4F8F9';
+
     /** @var array<string,mixed> */
     protected array $filters;
+
+    /** @var array<int, string> Auditoria completa do aceite, indexada pela linha do Excel. */
+    private array $acceptanceAuditByRow = [];
 
     public function __construct(array $filters)
     {
@@ -38,10 +39,11 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
             'Orders',
             'Equipment',
             'Company',
+            'User:id,name,email',
         ]);
 
-        $dateBy = $this->filters['dateBy'] ?? 'first_informed';
-        $dateIn = $this->filters['date_in'] ?? null;
+        $dateBy  = $this->filters['dateBy'] ?? 'first_informed';
+        $dateIn  = $this->filters['date_in'] ?? null;
         $dateOut = $this->filters['date_out'] ?? null;
 
         if ($dateIn || $dateOut) {
@@ -57,6 +59,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
         }
 
         $search = trim((string) ($this->filters['search'] ?? ''));
+
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->whereRelation('Note', 'note', 'like', "%{$search}%")
@@ -65,6 +68,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
         }
 
         $multiSearch = $this->filters['multiSearch'] ?? [];
+
         if (!empty($multiSearch)) {
             $query->where(function ($q) use ($multiSearch) {
                 $q->whereRelation('Note', function ($sq) use ($multiSearch) {
@@ -98,15 +102,18 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
 
     public function map($row): array
     {
-        $ads = null;
+        $ads  = null;
         $note = $row->Note;
 
         if ($note?->Adsform) {
             $adsForm = $note->Adsform;
-            $ads = ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y');
+            $ads     = ($adsForm->tacit ? $adsForm->tacit_delivered_at : $adsForm->created_at)?->format('d/m/Y');
         } elseif ($note?->OldAds?->isNotEmpty()) {
             $ads = $note->OldAds->last()->date->format('d/m/Y');
         }
+
+        [$acceptanceSummary, $acceptanceAudit] = $this->acceptanceExportValues($row);
+        $this->acceptanceAuditByRow[]          = $acceptanceAudit;
 
         return [
             $note?->note,
@@ -122,6 +129,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
             $row->responsible,
             $row->observation,
             $row->Company?->name,
+            $acceptanceSummary,
         ];
     }
 
@@ -141,6 +149,7 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
             'Responsavel',
             'Observacoes',
             'Empreiteira',
+            'Aceite do informe',
         ];
     }
 
@@ -161,32 +170,85 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $sheet     = $event->sheet->getDelegate();
+                $lastRow   = max(1, $sheet->getHighestDataRow());
+                $dataRange = 'A2:N' . $lastRow;
+
+                $sheet->getStyle('A1:N1')->applyFromArray([
                     'font' => [
                         'bold'  => true,
+                        'size'  => 10,
                         'color' => ['rgb' => 'FFFFFF'],
                     ],
                     'fill' => [
                         'fillType'   => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => '0000FF'],
+                        'startColor' => ['rgb' => self::HEADER_COLOR],
+                    ],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical'   => Alignment::VERTICAL_CENTER,
+                        'wrapText'   => true,
                     ],
                 ]);
 
-                $sheet = $event->sheet->getDelegate();
-                $sheet->getStyle('B:M')->getAlignment()->setWrapText(true);
-                $sheet->getColumnDimension('F')->setWidth(30);
-                $sheet->getColumnDimension('J')->setWidth(30);
-                $sheet->getColumnDimension('K')->setWidth(30);
-                $sheet->getStyle('A:M')->getAlignment()
-                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-                    ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+                $sheet->getStyle($dataRange)->applyFromArray([
+                    'font'      => ['name' => 'Calibri', 'size' => 10, 'color' => ['rgb' => '203040']],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                    'borders'   => ['bottom' => ['borderStyle' => Border::BORDER_HAIR, 'color' => ['rgb' => self::BORDER_COLOR]]],
+                ]);
+                $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('C2:J' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('B2:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setWrapText(true);
+                $sheet->getStyle('K2:N' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle('L2:L' . $lastRow)->getAlignment()->setWrapText(true);
                 $sheet->getStyle('A:A')->getNumberFormat()->setFormatCode('0');
                 $sheet->getStyle('B:B')->getNumberFormat()->setFormatCode('0');
                 $sheet->getStyle('H:H')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $sheet->getStyle('I:I')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
                 $sheet->getStyle('J:J')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
-                $event->sheet->autoSize();
+                $widths = [
+                    'A' => 16, 'B' => 20, 'C' => 17, 'D' => 17, 'E' => 13, 'F' => 13, 'G' => 18,
+                    'H' => 15, 'I' => 15, 'J' => 15, 'K' => 24, 'L' => 38, 'M' => 30, 'N' => 42,
+                ];
+
+                foreach ($widths as $column => $width) {
+                    $sheet->getColumnDimension($column)->setWidth($width);
+                }
+
+                $sheet->getRowDimension(1)->setRowHeight(28);
+                $sheet->freezePane('A2');
+                $sheet->setAutoFilter('A1:N' . $lastRow);
+                $sheet->setShowGridlines(false);
+                $sheet->getPageSetup()
+                    ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)
+                    ->setFitToWidth(1)
+                    ->setFitToHeight(0);
+                $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 1);
+
+                if ($lastRow >= 2) {
+                    $zebra = new Conditional();
+                    $zebra->setConditionType(Conditional::CONDITION_EXPRESSION)
+                        ->addCondition('MOD(ROW(),2)=0');
+                    $zebra->getStyle()->getFill()
+                        ->setFillType(Fill::FILL_SOLID)
+                        ->getStartColor()->setRGB(self::ZEBRA_COLOR);
+                    $sheet->getStyle($dataRange)->setConditionalStyles([$zebra]);
+                }
+
+                // A planilha mostra um resumo de uma linha; os metadados e o histórico
+                // completos ficam disponíveis no comentário da célula, sem aumentar a altura da lista.
+                $sheet->getStyle('N:N')->getAlignment()->setWrapText(false)->setShrinkToFit(false);
+
+                foreach ($this->acceptanceAuditByRow as $index => $audit) {
+                    if ($audit === '') {
+                        continue;
+                    }
+
+                    $sheet->getComment('N' . ($index + 2))
+                        ->getText()
+                        ->createText($audit);
+                }
             },
         ];
     }
@@ -203,5 +265,47 @@ class WorkreportsListExport implements FromQuery, WithEvents, WithProperties, Wi
         }
 
         return DB::raw('COALESCE(informed_at, created_at)');
+    }
+
+    /**
+     * Retorna um resumo compacto para a célula e a auditoria completa para o comentário.
+     * O comentário conserva também o histórico de reaceites em acceptance_meta.history.
+     */
+    private function acceptanceExportValues(WorkReport $workReport): array
+    {
+        $meta = is_array($workReport->acceptance_meta) ? $workReport->acceptance_meta : [];
+
+        if (!$workReport->acceptance_accepted && empty($meta)) {
+            return ['NÃO REGISTRADO', ''];
+        }
+
+        $current     = is_array($meta['current'] ?? null) ? $meta['current'] : $meta;
+        $signature   = is_array($current['signature'] ?? null) ? $current['signature'] : [];
+        $signedName  = $signature['signed_name'] ?? $current['acceptance_name'] ?? $workReport->acceptance_name ?? '---';
+        $userName    = $current['app_user']['name'] ?? $workReport->User?->name ?? '---';
+        $signedAt    = $signature['signed_at'] ?? $current['acceptance_at'] ?? $workReport->acceptance_at;
+        $hash        = (string) ($signature['hash'] ?? '---');
+        $date        = $signedAt ? Carbon::parse($signedAt)->format('d/m/Y H:i:s') : '---';
+        $hashPreview = $hash !== '---' && strlen($hash) > 16 ? substr($hash, 0, 16) . '…' : $hash;
+        $status      = $workReport->acceptance_accepted ? 'ACEITO' : 'NÃO ACEITO';
+
+        $summary = sprintf(
+            '%s | Assinado: %s | Usuário: %s | Em: %s | Hash: %s',
+            $status,
+            $signedName,
+            $userName,
+            $date,
+            $hashPreview,
+        );
+
+        $audit = "Aceite do informe\n"
+            . "Nome assinado: {$signedName}\n"
+            . "Usuário SICODE: {$userName}\n"
+            . "Data e hora: {$date}\n"
+            . "Hash da assinatura: {$hash}\n\n"
+            . "Metadados e histórico completos:\n"
+            . json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return [$summary, $audit];
     }
 }

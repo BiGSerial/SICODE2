@@ -112,31 +112,64 @@ class PendingD5Create extends Component
         foreach ($pairs as $pair) {
             $noteNumber = $pair['note'];
             $d5Number = $pair['d5'];
+            $informeId = $pair['informe'] ?? null;
+            $label = $informeId ? "{$noteNumber} (informe {$informeId})" : $noteNumber;
 
-            if (isset($seen[$noteNumber])) {
+            $candidates = $fiveNotes->get($noteNumber, collect());
+
+            if ($candidates->isEmpty()) {
+                $this->bulkD5Missing[] = $noteNumber;
+                continue;
+            }
+
+            if ($informeId) {
+                $fiveNote = $candidates->firstWhere('work_report_id', (int) $informeId);
+
+                if (!$fiveNote) {
+                    $this->bulkD5Ignored[] = [
+                        'note' => $label,
+                        'd5' => $d5Number,
+                        'reason' => 'Nenhuma D5 desta nota esta associada a este informe',
+                    ];
+                    continue;
+                }
+            } else {
+                // Sem informe: so atribui quando nao ha ambiguidade (a D5 da nota nunca e adivinhada).
+                $pending = $candidates->filter(fn ($five) => trim((string) $five->note_d5) === '');
+                $pool = $pending->isNotEmpty() ? $pending : $candidates;
+
+                if ($pool->count() > 1) {
+                    $options = $pool->map(fn ($five) => $five->work_report_id ? 'informe ' . $five->work_report_id : 'D5 legada (sem informe)')->implode(', ');
+                    $this->bulkD5Ignored[] = [
+                        'note' => $label,
+                        'd5' => $d5Number,
+                        'reason' => "Nota com mais de uma D5 ({$options}). Informe o numero do informe.",
+                    ];
+                    continue;
+                }
+
+                $fiveNote = $pool->first();
+            }
+
+            if (isset($seen[$fiveNote->id])) {
                 $this->bulkD5Ignored[] = [
-                    'note' => $noteNumber,
+                    'note' => $label,
                     'd5' => $d5Number,
                     'reason' => 'Duplicada na lista',
                 ];
                 continue;
             }
 
-            $seen[$noteNumber] = true;
+            $seen[$fiveNote->id] = true;
 
-            $fiveNote = $fiveNotes->get($noteNumber);
-
-            if (!$fiveNote) {
-                $this->bulkD5Missing[] = $noteNumber;
-                continue;
-            }
-
+            $workReportId = $fiveNote->work_report_id ? (int) $fiveNote->work_report_id : null;
             $currentD5 = trim((string) $fiveNote->note_d5);
 
             if ($currentD5 === '') {
                 $this->bulkD5Ready[] = [
                     'five_note_id' => $fiveNote->id,
                     'note' => $noteNumber,
+                    'work_report_id' => $workReportId,
                     'd5' => $d5Number,
                 ];
                 continue;
@@ -144,7 +177,7 @@ class PendingD5Create extends Component
 
             if ($currentD5 === $d5Number) {
                 $this->bulkD5Ignored[] = [
-                    'note' => $noteNumber,
+                    'note' => $label,
                     'd5' => $d5Number,
                     'reason' => 'Ja possui o mesmo D5',
                 ];
@@ -154,6 +187,7 @@ class PendingD5Create extends Component
             $this->bulkD5Divergent[] = [
                 'five_note_id' => $fiveNote->id,
                 'note' => $noteNumber,
+                'work_report_id' => $workReportId,
                 'current_d5' => $currentD5,
                 'new_d5' => $d5Number,
                 'locked' => (bool) $fiveNote->is_completed,
@@ -163,11 +197,11 @@ class PendingD5Create extends Component
         $this->bulkD5Processed = true;
     }
 
-    public function removeBulkD5Divergent(string $noteNumber): void
+    public function removeBulkD5Divergent(int $fiveNoteId): void
     {
         $this->bulkD5Divergent = array_values(array_filter(
             $this->bulkD5Divergent,
-            fn ($item) => (string) ($item['note'] ?? '') !== (string) $noteNumber
+            fn ($item) => (int) ($item['five_note_id'] ?? 0) !== $fiveNoteId
         ));
     }
 
@@ -272,7 +306,7 @@ class PendingD5Create extends Component
         $hasLineBreak = preg_match('/\R/u', $raw) === 1;
 
         // Quando vem de planilha, processar por linha é mais confiável:
-        // 1º número = referência (Nota/Ordem), último número = D5.
+        // 1º número = referência (Nota/Ordem), 2º = D5, 3º (opcional) = nº do informe.
         if ($hasLineBreak) {
             $lines = preg_split('/\R/u', $raw) ?: [];
 
@@ -290,10 +324,10 @@ class PendingD5Create extends Component
                     continue;
                 }
 
-                $pairs[] = [
-                    'note' => (string) $numbers[0],
-                    'd5' => (string) $numbers[count($numbers) - 1],
-                ];
+                // <nota/ordem> <nota_d5> [<n_informe>]  (2 numeros: o informe nao foi indicado)
+                $pairs[] = count($numbers) >= 3
+                    ? ['note' => (string) $numbers[0], 'd5' => (string) $numbers[1], 'informe' => (string) $numbers[2]]
+                    : ['note' => (string) $numbers[0], 'd5' => (string) $numbers[1]];
             }
 
             if (count($pairs) > 0) {
@@ -303,6 +337,13 @@ class PendingD5Create extends Component
 
         // Fallback legado: sequência contínua de números em pares (Nota, D5).
         $numbers = $this->extractBulkNumbers($raw);
+
+        // Uma unica linha com 3 numeros: <nota> <nota_d5> <n_informe>.
+        if (count($numbers) === 3) {
+            $pairs[] = ['note' => (string) $numbers[0], 'd5' => (string) $numbers[1], 'informe' => (string) $numbers[2]];
+
+            return compact('pairs', 'warnings');
+        }
 
         if (count($numbers) % 2 !== 0) {
             $warnings[] = 'Quantidade impar de numeros. O ultimo numero foi ignorado.';
@@ -338,16 +379,13 @@ class PendingD5Create extends Component
             ->get();
 
         foreach ($fives as $five) {
-            $noteNumber = (string) ($five->note?->note ?? '');
-            if ($noteNumber !== '' && !$map->has($noteNumber)) {
-                $map->put($noteNumber, $five);
-            }
+            $keys = collect([(string) ($five->note?->note ?? '')])
+                ->merge(($five->note?->Orders ?? collect())->pluck('ordem')->map(fn ($ordem) => (string) $ordem))
+                ->filter()
+                ->unique();
 
-            foreach ($five->note?->Orders ?? [] as $order) {
-                $orderNumber = (string) ($order->ordem ?? '');
-                if ($orderNumber !== '' && !$map->has($orderNumber)) {
-                    $map->put($orderNumber, $five);
-                }
+            foreach ($keys as $key) {
+                $map->put($key, $map->get($key, collect())->push($five));
             }
         }
 

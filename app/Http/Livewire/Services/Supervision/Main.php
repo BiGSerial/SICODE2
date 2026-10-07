@@ -248,6 +248,7 @@ class Main extends Component
                 'Note.OldAds:id,note_id,date',
                 'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                 'Wpas:id,production_id,dd,created_at',
+                'fiveNotes:five_notes.id,note_id,work_report_id,note_d5,is_completed,is_supervisioned,is_archived',
                 'WorkReportFlowProductions' => fn ($q) => $q
                     ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
                     ->where('is_current', true)

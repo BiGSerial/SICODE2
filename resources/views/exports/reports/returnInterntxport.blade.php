@@ -35,42 +35,17 @@
                 @endphp
 
                 <tr wire:key="row-{{ $list->id }}">
-                    <td class="text-center align-middle fw-bold">
-                        @if ($list->Approvals->isNotEmpty())
-                            ANALISE PROJETO
-                        @elseif ($list->Waiting)
-                            CONTRATAÇÃO
-                        @elseif ($list->Viabilities->isNotEmpty())
-                            VIABILIDADE
-                        @endif
-                    </td>
-                    <td class="text-center align-middle fw-bold">{{ $list->Note->note }}</td>
-                    <td class="text-center align-middle">{{ $list->Note->rubrica }}</td>
-                    <td class="text-center align-middle">{{ $list->Note->lexp }}</td>
-                    <td class="text-center align-middle">{{ $list->Note->group5 }}</td>
-                    <td class="text-center align-middle">{{ $list->Note->material }}</td>
-                    <td class="text-center align-middle">
-                        @if ($list->Approvals->isNotEmpty())
-                            {{ $list->Approvals->last()->User->name }}
-                        @elseif ($list->Waiting)
-                            {{ $list->Waiting->User->name }}
-                        @elseif ($list->Viabilities->isNotEmpty())
-                            {{ $list->Viabilities->last()->Engineer->name }}
-                        @endif
-                    </td>
-                    <td class="text-center align-middle">
-                        @if ($list->Approvals->isNotEmpty())
-                            {{ $list->Approvals->last()->User?->Company?->name ?? '' }}
-                        @elseif ($list->Waiting)
-                            {{ $list->Waiting->User?->Company?->name ?? '' }}
-                        @elseif ($list->Viabilities->isNotEmpty())
-                            {{ $list->Viabilities->last()->Engineer?->Company?->name ?? '' }}
-                        @endif
-                    </td>
-                    <td class="text-center align-middle">{{ $list->category }}</td>
-                    <td class="text-center align-middle">
-                        {{ $list->Comments->count() ? $list->Comments->last()->message : '' }}
-                    </td>
+                    @php($row = \App\Services\Reclaims\ReclaimRowPresenter::row($list))
+                    <td class="text-center align-middle fw-bold">{{ mb_strtoupper($row['origin']) }}</td>
+                    <td class="text-center align-middle fw-bold">{{ $row['note'] }}</td>
+                    <td class="text-center align-middle">{{ $row['rubrica'] }}</td>
+                    <td class="text-center align-middle">{{ $row['municipality'] }}</td>
+                    <td class="text-center align-middle">{{ $row['group5'] }}</td>
+                    <td class="text-center align-middle">{{ $row['material'] }}</td>
+                    <td class="text-center align-middle">{{ $row['requester'] }}</td>
+                    <td class="text-center align-middle">{{ $row['requester_company'] }}</td>
+                    <td class="text-center align-middle">{{ $row['category'] }}</td>
+                    <td class="text-center align-middle">{{ $row['text'] }}</td>
                     <td class="text-center align-middle">
                         {{ Carbon::parse($list->created_at)->format('d/m/Y H:i') }}
                     </td>
@@ -80,22 +55,9 @@
                     ">
                         {{ Carbon::parse($list->created_at)->diffForHumans(Carbon::now(), ['locale' => 'pt_br', 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}
                     </td>
-                    <td class="text-center align-middle">
-                        @if ($list->Production)
-                            {{ Notestatus::status($list->Production->status)->status }}
-                        @else
-                            <span class="badge text-bg-secondary">
-                                Aguardando Atribuição</span>
-                        @endif
-
-                    </td>
-                    <td class="text-center align-middle">
-                        {{ $list->Production ? ($list->Production->User ? $list->Production->User->name : 'Desconhecido') : '' }}
-                    </td>
-                    <td class="text-center align-middle">
-                        {{ $list->Production ? ($list->Production->Company ? $list->Production->Company->name : 'Desconhecido') : '' }}
-                    </td>
-
+                    <td class="text-center align-middle">{{ $row['status'] }}</td>
+                    <td class="text-center align-middle">{{ $row['responsible'] }}</td>
+                    <td class="text-center align-middle">{{ $row['responsible_company'] }}</td>
                 </tr>
             @endforeach
         @endif

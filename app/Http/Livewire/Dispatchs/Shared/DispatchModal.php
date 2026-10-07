@@ -2,8 +2,9 @@
 
 namespace App\Http\Livewire\Dispatchs\Shared;
 
-use App\Models\{Company, FiveNote, Note, Notetimeline, Production, Service, User, WorkReport};
+use App\Models\{Company, Note, Notetimeline, Production, Service, User, WorkReport};
 use App\Services\Dispatch\{DispatchContextResolver, DispatchException, DispatchWorkflowService};
+use App\Services\Payment\MeasurementEligibilityService;
 use App\Services\WorkReports\WorkReportFinalScopeOptions;
 use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -72,7 +73,7 @@ class DispatchModal extends Component
                     $noteId        = (int) ($value['note_id'] ?? $value['id'] ?? 0);
                     $workReportId  = (int) ($value['work_report_id'] ?? 0);
                     $partialId     = (int) ($value['partial_id'] ?? 0);
-                    $fiveNoteId   = (int) ($value['five_note_id'] ?? 0);
+                    $fiveNoteId    = (int) ($value['five_note_id'] ?? 0);
                     $bulkAnyStatus = (bool) ($value['bulk_any_status'] ?? false);
 
                     return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null, 'five_note_id' => $fiveNoteId ?: null, 'bulk_any_status' => $bulkAnyStatus];
@@ -81,25 +82,56 @@ class DispatchModal extends Component
                 return ['note_id' => (int) $value, 'work_report_id' => null, 'partial_id' => null, 'five_note_id' => null, 'bulk_any_status' => false];
             });
 
+        $measurementEligibility = app(MeasurementEligibilityService::class);
+        $isPayment              = $measurementEligibility->appliesTo($this->service);
+
+        if ($isPayment) {
+            $contexts = $contexts->map(function (array $context) use ($measurementEligibility) {
+                if ($context['work_report_id'] || $context['partial_id'] || $context['five_note_id']) {
+                    return $context;
+                }
+
+                // Alguns botões legados ainda emitem apenas a Nota. A ponte é
+                // segura porque só preenche quando existe exatamente um Parcial
+                // apto; duas demandas nunca são colapsadas em uma escolha.
+                $context['partial_id'] = $measurementEligibility->resolveUniquePartialContext($context['note_id']);
+
+                if (!$context['partial_id']) {
+                    $context['work_report_id'] = $measurementEligibility->resolveUniqueFinalContext($context['note_id']);
+                }
+
+                if (!$context['partial_id'] && !$context['work_report_id'] && ($d5Context = $measurementEligibility->resolveUniqueD5ReturnContext($context['note_id']))) {
+                    $context = array_merge($context, $d5Context);
+                }
+
+                if (!$context['partial_id'] && !$context['work_report_id'] && ($passiveD5Context = $measurementEligibility->resolveUniquePassiveD5ReturnContext($context['note_id']))) {
+                    $context = array_merge($context, $passiveD5Context);
+                }
+
+                return $context;
+            });
+        }
+
         $contexts = $contexts
             ->filter(fn (array $context) => $context['note_id'] > 0)
-            ->filter(fn (array $context) => empty($context['five_note_id']) || DB::table('five_notes')
-                ->where('id', $context['five_note_id'])
-                ->where('note_id', $context['note_id'])
-                ->whereNull('work_report_id')
-                ->where('is_completed', true)
-                ->where('is_supervisioned', false)
-                ->where('is_archived', false)
-                ->exists())
+            ->filter(function (array $context) use ($isPayment, $measurementEligibility) {
+                if (!$isPayment) {
+                    return true;
+                }
+
+                return $measurementEligibility->modalContextIsAllowed($context);
+            })
             ->values();
-        $noteIds  = $contexts->pluck('note_id')->unique()->values();
+        $noteIds = $contexts->pluck('note_id')->unique()->values();
 
         if (!$noteIds->count()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
-                'title'    => 'Nenhuma nota foi selecionada para despacho!',
-                'timer'    => 2500,
+                'title'    => $isPayment
+                    ? 'Pagamento exige Informe Final, Informe Parcial ou D5 passiva de Ciclo 2.'
+                    : 'Nenhuma nota foi selecionada para despacho!',
+                'timer' => 2500,
             ]);
 
             return;
@@ -506,6 +538,9 @@ class DispatchModal extends Component
                 }
             });
         } catch (DispatchException $e) {
+            // A tela pode ter permanecido aberta enquanto outro usuário alterou
+            // a demanda. Recarrega a fila mesmo quando o backend a recusou.
+            $this->refreshOriginLists();
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
@@ -516,6 +551,7 @@ class DispatchModal extends Component
             return;
         } catch (\Throwable $e) {
             report($e);
+            $this->refreshOriginLists();
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -535,6 +571,11 @@ class DispatchModal extends Component
         ]);
 
         $this->closeAll();
+        $this->refreshOriginLists();
+    }
+
+    private function refreshOriginLists(): void
+    {
         $this->emitUp('refresh_dispatch');
         $this->emitUp('refresh_list');
     }
@@ -570,7 +611,7 @@ class DispatchModal extends Component
     private function sourceProductionForContext(Note $note): ?Production
     {
         $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
-        $query = Production::query()
+        $query      = Production::query()
             ->where("note_id", $note->id)
             ->where("service_id", $this->service->uuid)
             ->whereIn("company_id", $companyIds)
@@ -579,13 +620,13 @@ class DispatchModal extends Component
             ->where("confirmed", false);
 
         $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-        $fiveNoteId = (int) ($note->dispatch_five_note_id ?? 0);
-        $partialId = (int) ($note->dispatch_partial_id ?? 0);
-        $stage = match ($this->currentServiceKey()) {
+        $fiveNoteId   = (int) ($note->dispatch_five_note_id ?? 0);
+        $partialId    = (int) ($note->dispatch_partial_id ?? 0);
+        $stage        = match ($this->currentServiceKey()) {
             "supervision" => \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION,
-            "payment" => \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
+            "payment"     => \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
             "publication" => \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION,
-            default => null,
+            default       => null,
         };
 
         if ($workReportId > 0 && $stage) {
@@ -596,18 +637,21 @@ class DispatchModal extends Component
         } elseif ($fiveNoteId > 0) {
             $direct = (clone $query)->whereHas("fiveNotes", fn ($five) => $five->whereKey($fiveNoteId))
                 ->orderByDesc("dispatch_at")->orderByDesc("id")->first();
+
             if ($direct) {
                 return $direct;
             }
 
             $legacyD5Count = DB::table("five_notes")->where("note_id", $note->id)->whereNull("work_report_id")
                 ->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->count();
+
             if ($legacyD5Count !== 1 || !$stage) {
                 return null;
             }
 
             $fallback = (clone $query)->where("dfive", true)->whereDoesntHave("fiveNotes")
                 ->whereHas("WorkReportFlowProductions", fn ($link) => $link->where("stage", $stage)->where("is_current", true));
+
             if ($fallback->count() !== 1) {
                 return null;
             }
@@ -623,7 +667,7 @@ class DispatchModal extends Component
     private function loadDispatchCompanies(): void
     {
         if (auth()->user()?->contract && $this->notes->count()) {
-            $sourceIds = collect($this->sourceProductionIdsByNote)->values()->all();
+            $sourceIds  = collect($this->sourceProductionIdsByNote)->values()->all();
             $companyIds = Production::query()
                 ->whereIn("id", $sourceIds)
                 ->distinct()

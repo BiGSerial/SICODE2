@@ -1145,7 +1145,7 @@
                                         <select class="form-select border border-secondary"
                                             wire:model="analise.conclusion">
                                             <option value="" selected>Selecione</option>
-                                            @foreach (SelectOptions::getSupervisionEnd() as $supEnd)
+                                            @foreach (($production->dfive && !$production->partial ? SelectOptions::getD5ReturnSupervisionEnd() : SelectOptions::getSupervisionEnd()) as $supEnd)
                                                 @continue($production->partial && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
                                                 @continue($isRequestingD5OnFirstClose && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
                                                 @continue(!$production->partial && !$production->dfive && !$isRequestingD5OnFirstClose && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
@@ -1165,7 +1165,7 @@
                                             </div>
                                         @elseif ($production->dfive)
                                             <div class="close-help text-warning fw-bold">
-                                                Retorno D5: Fiscalizado Com Pendências devolve a D5 para a empreiteira.
+                                                Retorno D5: Resolvido encerra a D5; Não Resolvido devolve a D5 para a empreiteira.
                                             </div>
                                         @else
                                             <div class="close-help text-muted">
@@ -1193,10 +1193,9 @@
                                                 <i class="ri-error-warning-line fs-5"></i>
                                                 <div>
                                                     <div class="fw-bold mb-1">Informação para encerramento D5</div>
-                                                    <p>Ao selecionar conclusão que <strong>FISCALIZADO COM
-                                                            PENDÊNCIA</strong>. A D5 retornará automáticamente para a
+                                                    <p>Ao selecionar <strong>NÃO RESOLVIDO</strong>, a D5 retornará automáticamente para a
                                                         empreiteira.</p>
-                                                    <p>Nesse caso, pedimos para que <strong>detalhe o motivo</strong> da pendência no
+                                                    <p>Nesse caso, pedimos para que <strong>detalhe o motivo</strong> de não ter sido resolvida no
                                                         campo Observações no final deste formulário. E assim será gerado
                                                         histórico das tratativas desta D5. Conforme exibido no histórico
                                                         de produção.</p>

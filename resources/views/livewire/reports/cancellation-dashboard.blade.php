@@ -131,7 +131,7 @@
                         <option value="">Todos</option>
                         <option value="NOTE_FULL">Nota inteira</option>
                         <option value="ORDERS_PARTIAL">Ordens especificas</option>
-                        <option value="WORK_FORM_ONLY">Somente WorkForm</option>
+                        <option value="WORK_FORM_ONLY">Somente informe(s)</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-auto">

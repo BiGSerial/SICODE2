@@ -215,7 +215,7 @@
                                                 'message' => '',
                                             ];
 
-                                            if ($five = ($fiveNote ?: $list->note->fiveNote)) {
+                                            if ($five = $fiveNote) {
                                                 if (!$five->is_supervisioned) {
                                                     $object->exists = true;
                                                     $object->bgColor = 'text-bg-primary';
@@ -251,7 +251,7 @@
                                                 ? $partial->Orders ?? collect()
                                                 : collect());
 
-                                        $fiveNote = $flowWorkForm?->FiveNote ?? $list->Note->FiveNote;
+                                        $fiveNote = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
                                         $five = FiveStatus($list, $fiveNote);
                                         $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);

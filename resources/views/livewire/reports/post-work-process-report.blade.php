@@ -138,6 +138,10 @@
                         <input class="form-check-input" type="checkbox" id="ppr_only_late" wire:model="only_late">
                         <label class="form-check-label small" for="ppr_only_late">Somente estourados</label>
                     </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ppr_only_open" wire:model="only_open">
+                        <label class="form-check-label small" for="ppr_only_open">Somente em aberto</label>
+                    </div>
                 </div>
             </div>
         </div>

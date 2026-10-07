@@ -42,7 +42,7 @@ class Fileservices extends Component
         try {
 
             $this->validate([
-                'uploadsfiles.*' => 'mimes:pdf,jpeg,png,webp',
+                'uploadsfiles.*' => 'file|mimes:pdf,jpeg,png,webp|max:40960',
             ]);
 
         } catch (ValidationException $e) {

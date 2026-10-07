@@ -257,6 +257,7 @@
                             </table>
                         </div>
                     </div>
+                    <x-cancellation.request-work-reports :request="$cancellationRequest" />
                 </div>
             </div>
 
@@ -437,6 +438,7 @@
                         <select class="form-select" wire:model="editScope">
                             <option value="NOTE_FULL">CANCELAR NOTA INTEIRA</option>
                             <option value="ORDERS_PARTIAL">CANCELAR ORDENS ESPECÍFICAS</option>
+                            <option value="WORK_FORM_ONLY">CANCELAR SOMENTE INFORME(S)</option>
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -478,6 +480,41 @@
                         @error('editSelectedOrders')<span class="text-danger small">{{ $message }}</span>@enderror
                     </div>
                 </div>
+
+                @if(count($editWorkReports))
+                    <div class="mt-3">
+                        <h6>Informes</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Informe</th>
+                                        <th>Informado em</th>
+                                        <th>Cancelado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($editWorkReports as $report)
+                                        <tr wire:key="edit-report-{{ $report['id'] }}">
+                                            <td>
+                                                <input class="form-check-input"
+                                                    type="checkbox"
+                                                    wire:model="editSelectedWorkReports"
+                                                    value="{{ $report['id'] }}"
+                                                    {{ $editScope !== 'WORK_FORM_ONLY' || $report['canceled'] ? 'disabled' : '' }}>
+                                            </td>
+                                            <td>{{ $report['label'] }}</td>
+                                            <td>{{ $report['informed_at'] ?? '-' }}</td>
+                                            <td>{{ $report['canceled'] ? 'Sim' : 'Não' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                            @error('editSelectedWorkReports')<span class="text-danger small">{{ $message }}</span>@enderror
+                        </div>
+                    </div>
+                @endif
 
                 <div class="row g-3 mt-2">
                     <div class="col-md-6">

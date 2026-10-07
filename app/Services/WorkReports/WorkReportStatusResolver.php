@@ -19,6 +19,7 @@ class WorkReportStatusResolver
     public const WAITING_D5_FISCALIZATION = 'Aguardando Fiscalização D5';
     public const D5_FISCALIZATION = 'Fiscalização D5';
     public const WAITING_D5_PAYMENT = 'Aguardando Medição D5';
+    public const D5_RETURNED = 'D5 Devolvida à Empreiteira';
     public const RELEASING_LETTER = 'Liberando Carta';
 
     public function resolve(WorkReport $workReport): array
@@ -36,6 +37,7 @@ class WorkReportStatusResolver
         $d5AssociatedToNote = (bool) ($state['d5_associated_to_note'] ?? false);
         $d5AssociatedToProduction = (bool) ($state['d5_associated_to_production'] ?? false);
         $d5Completed = (bool) ($state['d5_completed'] ?? false);
+        $d5Returned = (bool) ($state['d5_returned'] ?? false);
         $d5FiscalAssociated = (bool) ($state['d5_fiscal_associated'] ?? false);
         $d5FiscalFinished = (bool) ($state['d5_fiscal_finished'] ?? false);
         $d5PaymentAssociated = (bool) ($state['d5_payment_associated'] ?? false);
@@ -58,6 +60,12 @@ class WorkReportStatusResolver
             && (!$d5FiscalAssociated || $d5FiscalFinished)
         ) {
             return $this->status('finalized', self::FINALIZED, 'text-bg-success');
+        }
+
+        // D5 devolvida pela fiscalização (Não Resolvido): está com a empreiteira, independente
+        // de a fiscalização D5 ter sido finalizada.
+        if ($d5Returned) {
+            return $this->status('d5_returned', self::D5_RETURNED, 'text-bg-danger');
         }
 
         if ($d5Completed && $d5PaymentAssociated && !$d5FiscalAssociated) {
@@ -168,6 +176,10 @@ class WorkReportStatusResolver
             'd5_associated_to_note' => $fiveNote !== null,
             'd5_associated_to_production' => $d5Productions->isNotEmpty(),
             'd5_completed' => (bool) ($fiveNote?->is_completed ?? false),
+            'd5_returned' => $fiveNote !== null
+                && (bool) $fiveNote->returned
+                && !(bool) $fiveNote->is_completed
+                && !(bool) $fiveNote->is_supervisioned,
             'd5_fiscal_associated' => $d5FiscalProductions->isNotEmpty(),
             'd5_fiscal_finished' => $this->allFinished($d5FiscalProductions),
             'd5_payment_associated' => $effectiveD5PaymentProductions->isNotEmpty(),

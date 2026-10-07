@@ -3,22 +3,16 @@
 namespace App\Jobs\Dispatchs;
 
 use App\Exports\Dispatchs\DispatchPaymentMain;
-use App\Models\Note;
-use App\Models\Service;
-use App\Models\User;
+use App\Models\{Note, Service, User};
 use App\Notifications\SystemNotification;
 use App\Services\Payment\NoteFilter;
 use App\Support\SicodeRules;
-use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{DB, Log, Storage};
 use Throwable;
 
 class ExportDispatchPaymentJob implements ShouldQueue
@@ -30,9 +24,11 @@ class ExportDispatchPaymentJob implements ShouldQueue
 
     /** @var array<string,mixed> */
     public array $params;
+
     public string $userId;
 
-    public $tries   = 2;
+    public $tries = 2;
+
     public $backoff = [30, 120];
 
     public function __construct(array $params, string $userId)
@@ -59,11 +55,11 @@ class ExportDispatchPaymentJob implements ShouldQueue
                 @session_start();
             }
             $_SESSION['filter']['payments'] = [
-                'company' => $this->params['company_ids'] ?? null,
-                'rubrica' => $this->params['rubricas']    ?? null,
-                'region' => $this->params['regions'] ?? null,
+                'company'  => $this->params['company_ids'] ?? null,
+                'rubrica'  => $this->params['rubricas'] ?? null,
+                'region'   => $this->params['regions'] ?? null,
                 'regional' => $this->params['regionals'] ?? null,
-                'city' => $this->params['cities'] ?? null,
+                'city'     => $this->params['cities'] ?? null,
             ];
 
             /** @var NoteFilter $noteFilter */
@@ -261,6 +257,8 @@ class ExportDispatchPaymentJob implements ShouldQueue
                 $service->uuid,
                 $this->params['selected_work_report_ids'] ?? [],
                 $this->params['selected_partial_ids'] ?? [],
+                $this->params['selected_context_keys'] ?? [],
+                (bool) ($this->params['filter_d5'] ?? false),
             ))->store($filePath, 'local');
 
             // Notifica sucesso

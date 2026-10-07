@@ -126,11 +126,11 @@
                                         <label class="form-check-label" for="scopePartial">Cancelar ordens específicas</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value }}" id="scopeWorkForm" @if(!$hasWorkForm) disabled @endif>
-                                        <label class="form-check-label" for="scopeWorkForm">Cancelar somente WorkForm</label>
+                                        <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value }}" id="scopeWorkReport" @if(!$hasWorkForm) disabled @endif>
+                                        <label class="form-check-label" for="scopeWorkReport">Cancelar somente informe(s)</label>
                                     </div>
                                     @if(!$hasWorkForm)
-                                        <div class="small text-muted mt-1">Esta nota não possui WorkForm para cancelamento.</div>
+                                        <div class="small text-muted mt-1">Esta nota não possui informe ativo para cancelamento.</div>
                                     @endif
                                     @error('scope')<span class="text-danger small">{{ $message }}</span>@enderror
                                 </div>
@@ -168,6 +168,51 @@
                                     @error('selectedOrders')<span class="text-danger small">{{ $message }}</span>@enderror
                                 </div>
                             </div>
+
+                            @if(count($workReports))
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Informes da nota</label>
+                                        @if($scope === \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value)
+                                            <div class="small text-muted mb-1">Marque o(s) informe(s) que devem ser cancelados.</div>
+                                        @endif
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th></th>
+                                                        <th>Informe</th>
+                                                        <th>Informado em</th>
+                                                        <th>Situação</th>
+                                                        <th>Cancelado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach($workReports as $report)
+                                                        <tr wire:key="cancel-report-{{ $report['id'] }}">
+                                                            <td>
+                                                                @if(!$report['blocked'])
+                                                                    <input class="form-check-input" type="checkbox" value="{{ $report['id'] }}" wire:model="selectedWorkReports" @if($scope !== \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value) disabled @endif>
+                                                                @endif
+                                                            </td>
+                                                            <td>{{ $report['label'] }}</td>
+                                                            <td>{{ $report['informed_at'] ?? '-' }}</td>
+                                                            <td>{{ $report['status'] }}</td>
+                                                            <td>
+                                                                {{ $report['canceled'] ? 'Sim' : 'Não' }}
+                                                                @if($report['blocked'] && !$report['canceled'])
+                                                                    <span class="badge text-bg-warning ms-1">{{ $report['blocked'] }}</span>
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        @error('selectedWorkReports')<span class="text-danger small">{{ $message }}</span>@enderror
+                                    </div>
+                                </div>
+                            @endif
                         @endif
                     @else
                         <div class="row g-3 align-items-end">
@@ -207,8 +252,8 @@
                                         <label class="form-check-label" for="bulkScopeOrders">Ordens específicas</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value }}" id="bulkScopeWorkform">
-                                        <label class="form-check-label" for="bulkScopeWorkform">Informe de Obra (WorkForm)</label>
+                                        <input class="form-check-input" type="radio" wire:model="scope" value="{{ \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value }}" id="bulkScopeWorkReport">
+                                        <label class="form-check-label" for="bulkScopeWorkReport">Somente informes (todos os informes ativos de cada nota)</label>
                                     </div>
                                     @error('scope')<span class="text-danger small">{{ $message }}</span>@enderror
                                 </div>
@@ -237,7 +282,7 @@
                                             <th>Nota</th>
                                             <th>OV</th>
                                             <th>Cliente</th>
-                                            <th>WorkForm</th>
+                                            <th>Informe</th>
                                             <th>Ordens válidas</th>
                                             <th>Apta escopo</th>
                                         </tr>

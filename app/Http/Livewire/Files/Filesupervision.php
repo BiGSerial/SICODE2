@@ -42,7 +42,7 @@ class Filesupervision extends Component
         try {
 
             $this->validate([
-                'uploadsfiles.*' => 'mimes:pdf,jpeg,png,webp,gif,xls,xlsx,xlsm',
+                'uploadsfiles.*' => 'file|mimes:pdf,jpeg,png,webp,gif,xls,xlsx,xlsm|max:40960',
             ]);
         } catch (ValidationException $e) {
 

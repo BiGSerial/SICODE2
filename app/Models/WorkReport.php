@@ -4,9 +4,8 @@ namespace App\Models;
 
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\{Builder, Model};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class WorkReport extends Model
@@ -47,17 +46,17 @@ class WorkReport extends Model
     ];
 
     protected $casts = [
-        'approved' => 'boolean',
-        'rejected' => 'boolean',
-        'canceled' => 'boolean',
-        'canceled_at' => 'datetime',
-        'informed_at' => 'datetime',
-        'acceptance_accepted' => 'boolean',
-        'acceptance_at' => 'datetime',
-        'acceptance_meta' => 'array',
-        'selected_final_scopes' => 'array',
-        'retry' => 'boolean',
-        'date' => 'date',
+        'approved'                  => 'boolean',
+        'rejected'                  => 'boolean',
+        'canceled'                  => 'boolean',
+        'canceled_at'               => 'datetime',
+        'informed_at'               => 'datetime',
+        'acceptance_accepted'       => 'boolean',
+        'acceptance_at'             => 'datetime',
+        'acceptance_meta'           => 'array',
+        'selected_final_scopes'     => 'array',
+        'retry'                     => 'boolean',
+        'date'                      => 'date',
         'current_status_updated_at' => 'datetime',
     ];
 
@@ -152,10 +151,6 @@ class WorkReport extends Model
             ->where('rejected', true);
     }
 
-
-
-
-
     // Agragações customizadas
 
     public function getEarliestFimRealAttribute()
@@ -170,7 +165,7 @@ class WorkReport extends Model
             // 4) Busca o mínimo de fimReal
             ->min('o.fimReal');
 
-        if (! $minDateTime) {
+        if (!$minDateTime) {
             return null;
         }
 
@@ -185,6 +180,18 @@ class WorkReport extends Model
         return $this->filterFinalScopePayloads(
             app(WorkReportFinalScopeResolver::class)->resolve($this->Note?->type_note, $orders)
         );
+    }
+
+    /** Nome amigável do informe para telas de cancelamento/descancelamento. */
+    public function displayLabel(): string
+    {
+        $scopes = $this->selectedFinalScopesOrNull();
+
+        $scopeLabel = $scopes
+            ? collect($scopes)->map(fn ($scope) => $this->finalScopeLabel($scope))->implode(' + ')
+            : 'Geral';
+
+        return "Informe #{$this->id} - {$scopeLabel}";
     }
 
     public function finalScopeBadges(): array
@@ -202,18 +209,18 @@ class WorkReport extends Model
     public function finalScopeLabel(string $scope): string
     {
         return match ($scope) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'Rede',
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligacao',
-            default => 'Geral',
+            default                                        => 'Geral',
         };
     }
 
     public function finalScopeBadgeClass(string $scope): string
     {
         return match ($scope) {
-            WorkReportFinalScopeResolver::SCOPE_NETWORK => 'text-bg-primary',
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'text-bg-primary',
             WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'text-bg-warning',
-            default => 'text-bg-secondary',
+            default                                        => 'text-bg-secondary',
         };
     }
 

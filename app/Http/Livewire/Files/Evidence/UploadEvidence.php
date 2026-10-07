@@ -5,7 +5,9 @@ namespace App\Http\Livewire\Files\Evidence;
 use App\Models\FiveNote;
 use App\Services\Files\{FileStorageService, StorageContextResolver};
 use Illuminate\Support\Facades\{Auth, DB};
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\{Component, WithFileUploads};
 
 class UploadEvidence extends Component
@@ -23,10 +25,12 @@ class UploadEvidence extends Component
     public $tempFiles = []; // Lista visual de arquivos prontos para salvar
 
     public array $config = [
-        'disk'         => 'public',
-        'base_path'    => 'evidences',
-        'max_size_mb'  => 10,
-        'allowed_exts' => [
+        'disk'                 => 'public',
+        'base_path'            => 'evidences',
+        'max_size_mb'          => 40,
+        'max_total_size_mb'    => 90,
+        'max_files_per_upload' => 40,
+        'allowed_exts'         => [
             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
             'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
             'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
@@ -50,12 +54,26 @@ class UploadEvidence extends Component
         $maxKb = $this->config['max_size_mb'] * 1024;
         $mimes = implode(',', $this->config['allowed_exts']);
 
-        return ['files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}"];
+        return [
+            'files'   => "nullable|array|max:{$this->config['max_files_per_upload']}",
+            'files.*' => "nullable|file|mimes:{$mimes}|max:{$maxKb}",
+        ];
     }
 
     public function updatedFiles(): void
     {
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (ValidationException) {
+            $this->files = [];
+
+            $this->dispatchBrowserEvent('evidence-upload-rejected', [
+                'componentId' => $this->id,
+                'message'     => "Arquivo não aceito: cada evidência deve ter no máximo {$this->config['max_size_mb']} MB, o lote pode ter até {$this->config['max_files_per_upload']} arquivos e deve usar um dos formatos permitidos.",
+            ]);
+
+            return;
+        }
 
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
@@ -66,8 +84,13 @@ class UploadEvidence extends Component
             ];
         }
 
-        $this->files = []; // Limpa o input para novos uploads
+        $uploadedCount = count($this->files);
+        $this->files   = []; // Limpa o input para novos uploads
         $this->emitUp('hasEvidence', count($this->tempFiles) > 0);
+        $this->dispatchBrowserEvent('evidence-upload-accepted', [
+            'componentId' => $this->id,
+            'count'       => $uploadedCount,
+        ]);
     }
 
     public function removeTemp($index): void
@@ -129,9 +152,19 @@ class UploadEvidence extends Component
             $this->tempFiles = [];
             $this->emitUp('evidenceSaved');
             $this->dispatchBrowserEvent('swal', ['icon' => 'success', 'title' => 'Salvo!']);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            $this->dispatchBrowserEvent('swal', ['icon' => 'error', 'title' => $e->getMessage()]);
+
+            Log::error('Falha ao salvar evidências da D5.', [
+                'five_note_id' => $this->five?->id,
+                'user_id'      => Auth::id(),
+                'exception'    => $e,
+            ]);
+
+            $this->emitUp('evidenceSaveFailed');
+            $this->dispatchBrowserEvent('evidence-save-failed', [
+                'componentId' => $this->id,
+            ]);
         }
     }
 

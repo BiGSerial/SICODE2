@@ -3,7 +3,7 @@
 namespace App\Services\Payment;
 
 use App\Enum\{CancellationEngineerApprovalStatus, CancellationRequestScope, CancellationRequestStatus};
-use App\Models\{CancellationCategory, CancellationRequest, CancellationRequestEvent, Comment, EvidenceFile, Note, Order, User};
+use App\Models\{CancellationCategory, CancellationRequest, CancellationRequestEvent, Comment, EvidenceFile, Note, Order, User, WorkReport};
 use App\Notifications\SystemNotification;
 use App\Services\Files\EvidenceFileService;
 use App\Support\EvidenceFileUploader;
@@ -22,9 +22,10 @@ class CancellationRequestService
         array $orders,
         array $attachments,
         User $requestedBy,
-        ?string $description = null
+        ?string $description = null,
+        array $workReportIds = []
     ): CancellationRequest {
-        return DB::transaction(function () use ($note, $scope, $category, $orders, $attachments, $requestedBy, $description) {
+        return DB::transaction(function () use ($note, $scope, $category, $orders, $attachments, $requestedBy, $description, $workReportIds) {
             if ($note->canceled) {
                 throw new RuntimeException('Nota já está cancelada.');
             }
@@ -47,6 +48,7 @@ class CancellationRequestService
             }
 
             $ordersCollection = $this->resolveOrders($note, $scope, $orders);
+            $workReports      = $this->resolveWorkReports($note, $scope, $workReportIds);
 
             if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
@@ -67,13 +69,15 @@ class CancellationRequestService
             ]);
 
             $request->Orders()->sync($ordersCollection->pluck('id')->all());
+            $request->WorkReports()->sync($workReports->pluck('id')->all());
 
             $this->storeEvidenceFiles($request, $attachments, $requestedBy);
 
             $this->logEvent($request, $requestedBy, 'submitted', [
-                'scope'       => $scope,
-                'category_id' => $category->id,
-                'orders'      => $ordersCollection->pluck('id')->all(),
+                'scope'        => $scope,
+                'category_id'  => $category->id,
+                'orders'       => $ordersCollection->pluck('id')->all(),
+                'work_reports' => $workReports->pluck('id')->all(),
             ]);
 
             return $request;
@@ -287,9 +291,9 @@ class CancellationRequestService
                     'canceled_by' => $user->id,
                 ]);
 
-                $this->cancelWorkForm($request->Note, $user);
+                $canceledWorkReportIds = $this->cancelWorkReports($request->Note, $user);
             } elseif ($request->scope === CancellationRequestScope::WORK_FORM_ONLY) {
-                $this->cancelWorkForm($request->Note, $user);
+                $canceledWorkReportIds = $this->cancelWorkReports($request->Note, $user, $request);
             } else {
                 $orders = $request->Orders()->get();
 
@@ -313,7 +317,7 @@ class CancellationRequestService
                 'closure_type' => CancellationRequest::CLOSURE_DONE,
             ]);
 
-            $this->logEvent($request, $user, 'done');
+            $this->logEvent($request, $user, 'done', ['work_report_ids' => $canceledWorkReportIds ?? []]);
             $this->notifyRequesterRequestDone($request, $user);
 
             return $request;
@@ -661,9 +665,10 @@ class CancellationRequestService
         array $orders,
         array $attachments,
         array $removeEvidenceIds = [],
-        ?string $description = null
+        ?string $description = null,
+        array $workReportIds = []
     ): CancellationRequest {
-        return DB::transaction(function () use ($request, $user, $scope, $category, $orders, $attachments, $removeEvidenceIds, $description) {
+        return DB::transaction(function () use ($request, $user, $scope, $category, $orders, $attachments, $removeEvidenceIds, $description, $workReportIds) {
             $request->refresh();
 
             if (!in_array($request->status, [CancellationRequestStatus::ASSIGNED, CancellationRequestStatus::SUBMITTED], true)) {
@@ -679,6 +684,7 @@ class CancellationRequestService
             }
 
             $ordersCollection = $this->resolveOrders($request->Note, $scope, $orders);
+            $workReports      = $this->resolveWorkReports($request->Note, $scope, $workReportIds, $request);
 
             if ($ordersCollection->isEmpty() && $scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 throw new RuntimeException('Selecione ao menos uma ordem válida.');
@@ -699,6 +705,7 @@ class CancellationRequestService
             ]);
 
             $request->Orders()->sync($ordersCollection->pluck('id')->all());
+            $request->WorkReports()->sync($workReports->pluck('id')->all());
 
             if (!empty($removeEvidenceIds)) {
                 $this->removeEvidenceFiles($request, $removeEvidenceIds, $user);
@@ -707,9 +714,10 @@ class CancellationRequestService
             $this->storeEvidenceFiles($request, $attachments, $user, 'CANCELLATION_CONTROL');
 
             $this->logEvent($request, $user, 'updated', [
-                'scope'       => $scope,
-                'category_id' => $category->id,
-                'orders'      => $ordersCollection->pluck('id')->all(),
+                'scope'        => $scope,
+                'category_id'  => $category->id,
+                'orders'       => $ordersCollection->pluck('id')->all(),
+                'work_reports' => $workReports->pluck('id')->all(),
             ]);
 
             return $request;
@@ -724,6 +732,7 @@ class CancellationRequestService
             $this->removeEvidenceFiles($request, $request->EvidenceFiles()->pluck('id')->all(), $user);
             $request->Events()->delete();
             $request->Orders()->detach();
+            $request->WorkReports()->detach();
             $request->delete();
         });
     }
@@ -754,19 +763,98 @@ class CancellationRequestService
             ->get();
     }
 
-    private function cancelWorkForm(Note $note, User $actor): void
+    /**
+     * Informes ativos que a solicitação pretende cancelar. Só o escopo "informe(s)" exige
+     * escolha explícita; a escolha é validada contra a nota, o estado do informe e outras
+     * solicitações em aberto (inclusive nota inteira e solicitações legadas sem informe).
+     */
+    private function resolveWorkReports(Note $note, string $scope, array $workReportIds, ?CancellationRequest $ignore = null): Collection
     {
-        $workForms = $note->WorkForms()->get();
-
-        if ($workForms->isEmpty()) {
-            return;
+        if ($scope !== CancellationRequestScope::WORK_FORM_ONLY->value) {
+            return new Collection();
         }
 
-        $note->WorkForms()->update([
-            'canceled'    => true,
-            'canceled_at' => now(),
-            'canceled_by' => $actor->id,
-        ]);
+        $ids = collect(Arr::flatten($workReportIds))->filter()->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($ids->isEmpty()) {
+            throw new RuntimeException('Selecione ao menos um informe para cancelar.');
+        }
+
+        $reports = WorkReport::query()->where('note_id', $note->id)->whereIn('id', $ids)->get();
+
+        if ($reports->count() !== $ids->count()) {
+            throw new RuntimeException('Informe selecionado não pertence à nota.');
+        }
+
+        if ($already = $reports->firstWhere('canceled', true)) {
+            throw new RuntimeException("O informe #{$already->id} já está cancelado.");
+        }
+
+        $open = [
+            CancellationRequestStatus::DRAFT->value,
+            CancellationRequestStatus::SUBMITTED->value,
+            CancellationRequestStatus::ASSIGNED->value,
+            CancellationRequestStatus::PAUSED->value,
+        ];
+
+        $conflicts = CancellationRequest::query()
+            ->where('note_id', $note->id)
+            ->whereIn('status', $open)
+            ->when($ignore, fn ($q) => $q->where('id', '!=', $ignore->id))
+            ->where(function ($q) use ($ids) {
+                $q->where('scope', CancellationRequestScope::NOTE_FULL->value)
+                    ->orWhere(function ($q) use ($ids) {
+                        $q->where('scope', CancellationRequestScope::WORK_FORM_ONLY->value)
+                            ->where(function ($q) use ($ids) {
+                                // Solicitação legada (sem informe escolhido) vale para todos os informes.
+                                $q->whereDoesntHave('WorkReports')
+                                    ->orWhereHas('WorkReports', fn ($w) => $w->whereIn('work_reports.id', $ids));
+                            });
+                    });
+            })
+            ->exists();
+
+        if ($conflicts) {
+            throw new RuntimeException('Já existe solicitação de cancelamento em aberto que abrange o(s) informe(s) selecionado(s).');
+        }
+
+        return $reports;
+    }
+
+    /**
+     * Cancela informes. Nota inteira: todos os ativos. Informe(s): somente os escolhidos na
+     * solicitação (solicitações antigas, sem escolha, mantêm o comportamento de todos os ativos).
+     * Usa o model (não update em massa) para disparar a atualização do status do informe.
+     *
+     * @return int[] ids dos informes cancelados
+     */
+    private function cancelWorkReports(Note $note, User $actor, ?CancellationRequest $request = null): array
+    {
+        $query = $note->WorkForms();
+
+        if ($request && $request->scope === CancellationRequestScope::WORK_FORM_ONLY) {
+            $selected = $request->WorkReports()->get();
+
+            if ($selected->isNotEmpty()) {
+                if ($already = $selected->firstWhere('canceled', true)) {
+                    throw new RuntimeException("O informe #{$already->id} já está cancelado.");
+                }
+
+                $query = WorkReport::query()->where('note_id', $note->id)->whereIn('id', $selected->pluck('id'));
+            }
+        }
+
+        $reports = $query->get();
+
+        foreach ($reports as $report) {
+            $report->update([
+                'canceled'    => true,
+                'canceled_at' => now(),
+                'canceled_by' => $actor->id,
+            ]);
+        }
+
+        return $reports->pluck('id')->all();
     }
 
     public function addEvidenceFiles(CancellationRequest $request, User $user, array $attachments, string $origin): void

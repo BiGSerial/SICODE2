@@ -203,6 +203,16 @@ class SelectOptions
     }
 
 
+    /** Conclusão da fiscalização de retorno de D5 (produção dfive): decisão binária. */
+    public static function getD5ReturnSupervisionEnd()
+    {
+        return [
+            (object)['reason' => 'Resolvido', 'value' => 'RESOLVIDO', 'block' => false],
+            (object)['reason' => 'Não Resolvido', 'value' => 'NAO RESOLVIDO', 'block' => true],
+        ];
+    }
+
+
     public static function getReverseFluxConclusion()
     {
         return [

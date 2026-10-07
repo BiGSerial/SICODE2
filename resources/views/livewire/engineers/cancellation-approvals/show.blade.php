@@ -195,8 +195,8 @@
             $isPending = $cancellationRequest->engineer_approval_status === \App\Enum\CancellationEngineerApprovalStatus::PENDING;
 
             $requestedTarget = match ($cancellationRequest->scope?->value ?? $cancellationRequest->scope) {
-                \App\Enum\CancellationRequestScope::NOTE_FULL->value => 'Cancelar nota inteira, ordens vinculadas e WorkForm (se existir).',
-                \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value => 'Cancelar somente o WorkForm da nota.',
+                \App\Enum\CancellationRequestScope::NOTE_FULL->value => 'Cancelar nota inteira, ordens vinculadas e todos os informes (se existirem).',
+                \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value => 'Cancelar somente o(s) informe(s) selecionado(s) da nota.',
                 default => 'Cancelar somente as ordens selecionadas nesta solicitação.',
             };
 
@@ -220,10 +220,17 @@
                     $itemsToCancel->push('Ordens: ' . $orderRefs->join(', '));
                 }
                 if ($hasWorkForm) {
-                    $itemsToCancel->push('Informe de Obra: será cancelado junto com a nota.');
+                    $itemsToCancel->push('Informes: todos os informes ativos serão cancelados junto com a nota.');
                 }
             } elseif (($cancellationRequest->scope?->value ?? $cancellationRequest->scope) === \App\Enum\CancellationRequestScope::WORK_FORM_ONLY->value) {
-                $itemsToCancel->push('Informe de Obra da nota ' . ($cancellationRequest->Note->note ?? '-') . '.');
+                $requestedReports = $cancellationRequest->WorkReports;
+                if ($requestedReports->isEmpty()) {
+                    $itemsToCancel->push('Informes: todos os informes ativos da nota ' . ($cancellationRequest->Note->note ?? '-') . ' (solicitação anterior, sem informe específico).');
+                } else {
+                    foreach ($requestedReports as $requestedReport) {
+                        $itemsToCancel->push($requestedReport->displayLabel() . ($requestedReport->canceled ? ' (já cancelado)' : ''));
+                    }
+                }
             } else {
                 foreach ($orderRefs as $ordem) {
                     $itemsToCancel->push('Ordem: ' . $ordem);

@@ -131,6 +131,7 @@ class PostWorkProcessReportExport implements WithMultipleSheets, WithProperties
             ['Filtro - Empresa', $this->filters['company_name'] ?? 'Todas'],
             ['Filtro - Nota', $this->filters['search'] ?? '---'],
             ['Filtro - Somente estourados', filter_var($this->filters['only_late'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'Sim' : 'Não'],
+            ['Filtro - Somente em aberto', filter_var($this->filters['only_open'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'Sim' : 'Não'],
             ['Registros exportados', number_format($this->rows->count(), 0, ',', '.') . ' registros'],
         ];
     }

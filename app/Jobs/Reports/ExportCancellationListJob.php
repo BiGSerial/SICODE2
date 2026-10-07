@@ -69,7 +69,7 @@ class ExportCancellationListJob implements ShouldQueue
                 CASE cr.scope
                     WHEN "NOTE_FULL" THEN "Nota inteira"
                     WHEN "ORDERS_PARTIAL" THEN "Ordens específicas"
-                    WHEN "WORK_FORM_ONLY" THEN "Somente WorkForm"
+                    WHEN "WORK_FORM_ONLY" THEN "Somente informe(s)"
                     ELSE COALESCE(cr.scope, "-")
                 END as scope_label,
                 CASE cr.status

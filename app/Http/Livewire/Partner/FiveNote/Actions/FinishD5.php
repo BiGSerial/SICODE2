@@ -6,6 +6,7 @@ use App\Models\{EvidenceFile, FiveNote};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class FinishD5 extends Component
@@ -24,12 +25,23 @@ class FinishD5 extends Component
 
     public int $evidenceKey = 0;
 
+    public int $partnerEvidencePage = 1;
+
+    public int $inspectionEvidencePage = 1;
+
+    public int $legacyEvidencePage = 1;
+
+    public int $evidencePerPage = 6;
+
+    public string $evidenceTab = 'partner';
+
     public $origin = 'EMPREITEIRA';
 
     protected $listeners = [
         'getInfoResponse',
         'hasEvidence',
         'evidenceSaved',
+        'evidenceSaveFailed',
         'samuca158012Encerrar' => 'toSave',
     ];
 
@@ -140,15 +152,51 @@ class FinishD5 extends Component
         $this->finish();
     }
 
-    public function finish()
+    public function evidenceSaveFailed(): void
     {
-        $this->authorizePartnerAccess('d5_notes.finish');
+        $this->isSaving = false;
 
-        $this->five = $this->scopedFiveNote($this->five->id);
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'error',
+            'title'    => 'Não foi possível salvar as evidências',
+            'html'     => 'Revise os arquivos anexados e tente encerrar a D5 novamente.',
+        ]);
+    }
 
-        DB::beginTransaction();
+    public function previousEvidencePage(string $group): void
+    {
+        $property = $this->evidencePageProperty($group);
+        $this->{$property} = max(1, $this->{$property} - 1);
+    }
 
+    public function selectEvidenceTab(string $group): void
+    {
+        $this->evidencePageProperty($group);
+        $this->evidenceTab = $group;
+    }
+
+    public function nextEvidencePage(string $group, int $lastPage): void
+    {
+        $property = $this->evidencePageProperty($group);
+        $this->{$property} = min($lastPage, $this->{$property} + 1);
+    }
+
+    public function finish(): void
+    {
         try {
+            $this->authorizePartnerAccess('d5_notes.finish');
+
+            if (!$this->five) {
+                throw new \RuntimeException('D5 não encontrada para encerramento.');
+            }
+
+            // Recarrega a D5 dentro do tratamento de erro. Antes, uma alteração de
+            // escopo/permissão nesta etapa gerava uma exceção sem retorno visual e
+            // mantinha o botão de encerramento bloqueado.
+            $this->five = $this->scopedFiveNote($this->five->id);
+
+            DB::beginTransaction();
             $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
             $this->five->done($this->five->name, $this->observations);
@@ -165,6 +213,8 @@ class FinishD5 extends Component
                 }
             }
 
+            DB::commit();
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'success',
@@ -173,26 +223,25 @@ class FinishD5 extends Component
                 'timer'    => 5000,
             ]);
 
-            DB::commit();
-
             $this->clearAll();
 
         } catch (\Throwable $th) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             $this->isSaving = false;
 
-            if ($files = $this->five->EvidenceFiles()->where('origin', $this->origin)->get()) {
-                foreach ($files as $f) {
-                    $f->delete();
-                }
-            }
+            Log::error('Falha ao encerrar D5 pelo parceiro.', [
+                'five_note_id' => $this->five?->id,
+                'user_id'      => auth()->id(),
+                'exception'    => $th,
+            ]);
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OPERAÇÃO FALHOU',
-                'html'     => 'A operação de encerramento do D5 falhou.',
-                'timer'    => 5000,
+                'html'     => 'Não foi possível encerrar a D5. Tente novamente. Se o problema continuar, entre em contato com o suporte.',
             ]);
         }
     }
@@ -236,7 +285,17 @@ class FinishD5 extends Component
 
     private function resetState(): void
     {
-        $this->reset(['five', 'observations', 'hasEvidence', 'editingDescription', 'isSaving']);
+        $this->reset([
+            'five',
+            'observations',
+            'hasEvidence',
+            'editingDescription',
+            'isSaving',
+            'partnerEvidencePage',
+            'inspectionEvidencePage',
+            'legacyEvidencePage',
+            'evidenceTab',
+        ]);
         $this->resetErrorBag();
         $this->resetValidation();
         $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
@@ -254,6 +313,16 @@ class FinishD5 extends Component
 
         $this->applyPartnerCompanyScope($query);
         return $query->firstOrFail();
+    }
+
+    private function evidencePageProperty(string $group): string
+    {
+        return match ($group) {
+            'partner'    => 'partnerEvidencePage',
+            'inspection' => 'inspectionEvidencePage',
+            'legacy'     => 'legacyEvidencePage',
+            default      => throw new \InvalidArgumentException('Grupo de evidências inválido.'),
+        };
     }
 
     public function startEditDescription(): void

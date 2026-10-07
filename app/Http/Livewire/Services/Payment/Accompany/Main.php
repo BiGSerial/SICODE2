@@ -87,7 +87,7 @@ class Main extends Component
 
     public function export_d5tolist()
     {
-        return (new D5tolistExport($this->service, auth()->user()->id))->download(date('YmdHis-') . 'exportD5tolist.xlsx');
+        return (new D5tolistExport($this->service, $this->user_s ?: auth()->user()->id))->download(date('YmdHis-') . 'exportD5tolist.xlsx');
     }
 
     public function buscarMulti()
@@ -293,6 +293,7 @@ class Main extends Component
                 'Note.WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
                 'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
                 'Note.FiveNote',
+                'fiveNotes:five_notes.id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
                 'Note.FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,completed_at',
                 'Note.Partials.Company:id,name,deleted_at',
                 'Note.Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),

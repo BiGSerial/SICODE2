@@ -357,8 +357,13 @@
                                 $wf = $workForms->first() ?? $list->WorkForm;
                                 $selectionKey = (string) ($list->payment_context_key ?? $list->id);
                                 $workReportId = (int) ($list->payment_work_report_id ?? 0);
+                                $fiveNoteId = (int) ($list->dispatch_five_note_id ?? 0);
                                 $dispatchPayload = $workReportId
-                                    ? [['note_id' => (int) $list->id, 'work_report_id' => $workReportId]]
+                                    ? [[
+                                        'note_id' => (int) $list->id,
+                                        'work_report_id' => $workReportId,
+                                        'five_note_id' => $fiveNoteId ?: null,
+                                    ]]
                                     : [(int) $list->id];
                                 $partial = !$wf ? ((int) ($list->dispatch_partial_id ?? 0) > 0 ? ($list->Partials->firstWhere('id', (int) $list->dispatch_partial_id) ?? $list->Partials->first()) : $list->Partials->first()) : null;
                                 $orders = $wf
@@ -375,9 +380,12 @@
                                     if ($five->is_supervisioned ?? false) {
                                         $d5BadgeClass = 'text-bg-success';
                                         $d5Msg = 'D5 Fiscalizada – liberar carta';
-                                    } else {
+                                    } elseif ($five->isAwaitingPaymentCreation()) {
                                         $d5BadgeClass = 'text-bg-primary';
                                         $d5Msg = 'Gerar D5 e reter carta';
+                                    } else {
+                                        $d5BadgeClass = 'text-bg-secondary';
+                                        $d5Msg = 'D5 já despachada – aguardando fiscalização';
                                     }
                                 }
 

@@ -60,6 +60,7 @@ class ExportPendingD5CreateJob implements ShouldQueue
                 'note.WorkForm.Orders',
                 'note.Orders',
                 'company',
+                'WorkReport',
             ]);
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-five-notes-pending-create.xlsx';

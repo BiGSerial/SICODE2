@@ -3,9 +3,10 @@
 namespace App\Http\Livewire\Dispatchs;
 
 use App\Exports\Reports\ReturnInternExport;
-use App\Models\{Company, File, Reclaim, Service, User};
 use App\Models\City;
+use App\Models\{Company, File, Reclaim, Service, User};
 use App\Services\Files\FileStorageService;
+use App\Services\Reclaims\ReclaimRowPresenter;
 use Livewire\{Component, WithPagination};
 
 class ReturnD5 extends Component
@@ -319,14 +320,7 @@ class ReturnD5 extends Component
             ->leftJoin('notes as n', 'reclaims.note_id', '=', 'n.id')
 
             ->select('reclaims.*', 'n.note as note', 'n.rubrica as rubrica', 'n.group5 as group5', 'n.material as material', 'n.lexp')
-            ->with([
-                'Production.User',
-                'Note',
-                'Approvals',
-                'Viabilities',
-                'Waiting',
-                'Externals',
-            ])
+            ->with(ReclaimRowPresenter::RELATIONS)
             ->orderBy($this->sortField, $this->sortDirection);
 
         return $query;

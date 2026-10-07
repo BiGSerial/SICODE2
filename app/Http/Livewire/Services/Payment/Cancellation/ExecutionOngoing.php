@@ -2,16 +2,13 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
-use App\Enum\CancellationRequestScope;
-use App\Enum\CancellationRequestStatus;
+use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
 use App\Jobs\Services\ExportCancellationExecutionOrdersJob;
-use App\Models\CancellationRequest;
-use App\Models\User;
+use App\Models\{CancellationRequest, User};
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 use RuntimeException;
 
 class ExecutionOngoing extends Component
@@ -20,20 +17,29 @@ class ExecutionOngoing extends Component
     use AuthorizesRequests;
 
     protected $paginationTheme = 'bootstrap';
+
     protected $listeners = [
-        'confirm_bulk_done_action' => 'confirmBulkDoneAction',
+        'confirm_bulk_done_action'     => 'confirmBulkDoneAction',
         'confirm_bulk_engineer_action' => 'confirmBulkEngineerAction',
-        'confirm_bulk_reopen_action' => 'confirmBulkReopenAction',
+        'confirm_bulk_reopen_action'   => 'confirmBulkReopenAction',
     ];
 
     public string $service;
+
     public string $multiSearch = '';
+
     public string $scopeFilter = 'ALL';
+
     public array $selected = [];
+
     public bool $selectAll = false;
+
     public string $bulkActionType = 'DONE';
+
     public string $bulkComment = '';
+
     public ?string $bulkEngineerId = null;
+
     public string $bulkReopenComment = '';
 
     public function mount(string $service): void
@@ -49,7 +55,7 @@ class ExecutionOngoing extends Component
 
         if ($field === 'scopeFilter') {
             $this->resetPage();
-            $this->selected = [];
+            $this->selected  = [];
             $this->selectAll = false;
         }
     }
@@ -67,12 +73,13 @@ class ExecutionOngoing extends Component
     {
         if (count($this->selected) < 2) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Selecione ao menos 2 solicitações.']);
+
             return;
         }
 
         return redirect()->route('services.cancellations.ongoing.bulk', [
             'service' => $this->service,
-            'ids' => implode(',', $this->selected),
+            'ids'     => implode(',', $this->selected),
         ]);
     }
 
@@ -80,12 +87,13 @@ class ExecutionOngoing extends Component
     {
         if (empty($this->selected)) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Selecione ao menos uma solicitação.']);
+
             return;
         }
 
         $this->resetErrorBag();
         $this->bulkActionType = 'DONE';
-        $this->bulkComment = '';
+        $this->bulkComment    = '';
         $this->bulkEngineerId = null;
         $this->dispatchBrowserEvent('bulk-close-modal-show');
     }
@@ -94,6 +102,7 @@ class ExecutionOngoing extends Component
     {
         if (empty($this->selected)) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Selecione ao menos uma solicitação.']);
+
             return;
         }
 
@@ -105,63 +114,73 @@ class ExecutionOngoing extends Component
     public function runBulkCloseAction(): void
     {
         $requests = $this->selectedRequests()->get();
+
         if ($requests->isEmpty()) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhuma solicitação válida selecionada.']);
+
             return;
         }
 
         $scopeError = $this->validateBulkScope($requests);
+
         if ($scopeError !== null) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => $scopeError]);
+
             return;
         }
 
         if (!trim($this->bulkComment)) {
             $this->addError('bulkComment', 'Texto obrigatório.');
+
             return;
         }
 
         if ($this->bulkActionType === 'ENGINEER_APPROVAL' && !$this->bulkEngineerId) {
             $this->addError('bulkEngineerId', 'Selecione um engenheiro.');
+
             return;
         }
 
         if ($this->bulkActionType === 'ENGINEER_APPROVAL') {
             $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Confirmar envio em lote',
-                'msg' => 'Deseja enviar as solicitações selecionadas para aprovação do engenheiro?',
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, enviar',
-                'btnCanceltxt' => 'Não, revisar',
-                'action' => 'confirm_bulk_engineer_action',
+                'title'         => 'Confirmar envio em lote',
+                'msg'           => 'Deseja enviar as solicitações selecionadas para aprovação do engenheiro?',
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, enviar',
+                'btnCanceltxt'  => 'Não, revisar',
+                'action'        => 'confirm_bulk_engineer_action',
                 'cancel_titulo' => 'Cancelado',
-                'cancel_msg' => 'Nenhuma solicitação foi alterada.',
+                'cancel_msg'    => 'Nenhuma solicitação foi alterada.',
             ]);
+
             return;
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Confirmar encerramento em lote',
-            'msg' => 'Deseja finalizar em massa as solicitações selecionadas?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, finalizar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_bulk_done_action',
+            'title'         => 'Confirmar encerramento em lote',
+            'msg'           => 'Deseja finalizar em massa as solicitações selecionadas?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, finalizar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_bulk_done_action',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'Nenhuma solicitação foi alterada.',
+            'cancel_msg'    => 'Nenhuma solicitação foi alterada.',
         ]);
     }
 
     public function runBulkReopenAction(): void
     {
         $requests = $this->selectedRequests()->get();
+
         if ($requests->isEmpty()) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhuma solicitação válida selecionada.']);
+
             return;
         }
 
         if (!trim($this->bulkReopenComment)) {
             $this->addError('bulkReopenComment', 'Texto obrigatório.');
+
             return;
         }
 
@@ -171,44 +190,50 @@ class ExecutionOngoing extends Component
 
         if ($hasNotPaused) {
             $this->dispatchBrowserEvent('swal', [
-                'icon' => 'warning',
+                'icon'  => 'warning',
                 'title' => 'A abertura em massa é permitida somente para solicitações pausadas.',
             ]);
+
             return;
         }
 
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Confirmar abertura em lote',
-            'msg' => 'Deseja reabrir em massa as solicitações selecionadas?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, reabrir',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_bulk_reopen_action',
+            'title'         => 'Confirmar abertura em lote',
+            'msg'           => 'Deseja reabrir em massa as solicitações selecionadas?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, reabrir',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_bulk_reopen_action',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'Nenhuma solicitação foi alterada.',
+            'cancel_msg'    => 'Nenhuma solicitação foi alterada.',
         ]);
     }
 
     public function confirmBulkDoneAction(CancellationRequestService $service): void
     {
-        $requests = $this->selectedRequests()->get();
+        $requests   = $this->selectedRequests()->get();
         $scopeError = $this->validateBulkScope($requests);
+
         if ($scopeError !== null) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => $scopeError]);
+
             return;
         }
 
         $baseComment = trim($this->bulkComment);
+
         if ($baseComment === '') {
             $this->addError('bulkComment', 'Texto obrigatório.');
+
             return;
         }
 
-        $batchCount = $requests->count();
+        $batchCount   = $requests->count();
         $finalComment = $baseComment . PHP_EOL . PHP_EOL . "** Finalizado em Lote {$batchCount} obras **";
 
         $processed = 0;
-        $errors = 0;
+        $errors    = 0;
+
         foreach ($requests as $request) {
             try {
                 $service->addComment($request, Auth::user(), $finalComment);
@@ -225,32 +250,40 @@ class ExecutionOngoing extends Component
 
     public function confirmBulkEngineerAction(CancellationRequestService $service): void
     {
-        $requests = $this->selectedRequests()->get();
+        $requests   = $this->selectedRequests()->get();
         $scopeError = $this->validateBulkScope($requests);
+
         if ($scopeError !== null) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => $scopeError]);
+
             return;
         }
 
         $reason = trim($this->bulkComment);
+
         if ($reason === '') {
             $this->addError('bulkComment', 'Texto obrigatório.');
+
             return;
         }
 
         if (!$this->bulkEngineerId) {
             $this->addError('bulkEngineerId', 'Selecione um engenheiro.');
+
             return;
         }
 
         $engineer = User::query()->where('engineer', true)->find($this->bulkEngineerId);
+
         if (!$engineer) {
             $this->addError('bulkEngineerId', 'Engenheiro inválido.');
+
             return;
         }
 
         $processed = 0;
-        $errors = 0;
+        $errors    = 0;
+
         foreach ($requests as $request) {
             try {
                 $service->requestEngineerApproval($request, Auth::user(), $engineer, $reason);
@@ -267,22 +300,26 @@ class ExecutionOngoing extends Component
     public function confirmBulkReopenAction(CancellationRequestService $service): void
     {
         $requests = $this->selectedRequests()->get();
-        $reason = trim($this->bulkReopenComment);
+        $reason   = trim($this->bulkReopenComment);
+
         if ($reason === '') {
             $this->addError('bulkReopenComment', 'Texto obrigatório.');
+
             return;
         }
 
         if ($requests->contains(fn (CancellationRequest $request) => $request->status !== CancellationRequestStatus::PAUSED)) {
             $this->dispatchBrowserEvent('swal', [
-                'icon' => 'warning',
+                'icon'  => 'warning',
                 'title' => 'A abertura em massa é permitida somente para solicitações pausadas.',
             ]);
+
             return;
         }
 
         $processed = 0;
-        $errors = 0;
+        $errors    = 0;
+
         foreach ($requests as $request) {
             try {
                 $service->addComment($request, Auth::user(), $reason);
@@ -300,18 +337,20 @@ class ExecutionOngoing extends Component
     public function exportUserList(): void
     {
         $ids = $this->lists->pluck('id')->all();
+
         if (empty($ids)) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Nenhum registro para exportar.']);
+
             return;
         }
 
         ExportCancellationExecutionOrdersJob::dispatch([
-            'ids' => $ids,
+            'ids'     => $ids,
             'user_id' => (string) Auth::id(),
         ]);
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'success',
+            'icon'  => 'success',
             'title' => 'Exportação iniciada. Você será notificado quando concluir.',
         ]);
     }
@@ -342,10 +381,11 @@ class ExecutionOngoing extends Component
             ->values();
 
         if ($scopes->count() !== 1) {
-            return 'O encerramento em lote só pode ser feito com solicitações do mesmo tipo (Nota inteira ou WorkForm).';
+            return 'O encerramento em lote só pode ser feito com solicitações do mesmo tipo (Nota inteira ou Informe).';
         }
 
         $scope = (string) $scopes->first();
+
         if (!in_array($scope, [CancellationRequestScope::NOTE_FULL->value, CancellationRequestScope::WORK_FORM_ONLY->value], true)) {
             return 'Ordens individuais devem ser analisadas individualmente.';
         }
@@ -355,15 +395,15 @@ class ExecutionOngoing extends Component
 
     private function afterBulkAction(int $processed, int $errors): void
     {
-        $this->selected = [];
-        $this->selectAll = false;
-        $this->bulkComment = '';
+        $this->selected          = [];
+        $this->selectAll         = false;
+        $this->bulkComment       = '';
         $this->bulkReopenComment = '';
-        $this->bulkEngineerId = null;
-        $this->bulkActionType = 'DONE';
+        $this->bulkEngineerId    = null;
+        $this->bulkActionType    = 'DONE';
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => $errors ? 'warning' : 'success',
+            'icon'  => $errors ? 'warning' : 'success',
             'title' => "Processadas: {$processed}. Erros: {$errors}.",
         ]);
     }
@@ -388,16 +428,16 @@ class ExecutionOngoing extends Component
 
     public function render()
     {
-        $lists = $this->lists->paginate(20);
+        $lists     = $this->lists->paginate(20);
         $engineers = User::query()
             ->where('engineer', true)
             ->orderByRaw('LOWER(name)')
             ->get(['id', 'name']);
 
         return view('livewire.services.payment.cancellation.execution-ongoing', [
-            'requests' => $lists,
+            'requests'  => $lists,
             'engineers' => $engineers,
-            'scopes' => CancellationRequestScope::cases(),
+            'scopes'    => CancellationRequestScope::cases(),
         ]);
     }
 }

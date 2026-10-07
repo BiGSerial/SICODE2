@@ -269,28 +269,9 @@
                                 $vencido = true;
                             }
 
-                            $color = 'text-bg-secondary';
-                            $origin = 'Contratação';
-
-                            if ($list->Approvals->isNotEmpty()) {
-                                $color = 'text-bg-warning';
-                                $origin = 'Análise de Projeto';
-                            }
-
-                            if ($list->Waiting) {
-                                $color = 'text-bg-secondary';
-                                $origin = 'Contratação';
-                            }
-
-                            if ($list->Viabilities->isNotEmpty()) {
-                                $color = 'text-bg-info';
-                                $origin = 'Viabilidade';
-                            }
-
-                            if ($list->Externals->isNotEmpty()) {
-                                $color = 'text-bg-primary';
-                                $origin = 'Órgão Externo';
-                            }
+                            $source = \App\Services\Reclaims\ReclaimRowPresenter::source($list);
+                            $color  = $source['color'];
+                            $origin = $source['origin'];
 
                         @endphp
 

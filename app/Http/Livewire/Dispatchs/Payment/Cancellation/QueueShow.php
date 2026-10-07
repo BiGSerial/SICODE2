@@ -51,6 +51,10 @@ class QueueShow extends Component
 
     public array $editOrders = [];
 
+    public array $editSelectedWorkReports = [];
+
+    public array $editWorkReports = [];
+
     public array $removeEvidenceIds = [];
 
     public $files = [];
@@ -82,6 +86,7 @@ class QueueShow extends Component
         $this->cancellationRequest = CancellationRequest::with([
             'Note',
             'Orders',
+            'WorkReports',
             'Category',
             'EvidenceFiles',
             'Events.Actor',
@@ -136,12 +141,19 @@ class QueueShow extends Component
     {
         $this->authorize('edit', $this->cancellationRequest);
 
-        $this->editing            = true;
-        $this->editScope          = $this->cancellationRequest->scope?->value ?? CancellationRequestScope::NOTE_FULL->value;
-        $this->editCategoryId     = $this->cancellationRequest->category_id;
-        $this->editDescription    = $this->cancellationRequest->description;
-        $this->editSelectedOrders = $this->cancellationRequest->Orders->pluck('id')->all();
-        $this->editOrders         = $this->cancellationRequest->Note->Orders->map(function ($order) {
+        $this->editing                 = true;
+        $this->editScope               = $this->cancellationRequest->scope?->value ?? CancellationRequestScope::NOTE_FULL->value;
+        $this->editCategoryId          = $this->cancellationRequest->category_id;
+        $this->editDescription         = $this->cancellationRequest->description;
+        $this->editSelectedOrders      = $this->cancellationRequest->Orders->pluck('id')->all();
+        $this->editSelectedWorkReports = $this->cancellationRequest->WorkReports->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->editWorkReports         = $this->cancellationRequest->Note->WorkFormsAny->sortBy('id')->map(fn ($report) => [
+            'id'          => $report->id,
+            'label'       => $report->displayLabel(),
+            'informed_at' => $report->informed_at?->format('d/m/Y H:i'),
+            'canceled'    => (bool) $report->canceled,
+        ])->values()->toArray();
+        $this->editOrders = $this->cancellationRequest->Note->Orders->map(function ($order) {
             return [
                 'id'       => $order->id,
                 'ordem'    => $order->ordem,
@@ -153,15 +165,17 @@ class QueueShow extends Component
 
     public function cancelEdit(): void
     {
-        $this->editing            = false;
-        $this->editScope          = CancellationRequestScope::NOTE_FULL->value;
-        $this->editCategoryId     = null;
-        $this->editDescription    = null;
-        $this->editSelectedOrders = [];
-        $this->editOrders         = [];
-        $this->removeEvidenceIds  = [];
-        $this->tempFiles          = [];
-        $this->files              = [];
+        $this->editing                 = false;
+        $this->editScope               = CancellationRequestScope::NOTE_FULL->value;
+        $this->editCategoryId          = null;
+        $this->editDescription         = null;
+        $this->editSelectedOrders      = [];
+        $this->editOrders              = [];
+        $this->editSelectedWorkReports = [];
+        $this->editWorkReports         = [];
+        $this->removeEvidenceIds       = [];
+        $this->tempFiles               = [];
+        $this->files                   = [];
     }
 
     public function saveEdit(): void
@@ -192,6 +206,12 @@ class QueueShow extends Component
             return;
         }
 
+        if ($this->editScope === CancellationRequestScope::WORK_FORM_ONLY->value && empty($this->editSelectedWorkReports)) {
+            $this->addError('editSelectedWorkReports', 'Selecione ao menos um informe.');
+
+            return;
+        }
+
         $category = \App\Models\CancellationCategory::find($this->editCategoryId);
 
         if (!$category) {
@@ -210,7 +230,8 @@ class QueueShow extends Component
                 $this->editSelectedOrders,
                 $attachments,
                 $this->removeEvidenceIds,
-                $this->editDescription
+                $this->editDescription,
+                array_map('intval', $this->editSelectedWorkReports)
             );
 
             $this->cancellationRequest->refresh();

@@ -2,17 +2,12 @@
 
 namespace App\Http\Livewire\Services\Payment\Cancellation;
 
-use App\Enum\CancellationRequestStatus;
-use App\Enum\CancellationRequestScope;
-use App\Models\CancellationCategory;
-use App\Models\CancellationRequest;
-use App\Models\Note;
-use App\Models\Order;
+use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
+use App\Models\{CancellationCategory, CancellationRequest, Note, Order};
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\{Component, WithFileUploads};
 use RuntimeException;
 
 class RequestCreate extends Component
@@ -20,50 +15,71 @@ class RequestCreate extends Component
     use WithFileUploads;
     use AuthorizesRequests;
 
-    private const BULK_MAX_INPUT = 3000;
-    private const BULK_NOTES_RENDER_LIMIT = 600;
+    private const BULK_MAX_INPUT           = 3000;
+    private const BULK_NOTES_RENDER_LIMIT  = 600;
     private const BULK_ORDERS_RENDER_LIMIT = 1000;
 
     public string $service;
+
     public string $createMode = 'single';
 
     public string $noteSearch = '';
+
     public ?Note $note = null;
+
     public bool $hasOpenNoteFullRequest = false;
+
     public array $orders = [];
+
     public string $scope = CancellationRequestScope::NOTE_FULL->value;
+
     public array $selectedOrders = [];
 
+    public array $workReports = [];
+
+    public array $selectedWorkReports = [];
+
     public ?string $bulkNotesInput = null;
+
     public array $bulkCandidates = [];
+
     public array $bulkOrdersPool = [];
+
     public array $bulkNotFoundValues = [];
+
     public array $selectedBulkNoteIds = [];
+
     public bool $bulkUseAllFilteredNotes = true;
+
     public string $bulkOrderSearch = '';
+
     public array $selectedBulkOrderIds = [];
+
     public bool $bulkSelectAllFilteredOrders = true;
+
     public bool $bulkProcessed = false;
 
     public ?int $categoryId = null;
+
     public ?string $description = null;
 
     public $files = [];
+
     public array $tempFiles = [];
 
     public array $config = [
-        'disk' => 'public',
-        'base_path' => 'evidences/CANCELLATION_REQUEST',
-        'max_size_mb' => 10,
+        'disk'         => 'public',
+        'base_path'    => 'evidences/CANCELLATION_REQUEST',
+        'max_size_mb'  => 10,
         'allowed_exts' => [
-            'jpg','jpeg','png','gif','bmp','svg','tiff','webp',
-            'pdf','doc','docx','odt','xls','xlsx','xlsm','ods',
-            'dwg','dxf','dws','dwt','dgn','rvt','rfa','skp','txt'
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
+            'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
+            'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'txt',
         ],
     ];
 
     protected $listeners = [
-        'resetCancellationForm' => 'resetForm',
+        'resetCancellationForm'               => 'resetForm',
         'confirm_cancellation_request_submit' => 'confirmSubmit',
     ];
 
@@ -76,6 +92,7 @@ class RequestCreate extends Component
     {
         if ($this->createMode === 'bulk') {
             $this->files = [];
+
             return;
         }
 
@@ -84,9 +101,9 @@ class RequestCreate extends Component
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
                 'original_name' => $file->getClientOriginalName(),
-                'extension' => strtolower($file->getClientOriginalExtension()),
-                'size' => $file->getSize(),
-                'file' => $file,
+                'extension'     => strtolower($file->getClientOriginalExtension()),
+                'size'          => $file->getSize(),
+                'file'          => $file,
             ];
         }
 
@@ -111,26 +128,31 @@ class RequestCreate extends Component
 
         if ($mode === 'single') {
             $this->resetBulkData();
+
             return;
         }
 
         $this->resetNoteData();
-        $this->scope = CancellationRequestScope::NOTE_FULL->value;
-        $this->files = [];
+        $this->scope     = CancellationRequestScope::NOTE_FULL->value;
+        $this->files     = [];
         $this->tempFiles = [];
     }
 
     public function updatedScope(): void
     {
         if ($this->createMode !== 'bulk') {
+            if ($this->scope !== CancellationRequestScope::WORK_FORM_ONLY->value) {
+                $this->selectedWorkReports = [];
+            }
+
             return;
         }
 
-        $eligibleIds = $this->eligibleBulkNoteIdsForCurrentScope();
-        $this->selectedBulkNoteIds = $eligibleIds;
+        $eligibleIds                   = $this->eligibleBulkNoteIdsForCurrentScope();
+        $this->selectedBulkNoteIds     = $eligibleIds;
         $this->bulkUseAllFilteredNotes = true;
 
-        $this->selectedBulkOrderIds = [];
+        $this->selectedBulkOrderIds        = [];
         $this->bulkSelectAllFilteredOrders = true;
     }
 
@@ -148,15 +170,18 @@ class RequestCreate extends Component
 
         if ($values->isEmpty()) {
             $this->addError('bulkNotesInput', 'Informe ao menos uma Nota para pesquisa.');
+
             return;
         }
 
         if ($values->count() > self::BULK_MAX_INPUT) {
             $this->addError('bulkNotesInput', 'Limite de itens por pesquisa: ' . self::BULK_MAX_INPUT . '.');
+
             return;
         }
 
         $notes = collect();
+
         foreach ($values->chunk(500) as $chunk) {
             $batch = Note::query()
                 ->select(['id', 'note', 'client', 'canceled'])
@@ -167,9 +192,10 @@ class RequestCreate extends Component
             $notes = $notes->concat($batch);
         }
 
-        $notes = $notes->unique('id')->values();
-        $noteIds = $notes->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $notes                      = $notes->unique('id')->values();
+        $noteIds                    = $notes->pluck('id')->map(fn ($id) => (int) $id)->all();
         $openNoteFullRequestNoteIds = [];
+
         if (!empty($noteIds)) {
             $openNoteFullRequestNoteIds = CancellationRequest::query()
                 ->whereIn('note_id', $noteIds)
@@ -188,6 +214,7 @@ class RequestCreate extends Component
         }
 
         $ordersByNote = [];
+
         if (!empty($noteIds)) {
             foreach (array_chunk($noteIds, 500) as $idsChunk) {
                 $orders = Order::query()
@@ -196,21 +223,23 @@ class RequestCreate extends Component
                     ->get();
 
                 foreach ($orders as $order) {
-                    $status = strtoupper((string) ($order->statusUser ?: $order->statusSist));
+                    $status            = strtoupper((string) ($order->statusUser ?: $order->statusSist));
                     $isBlockedByStatus = str_starts_with($status, 'ENT') || str_starts_with($status, 'ENC');
-                    $isEligible = !$order->canceled && !$isBlockedByStatus;
+                    $isEligible        = !$order->canceled && !$isBlockedByStatus;
 
                     $noteId = (int) $order->note_id;
+
                     if (!isset($ordersByNote[$noteId])) {
                         $ordersByNote[$noteId] = [
-                            'total' => 0,
+                            'total'    => 0,
                             'canceled' => 0,
                             'eligible' => 0,
-                            'rows' => [],
+                            'rows'     => [],
                         ];
                     }
 
                     $ordersByNote[$noteId]['total']++;
+
                     if ($order->canceled) {
                         $ordersByNote[$noteId]['canceled']++;
                     }
@@ -218,10 +247,10 @@ class RequestCreate extends Component
                     if ($isEligible) {
                         $ordersByNote[$noteId]['eligible']++;
                         $ordersByNote[$noteId]['rows'][] = [
-                            'id' => (int) $order->id,
-                            'ordem' => (string) $order->ordem,
+                            'id'      => (int) $order->id,
+                            'ordem'   => (string) $order->ordem,
                             'note_id' => $noteId,
-                            'status' => (string) ($order->statusUser ?: $order->statusSist ?: '-'),
+                            'status'  => (string) ($order->statusUser ?: $order->statusSist ?: '-'),
                         ];
                     }
                 }
@@ -229,7 +258,7 @@ class RequestCreate extends Component
         }
 
         $this->bulkCandidates = $notes->map(function ($note) use ($ordersByNote, $openNoteFullRequestNoteIds) {
-            $metrics = $ordersByNote[(int) $note->id] ?? ['total' => 0, 'canceled' => 0, 'eligible' => 0, 'rows' => []];
+            $metrics                = $ordersByNote[(int) $note->id] ?? ['total' => 0, 'canceled' => 0, 'eligible' => 0, 'rows' => []];
             $hasOpenNoteFullRequest = in_array((int) $note->id, $openNoteFullRequestNoteIds, true);
 
             $eligibleNoteFull = !$note->canceled
@@ -238,37 +267,38 @@ class RequestCreate extends Component
                     $metrics['total'] === 0
                     || ($metrics['canceled'] === 0 && $metrics['eligible'] > 0)
                 );
-            $eligibleOrders = !$note->canceled && $metrics['eligible'] > 0;
+            $eligibleOrders   = !$note->canceled && $metrics['eligible'] > 0;
             $eligibleWorkForm = !$note->canceled && !empty($note->WorkForm);
 
             return [
-                'id' => (int) $note->id,
-                'note' => (string) ($note->note ?? '-'),
-                'ov' => (string) ($note->ov ?? '-'),
-                'client' => (string) ($note->client ?? '-'),
-                'note_canceled' => (bool) $note->canceled,
+                'id'                         => (int) $note->id,
+                'note'                       => (string) ($note->note ?? '-'),
+                'ov'                         => (string) ($note->ov ?? '-'),
+                'client'                     => (string) ($note->client ?? '-'),
+                'note_canceled'              => (bool) $note->canceled,
                 'has_open_note_full_request' => $hasOpenNoteFullRequest,
-                'has_workform' => !empty($note->WorkForm),
-                'orders_total' => (int) $metrics['total'],
-                'orders_canceled' => (int) $metrics['canceled'],
-                'orders_eligible' => (int) $metrics['eligible'],
-                'eligible_note_full' => $eligibleNoteFull,
-                'eligible_orders' => $eligibleOrders,
-                'eligible_workform' => $eligibleWorkForm,
+                'has_workform'               => !empty($note->WorkForm),
+                'orders_total'               => (int) $metrics['total'],
+                'orders_canceled'            => (int) $metrics['canceled'],
+                'orders_eligible'            => (int) $metrics['eligible'],
+                'eligible_note_full'         => $eligibleNoteFull,
+                'eligible_orders'            => $eligibleOrders,
+                'eligible_workform'          => $eligibleWorkForm,
             ];
         })->values()->all();
 
         $this->bulkOrdersPool = collect($ordersByNote)
             ->flatMap(fn ($metrics, $noteId) => collect($metrics['rows'])->map(function ($row) use ($noteId, $notes) {
                 $note = $notes->firstWhere('id', (int) $noteId);
+
                 return [
-                    'id' => (int) $row['id'],
-                    'ordem' => (string) $row['ordem'],
+                    'id'      => (int) $row['id'],
+                    'ordem'   => (string) $row['ordem'],
                     'note_id' => (int) $noteId,
-                    'note' => (string) ($note->note ?? '-'),
-                    'ov' => (string) ($note->ov ?? '-'),
-                    'client' => (string) ($note->client ?? '-'),
-                    'status' => (string) $row['status'],
+                    'note'    => (string) ($note->note ?? '-'),
+                    'ov'      => (string) ($note->ov ?? '-'),
+                    'client'  => (string) ($note->client ?? '-'),
+                    'status'  => (string) $row['status'],
                 ];
             }))
             ->values()
@@ -284,11 +314,11 @@ class RequestCreate extends Component
             ->values()
             ->all();
 
-        $this->selectedBulkNoteIds = $this->eligibleBulkNoteIdsForCurrentScope();
-        $this->bulkUseAllFilteredNotes = true;
-        $this->selectedBulkOrderIds = [];
+        $this->selectedBulkNoteIds         = $this->eligibleBulkNoteIdsForCurrentScope();
+        $this->bulkUseAllFilteredNotes     = true;
+        $this->selectedBulkOrderIds        = [];
         $this->bulkSelectAllFilteredOrders = true;
-        $this->bulkProcessed = true;
+        $this->bulkProcessed               = true;
     }
 
     public function findNote(): void
@@ -297,26 +327,29 @@ class RequestCreate extends Component
 
         if (!trim($this->noteSearch)) {
             $this->addError('noteSearch', 'Informe o número da Nota.');
+
             return;
         }
 
-        $note = Note::where('note', $this->noteSearch)->with('Orders', 'WorkForm')->first();
+        $note = Note::where('note', $this->noteSearch)->with('Orders', 'WorkForm', 'WorkFormsAny')->first();
 
         if (!$note) {
             $this->addError('noteSearch', 'Nota não encontrada.');
+
             return;
         }
 
-        $this->note = $note;
+        $this->note                   = $note;
         $this->hasOpenNoteFullRequest = $this->noteHasOpenNoteFullRequest((int) $note->id);
-        $this->orders = $note->Orders->map(function ($order) {
+        $this->orders                 = $note->Orders->map(function ($order) {
             return [
-                'id' => $order->id,
-                'ordem' => $order->ordem,
-                'status' => $order->statusUser ?? $order->statusSist,
+                'id'       => $order->id,
+                'ordem'    => $order->ordem,
+                'status'   => $order->statusUser ?? $order->statusSist,
                 'canceled' => (bool) $order->canceled,
             ];
         })->toArray();
+        $this->workReports = $this->workReportRows($note);
 
         if ($note->canceled || $this->hasOpenNoteFullRequest || $note->Orders->where('canceled', true)->count() > 0) {
             $this->scope = CancellationRequestScope::ORDERS_PARTIAL->value;
@@ -329,6 +362,7 @@ class RequestCreate extends Component
     {
         if (!$this->categoryId) {
             $this->addError('categoryId', 'Selecione uma categoria.');
+
             return;
         }
 
@@ -338,13 +372,14 @@ class RequestCreate extends Component
 
         if (!$selectedCategory) {
             $this->addError('categoryId', 'Categoria inválida ou inativa.');
+
             return;
         }
 
         $categoryName = $selectedCategory->name;
 
         if ($this->createMode === 'bulk') {
-            $noteIds = $this->resolveBulkTargetNoteIds();
+            $noteIds     = $this->resolveBulkTargetNoteIds();
             $ordersCount = $this->scope === CancellationRequestScope::ORDERS_PARTIAL->value
                 ? count($this->resolveBulkTargetOrderIds($noteIds))
                 : 0;
@@ -354,15 +389,16 @@ class RequestCreate extends Component
                 : $noteIds->count() . ' notas';
 
             $this->dispatchBrowserEvent('alertar', [
-                'title' => 'Confirmar envio em massa',
-                'msg' => 'Você está criando solicitações de cancelamento para <strong>' . e($targetLabel) . '</strong> com a categoria <strong>' . e($categoryName) . '</strong>. Deseja continuar?',
-                'icon' => 'warning',
-                'btnOktxt' => 'Sim, enviar em massa',
-                'btnCanceltxt' => 'Não, revisar',
-                'action' => 'confirm_cancellation_request_submit',
+                'title'         => 'Confirmar envio em massa',
+                'msg'           => 'Você está criando solicitações de cancelamento para <strong>' . e($targetLabel) . '</strong> com a categoria <strong>' . e($categoryName) . '</strong>. Deseja continuar?',
+                'icon'          => 'warning',
+                'btnOktxt'      => 'Sim, enviar em massa',
+                'btnCanceltxt'  => 'Não, revisar',
+                'action'        => 'confirm_cancellation_request_submit',
                 'cancel_titulo' => 'Cancelado',
-                'cancel_msg' => 'As solicitações não foram enviadas.',
+                'cancel_msg'    => 'As solicitações não foram enviadas.',
             ]);
+
             return;
         }
 
@@ -370,17 +406,25 @@ class RequestCreate extends Component
             && $this->note
             && $this->noteHasOpenNoteFullRequest((int) $this->note->id)) {
             $this->addError('scope', 'Já existe solicitação de cancelamento em aberto para a nota inteira.');
+
             return;
         }
 
-        $noteLabel = $this->note?->note ?: ($this->noteSearch ?: 'não informada');
+        if ($this->scope === CancellationRequestScope::WORK_FORM_ONLY->value && empty($this->selectedWorkReports)) {
+            $this->addError('selectedWorkReports', 'Selecione o(s) informe(s) que devem ser cancelados.');
+
+            return;
+        }
+
+        $noteLabel        = $this->note?->note ?: ($this->noteSearch ?: 'não informada');
         $scopeDescription = match ($this->scope) {
-            CancellationRequestScope::NOTE_FULL->value => 'da nota',
-            CancellationRequestScope::WORK_FORM_ONLY->value => 'somente do WorkForm da',
-            default => 'de ordens específicas da',
+            CancellationRequestScope::NOTE_FULL->value      => 'da nota',
+            CancellationRequestScope::WORK_FORM_ONLY->value => 'somente de informe(s) da',
+            default                                         => 'de ordens específicas da',
         };
 
         $ordersSuffix = '';
+
         if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
             $selectedOrderLabels = collect($this->orders)
                 ->filter(fn ($order) => in_array($order['id'], $this->selectedOrders, true))
@@ -394,15 +438,27 @@ class RequestCreate extends Component
                 : ' (OV: ' . e(implode(', ', $selectedOrderLabels)) . ')';
         }
 
+        if ($this->scope === CancellationRequestScope::WORK_FORM_ONLY->value) {
+            $selectedLabels = collect($this->workReports)
+                ->filter(fn ($report) => in_array($report['id'], array_map('intval', $this->selectedWorkReports), true))
+                ->pluck('label')
+                ->values()
+                ->all();
+
+            $ordersSuffix = empty($selectedLabels)
+                ? ' (informe não selecionado)'
+                : ' (' . e(implode('; ', $selectedLabels)) . ')';
+        }
+
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Confirmar envio',
-            'msg' => 'Você está solicitando <strong>' . e($categoryName) . '</strong>, o cancelamento ' . $scopeDescription . ' Nota/OV <strong>' . e($noteLabel) . '</strong>' . $ordersSuffix . '. Deseja continuar com a solicitação?',
-            'icon' => 'warning',
-            'btnOktxt' => 'Sim, enviar',
-            'btnCanceltxt' => 'Não, revisar',
-            'action' => 'confirm_cancellation_request_submit',
+            'title'         => 'Confirmar envio',
+            'msg'           => 'Você está solicitando <strong>' . e($categoryName) . '</strong>, o cancelamento ' . $scopeDescription . ' Nota/OV <strong>' . e($noteLabel) . '</strong>' . $ordersSuffix . '. Deseja continuar com a solicitação?',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, enviar',
+            'btnCanceltxt'  => 'Não, revisar',
+            'action'        => 'confirm_cancellation_request_submit',
             'cancel_titulo' => 'Cancelado',
-            'cancel_msg' => 'A solicitação não foi enviada.',
+            'cancel_msg'    => 'A solicitação não foi enviada.',
         ]);
     }
 
@@ -412,19 +468,23 @@ class RequestCreate extends Component
 
         if ($this->createMode === 'bulk') {
             $this->confirmSubmitBulk($service);
+
             return;
         }
 
         if (!$this->note) {
             $this->addError('noteSearch', 'Carregue uma Nota válida antes de enviar.');
+
             return;
         }
 
         $this->validate();
 
         $category = CancellationCategory::where('active', true)->find($this->categoryId);
+
         if (!$category) {
             $this->addError('categoryId', 'Categoria inválida ou inativa.');
+
             return;
         }
 
@@ -438,18 +498,19 @@ class RequestCreate extends Component
                 $this->selectedOrders,
                 $attachments,
                 Auth::user(),
-                $this->description
+                $this->description,
+                array_map('intval', $this->selectedWorkReports)
             );
 
             $this->dispatchBrowserEvent('swal', [
-                'icon' => 'success',
-                'title' => 'Solicitação enviada com sucesso!'
+                'icon'  => 'success',
+                'title' => 'Solicitação enviada com sucesso!',
             ]);
 
             $this->resetForm();
         } catch (RuntimeException $e) {
             $this->dispatchBrowserEvent('swal', [
-                'icon' => 'error',
+                'icon'  => 'error',
                 'title' => $e->getMessage(),
             ]);
         }
@@ -460,35 +521,44 @@ class RequestCreate extends Component
         $this->validate();
 
         $category = CancellationCategory::where('active', true)->find($this->categoryId);
+
         if (!$category) {
             $this->addError('categoryId', 'Categoria inválida ou inativa.');
+
             return;
         }
 
         $targetNoteIds = $this->resolveBulkTargetNoteIds();
+
         if ($targetNoteIds->isEmpty()) {
             $this->addError('selectedBulkNoteIds', 'Selecione ao menos uma Nota apta para o escopo escolhido.');
+
             return;
         }
-        $bulkNotesCount = $targetNoteIds->count();
+        $bulkNotesCount  = $targetNoteIds->count();
         $bulkDescription = trim((string) $this->description);
         $bulkDescription .= " ** Solicitada em lote de {$bulkNotesCount} notas **";
 
         $ordersByNote = [];
+
         if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
             $targetOrderIds = $this->resolveBulkTargetOrderIds($targetNoteIds);
+
             if (empty($targetOrderIds)) {
                 $this->addError('selectedBulkOrderIds', 'Selecione ao menos uma ordem válida para cancelamento.');
+
                 return;
             }
 
             foreach ($targetOrderIds as $id) {
                 $order = collect($this->bulkOrdersPool)->firstWhere('id', (int) $id);
+
                 if (!$order) {
                     continue;
                 }
 
                 $noteId = (int) $order['note_id'];
+
                 if (!isset($ordersByNote[$noteId])) {
                     $ordersByNote[$noteId] = [];
                 }
@@ -497,11 +567,11 @@ class RequestCreate extends Component
         }
 
         $processed = 0;
-        $errors = 0;
+        $errors    = 0;
 
         foreach ($targetNoteIds->chunk(200) as $notesChunk) {
             $notes = Note::query()
-                ->with(['Orders', 'WorkForm'])
+                ->with(['Orders', 'WorkForm', 'WorkForms'])
                 ->whereIn('id', $notesChunk->values()->all())
                 ->get();
 
@@ -509,8 +579,10 @@ class RequestCreate extends Component
                 try {
                     if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                         $orderIds = $ordersByNote[(int) $note->id] ?? [];
+
                         if (empty($orderIds)) {
                             $errors++;
+
                             continue;
                         }
 
@@ -524,6 +596,8 @@ class RequestCreate extends Component
                             $bulkDescription
                         );
                     } else {
+                        // Em massa não há como escolher informe por nota: o escopo "informe(s)"
+                        // abrange todos os informes ativos de cada nota (deixado explícito na tela).
                         $service->createRequest(
                             $note,
                             $this->scope,
@@ -531,7 +605,10 @@ class RequestCreate extends Component
                             [],
                             [],
                             Auth::user(),
-                            $bulkDescription
+                            $bulkDescription,
+                            $this->scope === CancellationRequestScope::WORK_FORM_ONLY->value
+                                ? $note->WorkForms->pluck('id')->all()
+                                : []
                         );
                     }
 
@@ -543,7 +620,7 @@ class RequestCreate extends Component
         }
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => $errors ? 'warning' : 'success',
+            'icon'  => $errors ? 'warning' : 'success',
             'title' => "Envio em massa concluído. Sucesso: {$processed} | Erros: {$errors}",
         ]);
 
@@ -557,9 +634,9 @@ class RequestCreate extends Component
         return collect($this->bulkCandidates)
             ->filter(function ($item) {
                 return match ($this->scope) {
-                    CancellationRequestScope::NOTE_FULL->value => (bool) ($item['eligible_note_full'] ?? false),
+                    CancellationRequestScope::NOTE_FULL->value      => (bool) ($item['eligible_note_full'] ?? false),
                     CancellationRequestScope::WORK_FORM_ONLY->value => (bool) ($item['eligible_workform'] ?? false),
-                    default => (bool) ($item['eligible_orders'] ?? false),
+                    default                                         => (bool) ($item['eligible_orders'] ?? false),
                 };
             })
             ->pluck('id')
@@ -595,6 +672,7 @@ class RequestCreate extends Component
                 }
 
                 $q = mb_strtoupper(trim((string) $this->bulkOrderSearch));
+
                 return str_contains(mb_strtoupper((string) $row['ordem']), $q)
                     || str_contains(mb_strtoupper((string) $row['note']), $q)
                     || str_contains(mb_strtoupper((string) $row['ov']), $q);
@@ -620,34 +698,39 @@ class RequestCreate extends Component
         $mimes = implode(',', $this->config['allowed_exts']);
 
         $rules = [
-            'createMode' => 'required|in:single,bulk',
-            'categoryId' => 'required|integer',
+            'createMode'  => 'required|in:single,bulk',
+            'categoryId'  => 'required|integer',
             'description' => 'required|string|max:2000',
         ];
 
         if ($this->createMode === 'single') {
-            $rules['noteSearch'] = 'required|string';
-            $rules['scope'] = 'required|in:' . implode(',', CancellationRequestScope::values());
-            $rules['selectedOrders'] = 'array';
+            $rules['noteSearch']       = 'required|string';
+            $rules['scope']            = 'required|in:' . implode(',', CancellationRequestScope::values());
+            $rules['selectedOrders']   = 'array';
             $rules['selectedOrders.*'] = 'integer';
-            $rules['files.*'] = "nullable|file|mimes:{$mimes}|max:{$maxKb}";
+            $rules['files.*']          = "nullable|file|mimes:{$mimes}|max:{$maxKb}";
 
             if ($this->scope === CancellationRequestScope::ORDERS_PARTIAL->value) {
                 $rules['selectedOrders'] = 'required|array|min:1';
+            }
+
+            if ($this->scope === CancellationRequestScope::WORK_FORM_ONLY->value) {
+                $rules['selectedWorkReports']   = 'required|array|min:1';
+                $rules['selectedWorkReports.*'] = 'integer';
             }
 
             return $rules;
         }
 
         $rules['bulkNotesInput'] = 'required|string';
-        $rules['scope'] = 'required|in:' . implode(',', [
+        $rules['scope']          = 'required|in:' . implode(',', [
             CancellationRequestScope::NOTE_FULL->value,
             CancellationRequestScope::ORDERS_PARTIAL->value,
             CancellationRequestScope::WORK_FORM_ONLY->value,
         ]);
-        $rules['selectedBulkNoteIds'] = 'array';
-        $rules['selectedBulkNoteIds.*'] = 'integer';
-        $rules['selectedBulkOrderIds'] = 'array';
+        $rules['selectedBulkNoteIds']    = 'array';
+        $rules['selectedBulkNoteIds.*']  = 'integer';
+        $rules['selectedBulkOrderIds']   = 'array';
         $rules['selectedBulkOrderIds.*'] = 'integer';
 
         return $rules;
@@ -655,39 +738,92 @@ class RequestCreate extends Component
 
     private function resetForm(): void
     {
-        $this->createMode = 'single';
-        $this->noteSearch = '';
-        $this->note = null;
-        $this->orders = [];
-        $this->scope = CancellationRequestScope::NOTE_FULL->value;
-        $this->selectedOrders = [];
+        $this->createMode          = 'single';
+        $this->noteSearch          = '';
+        $this->note                = null;
+        $this->orders              = [];
+        $this->scope               = CancellationRequestScope::NOTE_FULL->value;
+        $this->selectedOrders      = [];
+        $this->workReports         = [];
+        $this->selectedWorkReports = [];
         $this->resetBulkData();
-        $this->categoryId = null;
+        $this->categoryId  = null;
         $this->description = null;
-        $this->files = [];
-        $this->tempFiles = [];
+        $this->files       = [];
+        $this->tempFiles   = [];
     }
 
     private function resetNoteData(): void
     {
-        $this->note = null;
+        $this->note                   = null;
         $this->hasOpenNoteFullRequest = false;
-        $this->orders = [];
-        $this->selectedOrders = [];
+        $this->orders                 = [];
+        $this->selectedOrders         = [];
+        $this->workReports            = [];
+        $this->selectedWorkReports    = [];
     }
 
     private function resetBulkData(): void
     {
-        $this->bulkNotesInput = null;
-        $this->bulkCandidates = [];
-        $this->bulkOrdersPool = [];
-        $this->bulkNotFoundValues = [];
-        $this->selectedBulkNoteIds = [];
-        $this->bulkUseAllFilteredNotes = true;
-        $this->bulkOrderSearch = '';
-        $this->selectedBulkOrderIds = [];
+        $this->bulkNotesInput              = null;
+        $this->bulkCandidates              = [];
+        $this->bulkOrdersPool              = [];
+        $this->bulkNotFoundValues          = [];
+        $this->selectedBulkNoteIds         = [];
+        $this->bulkUseAllFilteredNotes     = true;
+        $this->bulkOrderSearch             = '';
+        $this->selectedBulkOrderIds        = [];
         $this->bulkSelectAllFilteredOrders = true;
-        $this->bulkProcessed = false;
+        $this->bulkProcessed               = false;
+    }
+
+    /** Informes da nota, com o motivo que impede cancelar (se houver), para a tabela de escolha. */
+    private function workReportRows(Note $note): array
+    {
+        $open = [
+            CancellationRequestStatus::DRAFT->value,
+            CancellationRequestStatus::SUBMITTED->value,
+            CancellationRequestStatus::ASSIGNED->value,
+            CancellationRequestStatus::PAUSED->value,
+        ];
+
+        $openRequests = CancellationRequest::query()
+            ->where('note_id', $note->id)
+            ->whereIn('status', $open)
+            ->whereIn('scope', [CancellationRequestScope::NOTE_FULL->value, CancellationRequestScope::WORK_FORM_ONLY->value])
+            ->with('WorkReports:id')
+            ->get();
+
+        return $note->WorkFormsAny
+            ->sortBy('id')
+            ->map(function ($report) use ($openRequests) {
+                $coveredBy = $openRequests->first(function ($request) use ($report) {
+                    if ($request->scope === CancellationRequestScope::NOTE_FULL) {
+                        return true;
+                    }
+
+                    return $request->WorkReports->isEmpty() || $request->WorkReports->contains('id', $report->id);
+                });
+
+                $blocked = null;
+
+                if ($report->canceled) {
+                    $blocked = 'Já cancelado';
+                } elseif ($coveredBy) {
+                    $blocked = "Em solicitação #{$coveredBy->id}";
+                }
+
+                return [
+                    'id'          => (int) $report->id,
+                    'label'       => $report->displayLabel(),
+                    'informed_at' => $report->informed_at?->format('d/m/Y H:i'),
+                    'status'      => $report->current_status_label ?: '-',
+                    'canceled'    => (bool) $report->canceled,
+                    'blocked'     => $blocked,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function noteHasOpenNoteFullRequest(int $noteId): bool
@@ -715,18 +851,18 @@ class RequestCreate extends Component
             ->orderBy('name')
             ->get();
 
-        $noteCanceled = $this->note?->canceled ?? false;
+        $noteCanceled      = $this->note?->canceled ?? false;
         $hasCanceledOrders = $this->note && $this->note->Orders->where('canceled', true)->count() > 0;
-        $hasWorkForm = (bool) $this->note?->WorkForm;
+        $hasWorkForm       = (bool) $this->note?->WorkForm;
 
         $bulkEligibleNoteIds = collect($this->eligibleBulkNoteIdsForCurrentScope());
-        $bulkTotalNotes = count($this->bulkCandidates);
-        $bulkEligibleNotes = $bulkEligibleNoteIds->count();
-        $bulkSelectedNotes = $this->bulkUseAllFilteredNotes
+        $bulkTotalNotes      = count($this->bulkCandidates);
+        $bulkEligibleNotes   = $bulkEligibleNoteIds->count();
+        $bulkSelectedNotes   = $this->bulkUseAllFilteredNotes
             ? $bulkEligibleNotes
             : collect($this->selectedBulkNoteIds)->intersect($bulkEligibleNoteIds)->count();
 
-        $targetNoteIds = $this->resolveBulkTargetNoteIds();
+        $targetNoteIds      = $this->resolveBulkTargetNoteIds();
         $bulkFilteredOrders = collect($this->bulkOrdersPool)
             ->whereIn('note_id', $targetNoteIds->values()->all())
             ->filter(function ($row) {
@@ -735,6 +871,7 @@ class RequestCreate extends Component
                 }
 
                 $q = mb_strtoupper(trim((string) $this->bulkOrderSearch));
+
                 return str_contains(mb_strtoupper((string) $row['ordem']), $q)
                     || str_contains(mb_strtoupper((string) $row['note']), $q)
                     || str_contains(mb_strtoupper((string) $row['ov']), $q);
@@ -750,21 +887,21 @@ class RequestCreate extends Component
             : $bulkSelectedNotes > 0;
 
         return view('livewire.services.payment.cancellation.request-create', [
-            'categories' => $categories,
-            'noteCanceled' => $noteCanceled,
-            'hasOpenNoteFullRequest' => $this->hasOpenNoteFullRequest,
-            'hasCanceledOrders' => $hasCanceledOrders,
-            'hasWorkForm' => $hasWorkForm,
-            'bulkTotalNotes' => $bulkTotalNotes,
-            'bulkEligibleNotes' => $bulkEligibleNotes,
-            'bulkSelectedNotes' => $bulkSelectedNotes,
-            'bulkVisibleNotes' => collect($this->bulkCandidates)->take(self::BULK_NOTES_RENDER_LIMIT)->values(),
-            'bulkNotesRenderLimit' => self::BULK_NOTES_RENDER_LIMIT,
-            'bulkFilteredOrders' => $bulkFilteredOrders->take(self::BULK_ORDERS_RENDER_LIMIT)->values(),
-            'bulkOrdersRenderLimit' => self::BULK_ORDERS_RENDER_LIMIT,
+            'categories'              => $categories,
+            'noteCanceled'            => $noteCanceled,
+            'hasOpenNoteFullRequest'  => $this->hasOpenNoteFullRequest,
+            'hasCanceledOrders'       => $hasCanceledOrders,
+            'hasWorkForm'             => $hasWorkForm,
+            'bulkTotalNotes'          => $bulkTotalNotes,
+            'bulkEligibleNotes'       => $bulkEligibleNotes,
+            'bulkSelectedNotes'       => $bulkSelectedNotes,
+            'bulkVisibleNotes'        => collect($this->bulkCandidates)->take(self::BULK_NOTES_RENDER_LIMIT)->values(),
+            'bulkNotesRenderLimit'    => self::BULK_NOTES_RENDER_LIMIT,
+            'bulkFilteredOrders'      => $bulkFilteredOrders->take(self::BULK_ORDERS_RENDER_LIMIT)->values(),
+            'bulkOrdersRenderLimit'   => self::BULK_ORDERS_RENDER_LIMIT,
             'bulkFilteredOrdersTotal' => $bulkFilteredOrders->count(),
-            'bulkSelectedOrders' => $bulkSelectedOrders,
-            'bulkHasValidTargets' => $bulkHasValidTargets,
+            'bulkSelectedOrders'      => $bulkSelectedOrders,
+            'bulkHasValidTargets'     => $bulkHasValidTargets,
         ]);
     }
 }

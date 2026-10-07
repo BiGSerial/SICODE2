@@ -20,6 +20,7 @@ class PostWorkProcessReport extends Component
     public ?string $company_id = null;
     public ?string $search = null;
     public bool $only_late = false;
+    public bool $only_open = false;
     public int $perPage = 30;
     public string $view = 'table';
     public ?string $cell_stage = null;
@@ -81,6 +82,7 @@ class PostWorkProcessReport extends Component
             'company_id' => $this->company_id,
             'search'     => $this->search,
             'only_late'  => $this->only_late,
+            'only_open'  => $this->only_open,
         ];
     }
 

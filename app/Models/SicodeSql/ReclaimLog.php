@@ -2,7 +2,6 @@
 
 namespace App\Models\SicodeSql;
 
-use App\Models\Production as ModelsProduction;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -31,6 +30,12 @@ class ReclaimLog extends Model
         'user',
         'company_user',
         'service',
+        'rubrica',
+        'municipality',
+        'group5',
+        'material',
+        'text',
+        'status',
+        'completed',
     ];
-
 }
