@@ -142,10 +142,20 @@ php artisan sicode:deduplicate-payment-productions
 # use antes de decidir se o grupo legado é Ciclo 1 ou Ciclo 2
 php artisan sicode:deduplicate-payment-productions --inspect-d5=600
 
+# plano geral somente leitura: sugere --keep apenas quando encontra uma única
+# Production fechada para o mesmo Ciclo 1 e abertas equivalentes
+php artisan sicode:deduplicate-payment-productions --plan
+
 # exemplo: Parcial  — IDs revisados manualmente
 php artisan sicode:deduplicate-payment-productions \
   --keep=100 --remove=101 --remove=102 --cycle=partial \
   --reason="Duplicidade criada por duas tentativas simultâneas" --apply --yes
+
+# Caso revisado: mantém a Production finalizada e remove duplicadas abertas
+# que já foram atribuídas. Use somente após conferir a D5 com --inspect-d5.
+php artisan sicode:deduplicate-payment-productions \
+  --keep=4430 --remove-others --cycle=cycle_1 \
+  --force-assigned --reason="Duplicidade aberta de Ciclo 1 da D5 600" --apply
 ```
 
 Para `cycle_1` e `d5_return`, a opção `--cycle` é obrigatória justamente porque

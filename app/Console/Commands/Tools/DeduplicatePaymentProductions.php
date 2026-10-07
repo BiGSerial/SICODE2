@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tools;
 
+use App\Custom\Notestatus;
 use App\Models\{FiveNote, MeasurementProductionContext, Partial, Production, WorkReport, WorkReportFlowProduction};
 use App\Services\Payment\MeasurementProductionContextService;
 use DomainException;
@@ -24,11 +25,14 @@ class DeduplicatePaymentProductions extends Command
                             {--json : Emite o diagnóstico em JSON}
                             {--limit=200 : Máximo de grupos exibidos}
                             {--inspect-d5=* : IDs de D5 para detalhar antes do saneamento}
+                            {--plan : Gera plano de saneamento; sugere keep somente quando houver um único histórico fechado compatível}
                             {--keep= : ID da Production correta a preservar}
                             {--remove=* : IDs das Productions duplicadas a remover}
+                            {--remove-others : Remove todas as abertas equivalentes à Production mantida}
                             {--cycle= : partial, cycle_1 ou d5_return}
                             {--apply : Executa o saneamento explicitamente informado}
                             {--yes : Confirma a exclusão definitiva das duplicadas abertas}
+                            {--force-assigned : Permite remover abertas já atribuídas; exige --apply e --reason}
                             {--reason= : Justificativa obrigatória do saneamento}';
 
     protected $description = 'Localiza duplicidades de Medição/Pagamento e, com confirmação explícita, remove apenas duplicadas abertas';
@@ -64,6 +68,10 @@ class DeduplicatePaymentProductions extends Command
             $result['d5_inspection'] = $this->inspectD5($d5Ids, $services);
         }
 
+        if ($this->option('plan')) {
+            $result['remediation_plan'] = $this->d5RemediationPlan($services);
+        }
+
         if ($this->option('json')) {
             $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
@@ -72,7 +80,7 @@ class DeduplicatePaymentProductions extends Command
 
         $this->info('DIAGNÓSTICO — nenhuma Production foi alterada.');
         $this->line('Aberta: ' . $result['open_definition']);
-        $this->line('Para executar, informe --keep, todos os --remove, --cycle, --reason, --apply e --yes.');
+        $this->line('Para executar, informe --keep, --remove ou --remove-others, --cycle, --reason e --apply.');
 
         foreach ($result['groups'] as $name => $groups) {
             $this->newLine();
@@ -92,6 +100,17 @@ class DeduplicatePaymentProductions extends Command
             }
         }
 
+        if (isset($result['remediation_plan'])) {
+            $this->newLine();
+            $this->comment('PLANO PROPOSTO — não executa remoção:');
+
+            if ($result['remediation_plan'] === []) {
+                $this->line('Nenhum grupo elegível para sugestão automática.');
+            } else {
+                $this->table(array_keys($result['remediation_plan'][0]), $result['remediation_plan']);
+            }
+        }
+
         return self::SUCCESS;
     }
 
@@ -102,16 +121,38 @@ class DeduplicatePaymentProductions extends Command
         $cycle     = (string) $this->option('cycle');
         $reason    = trim((string) $this->option('reason'));
 
-        if (!$this->option('yes') || !$keepId || $removeIds->isEmpty() || !$reason || !in_array($cycle, MeasurementProductionContext::cycles(), true)) {
-            $this->error('Modo --apply exige --yes, --keep, ao menos um --remove, --cycle válido e --reason. Nada foi alterado.');
+        if (!$keepId || (!$this->option('remove-others') && $removeIds->isEmpty()) || !$reason || !in_array($cycle, MeasurementProductionContext::cycles(), true)) {
+            $this->error('Modo --apply exige --keep, --cycle válido, --reason e --remove ou --remove-others. Nada foi alterado.');
 
             return self::FAILURE;
+        }
+
+        if ($this->option('remove-others')) {
+            try {
+                $removeIds = $this->openEquivalentProductionIds($keepId, $cycle);
+            } catch (Throwable $exception) {
+                $this->error('Não foi possível localizar as duplicadas: ' . $exception->getMessage());
+
+                return self::FAILURE;
+            }
+
+            if ($removeIds->isEmpty()) {
+                $this->warn('Nenhuma Production aberta equivalente foi encontrada. Nada foi alterado.');
+
+                return self::SUCCESS;
+            }
         }
 
         if ($removeIds->contains($keepId)) {
             $this->error('A Production preservada não pode constar em --remove.');
 
             return self::FAILURE;
+        }
+
+        if (!$this->option('yes') && !$this->confirm("Manter Production {$keepId} e remover as abertas: " . $removeIds->implode(', ') . '?')) {
+            $this->warn('Saneamento cancelado pelo usuário.');
+
+            return self::SUCCESS;
         }
 
         try {
@@ -134,14 +175,14 @@ class DeduplicatePaymentProductions extends Command
                         throw new DomainException("Production {$production->id} não é de Medição/Pagamento.");
                     }
 
-                    if (!$this->isOpen($production)) {
+                    if ($production->id !== $keepId && !$this->isOpen($production)) {
                         throw new DomainException("Production {$production->id} já não está aberta; histórico não é removido por esta ferramenta.");
                     }
                 }
 
                 $identity = $this->assertSameExplicitIdentity($productions, $cycle);
                 $keep     = $productions->get($keepId);
-                $this->assertCanRemove($productions->only($removeIds->all()));
+                $this->assertCanRemove($productions->only($removeIds->all()), (bool) $this->option('force-assigned'));
                 $this->ensureCorrectContext($keep, $cycle, $identity);
 
                 // work_report_flow_productions não possui cascade para production_id.
@@ -157,6 +198,7 @@ class DeduplicatePaymentProductions extends Command
                     'cycle'                  => $cycle,
                     'identity'               => $identity,
                     'reason'                 => $reason,
+                    'force_assigned'         => (bool) $this->option('force-assigned'),
                 ];
             }, 3);
         } catch (Throwable $exception) {
@@ -208,8 +250,19 @@ class DeduplicatePaymentProductions extends Command
             return ['kind' => 'partial', 'partial_id' => $partials->first()];
         }
 
-        if ($cycle === MeasurementProductionContext::CYCLE_ONE && !$production->partial && $reports->count() === 1 && $partials->isEmpty() && $d5s->count() <= 1) {
-            return ['kind' => 'cycle_1', 'work_report_id' => $reports->first(), 'five_note_id' => $d5s->first()];
+        if ($cycle === MeasurementProductionContext::CYCLE_ONE && !$production->partial && $partials->isEmpty() && $d5s->count() <= 1) {
+            $workReportId = $reports->count() === 1 ? $reports->first() : null;
+
+            // Legado: antes do pivot de fluxo, o vínculo inequívoco era gravado
+            // na própria D5. Só D5 não passiva pode fornecer Informe para C1.
+            if (!$workReportId && $d5s->count() === 1) {
+                $d5           = FiveNote::find($d5s->first());
+                $workReportId = $d5 && !$d5->isPassive ? $d5->work_report_id : null;
+            }
+
+            if ($workReportId) {
+                return ['kind' => 'cycle_1', 'work_report_id' => (int) $workReportId, 'five_note_id' => $d5s->first()];
+            }
         }
 
         if ($cycle === MeasurementProductionContext::CYCLE_D5_RETURN && !$production->partial && $d5s->count() === 1 && $reports->count() <= 1 && $partials->isEmpty()) {
@@ -247,13 +300,16 @@ class DeduplicatePaymentProductions extends Command
         };
     }
 
-    private function assertCanRemove(Collection $productions): void
+    private function assertCanRemove(Collection $productions, bool $forceAssigned): void
     {
         foreach ($productions as $production) {
-            $hasExecutionEvidence = $production->user_id || $production->att_by || $production->att_at || $production->completed_at
-                || $production->Analise()->exists() || $production->d5Return()->exists();
+            if ($production->Analise()->exists() || $production->d5Return()->exists()) {
+                throw new DomainException("Production {$production->id} possui análise ou retorno D5; ela exige saneamento manual e não será apagada.");
+            }
 
-            if ($hasExecutionEvidence) {
+            $hasAssignment = $production->user_id || $production->att_by || $production->att_at;
+
+            if ($hasAssignment && !$forceAssigned) {
                 throw new DomainException("Production {$production->id} possui atribuição ou evidência de execução; ela exige saneamento manual e não será apagada.");
             }
         }
@@ -262,6 +318,36 @@ class DeduplicatePaymentProductions extends Command
     private function isOpen(Production $production): bool
     {
         return !$production->completed && !$production->confirmed;
+    }
+
+    /** @return Collection<int, int> */
+    private function openEquivalentProductionIds(int $keepId, string $cycle): Collection
+    {
+        $keep     = Production::query()->findOrFail($keepId);
+        $identity = $this->identityFor($keep, $cycle);
+
+        if (!$identity) {
+            throw new DomainException('A Production mantida não possui uma identidade explícita compatível com o ciclo informado.');
+        }
+
+        $query = Production::query()
+            ->whereIn('service_id', $this->paymentServiceIds())
+            ->where('completed', false)
+            ->where('confirmed', false)
+            ->where('id', '<>', $keepId);
+
+        match ($identity['kind']) {
+            'partial' => $query->whereHas('partialInforms', fn ($relation) => $relation->whereKey($identity['partial_id'])),
+            'cycle_1', 'd5_return' => isset($identity['five_note_id']) && $identity['five_note_id']
+                ? $query->whereHas('fiveNotes', fn ($relation) => $relation->whereKey($identity['five_note_id']))
+                : $query->whereHas('WorkReportFlowProductions', fn ($relation) => $relation
+                    ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                    ->where('work_report_id', $identity['work_report_id'])),
+        };
+
+        return $query->get()
+            ->filter(fn (Production $candidate) => $this->identityFor($candidate, $cycle) === $identity)
+            ->pluck('id')->map(fn ($id) => (int) $id)->values();
     }
 
     /** @return array<int, string> */
@@ -348,7 +434,7 @@ class DeduplicatePaymentProductions extends Command
                 ->map(fn (Production $production) => [
                     'production_id'      => $production->id,
                     'aberta'             => $this->isOpen($production) ? 'sim' : 'não',
-                    'status'             => $production->status,
+                    'status'             => $production->status . ' — ' . (Notestatus::status($production->status)->status ?? 'desconhecido'),
                     'usuario'            => $production->user_id ?? '-',
                     'atribuido_em'       => $production->att_at?->toDateTimeString() ?? '-',
                     'despachado_em'      => $production->dispatch_at?->toDateTimeString() ?? '-',
@@ -373,6 +459,81 @@ class DeduplicatePaymentProductions extends Command
                 ],
                 'cycle_hint'  => $hint,
                 'productions' => $productions,
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Produz comandos somente quando a escolha não é uma heurística: uma D5
+     * não elegível a C2, ligada a um Informe, e uma única Production histórica
+     * fechada para o mesmo C1. Demais situações ficam em revisão humana.
+     *
+     * @return array<int, array<string, string>
+     */
+    private function d5RemediationPlan(array $services): array
+    {
+        $d5Ids = DB::table('productions as p')
+            ->join('productionables as pa', function ($join) {
+                $join->on('pa.production_id', '=', 'p.id')->where('pa.productionable_type', FiveNote::class);
+            })
+            ->leftJoin('measurement_production_contexts as c', 'c.production_id', '=', 'p.id')
+            ->whereIn('p.service_id', $services)->whereNull('c.id')
+            ->where('p.completed', false)->where('p.confirmed', false)
+            ->groupBy('pa.productionable_id')->havingRaw('COUNT(*) > 1')
+            ->limit((int) $this->option('limit'))->pluck('pa.productionable_id');
+
+        return FiveNote::query()->whereIn('id', $d5Ids)->get()->map(function (FiveNote $d5) use ($services): array {
+            if ($d5->isEligibleForPaymentReturn()) {
+                return [
+                    'd5'      => (string) $d5->id,
+                    'ciclo'   => 'revisar',
+                    'manter'  => '-',
+                    'abertas' => '-',
+                    'comando' => 'D5 elegível a Ciclo 2: revisar histórico antes de decidir.',
+                ];
+            }
+
+            if ($d5->isPassive || !$d5->work_report_id) {
+                return [
+                    'd5'      => (string) $d5->id,
+                    'ciclo'   => 'revisar',
+                    'manter'  => '-',
+                    'abertas' => '-',
+                    'comando' => 'D5 passiva/sem Informe: não há keep automático.',
+                ];
+            }
+
+            $cycle       = MeasurementProductionContext::CYCLE_ONE;
+            $productions = Production::query()->whereIn('service_id', $services)
+                ->whereHas('fiveNotes', fn ($relation) => $relation->whereKey($d5->id))
+                ->orderBy('id')->get()
+                ->filter(fn (Production $production) => $this->identityFor($production, $cycle) === [
+                    'kind'           => 'cycle_1',
+                    'work_report_id' => (int) $d5->work_report_id,
+                    'five_note_id'   => (int) $d5->id,
+                ]);
+
+            $closed = $productions->filter(fn (Production $production) => !$this->isOpen($production));
+            $open   = $productions->filter(fn (Production $production) => $this->isOpen($production));
+
+            if ($closed->count() !== 1 || $open->count() < 2) {
+                return [
+                    'd5'      => (string) $d5->id,
+                    'ciclo'   => 'revisar',
+                    'manter'  => $closed->pluck('id')->implode(', ') ?: '-',
+                    'abertas' => $open->pluck('id')->implode(', ') ?: '-',
+                    'comando' => 'Não há uma única Production fechada compatível.',
+                ];
+            }
+
+            $keep = (int) $closed->sole()->id;
+
+            return [
+                'd5'      => (string) $d5->id,
+                'ciclo'   => 'cycle_1',
+                'manter'  => (string) $keep,
+                'abertas' => $open->pluck('id')->implode(', '),
+                'comando' => "--keep={$keep} --remove-others --cycle=cycle_1 --force-assigned --reason=\"REVISAR_JUSTIFICATIVA\" --apply",
             ];
         })->values()->all();
     }
