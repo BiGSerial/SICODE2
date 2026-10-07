@@ -157,6 +157,13 @@ php artisan sicode:deduplicate-payment-productions \
   --keep=4430 --remove-others --cycle=cycle_1 \
   --force-assigned --move-analysis \
   --reason="Duplicidade aberta de Ciclo 1 da D5 600" --apply
+
+# Caso em que a Production mantida já possui análise: descarta definitivamente
+# as análises das duplicadas (os IDs descartados ficam no JSON de auditoria).
+php artisan sicode:deduplicate-payment-productions \
+  --keep=4454 --remove-others --cycle=cycle_1 \
+  --force-assigned --force-analysis \
+  --reason="Saneamento de duplicidade da D5 601; análise preservada na 4454" --apply --yes
 ```
 
 Para `cycle_1` e `d5_return`, a opção `--cycle` é obrigatória justamente porque
@@ -164,7 +171,10 @@ uma D5 pode fazer parte tanto do Ciclo 1 quanto do retorno. Duplicadas com
 usuário, atribuição, conclusão ou retorno D5 não são removidos silenciosamente.
 Uma análise pode ser transferida para a Production mantida com `--move-analysis`,
 mas somente se ela for a única análise e a Production mantida ainda não possuir
-outra; retorno D5 sempre exige saneamento manual documentado.
+outra. Quando a análise da Production mantida deve prevalecer, `--force-analysis`
+descarta definitivamente as análises das duplicadas; ela não pode ser combinada
+com `--move-analysis` e os IDs descartados são incluídos no JSON de auditoria.
+Retorno D5 sempre exige saneamento manual documentado.
 
 ## Criterios de aceite
 

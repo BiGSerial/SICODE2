@@ -34,6 +34,7 @@ class DeduplicatePaymentProductions extends Command
                             {--yes : Confirma a exclusão definitiva das duplicadas abertas}
                             {--force-assigned : Permite remover abertas já atribuídas; exige --apply e --reason}
                             {--move-analysis : Move análise da duplicada para a Production mantida, quando não houver conflito}
+                            {--force-analysis : Descarta definitivamente as análises das duplicadas, preservando somente as da Production mantida}
                             {--reason= : Justificativa obrigatória do saneamento}';
 
     protected $description = 'Localiza duplicidades de Medição/Pagamento e, com confirmação explícita, remove apenas duplicadas abertas';
@@ -150,6 +151,12 @@ class DeduplicatePaymentProductions extends Command
             return self::FAILURE;
         }
 
+        if ($this->option('move-analysis') && $this->option('force-analysis')) {
+            $this->error('Use somente uma das opções: --move-analysis ou --force-analysis. Nada foi alterado.');
+
+            return self::FAILURE;
+        }
+
         if (!$this->option('yes') && !$this->confirm("Manter Production {$keepId} e remover as abertas: " . $removeIds->implode(', ') . '?')) {
             $this->warn('Saneamento cancelado pelo usuário.');
 
@@ -181,13 +188,14 @@ class DeduplicatePaymentProductions extends Command
                     }
                 }
 
-                $identity      = $this->assertSameExplicitIdentity($productions, $cycle);
-                $keep          = $productions->get($keepId);
-                $movedAnalyses = $this->assertCanRemove(
+                $identity = $this->assertSameExplicitIdentity($productions, $cycle);
+                $keep     = $productions->get($keepId);
+                $analyses = $this->assertCanRemove(
                     $productions->only($removeIds->all()),
                     $keep,
                     (bool) $this->option('force-assigned'),
                     (bool) $this->option('move-analysis'),
+                    (bool) $this->option('force-analysis'),
                 );
                 $this->ensureCorrectContext($keep, $cycle, $identity);
 
@@ -205,7 +213,9 @@ class DeduplicatePaymentProductions extends Command
                     'identity'               => $identity,
                     'reason'                 => $reason,
                     'force_assigned'         => (bool) $this->option('force-assigned'),
-                    'moved_analysis_ids'     => $movedAnalyses,
+                    'force_analysis'         => (bool) $this->option('force-analysis'),
+                    'moved_analysis_ids'     => $analyses['moved'],
+                    'discarded_analysis_ids' => $analyses['discarded'],
                 ];
             }, 3);
         } catch (Throwable $exception) {
@@ -307,10 +317,11 @@ class DeduplicatePaymentProductions extends Command
         };
     }
 
-    /** @return array<int, int> */
-    private function assertCanRemove(Collection $productions, Production $keep, bool $forceAssigned, bool $moveAnalysis): array
+    /** @return array{moved: array<int, int>, discarded: array<int, int>} */
+    private function assertCanRemove(Collection $productions, Production $keep, bool $forceAssigned, bool $moveAnalysis, bool $forceAnalysis): array
     {
-        $movedAnalyses = [];
+        $movedAnalyses     = [];
+        $discardedAnalyses = [];
 
         foreach ($productions as $production) {
             if ($production->d5Return()->exists()) {
@@ -321,15 +332,22 @@ class DeduplicatePaymentProductions extends Command
 
             if ($analyses->isNotEmpty()) {
                 if (!$moveAnalysis) {
-                    throw new DomainException("Production {$production->id} possui análise(s) #" . $analyses->pluck('id')->implode(', ') . '. Use --move-analysis após revisar o conteúdo.');
-                }
+                    if (!$forceAnalysis) {
+                        throw new DomainException("Production {$production->id} possui análise(s) #" . $analyses->pluck('id')->implode(', ') . '. Use --move-analysis após revisar o conteúdo ou --force-analysis para descartá-las definitivamente.');
+                    }
 
-                if (Analise::query()->where('production_id', $keep->id)->exists()) {
-                    throw new DomainException("A Production mantida {$keep->id} já possui análise; a ferramenta não mescla análises automaticamente.");
-                }
+                    $analysisIds = $analyses->pluck('id')->map(fn ($id) => (int) $id)->all();
+                    Analise::query()->whereIn('id', $analysisIds)->delete();
+                    $discardedAnalyses = [...$discardedAnalyses, ...$analysisIds];
 
-                Analise::query()->whereIn('id', $analyses->pluck('id'))->update(['production_id' => $keep->id]);
-                $movedAnalyses = [...$movedAnalyses, ...$analyses->pluck('id')->map(fn ($id) => (int) $id)->all()];
+                } else {
+                    if (Analise::query()->where('production_id', $keep->id)->exists()) {
+                        throw new DomainException("A Production mantida {$keep->id} já possui análise; a ferramenta não mescla análises automaticamente.");
+                    }
+
+                    Analise::query()->whereIn('id', $analyses->pluck('id'))->update(['production_id' => $keep->id]);
+                    $movedAnalyses = [...$movedAnalyses, ...$analyses->pluck('id')->map(fn ($id) => (int) $id)->all()];
+                }
             }
 
             $hasAssignment = $production->user_id || $production->att_by || $production->att_at;
@@ -339,7 +357,10 @@ class DeduplicatePaymentProductions extends Command
             }
         }
 
-        return $movedAnalyses;
+        return [
+            'moved'     => $movedAnalyses,
+            'discarded' => $discardedAnalyses,
+        ];
     }
 
     private function isOpen(Production $production): bool
