@@ -37,6 +37,7 @@ class QualityController extends Controller
     {
         $user = $request->user();
         abort_unless($this->roles->isN1($user), 403);
+        session(['quality.active_level' => 'N1']);
 
         $tabs = $board->tabs($user, QualityBoard::N1_TABS);
         $tab  = $tab ?: $board->defaultTab($tabs);
@@ -58,6 +59,7 @@ class QualityController extends Controller
     public function n1Users(Request $request, QualityBoard $board)
     {
         abort_unless($this->roles->isN1($request->user()), 403);
+        session(['quality.active_level' => 'N1']);
 
         return view('quality.n1.users', $board->n1Users($request->user()) + Arr::only($board->n1Context($request->user()), ['designersByPhase', 'activityNames']));
     }
@@ -67,6 +69,7 @@ class QualityController extends Controller
     {
         $data = $request->validate(['process_ids' => ['required_unless:all_filtered,1', 'array'], 'process_ids.*' => ['integer'], 'all_filtered' => ['nullable', 'boolean'], 'tab' => ['nullable', 'string'], 'filter_query' => ['nullable', 'string'], 'designer_id' => ['nullable', 'uuid'], 'observation' => ['nullable', 'string', 'max:5000']], ['process_ids.required_unless' => 'Marque ao menos uma obra.']);
         abort_unless($this->roles->isN1($request->user()), 403);
+        $this->ensureActiveLevel('N1');
 
         $ids    = $this->bulkIds($request, $data);
         $result = $this->workflow->assignMany($ids, $request->user(), $data['designer_id'] ?? null, $data['observation'] ?? null);
@@ -79,6 +82,7 @@ class QualityController extends Controller
     {
         $data = $request->validate(['process_ids' => ['required_unless:all_filtered,1', 'array'], 'process_ids.*' => ['integer'], 'all_filtered' => ['nullable', 'boolean'], 'tab' => ['nullable', 'string'], 'filter_query' => ['nullable', 'string'], 'designer_id' => ['required', 'uuid'], 'reason' => ['nullable', 'string', 'max:2000']], ['process_ids.required_unless' => 'Marque ao menos uma atividade.', 'designer_id.required' => 'Escolha o novo usuário.']);
         abort_unless($this->roles->isN1($request->user()), 403);
+        $this->ensureActiveLevel('N1');
 
         $result = ['done' => 0, 'failed' => []];
 
@@ -99,6 +103,7 @@ class QualityController extends Controller
     {
         $user = $request->user();
         abort_unless($this->roles->isN2($user), 403);
+        session(['quality.active_level' => 'N2']);
 
         $tabs = $board->tabs($user, QualityBoard::N2_TABS);
         $tab  = $tab ?: $board->defaultTab($tabs);
@@ -296,13 +301,17 @@ class QualityController extends Controller
 
         $isActive = $process->status === QualityProcessStatus::ACTIVE;
         $state    = $process->state;
-        $can      = [
-            'reassign' => $isActive && $state === QualityProcessState::AWAITING_DESIGNER && $this->roles->canActAsN1($user, $process),
-            'assign'   => $isActive && in_array($state, [QualityProcessState::AWAITING_N1_DISPATCH, QualityProcessState::N2_RETURNED], true) && $this->roles->canActAsN1($user, $process),
-            'contest'  => $isActive && $state === QualityProcessState::N2_RETURNED && $this->roles->canActAsN1($user, $process),
-            'review1'  => $isActive && $state === QualityProcessState::AWAITING_N1_REVIEW && $this->roles->canActAsN1($user, $process),
-            'review2'  => $isActive && $state === QualityProcessState::AWAITING_N2_REVIEW && $this->roles->canActAsN2($user, $process),
-            'retry'    => $isActive && in_array($state, [QualityProcessState::SAP_FAILED, QualityProcessState::CLOSING], true) && $this->roles->canActAsN2($user, $process),
+        // Uma mesma conta pode ser N1 e N2. O nível ativo vem da última tela
+        // de trabalho acessada; sem essa separação, após uma devolução N2 ela
+        // passava a receber os cartões de resposta exclusivos do N1.
+        $activeLevel = session('quality.active_level');
+        $can         = [
+            'reassign' => $activeLevel !== 'N2' && $isActive && $state === QualityProcessState::AWAITING_DESIGNER && $this->roles->canActAsN1($user, $process),
+            'assign'   => $activeLevel !== 'N2' && $isActive && in_array($state, [QualityProcessState::AWAITING_N1_DISPATCH, QualityProcessState::N2_RETURNED], true) && $this->roles->canActAsN1($user, $process),
+            'contest'  => $activeLevel !== 'N2' && $isActive && $state === QualityProcessState::N2_RETURNED && $this->roles->canActAsN1($user, $process),
+            'review1'  => $activeLevel !== 'N2' && $isActive && $state === QualityProcessState::AWAITING_N1_REVIEW && $this->roles->canActAsN1($user, $process),
+            'review2'  => $activeLevel !== 'N1' && $isActive && $state === QualityProcessState::AWAITING_N2_REVIEW && $this->roles->canActAsN2($user, $process),
+            'retry'    => $activeLevel !== 'N1' && $isActive && in_array($state, [QualityProcessState::SAP_FAILED, QualityProcessState::CLOSING], true) && $this->roles->canActAsN2($user, $process),
             'comment'  => $isActive,
         ];
 
@@ -342,6 +351,7 @@ class QualityController extends Controller
 
     public function assign(Request $request, QualityProcess $qualityProcess)
     {
+        $this->ensureActiveLevel('N1');
         $this->authorize('actAsN1', $qualityProcess);
         $data = $request->validate(['designer_id' => ['required', 'uuid'], 'observation' => ['nullable', 'string', 'max:5000']], $this->messages());
 
@@ -350,6 +360,7 @@ class QualityController extends Controller
 
     public function approve(Request $request, QualityProcess $qualityProcess)
     {
+        $this->ensureActiveLevel($qualityProcess->state->holder()?->value);
         $data = $request->validate(['observation' => ['nullable', 'string', 'max:5000']], $this->messages());
 
         return $this->run(fn () => $this->workflow->approve($qualityProcess, $request->user(), $data['observation'] ?? null), 'Aprovação registrada.');
@@ -357,6 +368,7 @@ class QualityController extends Controller
 
     public function reject(Request $request, QualityProcess $qualityProcess)
     {
+        $this->ensureActiveLevel($qualityProcess->state->holder()?->value);
         $data = $request->validate([
             'reasons'                  => ['required', 'array', 'min:1'],
             'reasons.*.category_id'    => ['required', 'integer', 'exists:quality_rejection_categories,id'],
@@ -370,6 +382,7 @@ class QualityController extends Controller
 
     public function contest(Request $request, QualityProcess $qualityProcess)
     {
+        $this->ensureActiveLevel('N1');
         $data = $request->validate(['justification' => ['required', 'string', 'max:5000']], ['justification.required' => 'Explique por que a devolução está sendo questionada.']);
 
         return $this->run(fn () => $this->workflow->contest($qualityProcess, $request->user(), $data['justification']), 'Devolução questionada: o N2 vai reanalisar.');
@@ -385,6 +398,8 @@ class QualityController extends Controller
 
     public function retryClosing(Request $request, QualityProcess $qualityProcess)
     {
+        $this->ensureActiveLevel('N2');
+
         return $this->run(fn () => $this->workflow->retryClosing($qualityProcess, $request->user()), 'Encerramento concluído.');
     }
 
@@ -526,6 +541,14 @@ class QualityController extends Controller
     }
 
     // ------------------------------------------------------------------ Infra
+
+    /** Impede que uma conta N1+N2 execute uma ação pelo contexto do outro nível. */
+    private function ensureActiveLevel(?string $expected): void
+    {
+        $active = session('quality.active_level');
+
+        abort_unless(!$active || !$expected || $active === $expected, 403);
+    }
 
     private function run(callable $action, string|callable $success): RedirectResponse
     {

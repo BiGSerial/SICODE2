@@ -82,6 +82,28 @@ class QualityScreensFeatureTest extends TestCase
         $this->actingAs($this->outsider)->get(route('quality.process', $this->process))->assertForbidden();
     }
 
+    public function test_n2_context_hides_n1_return_actions_for_a_member_with_both_roles(): void
+    {
+        QualityMember::create(['user_id' => $this->n2->id, 'company_id' => $this->company->id, 'role' => 'N1']);
+        $this->process->update([
+            'state'            => QualityProcessState::N2_RETURNED,
+            'state_changed_at' => now(),
+        ]);
+
+        $n2Screen = $this->ok($this->actingAs($this->n2)
+            ->withSession(['quality.active_level' => 'N2'])
+            ->get(route('quality.process', $this->process)));
+
+        $n2Screen->assertDontSee('Encaminhar devolução do N2 ao usuário')
+            ->assertDontSee('Questionar o N2');
+
+        $this->ok($this->actingAs($this->n2)
+            ->withSession(['quality.active_level' => 'N1'])
+            ->get(route('quality.process', $this->process)))
+            ->assertSee('Encaminhar devolução do N2 ao usuário')
+            ->assertSee('Questionar o N2');
+    }
+
     public function test_each_level_has_its_own_home_and_menu_and_sees_nothing_of_the_other_levels(): void
     {
         // a entrada da Qualidade leva cada nível à sua própria página
