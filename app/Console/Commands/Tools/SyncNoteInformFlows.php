@@ -109,6 +109,7 @@ class SyncNoteInformFlows extends Command
                 'p.company_id',
                 'p.decision_at',
                 'p.supervision_id',
+                'p.supervision',
                 'p.supervision_at',
                 'p.payment',
                 'p.payment_at',
@@ -184,8 +185,8 @@ class SyncNoteInformFlows extends Command
                     // ao encerramento da Medicao/Pagamento e nao podem baixar a
                     // Fiscalizacao.
                     'fiscalization_completed_at'        => $row->supervision_at,
-                    'fiscalization_closed_in_sicode'    => (bool) $row->supervision,
-                    'fiscalization_closed_in_sicode_at' => $row->supervision ? $row->supervision_at : null,
+                    'fiscalization_closed_in_sicode'    => (bool) ($row->supervision ?? false),
+                    'fiscalization_closed_in_sicode_at' => ($row->supervision ?? false) ? $row->supervision_at : null,
                     'fiscalization_closed_in_sap'       => false,
                     'fiscalization_closed_in_sap_at'    => null,
                     'has_d5'                            => false,
