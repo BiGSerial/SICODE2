@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\{Company, Note, Partial, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SyncNoteInformFlowsPartialTest extends TestCase
@@ -63,5 +64,31 @@ class SyncNoteInformFlowsPartialTest extends TestCase
             'fiscalization_closed_in_sicode_at' => null,
             'measurement_exited_at'             => '2026-10-03 14:15:00',
         ]);
+    }
+
+    public function test_rebase_removes_previous_consolidated_rows_before_recalculating_all_flows(): void
+    {
+        $company = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
+        $note    = Note::create(['note' => '4000009912']);
+        $partial = Partial::create([
+            'note_id'    => $note->id,
+            'company_id' => $company->id,
+        ]);
+
+        DB::table('note_inform_flows')->insert([
+            'note_id'    => $note->id,
+            'flow_type'  => 'partial',
+            'partial_id' => $partial->id,
+            'flow_key'   => 'stale-flow',
+            'active'     => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->artisan('sicode:sync-note-inform-flows', ['--all' => true, '--rebase' => true])
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('note_inform_flows', ['flow_key' => 'stale-flow']);
+        $this->assertDatabaseHas('note_inform_flows', ['flow_key' => "partial:{$partial->id}"]);
     }
 }

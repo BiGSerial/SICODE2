@@ -17,6 +17,7 @@ class SyncNoteInformFlows extends Command
         {--hours=2 : Janela incremental, com sobreposicao, olhando updated_at}
         {--since= : Data/hora inicial da janela incremental}
         {--all : Recalcula todos os registros}
+        {--rebase : Limpa o consolidado e o recalcula integralmente}
         {--if-empty : Faz carga completa se a tabela destino estiver vazia}
         {--chunk=500 : Tamanho do lote}
         {--dry : Simula sem gravar}';
@@ -30,7 +31,9 @@ class SyncNoteInformFlows extends Command
             $chunkSize = max(100, (int) $this->option('chunk'));
             $noteId    = $this->option('note_id') ? (int) $this->option('note_id') : null;
             $flowType  = $this->normalizeFlowType($this->option('flow_type'));
+            $rebase    = (bool) $this->option('rebase');
             $full      = (bool) $this->option('all')
+                || $rebase
                 || ((bool) $this->option('if-empty') && DB::table('note_inform_flows')->doesntExist());
 
             if ($flowType === null && $this->option('flow_type')) {
@@ -39,11 +42,26 @@ class SyncNoteInformFlows extends Command
                 return self::FAILURE;
             }
 
+            if ($rebase && ($noteId || $flowType)) {
+                $this->error('A opcao --rebase exige a reconstrucao completa, sem --note_id nem --flow_type.');
+
+                return self::FAILURE;
+            }
+
+            if ($rebase && !$dryRun) {
+                $deleted = DB::table('note_inform_flows')->delete();
+                $this->warn("Rebase: {$deleted} registros consolidados removidos.");
+            }
+
             $noteIds = $noteId
                 ? [$noteId]
                 : ($full ? null : $this->affectedNoteIds($this->incrementalSince()));
 
             $this->line('Modo: ' . ($full ? 'FULL' : 'INCREMENTAL'));
+
+            if ($rebase) {
+                $this->line('Rebase: ' . ($dryRun ? 'SIMULADO' : 'EXECUTADO'));
+            }
 
             if (is_array($noteIds)) {
                 $this->line('Notas afetadas: ' . count($noteIds));
@@ -360,12 +378,12 @@ class SyncNoteInformFlows extends Command
                     $fiscalResolver  = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
                     $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
                     $sap             = $sapByWorkReport[$row->id] ?? [
-                        'op30_all_conf'     => false,
-                        'op30_finished_at'  => null,
-                        'op30_text'         => 'Nao',
-                        'op50_all_conf'     => false,
-                        'op50_finished_at'  => null,
-                        'op50_text'         => 'Nao',
+                        'op30_all_conf'    => false,
+                        'op30_finished_at' => null,
+                        'op30_text'        => 'Nao',
+                        'op50_all_conf'    => false,
+                        'op50_finished_at' => null,
+                        'op50_text'        => 'Nao',
                     ];
                     $informedAt = $row->informed_at ?? $row->created_at;
                     $flowKey    = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL
@@ -416,31 +434,31 @@ class SyncNoteInformFlows extends Command
                         'fiscalization_closed_in_sap'       => (bool) $sap['op30_all_conf'],
                         // Campos SAP guardam somente a confirmacao e o fimReal
                         // da operacao, sem misturar datas de Production.
-                        'fiscalization_closed_in_sap_at'    => $sap['op30_finished_at'],
-                        'baixa_fiscal_status'               => $sap['op30_text'],
-                        'has_d5'                            => $row->five_note_id !== null,
-                        'five_note_id'                      => $row->five_note_id,
-                        'five_note_number'                  => $row->five_note_number,
-                        'five_note_created_at'              => $row->five_note_created_at,
-                        'measurement_entered_at'            => $paymentProd->att_at ?? null,
-                        'measurement_type'                  => 'final',
-                        'measurement_completed_at'          => $paymentProd->completed_at ?? null,
-                        'measurement_exited_at'             => $paymentProd->confirmed_at ?? null,
-                        'measurement_closed_in_sap'         => (bool) $sap['op50_all_conf'],
-                        'measurement_closed_in_sap_at'      => $sap['op50_finished_at'],
-                        'baixa_measurement_status'          => $sap['op50_text'],
-                        'ads_production_id'                 => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
-                        'fiscalization_production_id'       => $fiscalProd->id ?? null,
-                        'measurement_production_id'         => $paymentProd->id ?? null,
-                        'final_cycle_started_at'            => $informedAt,
-                        'final_cycle_ended_at'              => $nextCycleEnd[$row->id] ?? null,
-                        'current_stage'                     => $resolvedStatus['label'],
-                        'blocking_reason'                   => $this->blockingReasonFromStage($resolvedStatus['key']),
-                        'active'                            => true,
-                        'source_created_at'                 => $row->created_at,
-                        'source_updated_at'                 => $row->updated_at,
-                        'calculated_at'                     => $now,
-                        'resolver_payload'                  => json_encode([
+                        'fiscalization_closed_in_sap_at' => $sap['op30_finished_at'],
+                        'baixa_fiscal_status'            => $sap['op30_text'],
+                        'has_d5'                         => $row->five_note_id !== null,
+                        'five_note_id'                   => $row->five_note_id,
+                        'five_note_number'               => $row->five_note_number,
+                        'five_note_created_at'           => $row->five_note_created_at,
+                        'measurement_entered_at'         => $paymentProd->att_at ?? null,
+                        'measurement_type'               => 'final',
+                        'measurement_completed_at'       => $paymentProd->completed_at ?? null,
+                        'measurement_exited_at'          => $paymentProd->confirmed_at ?? null,
+                        'measurement_closed_in_sap'      => (bool) $sap['op50_all_conf'],
+                        'measurement_closed_in_sap_at'   => $sap['op50_finished_at'],
+                        'baixa_measurement_status'       => $sap['op50_text'],
+                        'ads_production_id'              => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
+                        'fiscalization_production_id'    => $fiscalProd->id ?? null,
+                        'measurement_production_id'      => $paymentProd->id ?? null,
+                        'final_cycle_started_at'         => $informedAt,
+                        'final_cycle_ended_at'           => $nextCycleEnd[$row->id] ?? null,
+                        'current_stage'                  => $resolvedStatus['label'],
+                        'blocking_reason'                => $this->blockingReasonFromStage($resolvedStatus['key']),
+                        'active'                         => true,
+                        'source_created_at'              => $row->created_at,
+                        'source_updated_at'              => $row->updated_at,
+                        'calculated_at'                  => $now,
+                        'resolver_payload'               => json_encode([
                             'source'                 => 'work_reports',
                             'rule_version'           => 4,
                             'final_scope'            => $scope,
@@ -463,13 +481,13 @@ class SyncNoteInformFlows extends Command
                             ],
                             'sap_operations' => [
                                 'fiscalization' => [
-                                    'operation' => '0030',
-                                    'confirmed' => (bool) $sap['op30_all_conf'],
+                                    'operation'   => '0030',
+                                    'confirmed'   => (bool) $sap['op30_all_conf'],
                                     'finished_at' => $sap['op30_finished_at'],
                                 ],
                                 'measurement' => [
-                                    'operation' => '0050',
-                                    'confirmed' => (bool) $sap['op50_all_conf'],
+                                    'operation'   => '0050',
+                                    'confirmed'   => (bool) $sap['op50_all_conf'],
                                     'finished_at' => $sap['op50_finished_at'],
                                 ],
                             ],
@@ -1286,23 +1304,23 @@ class SyncNoteInformFlows extends Command
             $op50Text = $this->resolveBaixaTextStatus($op50AllConf, $op50AnyConf, $op50AnyCnpa);
 
             $map[(int) $workReportId] = [
-                'op30_all_conf' => $op30AllConf,
+                'op30_all_conf'    => $op30AllConf,
                 'op30_finished_at' => $items->pluck('op30_finished_at')->filter()->max(),
-                'op30_text'     => $op30Text,
-                'op50_all_conf' => $op50AllConf,
+                'op30_text'        => $op30Text,
+                'op50_all_conf'    => $op50AllConf,
                 'op50_finished_at' => $items->pluck('op50_finished_at')->filter()->max(),
-                'op50_text'     => $op50Text,
+                'op50_text'        => $op50Text,
             ];
         }
 
         foreach ($workReportIds as $workReportId) {
             $map[$workReportId] ??= [
-                'op30_all_conf' => false,
+                'op30_all_conf'    => false,
                 'op30_finished_at' => null,
-                'op30_text'     => 'Nao',
-                'op50_all_conf' => false,
+                'op30_text'        => 'Nao',
+                'op50_all_conf'    => false,
                 'op50_finished_at' => null,
-                'op50_text'     => 'Nao',
+                'op50_text'        => 'Nao',
             ];
         }
 

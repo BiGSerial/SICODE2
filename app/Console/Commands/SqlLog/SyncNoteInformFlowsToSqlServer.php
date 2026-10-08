@@ -21,6 +21,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
     protected $signature = 'sicode:sync-log-note-inform-flows
         {--hours=2 : Janela de horas olhando updated_at}
         {--all : Sincroniza todos os registros}
+        {--rebase : Limpa o log de destino e o republica integralmente}
         {--yesterday-only : Sincroniza somente updated_at do dia anterior completo}
         {--chunk=500 : Tamanho do lote lido do MySQL}
         {--if-empty : Faz sync completo se a tabela destino estiver vazia}
@@ -45,6 +46,13 @@ class SyncNoteInformFlowsToSqlServer extends Command
         $yesterdayStart = Carbon::yesterday()->startOfDay();
         $yesterdayEnd   = Carbon::yesterday()->endOfDay();
         $dryRun         = (bool) $this->option('dry-run');
+        $rebase         = (bool) $this->option('rebase');
+
+        if ($rebase && $yesterdayOnly) {
+            $this->error('A opcao --rebase exige a republicacao completa, sem --yesterday-only.');
+
+            return self::FAILURE;
+        }
 
         $destConn    = (new LogNoteInformFlows())->getConnectionName();
         $destIsEmpty = false;
@@ -57,11 +65,28 @@ class SyncNoteInformFlowsToSqlServer extends Command
             }
         }
 
-        $full = (bool) $this->option('all') || $destIsEmpty;
+        $full = (bool) $this->option('all') || $rebase || $destIsEmpty;
 
         $this->info('Sync Note Inform Flows -> SQL Server');
         $this->line("Destino: {$destConn}.dbo.log_note_inform_flows_sync");
         $this->line('Modo: ' . $this->describeMode($full, $yesterdayOnly, $yesterdayStart, $yesterdayEnd, $since));
+
+        if ($rebase) {
+            if ($dryRun) {
+                $this->line('Rebase: SIMULADO (o log de destino será preservado).');
+            } else {
+                try {
+                    $deleted = LogNoteInformFlows::query()->delete();
+                    $this->warn("Rebase: {$deleted} registros removidos do log de destino.");
+                } catch (\Throwable $e) {
+                    $this->error('Não foi possível limpar o log de destino: ' . $e->getMessage());
+                    report($e);
+
+                    return self::FAILURE;
+                }
+            }
+        }
+
         $this->newLine();
 
         $this->loadColumnLimits();
