@@ -654,6 +654,15 @@ class SyncNoteInformFlows extends Command
                 ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
                 ->where('owr.updated_at', '>=', $since)
                 ->pluck('wr.note_id'),
+            // A associacao da Production ao Informe e a fonte primaria dos
+            // marcos de Fiscalizacao e Medicao no fluxo final. Uma troca de
+            // vinculo (inclusive is_current) nao altera necessariamente a
+            // Production nem o WorkReport; sem esta consulta o consolidado
+            // mantem os campos em branco ate uma carga completa.
+            DB::table('work_report_flow_productions as wrfp')
+                ->join('work_reports as wr', 'wr.id', '=', 'wrfp.work_report_id')
+                ->where('wrfp.updated_at', '>=', $since)
+                ->pluck('wr.note_id'),
         ];
 
         return collect($queries)
@@ -676,6 +685,9 @@ class SyncNoteInformFlows extends Command
             ->where('op.updated_at', '>=', $since)
             ->whereIn('op.operacao', ['0030', '0050'])
             ->distinct()
+            ->pluck('o.note_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
     }
