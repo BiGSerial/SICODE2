@@ -139,14 +139,16 @@ class SyncNoteInformFlows extends Command
         $processed = 0;
 
         $query->chunkById($chunkSize, function (Collection $rows) use (&$processed, $dryRun) {
-            $now          = now();
-            $noteContexts = $this->loadNoteContexts($rows->pluck('note_id')->all());
-            $adsByNote    = $this->loadLatestAdsByNote($rows->pluck('note_id')->all(), true);
-            $upserts      = [];
+            $now           = now();
+            $noteContexts  = $this->loadNoteContexts($rows->pluck('note_id')->all());
+            $adsByNote     = $this->loadLatestAdsByNote($rows->pluck('note_id')->all(), true);
+            $op20ByPartial = $this->loadOperation20ByPartial($rows->pluck('id')->all());
+            $upserts       = [];
 
             foreach ($rows as $row) {
                 $context = $noteContexts[$row->note_id] ?? ['service_id' => null];
                 $ads     = $adsByNote[$row->note_id] ?? null;
+                $op20    = $op20ByPartial[$row->id] ?? null;
                 $stage   = $this->resolvePartialStage($row);
 
                 $upserts[] = [
@@ -161,6 +163,8 @@ class SyncNoteInformFlows extends Command
                     'ovi'                         => $row->ovi,
                     'order_id'                    => $row->order_id,
                     'order_number'                => $row->order_number,
+                    'op20_order_number'           => $op20->order_number ?? null,
+                    'op20_finished_at'            => $op20->finished_at ?? null,
                     'informed_at'                 => $row->created_at,
                     'inform_type'                 => 'partial',
                     'final_scope'                 => WorkReportFinalScopeResolver::SCOPE_GENERAL,
@@ -175,6 +179,7 @@ class SyncNoteInformFlows extends Command
                     'ads_sent_at'                 => $row->created_at,
                     'ads_type'                    => $ads ? ($ads->tacit ? 'tacit' : 'manual') : 'not_sent',
                     'ads_is_tacit'                => (bool) ($ads->tacit ?? false),
+                    'ads_amount'                  => $ads->amount ?? null,
                     'fiscalization_entered_at'    => $row->decision_at,
                     'fiscalization_type'          => 'partial',
                     'fiscal_assigned_at'          => $row->decision_at,
@@ -243,7 +248,10 @@ class SyncNoteInformFlows extends Command
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
             ->leftJoin('adsforms as af', 'af.work_report_id', '=', 'wr.id')
-            ->leftJoin('five_notes as fn', 'fn.note_id', '=', 'wr.note_id')
+            // A D5 pertence ao informe pelo vinculo explicito e unico. Nunca
+            // associe por note_id aqui: uma mesma nota pode ter D5s de informes
+            // diferentes.
+            ->leftJoin('five_notes as fn', 'fn.work_report_id', '=', 'wr.id')
             ->leftJoinSub(
                 DB::table('order_work_report')->selectRaw('work_report_id, MIN(order_id) as order_id')->groupBy('work_report_id'),
                 'owr1',
@@ -267,6 +275,7 @@ class SyncNoteInformFlows extends Command
                 'af.tacit',
                 'af.tacit_delivered_at',
                 'af.created_at as ads_created_at',
+                'af.amount as ads_amount',
                 'fn.id as five_note_id',
                 'fn.note_d5 as five_note_number',
                 'fn.created_at as five_note_created_at',
@@ -303,6 +312,7 @@ class SyncNoteInformFlows extends Command
             [$linkedFiscalByWorkReport, $linkedPaymentByWorkReport] = $this->loadLinkedProductionsForFinals($workReportIds, $noteIds);
             [$legacyFiscalByWorkReport, $legacyPaymentByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds);
             $ordersByWorkReport                                     = $this->loadOrdersByWorkReport($workReportIds);
+            $op20ByWorkReport                                       = $this->loadOperation20ByWorkReport($workReportIds);
             $d5States                                               = $this->loadD5ProductionStates($rows->pluck('five_note_id')->filter()->unique()->values()->all());
             $sapByWorkReport                                        = $this->loadSapOperationStatusByWorkReportsFromNotes($rows);
             $scopeResolver                                          = app(WorkReportFinalScopeResolver::class);
@@ -319,6 +329,7 @@ class SyncNoteInformFlows extends Command
 
                 foreach ($scopePayloads as $scopePayload) {
                     $scope              = $scopePayload['scope'];
+                    $op20               = $this->resolveOperation20($op20ByWorkReport[$row->id] ?? collect());
                     $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
                     $linkedFiscalProd   = $this->eligibleLinkedProduction($linkedFiscalByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
                     $linkedPaymentProd  = $this->eligibleLinkedProduction($linkedPaymentByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
@@ -370,6 +381,8 @@ class SyncNoteInformFlows extends Command
                         'ovi'                         => $row->ovi,
                         'order_id'                    => $scopePayload['order_id'] ?? $row->order_id,
                         'order_number'                => $scopePayload['order_number'] ?? $row->order_number,
+                        'op20_order_number'           => $op20->order_number ?? null,
+                        'op20_finished_at'            => $op20->finished_at ?? null,
                         'informed_at'                 => $informedAt,
                         'inform_type'                 => 'final',
                         'final_scope'                 => $scope,
@@ -384,6 +397,7 @@ class SyncNoteInformFlows extends Command
                         'ads_sent_at'                 => $scopeResolver->publicationRequired($scope) ? ($row->tacit_delivered_at ?? $row->ads_created_at) : null,
                         'ads_type'                    => $scopeResolver->publicationRequired($scope) ? ($row->ads_form_id ? ($row->tacit ? 'tacit' : 'manual') : 'not_sent') : 'not_applicable',
                         'ads_is_tacit'                => $scopeResolver->publicationRequired($scope) && (bool) $row->tacit,
+                        'ads_amount'                  => $row->ads_amount,
                         'fiscalization_entered_at'    => $fiscalProd->att_at ?? null,
                         'fiscalization_type'          => 'final',
                         'fiscal_assigned_at'          => $fiscalProd->att_at ?? null,
@@ -433,6 +447,11 @@ class SyncNoteInformFlows extends Command
                                 'payment'                             => $paymentResolver,
                                 'fiscalization_origin_work_report_id' => $fiscalProd->linked_work_report_id ?? null,
                                 'payment_origin_work_report_id'       => $paymentProd->linked_work_report_id ?? null,
+                            ],
+                            'd5_resolver'  => $row->five_note_id ? 'explicit_work_report_link' : 'none',
+                            'operation_20' => [
+                                'order_number' => $op20->order_number ?? null,
+                                'finished_at'  => $op20->finished_at ?? null,
                             ],
                         ]),
                         'created_at' => $now,
@@ -751,6 +770,7 @@ class SyncNoteInformFlows extends Command
                 'af.id',
                 'af.note_id',
                 'af.tacit',
+                'af.amount',
                 'af.tacit_delivered_at',
                 'af.created_at',
             ])
@@ -883,6 +903,71 @@ class SyncNoteInformFlows extends Command
             ->get()
             ->groupBy('work_report_id')
             ->all();
+    }
+
+    private function loadOperation20ByPartial(array $partialIds): array
+    {
+        if (empty($partialIds)) {
+            return [];
+        }
+
+        return DB::table('order_partial as op')
+            ->join('orders as o', 'o.id', '=', 'op.order_id')
+            ->join('operations as operation', 'operation.order_id', '=', 'o.id')
+            ->whereIn('op.partial_id', $partialIds)
+            ->where('operation.operacao', '0020')
+            ->select([
+                'op.partial_id',
+                'o.ordem as order_number',
+                'operation.fimReal as finished_at',
+            ])
+            ->get()
+            ->groupBy('partial_id')
+            ->map(fn (Collection $operations) => $this->resolveOperation20($operations))
+            ->all();
+    }
+
+    private function loadOperation20ByWorkReport(array $workReportIds): array
+    {
+        if (empty($workReportIds)) {
+            return [];
+        }
+
+        return DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
+            ->join('operations as operation', 'operation.order_id', '=', 'o.id')
+            ->whereIn('owr.work_report_id', $workReportIds)
+            ->where('operation.operacao', '0020')
+            ->select([
+                'owr.work_report_id',
+                'o.ordem as order_number',
+                'operation.fimReal as finished_at',
+            ])
+            ->get()
+            ->groupBy('work_report_id')
+            ->all();
+    }
+
+    /**
+     * Seleciona a Ordem de referência da operação 0020. Ordens 170, 180 e 200
+     * sempre prevalecem; sem nenhuma delas, 190/193 prevalecem sobre 150.
+     */
+    private function resolveOperation20(Collection $operations): ?object
+    {
+        $operations = $operations
+            ->filter(fn (object $operation) => preg_match('/^(170|180|200|190|193|150)/', (string) $operation->order_number))
+            ->sortBy(fn (object $operation) => (string) $operation->order_number)
+            ->values();
+
+        foreach ([['170', '180', '200'], ['190', '193'], ['150']] as $prefixes) {
+            $selected = $operations->first(fn (object $operation) => in_array(substr((string) $operation->order_number, 0, 3), $prefixes, true));
+
+            if ($selected) {
+                return $selected;
+            }
+        }
+
+        return null;
     }
 
     private function loadD5ProductionStates(array $fiveNoteIds): array
@@ -1057,6 +1142,8 @@ class SyncNoteInformFlows extends Command
             'ovi',
             'order_id',
             'order_number',
+            'op20_order_number',
+            'op20_finished_at',
             'informed_at',
             'inform_type',
             'final_scope',
@@ -1071,6 +1158,7 @@ class SyncNoteInformFlows extends Command
             'ads_sent_at',
             'ads_type',
             'ads_is_tacit',
+            'ads_amount',
             'fiscalization_entered_at',
             'fiscalization_type',
             'fiscal_assigned_at',
