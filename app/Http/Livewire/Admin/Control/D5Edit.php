@@ -252,13 +252,8 @@ class D5Edit extends Component
                 ->where('work_report_id', '!=', $workReport->id)
                 ->update(['is_current' => false]);
 
-            WorkReportFlowProduction::query()
-                ->where('work_report_id', $workReport->id)
-                ->where('stage', $stage)
-                ->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)
-                ->where('production_id', '!=', $production->id)
-                ->update(['is_current' => false]);
-
+            // Um informe pode concentrar mais de uma Production na mesma etapa.
+            // O vínculo desta D5 não deve desassociar as demais Productions.
             WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,

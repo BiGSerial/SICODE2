@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Adsform, Company, FiveNote, Note, Operation, Order, User, WorkReport};
+use App\Models\{Adsform, Company, FiveNote, Note, Operation, Order, Production, Service, User, WorkReport, WorkReportFlowProduction};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -134,6 +134,59 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
             'measurement_closed_in_sap_at'       => '2026-09-07 11:00:00',
             'measurement_completed_at'           => null,
             'measurement_exited_at'              => null,
+        ]);
+    }
+
+    public function test_it_exports_dates_from_all_active_fiscalization_and_measurement_productions(): void
+    {
+        $company = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
+        $user = User::factory()->create(['company_id' => $company->id]);
+        $note = Note::create(['note' => '4000009923']);
+        $report = $this->workReport($note, $company, $user, '2026-10-01 08:00:00');
+        $fiscalService = Service::create(['service' => 'Fiscalizacao', 'folder' => 'fiscalizacao']);
+        $paymentService = Service::create(['service' => 'Pagamento', 'folder' => 'pagamento']);
+
+        $fiscalOlder = Production::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $fiscalService->uuid, 'att_at' => '2026-10-02 08:00:00',
+            'completed' => true, 'completed_at' => '2026-10-03 08:00:00',
+        ]);
+        $fiscalNewer = Production::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $fiscalService->uuid, 'att_at' => '2026-10-04 08:00:00',
+        ]);
+        $paymentOlder = Production::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $paymentService->uuid, 'att_at' => '2026-10-05 08:00:00',
+            'completed' => true, 'completed_at' => '2026-10-06 08:00:00',
+        ]);
+        $paymentNewer = Production::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $paymentService->uuid, 'att_at' => '2026-10-07 08:00:00',
+            'confirmed' => true, 'confirmed_at' => '2026-10-08 08:00:00',
+        ]);
+
+        foreach ([[$fiscalOlder, 'fiscalization'], [$fiscalNewer, 'fiscalization'], [$paymentOlder, 'payment'], [$paymentNewer, 'payment']] as [$production, $stage]) {
+            WorkReportFlowProduction::create([
+                'work_report_id' => $report->id,
+                'production_id' => $production->id,
+                'stage' => $stage,
+                'final_scope' => WorkReportFlowProduction::SCOPE_GENERAL,
+                'is_current' => true,
+                'linked_at' => now(),
+            ]);
+        }
+
+        $this->artisan('sicode:sync-note-inform-flows', ['--note_id' => $note->id])
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('note_inform_flows', [
+            'flow_key' => "work_report:{$report->id}",
+            'fiscalization_entered_at' => '2026-10-04 08:00:00',
+            'fiscalization_completed_at' => '2026-10-03 08:00:00',
+            'measurement_entered_at' => '2026-10-07 08:00:00',
+            'measurement_completed_at' => '2026-10-06 08:00:00',
+            'measurement_exited_at' => '2026-10-08 08:00:00',
         ]);
     }
 

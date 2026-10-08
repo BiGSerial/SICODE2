@@ -333,8 +333,10 @@ class SyncNoteInformFlows extends Command
                     $scope              = $scopePayload['scope'];
                     $op20               = $this->resolveOperation20($op20ByWorkReport[$row->id] ?? collect());
                     $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
-                    $linkedFiscalProd   = $this->eligibleLinkedProduction($linkedFiscalByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
-                    $linkedPaymentProd  = $this->eligibleLinkedProduction($linkedPaymentByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
+                    $linkedFiscalProds  = $this->eligibleLinkedProductions($linkedFiscalByWorkReport[$row->id][$scope] ?? collect(), $row, $nextCycleEnd);
+                    $linkedPaymentProds = $this->eligibleLinkedProductions($linkedPaymentByWorkReport[$row->id][$scope] ?? collect(), $row, $nextCycleEnd);
+                    $linkedFiscalProd   = $this->summarizeLinkedProductions($linkedFiscalProds);
+                    $linkedPaymentProd  = $this->summarizeLinkedProductions($linkedPaymentProds);
                     $fiscalProd         = $linkedFiscalProd ?? ($useLegacyInference ? ($legacyFiscalByWorkReport[$row->id] ?? null) : null);
                     $paymentProd        = $linkedPaymentProd ?? ($useLegacyInference ? ($legacyPaymentByWorkReport[$row->id] ?? null) : null);
                     $d5State            = $d5States[$row->five_note_id] ?? [];
@@ -495,17 +497,55 @@ class SyncNoteInformFlows extends Command
         return $processed;
     }
 
-    private function eligibleLinkedProduction(?object $production, object $workReport, array $nextCycleEnd): ?object
+    private function eligibleLinkedProductions(Collection $productions, object $workReport, array $nextCycleEnd): Collection
     {
-        if (!$production) {
+        if ($productions->isEmpty()) {
+            return collect();
+        }
+
+        $exact = $productions
+            ->where('linked_work_report_id', (int) $workReport->id)
+            ->values();
+
+        if ($exact->isNotEmpty()) {
+            return $exact;
+        }
+
+        return empty($nextCycleEnd[$workReport->id]) ? $productions->values() : collect();
+    }
+
+    /**
+     * O log possui uma coluna por marco, mas um informe pode ter varias
+     * Productions ativas na mesma etapa. Cada data deve considerar todas elas,
+     * em vez de depender da primeira associacao encontrada.
+     */
+    private function summarizeLinkedProductions(Collection $productions): ?object
+    {
+        if ($productions->isEmpty()) {
             return null;
         }
 
-        if ((int) $production->linked_work_report_id === (int) $workReport->id) {
-            return $production;
-        }
+        $reference = $productions
+            ->sortByDesc(fn (object $production) => $production->linked_at ?? $production->att_at ?? $production->id)
+            ->first();
 
-        return empty($nextCycleEnd[$workReport->id]) ? $production : null;
+        return (object) [
+            'id'           => $reference->id,
+            'user_id'      => $reference->user_id,
+            'user_name'    => $reference->user_name,
+            'att_at'       => $this->latestValue($productions, 'att_at'),
+            'completed'    => $productions->contains(fn (object $production) => (bool) $production->completed),
+            'completed_at' => $this->latestValue($productions, 'completed_at'),
+            'confirmed'    => $productions->contains(fn (object $production) => (bool) $production->confirmed),
+            'confirmed_at' => $this->latestValue($productions, 'confirmed_at'),
+            'd5'           => $productions->contains(fn (object $production) => (bool) $production->d5),
+            'dfive'        => $productions->contains(fn (object $production) => (bool) $production->dfive),
+        ];
+    }
+
+    private function latestValue(Collection $productions, string $attribute): mixed
+    {
+        return $productions->pluck($attribute)->filter()->sort()->last();
     }
 
     private function filterScopePayloadsByPartnerSelection(array $payloads, mixed $selectedFinalScopes): array
@@ -806,9 +846,9 @@ class SyncNoteInformFlows extends Command
         }
 
         $exact = $links->groupBy('linked_work_report_id')
-            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->first()));
+            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->values()));
         $latestByNote = $links->groupBy('note_id')
-            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->first()));
+            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->values()));
 
         $resolved = [];
 

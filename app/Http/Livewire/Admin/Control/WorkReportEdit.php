@@ -498,7 +498,8 @@ class WorkReportEdit extends Component
         $this->productionTargetWorkReportIds = [];
         $this->noteProductions = Production::query()
             ->with([
-                'service:id,service',
+                // A Production referencia services.uuid, nao services.id.
+                'service:uuid,service',
                 'user:id,name',
                 'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current,linked_at',
             ])
@@ -523,7 +524,6 @@ class WorkReportEdit extends Component
 
                 return [
                     'id'                  => (int) $production->id,
-                    'service'             => (string) ($production->service?->service ?? 'Não informado'),
                     'user_name'           => (string) ($production->user?->name ?? 'Não informado'),
                     'stage'               => $stage,
                     'stage_label'         => $this->stageLabel($stage),
@@ -758,13 +758,8 @@ class WorkReportEdit extends Component
                 ->where('work_report_id', '!=', $target->id)
                 ->update(['is_current' => false]);
 
-            WorkReportFlowProduction::query()
-                ->where('work_report_id', $target->id)
-                ->where('stage', $stage)
-                ->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)
-                ->where('production_id', '!=', $production->id)
-                ->update(['is_current' => false]);
-
+            // Um informe pode ter varias Productions ativas da mesma etapa.
+            // Ao vincular esta Production, nao desative as demais do informe.
             WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $target->id,

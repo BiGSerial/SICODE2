@@ -307,7 +307,7 @@
                                                 <thead>
                                                     <tr class="text-secondary">
                                                         <th>ID</th>
-                                                        <th>Serviço / etapa</th>
+                                                        <th>Atividade</th>
                                                         <th>Responsável</th>
                                                         <th>Data</th>
                                                         <th>Status</th>
@@ -320,8 +320,7 @@
                                                         <tr wire:key="work-report-production-{{ $production['id'] }}">
                                                             <td>#{{ $production['id'] }}</td>
                                                             <td>
-                                                                <div>{{ $production['service'] }}</div>
-                                                                <small class="text-info">{{ $production['stage_label'] }}</small>
+                                                                <span class="badge text-bg-info">{{ $production['stage_label'] }}</span>
                                                             </td>
                                                             <td>{{ $production['user_name'] }}</td>
                                                             <td>{{ $production['production_date'] }}</td>
