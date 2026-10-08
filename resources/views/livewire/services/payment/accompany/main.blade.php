@@ -187,7 +187,7 @@
                                     <th class="align-middle text-center">Nota</th>
                                     <th class="align-middle text-center">Files</th>
                                     <th class="align-middle text-center">Ordem</th>
-                                    <th class="align-middle text-center">MOA</th>
+                                    <th class="align-middle text-center">Valor ADS</th>
                                     {{-- <th class="align-middle text-center">Status</th> --}}
                                     <th class="align-middle text-center">OP30</th>
                                     <th class="align-middle text-center">OP40</th>
@@ -253,7 +253,7 @@
 
                                         $fiveNote = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
                                         $five = FiveStatus($list, $fiveNote);
-                                        $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
+                                        $adsForm = $workForm?->Adsform ?? $list->Note->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                     @endphp
@@ -335,21 +335,18 @@
                                         @endforelse
                                     </td>
                                     <td class="text-center align-middle fw-bold">
-                                        @if ($workForm && $orders->count() && !$partial)
-                                            @php
-                                                $soma += $orders->sum('moaberto');
-                                            @endphp
-                                            <span class="my-0py-0">
-                                                R$
-                                                {{ number_format($orders->sum('moaberto'), 2, ',', '.') }}
-                                            </span>
-                                        @elseif ($partial && $partial?->Orders->isNotEmpty())
-                                            @php
-                                                $soma += $partial->value;
-                                            @endphp
-                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
-                                        @endif
+                                        @php
+                                            $adsAmount = $partial ? $partial->value : $adsForm?->amount;
+                                        @endphp
 
+                                        @if ($adsAmount !== null)
+                                            @php
+                                                $soma += (float) $adsAmount;
+                                            @endphp
+                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                        @else
+                                            ---
+                                        @endif
                                     </td>
                                     {{--
                                         <td class="text-center align-middle">

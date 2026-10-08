@@ -355,6 +355,10 @@
                                                                         <i class="ri-link-unlink-m me-1"></i>Desassociar
                                                                     </button>
                                                                 @endif
+                                                                <button type="button" class="btn btn-danger btn-sm fivefx-btn ms-1"
+                                                                    wire:click="requestDeleteProduction({{ $production['id'] }})">
+                                                                    <i class="ri-delete-bin-line me-1"></i>Excluir
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     @endforeach
