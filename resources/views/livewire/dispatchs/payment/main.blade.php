@@ -312,7 +312,7 @@
                             <th class="align-middle text-center">Tipo</th>
                             <th class="align-middle text-center">Note</th>
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">MOA</th>
+                            <th class="align-middle text-center">Valor ADS</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
@@ -469,30 +469,20 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($wf && $orders->isNotEmpty() && !$partial)
-                                        {{-- @foreach ($list->WorkForm->Orders as $order)
-                                            @php
-                                                $soma += $order->moaberto;
-                                            @endphp
-                                            <p class="my-0 py-0">
-                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </p>
-                                        @endforeach --}}
-                                        @php
-                                            $soma += $list->total_moaberto;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
-                                        </p>
-                                    @elseif ($partial)
-                                        @php
-                                            $soma += $partial->value;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
-                                        </p>
-                                    @endif
+                                    @php
+                                        $adsAmount = $partial ? $partial->value : $wf?->Adsform?->amount;
+                                    @endphp
 
+                                    @if ($adsAmount !== null)
+                                        @php
+                                            $soma += (float) $adsAmount;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                        </p>
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
                                 {{-- <td class="text-center align-middle">
                                     @if ($list->WorkForm->Orders->count())
