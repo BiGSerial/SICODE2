@@ -3,8 +3,7 @@
 namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Helpers\TextFormatter;
-use App\Jobs\ExportSupervisionList;
-use App\Models\{Bancoupdate, Company, Note, Partial, Production, Service, User, WorkReport, Wpa};
+use App\Models\{Bancoupdate, Company, Note, Partial, Production, Service, User, Wpa};
 use App\Models\City;
 use App\Repositories\SupervisionRepository;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
@@ -198,7 +197,6 @@ class PartnerMain extends Component
         $this->queuePartnerExport("main");
     }
 
-
     public function hasPublication(Note $note)
     {
         $production = $this->rowScopedProductions($note)->last();
@@ -225,7 +223,7 @@ class PartnerMain extends Component
 
     private function rowScopedProductions(Note $note)
     {
-        $productions = $note->Productions->where('service_id', $this->service->uuid);
+        $productions  = $note->Productions->where('service_id', $this->service->uuid);
         $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
 
         if ($workReportId <= 0) {
@@ -269,9 +267,6 @@ class PartnerMain extends Component
             $companyIds = Production::whereIn('note_id', $this->notes->pluck('id'))
                 ->where('service_id', $this->service->uuid)
                 ->whereIn('company_id', SicodeRules::visibleCompanyIdsFor(Auth()->User()))
-                ->whereNull('user_id')
-                ->where('completed', false)
-                ->where('confirmed', false)
                 ->distinct()
                 ->pluck('company_id');
 
@@ -333,7 +328,7 @@ class PartnerMain extends Component
         }
 
         $companyIds = $this->notes
-            ->map(fn ($note) => SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid)?->company_id)
+            ->map(fn ($note) => $this->partnerDispatchProductionFor($note)?->company_id)
             ->filter()
             ->map(fn ($id) => (string) $id)
             ->unique()
@@ -342,6 +337,32 @@ class PartnerMain extends Component
         if ($companyIds->count() === 1) {
             $this->company_s = $companyIds->first();
         }
+    }
+
+    /**
+     * A atividade pode já ter sido concluída, mas a ordem ainda estar elegível
+     * pelas operações SAP. Nesse caso ela precisa voltar à PartnerMain para um
+     * novo despacho pela mesma empreiteira.
+     */
+    private function partnerDispatchProductionFor(Note $note): ?Production
+    {
+        if (!Auth()->User()?->contract) {
+            return null;
+        }
+
+        $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
+
+        if (!count($companyIds)) {
+            return null;
+        }
+
+        return Production::query()
+            ->where('note_id', $note->id)
+            ->where('service_id', $this->service->uuid)
+            ->whereIn('company_id', $companyIds)
+            ->orderByDesc('dispatch_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     public function setSelectAll()
@@ -355,7 +376,7 @@ class PartnerMain extends Component
 
                 if (!in_array($id, $this->selected)) {
                     if (Auth()->User()?->contract) {
-                        if (SicodeRules::openCompanyStackProductionFor($item, Auth()->User(), $this->service->uuid)) {
+                        if ($this->partnerDispatchProductionFor($item)) {
                             $this->selected[] = $id;
                         }
 
@@ -486,7 +507,7 @@ class PartnerMain extends Component
         $payload = collect($this->selected)
             ->map(function ($key) use ($partialIdsByNote, $bulkAnyStatus) {
                 [$noteId, $workReportId, $selectedPartialId] = $this->parseSelectionKey($key);
-                $partialId = $selectedPartialId ?: ($partialIdsByNote[(int) $noteId] ?? null);
+                $partialId                                   = $selectedPartialId ?: ($partialIdsByNote[(int) $noteId] ?? null);
 
                 $context = ['note_id' => $noteId, 'bulk_any_status' => $bulkAnyStatus];
 
@@ -680,7 +701,7 @@ class PartnerMain extends Component
         $this->user_s    = "";
         $this->user_l    = collect();
         // $this->type = "";
-        $this->additionalData = [];
+        $this->additionalData      = [];
         $this->bulkSearchAnyStatus = false;
 
         $this->emit('refresh_dispatch');
@@ -695,11 +716,11 @@ class PartnerMain extends Component
         $this->search_user = "";
         $this->user_l      = collect();
         // $this->type = "";
-        $this->additionalData = [];
-        $this->multiSearch = [];
+        $this->additionalData      = [];
+        $this->multiSearch         = [];
         $this->bulkSearchAnyStatus = false;
-        $this->advanceSearch = "";
-        $this->search = "";
+        $this->advanceSearch       = "";
+        $this->search              = "";
     }
 
     public function buscarMulti()
@@ -739,9 +760,9 @@ class PartnerMain extends Component
 
         $additionalData    = [];
         $additionalDataUpd = [];
-        $seenDds = [];
-        $unchanged = 0;
-        $moved = 0;
+        $seenDds           = [];
+        $unchanged         = 0;
+        $moved             = 0;
 
         foreach (preg_split('/\r\n|\r|\n/', trim($this->enter_dd)) as $lineNumber => $linha) {
             $linha = trim($linha);
@@ -812,11 +833,13 @@ class PartnerMain extends Component
                     'dd'            => $ddNumber,
                 ];
                 $moved++;
+
                 continue;
             }
 
             if ($existingByDd) {
                 $unchanged++;
+
                 continue;
             }
 
@@ -858,9 +881,11 @@ class PartnerMain extends Component
         $this->additionalDataUpd = $additionalDataUpd;
 
         $summary = "Você está prestes a associar {$count} Nota(s)/OV(s) e DD(s).";
+
         if ($moved) {
             $summary .= " {$moved} DD(s) serão movidas de outra Nota/OV para a Nota/OV informada.";
         }
+
         if ($unchanged) {
             $summary .= " {$unchanged} vínculo(s) já existiam e serão mantidos.";
         }
@@ -972,7 +997,8 @@ class PartnerMain extends Component
             $this->service->uuid,
             fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
                 ? null
-                : $this->supervisionRepository->applyBaseRules($statusQuery)
+                : $this->supervisionRepository->applyBaseRules($statusQuery),
+            includeCompletedCompanyActivity: true
         );
 
         if (strlen($this->search)) {
@@ -1049,7 +1075,7 @@ class PartnerMain extends Component
             'WorkForms' => function ($q) {
                 $q->where('canceled', false)->with([
                     'Orders:id,ordem',
-                    'Adsform:id,work_report_id,tacit,created_at',
+                    'Adsform:id,work_report_id,amount,tacit,created_at',
                     'FiveNote:id,note_id,work_report_id,is_completed,is_supervisioned,is_archived,completed_at',
                 ]);
             },
@@ -1064,6 +1090,7 @@ class PartnerMain extends Component
             'Wpas',
             'Partials',
             'TempAdsInfos',
+            'Adsform:id,note_id,work_report_id,amount,tacit,created_at',
             'OldAds',
             'FiveNote',
         ])
@@ -1149,7 +1176,7 @@ class PartnerMain extends Component
     private function rowFiveNote(Note $note)
     {
         $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-        $workForm = $workReportId > 0 && $note->relationLoaded('WorkForms')
+        $workForm     = $workReportId > 0 && $note->relationLoaded('WorkForms')
             ? $note->WorkForms->firstWhere('id', $workReportId)
             : null;
 
@@ -1183,7 +1210,7 @@ class PartnerMain extends Component
     private function selectionKey(Note $note): string
     {
         $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-        $partialId = $workReportId > 0
+        $partialId    = $workReportId > 0
             ? 0
             : (int) ($note->Partials
                 ?->where('allow', true)

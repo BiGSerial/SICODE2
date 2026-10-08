@@ -7,8 +7,10 @@ use App\Helpers\TextFormatter;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
 use App\Models\{City, FiveNote, WorkReportFlowProduction};
 use App\Services\D5\D5WorkflowService;
+use App\Services\Payment\MeasurementDeadlinePolicy;
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -25,6 +27,8 @@ class Stack extends Component
     public $last_update;
 
     public $search;
+
+    public $measurementDeadlineStatus = '';
 
     public $rubrica_s = [];
 
@@ -122,6 +126,11 @@ class Stack extends Component
     public function filterUser($user_id)
     {
         $this->user_fs = [$user_id];
+    }
+
+    public function updatedMeasurementDeadlineStatus(): void
+    {
+        $this->resetPage();
     }
 
     public function setSelectAll()
@@ -264,13 +273,14 @@ class Stack extends Component
     public function filter_clean()
     {
         $this->gotoPage(1);
-        $this->rubrica_s  = [];
-        $this->city_s     = [];
-        $this->district_s = [];
-        $this->region_s   = [];
-        $this->status_s   = [];
-        $this->company_fs = [];
-        $this->user_fs    = [];
+        $this->rubrica_s                 = [];
+        $this->city_s                    = [];
+        $this->district_s                = [];
+        $this->region_s                  = [];
+        $this->status_s                  = [];
+        $this->company_fs                = [];
+        $this->user_fs                   = [];
+        $this->measurementDeadlineStatus = '';
 
         $this->multiSearch = [];
 
@@ -712,7 +722,7 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with([
+        $query = Production::with([
             'Note.FiveNote',
             'Note.Files',
             'Note.Adsform:id,work_report_id,note_id,amount,tacit,tacit_due_at,tacit_delivered_at,created_at',
@@ -802,8 +812,9 @@ class Stack extends Component
             ->orderBy('partial', 'DESC')
             ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
             ->orderBy('fimLancado', 'asc')
-            ->orderBy('notes.type_note', 'DESC')
-            ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->orderBy('notes.type_note', 'DESC');
+
+        return $this->paginateDeadlineFiltered($query);
 
     }
 
@@ -1068,6 +1079,48 @@ class Stack extends Component
         } else {
             return 0;
         }
+    }
+
+    public function measurementDeadlineFor(Production $production): ?array
+    {
+        $partial    = $production->partial ? $production->Note?->Partials?->last() : null;
+        $workReport = $production->WorkReportFlowProductions
+            ->firstWhere('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+            ?->WorkReport ?? $production->Note?->WorkForm;
+        $informedAt = $partial?->supervision_at ?? $workReport?->informed_at;
+
+        if (!$informedAt) {
+            return null;
+        }
+
+        $policy        = app(MeasurementDeadlinePolicy::class);
+        $dueAt         = $policy->dueAt(Carbon::parse($informedAt));
+        $remainingDays = $policy->remainingDays($dueAt);
+
+        return [
+            'due_at'         => $dueAt,
+            'remaining_days' => $remainingDays,
+            'status'         => $policy->statusForRemainingDays($remainingDays),
+        ];
+    }
+
+    private function paginateDeadlineFiltered($query): LengthAwarePaginator
+    {
+        if (!$this->measurementDeadlineStatus) {
+            return $query->paginate($this->perPage);
+        }
+
+        $items = $query->get()->filter(function (Production $production): bool {
+            return ($this->measurementDeadlineFor($production)['status'] ?? null) === $this->measurementDeadlineStatus;
+        })->values();
+
+        return new LengthAwarePaginator(
+            $items->forPage($this->page, $this->perPage)->values(),
+            $items->count(),
+            $this->perPage,
+            $this->page,
+            ['path' => request()->url(), 'pageName' => 'page']
+        );
     }
 
     public function render()

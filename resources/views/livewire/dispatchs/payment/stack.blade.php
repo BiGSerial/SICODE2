@@ -322,6 +322,17 @@
             </div>
         </div>
 
+        <div class="mb-3">
+            <label for="measurement-deadline-status" class="form-label mb-1">Prazo da medição</label>
+            <select id="measurement-deadline-status" class="form-select form-select-sm w-auto d-inline-block"
+                wire:model="measurementDeadlineStatus">
+                <option value="">Todos</option>
+                <option value="no_prazo">No prazo</option>
+                <option value="vencendo">Vencendo</option>
+                <option value="vencido">Vencido</option>
+            </select>
+        </div>
+
     </div>
 
     @if ($lists->count())
@@ -449,13 +460,13 @@
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
                             <th class="align-middle text-center">Valor ADS</th>
-                            <th class="align-middle text-center">Emp SAP</th>
                             <th class="align-middle text-center">Emp Info</th>
 
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
                             <th scope="col" class="fw-bold text-center">Empresa</th>
                             <th scope="col" class="fw-bold text-center">Usuário</th>
+                            <th scope="col" class="fw-bold text-center">Data Informe</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
                             <th scope="col" class="fw-bold text-center">Prazo Medição</th>
@@ -550,6 +561,10 @@
                                         <x-legal.note-demand-tags :note-id="$list->note_id" :row-key="'dispatchs-payment-'.$list->id" />
                                     @endif
 
+                                    <div class="small text-muted mt-1">
+                                        {{ $workForm ? 'Informe #' . $workForm->id : ($partial ? 'Parcial #' . $partial->id : 'Sem informe') }}
+                                    </div>
+
 
                                     @if ($list->priority)
                                         <i class="ri-alert-fill text-danger align-middle"
@@ -590,18 +605,6 @@
                                     @endif
                                 </td>
 
-                                <td class="text-center align-middle">
-                                    @if ($orders->count())
-                                        @foreach ($orders as $order)
-                                            <span class="my-0py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                            </span>
-                                        @endforeach
-                                    @endif
-
-                                </td>
-
-
                                 <td class="fw-light text-center">
 
                                     @if ($workForm)
@@ -634,6 +637,15 @@
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                     <x-user.status-name :user="$list->User" />
                                 </td>
+                                <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    @if ($workForm?->informed_at)
+                                        {{ $workForm->informed_at->format('d/m/Y H:i') }}
+                                    @elseif ($partial?->supervision_at)
+                                        {{ $partial->supervision_at->format('d/m/Y H:i') }}
+                                    @else
+                                        ---
+                                    @endif
+                                </td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                     @if ($list->dispatch_at)
@@ -660,27 +672,30 @@
                                         —
                                     @endif
                                 </td>
-                                @php
-                                    $daysLeft = Carbon::parse($list->fimLancado)
-                                        ->startOfDay()
-                                        ->diffInDays(Carbon::now()->startOfDay());
-                                @endphp
+                                @php($measurementDeadline = $this->measurementDeadlineFor($list))
                                 <td scope="col" class="text-center" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Prazo Medição"
-                                    data-bs-content="
-                         <p>A Data Corresponde 40 Parcial</p>
-                         <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
-                         <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
-                         <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
-                         {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                         ">
-                                    <div class="ads-info">
-                                        <div class="ads-info-date">{{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}</div>
-                                        <span class="badge @if ($daysLeft <= 2) text-bg-success @elseif ($daysLeft > 5) text-bg-danger @else text-bg-warning @endif">
-                                            {{ $daysLeft }}
-                                        </span>
-                                    </div>
+                                    data-bs-content="Verde: mais de 4 dias para vencer. Amarelo: até o vencimento. Vermelho: vencido.">
+                                    @if ($measurementDeadline)
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ $measurementDeadline['due_at']->format('d/m/Y') }}</div>
+                                            <span @class([
+                                                'badge',
+                                                'text-bg-success' => $measurementDeadline['status'] === 'no_prazo',
+                                                'text-bg-warning' => $measurementDeadline['status'] === 'vencendo',
+                                                'text-bg-danger' => $measurementDeadline['status'] === 'vencido',
+                                            ])>
+                                                @if ($measurementDeadline['remaining_days'] < 0)
+                                                    {{ abs($measurementDeadline['remaining_days']) }} {{ abs($measurementDeadline['remaining_days']) === 1 ? 'dia vencido' : 'dias vencidos' }}
+                                                @else
+                                                    {{ $measurementDeadline['remaining_days'] }} {{ $measurementDeadline['remaining_days'] === 1 ? 'dia' : 'dias' }}
+                                                @endif
+                                            </span>
+                                        </div>
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
 
                                 <td class="fw-light text-center">
