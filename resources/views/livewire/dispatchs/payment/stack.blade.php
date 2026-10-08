@@ -448,7 +448,7 @@
                             <th class="align-middle text-center" style="width:52px;"></th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">MOA</th>
+                            <th class="align-middle text-center">Valor ADS</th>
                             <th class="align-middle text-center">Emp SAP</th>
                             <th class="align-middle text-center">Emp Info</th>
 
@@ -502,7 +502,7 @@
                                     : ($partial
                                         ? $partial->Orders ?? collect()
                                         : collect());
-                                $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
+                                $adsForm = $workForm?->Adsform ?? $list->Note->Adsform;
                                 $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                 $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
 
@@ -574,24 +574,20 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-                                    @if ($workForm && $orders->count())
-                                        @php
-                                            $moaberto = $orders->sum('moaberto');
-                                            $soma += $moaberto;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($moaberto, 2, ',', '.') }}
-                                        </p>
-                                    @elseif($partial)
-                                        @php
-                                            $moaberto = $partial?->value;
-                                            $soma += $partial?->value;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($moaberto, 2, ',', '.') }}
-                                        </p>
-                                    @endif
+                                    @php
+                                        $adsAmount = $partial ? $partial->value : $adsForm?->amount;
+                                    @endphp
 
+                                    @if ($adsAmount !== null)
+                                        @php
+                                            $soma += (float) $adsAmount;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                        </p>
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
 
                                 <td class="text-center align-middle">
