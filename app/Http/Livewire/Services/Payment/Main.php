@@ -868,7 +868,7 @@ class Main extends Component
             'WorkForm.Company:id,name,deleted_at',
             'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForm.Adsform:id,work_report_id,created_at',
+            'WorkForm.Adsform:id,work_report_id,amount,created_at',
             'WorkForms' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -887,7 +887,7 @@ class Main extends Component
             'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
-            'WorkForms.Adsform:id,work_report_id,created_at',
+            'WorkForms.Adsform:id,work_report_id,amount,created_at',
             'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
             'Partials' => fn ($q) => $q->select([
                 'id',

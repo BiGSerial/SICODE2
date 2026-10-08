@@ -29,6 +29,8 @@ class LogNoteInformFlows extends Model
         'note_number',
         'ovi',
         'order_number',
+        'op20_order_number',
+        'op20_finished_at',
 
         'company_informe_name',
 
@@ -41,6 +43,7 @@ class LogNoteInformFlows extends Model
         'ads_sent_at',
         'ads_type',
         'ads_is_tacit',
+        'ads_amount',
 
         'fiscalization_entered_at',
         'fiscalization_type',
@@ -63,6 +66,8 @@ class LogNoteInformFlows extends Model
         'measurement_type',
         'measurement_completed_at',
         'measurement_exited_at',
+        'measurement_closed_in_sap',
+        'measurement_closed_in_sap_at',
         'baixa_measurement_status',
 
         'payment_user_name',
@@ -86,36 +91,40 @@ class LogNoteInformFlows extends Model
     protected $casts = [
         'id_local' => 'integer',
 
-        'informed_at' => 'datetime',
+        'informed_at'              => 'datetime',
         'publication_validated_at' => 'datetime',
-        'ads_sent_at' => 'datetime',
+        'ads_sent_at'              => 'datetime',
+        'ads_amount'               => 'decimal:2',
+        'op20_finished_at'         => 'datetime',
 
-        'fiscalization_entered_at' => 'datetime',
-        'fiscal_assigned_at' => 'datetime',
-        'fiscalization_completed_at' => 'datetime',
+        'fiscalization_entered_at'          => 'datetime',
+        'fiscal_assigned_at'                => 'datetime',
+        'fiscalization_completed_at'        => 'datetime',
         'fiscalization_closed_in_sicode_at' => 'datetime',
-        'fiscalization_closed_in_sap_at' => 'datetime',
+        'fiscalization_closed_in_sap_at'    => 'datetime',
 
         'five_note_created_at' => 'datetime',
 
-        'measurement_entered_at' => 'datetime',
+        'measurement_entered_at'   => 'datetime',
         'measurement_completed_at' => 'datetime',
-        'measurement_exited_at' => 'datetime',
+        'measurement_exited_at'    => 'datetime',
+        'measurement_closed_in_sap_at' => 'datetime',
 
         'final_cycle_started_at' => 'datetime',
-        'final_cycle_ended_at' => 'datetime',
+        'final_cycle_ended_at'   => 'datetime',
 
         'source_created_at' => 'datetime',
         'source_updated_at' => 'datetime',
-        'calculated_at' => 'datetime',
-        'synced_at' => 'datetime',
+        'calculated_at'     => 'datetime',
+        'synced_at'         => 'datetime',
 
-        'is_validated_by_publication' => 'boolean',
-        'has_ads' => 'boolean',
-        'ads_is_tacit' => 'boolean',
+        'is_validated_by_publication'    => 'boolean',
+        'has_ads'                        => 'boolean',
+        'ads_is_tacit'                   => 'boolean',
         'fiscalization_closed_in_sicode' => 'boolean',
-        'fiscalization_closed_in_sap' => 'boolean',
-        'has_d5' => 'boolean',
-        'active' => 'boolean',
+        'fiscalization_closed_in_sap'    => 'boolean',
+        'measurement_closed_in_sap'      => 'boolean',
+        'has_d5'                         => 'boolean',
+        'active'                         => 'boolean',
     ];
 }

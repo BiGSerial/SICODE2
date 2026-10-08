@@ -279,7 +279,7 @@
                             <th class="align-middle text-center">Tipo / Escopo</th>
 
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">MOA</th>
+                            <th class="align-middle text-center">Valor ADS</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
@@ -440,20 +440,20 @@
                                     @endforelse
                                 </td>
 
-                                {{-- MOA (usar total_moaberto pra WF; value pra parcial) --}}
+                                {{-- Valor ADS (amount para final; value para parcial) --}}
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
                                     @php
-                                        if ($wf && !$partial) {
-                                            $soma += $list->total_moaberto;
-                                            $moa = $list->total_moaberto;
-                                        } elseif ($partial) {
-                                            $soma += $partial->value ?? 0;
-                                            $moa = $partial->value ?? 0;
-                                        } else {
-                                            $moa = 0;
-                                        }
+                                        $adsAmount = $partial ? $partial->value : $wf?->Adsform?->amount;
                                     @endphp
-                                    R$ {{ number_format($moa, 2, ',', '.') }}
+
+                                    @if ($adsAmount !== null)
+                                        @php
+                                            $soma += (float) $adsAmount;
+                                        @endphp
+                                        R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
 
                                 {{-- OP30 / OP40 / OP50 --}}

@@ -2,13 +2,11 @@
 
 namespace App\Console\Commands\Tools;
 
-use App\Services\WorkReports\WorkReportFinalScopeResolver;
-use App\Services\WorkReports\WorkReportStatusResolver;
+use App\Services\WorkReports\{WorkReportFinalScopeResolver, WorkReportStatusResolver};
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Collection;
+use Illuminate\Support\{Collection, Str};
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Throwable;
 
 class SyncNoteInformFlows extends Command
@@ -19,6 +17,7 @@ class SyncNoteInformFlows extends Command
         {--hours=2 : Janela incremental, com sobreposicao, olhando updated_at}
         {--since= : Data/hora inicial da janela incremental}
         {--all : Recalcula todos os registros}
+        {--rebase : Limpa o consolidado e o recalcula integralmente}
         {--if-empty : Faz carga completa se a tabela destino estiver vazia}
         {--chunk=500 : Tamanho do lote}
         {--dry : Simula sem gravar}';
@@ -28,16 +27,30 @@ class SyncNoteInformFlows extends Command
     public function handle(): int
     {
         try {
-            $dryRun = (bool) $this->option('dry');
+            $dryRun    = (bool) $this->option('dry');
             $chunkSize = max(100, (int) $this->option('chunk'));
-            $noteId = $this->option('note_id') ? (int) $this->option('note_id') : null;
-            $flowType = $this->normalizeFlowType($this->option('flow_type'));
-            $full = (bool) $this->option('all')
+            $noteId    = $this->option('note_id') ? (int) $this->option('note_id') : null;
+            $flowType  = $this->normalizeFlowType($this->option('flow_type'));
+            $rebase    = (bool) $this->option('rebase');
+            $full      = (bool) $this->option('all')
+                || $rebase
                 || ((bool) $this->option('if-empty') && DB::table('note_inform_flows')->doesntExist());
 
             if ($flowType === null && $this->option('flow_type')) {
                 $this->error("Opcao --flow_type invalida. Use 'partial' ou 'final'.");
+
                 return self::FAILURE;
+            }
+
+            if ($rebase && ($noteId || $flowType)) {
+                $this->error('A opcao --rebase exige a reconstrucao completa, sem --note_id nem --flow_type.');
+
+                return self::FAILURE;
+            }
+
+            if ($rebase && !$dryRun) {
+                $deleted = DB::table('note_inform_flows')->delete();
+                $this->warn("Rebase: {$deleted} registros consolidados removidos.");
             }
 
             $noteIds = $noteId
@@ -45,6 +58,10 @@ class SyncNoteInformFlows extends Command
                 : ($full ? null : $this->affectedNoteIds($this->incrementalSince()));
 
             $this->line('Modo: ' . ($full ? 'FULL' : 'INCREMENTAL'));
+
+            if ($rebase) {
+                $this->line('Rebase: ' . ($dryRun ? 'SIMULADO' : 'EXECUTADO'));
+            }
 
             if (is_array($noteIds)) {
                 $this->line('Notas afetadas: ' . count($noteIds));
@@ -55,12 +72,13 @@ class SyncNoteInformFlows extends Command
                     }
 
                     $this->info('Nada para sincronizar.');
+
                     return self::SUCCESS;
                 }
             }
 
             $partialCount = 0;
-            $finalCount = 0;
+            $finalCount   = 0;
 
             if ($flowType === null || $flowType === 'partial') {
                 $partialCount = $this->syncPartials($chunkSize, $noteIds, $dryRun);
@@ -85,6 +103,7 @@ class SyncNoteInformFlows extends Command
         } catch (Throwable $e) {
             report($e);
             $this->error($e->getMessage());
+
             return self::FAILURE;
         }
     }
@@ -108,6 +127,7 @@ class SyncNoteInformFlows extends Command
                 'p.company_id',
                 'p.decision_at',
                 'p.supervision_id',
+                'p.supervision',
                 'p.supervision_at',
                 'p.payment',
                 'p.payment_at',
@@ -137,74 +157,91 @@ class SyncNoteInformFlows extends Command
         $processed = 0;
 
         $query->chunkById($chunkSize, function (Collection $rows) use (&$processed, $dryRun) {
-            $now = now();
-            $noteContexts = $this->loadNoteContexts($rows->pluck('note_id')->all());
-            $adsByNote = $this->loadLatestAdsByNote($rows->pluck('note_id')->all(), true);
-            $upserts = [];
+            $now           = now();
+            $noteContexts  = $this->loadNoteContexts($rows->pluck('note_id')->all());
+            $adsByNote     = $this->loadLatestAdsByNote($rows->pluck('note_id')->all(), true);
+            $op20ByPartial = $this->loadOperation20ByPartial($rows->pluck('id')->all());
+            $upserts       = [];
 
             foreach ($rows as $row) {
                 $context = $noteContexts[$row->note_id] ?? ['service_id' => null];
-                $ads = $adsByNote[$row->note_id] ?? null;
-                $stage = $this->resolvePartialStage($row);
+                $ads     = $adsByNote[$row->note_id] ?? null;
+                $op20    = $op20ByPartial[$row->id] ?? null;
+                $stage   = $this->resolvePartialStage($row);
 
                 $upserts[] = [
-                    'note_id' => $row->note_id,
-                    'flow_type' => 'partial',
-                    'partial_id' => $row->id,
-                    'work_report_id' => null,
-                    'flow_key' => "partial:{$row->id}",
-                    'company_id' => $row->company_id,
-                    'service_id' => $context['service_id'],
-                    'note_number' => $row->note_number,
-                    'ovi' => $row->ovi,
-                    'order_id' => $row->order_id,
-                    'order_number' => $row->order_number,
-                    'informed_at' => $row->created_at,
-                    'inform_type' => 'partial',
-                    'final_scope' => WorkReportFinalScopeResolver::SCOPE_GENERAL,
-                    'final_scope_resolution' => 'legacy_general',
-                    'final_scope_orders' => null,
+                    'note_id'                     => $row->note_id,
+                    'flow_type'                   => 'partial',
+                    'partial_id'                  => $row->id,
+                    'work_report_id'              => null,
+                    'flow_key'                    => "partial:{$row->id}",
+                    'company_id'                  => $row->company_id,
+                    'service_id'                  => $context['service_id'],
+                    'note_number'                 => $row->note_number,
+                    'ovi'                         => $row->ovi,
+                    'order_id'                    => $row->order_id,
+                    'order_number'                => $row->order_number,
+                    'op20_order_number'           => $op20->order_number ?? null,
+                    'op20_finished_at'            => $op20->finished_at ?? null,
+                    'informed_at'                 => $row->created_at,
+                    'inform_type'                 => 'partial',
+                    'final_scope'                 => WorkReportFinalScopeResolver::SCOPE_GENERAL,
+                    'final_scope_resolution'      => 'legacy_general',
+                    'final_scope_orders'          => null,
                     'is_validated_by_publication' => false,
-                    'publication_validated_at' => null,
-                    'publication_required' => false,
-                    'publication_policy' => 'not_applicable_partial',
-                    'has_ads' => true,
-                    'ads_form_id' => $ads->id ?? null,
-                    'ads_sent_at' => $row->created_at,
-                    'ads_type' => $ads ? ($ads->tacit ? 'tacit' : 'manual') : 'not_sent',
-                    'ads_is_tacit' => (bool) ($ads->tacit ?? false),
-                    'fiscalization_entered_at' => $row->decision_at,
-                    'fiscalization_type' => 'partial',
-                    'fiscal_assigned_at' => $row->decision_at,
-                    'fiscal_user_id' => $row->supervision_id,
-                    'fiscal_user_name' => $row->fiscal_user_name,
-                    'fiscalization_completed_at' => $row->supervision_at,
-                    'fiscalization_closed_in_sicode' => (bool) $row->complete,
-                    'fiscalization_closed_in_sicode_at' => $row->complete ? ($row->payment_at ?? $row->supervision_at) : null,
-                    'fiscalization_closed_in_sap' => false,
-                    'fiscalization_closed_in_sap_at' => null,
-                    'has_d5' => false,
-                    'five_note_id' => null,
-                    'five_note_number' => null,
-                    'five_note_created_at' => null,
-                    'measurement_entered_at' => $row->payment_at,
-                    'measurement_type' => 'partial',
-                    'measurement_completed_at' => $row->payment_at,
-                    'measurement_exited_at' => $row->complete ? $row->payment_at : null,
-                    'ads_production_id' => null,
-                    'fiscalization_production_id' => null,
-                    'measurement_production_id' => null,
-                    'final_cycle_started_at' => null,
-                    'final_cycle_ended_at' => null,
-                    'current_stage' => $stage,
-                    'blocking_reason' => $this->blockingReasonFromStage($stage),
-                    'active' => true,
-                    'source_created_at' => $row->created_at,
-                    'source_updated_at' => $row->updated_at,
-                    'calculated_at' => $now,
-                    'resolver_payload' => json_encode([
-                        'source' => 'partials',
-                        'rule_version' => 1,
+                    'publication_validated_at'    => null,
+                    'publication_required'        => false,
+                    'publication_policy'          => 'not_applicable_partial',
+                    'has_ads'                     => true,
+                    'ads_form_id'                 => $ads->id ?? null,
+                    'ads_sent_at'                 => $row->created_at,
+                    'ads_type'                    => $ads ? ($ads->tacit ? 'tacit' : 'manual') : 'not_sent',
+                    'ads_is_tacit'                => (bool) ($ads->tacit ?? false),
+                    'ads_amount'                  => $ads->amount ?? null,
+                    'fiscalization_entered_at'    => $row->decision_at,
+                    'fiscalization_type'          => 'partial',
+                    'fiscal_assigned_at'          => $row->decision_at,
+                    'fiscal_user_id'              => $row->supervision_id,
+                    'fiscal_user_name'            => $row->fiscal_user_name,
+                    // No parcial, supervision marca o encerramento da etapa de
+                    // Fiscalizacao. complete/payment_at pertencem exclusivamente
+                    // ao encerramento da Medicao/Pagamento e nao podem baixar a
+                    // Fiscalizacao.
+                    'fiscalization_completed_at'        => $row->supervision_at,
+                    'fiscalization_closed_in_sicode'    => (bool) ($row->supervision ?? false),
+                    'fiscalization_closed_in_sicode_at' => ($row->supervision ?? false) ? $row->supervision_at : null,
+                    'fiscalization_closed_in_sap'       => false,
+                    'fiscalization_closed_in_sap_at'    => null,
+                    'has_d5'                            => false,
+                    'five_note_id'                      => null,
+                    'five_note_number'                  => null,
+                    'five_note_created_at'              => null,
+                    'measurement_entered_at'            => $row->payment_at,
+                    'measurement_type'                  => 'partial',
+                    'measurement_completed_at'          => $row->payment_at,
+                    'measurement_exited_at'             => $row->complete ? $row->payment_at : null,
+                    'measurement_closed_in_sap'         => false,
+                    'measurement_closed_in_sap_at'      => null,
+                    'ads_production_id'                 => null,
+                    'fiscalization_production_id'       => null,
+                    'measurement_production_id'         => null,
+                    'final_cycle_started_at'            => null,
+                    'final_cycle_ended_at'              => null,
+                    'current_stage'                     => $stage,
+                    'blocking_reason'                   => $this->blockingReasonFromStage($stage),
+                    'active'                            => true,
+                    'source_created_at'                 => $row->created_at,
+                    'source_updated_at'                 => $row->updated_at,
+                    'calculated_at'                     => $now,
+                    'resolver_payload'                  => json_encode([
+                        'source'        => 'partials',
+                        'rule_version'  => 2,
+                        'field_sources' => [
+                            'fiscalization_completed_at'        => 'partials.supervision_at',
+                            'fiscalization_closed_in_sicode'    => 'partials.supervision',
+                            'fiscalization_closed_in_sicode_at' => 'partials.supervision_at',
+                            'measurement_exited_at'             => 'partials.complete + partials.payment_at',
+                        ],
                     ]),
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -231,7 +268,10 @@ class SyncNoteInformFlows extends Command
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
             ->leftJoin('adsforms as af', 'af.work_report_id', '=', 'wr.id')
-            ->leftJoin('five_notes as fn', 'fn.note_id', '=', 'wr.note_id')
+            // A D5 pertence ao informe pelo vinculo explicito e unico. Nunca
+            // associe por note_id aqui: uma mesma nota pode ter D5s de informes
+            // diferentes.
+            ->leftJoin('five_notes as fn', 'fn.work_report_id', '=', 'wr.id')
             ->leftJoinSub(
                 DB::table('order_work_report')->selectRaw('work_report_id, MIN(order_id) as order_id')->groupBy('work_report_id'),
                 'owr1',
@@ -255,6 +295,7 @@ class SyncNoteInformFlows extends Command
                 'af.tacit',
                 'af.tacit_delivered_at',
                 'af.created_at as ads_created_at',
+                'af.amount as ads_amount',
                 'fn.id as five_note_id',
                 'fn.note_d5 as five_note_number',
                 'fn.created_at as five_note_created_at',
@@ -283,146 +324,177 @@ class SyncNoteInformFlows extends Command
         $processed = 0;
 
         $query->chunkById($chunkSize, function (Collection $rows) use (&$processed, $dryRun) {
-            $now = now();
-            $noteIds = $rows->pluck('note_id')->all();
-            $workReportIds = $rows->pluck('id')->all();
-            $noteContexts = $this->loadNoteContexts($noteIds);
-            $nextCycleEnd = $this->loadNextFinalInformedAtByWorkReport($noteIds);
+            $now                                                    = now();
+            $noteIds                                                = $rows->pluck('note_id')->all();
+            $workReportIds                                          = $rows->pluck('id')->all();
+            $noteContexts                                           = $this->loadNoteContexts($noteIds);
+            $nextCycleEnd                                           = $this->loadNextFinalInformedAtByWorkReport($noteIds);
             [$linkedFiscalByWorkReport, $linkedPaymentByWorkReport] = $this->loadLinkedProductionsForFinals($workReportIds, $noteIds);
             [$legacyFiscalByWorkReport, $legacyPaymentByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds);
-            $ordersByWorkReport = $this->loadOrdersByWorkReport($workReportIds);
-            $d5States = $this->loadD5ProductionStates($rows->pluck('five_note_id')->filter()->unique()->values()->all());
-            $sapByWorkReport = $this->loadSapOperationStatusByWorkReportsFromNotes($rows);
-            $scopeResolver = app(WorkReportFinalScopeResolver::class);
-            $statusResolver = app(WorkReportStatusResolver::class);
-            $upserts = [];
-            $expectedFinalFlowKeys = [];
+            $ordersByWorkReport                                     = $this->loadOrdersByWorkReport($workReportIds);
+            $op20ByWorkReport                                       = $this->loadOperation20ByWorkReport($workReportIds);
+            $d5States                                               = $this->loadD5ProductionStates($rows->pluck('five_note_id')->filter()->unique()->values()->all());
+            $sapByWorkReport                                        = $this->loadSapOperationStatusByWorkReportsFromNotes($rows);
+            $scopeResolver                                          = app(WorkReportFinalScopeResolver::class);
+            $statusResolver                                         = app(WorkReportStatusResolver::class);
+            $upserts                                                = [];
+            $expectedFinalFlowKeys                                  = [];
 
             foreach ($rows as $row) {
-                $context = $noteContexts[$row->note_id] ?? ['service_id' => null];
+                $context       = $noteContexts[$row->note_id] ?? ['service_id' => null];
                 $scopePayloads = $this->filterScopePayloadsByPartnerSelection(
                     $scopeResolver->resolve((int) $row->type_note, $ordersByWorkReport[$row->id] ?? collect()),
                     $row->selected_final_scopes ?? null
                 );
 
                 foreach ($scopePayloads as $scopePayload) {
-                $scope = $scopePayload['scope'];
-                $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
-                $linkedFiscalProd = $this->eligibleLinkedProduction($linkedFiscalByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
-                $linkedPaymentProd = $this->eligibleLinkedProduction($linkedPaymentByWorkReport[$row->id][$scope] ?? null, $row, $nextCycleEnd);
-                $fiscalProd = $linkedFiscalProd ?? ($useLegacyInference ? ($legacyFiscalByWorkReport[$row->id] ?? null) : null);
-                $paymentProd = $linkedPaymentProd ?? ($useLegacyInference ? ($legacyPaymentByWorkReport[$row->id] ?? null) : null);
-                $d5State = $d5States[$row->five_note_id] ?? [];
-                $normalFiscalProd = $this->isD5ProductionRow($fiscalProd, $d5State) ? null : $fiscalProd;
-                $normalPaymentProd = $this->isD5ProductionRow($paymentProd, $d5State) ? null : $paymentProd;
-                $resolvedStatus = $statusResolver->resolveState([
-                    'has_ads' => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
-                    'normal_fiscal_associated' => $normalFiscalProd !== null,
-                    'normal_fiscal_finished' => (bool) ($normalFiscalProd->completed ?? false),
-                    'normal_payment_associated' => $normalPaymentProd !== null,
-                    'normal_payment_finished' => (bool) ($normalPaymentProd->completed ?? false) || (bool) ($normalPaymentProd->confirmed ?? false),
-                    'd5_associated_to_note' => $row->five_note_id !== null,
-                    'd5_associated_to_production' => (bool) ($d5State['associated_to_production'] ?? false),
-                    'd5_completed' => (bool) ($row->five_note_completed ?? false),
-                    'd5_fiscal_associated' => (bool) ($d5State['fiscal_associated'] ?? false),
-                    'd5_fiscal_finished' => (bool) ($d5State['fiscal_finished'] ?? false),
-                    'd5_payment_associated' => (bool) ($d5State['payment_associated'] ?? false),
-                    'd5_payment_finished' => (bool) ($d5State['payment_finished'] ?? false) || (bool) ($row->five_note_archived ?? false),
-                    'letter_released' => (bool) ($row->five_note_payed ?? false) || (bool) ($row->five_note_archived ?? false),
-                ]);
-                $fiscalResolver = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
-                $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
-                $sap = $sapByWorkReport[$row->id] ?? [
-                    'op30_all_conf' => false,
-                    'op30_done_at' => null,
-                    'op30_text' => 'Nao',
-                    'op50_all_conf' => false,
-                    'op50_done_at' => null,
-                    'op50_text' => 'Nao',
-                ];
-                $informedAt = $row->informed_at ?? $row->created_at;
-                $flowKey = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL
-                    ? "work_report:{$row->id}"
-                    : "work_report:{$row->id}:{$scope}";
-                $expectedFinalFlowKeys[] = $flowKey;
+                    $scope              = $scopePayload['scope'];
+                    $op20               = $this->resolveOperation20($op20ByWorkReport[$row->id] ?? collect());
+                    $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
+                    $linkedFiscalProds  = $this->eligibleLinkedProductions($linkedFiscalByWorkReport[$row->id][$scope] ?? collect(), $row, $nextCycleEnd);
+                    $linkedPaymentProds = $this->eligibleLinkedProductions($linkedPaymentByWorkReport[$row->id][$scope] ?? collect(), $row, $nextCycleEnd);
+                    $linkedFiscalProd   = $this->summarizeLinkedProductions($linkedFiscalProds);
+                    $linkedPaymentProd  = $this->summarizeLinkedProductions($linkedPaymentProds);
+                    $fiscalProd         = $linkedFiscalProd ?? ($useLegacyInference ? ($legacyFiscalByWorkReport[$row->id] ?? null) : null);
+                    $paymentProd        = $linkedPaymentProd ?? ($useLegacyInference ? ($legacyPaymentByWorkReport[$row->id] ?? null) : null);
+                    $d5State            = $d5States[$row->five_note_id] ?? [];
+                    $normalFiscalProd   = $this->isD5ProductionRow($fiscalProd, $d5State) ? null : $fiscalProd;
+                    $normalPaymentProd  = $this->isD5ProductionRow($paymentProd, $d5State) ? null : $paymentProd;
+                    $resolvedStatus     = $statusResolver->resolveState([
+                        'has_ads'                     => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
+                        'normal_fiscal_associated'    => $normalFiscalProd !== null,
+                        'normal_fiscal_finished'      => (bool) ($normalFiscalProd->completed ?? false),
+                        'normal_payment_associated'   => $normalPaymentProd !== null,
+                        'normal_payment_finished'     => (bool) ($normalPaymentProd->completed ?? false) || (bool) ($normalPaymentProd->confirmed ?? false),
+                        'd5_associated_to_note'       => $row->five_note_id !== null,
+                        'd5_associated_to_production' => (bool) ($d5State['associated_to_production'] ?? false),
+                        'd5_completed'                => (bool) ($row->five_note_completed ?? false),
+                        'd5_fiscal_associated'        => (bool) ($d5State['fiscal_associated'] ?? false),
+                        'd5_fiscal_finished'          => (bool) ($d5State['fiscal_finished'] ?? false),
+                        'd5_payment_associated'       => (bool) ($d5State['payment_associated'] ?? false),
+                        'd5_payment_finished'         => (bool) ($d5State['payment_finished'] ?? false) || (bool) ($row->five_note_archived ?? false),
+                        'letter_released'             => (bool) ($row->five_note_payed ?? false) || (bool) ($row->five_note_archived ?? false),
+                    ]);
+                    $fiscalResolver  = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
+                    $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
+                    $sap             = $sapByWorkReport[$row->id] ?? [
+                        'op30_all_conf'    => false,
+                        'op30_finished_at' => null,
+                        'op30_text'        => 'Nao',
+                        'op50_all_conf'    => false,
+                        'op50_finished_at' => null,
+                        'op50_text'        => 'Nao',
+                    ];
+                    $informedAt = $row->informed_at ?? $row->created_at;
+                    $flowKey    = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL
+                        ? "work_report:{$row->id}"
+                        : "work_report:{$row->id}:{$scope}";
+                    $expectedFinalFlowKeys[] = $flowKey;
 
-                $upserts[] = [
-                    'note_id' => $row->note_id,
-                    'flow_type' => 'final',
-                    'partial_id' => null,
-                    'work_report_id' => $row->id,
-                    'flow_key' => $flowKey,
-                    'company_id' => $row->company_id,
-                    'service_id' => $context['service_id'],
-                    'note_number' => $row->note_number,
-                    'ovi' => $row->ovi,
-                    'order_id' => $scopePayload['order_id'] ?? $row->order_id,
-                    'order_number' => $scopePayload['order_number'] ?? $row->order_number,
-                    'informed_at' => $informedAt,
-                    'inform_type' => 'final',
-                    'final_scope' => $scope,
-                    'final_scope_resolution' => $scopePayload['resolution'],
-                    'final_scope_orders' => json_encode($scopePayload['orders']),
-                    'is_validated_by_publication' => (bool) $row->acceptance_accepted && $scopeResolver->publicationRequired($scope),
-                    'publication_validated_at' => $scopeResolver->publicationRequired($scope) ? $row->acceptance_at : null,
-                    'publication_required' => $scopeResolver->publicationRequired($scope),
-                    'publication_policy' => $scopeResolver->publicationPolicy($scope),
-                    'has_ads' => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
-                    'ads_form_id' => $scopeResolver->publicationRequired($scope) ? $row->ads_form_id : null,
-                    'ads_sent_at' => $scopeResolver->publicationRequired($scope) ? ($row->tacit_delivered_at ?? $row->ads_created_at) : null,
-                    'ads_type' => $scopeResolver->publicationRequired($scope) ? ($row->ads_form_id ? ($row->tacit ? 'tacit' : 'manual') : 'not_sent') : 'not_applicable',
-                    'ads_is_tacit' => $scopeResolver->publicationRequired($scope) && (bool) $row->tacit,
-                    'fiscalization_entered_at' => $fiscalProd->att_at ?? null,
-                    'fiscalization_type' => 'final',
-                    'fiscal_assigned_at' => $fiscalProd->att_at ?? null,
-                    'fiscal_user_id' => $fiscalProd->user_id ?? null,
-                    'fiscal_user_name' => $fiscalProd->user_name ?? null,
-                    'fiscalization_completed_at' => $fiscalProd->completed_at ?? null,
-                    'fiscalization_closed_in_sicode' => (bool) ($fiscalProd->completed ?? false),
-                    'fiscalization_closed_in_sicode_at' => $fiscalProd->completed_at ?? null,
-                    'fiscalization_closed_in_sap' => (bool) $sap['op30_all_conf'],
-                    'fiscalization_closed_in_sap_at' => $sap['op30_done_at'],
-                    'baixa_fiscal_status' => $sap['op30_text'],
-                    'has_d5' => $row->five_note_id !== null,
-                    'five_note_id' => $row->five_note_id,
-                    'five_note_number' => $row->five_note_number,
-                    'five_note_created_at' => $row->five_note_created_at,
-                    'measurement_entered_at' => $paymentProd->att_at ?? null,
-                    'measurement_type' => 'final',
-                    'measurement_completed_at' => $paymentProd->completed_at ?? ($sap['op50_all_conf'] ? $sap['op50_done_at'] : null),
-                    'measurement_exited_at' => $paymentProd->confirmed_at ?? ($sap['op50_all_conf'] ? $sap['op50_done_at'] : null),
-                    'baixa_measurement_status' => $sap['op50_text'],
-                    'ads_production_id' => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
-                    'fiscalization_production_id' => $fiscalProd->id ?? null,
-                    'measurement_production_id' => $paymentProd->id ?? null,
-                    'final_cycle_started_at' => $informedAt,
-                    'final_cycle_ended_at' => $nextCycleEnd[$row->id] ?? null,
-                    'current_stage' => $resolvedStatus['label'],
-                    'blocking_reason' => $this->blockingReasonFromStage($resolvedStatus['key']),
-                    'active' => true,
-                    'source_created_at' => $row->created_at,
-                    'source_updated_at' => $row->updated_at,
-                    'calculated_at' => $now,
-                    'resolver_payload' => json_encode([
-                        'source' => 'work_reports',
-                        'rule_version' => 4,
-                        'final_scope' => $scope,
-                        'final_scope_resolution' => $scopePayload['resolution'],
-                        'publication_policy' => $scopeResolver->publicationPolicy($scope),
-                        'status_resolver' => [
-                            'key' => $resolvedStatus['key'],
-                            'label' => $resolvedStatus['label'],
-                        ],
-                        'production_resolver' => [
-                            'fiscalization' => $fiscalResolver,
-                            'payment' => $paymentResolver,
-                            'fiscalization_origin_work_report_id' => $fiscalProd->linked_work_report_id ?? null,
-                            'payment_origin_work_report_id' => $paymentProd->linked_work_report_id ?? null,
-                        ],
-                    ]),
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                    $upserts[] = [
+                        'note_id'                     => $row->note_id,
+                        'flow_type'                   => 'final',
+                        'partial_id'                  => null,
+                        'work_report_id'              => $row->id,
+                        'flow_key'                    => $flowKey,
+                        'company_id'                  => $row->company_id,
+                        'service_id'                  => $context['service_id'],
+                        'note_number'                 => $row->note_number,
+                        'ovi'                         => $row->ovi,
+                        'order_id'                    => $scopePayload['order_id'] ?? $row->order_id,
+                        'order_number'                => $scopePayload['order_number'] ?? $row->order_number,
+                        'op20_order_number'           => $op20->order_number ?? null,
+                        'op20_finished_at'            => $op20->finished_at ?? null,
+                        'informed_at'                 => $informedAt,
+                        'inform_type'                 => 'final',
+                        'final_scope'                 => $scope,
+                        'final_scope_resolution'      => $scopePayload['resolution'],
+                        'final_scope_orders'          => json_encode($scopePayload['orders']),
+                        'is_validated_by_publication' => (bool) $row->acceptance_accepted && $scopeResolver->publicationRequired($scope),
+                        'publication_validated_at'    => $scopeResolver->publicationRequired($scope) ? $row->acceptance_at : null,
+                        'publication_required'        => $scopeResolver->publicationRequired($scope),
+                        'publication_policy'          => $scopeResolver->publicationPolicy($scope),
+                        'has_ads'                     => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
+                        'ads_form_id'                 => $scopeResolver->publicationRequired($scope) ? $row->ads_form_id : null,
+                        'ads_sent_at'                 => $scopeResolver->publicationRequired($scope) ? ($row->tacit_delivered_at ?? $row->ads_created_at) : null,
+                        'ads_type'                    => $scopeResolver->publicationRequired($scope) ? ($row->ads_form_id ? ($row->tacit ? 'tacit' : 'manual') : 'not_sent') : 'not_applicable',
+                        'ads_is_tacit'                => $scopeResolver->publicationRequired($scope) && (bool) $row->tacit,
+                        'ads_amount'                  => $row->ads_amount,
+                        'fiscalization_entered_at'    => $fiscalProd->att_at ?? null,
+                        'fiscalization_type'          => 'final',
+                        'fiscal_assigned_at'          => $fiscalProd->att_at ?? null,
+                        'fiscal_user_id'              => $fiscalProd->user_id ?? null,
+                        'fiscal_user_name'            => $fiscalProd->user_name ?? null,
+                        // Conclusao e baixa sao eventos distintos para Productions:
+                        // completed registra a execucao; confirmed registra a baixa
+                        // administrativa no SICODE.
+                        'fiscalization_completed_at'        => $fiscalProd->completed_at ?? null,
+                        'fiscalization_closed_in_sicode'    => (bool) ($fiscalProd->confirmed ?? false),
+                        'fiscalization_closed_in_sicode_at' => $fiscalProd->confirmed_at ?? null,
+                        'fiscalization_closed_in_sap'       => (bool) $sap['op30_all_conf'],
+                        // Campos SAP guardam somente a confirmacao e o fimReal
+                        // da operacao, sem misturar datas de Production.
+                        'fiscalization_closed_in_sap_at' => $sap['op30_finished_at'],
+                        'baixa_fiscal_status'            => $sap['op30_text'],
+                        'has_d5'                         => $row->five_note_id !== null,
+                        'five_note_id'                   => $row->five_note_id,
+                        'five_note_number'               => $row->five_note_number,
+                        'five_note_created_at'           => $row->five_note_created_at,
+                        'measurement_entered_at'         => $paymentProd->att_at ?? null,
+                        'measurement_type'               => 'final',
+                        'measurement_completed_at'       => $paymentProd->completed_at ?? null,
+                        'measurement_exited_at'          => $paymentProd->confirmed_at ?? null,
+                        'measurement_closed_in_sap'      => (bool) $sap['op50_all_conf'],
+                        'measurement_closed_in_sap_at'   => $sap['op50_finished_at'],
+                        'baixa_measurement_status'       => $sap['op50_text'],
+                        'ads_production_id'              => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
+                        'fiscalization_production_id'    => $fiscalProd->id ?? null,
+                        'measurement_production_id'      => $paymentProd->id ?? null,
+                        'final_cycle_started_at'         => $informedAt,
+                        'final_cycle_ended_at'           => $nextCycleEnd[$row->id] ?? null,
+                        'current_stage'                  => $resolvedStatus['label'],
+                        'blocking_reason'                => $this->blockingReasonFromStage($resolvedStatus['key']),
+                        'active'                         => true,
+                        'source_created_at'              => $row->created_at,
+                        'source_updated_at'              => $row->updated_at,
+                        'calculated_at'                  => $now,
+                        'resolver_payload'               => json_encode([
+                            'source'                 => 'work_reports',
+                            'rule_version'           => 4,
+                            'final_scope'            => $scope,
+                            'final_scope_resolution' => $scopePayload['resolution'],
+                            'publication_policy'     => $scopeResolver->publicationPolicy($scope),
+                            'status_resolver'        => [
+                                'key'   => $resolvedStatus['key'],
+                                'label' => $resolvedStatus['label'],
+                            ],
+                            'production_resolver' => [
+                                'fiscalization'                       => $fiscalResolver,
+                                'payment'                             => $paymentResolver,
+                                'fiscalization_origin_work_report_id' => $fiscalProd->linked_work_report_id ?? null,
+                                'payment_origin_work_report_id'       => $paymentProd->linked_work_report_id ?? null,
+                            ],
+                            'd5_resolver'  => $row->five_note_id ? 'explicit_work_report_link' : 'none',
+                            'operation_20' => [
+                                'order_number' => $op20->order_number ?? null,
+                                'finished_at'  => $op20->finished_at ?? null,
+                            ],
+                            'sap_operations' => [
+                                'fiscalization' => [
+                                    'operation'   => '0030',
+                                    'confirmed'   => (bool) $sap['op30_all_conf'],
+                                    'finished_at' => $sap['op30_finished_at'],
+                                ],
+                                'measurement' => [
+                                    'operation'   => '0050',
+                                    'confirmed'   => (bool) $sap['op50_all_conf'],
+                                    'finished_at' => $sap['op50_finished_at'],
+                                ],
+                            ],
+                        ]),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
                 }
             }
 
@@ -443,17 +515,55 @@ class SyncNoteInformFlows extends Command
         return $processed;
     }
 
-    private function eligibleLinkedProduction(?object $production, object $workReport, array $nextCycleEnd): ?object
+    private function eligibleLinkedProductions(Collection $productions, object $workReport, array $nextCycleEnd): Collection
     {
-        if (!$production) {
+        if ($productions->isEmpty()) {
+            return collect();
+        }
+
+        $exact = $productions
+            ->where('linked_work_report_id', (int) $workReport->id)
+            ->values();
+
+        if ($exact->isNotEmpty()) {
+            return $exact;
+        }
+
+        return empty($nextCycleEnd[$workReport->id]) ? $productions->values() : collect();
+    }
+
+    /**
+     * O log possui uma coluna por marco, mas um informe pode ter varias
+     * Productions ativas na mesma etapa. Cada data deve considerar todas elas,
+     * em vez de depender da primeira associacao encontrada.
+     */
+    private function summarizeLinkedProductions(Collection $productions): ?object
+    {
+        if ($productions->isEmpty()) {
             return null;
         }
 
-        if ((int) $production->linked_work_report_id === (int) $workReport->id) {
-            return $production;
-        }
+        $reference = $productions
+            ->sortByDesc(fn (object $production) => $production->linked_at ?? $production->att_at ?? $production->id)
+            ->first();
 
-        return empty($nextCycleEnd[$workReport->id]) ? $production : null;
+        return (object) [
+            'id'           => $reference->id,
+            'user_id'      => $reference->user_id,
+            'user_name'    => $reference->user_name,
+            'att_at'       => $this->latestValue($productions, 'att_at'),
+            'completed'    => $productions->contains(fn (object $production) => (bool) $production->completed),
+            'completed_at' => $this->latestValue($productions, 'completed_at'),
+            'confirmed'    => $productions->contains(fn (object $production) => (bool) $production->confirmed),
+            'confirmed_at' => $this->latestValue($productions, 'confirmed_at'),
+            'd5'           => $productions->contains(fn (object $production) => (bool) $production->d5),
+            'dfive'        => $productions->contains(fn (object $production) => (bool) $production->dfive),
+        ];
+    }
+
+    private function latestValue(Collection $productions, string $attribute): mixed
+    {
+        return $productions->pluck($attribute)->filter()->sort()->last();
     }
 
     private function filterScopePayloadsByPartnerSelection(array $payloads, mixed $selectedFinalScopes): array
@@ -475,7 +585,7 @@ class SyncNoteInformFlows extends Command
     private function normalizeSelectedFinalScopes(mixed $selectedFinalScopes): array
     {
         if (is_string($selectedFinalScopes)) {
-            $decoded = json_decode($selectedFinalScopes, true);
+            $decoded             = json_decode($selectedFinalScopes, true);
             $selectedFinalScopes = is_array($decoded) ? $decoded : [];
         }
 
@@ -506,9 +616,9 @@ class SyncNoteInformFlows extends Command
             ->where('active', true)
             ->whereNotIn('flow_key', array_values(array_unique($expectedFlowKeys)))
             ->update([
-                'active' => false,
+                'active'        => false,
                 'calculated_at' => now(),
-                'updated_at' => now(),
+                'updated_at'    => now(),
             ]);
     }
 
@@ -544,6 +654,15 @@ class SyncNoteInformFlows extends Command
                 ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
                 ->where('owr.updated_at', '>=', $since)
                 ->pluck('wr.note_id'),
+            // A associacao da Production ao Informe e a fonte primaria dos
+            // marcos de Fiscalizacao e Medicao no fluxo final. Uma troca de
+            // vinculo (inclusive is_current) nao altera necessariamente a
+            // Production nem o WorkReport; sem esta consulta o consolidado
+            // mantem os campos em branco ate uma carga completa.
+            DB::table('work_report_flow_productions as wrfp')
+                ->join('work_reports as wr', 'wr.id', '=', 'wrfp.work_report_id')
+                ->where('wrfp.updated_at', '>=', $since)
+                ->pluck('wr.note_id'),
         ];
 
         return collect($queries)
@@ -558,95 +677,19 @@ class SyncNoteInformFlows extends Command
 
     private function affectedOperationNoteIds(Carbon $since): Collection
     {
-        $candidateNoteIds = DB::table('operations as op')
+        // Uma alteracao em 0030/0050 pode alterar a confirmacao ou fimReal SAP
+        // de qualquer informe da nota. O calculo detalhado ocorre por informe,
+        // usando order_work_report, no sincronismo final.
+        return DB::table('operations as op')
             ->join('orders as o', 'o.id', '=', 'op.order_id')
             ->where('op.updated_at', '>=', $since)
             ->whereIn('op.operacao', ['0030', '0050'])
             ->distinct()
-            ->pluck('o.note_id');
-
-        if ($candidateNoteIds->isEmpty()) {
-            return collect();
-        }
-
-        return $candidateNoteIds
-            ->chunk(1000)
-            ->flatMap(function (Collection $noteIds) {
-                $orderStatuses = DB::table('orders as o')
-                    ->leftJoin('operations as op', 'op.order_id', '=', 'o.id')
-                    ->whereIn('o.note_id', $noteIds->all())
-                    ->select([
-                        'o.note_id',
-                        'o.id as order_id',
-                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_30_conf"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_50_conf"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_30_cnpa"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_50_cnpa"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN op.fimReal END) as op30_done_at"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN op.fimReal END) as op50_done_at"),
-                    ])
-                    ->groupBy('o.note_id', 'o.id')
-                    ->get()
-                    ->groupBy('note_id');
-
-                $stored = DB::table('note_inform_flows')
-                    ->whereIn('note_id', $noteIds->all())
-                    ->where('flow_type', 'final')
-                    ->select([
-                        'note_id',
-                        'fiscalization_closed_in_sap',
-                        'fiscalization_closed_in_sap_at',
-                        'baixa_fiscal_status',
-                        'measurement_completed_at',
-                        'baixa_measurement_status',
-                    ])
-                    ->get()
-                    ->groupBy('note_id');
-
-                return $noteIds->filter(function ($noteId) use ($orderStatuses, $stored) {
-                    $current = $this->summarizeSapStatuses($orderStatuses->get($noteId, collect()));
-                    $flows = $stored->get($noteId, collect());
-
-                    if ($flows->isEmpty()) {
-                        return true;
-                    }
-
-                    return $flows->contains(function ($flow) use ($current) {
-                        return (bool) $flow->fiscalization_closed_in_sap !== $current['op30_all_conf']
-                            || $this->dateValue($flow->fiscalization_closed_in_sap_at) !== $this->dateValue($current['op30_done_at'])
-                            || (string) $flow->baixa_fiscal_status !== $current['op30_text']
-                            || ($current['op50_done_at']
-                                && $this->dateValue($flow->measurement_completed_at) !== $this->dateValue($current['op50_done_at']))
-                            || (string) $flow->baixa_measurement_status !== $current['op50_text'];
-                    });
-                });
-            })
+            ->pluck('o.note_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
-    }
-
-    private function summarizeSapStatuses(Collection $items): array
-    {
-        $ordersCount = $items->count();
-        $orders30Conf = $items->where('has_30_conf', 1)->count();
-        $orders50Conf = $items->where('has_50_conf', 1)->count();
-        $orders30Cnpa = $items->where('has_30_cnpa', 1)->count();
-        $orders50Cnpa = $items->where('has_50_cnpa', 1)->count();
-        $op30AllConf = $ordersCount > 0 && $orders30Conf === $ordersCount;
-        $op50AllConf = $ordersCount > 0 && $orders50Conf === $ordersCount;
-
-        return [
-            'op30_all_conf' => $op30AllConf,
-            'op30_done_at' => $op30AllConf ? $items->pluck('op30_done_at')->filter()->max() : null,
-            'op30_text' => $this->resolveBaixaTextStatus($op30AllConf, $orders30Conf > 0, $orders30Cnpa > 0),
-            'op50_done_at' => $op50AllConf ? $items->pluck('op50_done_at')->filter()->max() : null,
-            'op50_text' => $this->resolveBaixaTextStatus($op50AllConf, $orders50Conf > 0, $orders50Cnpa > 0),
-        ];
-    }
-
-    private function dateValue($value): ?string
-    {
-        return $value ? Carbon::parse($value)->format('Y-m-d H:i:s') : null;
     }
 
     private function deactivateMissingFlows(?string $flowType): void
@@ -663,9 +706,9 @@ class SyncNoteInformFlows extends Command
                         ->whereColumn('p.id', 'nif.partial_id');
                 })
                 ->update([
-                    'active' => false,
+                    'active'        => false,
                     'calculated_at' => $now,
-                    'updated_at' => $now,
+                    'updated_at'    => $now,
                 ]);
         }
 
@@ -680,9 +723,9 @@ class SyncNoteInformFlows extends Command
                         ->where('wr.canceled', false);
                 })
                 ->update([
-                    'active' => false,
+                    'active'        => false,
                     'calculated_at' => $now,
-                    'updated_at' => $now,
+                    'updated_at'    => $now,
                 ]);
         }
     }
@@ -704,6 +747,7 @@ class SyncNoteInformFlows extends Command
             ->get();
 
         $map = [];
+
         foreach ($rows as $row) {
             $map[$row->note_id] = [
                 'service_id' => $row->service_id,
@@ -735,6 +779,7 @@ class SyncNoteInformFlows extends Command
                 'af.id',
                 'af.note_id',
                 'af.tacit',
+                'af.amount',
                 'af.tacit_delivered_at',
                 'af.created_at',
             ])
@@ -760,12 +805,14 @@ class SyncNoteInformFlows extends Command
             ->groupBy('note_id');
 
         $nextByWr = [];
+
         foreach ($rows as $group) {
-            $list = $group->values();
+            $list      = $group->values();
             $lastIndex = $list->count() - 1;
+
             for ($i = 0; $i <= $lastIndex; $i++) {
-                $current = $list[$i];
-                $next = $i < $lastIndex ? $list[$i + 1] : null;
+                $current                = $list[$i];
+                $next                   = $i < $lastIndex ? $list[$i + 1] : null;
                 $nextByWr[$current->id] = $next ? ($next->informed_at ?? $next->created_at) : null;
             }
         }
@@ -829,13 +876,15 @@ class SyncNoteInformFlows extends Command
         }
 
         $exact = $links->groupBy('linked_work_report_id')
-            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->first()));
+            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->values()));
         $latestByNote = $links->groupBy('note_id')
-            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->first()));
+            ->map(fn (Collection $items) => $items->groupBy('final_scope')->map(fn (Collection $scopeItems) => $scopeItems->values()));
 
         $resolved = [];
+
         foreach ($targetWorkReports as $workReportId => $workReport) {
             $linkedByScope = $exact->get($workReportId) ?? $latestByNote->get($workReport->note_id);
+
             if ($linkedByScope) {
                 $resolved[$workReportId] = $linkedByScope->all();
             }
@@ -863,6 +912,71 @@ class SyncNoteInformFlows extends Command
             ->get()
             ->groupBy('work_report_id')
             ->all();
+    }
+
+    private function loadOperation20ByPartial(array $partialIds): array
+    {
+        if (empty($partialIds)) {
+            return [];
+        }
+
+        return DB::table('order_partial as op')
+            ->join('orders as o', 'o.id', '=', 'op.order_id')
+            ->join('operations as operation', 'operation.order_id', '=', 'o.id')
+            ->whereIn('op.partial_id', $partialIds)
+            ->where('operation.operacao', '0020')
+            ->select([
+                'op.partial_id',
+                'o.ordem as order_number',
+                'operation.fimReal as finished_at',
+            ])
+            ->get()
+            ->groupBy('partial_id')
+            ->map(fn (Collection $operations) => $this->resolveOperation20($operations))
+            ->all();
+    }
+
+    private function loadOperation20ByWorkReport(array $workReportIds): array
+    {
+        if (empty($workReportIds)) {
+            return [];
+        }
+
+        return DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
+            ->join('operations as operation', 'operation.order_id', '=', 'o.id')
+            ->whereIn('owr.work_report_id', $workReportIds)
+            ->where('operation.operacao', '0020')
+            ->select([
+                'owr.work_report_id',
+                'o.ordem as order_number',
+                'operation.fimReal as finished_at',
+            ])
+            ->get()
+            ->groupBy('work_report_id')
+            ->all();
+    }
+
+    /**
+     * Seleciona a Ordem de referência da operação 0020. Ordens 170, 180 e 200
+     * sempre prevalecem; sem nenhuma delas, 190/193 prevalecem sobre 150.
+     */
+    private function resolveOperation20(Collection $operations): ?object
+    {
+        $operations = $operations
+            ->filter(fn (object $operation) => preg_match('/^(170|180|200|190|193|150)/', (string) $operation->order_number))
+            ->sortBy(fn (object $operation) => (string) $operation->order_number)
+            ->values();
+
+        foreach ([['170', '180', '200'], ['190', '193'], ['150']] as $prefixes) {
+            $selected = $operations->first(fn (object $operation) => in_array(substr((string) $operation->order_number, 0, 3), $prefixes, true));
+
+            if ($selected) {
+                return $selected;
+            }
+        }
+
+        return null;
     }
 
     private function loadD5ProductionStates(array $fiveNoteIds): array
@@ -906,7 +1020,7 @@ class SyncNoteInformFlows extends Command
             $payments = $productions
                 ->filter(fn ($production) => $this->normalizeServiceName((string) $production->service) === 'pagamento')
                 ->values();
-            $latestFiscalDate = $this->latestProductionDate($fiscalizations, true);
+            $latestFiscalDate  = $this->latestProductionDate($fiscalizations, true);
             $effectivePayments = $latestFiscalDate
                 ? $payments->filter(function ($payment) use ($latestFiscalDate) {
                     $paymentDate = $this->productionDate($payment, true);
@@ -916,13 +1030,13 @@ class SyncNoteInformFlows extends Command
                 : $payments;
 
             $states[(int) $fiveNoteId] = [
-                'production_ids' => $productions->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                'production_ids'           => $productions->pluck('id')->map(fn ($id) => (int) $id)->all(),
                 'associated_to_production' => $productions->isNotEmpty(),
-                'fiscal_associated' => $fiscalizations->isNotEmpty(),
-                'fiscal_finished' => $fiscalizations->isNotEmpty()
+                'fiscal_associated'        => $fiscalizations->isNotEmpty(),
+                'fiscal_finished'          => $fiscalizations->isNotEmpty()
                     && $fiscalizations->every(fn ($production) => (bool) $production->completed),
                 'payment_associated' => $effectivePayments->isNotEmpty(),
-                'payment_finished' => $effectivePayments->contains(fn ($production) => (bool) $production->completed || (bool) $production->confirmed),
+                'payment_finished'   => $effectivePayments->contains(fn ($production) => (bool) $production->completed || (bool) $production->confirmed),
             ];
         }
 
@@ -1001,8 +1115,9 @@ class SyncNoteInformFlows extends Command
             ->get()
             ->groupBy('work_report_id');
 
-        $fiscalMap = [];
+        $fiscalMap  = [];
         $paymentMap = [];
+
         foreach ($rows as $workReportId => $items) {
             $fiscal = $items->first(function ($item) {
                 return in_array($item->service, ['Fiscalizacao', 'Fiscalização'], true);
@@ -1036,6 +1151,8 @@ class SyncNoteInformFlows extends Command
             'ovi',
             'order_id',
             'order_number',
+            'op20_order_number',
+            'op20_finished_at',
             'informed_at',
             'inform_type',
             'final_scope',
@@ -1050,6 +1167,7 @@ class SyncNoteInformFlows extends Command
             'ads_sent_at',
             'ads_type',
             'ads_is_tacit',
+            'ads_amount',
             'fiscalization_entered_at',
             'fiscalization_type',
             'fiscal_assigned_at',
@@ -1069,6 +1187,8 @@ class SyncNoteInformFlows extends Command
             'measurement_type',
             'measurement_completed_at',
             'measurement_exited_at',
+            'measurement_closed_in_sap',
+            'measurement_closed_in_sap_at',
             'baixa_measurement_status',
             'ads_production_id',
             'fiscalization_production_id',
@@ -1093,6 +1213,7 @@ class SyncNoteInformFlows extends Command
         }
 
         $normalized = strtolower(trim($flowType));
+
         if (in_array($normalized, ['partial', 'final'], true)) {
             return $normalized;
         }
@@ -1124,24 +1245,24 @@ class SyncNoteInformFlows extends Command
     private function blockingReasonFromStage(string $stage): ?string
     {
         return match ($stage) {
-            'waiting_ads' => 'ADS ainda nao registrada.',
+            'waiting_ads'                 => 'ADS ainda nao registrada.',
             'waiting_fiscalization_entry' => 'Fluxo ainda nao entrou em fiscalizacao.',
-            'rejected_fiscalization' => 'Fiscalizacao rejeitada.',
-            'waiting_measurement_entry' => 'Fluxo ainda nao entrou em medicao/pagamento.',
-            'waiting_measurement_exit' => 'Fluxo entrou em medicao, mas ainda nao foi finalizado.',
-            'waiting_d5' => 'D5/FiveNote ainda nao vinculada.',
-            'inconsistent_payment' => 'Pagamento associado sem Fiscalizacao correspondente.',
-            'waiting_fiscalization' => 'Informe disponivel sem Fiscalizacao atribuida.',
-            'fiscalization' => 'Fiscalizacao atribuida ainda nao finalizada.',
-            'waiting_payment' => 'Fiscalizacao finalizada sem Pagamento associado.',
-            'waiting_d5_dispatch' => 'D5 associada a nota/OV ainda sem producao vinculada.',
-            'waiting_d5_resolution' => 'Pagamento D5 finalizado, mas D5 ainda nao marcada como concluida.',
-            'waiting_d5_fiscalization' => 'D5 vinculada sem Fiscalizacao D5 associada.',
-            'd5_fiscalization' => 'Fiscalizacao D5 associada ainda nao finalizada.',
-            'waiting_d5_payment' => 'Fiscalizacao D5 finalizada sem Pagamento D5 posterior associado.',
-            'releasing_letter' => 'Pagamento D5 associado, aguardando finalizacao/liberacao da carta.',
-            'payment' => 'Pagamento associado ainda nao finalizado.',
-            default => null,
+            'rejected_fiscalization'      => 'Fiscalizacao rejeitada.',
+            'waiting_measurement_entry'   => 'Fluxo ainda nao entrou em medicao/pagamento.',
+            'waiting_measurement_exit'    => 'Fluxo entrou em medicao, mas ainda nao foi finalizado.',
+            'waiting_d5'                  => 'D5/FiveNote ainda nao vinculada.',
+            'inconsistent_payment'        => 'Pagamento associado sem Fiscalizacao correspondente.',
+            'waiting_fiscalization'       => 'Informe disponivel sem Fiscalizacao atribuida.',
+            'fiscalization'               => 'Fiscalizacao atribuida ainda nao finalizada.',
+            'waiting_payment'             => 'Fiscalizacao finalizada sem Pagamento associado.',
+            'waiting_d5_dispatch'         => 'D5 associada a nota/OV ainda sem producao vinculada.',
+            'waiting_d5_resolution'       => 'Pagamento D5 finalizado, mas D5 ainda nao marcada como concluida.',
+            'waiting_d5_fiscalization'    => 'D5 vinculada sem Fiscalizacao D5 associada.',
+            'd5_fiscalization'            => 'Fiscalizacao D5 associada ainda nao finalizada.',
+            'waiting_d5_payment'          => 'Fiscalizacao D5 finalizada sem Pagamento D5 posterior associado.',
+            'releasing_letter'            => 'Pagamento D5 associado, aguardando finalizacao/liberacao da carta.',
+            'payment'                     => 'Pagamento associado ainda nao finalizado.',
+            default                       => null,
         };
     }
 
@@ -1151,35 +1272,33 @@ class SyncNoteInformFlows extends Command
             return [];
         }
 
-        $workReportToNote = $finalRows
-            ->pluck('note_id', 'id')
-            ->map(fn ($noteId) => (int) $noteId)
-            ->all();
+        $workReportIds = $finalRows->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $noteIds = array_values(array_unique(array_values($workReportToNote)));
-
-        $rows = DB::table('orders as o')
+        // A apuracao SAP deve respeitar o vinculo explicito Ordem -> Informe.
+        // Assim, duas D5/informes da mesma nota nao compartilham indevidamente
+        // a confirmacao nem o fimReal das operacoes 0030 e 0050.
+        $rows = DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
             ->leftJoin('operations as op', 'op.order_id', '=', 'o.id')
-            ->whereIn('o.note_id', $noteIds)
+            ->whereIn('owr.work_report_id', $workReportIds)
             ->select([
-                'o.note_id',
+                'owr.work_report_id',
                 'o.id as order_id',
                 DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_30_conf"),
                 DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_50_conf"),
                 DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_30_cnpa"),
                 DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_50_cnpa"),
-                DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN op.fimReal ELSE NULL END) as op30_done_at"),
-                DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN op.fimReal ELSE NULL END) as op50_done_at"),
+                DB::raw("MAX(CASE WHEN op.operacao = '0030' THEN op.fimReal ELSE NULL END) as op30_finished_at"),
+                DB::raw("MAX(CASE WHEN op.operacao = '0050' THEN op.fimReal ELSE NULL END) as op50_finished_at"),
             ])
-            ->groupBy('o.note_id', 'o.id')
+            ->groupBy('owr.work_report_id', 'o.id')
             ->get()
-            ->groupBy('note_id');
+            ->groupBy('work_report_id');
 
         $map = [];
 
-        $noteResult = [];
-        foreach ($rows as $noteId => $items) {
-            $ordersCount = $items->count();
+        foreach ($rows as $workReportId => $items) {
+            $ordersCount  = $items->count();
             $orders30Conf = $items->where('has_30_conf', 1)->count();
             $orders50Conf = $items->where('has_50_conf', 1)->count();
             $orders30Cnpa = $items->where('has_30_cnpa', 1)->count();
@@ -1187,14 +1306,6 @@ class SyncNoteInformFlows extends Command
 
             $op30AllConf = $ordersCount > 0 && $orders30Conf === $ordersCount;
             $op50AllConf = $ordersCount > 0 && $orders50Conf === $ordersCount;
-
-            $op30DoneAt = $op30AllConf
-                ? $items->pluck('op30_done_at')->filter()->max()
-                : null;
-
-            $op50DoneAt = $op50AllConf
-                ? $items->pluck('op50_done_at')->filter()->max()
-                : null;
 
             $op30AnyConf = $orders30Conf > 0;
             $op50AnyConf = $orders50Conf > 0;
@@ -1204,24 +1315,24 @@ class SyncNoteInformFlows extends Command
             $op30Text = $this->resolveBaixaTextStatus($op30AllConf, $op30AnyConf, $op30AnyCnpa);
             $op50Text = $this->resolveBaixaTextStatus($op50AllConf, $op50AnyConf, $op50AnyCnpa);
 
-            $noteResult[(int) $noteId] = [
-                'op30_all_conf' => $op30AllConf,
-                'op30_done_at' => $op30DoneAt,
-                'op30_text' => $op30Text,
-                'op50_all_conf' => $op50AllConf,
-                'op50_done_at' => $op50DoneAt,
-                'op50_text' => $op50Text,
+            $map[(int) $workReportId] = [
+                'op30_all_conf'    => $op30AllConf,
+                'op30_finished_at' => $items->pluck('op30_finished_at')->filter()->max(),
+                'op30_text'        => $op30Text,
+                'op50_all_conf'    => $op50AllConf,
+                'op50_finished_at' => $items->pluck('op50_finished_at')->filter()->max(),
+                'op50_text'        => $op50Text,
             ];
         }
 
-        foreach ($workReportToNote as $workReportId => $noteId) {
-            $map[(int) $workReportId] = $noteResult[$noteId] ?? [
-                'op30_all_conf' => false,
-                'op30_done_at' => null,
-                'op30_text' => 'Nao',
-                'op50_all_conf' => false,
-                'op50_done_at' => null,
-                'op50_text' => 'Nao',
+        foreach ($workReportIds as $workReportId) {
+            $map[$workReportId] ??= [
+                'op30_all_conf'    => false,
+                'op30_finished_at' => null,
+                'op30_text'        => 'Nao',
+                'op50_all_conf'    => false,
+                'op50_finished_at' => null,
+                'op50_text'        => 'Nao',
             ];
         }
 

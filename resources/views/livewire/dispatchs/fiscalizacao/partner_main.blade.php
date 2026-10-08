@@ -545,7 +545,7 @@
                             <th scope="col" class="fw-bold text-center">numPedido</th>
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">Custo</th>
+                            <th scope="col" class="fw-bold text-center">Valor ADS</th>
                             <th scope="col" class="fw-bold text-center">Fiscalizações</th>
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Dias D5</th>
@@ -739,7 +739,12 @@
                                     @endif
                                 </td>
                                 <td class="fw-bold text-center {{ $rowClass }}">
-                                    R$ {{ number_format((float) ($list->orders?->sum('service_cost') ?? 0), 2, ',', '.') }}
+                                    @php($adsAmount = $workForm?->Adsform?->amount ?? $list->Adsform?->amount)
+                                    @if ($adsAmount !== null)
+                                        R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
                                 <td class="fw-light text-center {{ $rowClass }}" tabindex="2"
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"

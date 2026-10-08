@@ -125,9 +125,56 @@ Nenhuma tela, job, controller ou comando pode criar Production de Pagamento dire
 
 - [ ] Revisar manualmente cada grupo apontado pela auditoria.
 - [ ] Definir Production valida e redundante com base em execucao, usuario, datas e logs.
-- [ ] Preparar migration/script de saneamento separado, idempotente e com `--dry-run`.
+- [x] Disponibilizar `sicode:deduplicate-payment-productions` em modo diagnóstico (padrão), com grupos contextualizados, Parcial, Ciclo 1 legado e D5 que exige revisão explícita do ciclo.
+- [x] Exigir, para escrita, `--keep`, todos os `--remove`, `--cycle`, `--reason`, `--apply` e `--yes`; a ferramenta nunca escolhe nem apaga uma Production sozinha.
+- [x] Restringir a remoção a Productions abertas, sem usuário/atribuição/evidência de execução, e gravar o JSON do saneamento em `storage/app/audits/payment-production-deduplication/`.
+- [x] Corrigir o contexto persistente da Production mantida na mesma transação quando a identidade legada for inequívoca.
 - [ ] Nunca apagar ou alterar Production historica automaticamente na primeira execucao.
 - [ ] Reexecutar auditoria e anexar comparativo antes/depois.
+
+#### Uso da ferramenta de saneamento
+
+```bash
+# somente leitura; deve ser executado primeiro
+php artisan sicode:deduplicate-payment-productions
+
+# detalha a D5, seu Informe, os quatro estados do retorno e cada Production;
+# use antes de decidir se o grupo legado é Ciclo 1 ou Ciclo 2
+php artisan sicode:deduplicate-payment-productions --inspect-d5=600
+
+# plano geral somente leitura: sugere --keep apenas quando encontra uma única
+# Production fechada para o mesmo Ciclo 1 e abertas equivalentes
+php artisan sicode:deduplicate-payment-productions --plan
+
+# exemplo: Parcial  — IDs revisados manualmente
+php artisan sicode:deduplicate-payment-productions \
+  --keep=100 --remove=101 --remove=102 --cycle=partial \
+  --reason="Duplicidade criada por duas tentativas simultâneas" --apply --yes
+
+# Caso revisado: mantém a Production finalizada e remove duplicadas abertas
+# que já foram atribuídas. Use somente após conferir a D5 com --inspect-d5.
+php artisan sicode:deduplicate-payment-productions \
+  --keep=4430 --remove-others --cycle=cycle_1 \
+  --force-assigned --move-analysis \
+  --reason="Duplicidade aberta de Ciclo 1 da D5 600" --apply
+
+# Caso em que a Production mantida já possui análise: descarta definitivamente
+# as análises das duplicadas (os IDs descartados ficam no JSON de auditoria).
+php artisan sicode:deduplicate-payment-productions \
+  --keep=4454 --remove-others --cycle=cycle_1 \
+  --force-assigned --force-analysis \
+  --reason="Saneamento de duplicidade da D5 601; análise preservada na 4454" --apply --yes
+```
+
+Para `cycle_1` e `d5_return`, a opção `--cycle` é obrigatória justamente porque
+uma D5 pode fazer parte tanto do Ciclo 1 quanto do retorno. Duplicadas com
+usuário, atribuição, conclusão ou retorno D5 não são removidos silenciosamente.
+Uma análise pode ser transferida para a Production mantida com `--move-analysis`,
+mas somente se ela for a única análise e a Production mantida ainda não possuir
+outra. Quando a análise da Production mantida deve prevalecer, `--force-analysis`
+descarta definitivamente as análises das duplicadas; ela não pode ser combinada
+com `--move-analysis` e os IDs descartados são incluídos no JSON de auditoria.
+Retorno D5 sempre exige saneamento manual documentado.
 
 ## Criterios de aceite
 

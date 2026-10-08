@@ -350,7 +350,16 @@ class DispatchWorkflowService
 
                 $stackProduction = $this->openCompanyStackProduction($note, $service, $company, $explicitWorkReportId, $partialId);
 
-                if (!$stackProduction && !($context['service_key'] === 'payment' && (string) $targetUser->id === (string) $actor->id)) {
+                // A ordem pode permanecer elegível no SAP depois que a produção
+                // anterior foi concluída. Para a Fiscalização, o próprio parceiro
+                // pode abrir a nova atividade para si quando não há mais item na
+                // sua pilha, mantendo a regra de uma produção aberta por contexto.
+                $canCreateOwnSupervisionActivity = $context['service_key'] === 'supervision'
+                    && (string) $targetUser->id === (string) $actor->id;
+
+                if (!$stackProduction
+                    && !$canCreateOwnSupervisionActivity
+                    && !($context['service_key'] === 'payment' && (string) $targetUser->id === (string) $actor->id)) {
                     throw new DispatchException('Nao existe atividade aberta na pilha desta empresa para atribuir.');
                 }
 

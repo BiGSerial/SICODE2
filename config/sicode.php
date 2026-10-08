@@ -45,6 +45,12 @@ return [
     // work_report.dd_mode: required (default) | optional | hidden.
     'rules' => [
         'es' => [
+            'payment' => [
+                'measurement_deadline' => [
+                    'days'          => 15,
+                    'business_days' => false,
+                ],
+            ],
             'dispatch' => [
                 'allows_company_stack'            => true,
                 'partner_can_claim_company_stack' => true,
@@ -99,6 +105,12 @@ return [
         ],
 
         'sp' => [
+            'payment' => [
+                'measurement_deadline' => [
+                    'days'          => 8,
+                    'business_days' => true,
+                ],
+            ],
             'dispatch' => [
                 // SP tem sistema próprio de despacho; DD não é exigida aqui.
                 'allows_company_stack'            => true,
