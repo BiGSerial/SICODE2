@@ -101,6 +101,42 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
         ]);
     }
 
+    public function test_it_keeps_sap_confirmation_and_finished_dates_separate_from_production_dates(): void
+    {
+        $company = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
+        $user    = User::factory()->create(['company_id' => $company->id]);
+        $note    = Note::create(['note' => '4000009922']);
+        $report  = $this->workReport($note, $company, $user, '2026-10-01 08:00:00');
+        $order   = Order::create(['note_id' => $note->id, 'ordem' => '1800000003']);
+        $report->Orders()->attach($order->id);
+
+        Operation::create([
+            'order_id' => $order->id,
+            'operacao' => '0030',
+            'status'   => 'CNPA',
+            'fimReal'  => '2026-09-06 10:00:00',
+        ]);
+        Operation::create([
+            'order_id' => $order->id,
+            'operacao' => '0050',
+            'status'   => 'CONF',
+            'fimReal'  => '2026-09-07 11:00:00',
+        ]);
+
+        $this->artisan('sicode:sync-note-inform-flows', ['--note_id' => $note->id])
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('note_inform_flows', [
+            'flow_key'                          => "work_report:{$report->id}",
+            'fiscalization_closed_in_sap'        => 0,
+            'fiscalization_closed_in_sap_at'     => '2026-09-06 10:00:00',
+            'measurement_closed_in_sap'          => 1,
+            'measurement_closed_in_sap_at'       => '2026-09-07 11:00:00',
+            'measurement_completed_at'           => null,
+            'measurement_exited_at'              => null,
+        ]);
+    }
+
     private function workReport(Note $note, Company $company, User $user, string $informedAt): WorkReport
     {
         return WorkReport::create([

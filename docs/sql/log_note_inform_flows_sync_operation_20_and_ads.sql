@@ -10,3 +10,10 @@ IF COL_LENGTH('dbo.log_note_inform_flows_sync', 'op20_finished_at') IS NULL
 
 IF COL_LENGTH('dbo.log_note_inform_flows_sync', 'ads_amount') IS NULL
     ALTER TABLE dbo.log_note_inform_flows_sync ADD ads_amount DECIMAL(14, 2) NULL;
+
+-- Confirmacao e fimReal SAP da medicao (operacao 0050).
+IF COL_LENGTH('dbo.log_note_inform_flows_sync', 'measurement_closed_in_sap') IS NULL
+    ALTER TABLE dbo.log_note_inform_flows_sync ADD measurement_closed_in_sap BIT NOT NULL CONSTRAINT DF_log_note_inform_flows_sync_measurement_closed_in_sap DEFAULT 0;
+
+IF COL_LENGTH('dbo.log_note_inform_flows_sync', 'measurement_closed_in_sap_at') IS NULL
+    ALTER TABLE dbo.log_note_inform_flows_sync ADD measurement_closed_in_sap_at DATETIME2 NULL;

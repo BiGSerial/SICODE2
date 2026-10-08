@@ -7,8 +7,10 @@ use App\Models\AdsRequest;
 use App\Models\File;
 use App\Models\Company;
 use App\Models\Order;
+use App\Models\Production;
 use App\Models\User;
 use App\Models\WorkReport;
+use App\Models\WorkReportFlowProduction;
 use Illuminate\Support\Facades\DB;
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Livewire\Component;
@@ -23,6 +25,10 @@ class WorkReportEdit extends Component
     public $users = [];
     public $availableOrders = [];
     public $linkedOrders = [];
+    public array $noteProductions = [];
+    public array $productionTargetWorkReportIds = [];
+    public ?int $pendingProductionId = null;
+    public ?int $pendingTargetWorkReportId = null;
     public $deleteAdsFormId = null;
     public ?array $firstValidAdsRequest = null;
     public array $relatedWorkReports = [];
@@ -53,6 +59,8 @@ class WorkReportEdit extends Component
         'getInfoResponse',
         'resetForm' => 'resetForm',
         'confirmDeleteAdsForm' => 'deleteAdsForm',
+        'confirmAssociateProduction' => 'associateProduction',
+        'confirmDetachProduction' => 'detachProduction',
     ];
 
     protected function rules(): array
@@ -116,6 +124,7 @@ class WorkReportEdit extends Component
         $this->refreshOrders();
         $this->refreshFirstValidAdsRequest();
         $this->refreshRelatedWorkReports();
+        $this->refreshNoteProductions();
         $this->refreshWorkReportFiles();
         $this->splitScopeSelection = [];
         $this->selectedFileIds = [];
@@ -296,6 +305,7 @@ class WorkReportEdit extends Component
         $this->splitScopeSelection = [];
         $this->refreshOrders();
         $this->refreshRelatedWorkReports();
+        $this->refreshNoteProductions();
         $this->refreshWorkReportFiles();
 
         $this->dispatchBrowserEvent('swal', [
@@ -476,6 +486,129 @@ class WorkReportEdit extends Component
         $this->availableOrders = $orders->whereNotIn('id', $linkedIds)->values()->all();
     }
 
+    private function refreshNoteProductions(): void
+    {
+        if (!$this->workReport?->note_id) {
+            $this->noteProductions = [];
+            $this->productionTargetWorkReportIds = [];
+
+            return;
+        }
+
+        $this->productionTargetWorkReportIds = [];
+        $this->noteProductions = Production::query()
+            ->with([
+                'service:id,service',
+                'user:id,name',
+                'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current,linked_at',
+            ])
+            ->where('note_id', $this->workReport->note_id)
+            ->where(function ($query): void {
+                $query->whereNull('partial')->orWhere('partial', false);
+            })
+            ->orderByDesc('att_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (Production $production): array {
+                $stage = $this->stageForProduction($production);
+                $currentLink = $production->WorkReportFlowProductions
+                    ->where('stage', $stage)
+                    ->where('is_current', true)
+                    ->sortByDesc('linked_at')
+                    ->first();
+                $isLinkedHere = (int) ($currentLink?->work_report_id ?? 0) === (int) $this->workReport?->id;
+                $this->productionTargetWorkReportIds[(int) $production->id] = $currentLink?->work_report_id
+                    ? (int) $currentLink->work_report_id
+                    : (int) $this->workReport?->id;
+
+                return [
+                    'id'                  => (int) $production->id,
+                    'service'             => (string) ($production->service?->service ?? 'Não informado'),
+                    'user_name'           => (string) ($production->user?->name ?? 'Não informado'),
+                    'stage'               => $stage,
+                    'stage_label'         => $this->stageLabel($stage),
+                    'production_status'   => $this->productionStatusLabel($production),
+                    'production_date'     => $this->formatProductionDate($production->att_at ?? $production->created_at),
+                    'current_report_id'   => $currentLink?->work_report_id ? (int) $currentLink->work_report_id : null,
+                    'is_linked_here'      => $isLinkedHere,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function findEligibleProduction(int $productionId): ?Production
+    {
+        if (!$this->workReport?->note_id || $productionId < 1) {
+            return null;
+        }
+
+        return Production::query()
+            ->with('service')
+            ->whereKey($productionId)
+            ->where('note_id', $this->workReport->note_id)
+            ->where(function ($query): void {
+                $query->whereNull('partial')->orWhere('partial', false);
+            })
+            ->first();
+    }
+
+    private function findEligibleTargetWorkReport(int $workReportId): ?WorkReport
+    {
+        if (!$this->workReport?->note_id || $workReportId < 1) {
+            return null;
+        }
+
+        return WorkReport::query()
+            ->whereKey($workReportId)
+            ->where('note_id', $this->workReport->note_id)
+            ->where('canceled', false)
+            ->first();
+    }
+
+    private function stageForProduction(Production $production): string
+    {
+        $service = \Illuminate\Support\Str::lower(\Illuminate\Support\Str::ascii((string) ($production->service?->service ?? '')));
+
+        return str_contains($service, 'fiscal')
+            ? WorkReportFlowProduction::STAGE_FISCALIZATION
+            : (str_contains($service, 'public') ? WorkReportFlowProduction::STAGE_PUBLICATION : WorkReportFlowProduction::STAGE_PAYMENT);
+    }
+
+    private function stageLabel(string $stage): string
+    {
+        return match ($stage) {
+            WorkReportFlowProduction::STAGE_FISCALIZATION => 'Fiscalização',
+            WorkReportFlowProduction::STAGE_PUBLICATION => 'Publicação',
+            default => 'Medição',
+        };
+    }
+
+    private function productionStatusLabel(Production $production): string
+    {
+        if ($production->confirmed) {
+            return 'Confirmada';
+        }
+
+        if ($production->completed) {
+            return 'Concluída';
+        }
+
+        return $production->att_at ? 'Em andamento' : 'Pendente';
+    }
+
+    private function formatProductionDate($value): string
+    {
+        return $value ? \Carbon\Carbon::parse($value)->format('d/m/Y H:i') : '---';
+    }
+
+    private function refreshWorkReportStatuses(array $workReportIds): void
+    {
+        foreach (collect($workReportIds)->filter()->unique() as $workReportId) {
+            app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)->refresh((int) $workReportId);
+        }
+    }
+
     private function refreshFirstValidAdsRequest(): void
     {
         $this->firstValidAdsRequest = null;
@@ -564,6 +697,170 @@ class WorkReportEdit extends Component
         $this->refreshOrders();
     }
 
+    public function requestAssociateProduction(int $productionId): void
+    {
+        $production = $this->findEligibleProduction($productionId);
+        $targetWorkReportId = (int) ($this->productionTargetWorkReportIds[$productionId] ?? 0);
+        $target = $this->findEligibleTargetWorkReport($targetWorkReportId);
+
+        if (!$production || !$target || !$this->workReport) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon' => 'warning',
+                'title' => 'Selecione um informe válido desta nota',
+                'timer' => 2200,
+            ]);
+
+            return;
+        }
+
+        $this->pendingProductionId = $production->id;
+        $this->pendingTargetWorkReportId = $target->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Associar Production #{$production->id}",
+            'msg'           => "A Production será vinculada ao informe #{$target->id}. Se ela estiver ativa em outro informe, o vínculo ativo anterior será substituído.",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, associar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmAssociateProduction',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production não foi alterada.',
+        ]);
+    }
+
+    public function associateProduction(): void
+    {
+        $production = $this->findEligibleProduction((int) $this->pendingProductionId);
+        $target = $this->findEligibleTargetWorkReport((int) $this->pendingTargetWorkReportId);
+
+        if (!$production || !$target || !$this->workReport) {
+            $this->pendingProductionId = null;
+            $this->pendingTargetWorkReportId = null;
+
+            return;
+        }
+
+        $stage = $this->stageForProduction($production);
+        $previousWorkReportIds = [];
+
+        DB::transaction(function () use ($production, $stage, $target, &$previousWorkReportIds): void {
+            $previousWorkReportIds = WorkReportFlowProduction::query()
+                ->where('production_id', $production->id)
+                ->where('stage', $stage)
+                ->where('is_current', true)
+                ->pluck('work_report_id')
+                ->all();
+
+            WorkReportFlowProduction::query()
+                ->where('production_id', $production->id)
+                ->where('stage', $stage)
+                ->where('is_current', true)
+                ->where('work_report_id', '!=', $target->id)
+                ->update(['is_current' => false]);
+
+            WorkReportFlowProduction::query()
+                ->where('work_report_id', $target->id)
+                ->where('stage', $stage)
+                ->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)
+                ->where('production_id', '!=', $production->id)
+                ->update(['is_current' => false]);
+
+            WorkReportFlowProduction::query()->updateOrCreate(
+                [
+                    'work_report_id' => $target->id,
+                    'production_id'  => $production->id,
+                    'stage'          => $stage,
+                    'final_scope'    => WorkReportFlowProduction::SCOPE_GENERAL,
+                ],
+                [
+                    'is_current' => true,
+                    'linked_at'  => now(),
+                    'linked_by'  => auth()->id(),
+                    'source'     => 'admin_work_report_control',
+                    'metadata'   => ['note_id' => $production->note_id],
+                ],
+            );
+        });
+
+        $this->refreshWorkReportStatuses(array_merge($previousWorkReportIds, [$target->id]));
+        $this->pendingProductionId = null;
+        $this->pendingTargetWorkReportId = null;
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "Production #{$production->id} associada ao informe #{$target->id}",
+            'timer'    => 2400,
+        ]);
+    }
+
+    public function requestDetachProduction(int $productionId): void
+    {
+        $production = $this->findEligibleProduction($productionId);
+
+        if (!$production || !$this->workReport) {
+            return;
+        }
+
+        $linked = WorkReportFlowProduction::query()
+            ->where('work_report_id', $this->workReport->id)
+            ->where('production_id', $production->id)
+            ->where('stage', $this->stageForProduction($production))
+            ->where('is_current', true)
+            ->exists();
+
+        if (!$linked) {
+            return;
+        }
+
+        $this->pendingProductionId = $production->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Desassociar Production #{$production->id}",
+            'msg'           => 'A Production continuará existindo, mas deixará de ser a Production ativa deste informe.',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, desassociar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmDetachProduction',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production foi mantida associada.',
+        ]);
+    }
+
+    public function detachProduction(): void
+    {
+        $production = $this->findEligibleProduction((int) $this->pendingProductionId);
+
+        if (!$production || !$this->workReport) {
+            $this->pendingProductionId = null;
+
+            return;
+        }
+
+        WorkReportFlowProduction::query()
+            ->where('work_report_id', $this->workReport->id)
+            ->where('production_id', $production->id)
+            ->where('stage', $this->stageForProduction($production))
+            ->where('is_current', true)
+            ->update([
+                'is_current'    => false,
+                'reversed_at'   => now(),
+                'reversed_by'   => auth()->id(),
+                'reverse_reason' => 'Desassociado pelo controle administrativo do informe.',
+            ]);
+
+        $this->refreshWorkReportStatuses([$this->workReport->id]);
+        $this->pendingProductionId = null;
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "Production #{$production->id} desassociada",
+            'timer'    => 2200,
+        ]);
+    }
+
     public function save(): void
     {
         if (!$this->workReport) {
@@ -615,6 +912,10 @@ class WorkReportEdit extends Component
         $this->acceptanceMetaJson = null;
         $this->availableOrders = [];
         $this->linkedOrders = [];
+        $this->noteProductions = [];
+        $this->productionTargetWorkReportIds = [];
+        $this->pendingProductionId = null;
+        $this->pendingTargetWorkReportId = null;
         $this->firstValidAdsRequest = null;
         $this->workReportFiles = [];
         $this->selectedFileIds = [];

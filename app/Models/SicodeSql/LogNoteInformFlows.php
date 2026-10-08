@@ -66,6 +66,8 @@ class LogNoteInformFlows extends Model
         'measurement_type',
         'measurement_completed_at',
         'measurement_exited_at',
+        'measurement_closed_in_sap',
+        'measurement_closed_in_sap_at',
         'baixa_measurement_status',
 
         'payment_user_name',
@@ -106,6 +108,7 @@ class LogNoteInformFlows extends Model
         'measurement_entered_at'   => 'datetime',
         'measurement_completed_at' => 'datetime',
         'measurement_exited_at'    => 'datetime',
+        'measurement_closed_in_sap_at' => 'datetime',
 
         'final_cycle_started_at' => 'datetime',
         'final_cycle_ended_at'   => 'datetime',
@@ -120,6 +123,7 @@ class LogNoteInformFlows extends Model
         'ads_is_tacit'                   => 'boolean',
         'fiscalization_closed_in_sicode' => 'boolean',
         'fiscalization_closed_in_sap'    => 'boolean',
+        'measurement_closed_in_sap'      => 'boolean',
         'has_d5'                         => 'boolean',
         'active'                         => 'boolean',
     ];

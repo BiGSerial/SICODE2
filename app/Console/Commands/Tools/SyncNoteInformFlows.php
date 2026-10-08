@@ -202,6 +202,8 @@ class SyncNoteInformFlows extends Command
                     'measurement_type'                  => 'partial',
                     'measurement_completed_at'          => $row->payment_at,
                     'measurement_exited_at'             => $row->complete ? $row->payment_at : null,
+                    'measurement_closed_in_sap'         => false,
+                    'measurement_closed_in_sap_at'      => null,
                     'ads_production_id'                 => null,
                     'fiscalization_production_id'       => null,
                     'measurement_production_id'         => null,
@@ -356,12 +358,12 @@ class SyncNoteInformFlows extends Command
                     $fiscalResolver  = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
                     $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
                     $sap             = $sapByWorkReport[$row->id] ?? [
-                        'op30_all_conf' => false,
-                        'op30_done_at'  => null,
-                        'op30_text'     => 'Nao',
-                        'op50_all_conf' => false,
-                        'op50_done_at'  => null,
-                        'op50_text'     => 'Nao',
+                        'op30_all_conf'     => false,
+                        'op30_finished_at'  => null,
+                        'op30_text'         => 'Nao',
+                        'op50_all_conf'     => false,
+                        'op50_finished_at'  => null,
+                        'op50_text'         => 'Nao',
                     ];
                     $informedAt = $row->informed_at ?? $row->created_at;
                     $flowKey    = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL
@@ -410,7 +412,9 @@ class SyncNoteInformFlows extends Command
                         'fiscalization_closed_in_sicode'    => (bool) ($fiscalProd->confirmed ?? false),
                         'fiscalization_closed_in_sicode_at' => $fiscalProd->confirmed_at ?? null,
                         'fiscalization_closed_in_sap'       => (bool) $sap['op30_all_conf'],
-                        'fiscalization_closed_in_sap_at'    => $sap['op30_done_at'],
+                        // Campos SAP guardam somente a confirmacao e o fimReal
+                        // da operacao, sem misturar datas de Production.
+                        'fiscalization_closed_in_sap_at'    => $sap['op30_finished_at'],
                         'baixa_fiscal_status'               => $sap['op30_text'],
                         'has_d5'                            => $row->five_note_id !== null,
                         'five_note_id'                      => $row->five_note_id,
@@ -418,8 +422,10 @@ class SyncNoteInformFlows extends Command
                         'five_note_created_at'              => $row->five_note_created_at,
                         'measurement_entered_at'            => $paymentProd->att_at ?? null,
                         'measurement_type'                  => 'final',
-                        'measurement_completed_at'          => $paymentProd->completed_at ?? ($sap['op50_all_conf'] ? $sap['op50_done_at'] : null),
-                        'measurement_exited_at'             => $paymentProd->confirmed_at ?? ($sap['op50_all_conf'] ? $sap['op50_done_at'] : null),
+                        'measurement_completed_at'          => $paymentProd->completed_at ?? null,
+                        'measurement_exited_at'             => $paymentProd->confirmed_at ?? null,
+                        'measurement_closed_in_sap'         => (bool) $sap['op50_all_conf'],
+                        'measurement_closed_in_sap_at'      => $sap['op50_finished_at'],
                         'baixa_measurement_status'          => $sap['op50_text'],
                         'ads_production_id'                 => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
                         'fiscalization_production_id'       => $fiscalProd->id ?? null,
@@ -452,6 +458,18 @@ class SyncNoteInformFlows extends Command
                             'operation_20' => [
                                 'order_number' => $op20->order_number ?? null,
                                 'finished_at'  => $op20->finished_at ?? null,
+                            ],
+                            'sap_operations' => [
+                                'fiscalization' => [
+                                    'operation' => '0030',
+                                    'confirmed' => (bool) $sap['op30_all_conf'],
+                                    'finished_at' => $sap['op30_finished_at'],
+                                ],
+                                'measurement' => [
+                                    'operation' => '0050',
+                                    'confirmed' => (bool) $sap['op50_all_conf'],
+                                    'finished_at' => $sap['op50_finished_at'],
+                                ],
                             ],
                         ]),
                         'created_at' => $now,
@@ -592,95 +610,16 @@ class SyncNoteInformFlows extends Command
 
     private function affectedOperationNoteIds(Carbon $since): Collection
     {
-        $candidateNoteIds = DB::table('operations as op')
+        // Uma alteracao em 0030/0050 pode alterar a confirmacao ou fimReal SAP
+        // de qualquer informe da nota. O calculo detalhado ocorre por informe,
+        // usando order_work_report, no sincronismo final.
+        return DB::table('operations as op')
             ->join('orders as o', 'o.id', '=', 'op.order_id')
             ->where('op.updated_at', '>=', $since)
             ->whereIn('op.operacao', ['0030', '0050'])
             ->distinct()
-            ->pluck('o.note_id');
-
-        if ($candidateNoteIds->isEmpty()) {
-            return collect();
-        }
-
-        return $candidateNoteIds
-            ->chunk(1000)
-            ->flatMap(function (Collection $noteIds) {
-                $orderStatuses = DB::table('orders as o')
-                    ->leftJoin('operations as op', 'op.order_id', '=', 'o.id')
-                    ->whereIn('o.note_id', $noteIds->all())
-                    ->select([
-                        'o.note_id',
-                        'o.id as order_id',
-                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_30_conf"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_50_conf"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_30_cnpa"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_50_cnpa"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN op.fimReal END) as op30_done_at"),
-                        DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN op.fimReal END) as op50_done_at"),
-                    ])
-                    ->groupBy('o.note_id', 'o.id')
-                    ->get()
-                    ->groupBy('note_id');
-
-                $stored = DB::table('note_inform_flows')
-                    ->whereIn('note_id', $noteIds->all())
-                    ->where('flow_type', 'final')
-                    ->select([
-                        'note_id',
-                        'fiscalization_closed_in_sap',
-                        'fiscalization_closed_in_sap_at',
-                        'baixa_fiscal_status',
-                        'measurement_completed_at',
-                        'baixa_measurement_status',
-                    ])
-                    ->get()
-                    ->groupBy('note_id');
-
-                return $noteIds->filter(function ($noteId) use ($orderStatuses, $stored) {
-                    $current = $this->summarizeSapStatuses($orderStatuses->get($noteId, collect()));
-                    $flows   = $stored->get($noteId, collect());
-
-                    if ($flows->isEmpty()) {
-                        return true;
-                    }
-
-                    return $flows->contains(function ($flow) use ($current) {
-                        return (bool) $flow->fiscalization_closed_in_sap !== $current['op30_all_conf']
-                            || $this->dateValue($flow->fiscalization_closed_in_sap_at) !== $this->dateValue($current['op30_done_at'])
-                            || (string) $flow->baixa_fiscal_status !== $current['op30_text']
-                            || ($current['op50_done_at']
-                                && $this->dateValue($flow->measurement_completed_at) !== $this->dateValue($current['op50_done_at']))
-                            || (string) $flow->baixa_measurement_status !== $current['op50_text'];
-                    });
-                });
-            })
             ->unique()
             ->values();
-    }
-
-    private function summarizeSapStatuses(Collection $items): array
-    {
-        $ordersCount  = $items->count();
-        $orders30Conf = $items->where('has_30_conf', 1)->count();
-        $orders50Conf = $items->where('has_50_conf', 1)->count();
-        $orders30Cnpa = $items->where('has_30_cnpa', 1)->count();
-        $orders50Cnpa = $items->where('has_50_cnpa', 1)->count();
-        $op30AllConf  = $ordersCount > 0 && $orders30Conf === $ordersCount;
-        $op50AllConf  = $ordersCount > 0 && $orders50Conf === $ordersCount;
-
-        return [
-            'op30_all_conf' => $op30AllConf,
-            'op30_done_at'  => $op30AllConf ? $items->pluck('op30_done_at')->filter()->max() : null,
-            'op30_text'     => $this->resolveBaixaTextStatus($op30AllConf, $orders30Conf > 0, $orders30Cnpa > 0),
-            'op50_done_at'  => $op50AllConf ? $items->pluck('op50_done_at')->filter()->max() : null,
-            'op50_text'     => $this->resolveBaixaTextStatus($op50AllConf, $orders50Conf > 0, $orders50Cnpa > 0),
-        ];
-    }
-
-    private function dateValue($value): ?string
-    {
-        return $value ? Carbon::parse($value)->format('Y-m-d H:i:s') : null;
     }
 
     private function deactivateMissingFlows(?string $flowType): void
@@ -1178,6 +1117,8 @@ class SyncNoteInformFlows extends Command
             'measurement_type',
             'measurement_completed_at',
             'measurement_exited_at',
+            'measurement_closed_in_sap',
+            'measurement_closed_in_sap_at',
             'baixa_measurement_status',
             'ads_production_id',
             'fiscalization_production_id',
@@ -1261,35 +1202,32 @@ class SyncNoteInformFlows extends Command
             return [];
         }
 
-        $workReportToNote = $finalRows
-            ->pluck('note_id', 'id')
-            ->map(fn ($noteId) => (int) $noteId)
-            ->all();
+        $workReportIds = $finalRows->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $noteIds = array_values(array_unique(array_values($workReportToNote)));
-
-        $rows = DB::table('orders as o')
+        // A apuracao SAP deve respeitar o vinculo explicito Ordem -> Informe.
+        // Assim, duas D5/informes da mesma nota nao compartilham indevidamente
+        // a confirmacao nem o fimReal das operacoes 0030 e 0050.
+        $rows = DB::table('order_work_report as owr')
+            ->join('orders as o', 'o.id', '=', 'owr.order_id')
             ->leftJoin('operations as op', 'op.order_id', '=', 'o.id')
-            ->whereIn('o.note_id', $noteIds)
+            ->whereIn('owr.work_report_id', $workReportIds)
             ->select([
-                'o.note_id',
+                'owr.work_report_id',
                 'o.id as order_id',
                 DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_30_conf"),
                 DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN 1 ELSE 0 END) as has_50_conf"),
                 DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_30_cnpa"),
                 DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CNPA%' THEN 1 ELSE 0 END) as has_50_cnpa"),
-                DB::raw("MAX(CASE WHEN op.operacao = '0030' AND op.status LIKE 'CONF%' THEN op.fimReal ELSE NULL END) as op30_done_at"),
-                DB::raw("MAX(CASE WHEN op.operacao = '0050' AND op.status LIKE 'CONF%' THEN op.fimReal ELSE NULL END) as op50_done_at"),
+                DB::raw("MAX(CASE WHEN op.operacao = '0030' THEN op.fimReal ELSE NULL END) as op30_finished_at"),
+                DB::raw("MAX(CASE WHEN op.operacao = '0050' THEN op.fimReal ELSE NULL END) as op50_finished_at"),
             ])
-            ->groupBy('o.note_id', 'o.id')
+            ->groupBy('owr.work_report_id', 'o.id')
             ->get()
-            ->groupBy('note_id');
+            ->groupBy('work_report_id');
 
         $map = [];
 
-        $noteResult = [];
-
-        foreach ($rows as $noteId => $items) {
+        foreach ($rows as $workReportId => $items) {
             $ordersCount  = $items->count();
             $orders30Conf = $items->where('has_30_conf', 1)->count();
             $orders50Conf = $items->where('has_50_conf', 1)->count();
@@ -1299,14 +1237,6 @@ class SyncNoteInformFlows extends Command
             $op30AllConf = $ordersCount > 0 && $orders30Conf === $ordersCount;
             $op50AllConf = $ordersCount > 0 && $orders50Conf === $ordersCount;
 
-            $op30DoneAt = $op30AllConf
-                ? $items->pluck('op30_done_at')->filter()->max()
-                : null;
-
-            $op50DoneAt = $op50AllConf
-                ? $items->pluck('op50_done_at')->filter()->max()
-                : null;
-
             $op30AnyConf = $orders30Conf > 0;
             $op50AnyConf = $orders50Conf > 0;
             $op30AnyCnpa = $orders30Cnpa > 0;
@@ -1315,23 +1245,23 @@ class SyncNoteInformFlows extends Command
             $op30Text = $this->resolveBaixaTextStatus($op30AllConf, $op30AnyConf, $op30AnyCnpa);
             $op50Text = $this->resolveBaixaTextStatus($op50AllConf, $op50AnyConf, $op50AnyCnpa);
 
-            $noteResult[(int) $noteId] = [
+            $map[(int) $workReportId] = [
                 'op30_all_conf' => $op30AllConf,
-                'op30_done_at'  => $op30DoneAt,
+                'op30_finished_at' => $items->pluck('op30_finished_at')->filter()->max(),
                 'op30_text'     => $op30Text,
                 'op50_all_conf' => $op50AllConf,
-                'op50_done_at'  => $op50DoneAt,
+                'op50_finished_at' => $items->pluck('op50_finished_at')->filter()->max(),
                 'op50_text'     => $op50Text,
             ];
         }
 
-        foreach ($workReportToNote as $workReportId => $noteId) {
-            $map[(int) $workReportId] = $noteResult[$noteId] ?? [
+        foreach ($workReportIds as $workReportId) {
+            $map[$workReportId] ??= [
                 'op30_all_conf' => false,
-                'op30_done_at'  => null,
+                'op30_finished_at' => null,
                 'op30_text'     => 'Nao',
                 'op50_all_conf' => false,
-                'op50_done_at'  => null,
+                'op50_finished_at' => null,
                 'op50_text'     => 'Nao',
             ];
         }
