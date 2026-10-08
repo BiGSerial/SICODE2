@@ -49,7 +49,7 @@
 
                         @if ($activeTab === 'details')
                         <div class="row g-3">
-                            <div class="col-12 col-xl-7">
+                            <div class="col-12 col-xl-6">
                                 <div class="fivefx-section mb-3">
                                     <div class="fivefx-section-title">
                                         <div>
@@ -195,7 +195,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-12 col-xl-5">
+                            <div class="col-12 col-xl-6">
                                 <div class="fivefx-section mb-3">
                                     <div class="fivefx-section-title">
                                         <div>
@@ -303,7 +303,7 @@
                                     </div>
                                     @if (!empty($noteProductions))
                                         <div class="table-responsive">
-                                            <table class="table table-sm table-dark table-hover border-secondary mb-0">
+                                            <table class="table table-sm table-dark table-hover border-secondary mb-0 fivefx-production-table">
                                                 <thead>
                                                     <tr class="text-secondary">
                                                         <th>ID</th>
@@ -662,8 +662,16 @@
         }
 
         .finish-five .fivefx-dialog {
-            width: min(96vw, 1480px);
-            max-width: 1480px;
+            width: min(98vw, 1840px);
+            max-width: 1840px;
+        }
+
+        .finish-five .fivefx-production-table {
+            min-width: 900px;
+        }
+
+        .finish-five .fivefx-production-table select {
+            min-width: 210px;
         }
 
         .finish-five .fivefx-card {
