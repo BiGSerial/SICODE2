@@ -739,7 +739,9 @@
                                     @endif
                                 </td>
                                 <td class="fw-bold text-center {{ $rowClass }}">
-                                    @php($adsAmount = $workForm?->Adsform?->amount ?? $list->Adsform?->amount)
+                                    @php
+                                        $adsAmount = $workForm?->Adsform?->amount ?? $list->Adsform?->amount;
+                                    @endphp
                                     @if ($adsAmount !== null)
                                         R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
                                     @else
