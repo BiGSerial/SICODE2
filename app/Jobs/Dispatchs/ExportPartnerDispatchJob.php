@@ -7,12 +7,13 @@ use App\Exports\Dispatchs\{DispatchPaymentMain, DispatchPaymentStack, Publicatio
 use App\Exports\Services\analisesExport;
 use App\Models\{Service, User};
 use App\Notifications\SystemNotification;
+use App\Services\Files\ExportStorage;
 use App\Support\Notifications\UserNotificationData;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
-use Illuminate\Support\Facades\{Auth, Log, Storage};
+use Illuminate\Support\Facades\{Auth, Log, URL};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -38,7 +39,7 @@ class ExportPartnerDispatchJob implements ShouldQueue
         $this->userId  = $userId;
     }
 
-    public function handle(): void
+    public function handle(ExportStorage $exports): void
     {
         $user           = User::find($this->userId);
         $service        = Service::where('uuid', $this->payload['service_uuid'] ?? null)->with('Status')->firstOrFail();
@@ -118,19 +119,22 @@ class ExportPartnerDispatchJob implements ShouldQueue
 
         $export   = $this->resolveExport($kind, $isStack, $query, $selected, $service, $selectedWorkReportIds, $selectedPartialIds);
         $filePath = 'exports/' . now()->format('YmdHis') . '_partner_' . $kind . '_' . ($isStack ? 'stack' : 'main') . '.xlsx';
-        Storage::disk('local')->makeDirectory('exports');
+        $exports->ensureDirectory();
 
         try {
-            Excel::store($export, $filePath, 'local');
+            Excel::store($export, $filePath, $exports->diskName());
 
-            if (!Storage::disk('local')->exists($filePath)) {
+            if (!$exports->exists($filePath)) {
                 throw new \RuntimeException('Arquivo de exportação não foi criado.');
             }
 
             $user?->notify(new SystemNotification(new UserNotificationData(
                 title: 'Exportação concluída!',
                 message: 'O export da tela de despacho está pronto para download.',
-                link: Storage::url($filePath),
+                link: URL::temporarySignedRoute('exports.download', now()->addDays(7), [
+                    'user' => $user->id,
+                    'file' => basename($filePath),
+                ]),
                 status: 'download',
                 extras: ['toast' => true],
             )));
@@ -141,8 +145,8 @@ class ExportPartnerDispatchJob implements ShouldQueue
                 'error'   => $exception->getMessage(),
             ]);
 
-            if (Storage::disk('local')->exists($filePath)) {
-                Storage::disk('local')->delete($filePath);
+            if ($exports->exists($filePath)) {
+                $exports->delete($filePath);
             }
 
             throw $exception;
