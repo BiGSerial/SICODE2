@@ -24,6 +24,7 @@ class QualityWorkflowService
         private readonly QualityActivities $activities,
         private readonly BudgetOrderRules $budget,
         private readonly SurveyInformRules $survey,
+        private readonly QualityChecklistService $checklists,
     ) {
     }
 
@@ -292,6 +293,10 @@ class QualityWorkflowService
             $isN1 = $process->state === QualityProcessState::AWAITING_N1_REVIEW;
             $isN1 ? $this->assertN1($actor, $process) : $this->assertN2($actor, $process);
 
+            if ($isN1) {
+                $this->checklists->assertNoOpenSentIssues($process);
+            }
+
             $stage = $this->currentStage($process, [QualityStageKind::REVIEW]);
             $this->recordStageFiles($stage, $process, $actor, $fileIds);
             $stage->update(['status' => QualityStageStatus::APPROVED, 'approved_by' => $actor->id, 'approved_at' => now(), 'completed_at' => now(), 'observation' => $observation]);
@@ -362,6 +367,10 @@ class QualityWorkflowService
             $stage = $this->currentStage($process, [QualityStageKind::REVIEW]);
             $this->recordStageFiles($stage, $process, $actor, $fileIds);
             $stage->update(['status' => QualityStageStatus::REJECTED, 'completed_at' => now(), 'observation' => $observation]);
+
+            if ($isN1) {
+                $this->checklists->markSentForStage($process, $stage);
+            }
 
             $from      = $process->state;
             $role      = $isN1 ? 'N1' : 'N2';

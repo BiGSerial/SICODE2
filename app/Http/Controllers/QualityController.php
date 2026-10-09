@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enum\{QualityProcessState, QualityProcessStatus, QualityStageType};
 use App\Jobs\Quality\ExportN1DispatchListJob;
-use App\Models\{Company, Note, QualityMember, QualityPoolRule, QualityProcess, QualityRejectionCategory, QualitySetting, Service, User};
-use App\Services\Quality\{QualityActivities, QualityBoard, QualityBulkSearch, QualityDesignerResolver, QualityEligibilityService, QualityNoteFilters, QualityQueues, QualityRoles, QualityWorkflowException, QualityWorkflowService};
+use App\Models\{Company, Note, QualityChecklistEntry, QualityChecklistItem, QualityChecklistRun, QualityChecklistTemplate, QualityMember, QualityPoolRule, QualityProcess, QualityRejectionCategory, QualitySetting, Service, User};
+use App\Services\Quality\{QualityActivities, QualityBoard, QualityBulkSearch, QualityChecklistService, QualityDesignerResolver, QualityEligibilityService, QualityNoteFilters, QualityQueues, QualityRoles, QualityWorkflowException, QualityWorkflowService};
 use Illuminate\Http\{RedirectResponse, Request};
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -339,6 +339,62 @@ class QualityController extends Controller
         ]);
     }
 
+    public function checklist(Request $request, QualityProcess $qualityProcess, QualityChecklistService $checklists)
+    {
+        $this->authorize('view', $qualityProcess);
+        $process    = $qualityProcess->load(['Note', 'Company', 'CurrentDesigner', 'Stages']);
+        $user       = $request->user();
+        $stage      = $process->Stages->last();
+        $canEdit    = $process->state === QualityProcessState::AWAITING_N1_REVIEW && $this->roles->canActAsN1($user, $process);
+        $canResolve = $process->state === QualityProcessState::AWAITING_DESIGNER && $stage && (string) $stage->assigned_user_id === (string) $user->id;
+        $run        = null;
+
+        if ($canEdit) {
+            $run = $checklists->openN1Run($process, $stage, $user);
+        } elseif ($canResolve) {
+            $run = $checklists->latestForDesigner($process);
+        } else {
+            $run = QualityChecklistRun::query()->where('quality_process_id', $process->id)->with('Entries')->latest('id')->first();
+        }
+
+        if (!$run) {
+            return view('quality.checklist-pending', compact('process'));
+        }
+        $resolutions = $canEdit ? QualityChecklistEntry::query()->where('status', 'RESOLVED')->whereHas('Run', fn ($q) => $q->where('quality_process_id', $process->id))->with('ResolvedBy')->orderBy('updated_at')->get() : collect();
+
+        $showQaSeverity = !$canEdit && $this->roles->canActAsN2($user, $process) && session('quality.active_level') !== 'N1';
+
+        return view('quality.checklist', compact('process', 'run', 'canEdit', 'canResolve', 'resolutions', 'showQaSeverity'));
+    }
+
+    public function saveChecklist(Request $request, QualityProcess $qualityProcess, QualityChecklistRun $run, QualityChecklistService $checklists)
+    {
+        $this->authorize('actAsN1', $qualityProcess);
+        abort_unless($qualityProcess->state === QualityProcessState::AWAITING_N1_REVIEW && $run->quality_process_id === $qualityProcess->id, 403);
+        $data = $request->validate(['entries' => ['required', 'array'], 'entries.*.status' => ['required', 'in:PENDING,OK,NA,ISSUE'], 'entries.*.observation' => ['nullable', 'string', 'max:3000']]);
+
+        return $this->run(fn () => $checklists->save($run, $data['entries']), 'Checklist salvo.');
+    }
+
+    public function resolveChecklist(Request $request, QualityProcess $qualityProcess, QualityChecklistEntry $entry, QualityChecklistService $checklists)
+    {
+        $this->authorize('view', $qualityProcess);
+        $stage = $qualityProcess->Stages()->where('kind', \App\Enum\QualityStageKind::EXECUTION->value)->whereIn('status', ['PENDING', 'IN_PROGRESS'])->latest('id')->first();
+        abort_unless($qualityProcess->state === QualityProcessState::AWAITING_DESIGNER && $stage && (string) $stage->assigned_user_id === (string) $request->user()->id && $entry->Run->quality_process_id === $qualityProcess->id, 403);
+        $data = $request->validate(['resolution' => ['required', 'string', 'max:3000']]);
+
+        return $this->run(fn () => $checklists->resolve($entry, $request->user(), $data['resolution']), 'Correção registrada para validação do N1.');
+    }
+
+    public function validateChecklist(Request $request, QualityProcess $qualityProcess, QualityChecklistEntry $entry, QualityChecklistService $checklists)
+    {
+        $this->authorize('actAsN1', $qualityProcess);
+        abort_unless($qualityProcess->state === QualityProcessState::AWAITING_N1_REVIEW && $entry->Run->quality_process_id === $qualityProcess->id, 403);
+        $data = $request->validate(['accepted' => ['required', 'boolean']]);
+
+        return $this->run(fn () => $checklists->validate($entry, $request->user(), (bool) $data['accepted']), $data['accepted'] ? 'Correção validada.' : 'Apontamento reaberto.');
+    }
+
     // ------------------------------------------------------------------ Ações do fluxo
 
     public function dispatch(Request $request, QualityEligibilityService $eligibility, QualityNoteFilters $filters, QualityBulkSearch $bulk)
@@ -427,6 +483,41 @@ class QualityController extends Controller
             ->orderBy('sort_order')->orderBy('name')->get();
 
         return view('quality.categories', ['categories' => $categories, 'parents' => QualityRejectionCategory::query()->parents()->orderBy('name')->get()]);
+    }
+
+    public function checklists()
+    {
+        $template = QualityChecklistTemplate::query()->with(['Sections.Items'])->where('active', true)->latest('id')->firstOrFail();
+
+        return view('quality.checklists', compact('template'));
+    }
+
+    public function storeChecklistItem(Request $request)
+    {
+        $data = $this->validateChecklistItem($request);
+        QualityChecklistItem::create($data);
+
+        return back()->with('success', 'Item do checklist cadastrado.');
+    }
+
+    public function updateChecklistItem(Request $request, QualityChecklistItem $item)
+    {
+        $item->update($this->validateChecklistItem($request));
+
+        return back()->with('success', 'Item do checklist atualizado.');
+    }
+
+    private function validateChecklistItem(Request $request): array
+    {
+        return array_merge($request->validate([
+            'quality_checklist_section_id' => ['required', 'integer', 'exists:quality_checklist_sections,id'],
+            'code'                         => ['required', 'string', 'max:20'],
+            'question'                     => ['required', 'string', 'max:5000'],
+            'severity_sp'                  => ['required', 'in:Grave,Atenção'],
+            'severity_qa'                  => ['required', 'in:Grave,Atenção'],
+            'sort_order'                   => ['nullable', 'integer', 'min:0'],
+            'active'                       => ['nullable', 'boolean'],
+        ], $this->messages()), ['active' => $request->boolean('active'), 'sort_order' => (int) $request->input('sort_order', 0)]);
     }
 
     public function storeCategory(Request $request)

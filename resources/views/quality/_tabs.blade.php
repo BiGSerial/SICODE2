@@ -5,6 +5,7 @@
     $fileCount  = \App\Models\File::query()->where('note_id', $process->note_id)->count();
     $chatCount  = $process->Events->where('type', \App\Enum\QualityEventType::COMMENT_ADDED)->count();
     $roundCards = $process->Stages->groupBy(fn ($stage) => $stage->type->value . '-' . $stage->round_number);
+    $checklistCount = $process->ChecklistRuns()->count();
 @endphp
 <div class="table-card" id="q-tabs" style="overflow: visible;">
     <ul class="nav q-tabs" role="tablist">
@@ -13,6 +14,7 @@
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#q-arquivos" type="button"><i class="ri-gallery-line"></i> Arquivos <span class="badge text-bg-secondary">{{ $fileCount }}</span></button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#q-rodadas" type="button"><i class="ri-loop-right-line"></i> Rodadas <span class="badge text-bg-secondary">{{ $roundCards->count() }}</span></button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#q-rej" type="button"><i class="ri-arrow-go-back-line"></i> Rejeições @if ($process->Rejections->count())<span class="badge text-bg-danger">{{ $process->Rejections->count() }}</span>@endif</button></li>
+        <li class="nav-item"><a class="nav-link" href="{{ route('quality.process.checklist', $process) }}"><i class="ri-list-check-2"></i> Checklist @if($checklistCount)<span class="badge text-bg-primary">{{ $checklistCount }}</span>@endif</a></li>
     </ul>
 
     <div class="tab-content p-3">

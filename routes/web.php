@@ -397,6 +397,10 @@ Route::prefix('/quality')->controller(\App\Http\Controllers\QualityController::c
     Route::get('/queue', 'queue')->middleware('can:quality.access')->name('queue');
     Route::get('/history', 'history')->middleware('can:quality.access')->name('history');
     Route::get('/processes/{qualityProcess}', 'show')->name('process');
+    Route::get('/processes/{qualityProcess}/checklist', 'checklist')->name('process.checklist');
+    Route::put('/processes/{qualityProcess}/checklist/{run}', 'saveChecklist')->name('process.checklist.save');
+    Route::post('/processes/{qualityProcess}/checklist/entries/{entry}/resolver', 'resolveChecklist')->name('process.checklist.resolve');
+    Route::post('/processes/{qualityProcess}/checklist/entries/{entry}/validar', 'validateChecklist')->name('process.checklist.validate');
     Route::get('/processes/{qualityProcess}/arquivos.zip', [\App\Http\Controllers\QualityFilesController::class, 'zip'])->name('process.files.zip');
     Route::get('/processes/{qualityProcess}/arquivos/{file}', [\App\Http\Controllers\QualityFilesController::class, 'download'])->name('process.file');
     Route::get('/processes/{qualityProcess}/arquivos/{file}/visualizar', [\App\Http\Controllers\QualityFilesController::class, 'preview'])->name('process.file.preview');
@@ -410,6 +414,9 @@ Route::prefix('/quality')->controller(\App\Http\Controllers\QualityController::c
     Route::post('/categories', 'storeCategory')->middleware('can:quality.manage')->name('categories.store');
     Route::put('/categories/{category}', 'updateCategory')->middleware('can:quality.manage')->name('categories.update');
     Route::patch('/categories/{category}/toggle', 'toggleCategory')->middleware('can:quality.manage')->name('categories.toggle');
+    Route::get('/checklists', 'checklists')->middleware('can:quality.manage')->name('checklists');
+    Route::post('/checklists/items', 'storeChecklistItem')->middleware('can:quality.manage')->name('checklists.items.store');
+    Route::put('/checklists/items/{item}', 'updateChecklistItem')->middleware('can:quality.manage')->name('checklists.items.update');
     Route::get('/settings', 'settings')->middleware('can:quality.manage')->name('settings');
     Route::put('/settings', 'saveSettings')->middleware('can:quality.manage')->name('settings.save');
     Route::post('/settings/rules', 'storeRule')->middleware('can:quality.manage')->name('rules.store');
