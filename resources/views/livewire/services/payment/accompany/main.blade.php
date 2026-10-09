@@ -53,6 +53,10 @@
             white-space: normal;
         }
 
+        .payment-accompany-page .payment-pep-cell {
+            min-width: 132px;
+        }
+
         .payment-accompany-page .payment-date-cell {
             min-width: 124px;
         }
@@ -193,7 +197,8 @@
                                     <th class="align-middle text-center">OP40</th>
                                     <th class="align-middle text-center">OP50</th>
                                     <th class="align-middle text-center">CentroTrab</th>
-                                    <th class="align-middle text-center">Empresa</th>
+                                    <th class="align-middle text-center">Usuário / Empresa</th>
+                                    <th class="align-middle text-center">PEP</th>
                                     <th class="align-middle text-center">Município</th>
                                     <th class="align-middle text-center">Data Execução</th>
                                     <th class="align-middle text-center">Data Informe</th>
@@ -402,12 +407,23 @@
                                     </td>
 
 
-                                    <td class="payment-company-cell fw-light text-center">
-                                        @if ($workForm)
-                                            {{ $workForm->Company->name ?? '---' }}
-                                        @elseif ($partial)
-                                            {{ $partial->Company->name }}
-                                        @endif
+                                    <td class="payment-company-cell text-center">
+                                        <div class="fw-semibold">{{ $list->User?->name ?? '---' }}</div>
+                                        <small class="text-muted">
+                                            {{ $workForm ? $workForm->Company?->name : ($partial?->Company?->name ?? '---') }}
+                                        </small>
+                                    </td>
+
+                                    <td class="payment-pep-cell text-center">
+                                        @forelse ($orders as $order)
+                                            @php $available = $order->Pep?->disponivel; @endphp
+                                            <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
+                                                @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
+                                                {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
+                                            </p>
+                                        @empty
+                                            <p class="my-0 py-0">---</p>
+                                        @endforelse
                                     </td>
 
                                     <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
@@ -508,7 +524,7 @@
                                 <tr>
                                     <td colspan="4"></td>
                                     <td class="fw-bold">R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                                    <td colspan="11"></td>
+                                    <td colspan="12"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -618,6 +634,7 @@
     @livewire('partner.show.show-partial-info', key('show_partial_info'))
     @livewire('production.return.reject-inform-partial', key('reject_inform_partial'))
     @livewire('components.d5.d5details', key('d5_details'))
+    @livewire('components.pep.financial-modal', key('payment-accompany-pep-financial-modal'))
 
 
     {{-- <div wire:init="checkOpen"></div> --}}

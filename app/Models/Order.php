@@ -44,6 +44,11 @@ class Order extends Model
         return $this->belongsTo(Note::class);
     }
 
+    public function Pep()
+    {
+        return $this->belongsTo(Pep::class, 'pep', 'objeto');
+    }
+
     public function Operations()
     {
         return $this->hasMany(Operation::class);

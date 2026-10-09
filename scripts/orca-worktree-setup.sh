@@ -22,6 +22,7 @@ if [ ! -f "$ENV_ORCA" ]; then
     cat > "$ENV_ORCA" <<EOT
 COMPOSE_PROJECT_NAME=orca-${slug}-${hash}
 ORCA_HTTP_PORT=${port}
+ORCA_SESSION_COOKIE=sicode_orca_${hash}_session
 DOCKER_UID=$(id -u)
 DOCKER_GID=$(id -g)
 EOT
@@ -30,6 +31,15 @@ fi
 
 # shellcheck disable=SC1090
 set -a; source "$ENV_ORCA"; set +a
+
+# Todas as portas localhost compartilham cookies no navegador, mas cada worktree
+# mantém sessões em arquivos próprios. Um cookie exclusivo evita receber o ID da
+# sessão de outra stack e o consequente erro 419 / "This page has expired".
+if [ -z "${ORCA_SESSION_COOKIE:-}" ]; then
+    worktree_hash="$(printf '%s' "$ROOT" | sha1sum | cut -c1-6)"
+    ORCA_SESSION_COOKIE="sicode_orca_${worktree_hash}_session"
+    printf '\nORCA_SESSION_COOKIE=%s\n' "$ORCA_SESSION_COOKIE" >> "$ENV_ORCA"
+fi
 
 # .env da aplicação: reaproveita credenciais de DB do .env de desenvolvimento, se existir.
 if [ ! -f .env ]; then
@@ -44,6 +54,12 @@ for var in APP_URL ASSET_URL; do
         printf '\n%s=http://localhost:%s\n' "$var" "$ORCA_HTTP_PORT" >> .env
     fi
 done
+
+if grep -q '^SESSION_COOKIE=' .env; then
+    sed -i "s#^SESSION_COOKIE=.*#SESSION_COOKIE=${ORCA_SESSION_COOKIE}#" .env
+else
+    printf '\nSESSION_COOKIE=%s\n' "$ORCA_SESSION_COOKIE" >> .env
+fi
 
 mkdir -p storage/framework/{views,cache,sessions} storage/logs bootstrap/cache
 
