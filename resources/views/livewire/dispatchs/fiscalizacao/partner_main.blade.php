@@ -750,16 +750,15 @@
                                     data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Levantamentos Realizados"
                                     data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
-                                    @if ($count = $this->hasPublicationCount($list))
-                                        @php
-                                            if ($production && $production->User) {
-                                                $name = dispatchMainShortName($production->User->name);
-                                            } else {
-                                                $name = 'Desconhecido';
-                                            }
-                                        @endphp
-                                        <span class="badge text-bg-dark">{{ $count }}</span><br>
-                                        {{ $name }}
+                                    @php
+                                        $publicationCount = $this->hasPublicationCount($list);
+                                        $publicationUserName = $production?->User
+                                            ? dispatchMainShortName($production->User->name)
+                                            : 'Desconhecido';
+                                    @endphp
+                                    @if ($publicationCount)
+                                        <span class="badge text-bg-dark">{{ $publicationCount }}</span><br>
+                                        {{ $publicationUserName }}
                                     @else
                                         --
                                     @endif
