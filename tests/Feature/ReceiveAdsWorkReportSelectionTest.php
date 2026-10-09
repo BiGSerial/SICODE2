@@ -3,13 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Livewire\Partner\Forms\ReceiveAdsfomrm;
-use App\Models\Adsform;
-use App\Models\Company;
-use App\Models\File;
-use App\Models\Note;
-use App\Models\Order;
-use App\Models\User;
-use App\Models\WorkReport;
+use App\Models\{Adsform, Company, File, Note, Order, User, WorkReport};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -35,12 +29,12 @@ class ReceiveAdsWorkReportSelectionTest extends TestCase
         [$user, $note, $networkReport, $connectionReport] = $this->noteWithTwoWorkReports();
 
         Adsform::create([
-            'work_report_id' => $connectionReport->id,
-            'note_id' => $note->id,
-            'user_id' => $user->id,
-            'amount' => 0,
-            'partial' => false,
-            'tacit' => true,
+            'work_report_id'     => $connectionReport->id,
+            'note_id'            => $note->id,
+            'user_id'            => $user->id,
+            'amount'             => 0,
+            'partial'            => false,
+            'tacit'              => true,
             'tacit_delivered_at' => now(),
         ]);
 
@@ -59,12 +53,12 @@ class ReceiveAdsWorkReportSelectionTest extends TestCase
         [$user, $note, $networkReport, $connectionReport] = $this->noteWithTwoWorkReports();
 
         Adsform::create([
-            'work_report_id' => $connectionReport->id,
-            'note_id' => $note->id,
-            'user_id' => $user->id,
-            'amount' => 0,
-            'partial' => false,
-            'tacit' => true,
+            'work_report_id'     => $connectionReport->id,
+            'note_id'            => $note->id,
+            'user_id'            => $user->id,
+            'amount'             => 0,
+            'partial'            => false,
+            'tacit'              => true,
             'tacit_delivered_at' => null,
         ]);
 
@@ -84,19 +78,19 @@ class ReceiveAdsWorkReportSelectionTest extends TestCase
 
         $adsForm = Adsform::create([
             'work_report_id' => $connectionReport->id,
-            'note_id' => $note->id,
-            'user_id' => $user->id,
-            'amount' => 0,
-            'partial' => false,
-            'tacit' => false,
+            'note_id'        => $note->id,
+            'user_id'        => $user->id,
+            'amount'         => 0,
+            'partial'        => false,
+            'tacit'          => false,
         ]);
 
         $file = File::create([
-            'note_id' => $note->id,
-            'user_id' => $user->id,
+            'note_id'   => $note->id,
+            'user_id'   => $user->id,
             'file_name' => 'ads-final.xlsx',
-            'path' => '/tmp/ads-final.xlsx',
-            'ext' => 'xlsx',
+            'path'      => '/tmp/ads-final.xlsx',
+            'ext'       => 'xlsx',
         ]);
 
         $adsForm->Files()->attach($file->id);
@@ -111,41 +105,60 @@ class ReceiveAdsWorkReportSelectionTest extends TestCase
             ->assertSet('workReportOptions.1.block', false);
     }
 
+    public function test_only_informed_work_reports_are_available_for_ads_delivery(): void
+    {
+        [$user, $note, $networkReport] = $this->noteWithTwoWorkReports();
+
+        $pendingReport = WorkReport::create([
+            'note_id'               => $note->id,
+            'company_id'            => $networkReport->company_id,
+            'user_id'               => $user->id,
+            'date'                  => '2026-08-03',
+            'selected_final_scopes' => ['network'],
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(ReceiveAdsfomrm::class)
+            ->call('getNote', $note->id)
+            ->assertCount('workReportOptions', 2)
+            ->assertDontSee('Informe #' . $pendingReport->id);
+    }
+
     private function noteWithTwoWorkReports(): array
     {
         config(['sicode.ruleset' => 'sp']);
 
-        $user = User::factory()->create();
+        $user    = User::factory()->create();
         $company = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
-        $note = Note::create(['note' => '4001951584', 'type_note' => 1]);
+        $note    = Note::create(['note' => '4001951584', 'type_note' => 1]);
 
         $networkOrder = Order::create([
-            'note_id' => $note->id,
-            'ordem' => '170000000001',
+            'note_id'    => $note->id,
+            'ordem'      => '170000000001',
             'statusSist' => 'ABER',
         ]);
         $connectionOrder = Order::create([
-            'note_id' => $note->id,
-            'ordem' => '180000000001',
+            'note_id'    => $note->id,
+            'ordem'      => '180000000001',
             'statusSist' => 'ABER',
         ]);
 
         $networkReport = WorkReport::create([
-            'note_id' => $note->id,
-            'company_id' => $company->id,
-            'user_id' => $user->id,
-            'date' => '2026-08-01',
-            'informed_at' => '2026-08-01 08:00:00',
+            'note_id'               => $note->id,
+            'company_id'            => $company->id,
+            'user_id'               => $user->id,
+            'date'                  => '2026-08-01',
+            'informed_at'           => '2026-08-01 08:00:00',
             'selected_final_scopes' => ['network'],
         ]);
         $networkReport->Orders()->sync([$networkOrder->id]);
 
         $connectionReport = WorkReport::create([
-            'note_id' => $note->id,
-            'company_id' => $company->id,
-            'user_id' => $user->id,
-            'date' => '2026-08-02',
-            'informed_at' => '2026-08-02 08:00:00',
+            'note_id'               => $note->id,
+            'company_id'            => $company->id,
+            'user_id'               => $user->id,
+            'date'                  => '2026-08-02',
+            'informed_at'           => '2026-08-02 08:00:00',
             'selected_final_scopes' => ['connection'],
         ]);
         $connectionReport->Orders()->sync([$connectionOrder->id]);

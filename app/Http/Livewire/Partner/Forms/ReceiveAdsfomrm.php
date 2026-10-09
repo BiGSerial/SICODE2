@@ -41,9 +41,13 @@ class ReceiveAdsfomrm extends Component
     public bool $hasAsbuiltFile = false;
 
     public $lateDeliveryAfterSubmit = null;
+
     public $selectedWorkReportId = null;
+
     public $pendingAdsNoteId = null;
+
     public $pendingAdsWorkReportId = null;
+
     public array $workReportOptions = [];
 
     // Serialized state for $theAds
@@ -161,7 +165,7 @@ class ReceiveAdsfomrm extends Component
 
     public function requestAdsWorkReport(int $noteId, int $workReportId): void
     {
-        $note = Note::with(['Orders', 'OldAds', 'TempAdsInfos'])->find($noteId);
+        $note   = Note::with(['Orders', 'OldAds', 'TempAdsInfos'])->find($noteId);
         $option = collect($this->adsDeliveryOptionsForNote($note))
             ->firstWhere('id', (string) $workReportId);
 
@@ -169,19 +173,19 @@ class ReceiveAdsfomrm extends Component
             return;
         }
 
-        $this->pendingAdsNoteId = $noteId;
+        $this->pendingAdsNoteId       = $noteId;
         $this->pendingAdsWorkReportId = $workReportId;
-        $scopeHtml = collect($option['scopes'])->map(fn ($scope) => '<span class="badge ' . $scope['class'] . '">' . $scope['label'] . '</span>')->implode(' ');
+        $scopeHtml                    = collect($option['scopes'])->map(fn ($scope) => '<span class="badge ' . $scope['class'] . '">' . $scope['label'] . '</span>')->implode(' ');
         $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Confirmar informe para entrega da ADS',
-            'msg' => "A ADS será vinculada ao Informe #{$workReportId} da nota {$note->note}.<br><br><strong>Escopo:</strong><br>{$scopeHtml}<br><br>Deseja continuar?",
-            'icon' => 'question',
-            'btnOktxt' => 'Sim, carregar',
-            'btnCanceltxt' => 'Cancelar',
-            'action' => 'confirmAdsWorkReport',
-            'chave' => "{$noteId}:{$workReportId}",
+            'title'         => 'Confirmar informe para entrega da ADS',
+            'msg'           => "A ADS será vinculada ao Informe #{$workReportId} da nota {$note->note}.<br><br><strong>Escopo:</strong><br>{$scopeHtml}<br><br>Deseja continuar?",
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, carregar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmAdsWorkReport',
+            'chave'         => "{$noteId}:{$workReportId}",
             'cancel_titulo' => 'Seleção cancelada',
-            'cancel_msg' => 'Escolha outro informe disponível.',
+            'cancel_msg'    => 'Escolha outro informe disponível.',
         ]);
     }
 
@@ -190,7 +194,7 @@ class ReceiveAdsfomrm extends Component
         if (is_string($key) && $key !== '') {
             [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
         } else {
-            $noteId = $this->pendingAdsNoteId;
+            $noteId       = $this->pendingAdsNoteId;
             $workReportId = $this->pendingAdsWorkReportId;
         }
 
@@ -198,14 +202,14 @@ class ReceiveAdsfomrm extends Component
             return;
         }
 
-        $this->pendingAdsNoteId = null;
+        $this->pendingAdsNoteId       = null;
         $this->pendingAdsWorkReportId = null;
         $this->getNote((int) $noteId, (int) $workReportId);
     }
 
     public function getNote($id, $workReportId = null)
     {
-        $this->note = Note::with(['Orders', 'OldAds', 'TempAdsInfos'])->find($id);
+        $this->note              = Note::with(['Orders', 'OldAds', 'TempAdsInfos'])->find($id);
         $this->workReportOptions = $this->adsDeliveryOptionsForNote($this->note);
 
         $eligibleIds = collect($this->workReportOptions)
@@ -214,7 +218,7 @@ class ReceiveAdsfomrm extends Component
             ->map(fn ($id) => (string) $id)
             ->values();
 
-        $requestedId = $workReportId ? (string) $workReportId : null;
+        $requestedId                = $workReportId ? (string) $workReportId : null;
         $this->selectedWorkReportId = $requestedId && $eligibleIds->contains($requestedId)
             ? $requestedId
             : ($eligibleIds->count() === 1 ? $eligibleIds->first() : null);
@@ -553,37 +557,30 @@ class ReceiveAdsfomrm extends Component
             return [];
         }
 
-        $hasOldAds = $note->relationLoaded('OldAds')
-            ? $note->OldAds->isNotEmpty()
-            : $note->OldAds()->exists();
-
         return $this->activeWorkReportsForNote($note)
-            ->map(function (WorkReport $workReport) use ($hasOldAds) {
+            ->map(function (WorkReport $workReport) {
                 $reason = '';
-                $block = false;
+                $block  = false;
 
-                if ($hasOldAds) {
-                    $block = true;
-                    $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
-                } elseif ((bool) $workReport->rejected) {
-                    $block = true;
+                if ((bool) $workReport->rejected) {
+                    $block  = true;
                     $reason = 'INFORME REJEITADO';
                 } elseif (!$this->isEligibleByOrderStatusRule($workReport)) {
-                    $block = true;
+                    $block  = true;
                     $reason = 'SEM ORDEM ATIVA NO INFORME';
                 } elseif ($this->isAdsClosed($workReport)) {
-                    $block = true;
+                    $block  = true;
                     $reason = 'DOCUMENTAÇÃO JÁ ENTREGUE';
                 }
 
                 return [
-                    'id' => (string) $workReport->id,
-                    'block' => $block,
-                    'reason' => $reason,
-                    'company' => $workReport->Company?->name ?? '---',
-                    'date' => optional($workReport->informed_at ?? $workReport->created_at)->format('d/m/Y H:i') ?? '---',
-                    'orders' => $this->ordersForWorkReport($workReport)->pluck('ordem')->filter()->values()->all(),
-                    'scopes' => $workReport->finalScopeBadges(),
+                    'id'                   => (string) $workReport->id,
+                    'block'                => $block,
+                    'reason'               => $reason,
+                    'company'              => $workReport->Company?->name ?? '---',
+                    'date'                 => optional($workReport->informed_at ?? $workReport->created_at)->format('d/m/Y H:i') ?? '---',
+                    'orders'               => $this->ordersForWorkReport($workReport)->pluck('ordem')->filter()->values()->all(),
+                    'scopes'               => $workReport->finalScopeBadges(),
                     'rejected_reason_html' => $this->buildRejectedWorkFormReasonHtml($workReport),
                 ];
             })
@@ -600,6 +597,7 @@ class ReceiveAdsfomrm extends Component
                 $query->where('canceled', false)
                     ->orWhereNull('canceled');
             })
+            ->whereNotNull('informed_at')
             ->orderByRaw('COALESCE(informed_at, created_at) DESC')
             ->orderByDesc('id')
             ->get();
@@ -618,19 +616,6 @@ class ReceiveAdsfomrm extends Component
     private function isAdsClosed(?WorkReport $workReport = null): bool
     {
         $workReport = $workReport ?: $this->selectedWorkReport();
-        $note = $this->note ?: $workReport?->Note;
-
-        if (!$note) {
-            return false;
-        }
-
-        $hasOldAds = $note->relationLoaded('OldAds')
-            ? $note->OldAds->isNotEmpty()
-            : $note->OldAds()->exists();
-
-        if ($hasOldAds) {
-            return true;
-        }
 
         if (!$workReport?->Adsform) {
             return false;
@@ -648,7 +633,7 @@ class ReceiveAdsfomrm extends Component
     private function buildConfirmMessage(): string
     {
         $workReport = $this->selectedWorkReport();
-        $scopes = $workReport
+        $scopes     = $workReport
             ? collect($workReport->finalScopeBadges())->pluck('label')->implode(', ')
             : '---';
 
@@ -744,13 +729,13 @@ class ReceiveAdsfomrm extends Component
 
     public function render()
     {
-        $selectedWorkReport = $this->selectedWorkReport();
+        $selectedWorkReport       = $this->selectedWorkReport();
         $selectedWorkReportOrders = $selectedWorkReport
             ? $this->ordersForWorkReport($selectedWorkReport)
             : ($this->note?->Orders ?? collect());
 
         return view("livewire.partner.forms.receive-adsfomrm", [
-            "myAds" => $this->theAds,
+            "myAds"                    => $this->theAds,
             "selectedWorkReportOrders" => $selectedWorkReportOrders,
         ]);
     }

@@ -1,7 +1,3 @@
-@php
-    use App\Custom\Partial\Rules;
-@endphp
-
 <div class="modern-partial-report">
     <x-show-loading />
 
@@ -52,6 +48,7 @@
                             <thead>
                                 <tr>
                                     <th>Nota</th>
+                                    <th>Escopo</th>
                                     <th>Ordens</th>
                                     <th class="text-center">Qtd. Parcial</th>
                                     <th class="text-center">Bloqueado</th>
@@ -61,64 +58,38 @@
                             </thead>
                             <tbody>
                                 @foreach ($notes as $tNote)
-                                    @php
-                                        $block = false;
-                                        $reason = '';
-
-                                        if ($tNote->WorkForm) {
-                                            $block = true;
-                                            $reason = 'CONCLUÍDO';
-                                        }
-
-                                        if ($status = Rules::checkBlock($tNote->id)) {
-                                            $block = true;
-
-                                            if ($status == 1) {
-                                                $reason = 'EM APROVAÇÃO';
-                                            } elseif ($status == 2) {
-                                                $reason = 'TEMPO MÍNIMO';
-                                            } elseif ($status == 3) {
-                                                if (!$tNote->partials->last()->supervision) {
-                                                    $reason = 'AGUARDANDO FISCALIZAÇÃO';
-                                                } else {
-                                                    $reason = 'AGUARDANDO PAGAMENTO';
-                                                }
-                                            }
-                                        }
-                                    @endphp
-                                    <tr class="align-middle" wire:key="{{ $tNote->id }}">
-                                        <td class="fw-bold">{{ $tNote->note }}</td>
-                                        <td>
-                                            @if ($tNote->orders->count())
-                                                @foreach ($tNote->orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
+                                    @foreach ($this->scopeRows($tNote) as $scopeRow)
+                                        <tr class="align-middle" wire:key="{{ $tNote->id }}-{{ $scopeRow['scope'] }}">
+                                            <td class="fw-bold">{{ $tNote->note }}</td>
+                                            <td><span class="badge text-bg-secondary">{{ $scopeRow['label'] }}</span></td>
+                                            <td>
+                                                @forelse ($scopeRow['orders'] as $order)
                                                     <span class="badge bg-light text-dark border mb-1">{{ $order->ordem }}</span>
-                                                @endforeach
-                                            @endif
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-dark">{{ $tNote->partials->count() }}</span>
-                                        </td>
-                                        <td class="text-center">
-                                            @if ($block)
-                                                <span class="badge bg-danger-subtle text-danger-emphasis">SIM</span>
-                                            @else
-                                                <span class="badge bg-success-subtle text-success-emphasis">NÃO</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <span class="fw-semibold">{{ $reason ?: 'LIBERADO' }}</span>
-                                        </td>
-                                        <td class="text-center">
-                                            @if (!$block)
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    wire:click.prevent="getNote({{ $tNote->id }})">
-                                                    Selecionar
-                                                </button>
-                                            @endif
-                                        </td>
-                                    </tr>
+                                                @empty
+                                                    <span class="text-muted">---</span>
+                                                @endforelse
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-dark">{{ $scopeRow['partial_count'] }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                @if ($scopeRow['blocked'])
+                                                    <span class="badge bg-danger-subtle text-danger-emphasis">SIM</span>
+                                                @else
+                                                    <span class="badge bg-success-subtle text-success-emphasis">NÃO</span>
+                                                @endif
+                                            </td>
+                                            <td><span class="fw-semibold">{{ $scopeRow['reason'] ?: 'Liberado para informe parcial' }}</span></td>
+                                            <td class="text-center">
+                                                @if (!$scopeRow['blocked'])
+                                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        wire:click.prevent="getNote({{ $tNote->id }}, '{{ $scopeRow['scope'] }}')">
+                                                        Selecionar
+                                                    </button>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
                                 @endforeach
                             </tbody>
                         </table>
@@ -133,7 +104,7 @@
                     <div>
                         <span class="badge badge-soft">Envio parcial</span>
                         <h4 class="fw-bold mt-2 mb-1">Informe parcial de obra</h4>
-                        <p class="text-muted mb-0">Revise os dados da obra e processe a ADS parcial.</p>
+                        <p class="text-muted mb-0">Escopo selecionado: <strong>{{ $this->scopeLabel }}</strong>.</p>
                     </div>
                     <div class="text-md-end">
                         <div class="small text-muted">Nota selecionada</div>
@@ -160,9 +131,7 @@
                                     <td class="text-end fw-bold">Ordens</td>
                                     <td>
                                         @if ($note->orders->count())
-                                            @foreach ($note->orders->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
+                                            @foreach ($note->orders->whereIn('id', $orders) as $order)
                                                 <span class="badge bg-light text-dark border mb-1">{{ $order->ordem }}</span>
                                             @endforeach
                                         @endif

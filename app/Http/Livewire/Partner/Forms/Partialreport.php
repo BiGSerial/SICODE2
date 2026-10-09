@@ -3,8 +3,9 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Custom\Partial\{Ads};
-use App\Models\{File, Note, Order, Partial};
+use App\Models\{File, Note, Partial};
 use App\Services\Files\FileUploadService;
+use App\Services\Partner\PartialScopeAvailabilityService;
 use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
 
@@ -24,6 +25,8 @@ class Partialreport extends Component
     public $file;
 
     public $orders = [];
+
+    public string $scope = 'general';
 
     public $process = false;
 
@@ -58,12 +61,12 @@ class Partialreport extends Component
 
     public function mount()
     {
-        $this->search = '';
-        $this->note   = null;
-        $this->notes  = null;
-        $this->file   = null;
+        $this->search     = '';
+        $this->note       = null;
+        $this->notes      = null;
+        $this->file       = null;
         $this->theAdsPath = null;
-        $this->theAds = null;
+        $this->theAds     = null;
 
         $user              = Auth()->User();
         $this->responsible = $user ? mb_convert_case(mb_strtolower($user->name, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
@@ -83,34 +86,63 @@ class Partialreport extends Component
 
         if ($this->file) {
             $this->theAdsPath = $this->file->getRealPath();
-            $this->theAds = new Ads($this->theAdsPath);
+            $this->theAds     = new Ads($this->theAdsPath);
         } else {
             $this->theAdsPath = null;
-            $this->theAds = null;
+            $this->theAds     = null;
         }
     }
 
     public function search()
     {
 
-        $this->note  = null;
-        $this->notes = null;
-        $this->file  = null;
+        $this->note       = null;
+        $this->notes      = null;
+        $this->file       = null;
         $this->theAdsPath = null;
-        $this->theAds = null;
-        $this->process = false;
+        $this->theAds     = null;
+        $this->process    = false;
 
         $this->notes = Note::where(function ($q) {
             $q->where('note', trim($this->search))
             ->orWhereRelation('Orders', 'ordem', trim($this->search));
         })
-        ->with('Orders', 'WorkForm', 'Partials')->get();
+        ->with('Orders', 'WorkForms.Note', 'WorkForms.Orders', 'Partials.Orders')->get();
     }
 
-    public function getNote($id)
+    public function getNote($id, string $scope = 'general')
     {
-        $this->note     = Note::find($id);
+        $note = Note::with('Orders', 'WorkForms.Note', 'WorkForms.Orders', 'Partials.Orders')->find($id);
+
+        $scopeData = $note
+            ? app(PartialScopeAvailabilityService::class)->findAvailableScope($note, $scope)
+            : null;
+
+        if (!$scopeData) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ESCOPO INDISPONÍVEL',
+                'html'     => 'Este escopo não está mais disponível para informe parcial. Atualize a busca e tente novamente.',
+            ]);
+
+            return;
+        }
+
+        $this->note     = $note;
+        $this->scope    = $scope;
+        $this->orders   = collect($scopeData['open_orders'])->pluck('id')->all();
         $this->hasFiles = false;
+    }
+
+    public function scopeRows(Note $note): array
+    {
+        return app(PartialScopeAvailabilityService::class)->for($note);
+    }
+
+    public function getScopeLabelProperty(): string
+    {
+        return app(PartialScopeAvailabilityService::class)->label($this->scope);
     }
 
     public function processFile()
@@ -228,7 +260,20 @@ class Partialreport extends Component
     {
         $this->authorizePartnerAccess('partial_reports.create');
 
-        $newName = "ADS_IPARC_" . $this->note->note;
+        $scopeData = app(PartialScopeAvailabilityService::class)->findAvailableScope($this->note, $this->scope);
+
+        if (!$scopeData) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'ESCOPO INDISPONÍVEL',
+                'html'     => 'O escopo selecionado foi concluído ou recebeu outra parcial enquanto este formulário estava aberto.',
+            ]);
+
+            return;
+        }
+
+        $newName = 'ADS_IPARC_' . $this->note->note . '_' . mb_strtoupper($this->scope);
         $newName = $newName . "_N" . str_pad((File::where('file_name', 'like', $newName . "%")->count() + 1), 3, '0', STR_PAD_LEFT);
 
         DB::beginTransaction();
@@ -238,6 +283,7 @@ class Partialreport extends Component
             $partial = Partial::create(
                 [
                     'note_id'     => $this->note->id,
+                    'scope'       => $this->scope,
                     'company_id'  => Auth()->User()->company_id,
                     'user_id'     => Auth()->User()->id,
                     'observation' => $this->observation,
@@ -248,16 +294,8 @@ class Partialreport extends Component
 
             if ($partial) {
 
-                $orders = Order::where('note_id', $this->note->id)->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
-
-                // Order::where(
-                //     'note_id',
-                //     $this->note->id
-                // )->where('statusSist', 'Not Like', "ENT%")->where('statusSist', 'Not Like', "ENC%")->get();
-                if ($orders) {
-                    foreach ($orders as $order) {
-                        $partial->Orders()->attach($order->id);
-                    }
+                foreach ($scopeData['open_orders'] as $order) {
+                    $partial->Orders()->attach($order->id);
                 }
 
                 try {
@@ -327,6 +365,8 @@ class Partialreport extends Component
         $this->notes       = null;
         $this->search      = '';
         $this->observation = '';
+        $this->scope       = 'general';
+        $this->orders      = [];
         $this->hasFiles    = false;
 
         $user              = Auth()->User();

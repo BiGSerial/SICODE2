@@ -289,6 +289,7 @@ class WorkReportEdit extends Component
                 $attributes = $sourceAttributes;
                 unset($attributes['id'], $attributes['created_at'], $attributes['updated_at']);
                 $attributes['selected_final_scopes'] = [$scope];
+                $attributes['acceptance_accepted']   = (bool) ($attributes['acceptance_accepted'] ?? false);
                 $attributes['date']                  = $now->toDateString();
                 $attributes['informed_at']           = $now;
 
@@ -514,11 +515,21 @@ class WorkReportEdit extends Component
             return;
         }
 
-        $orders    = Order::where('note_id', $this->workReport->note_id)->orderBy('ordem')->get();
-        $linkedIds = $this->workReport->Orders->pluck('id')->all();
+        $orders               = Order::where('note_id', $this->workReport->note_id)->orderBy('ordem')->get();
+        $linkedIds            = $this->workReport->Orders->pluck('id')->all();
+        $linkedToOtherReports = DB::table('order_work_report as owr')
+            ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
+            ->where('wr.note_id', $this->workReport->note_id)
+            ->where('owr.work_report_id', '!=', $this->workReport->id)
+            ->pluck('owr.order_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         $this->linkedOrders    = $orders->whereIn('id', $linkedIds)->values()->all();
-        $this->availableOrders = $orders->whereNotIn('id', $linkedIds)->values()->all();
+        $this->availableOrders = $orders
+            ->whereNotIn('id', [...$linkedIds, ...$linkedToOtherReports])
+            ->values()
+            ->all();
     }
 
     private function refreshNoteProductions(): void
@@ -717,9 +728,60 @@ class WorkReportEdit extends Component
             return;
         }
 
-        $this->workReport->Orders()->syncWithoutDetaching([$orderId]);
+        $this->workReport->loadMissing('Note', 'Orders');
+        $order = Order::query()
+            ->whereKey($orderId)
+            ->where('note_id', $this->workReport->note_id)
+            ->first();
+
+        if (!$order) {
+            return;
+        }
+
+        $alreadyLinked = DB::table('order_work_report')
+            ->where('order_id', $order->id)
+            ->where('work_report_id', '!=', $this->workReport->id)
+            ->exists();
+
+        if ($alreadyLinked) {
+            $this->refreshOrders();
+
+            return;
+        }
+
+        $scope = collect(app(WorkReportFinalScopeResolver::class)->resolve(
+            $this->workReport->Note?->type_note,
+            collect([$order]),
+        ))->value('scope');
+        $currentScopes = $this->workReport->selectedFinalScopesOrNull();
+
+        // A edição não cria informes: a tela de Informe de Obra é a fonte de
+        // verdade. Depois de separado, cada escopo deve permanecer em seu
+        // próprio informe final.
+        if ($currentScopes && $scope && !in_array($scope, $currentScopes, true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Ordem pertence a outro escopo',
+                'html'     => "A ordem {$order->ordem} pertence ao escopo {$this->scopeLabel((string) $scope)}. Vincule-a ao informe final desse escopo; esta tela não cria nem mescla informes.",
+                'timer'    => 4000,
+            ]);
+
+            return;
+        }
+
+        $this->workReport->Orders()->syncWithoutDetaching([$order->id]);
         $this->workReport->load('Orders');
         $this->refreshOrders();
+    }
+
+    private function scopeLabel(string $scope): string
+    {
+        return match ($scope) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligação',
+            default                                        => 'Geral',
+        };
     }
 
     public function removeOrder(int $orderId): void

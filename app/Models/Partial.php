@@ -12,6 +12,7 @@ class Partial extends Model
 
     protected $fillable = [
         'note_id',
+        'scope',
         'company_id',
         'user_id',
         'observation',
@@ -42,6 +43,15 @@ class Partial extends Model
         'supervision'    => 'boolean',
         'value'          => 'decimal:2',
     ];
+
+    public function scopeLabel(): string
+    {
+        return match ($this->scope) {
+            'network'    => 'Rede',
+            'connection' => 'Ligação',
+            default      => 'Geral',
+        };
+    }
 
     public function Note()
     {
