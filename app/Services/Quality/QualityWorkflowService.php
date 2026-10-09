@@ -121,6 +121,44 @@ class QualityWorkflowService
     }
 
     /**
+     * O usuário habilitado assume uma obra ainda aguardando despacho do N1.
+     *
+     * A transição e os registros são os mesmos do despacho N1 → usuário (Production, Stage e estado),
+     * mas a auditoria preserva a verdade: foi o próprio usuário que assumiu a obra da fila N1.
+     */
+    public function claimN1Dispatch(QualityProcess $process, User $actor): QualityProcess
+    {
+        return DB::transaction(function () use ($process, $actor) {
+            $process = $this->lock($process);
+            $this->assertState($process, [QualityProcessState::AWAITING_N1_DISPATCH]);
+
+            if (!$this->designers->isEligible($process, $actor->id)) {
+                throw new QualityWorkflowException('Seu usuário não está habilitado na atividade configurada para este ciclo.');
+            }
+
+            $from    = $process->state;
+            $current = $this->currentStage($process, [QualityStageKind::DISPATCH]);
+            $current->update([
+                'status'       => QualityStageStatus::COMPLETED,
+                'completed_at' => now(),
+                'observation'  => 'Assumida pelo usuário no controle de produção.',
+            ]);
+
+            $production = $this->productionForProcess($process, $actor, $actor);
+            $process->update(['production_id' => $production->id, 'current_designer_id' => $actor->id]);
+            $stage = $this->createStage($process, QualityStageLevel::DRAWING, QualityStageKind::EXECUTION, assigned: $actor->id, dispatchedBy: $actor);
+            $this->move($process, QualityProcessState::AWAITING_DESIGNER);
+            $this->event($process, QualityEventType::N1_QUEUE_CLAIMED, $actor, 'USUÁRIO', $stage, from: $from, observation: 'Assumida pelo usuário no controle de produção.', target: $actor->id, payload: [
+                'production_id'         => $production->id,
+                'claimed_from_n1_queue' => true,
+            ]);
+            $this->timeline($production, $actor, "Qualidade: atividade assumida da fila N1 por {$actor->name} ({$process->phase->short()}, rodada {$process->round_number}).");
+
+            return $process->fresh();
+        });
+    }
+
+    /**
      * Despacho EM MASSA do N1: cada processo é tratado em sua própria transação (um erro não derruba os demais).
      * Serve ao despacho inicial e ao reencaminhamento de devoluções do N2 (mesmo usuário ou outro).
      *

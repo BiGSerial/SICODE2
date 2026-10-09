@@ -54,6 +54,27 @@
             font-weight: 600;
             color: var(--sp-muted);
         }
+
+        .quality-search-modal { border-radius: 1rem; box-shadow: 0 24px 64px rgba(15, 23, 42, .28); }
+        .quality-search-modal__header { padding: 1.5rem; color: #fff; background: linear-gradient(115deg, #0f172a, #0f766e); }
+        .quality-search-modal__header p { color: rgba(255, 255, 255, .78); font-size: .86rem; }
+        .quality-search-modal__icon { display: grid; place-items: center; flex: 0 0 auto; width: 2.75rem; height: 2.75rem; border-radius: .75rem; background: rgba(255, 255, 255, .16); font-size: 1.4rem; }
+        .quality-search-modal__notice { display: flex; gap: .65rem; align-items: flex-start; padding: .8rem 1rem; border: 1px solid #bfdbfe; border-radius: .65rem; color: #1e3a8a; background: #eff6ff; font-size: .83rem; }
+        .quality-search-modal__notice i { margin-top: .1rem; font-size: 1rem; }
+        .quality-search-modal__search { padding: 1rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
+        .quality-search-modal__search textarea { min-height: 7rem; resize: vertical; border-color: #cbd5e1; }
+        .quality-search-modal .modal-body { overflow-y: auto; }
+        .quality-search-modal__results { max-height: 20rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: .7rem; }
+        .quality-search-modal__table { margin: 0; font-size: .8rem; }
+        .quality-search-modal__table thead { position: sticky; top: 0; z-index: 1; background: #f1f5f9; }
+        .quality-search-modal__table th { padding: .55rem .65rem; color: #475569; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+        .quality-search-modal__table td { padding: .52rem .65rem; vertical-align: middle; }
+        .quality-search-modal__row--available { cursor: pointer; }
+        .quality-search-modal__row--available:hover { background: #f0fdfa; }
+        .quality-search-modal__row--available:has(input:checked) { background: #ccfbf1; }
+        .quality-search-modal__row--blocked { color: #64748b; background: #f8fafc; }
+        .quality-search-modal__reason { display: block; max-width: 19rem; font-size: .72rem; line-height: 1.25; }
+        .quality-search-modal__footer { flex: 0 0 auto; background: #f8fafc; box-shadow: 0 -5px 18px rgba(15, 23, 42, .06); }
     </style>
 
     <div class="container-fluid">
@@ -80,7 +101,7 @@
         <div class="col-12 col-lg-5">
             <div class="filter-card d-flex flex-column justify-content-end">
                 <h6>Acoes</h6>
-                <button class="btn btn-success" wire:click.prevent="exportToExcel" wire:loading.attr="disabled"
+                <button type="button" class="btn btn-success" wire:click="exportToExcel" wire:loading.attr="disabled"
                     wire:target="exportToExcel">
                     <span wire:loading.remove wire:target="exportToExcel">
                         <i class="ri-file-excel-2-line me-2"></i>Exportar
@@ -89,6 +110,60 @@
                         <i class="ri-loader-4-line me-2"></i>Enfileirando...
                     </span>
                 </button>
+                @if ($exportFeedback)
+                    <div class="alert alert-{{ $exportFailed ? 'danger' : 'success' }} py-2 px-3 mt-2 mb-0 small" role="status">
+                        {{ $exportFeedback }}
+                    </div>
+                @endif
+                <button type="button" class="btn btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#quality_available_modal">
+                    <i class="ri-shield-check-line me-2"></i>Buscar na Qualidade
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div wire:ignore.self class="modal fade" id="quality_available_modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content quality-search-modal border-0 overflow-hidden">
+                <div class="modal-header quality-search-modal__header border-0 align-items-start">
+                    <div class="d-flex gap-3">
+                        <span class="quality-search-modal__icon"><i class="ri-shield-check-line"></i></span>
+                        <div>
+                            <h5 class="modal-title mb-1">Obras disponíveis na Qualidade</h5>
+                            <p class="mb-0">Consulte as notas da fila de despacho N1 e assuma apenas as que deseja executar.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white mt-1" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="quality-search-modal__notice mb-4"><i class="ri-information-line"></i><span>Ao assumir, a obra sai da fila N1 e entra na sua produção com todos os registros de Qualidade. Itens já atribuídos ficam bloqueados.</span></div>
+                    <div class="quality-search-modal__search">
+                        <label for="quality_notes" class="form-label fw-semibold mb-2">Notas ou pedidos</label>
+                        <textarea id="quality_notes" wire:model.defer="qualityNotes" class="form-control" rows="4" placeholder="Cole uma nota por linha, ou separe por vírgula e ponto e vírgula"></textarea>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3"><span class="small text-muted"><i class="ri-file-list-3-line me-1"></i>Busca em massa de até 2.000 itens</span><button type="button" class="btn btn-primary px-4" wire:click="searchQualityAvailable" wire:loading.attr="disabled" wire:target="searchQualityAvailable"><span wire:loading.remove wire:target="searchQualityAvailable"><i class="ri-search-line me-1"></i> Buscar na fila</span><span wire:loading wire:target="searchQualityAvailable"><i class="ri-loader-4-line me-1"></i> Consultando...</span></button></div>
+                    </div>
+
+                    @if (count($qualityCandidates))
+                        <div class="d-flex justify-content-between align-items-center mt-4 mb-2"><h6 class="mb-0 fw-bold">Resultado da consulta</h6><span class="badge rounded-pill text-bg-light">{{ collect($qualityCandidates)->where('available', true)->count() }} disponível(is)</span></div>
+                        <div class="quality-search-modal__results table-responsive">
+                            <table class="table table-sm align-middle quality-search-modal__table">
+                                <thead><tr><th class="text-center" style="width: 42px">Selecionar</th><th>Nota</th><th>Material</th><th>Empresa</th><th>Status / motivo</th></tr></thead>
+                                <tbody>
+                                    @foreach ($qualityCandidates as $item)
+                                        <tr class="{{ $item['available'] ? 'quality-search-modal__row--available' : 'quality-search-modal__row--blocked' }}" wire:key="quality-candidate-{{ $loop->index }}">
+                                            <td class="text-center"><input class="form-check-input" type="checkbox" value="{{ $item['process_id'] }}" wire:model="selectedQualityProcessIds" @disabled(!$item['available']) aria-label="Selecionar nota {{ $item['note'] }}"></td>
+                                            <td class="fw-semibold text-nowrap">{{ $item['note'] }}</td>
+                                            <td>{{ $item['material'] ?: '—' }}</td>
+                                            <td class="text-nowrap">{{ $item['company'] ?: '—' }}</td>
+                                            <td><span class="badge {{ $item['available'] ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $item['available'] ? 'Disponível' : 'Bloqueada' }}</span>@if (!$item['available'])<span class="quality-search-modal__reason text-danger mt-1"><i class="ri-lock-line me-1"></i>{{ $item['reason'] }}</span>@endif</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+                <div class="modal-footer quality-search-modal__footer border-0 px-4 py-3"><button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-success px-4" wire:click="claimQualityAvailable" wire:loading.attr="disabled" wire:target="claimQualityAvailable"><span wire:loading.remove wire:target="claimQualityAvailable"><i class="ri-user-add-line me-1"></i> Importar selecionadas</span><span wire:loading wire:target="claimQualityAvailable"><i class="ri-loader-4-line me-1"></i> Importando...</span></button></div>
             </div>
         </div>
     </div>

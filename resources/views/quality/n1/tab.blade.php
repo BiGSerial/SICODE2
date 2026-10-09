@@ -28,6 +28,9 @@
                 <div class="small text-muted">{{ $companies->pluck('name')->implode(' · ') }}</div>
             </div>
             <div class="d-flex gap-2">
+                @if ($tab === 'despachar')
+                    <form method="post" action="{{ route('quality.n1.export-dispatch') }}">@csrf<button class="btn btn-outline-success btn-dash"><i class="ri-file-excel-2-line"></i> Exportar fila</button></form>
+                @endif
                 @if ($tab === 'analisar' && $firstRow)
                     <a href="{{ route('quality.process', $firstRow) }}" class="btn btn-primary btn-dash"><i class="ri-play-circle-line"></i> Analisar a mais antiga</a>
                 @endif
@@ -88,17 +91,20 @@
             @if ($bulkTab && $rows->count())
                 <div class="px-3 pt-2 d-flex align-items-center gap-2"><input type="checkbox" class="form-check-input" id="wk-check-page" aria-label="Marcar todas da página"><label for="wk-check-page" class="small text-muted mb-0">Marcar todas desta página</label></div>
             @endif
-            <div class="ob-list">
+            <div class="table-responsive"><table class="table wk-table mb-0">
+                @include('quality._obra-table-head', ['selectable' => $bulkTab, 'showCompany' => $multiCompany])
+                <tbody>
                 @forelse ($rows as $process)
                     @include('quality._obra', ['process' => $process, 'selectable' => $bulkTab, 'showCompany' => $multiCompany, 'showReason' => $tab === 'devolvidos', 'who' => $tab === 'despachar' ? 'n1' : ($tab === 'no-n2' ? 'n2' : 'auto'), 'primary' => $isActionTab, 'ageLabel' => ['despachar' => 'na fila do N1', 'com-usuarios' => 'com o usuário', 'analisar' => 'aguardando você', 'devolvidos' => 'desde a devolução', 'no-n2' => 'parado no N2'][$tab], 'action' => ['despachar' => 'Abrir', 'com-usuarios' => 'Abrir', 'analisar' => 'Analisar', 'devolvidos' => 'Responder', 'no-n2' => 'Abrir'][$tab]])
                 @empty
-                    <div class="ob-empty">
+                    <tr><td colspan="{{ ($bulkTab ? 1 : 0) + ($multiCompany ? 1 : 0) + 6 }}" class="ob-empty">
                         <i class="ri-inbox-2-line"></i>
                         <div class="fw-bold">Nada nesta etapa{{ request()->hasAny(['q', 'company_id', 'designer_id', 'rubrica', 'lexp']) ? ' com esses filtros' : '' }}.</div>
                         <div class="small">@if ($tab === 'despachar')Quando a Gestão enviar obras à sua empresa, elas aparecem aqui.@elseif ($tab === 'analisar')Quando um usuário finalizar uma obra, ela cai aqui para a sua análise.@else Acompanhe as outras etapas acima.@endif</div>
-                    </div>
+                    </td></tr>
                 @endforelse
-            </div>
+                </tbody>
+            </table></div>
             <div class="p-3">{{ $rows->links('quality._pagination') }}</div>
 
             {{-- Ação em massa (aparece ao marcar) --}}
@@ -167,7 +173,7 @@
             const clear = document.getElementById('wk-clear');
             if (clear) clear.addEventListener('click', () => { rows().forEach(r => r.checked = false); allFlag.value = '0'; refresh(); });
 
-            form.addEventListener('change', e => { if (e.target.classList.contains('wk-row')) { e.target.closest('.ob').classList.toggle('is-selected', e.target.checked); } if (e.target.id === 'wk-check-page') { rows().forEach(r => r.closest('.ob').classList.toggle('is-selected', r.checked)); } });
+            form.addEventListener('change', e => { if (e.target.classList.contains('wk-row')) { e.target.closest('.wk-table-row').classList.toggle('is-selected', e.target.checked); } if (e.target.id === 'wk-check-page') { rows().forEach(r => r.closest('.wk-table-row').classList.toggle('is-selected', r.checked)); } });
             refresh();
         })();
     </script>

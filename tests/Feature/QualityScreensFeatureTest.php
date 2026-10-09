@@ -391,6 +391,19 @@ class QualityScreensFeatureTest extends TestCase
             ->assertDispatchedBrowserEvent('swal');
     }
 
+    public function test_levantamento_bulk_search_finds_numeric_notes_in_the_n1_dispatch_queue(): void
+    {
+        $service = Service::where('service', 'Levantamento')->firstOrFail();
+
+        // O usuário de produção não precisa ser N1: ele assume a obra disponível na fila N1.
+        Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Services\Levantamento\Main::class, ['service' => $service->uuid])
+            ->set('qualityNotes', $this->note->note)
+            ->call('searchQualityAvailable')
+            ->assertSet('qualityCandidates.0.note', $this->note->note)
+            ->assertSet('qualityCandidates.0.available', true)
+            ->assertSet('selectedQualityProcessIds.0', $this->process->id);
+    }
+
     public function test_pagination_is_portuguese_and_uses_the_bootstrap_layout(): void
     {
         foreach (range(1, 25) as $i) {

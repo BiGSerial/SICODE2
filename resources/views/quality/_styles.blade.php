@@ -134,6 +134,29 @@
     .closure-dash .ob-empty i { font-size: 2.6rem; color: #cbd5e1; display: block; margin-bottom: .5rem; }
     @media (max-width: 992px) { .closure-dash .ob-side { margin-left: 0; width: 100%; justify-content: space-between; } }
 
+    /* Tabela operacional compacta: preserva a leitura dos cartões sem desperdiçar altura. */
+    .closure-dash .wk-table { min-width: 1080px; font-size: .78rem; table-layout: fixed; }
+    .closure-dash .wk-table thead th { padding: .45rem .6rem; border-bottom: 2px solid var(--dash-line); background: #f8fafc; color: var(--dash-muted); font-size: .62rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .closure-dash .wk-table td { padding: .4rem .6rem; border-color: #e8edf3; vertical-align: middle; }
+    .closure-dash .wk-table-row { cursor: pointer; transition: background .15s; }
+    .closure-dash .wk-table-row:hover { background: #f8fafc; }
+    .closure-dash .wk-table-row.is-selected { background: #f4f7ff; }
+    .closure-dash .wk-table-row.is-late { box-shadow: inset 4px 0 #ef4444; }
+    .closure-dash .wk-table-row.is-warn { box-shadow: inset 4px 0 #f59e0b; }
+    .closure-dash .wk-table-row:not(.is-late):not(.is-warn) { box-shadow: inset 4px 0 #34d399; }
+    .closure-dash .wk-table .wk-col-check { width: 42px; min-width: 42px; }
+    .closure-dash .wk-table .wk-note { width: 14%; min-width: 118px; }
+    .closure-dash .wk-table .wk-material { width: 20%; min-width: 210px; max-width: 310px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .closure-dash .wk-table .wk-location { width: 17%; min-width: 160px; }
+    .closure-dash .wk-table .wk-company { width: 12%; min-width: 130px; max-width: 180px; }
+    .closure-dash .wk-table .ob-note { font-size: .9rem; }
+    .closure-dash .wk-table .ob-people { min-width: 155px; }
+    .closure-dash .wk-table .ob-avatar { width: 28px; height: 28px; flex-basis: 28px; font-size: .65rem; }
+    .closure-dash .wk-table .ob-person { font-size: .76rem; }
+    .closure-dash .wk-table .flow-dot { width: 11px; height: 11px; }
+    .closure-dash .wk-table .flow-cap { max-width: 145px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .closure-dash .wk-table .ob-side { gap: .55rem; }
+
     /* Cartões de usuário (N1) e pipeline (Gestão) */
     .closure-dash .usr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: .8rem; padding: .75rem; }
     .closure-dash .usr-card { background: #fff; border: 1px solid var(--dash-line); border-radius: 14px; padding: 1rem; }
@@ -155,7 +178,7 @@
 </style>
 <script>
     document.addEventListener('click', function (e) {
-        const card = e.target.closest('.ob[data-href]');
+        const card = e.target.closest('.wk-table-row[data-href]');
         if (card && !e.target.closest('a, button, input, label, select, textarea')) { window.location = card.dataset.href; }
     });
 </script>

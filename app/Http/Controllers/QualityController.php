@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enum\{QualityProcessState, QualityProcessStatus, QualityStageType};
+use App\Jobs\Quality\ExportN1DispatchListJob;
 use App\Models\{Company, Note, QualityMember, QualityPoolRule, QualityProcess, QualityRejectionCategory, QualitySetting, Service, User};
 use App\Services\Quality\{QualityActivities, QualityBoard, QualityBulkSearch, QualityDesignerResolver, QualityEligibilityService, QualityNoteFilters, QualityQueues, QualityRoles, QualityWorkflowException, QualityWorkflowService};
 use Illuminate\Http\{RedirectResponse, Request};
@@ -62,6 +63,15 @@ class QualityController extends Controller
         session(['quality.active_level' => 'N1']);
 
         return view('quality.n1.users', $board->n1Users($request->user()) + Arr::only($board->n1Context($request->user()), ['designersByPhase', 'activityNames']));
+    }
+
+    public function exportN1Dispatch(Request $request): RedirectResponse
+    {
+        abort_unless($this->roles->isN1($request->user()), 403);
+        $this->ensureActiveLevel('N1');
+        ExportN1DispatchListJob::dispatch($request->user()->id);
+
+        return back()->with('success', 'Exportação enfileirada. Você será notificado quando o arquivo estiver pronto.');
     }
 
     /** Despacho em massa do N1: várias Notas de uma vez para um usuário da empresa. */

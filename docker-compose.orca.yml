@@ -27,3 +27,21 @@ services:
       - ./docker/nginx/orca.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
+
+  queue:
+    image: sicode2-orca-app:local
+    restart: unless-stopped
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    group_add:
+      - "${DOCKER_WWW_GROUP:-33}"
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - app
+    command: php artisan queue:work database --queue=exports,messages,default --sleep=1 --tries=2 --timeout=180
