@@ -2,45 +2,46 @@
 
 namespace App\Jobs\Dispatchs;
 
-use App\Exports\DispatchDesenhoMain;
-use App\Exports\DispatchDesenhoStack;
-use App\Exports\ExportDDExcel;
+use App\Exports\{DispatchDesenhoMain, DispatchDesenhoStack, ExportDDExcel};
+use App\Exports\Dispatchs\{DispatchPaymentMain, DispatchPaymentStack, PublicationExportControl, PublicationExportList, SupervisionExportList, SurveyExportList};
 use App\Exports\Services\analisesExport;
-use App\Exports\Dispatchs\{DispatchPaymentMain, DispatchPaymentStack, PublicationExportControl, PublicationExportList, SurveyExportList, SupervisionExportList};
-use App\Models\Service;
-use App\Models\User;
+use App\Models\{Service, User};
 use App\Notifications\SystemNotification;
+use App\Support\Notifications\UserNotificationData;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{Auth, Log, Storage};
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class ExportPartnerDispatchJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public array $payload;
+
     public string $userId;
+
     public int $tries = 2;
+
     public array $backoff = [30, 120];
 
     public function __construct(array $payload, string $userId)
     {
         $this->onQueue('exports');
         $this->payload = $payload;
-        $this->userId = $userId;
+        $this->userId  = $userId;
     }
 
     public function handle(): void
     {
-        $user = User::find($this->userId);
-        $service = Service::where('uuid', $this->payload['service_uuid'] ?? null)->with('Status')->firstOrFail();
+        $user           = User::find($this->userId);
+        $service        = Service::where('uuid', $this->payload['service_uuid'] ?? null)->with('Status')->firstOrFail();
         $componentClass = $this->payload['component'] ?? null;
 
         if (!$componentClass || !is_a($componentClass, \Livewire\Component::class, true)) {
@@ -51,19 +52,21 @@ class ExportPartnerDispatchJob implements ShouldQueue
         session(['filter' => $this->payload['filters'] ?? []]);
 
         $component = app($componentClass);
+
         if (method_exists($component, "boot")) {
             $bootMethod = new \ReflectionMethod($component, "boot");
-            $bootArgs = [];
+            $bootArgs   = [];
+
             foreach ($bootMethod->getParameters() as $parameter) {
-                $type = $parameter->getType();
+                $type       = $parameter->getType();
                 $bootArgs[] = $type && !$type->isBuiltin() ? app($type->getName()) : null;
             }
             $component->boot(...$bootArgs);
         }
         $segments = explode("\\", $componentClass);
-        $kind = strtolower((string) ($segments[count($segments) - 2] ?? ""));
-        $mode = $this->payload["mode"] ?? "main";
-        $isStack = $mode === "stack";
+        $kind     = strtolower((string) ($segments[count($segments) - 2] ?? ""));
+        $mode     = $this->payload["mode"] ?? "main";
+        $isStack  = $mode === "stack";
         $component->mount($service->uuid);
 
         foreach (($this->payload["state"] ?? []) as $name => $value) {
@@ -88,16 +91,17 @@ class ExportPartnerDispatchJob implements ShouldQueue
                 : $component->getListsProperty());
 
         $selectedWorkReportIds = [];
-        $selectedPartialIds = [];
+        $selectedPartialIds    = [];
+
         foreach ((array) ($this->payload["state"]["selected"] ?? []) as $key) {
             if (is_string($key) && str_contains($key, ":")) {
-                $parts = array_pad(explode(":", $key, 3), 3, null);
+                $parts                   = array_pad(explode(":", $key, 3), 3, null);
                 $selectedWorkReportIds[] = (int) ($parts[1] ?? 0);
-                $selectedPartialIds[] = (int) ($parts[2] ?? 0);
+                $selectedPartialIds[]    = (int) ($parts[2] ?? 0);
             }
         }
         $selectedWorkReportIds = array_values(array_filter(array_unique($selectedWorkReportIds)));
-        $selectedPartialIds = array_values(array_filter(array_unique($selectedPartialIds)));
+        $selectedPartialIds    = array_values(array_filter(array_unique($selectedPartialIds)));
 
         if ($query instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator) {
             $query = collect($query->items());
@@ -112,7 +116,7 @@ class ExportPartnerDispatchJob implements ShouldQueue
             $selected = $query->pluck("id")->all();
         }
 
-        $export = $this->resolveExport($kind, $isStack, $query, $selected, $service, $selectedWorkReportIds, $selectedPartialIds);
+        $export   = $this->resolveExport($kind, $isStack, $query, $selected, $service, $selectedWorkReportIds, $selectedPartialIds);
         $filePath = 'exports/' . now()->format('YmdHis') . '_partner_' . $kind . '_' . ($isStack ? 'stack' : 'main') . '.xlsx';
         Storage::disk('local')->makeDirectory('exports');
 
@@ -123,22 +127,24 @@ class ExportPartnerDispatchJob implements ShouldQueue
                 throw new \RuntimeException('Arquivo de exportação não foi criado.');
             }
 
-            $user?->notify(new SystemNotification(
-                'Exportação concluída!',
-                'O export da tela de despacho da parceira está pronto para download.',
-                Storage::url($filePath),
-                4,
-                []
-            ));
+            $user?->notify(new SystemNotification(new UserNotificationData(
+                title: 'Exportação concluída!',
+                message: 'O export da tela de despacho está pronto para download.',
+                link: Storage::url($filePath),
+                status: 'download',
+                extras: ['toast' => true],
+            )));
         } catch (Throwable $exception) {
             Log::error('ExportPartnerDispatchJob falhou', [
                 'user_id' => $this->userId,
                 'payload' => $this->payload,
-                'error' => $exception->getMessage(),
+                'error'   => $exception->getMessage(),
             ]);
+
             if (Storage::disk('local')->exists($filePath)) {
                 Storage::disk('local')->delete($filePath);
             }
+
             throw $exception;
         }
     }
@@ -148,38 +154,27 @@ class ExportPartnerDispatchJob implements ShouldQueue
         $data = $query instanceof \Illuminate\Database\Eloquent\Builder ? $query : collect($query);
 
         return match (true) {
-            $stack && in_array($kind, ['analises', 'analisespre', 'desenho', 'reverse'], true)
-                => new DispatchDesenhoStack($data instanceof \Illuminate\Database\Eloquent\Builder ? $data->get() : $data),
-            $stack && $kind === 'payment'
-                => new DispatchPaymentStack($data, $service->uuid),
-            $stack && $kind === 'publication'
-                => new PublicationExportControl($data),
-            !$stack && in_array($kind, ['analises', 'reverse'], true)
-                => new analisesExport($data, $service->uuid),
-            !$stack && in_array($kind, ['analisespre', 'desenho'], true)
-                => new DispatchDesenhoMain($data instanceof \Illuminate\Database\Eloquent\Builder ? $data->get() : $data, $service->uuid),
-            !$stack && $kind === 'publication'
-                => new PublicationExportList($data, $service),
-            !$stack && $kind === "payment"
-                => new DispatchPaymentMain($data, $service->uuid, $selectedWorkReportIds, $selectedPartialIds),
-            !$stack && $kind === 'survey'
-                => new SurveyExportList($data, $service->uuid, $selected),
-            !$stack && $kind === "supervision"
-                => new SupervisionExportList($data, $service->uuid, $selectedWorkReportIds, $selectedPartialIds),
-            in_array($kind, ['default', 'comission'], true)
-                => (new ExportDDExcel())->exportDD($selected, $service->service),
-            default => throw new \RuntimeException("Export Partner não mapeado: {$kind}/" . ($stack ? 'stack' : 'main')),
+            $stack && in_array($kind, ['analises', 'analisespre', 'desenho', 'reverse'], true) => new DispatchDesenhoStack($data instanceof \Illuminate\Database\Eloquent\Builder ? $data->get() : $data),
+            $stack && $kind === 'payment'                                                      => new DispatchPaymentStack($data, $service->uuid),
+            $stack && $kind === 'publication'                                                  => new PublicationExportControl($data),
+            !$stack && in_array($kind, ['analises', 'reverse'], true)                          => new analisesExport($data, $service->uuid),
+            !$stack && in_array($kind, ['analisespre', 'desenho'], true)                       => new DispatchDesenhoMain($data instanceof \Illuminate\Database\Eloquent\Builder ? $data->get() : $data, $service->uuid),
+            !$stack && $kind === 'publication'                                                 => new PublicationExportList($data, $service),
+            !$stack && $kind === "payment"                                                     => new DispatchPaymentMain($data, $service->uuid, $selectedWorkReportIds, $selectedPartialIds),
+            !$stack && $kind === 'survey'                                                      => new SurveyExportList($data, $service->uuid, $selected),
+            !$stack && $kind === "supervision"                                                 => new SupervisionExportList($data, $service->uuid, $selectedWorkReportIds, $selectedPartialIds),
+            in_array($kind, ['default', 'comission'], true)                                    => (new ExportDDExcel())->exportDD($selected, $service->service),
+            default                                                                            => throw new \RuntimeException("Export Partner não mapeado: {$kind}/" . ($stack ? 'stack' : 'main')),
         };
     }
 
     public function failed(Throwable $exception): void
     {
-        User::find($this->userId)?->notify(new SystemNotification(
-            'Exportação falhou',
-            'Não foi possível gerar o export da tela da parceira.',
-            null,
-            5,
-            []
-        ));
+        User::find($this->userId)?->notify(new SystemNotification(new UserNotificationData(
+            title: 'Exportação falhou',
+            message: 'Não foi possível gerar o export da tela de despacho.',
+            status: 'error',
+            extras: ['toast' => true],
+        )));
     }
 }

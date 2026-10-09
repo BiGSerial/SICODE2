@@ -6,6 +6,7 @@ use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Models\{Note, Service, User};
 use App\Notifications\SystemNotification;
 use App\Services\Payment\NoteFilter;
+use App\Support\Notifications\UserNotificationData;
 use App\Support\SicodeRules;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -263,13 +264,13 @@ class ExportDispatchPaymentJob implements ShouldQueue
 
             // Notifica sucesso
             if ($user && Storage::disk('local')->exists($filePath)) {
-                $user->notify(new SystemNotification(
-                    'Exportação concluída!',
-                    'Seu relatório de Pagamentos/Despachos está pronto para download.',
-                    Storage::url($filePath),
-                    4,
-                    []
-                ));
+                $user->notify(new SystemNotification(new UserNotificationData(
+                    title: 'Exportação concluída!',
+                    message: 'Seu relatório de Pagamentos/Despachos está pronto para download.',
+                    link: Storage::url($filePath),
+                    status: 'download',
+                    extras: ['toast' => true],
+                )));
             } else {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
@@ -298,13 +299,12 @@ class ExportDispatchPaymentJob implements ShouldQueue
         ]);
 
         if ($user = User::find($this->userId)) {
-            $user->notify(new SystemNotification(
-                'Exportação falhou',
-                'A geração do relatório de Pagamentos falhou após novas tentativas.',
-                null,
-                5,
-                []
-            ));
+            $user->notify(new SystemNotification(new UserNotificationData(
+                title: 'Exportação falhou',
+                message: 'A geração do relatório de Pagamentos falhou após novas tentativas.',
+                status: 'error',
+                extras: ['toast' => true],
+            )));
         }
     }
 }

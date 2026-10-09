@@ -464,8 +464,8 @@
 
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">Empresa</th>
-                            <th scope="col" class="fw-bold text-center">Usuário</th>
+                            <th scope="col" class="fw-bold text-center">Usuário / Empresa</th>
+                            <th scope="col" class="fw-bold text-center">PEP</th>
                             <th scope="col" class="fw-bold text-center">Data Informe</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
@@ -629,13 +629,20 @@
 
 
 
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-
-                                    {{ $list->Company ? $list->Company->name : '-' }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    <x-user.status-name :user="$list->User" />
+                                <td class="text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    <div class="fw-semibold"><x-user.status-name :user="$list->User" /></div>
+                                    <small class="text-muted d-block mt-1">{{ $list->Company?->name ?? '-' }}</small>
+                                </td>
+                                <td class="text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    @forelse ($orders as $order)
+                                        @php $available = $order->Pep?->disponivel; @endphp
+                                        <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
+                                            @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
+                                            {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
+                                        </p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
                                 </td>
                                 <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
                                     @if ($workForm?->informed_at)
@@ -842,6 +849,7 @@
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('components.d5.d5details', key('view_d5_note_details'))
     @livewire('dispatchs.common.reclaim-info', key('reclaim-info-payment-stack'))
+    @livewire('components.pep.financial-modal', key('dispatch-payment-stack-pep-financial-modal'))
     @once
         @livewire('production.actions.new-production', key('new_production_payment_stack'))
     @endonce
