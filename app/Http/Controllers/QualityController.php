@@ -348,9 +348,12 @@ class QualityController extends Controller
         $canEdit    = $process->state === QualityProcessState::AWAITING_N1_REVIEW && $this->roles->canActAsN1($user, $process);
         $canResolve = $process->state === QualityProcessState::AWAITING_DESIGNER && $stage && (string) $stage->assigned_user_id === (string) $user->id;
         $run        = null;
+        $returnOnly = false;
 
         if ($canEdit) {
-            $run = $checklists->openN1Run($process, $stage, $user);
+            $previous   = $checklists->latestForDesigner($process);
+            $returnOnly = $previous && !$request->boolean('new');
+            $run        = $returnOnly ? $previous : $checklists->openN1Run($process, $stage, $user);
         } elseif ($canResolve) {
             $run = $checklists->latestForDesigner($process);
         } else {
@@ -364,7 +367,7 @@ class QualityController extends Controller
 
         $showQaSeverity = !$canEdit && $this->roles->canActAsN2($user, $process) && session('quality.active_level') !== 'N1';
 
-        return view('quality.checklist', compact('process', 'run', 'canEdit', 'canResolve', 'resolutions', 'showQaSeverity'));
+        return view('quality.checklist', compact('process', 'run', 'canEdit', 'canResolve', 'resolutions', 'showQaSeverity', 'returnOnly'));
     }
 
     public function saveChecklist(Request $request, QualityProcess $qualityProcess, QualityChecklistRun $run, QualityChecklistService $checklists)
