@@ -6,6 +6,7 @@
         $canPartial = $partnerCan('partial_reports');
         $canComplaints = $partnerCan('complaints');
         $canD5 = $partnerCan('d5_notes');
+        $canClosure = $partnerCan('closure');
         $canAdmin = $partnerCan('admin_panel.access');
     @endphp
     <aside id="sidebar" class="sidebar edp-bg-cobaltblue-100">
@@ -245,6 +246,22 @@
                     </div>
                 </ul>
             </li>
+            @endif
+            @if ($canClosure)
+                <li class="nav-item">
+                    <a class="nav-link collapsed" data-bs-target="#closure-nav" data-bs-toggle="collapse" href="#">
+                        <i class="ri-checkbox-circle-line"></i><span>Encerramento</span><i class="bi bi-chevron-down ms-auto"></i>
+                    </a>
+                    <ul id="closure-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                        @if ($partnerCan('closure.issues.list'))
+                            <li class="border-start border-3 mb-1 py-0">
+                                <a href="{{ route('partner.closure.issues') }}" class="nav-item text-white fw-normal">
+                                    <i class="ri-error-warning-line fw-light fs-5"></i><span>Pendências</span>
+                                </a>
+                            </li>
+                        @endif
+                    </ul>
+                </li>
             @endif
             @if ($canAdmin)
                 <li class="nav-item">

@@ -99,6 +99,12 @@ class AuthServiceProvider extends ServiceProvider
         $isClosureOperator = fn (User $u) => $u->closure_operator || $u->superadm || $u->admin;
         $isClosureManager  = fn (User $u) => $u->closure_manager || $u->superadm || $u->admin;
 
+        // `closure.manager` é mantido como alias de compatibilidade para as
+        // telas da Fase 1. Os gates explícitos passam a ser usados pela
+        // atividade especializada a partir da Fase 2.
+        Gate::define('closure.manage', $isClosureManager);
+        Gate::define('closure.dispatch', $isClosureManager);
+        Gate::define('closure.work', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u));
         Gate::define('closure.manager', $isClosureManager);
         Gate::define('closure.view', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u));
     }

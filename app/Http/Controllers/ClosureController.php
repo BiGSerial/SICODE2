@@ -19,6 +19,16 @@ class ClosureController extends Controller
         return view('closure.passive');
     }
 
+    public function dispatch()
+    {
+        return view('closure.dispatch');
+    }
+
+    public function myWork()
+    {
+        return view('closure.my-work');
+    }
+
     public function orderDetail(int $order)
     {
         return view('closure.order-detail', ['orderId' => $order]);

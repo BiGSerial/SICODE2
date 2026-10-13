@@ -1,6 +1,6 @@
 # Planejamento — Módulo de Controle Operacional de Encerramento
 
-> **Status:** documento de planejamento. Nenhum código, migration, model, controller, service, job ou tela foi criado ou alterado nesta etapa. Tudo aqui é proposta para implementação futura, faseada.
+> **Status:** Fase 1 concluída em 2026-09-01. Este documento foi replanejado em 2026-10-06 para que o tratamento passe a existir também como uma **atividade de Produção especializada**, sem perder a granularidade obrigatória por Ordem. A execução detalhada a partir da Fase 2 está em [FASE_2_ATIVIDADE_PRODUCAO.md](FASE_2_ATIVIDADE_PRODUCAO.md).
 >
 > **Pergunta que o módulo precisa responder:** *"Qual a situação desta Ordem, onde ela está parada, há quanto tempo, com quem e por quê?"*
 
@@ -31,6 +31,7 @@
 21. [Plano de implementação em fases](#21-plano-de-implementação-em-fases)
 22. [Ordem recomendada de desenvolvimento](#22-ordem-recomendada-de-desenvolvimento)
 23. [Arquivos/classes atuais afetados por fase](#23-arquivosclasses-atuais-afetados-por-fase)
+24. [Replanejamento: atividade de Produção especializada](#24-replanejamento-atividade-de-produção-especializada-2026-10-06)
 
 ---
 
@@ -46,6 +47,8 @@ Este documento propõe um módulo novo — **Controle Operacional de Encerrament
 - um **histórico imutável** por Ordem (`closure_order_events`), no mesmo padrão já usado com sucesso pelo módulo de Cancelamento (`CancellationRequestEvent`);
 - uma **estratégia de detecção** da transição `statusSist → ENT/ENC` que reaproveita o cron de sincronização já existente, sem recriar polling;
 - indicadores de produtividade **derivados dos eventos**, sem depender de cronômetro manual.
+
+O replanejamento posterior mantém esses fundamentos e acrescenta uma integração controlada com o domínio de Produção: uma `Production` do serviço **Encerramento** será o envelope de despacho, empresa e atividade do usuário para uma Nota/OV. Os itens tratados, seus estados, pendências, tempos e auditoria continuam sendo registros próprios **por Ordem**. Assim, a atividade aparece nos fluxos normais de Produção sem reduzir uma Nota com várias Ordens a um único status genérico.
 
 A boa notícia: o SICODE2 já tem, no módulo de **Cancelamento de Ordens** (`CancellationRequest` + `CancellationRequestEvent`) e no módulo **Jurídico** (`legal_demands`), precedentes arquiteturais muito próximos do que este módulo precisa. A recomendação central deste plano é **espelhar esses dois padrões já validados em produção**, em vez de inventar uma arquitetura nova.
 
@@ -191,12 +194,12 @@ e no `NoteFilter.php` há uma segunda observação: `// NOTE: Alteração no fil
 | **Gates** | `app/Providers/AuthServiceProvider.php` | Convenção `Gate::define('dominio.acao', ...)`, ex.: `legal.demands.triage`. Módulo novo deve seguir `closure.orders.*`. |
 | **Migrations** | `database/migrations/*` | Convenção: arquivo por tabela/alteração, nome `AAAA_MM_DD_HHMMSS_verbo_descritivo.php`, rollout incremental multi-arquivo por feature (módulo Jurídico teve ~15 migrations ao longo de semanas). Módulo de encerramento deve seguir o mesmo padrão incremental por fase, não uma migration monolítica. |
 
-### 2.9 O que NÃO existe hoje (confirmado por busca)
+### 2.9 O que não existia antes da Fase 1 e o que ainda falta
 
-- Nenhuma tabela/model com nomes `closure_*`, `encerramento_*` já existentes — não há conflito ou duplicação a evitar.
-- Nenhum job/listener reagindo a mudança de `statusSist`.
-- Nenhum conceito de "responsável operacional da Ordem" separado do responsável da Nota/Produção — `Production` é por Nota+Serviço, não por Ordem.
-- Nenhuma tabela de "meta mensal" ou "competência" no domínio de encerramento (existe `closure_cycles` **apenas como nome proposto**, não implementado).
+- A Fase 1 criou `closure_cycles` e `closure_targets`; elas são a fonte já implantada para competência, meta congelada e passivo.
+- Ainda não existe job/listener reagindo à mudança de `statusSist`.
+- Ainda não existe responsável operacional, estado, pendência ou evento próprios da Ordem. `Production` continua sendo por Nota+Serviço e não pode, isoladamente, responder por cada Ordem.
+- Ainda não existe o serviço cadastrado **Encerramento**, nem sua associação a contrato (`service_contract_rules`) e a usuário (`service_users`). Isso é pré-requisito para que a nova atividade siga o modelo de Produção.
 
 ### 2.10 Sistema de "atividades"/permissões já existente — **como liberar acesso ao módulo, confirmado com o usuário**
 
@@ -906,25 +909,14 @@ Todas as pendências da §20 foram resolvidas nesta conversa, com validação re
 - ✅ #9 SLA de pendências: não existe formal, vira lembrete pessoal opcional (`remind_at`).
 - ⏳ #8 Reabertura de Ordem `CLOSED` — único item ainda em aberto, baixa prioridade, não bloqueia Fases 1-4.
 
-### Fase 1 — Competência + meta congelada + passivo + Detalhe da Ordem (v1, só leitura) — **EM ANDAMENTO**
+### Fase 1 — Competência + meta congelada + passivo + Detalhe da Ordem (v1, só leitura) — **CONCLUÍDA em 2026-09-01**
 `closure_cycles`, `closure_targets`, comando de congelamento (§14), telas somente-leitura de Meta e Passivo (§15.2/15.3). **Incluir já aqui uma primeira versão do Detalhe da Ordem (§15.6)** mostrando o que já é possível responder só com dados existentes + `closure_targets`: `statusSist` atual, se é meta ou passivo, competência original, aging desde `frozen_at`. Sem assunção/responsável/localização ainda (isso é Fase 2/3) — mas já é uma resposta parcial e útil à pergunta "qual a situação desta Ordem".
 
 ➡️ Checklist detalhado de execução: [FASE_1_CHECKLIST.md](FASE_1_CHECKLIST.md).
 
-### Fase 2 — Fila + assunção de Ordens + Minha Carteira
-`closure_order_states` (sem pendências ainda, só `AVAILABLE/ASSIGNED/IN_PROGRESS/CLOSED`), `closure_order_events`, telas Ordens Disponíveis / Minha Carteira (§15.4/15.5), serviço de assunção com lock (§7/§17). **Detalhe da Ordem ganha "responsável operacional" e "assumida em".**
+### Fase 2 — Atividade de Produção especializada
 
-### Fase 3 — Controle operacional da Ordem
-Estados `WAITING`/`READY`, localização (`current_location_*`), Detalhe da NOTE como agregador (§15.7). **Detalhe da Ordem ganha "onde está"/"motivo".**
-
-### Fase 4 — Pendências e interação com Parceiras/áreas
-`closure_issues`, `closure_issue_events`, reaproveitamento de `EvidenceFile`/`Comment`, tela de Pendências (§15.8), fluxo colaborador↔parceira completo (§8). **Detalhe da Ordem ganha a lista de pendências e o ciclo completo de solicitação/resposta/validação** — é aqui que a pergunta "com quem e por quê" fica 100% respondida.
-
-### Fase 5 — Histórico e indicadores
-Timeline consolidada por Ordem, Visão da Equipe e Gargalos (§15.9/15.10), indicadores da §16. **Detalhe da Ordem ganha a timeline completa (§15.6 já ilustra o resultado final).**
-
-### Fase 6 — Automações e integrações adicionais
-Job de detecção de `statusSist` automatizado no cron (§13) — recomendado **não** automatizar antes da Fase 5, para validar manualmente por 1-2 competências que a detecção está correta antes de confiar nela para fechar Ordens sozinha. Depois: notificações (`SystemNotification`/`UserNotificationData`), exportações gerenciais, cron do congelamento de meta.
+Esta fase substitui o recorte anterior de fila/assunção isolada. Ela começa pelo cadastro do serviço Encerramento e seus vínculos de contrato/usuário (2A), cria o despacho especializado e os itens por Ordem (2B), depois entrega tratativa/massa (2C), pendências e parceira (2D), gestão (2E) e automação SAP (2F). O descritivo, critérios de aceite e sequência estão em [FASE_2_ATIVIDADE_PRODUCAO.md](FASE_2_ATIVIDADE_PRODUCAO.md).
 
 ---
 
@@ -935,18 +927,20 @@ Fase 0 (validação)
    ↓
 Fase 1 (closure_cycles, closure_targets)         ← depende só de Order/Operation/Note (já existem)
    ↓
-Fase 2 (closure_order_states, assunção)          ← depende de Fase 1 só para exibir "meta original"
+Fase 2A (serviço, contrato, usuário e acessos)
    ↓
-Fase 3 (localização, pendência "vazia")
+Fase 2B (despacho especializado + item por Ordem)
    ↓
-Fase 4 (closure_issues completo)                 ← reaproveita EvidenceFile/Comment (já existem)
+Fase 2C (tratativa, posse e ações em massa)
    ↓
-Fase 5 (indicadores/timeline)                     ← só leitura, nenhuma tabela nova
+Fase 2D (pendências classificadas + parceira)
    ↓
-Fase 6 (automação do job de detecção + notificações)
+Fase 2E (gestão, tempos e exportações)
+   ↓
+Fase 2F (automação SAP e notificações)
 ```
 
-Justificativa: cada fase entrega uma tela útil sozinha (meta/passivo primeiro, é pura leitura e já teria valor para gestão), e a automação mais arriscada (fechar Ordem sozinha) fica por último, depois de o histórico/indicadores já terem validado a qualidade dos dados.
+Justificativa: o despacho entra antes da tratativa para integrar a nova atividade ao fluxo que os usuários já conhecem, mas cada Ordem recebe imediatamente uma unidade própria e auditável. A automação mais arriscada (fechamento por SAP) continua por último, após a validação real de histórico, períodos e indicadores.
 
 ---
 
@@ -962,37 +956,93 @@ Nenhum arquivo alterado — apenas consultas read-only e conversas de validaçã
 - Leitura/reuso, sem alterar: `App\Models\Order`, `App\Models\Note`, `App\Models\Operation`, `app/Repositories/PublishRepository.php` (só como referência da regra OP20, não import direto até validar §2.7).
 - Novo: Livewire `App\Http\Livewire\Closure\Cycles\{Overview,Passive}` (nomes provisórios) + rotas + gate `closure.manager` em `app/Providers/AuthServiceProvider.php`.
 
-### Fase 2
-- Novo: migrations `create_closure_order_states_table`, `create_closure_order_events_table`, `add_closure_permissions_to_users_table` (colunas boolean, ex.: `closure_operator`, `closure_manager` — mesmo padrão de `add_legal_permissions_to_users_table`).
-- Novo: `App\Models\ClosureOrderState`, `App\Models\ClosureOrderEvent`.
-- Novo: `App\Services\Closure\ClosureAssignmentService` (espelha `DispatchWorkflowService` — transação + `lockForUpdate()`).
-- Novo: Livewire `Closure\Orders\{Stack,MyPortfolio}` (espelha `app/Http/Livewire/Dispatchs/Survey/Stack.php`).
-- Alteração pequena: `App\Models\Order` (adicionar relações `ClosureState()`, `ClosureEvents()`).
-- Alteração: `app/Providers/AuthServiceProvider.php` (gates novos `closure.orders.claim`, `closure.manager`, seguindo o bloco `$isController`/`$isField`/`$isManager` já usado para `legal.*`).
-- Alteração: `app/Http/Livewire/Admin/User/Actions/Usuario.php` (+ blade correspondente) — adicionar os novos checkboxes de atividade, mesmo padrão de `legal_controller/legal_field/legal_manager`.
+### Fase 2A–2F
 
-### Fase 3
-- Alteração: `ClosureOrderState` (novas colunas de localização + estado terminal `CANCELLED`), `ClosureAssignmentService` (transferência).
-- Novo: listener/observer simples ligando `orders.canceled` a `ClosureOrderState.status = CANCELLED` (Ordem cancelada sai de meta/passivo, mantém histórico — §2.12).
-- Novo: Livewire `Closure\Orders\Detail`, `Closure\Notes\Detail` (agregador — usa `Note::Orders()` já existente).
+Os arquivos previstos foram revisados no checklist da atividade de Produção: [FASE_2_ATIVIDADE_PRODUCAO.md](FASE_2_ATIVIDADE_PRODUCAO.md#arquivos-previstos). Em síntese, entram `Production`/`Service`/`service_users` para o despacho, tabelas `closure_*` para a unidade por Ordem e componentes Livewire exclusivos do Encerramento; o fluxo genérico de Dispatch permanece preservado para os demais serviços.
 
-### Fase 4
-- Novo: migrations `create_closure_issues_table`, `create_closure_issue_events_table`.
-- Novo: `App\Models\ClosureIssue`, `App\Models\ClosureIssueEvent`.
-- Reuso sem alteração de schema: `App\Models\EvidenceFile`, `App\Models\Comment` (relações morph já existentes — só adicionar `evidenciable`/`commentable` do lado de `ClosureIssue`).
-- Novo: `App\Services\Closure\ClosureIssueWorkflowService` (espelha o sub-workflow de aprovação do `CancellationRequest`).
-- Novo: Livewire `Closure\Issues\{Inbox,Detail}` (colaborador) e Livewire dedicado no Partner (`resources/views/livewire/partner/closure/*`, a definir) para a Parceira responder com usuário próprio (§2.11).
-- Alteração: `app/Services/PartnerAccess/PartnerPermissionCatalog.php` (novo grupo `GROUP_CLOSURE` com `closure.issues.list/respond/history`) e seu `routePermissionMap()` — nenhuma migration nova aqui, `PartnerCompanyPermissionGrant`/`PartnerRole`/`PartnerUserPermissionException` já são genéricas por `permission_key` (§2.10).
+---
 
-### Fase 5
-- Sem tabelas novas. Novo: `App\Services\Closure\ClosureIndicatorsService` (consultas agregadas), Livewire `Closure\Team\Overview`, `Closure\Bottlenecks\Overview`.
-- Possível reuso de `app/Services/Reports/` para exportações (padrão Excel/PDF já usado no projeto).
+## 24. Replanejamento: atividade de Produção especializada (2026-10-06)
 
-### Fase 6
-- Alteração: `app/Console/Kernel.php` (adicionar `sicode:closure-detect-status-transitions` ao grupo sequencial `sync-base-orders-operations`).
-- Novo: `App\Console\Commands\Closure\DetectStatusSistTransitions`.
-- Possível integração com `App\Notifications\SystemNotification` / `UserNotificationData` (padrão já documentado em `docs/Notificacoes.md`) para avisar responsável quando a Ordem fecha ou quando uma pendência aguarda há muito tempo.
-- Menu: `resources/views/layouts/menu_itens.blade.php` (só nesta fase, quando o módulo estiver navegável de ponta a ponta) — seguir `docs/MenuSuperior.md`.
+### 24.1 Decisão de arquitetura
+
+O Encerramento será incluído no catálogo de **Serviços/Atividades de Produção** como o serviço `Encerramento` (folder técnico `encerramento`). Isso habilita o mesmo ciclo já conhecido de contrato → atividade do usuário (`service_users`) → despacho → pilha da parceira → atribuição individual.
+
+Isso **não** transforma `productions` na fonte do andamento de cada Ordem. A tabela é naturalmente `note_id + service_id`, enquanto uma Nota pode reunir várias Ordens em situações diferentes. A arquitetura será, portanto:
+
+```
+Produção Encerramento (por Nota/OV; despacho e responsável de alto nível)
+   └── itens de trabalho de Encerramento (um por Ordem)
+          ├── estado operacional e responsável efetivo
+          ├── períodos de permanência por estado/responsável/local
+          ├── pendências categorizadas e subcategorizadas
+          └── eventos imutáveis, inclusive ações em massa e feedback parceiro
+```
+
+`closure_targets` continua sendo a fonte de Meta/Passivo. A `Production` não altera competência, regra de entrada, passivo ou o fato de que somente `orders.statusSist` iniciado por `ENTE`/`ENCE` confirma o encerramento SAP.
+
+### 24.2 Limites claros entre os dois domínios
+
+| Necessidade | Fonte de verdade | Regra |
+|---|---|---|
+| Despachar, empresa parceira e atividade liberada ao usuário | `productions`, `services`, `service_contract_rules`, `service_users` | Reutiliza o modelo de Produção, com tela específica de Encerramento. |
+| Situação de cada Ordem, responsável efetivo e local onde parou | `closure_order_states` ligado a `production_id` | Nunca inferir do status único da Production. |
+| Status técnico de operações SAP | `operations` e `orders.statusSist` | Somente leitura; a tratativa humana é outro status, explicitamente rotulado na tela. |
+| Meta, passivo e competência original | `closure_cycles` e `closure_targets` | Já implantados; não recriar metas ao despachar ou redistribuir. |
+| Pendência, categoria, subcategoria, resposta e validação | `closure_issues` e seus eventos | Uma pendência pode voltar para tratamento sem perder o mesmo histórico. |
+| Tempos e rastreabilidade | eventos imutáveis + períodos de estado | Medir separadamente tempo corrido, tempo em posse e tempo de ação; não estimar atividade pelo `last_seen_at` global. |
+
+### 24.3 Modelo de dados complementar
+
+Manter os nomes `closure_order_states`, `closure_order_events`, `closure_issues` e `closure_issue_events` já propostos, com os seguintes ajustes antes de criar migrations:
+
+- `closure_order_states.production_id` aponta para a `Production` de Encerramento que contém a Ordem; `order_id` continua único.
+- Incluir `operational_status`, `current_holder_type` (`INTERNAL_USER`, `PARTNER_COMPANY`, `EXTERNAL_AREA`, `SYSTEM`), `current_holder_user_id`, `current_holder_company_id`, `entered_current_status_at` e `last_event_id`. O antigo `assigned_user_id` permanece como responsável efetivo, não como simples espelho da Production.
+- Criar `closure_order_state_periods`: registro somente de inclusão, com estado, posse, usuário/empresa, `started_at`, `ended_at`, `started_event_id` e `ended_event_id`. Ele fecha o período anterior na mesma transação que abre o próximo e permite responder com precisão “onde ficou parado e por quanto tempo”.
+- Criar catálogo administrável `closure_issue_categories` (categoria) e `closure_issue_subcategories` (filha da categoria), ambas com `active`, ordem e código estável. `closure_issues` grava as duas FKs e mantém opcionalmente uma descrição livre. Não usar texto livre como taxonomia principal.
+- Cada ação escreve `closure_order_events` com ator, origem (`UI`, `BULK`, `PARTNER`, `SYSTEM`), dados antes/depois e um `batch_id` quando aplicável. Respostas e validações de pendência também escrevem `closure_issue_events`.
+- O serviço de domínio valida que a Ordem pertence à mesma Nota da `Production`, que a Production usa o serviço técnico `encerramento` e que só existe um item por `order_id`. As transições bloqueiam Ordem, item e Production na mesma transação; os índices cobrem `order_id` único, `production_id + operational_status` e a consulta do período aberto. Fechamento SAP/cancelamento é idempotente.
+
+### 24.4 Estados e ações operacionais
+
+O status SAP e o status operacional serão exibidos lado a lado. O usuário não edita `operations.status` nem `orders.statusSist`. Ele escolhe ações curtas, com validações e justificativa quando necessário:
+
+- assumir ou atribuir; devolver à pilha; despachar/transferir para parceira;
+- iniciar tratativa; marcar aguardando parceira, área interna ou retorno SAP; retomar;
+- abrir pendência; solicitar complemento; validar resposta; devolver para correção; resolver;
+- registrar impedimento e alterar a prioridade operacional.
+
+Transições inválidas, itens encerrados/cancelados e mudanças que contradigam pendências abertas são bloqueadas no serviço de domínio, não apenas na interface. A `Production` é concluída automaticamente apenas quando todos os seus itens estiverem `CLOSED` ou `CANCELLED`; o usuário nunca “encerra” uma Ordem manualmente.
+
+### 24.5 Operações em massa seguras
+
+A lista terá seleção persistente, resumo de impacto e ações em massa: atribuir, transferir/despachar, alterar estado operacional permitido, criar pendência com a mesma categoria/subcategoria e definir lembrete/prioridade. Antes de confirmar, a tela mostra quantos itens são elegíveis e por que os demais foram excluídos.
+
+Cada comando terá limite inicial de 100 Ordens, confirmação explícita e execução transacional por item com `lockForUpdate()`. O resultado será um recibo com processadas, recusadas e motivo; toda Ordem afetada recebe seu evento individual e o lote recebe o mesmo `batch_id`. A operação não poderá alterar status SAP, encerrar manualmente ou apagar histórico.
+
+### 24.6 Experiência das telas
+
+O acesso continua dentro de **ATIVIDADES**, mas a atividade Encerramento terá telas próprias, sem reutilizar a tela genérica `Dispatchs/Default`:
+
+1. **Central gerencial:** Meta, passivo, itens aguardando por local, aging, pendências por categoria/subcategoria e “parado há mais tempo”.
+2. **Despacho:** seleciona Nota/OV e Ordens elegíveis, destino (parceira/pilha/usuário) e apresenta o impacto antes de criar ou alterar a Production.
+3. **Minha atividade:** fila pessoal com filtros de estado, posse, categoria, subcategoria, competência e idade; ações principais no próprio item.
+4. **Detalhe da Ordem:** cabeçalho com SAP × operacional, barra “em posse de”, pendências abertas, linha do tempo e períodos. Esta é a resposta auditável a “onde parou, com quem, desde quando e por quê?”.
+5. **Portal da parceira:** somente demandas destinadas à sua empresa; permite resposta, comentário e evidência, mas não reatribuição interna nem alteração de status SAP.
+6. **Central de notificações e sinalizações:** reutilizar a central já existente (`Notifys`/`AllNotifies`) com sino e não lidas; acrescentar badges no menu ATIVIDADES/sidebar e toast imediato para eventos que exigem ação. Cada aviso aponta diretamente para a Ordem ou pendência filtrada, sem levar o usuário a uma página inicial genérica.
+
+### 24.7 Fases revisadas
+
+| Fase | Entrega verificável | Dependência |
+|---|---|---|
+| 2A | Cadastro do serviço Encerramento, gates e rotas/telas vazias especializadas — **código concluído em 2026-10-06**; vínculo contrato/usuário é configuração administrativa pendente | Fase 1 concluída |
+| 2B | Despacho especializado por Nota com seleção de Ordens; Production e estados por Ordem criados atomicamente — **código concluído em 2026-10-06**; guia operacional publicado | 2A |
+| 2C | Minha atividade, estados operacionais, períodos de posse, transferência e ações em massa — **código concluído em 2026-10-07**; guia operacional publicado | 2B |
+| 2D | Catálogo categoria/subcategoria, pendências, portal da parceira e feedback rastreado | 2C |
+| 2E | Central gerencial, gargalos, tempos, exportações, auditoria de lotes e central de notificações/toasts | 2C e 2D |
+| 2F | Detecção automática SAP e conclusão automática da Production | 2B a 2E |
+
+O checklist de execução, critérios de aceite e arquivos previstos para 2A–2F estão em [FASE_2_ATIVIDADE_PRODUCAO.md](FASE_2_ATIVIDADE_PRODUCAO.md).
 
 ---
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Closure\{ClosureIssue, ClosureOrderState};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -82,5 +83,15 @@ class Order extends Model
     public function ClosureTarget()
     {
         return $this->hasOne(ClosureTarget::class);
+    }
+
+    public function ClosureState()
+    {
+        return $this->hasOne(ClosureOrderState::class);
+    }
+
+    public function ClosureIssues()
+    {
+        return $this->hasMany(ClosureIssue::class);
     }
 }

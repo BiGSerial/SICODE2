@@ -119,4 +119,4 @@ Resumo (detalhes completos na memória do projeto, não duplicados aqui): sideba
 
 ## Status final
 
-**Fase 1 100% concluída em 2026-09-01** — migrations, models, serviço + comandos, gates + admin UI, telas Livewire, rotas/controller, `--freeze` real em DEV, teste visual aprovado, testes automatizados (23/23) e menu, todos feitos. Próximo passo: Fase 2 (fila + assunção de Ordens), quando o usuário pedir para avançar.
+**Fase 1 100% concluída em 2026-09-01** — migrations, models, serviço + comandos, gates + admin UI, telas Livewire, rotas/controller, `--freeze` real em DEV, teste visual aprovado, testes automatizados (23/23) e menu, todos feitos. O próximo passo foi replanejado como atividade de Produção especializada; ver [FASE_2_ATIVIDADE_PRODUCAO.md](FASE_2_ATIVIDADE_PRODUCAO.md).

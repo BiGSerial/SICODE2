@@ -3,8 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\PartnerAccess\PartnerAccessGate;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\{RedirectResponse, Request};
 use Illuminate\View\View;
 
 class PartnerController extends Controller
@@ -27,25 +26,26 @@ class PartnerController extends Controller
     private function landingRoutes(): array
     {
         return [
-            'partner.main.viability' => 'portal.dashboard',
-            'partner.todo.viability' => 'viability.list',
-            'partner.rejected.viability' => 'viability.rejected',
-            'partner.tacit.viability' => 'viability.tacit',
-            'partner.hist.viability' => 'viability.history',
-            'partner.report.workreport' => 'conclusion_reports.create',
+            'partner.main.viability'        => 'portal.dashboard',
+            'partner.todo.viability'        => 'viability.list',
+            'partner.rejected.viability'    => 'viability.rejected',
+            'partner.tacit.viability'       => 'viability.tacit',
+            'partner.hist.viability'        => 'viability.history',
+            'partner.report.workreport'     => 'conclusion_reports.create',
             'partner.report.rejectedWorked' => 'conclusion_reports.rejected',
-            'partner.report.sendAdsForm' => 'conclusion_reports.ads_delivery',
-            'partner.ads.requests' => 'conclusion_reports.ads_requests',
-            'partner.report.workedlist' => 'conclusion_reports.list',
-            'partner.declared.equipment' => 'conclusion_reports.equipment',
-            'partner.report.partial' => 'partial_reports.create',
-            'partner.report.partiallist' => 'partial_reports.list',
-            'protests.partner.main' => 'complaints.index',
-            'protests.partner.history' => 'complaints.history',
-            'partner.note_d5.list' => 'd5_notes.list',
-            'partner.note_d5.returned' => 'd5_notes.returned',
-            'partner.note_d5.historic' => 'd5_notes.history',
-            'partner.admin.users' => 'admin_users.view',
+            'partner.report.sendAdsForm'    => 'conclusion_reports.ads_delivery',
+            'partner.ads.requests'          => 'conclusion_reports.ads_requests',
+            'partner.report.workedlist'     => 'conclusion_reports.list',
+            'partner.declared.equipment'    => 'conclusion_reports.equipment',
+            'partner.report.partial'        => 'partial_reports.create',
+            'partner.report.partiallist'    => 'partial_reports.list',
+            'protests.partner.main'         => 'complaints.index',
+            'protests.partner.history'      => 'complaints.history',
+            'partner.note_d5.list'          => 'd5_notes.list',
+            'partner.note_d5.returned'      => 'd5_notes.returned',
+            'partner.note_d5.historic'      => 'd5_notes.history',
+            'partner.closure.issues'        => 'closure.issues.list',
+            'partner.admin.users'           => 'admin_users.view',
         ];
     }
 
@@ -127,6 +127,11 @@ class PartnerController extends Controller
     public function adsRequests()
     {
         return view('partner.ads_requests');
+    }
+
+    public function closureIssues(): View
+    {
+        return view('partner.closure-issues');
     }
 
     // D5

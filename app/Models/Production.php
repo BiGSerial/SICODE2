@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Closure\ClosureOrderState;
 use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -262,6 +263,11 @@ class Production extends Model
     public function WorkReportFlowProductions()
     {
         return $this->hasMany(WorkReportFlowProduction::class);
+    }
+
+    public function ClosureOrderStates()
+    {
+        return $this->hasMany(ClosureOrderState::class);
     }
 
     public function currentWorkReportsForStage(?string $stage = null): Collection

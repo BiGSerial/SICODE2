@@ -12,6 +12,7 @@ class PartnerPermissionCatalog
     public const GROUP_PARTIAL_REPORTS    = 'partial_reports';
     public const GROUP_COMPLAINTS         = 'complaints';
     public const GROUP_D5_NOTES           = 'd5_notes';
+    public const GROUP_CLOSURE            = 'closure';
     public const GROUP_ADMIN              = 'admin';
 
     public static function groups(): array
@@ -78,6 +79,15 @@ class PartnerPermissionCatalog
                     'd5_notes.show'     => 'Visualizar',
                     'd5_notes.finish'   => 'Finalizar',
                     'd5_notes.export'   => 'Exportar',
+                ],
+            ],
+            self::GROUP_CLOSURE => [
+                'label' => 'Encerramento',
+                'items' => [
+                    'closure.issues.list'       => 'Listar pendências',
+                    'closure.issues.respond'    => 'Responder pendências',
+                    'closure.issues.history'    => 'Histórico de pendências',
+                    'closure.issues.view_files' => 'Visualizar arquivos',
                 ],
             ],
             self::GROUP_ADMIN => [
@@ -170,6 +180,7 @@ class PartnerPermissionCatalog
             'partner.report.reinformWorkreport' => 'conclusion_reports.reinform',
             'partner.report.sendAdsForm'        => 'conclusion_reports.ads_delivery',
             'partner.ads.requests'              => 'conclusion_reports.ads_requests',
+            'partner.closure.issues'            => 'closure.issues.list',
             'partner.declared.equipment'        => 'conclusion_reports.equipment',
             'partner.report.partial'            => 'partial_reports.create',
             'partner.report.partiallist'        => 'partial_reports.list',

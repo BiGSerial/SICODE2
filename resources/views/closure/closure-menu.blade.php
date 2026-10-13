@@ -22,6 +22,20 @@
                             <i class="bi bi-hourglass-split fs-5 edp-text-verde-dark fw-normal"></i><span>PASSIVO</span>
                         </a>
                     </li>
+                    @can('closure.dispatch')
+                        <li>
+                            <a href="{{ route('closure.dispatch') }}" class="nav-item text-white fw-normal">
+                                <i class="bi bi-send fs-5 edp-text-verde-dark fw-normal"></i><span>DESPACHO</span>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('closure.work')
+                        <li>
+                            <a href="{{ route('closure.work') }}" class="nav-item text-white fw-normal">
+                                <i class="bi bi-person-workspace fs-5 edp-text-verde-dark fw-normal"></i><span>MINHA ATIVIDADE</span>
+                            </a>
+                        </li>
+                    @endcan
                 </div>
             </ul>
         </li>

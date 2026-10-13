@@ -18,7 +18,17 @@ class Detail extends Component
 
     public function render()
     {
-        $order = Order::with(['Note', 'ClosureTarget.Cycle', 'ClosureTarget.AuthorizedBy', 'ClosureTarget.RequestedBy'])->findOrFail($this->orderId);
+        $order = Order::with([
+            'Note',
+            'ClosureTarget.Cycle',
+            'ClosureTarget.AuthorizedBy',
+            'ClosureTarget.RequestedBy',
+            'ClosureState.CurrentHolderUser',
+            'ClosureState.CurrentHolderCompany',
+            'ClosureState.Events.Actor',
+            'ClosureState.Periods.HolderUser',
+            'ClosureState.Periods.HolderCompany',
+        ])->findOrFail($this->orderId);
 
         $status   = (string) ($order->statusSist ?? '');
         $isClosed = str_starts_with($status, 'ENTE') || str_starts_with($status, 'ENCE');
@@ -37,12 +47,34 @@ class Detail extends Component
             default          => 'FORA DA META',
         };
 
+        $state              = $order->ClosureState;
+        $canViewOperational = $this->canViewOperational($state);
+
         return view('livewire.closure.orders.detail', [
-            'order'     => $order,
-            'status'    => $status,
-            'isClosed'  => $isClosed,
-            'target'    => $target,
-            'situation' => $situation,
+            'order'              => $order,
+            'status'             => $status,
+            'isClosed'           => $isClosed,
+            'target'             => $target,
+            'situation'          => $situation,
+            'state'              => $state,
+            'canViewOperational' => $canViewOperational,
         ]);
+    }
+
+    private function canViewOperational($state): bool
+    {
+        if (!$state) {
+            return true;
+        }
+
+        $user = auth()->user();
+
+        if ($user->can('closure.manage')) {
+            return true;
+        }
+
+        return (string) $state->current_holder_user_id === (string) $user->id
+            || ($state->current_holder_type === 'PARTNER_COMPANY'
+                && (string) $state->current_holder_company_id === (string) $user->company_id);
     }
 }
