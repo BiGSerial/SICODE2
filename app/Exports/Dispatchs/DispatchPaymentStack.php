@@ -45,6 +45,9 @@ class DispatchPaymentStack implements
         return $this->data
             ->with([
                 'Note.WorkForm.Orders.Operations',
+                'Note.WorkForm.Adsform:id,work_report_id,note_id,amount',
+                'Note.WorkFormAny.Adsform:id,work_report_id,note_id,amount',
+                'Note.Adsform:id,work_report_id,note_id,amount',
                 'Note.WorkForm.Orders.Pep:objeto,disponivel',
                 'Note.WorkFormAny.Orders.Operations',
                 'Note.WorkFormAny.Orders.Pep:objeto,disponivel',
@@ -77,7 +80,7 @@ class DispatchPaymentStack implements
             if ($workForm) {
                 $orderModels = $workForm->orders ?? collect();
                 $orders      = $orderModels->pluck('ordem')->implode("\n ");
-                $soma        = $orderModels->sum('moaberto');
+                $soma        = ($workForm->Adsform ?? $row->note->Adsform)?->amount;
                 $company     = $workForm->company->name;
                 $lastPaydate = $workForm->informed_at;
 
@@ -150,7 +153,7 @@ class DispatchPaymentStack implements
             'Ordem',
             'PEP',
             'Saldo disponível PEP',
-            'MOA',
+            'Valor ADS',
             'Empreiteira',
             'Rubrica',
             'Municipio',
