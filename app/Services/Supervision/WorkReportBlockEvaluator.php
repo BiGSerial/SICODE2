@@ -54,11 +54,11 @@ class WorkReportBlockEvaluator
             && $production->dt_note->equalTo($workReport->Note->dt_status)
             && $production->status_note == $workReport->Note?->nstats
         ) {
-            return $this->res(self::HOLD_RED, true, 'workreport_sap_nao_refletido_mesma_data_status', $production);
+            return $this->sapReflectionResult($production, 'workreport_sap_nao_refletido_mesma_data_status');
         }
 
         if ($production->confirmed) {
-            return $this->res(self::HOLD_RED, true, 'workreport_producao_confirmada', $production);
+            return $this->sapReflectionResult($production, 'workreport_producao_confirmada');
         }
 
         return $this->res(self::HOLD_GREEN, false, 'workreport_producao_concluida', $production);
@@ -92,6 +92,17 @@ class WorkReportBlockEvaluator
             'production' => $production,
             'isPartial'  => false,
         ];
+    }
+
+    private function sapReflectionResult(Production $production, string $reason): array
+    {
+        $finishedAt = $production->completed_at ?? $production->updated_at ?? $production->created_at;
+
+        if ($finishedAt && $finishedAt->greaterThan(now()->subHours(12))) {
+            return $this->res(self::HOLD_GREEN, false, $reason . '_aguardando_sap', $production);
+        }
+
+        return $this->res(self::HOLD_RED, true, $reason, $production);
     }
 
     private function colorFor(int $block): string

@@ -2,7 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Company, Note, Operation, Order, Production, Service, User, WorkReport, WorkReportFlowProduction};
+use App\Models\{Company, FiveNote, Note, Operation, Order, Production, Service, User, WorkReport, WorkReportFlowProduction};
+use App\Services\Dispatch\DispatchWorkflowService;
 use App\Services\Supervision\SupervisionDispatchListQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -57,6 +58,37 @@ class SupervisionPartnerVisibilityTest extends TestCase
         ])->pluck('operational_work_report_id')->map(fn ($id) => (int) $id)->all();
 
         $this->assertSame([], $visibleReportIds);
+    }
+
+    public function test_passive_d5_dispatch_is_linked_to_the_selected_d5(): void
+    {
+        config(['sicode.ruleset' => 'sp']);
+
+        $company = Company::create(['name' => 'Parceira', 'email' => 'parceira@example.com']);
+        $actor   = User::factory()->create(['contract' => false]);
+        $user    = User::factory()->create(['contract' => true, 'company_id' => $company->id]);
+        $service = Service::create(['service' => 'Fiscalizacao', 'folder' => 'fiscalizacao']);
+        $note    = Note::create(['note' => '4000007303', 'type_note' => 1]);
+        $d5      = FiveNote::create([
+            'note_id'          => $note->id,
+            'note_d5'          => 'D5-7303',
+            'isPassive'        => true,
+            'is_completed'     => true,
+            'is_supervisioned' => false,
+            'is_archived'      => false,
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $user,
+            $actor,
+            fiveNoteId: $d5->id,
+        );
+
+        $this->assertTrue($production->dfive);
+        $this->assertTrue($d5->productions()->whereKey($production->id)->exists());
     }
 
     private function reportWithEligibleOrder(Note $note, Company $company, string $orderNumber): WorkReport

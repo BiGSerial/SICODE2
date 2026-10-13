@@ -550,8 +550,10 @@
                             <th scope="col" class="fw-bold text-center">Status</th>
                             <th scope="col" class="fw-bold text-center">Dias D5</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
-                            @if (request()->routeIs('dispatch.partner'))<th class="fw-bold text-center">Despachado Em</th><th class="fw-bold text-center">Atribuído Em</th><th class="fw-bold text-center">Finalizado Em</th>@endif
-                            <th scope="col" class="fw-bold text-center"></th>
+                            @if (request()->routeIs('dispatch.partner'))
+                                <th class="fw-bold text-center">Despachado Em</th>
+                            @endif
+                            <th scope="col" class="fw-bold text-center">Ação</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -780,17 +782,15 @@
 
 
                                 @if (request()->routeIs('dispatch.partner'))
-                                    @foreach ([$partnerProduction?->dispatch_at, $partnerProduction?->att_at, $partnerProduction?->completed_at] as $partnerDate)
-                                        <td class="text-center {{ $rowClass }} text-nowrap">
-                                            @if ($partnerDate)
-                                                {{ $partnerDate->format('d/m/Y') }}
-                                                <br>
-                                                <span class="badge text-bg-secondary">{{ $partnerDate->startOfDay()->diffInDays(now()->startOfDay()) }} dia(s)</span>
-                                            @else
-                                                ---
-                                            @endif
-                                        </td>
-                                    @endforeach
+                                    <td class="text-center {{ $rowClass }} text-nowrap">
+                                        @if ($partnerProduction?->dispatch_at)
+                                            {{ $partnerProduction->dispatch_at->format('d/m/Y') }}
+                                            <br>
+                                            <span class="badge text-bg-secondary">{{ $partnerProduction->dispatch_at->startOfDay()->diffInDays(now()->startOfDay()) }} dia(s)</span>
+                                        @else
+                                            ---
+                                        @endif
+                                    </td>
                                 @endif
                                 <td class="fw-bold text-center {{ $rowClass }}" data-bs-toggle="tooltip"
                                     data-bs-placement="top" title="{{ $reason }}">
@@ -802,7 +802,8 @@
                                             wire:click.prevent="$emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', [@js([
                                                 'note_id' => $list->id,
                                                 'work_report_id' => (int) ($list->dispatch_work_report_id ?? 0),
-                                                'partial_id' => (int) (($list->dispatch_work_report_id ?? 0) ? 0 : optional(collect($list->Partials ?? [])->where('allow', true)->where('supervision', false)->where('deny', false)->sortByDesc('created_at')->first())->id),
+                                                'partial_id' => (int) ($list->dispatch_partial_id ?? 0),
+                                                'five_note_id' => (int) ($list->dispatch_five_note_id ?? 0),
                                             ])])"
                                             data-bs-toggle="tooltip" data-bs-placement="top"
                                             data-bs-custom-class="custom-tooltip"
