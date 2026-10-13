@@ -49,14 +49,17 @@ class DispatchModal extends Component
 
     public array $targetPartialIdsByContext = [];
 
+    public bool $confirming = false;
+
+    public string $confirmSummary = '';
+
     /** @var array<int, array{label: string, ok: bool, reason: ?string}> */
     public array $dispatchResults = [];
 
     protected $listeners = [
-        'openForNotes'           => 'openForNotes',
-        'openForWorkReports'     => 'openForWorkReports',
-        'openForProductions'     => 'openForProductions',
-        'confirm_dispatch_modal' => 'confirmedAtt',
+        'openForNotes'       => 'openForNotes',
+        'openForWorkReports' => 'openForWorkReports',
+        'openForProductions' => 'openForProductions',
     ];
 
     public function mount(string $serviceId): void
@@ -450,21 +453,25 @@ class DispatchModal extends Component
             ? $targetUser->name . ' da ' . $company?->name
             : $company?->name;
 
-        $this->dispatchBrowserEvent('alertar', [
-            'target'        => 'dispatchs.shared.dispatch-modal',
-            'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a Despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Despache!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_dispatch_modal',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => "Nenhum {$this->dispatchItemLabel} foi despachado.",
-        ]);
+        $this->dispatchResults = [];
+        $this->confirmSummary  = "Você está prestes a despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}.";
+        $this->confirming      = true;
+    }
+
+    public function cancelConfirmation(): void
+    {
+        $this->confirming = false;
     }
 
     public function confirmedAtt(): void
     {
+        // Evita duplo envio: só processa quando a confirmação está aberta.
+        if (!$this->confirming) {
+            return;
+        }
+
+        $this->confirming = false;
+
         if (!in_array((string) $this->type, ['1', '2'], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -825,6 +832,8 @@ class DispatchModal extends Component
         $this->targetPartialIdsByContext = [];
         $this->dispatchContextsByIndex   = [];
         $this->dispatchResults           = [];
+        $this->confirming                = false;
+        $this->confirmSummary            = '';
     }
 
     public function hydrateNotes($value): void

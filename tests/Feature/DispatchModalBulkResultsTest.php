@@ -23,7 +23,9 @@ class DispatchModalBulkResultsTest extends TestCase
         // Invalida a segunda D5 depois da abertura (outro usuário alterou a demanda).
         $bad[1]->update(['is_archived' => true]);
 
-        $component->call('confirmedAtt');
+        $component->call('confirmAtt')
+            ->assertSet('confirming', true)
+            ->call('confirmedAtt');
 
         $results = collect($component->get('dispatchResults'));
         $this->assertTrue($results->firstWhere('label', $ok[0]->note . ' · D5 #' . $ok[1]->id)['ok']);
@@ -42,7 +44,9 @@ class DispatchModalBulkResultsTest extends TestCase
 
         $component = $this->openModal($service, $actor, $company, [$bad]);
         $bad[1]->update(['is_archived' => true]);
-        $component->call('confirmedAtt');
+        $component->call('confirmAtt')
+            ->assertSet('confirming', true)
+            ->call('confirmedAtt');
 
         $this->assertSame([], $component->get('dispatchResults'));
         $this->assertSame(1, $component->get('notes')->count());

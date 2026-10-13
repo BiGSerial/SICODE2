@@ -284,6 +284,50 @@
                 color: #b91c1c;
             }
 
+            .dispatch-modal__confirm {
+                align-items: flex-start;
+                background: #fef9c3;
+                border: 1px solid #facc15;
+                border-radius: 8px;
+                color: #713f12;
+                display: flex;
+                gap: 0.6rem;
+                margin-bottom: 0.75rem;
+                padding: 0.85rem;
+            }
+
+            .dispatch-modal__confirm > i {
+                font-size: 1.4rem;
+                line-height: 1;
+            }
+
+            .dispatch-modal__confirm-title {
+                font-weight: 800;
+                text-transform: uppercase;
+                font-size: 0.8rem;
+            }
+
+            .dispatch-modal__processing {
+                align-items: center;
+                background: rgba(248, 250, 252, 0.88);
+                color: #123f43;
+                cursor: wait;
+                display: none;
+                flex-direction: column;
+                font-weight: 700;
+                gap: 0.75rem;
+                inset: 0;
+                justify-content: center;
+                position: absolute;
+                text-align: center;
+                z-index: 20;
+            }
+
+            .dispatch-modal__processing small {
+                color: #64748b;
+                font-weight: 600;
+            }
+
             .dispatch-modal__empty {
                 background: #ffffff;
                 border: 1px dashed #cbd5e1;
@@ -338,6 +382,13 @@
     aria-labelledby="dispatchModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
+            <div class="dispatch-modal__processing" wire:loading.flex wire:target="confirmedAtt" role="status" aria-live="polite">
+                <span class="spinner-border" aria-hidden="true"></span>
+                <div>
+                    Processando despacho de {{ $notes ? $notes->count() : 0 }} {{ $this->dispatchItemLabelPlural }}...
+                    <br><small>Nao feche esta janela. Isso pode levar alguns instantes.</small>
+                </div>
+            </div>
             <div class="dispatch-modal__header d-flex align-items-start justify-content-between gap-3">
                 <div>
                     <h1 class="dispatch-modal__title" id="dispatchModalLabel">Despachar {{ $service->service }}</h1>
@@ -347,6 +398,7 @@
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                     wire:click.prevent="closeAll"
+                    wire:loading.attr="disabled" wire:target="confirmedAtt"
                     aria-label="Fechar"></button>
             </div>
 
@@ -378,8 +430,18 @@
                         </div>
                     </div>
                 @endif
+                @if ($notes && $notes->count() && $confirming)
+                    <div class="dispatch-modal__confirm" role="alertdialog">
+                        <i class="ri-question-line"></i>
+                        <div>
+                            <div class="dispatch-modal__confirm-title">Confirmar despacho</div>
+                            <div>{{ $confirmSummary }}</div>
+                            <div class="dispatch-modal__hint mt-1">Revise os itens abaixo e clique em "Confirmar despacho".</div>
+                        </div>
+                    </div>
+                @endif
                 @if ($notes && $notes->count())
-                    <div class="dispatch-modal__controls">
+                    <div class="dispatch-modal__controls @if ($confirming) d-none @endif">
                         <div class="dispatch-modal__control-card">
                             <label class="form-label">Destino</label>
                             <div class="dispatch-modal__type-group {{ $contractMode ? 'is-single' : '' }}">
@@ -568,13 +630,29 @@
             </div>
 
             <div class="dispatch-modal__footer">
-                <button class="btn btn-outline-secondary" wire:click.prevent="closeAll">Cancelar</button>
-                <button class="btn btn-primary" wire:click.prevent="confirmAtt" wire:loading.attr="disabled"
-                    wire:target="confirmAtt"
-                    @disabled(!$notes || !$notes->count())>
-                    <span wire:loading.remove wire:target="confirmAtt">Despachar</span>
-                    <span wire:loading wire:target="confirmAtt">Enviando...</span>
-                </button>
+                @if ($confirming)
+                    <button class="btn btn-outline-secondary" wire:click.prevent="cancelConfirmation"
+                        wire:loading.attr="disabled" wire:target="confirmedAtt">Voltar</button>
+                    <button class="btn btn-primary" wire:click.prevent="confirmedAtt" wire:loading.attr="disabled"
+                        wire:target="confirmedAtt">
+                        <span wire:loading.remove wire:target="confirmedAtt">Confirmar despacho</span>
+                        <span wire:loading wire:target="confirmedAtt">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            Despachando...
+                        </span>
+                    </button>
+                @else
+                    <button class="btn btn-outline-secondary" wire:click.prevent="closeAll"
+                        wire:loading.attr="disabled" wire:target="confirmAtt">Cancelar</button>
+                    <button class="btn btn-primary" wire:click.prevent="confirmAtt" wire:loading.attr="disabled"
+                        wire:target="confirmAtt" @disabled(!$notes || !$notes->count())>
+                        <span wire:loading.remove wire:target="confirmAtt">Despachar</span>
+                        <span wire:loading wire:target="confirmAtt">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            Verificando...
+                        </span>
+                    </button>
+                @endif
             </div>
         </div>
     </div>
