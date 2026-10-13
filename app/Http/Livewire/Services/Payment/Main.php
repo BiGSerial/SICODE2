@@ -70,11 +70,11 @@ class Main extends Component
     private $filter_group = 'payments';
 
     protected $listeners = [
-        'refresh_service'        => '$refresh',
-        'refresh_list'           => '$refresh',
-        'getCopy'                => 'copy',
-        'confirm_accompany'      => 'add_to_accompany',
-        'confirm_accompany_mass' => 'add_to_accompany_mass',
+        'refresh_service'       => '$refresh',
+        'refresh_list'          => '$refresh',
+        'self_assign_processed' => 'pruneAssigned',
+        'getCopy'               => 'copy',
+        'confirm_accompany'     => 'add_to_accompany',
     ];
 
     protected $queryString = [
@@ -119,7 +119,7 @@ class Main extends Component
         return [(int) $key, null];
     }
 
-    private function selectionKeysForCurrentFilter(): array
+    private function currentFilterRows()
     {
         $page = $this->baseQuery()->get();
 
@@ -138,7 +138,12 @@ class Main extends Component
             'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
         ]);
 
-        return $this->expandPaymentRows($page)
+        return $this->expandPaymentRows($page);
+    }
+
+    private function selectionKeysForCurrentFilter(): array
+    {
+        return $this->currentFilterRows()
             ->map(fn (Note $note) => $this->rowSelectionKey($note))
             ->values()
             ->all();
@@ -161,6 +166,11 @@ class Main extends Component
 
     public function checkAllSelect(): bool
     {
+        // Sem seleção nada está marcado: evita varrer a lista filtrada inteira a cada render.
+        if (!count($this->selected)) {
+            return $this->selectAll = false;
+        }
+
         $keys = $this->selectionKeysForCurrentFilter();
 
         if (!count($keys)) {
@@ -386,6 +396,10 @@ class Main extends Component
         ]);
     }
 
+    /**
+     * Atribuição em massa passa pelo mesmo fluxo do Despacho (DispatchModal), com
+     * destino fixo no usuário logado: mesmas regras, contexto e feedback por item.
+     */
     public function go_att_mass(): void
     {
         if (!count($this->selected)) {
@@ -399,91 +413,33 @@ class Main extends Component
             return;
         }
 
-        $count      = count($this->selected);
-        $targetName = auth()->user()?->name ?? 'voce';
-
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Assumir tarefas',
-            'msg'   => "Você deseja assumir <strong>{$count}</strong> Nota(s)/OV(s) para <strong>{$targetName}</strong>?</br></br>
-                <div class='card card-light'>
-                  <div class='card-body'>
-                    <p>As Notas/OVs elegíveis ficarão disponíveis em acompanhamento como suas tarefas. Nesta lista de serviço, a atribuição é sempre para o usuário logado.</p>
-                  </div>
-                </div>",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, assumir',
-            'btnCanceltxt'  => 'Não, Cancele!',
-            'action'        => 'confirm_accompany_mass',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhum serviço foi atribuído.',
-        ]);
+        $this->emitTo('dispatchs.shared.dispatch-modal', 'openForSelfAssign', $this->selectedDispatchContexts());
     }
 
-    public function add_to_accompany_mass(): void
+    /** O modal informa as Notas assumidas; sai da seleção só o que foi atribuído. */
+    public function pruneAssigned(array $noteIds = []): void
     {
-        $success      = 0;
-        $errors       = [];
-        $selectedRows = [];
+        $done = array_map('intval', $noteIds);
 
-        foreach ($this->selected as $selectedKey) {
-            [$noteId, $workReportId] = $this->parseSelectionKey($selectedKey);
-            $selectedRows[]          = [
-                'note_id'        => $noteId,
-                'work_report_id' => $workReportId ?: null,
-            ];
-        }
-
-        $notes = Note::query()
-            ->whereIn('id', collect($selectedRows)->pluck('note_id')->unique()->all())
-            ->with($this->assignmentNoteRelations())
-            ->get()
-            ->keyBy('id');
-        $this->primeWorkReportScopeCache(collect($selectedRows)->pluck('work_report_id')->filter()->unique()->all());
-
-        foreach ($selectedRows as $selectedRow) {
-            $workReportId = $selectedRow['work_report_id'];
-            $note         = $notes->get($selectedRow['note_id']);
-
-            if (!$note) {
-                continue;
-            }
-
-            $result = $this->assignNoteToSelf(
-                $note,
-                $this->finalScopesForWorkReportId($workReportId),
-                $workReportId
-            );
-
-            if ($result['ok']) {
-                $success++;
-            } else {
-                $errors[] = "{$result['note']}: {$result['reason']}";
-            }
-        }
-
-        $this->selected  = [];
+        $this->selected = array_values(array_filter(
+            $this->selected,
+            fn ($key) => !in_array($this->parseSelectionKey($key)[0], $done, true)
+        ));
         $this->selectAll = false;
+    }
 
-        if (count($errors)) {
-            $msg = implode('<br>', array_slice($errors, 0, 10));
-            $msg .= count($errors) > 10 ? '<br>...' : '';
+    /**
+     * Monta o contexto direto das chaves selecionadas (Nota[:Informe]). Não reconsulta a
+     * lista filtrada inteira: o próprio modal resolve parcial/D5 de Ciclo 2 pelas regras
+     * da Medição, como no Despacho.
+     */
+    private function selectedDispatchContexts(): array
+    {
+        return collect($this->selected)->map(function ($key) {
+            [$noteId, $workReportId] = $this->parseSelectionKey($key);
 
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => $success ? 'warning' : 'error',
-                'title'    => "Atribuição concluída ({$success} sucesso, " . count($errors) . ' falha)',
-                'html'     => $msg,
-            ]);
-
-            return;
-        }
-
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => "Atribuição em massa concluída ({$success})",
-            'timer'    => 2500,
-        ]);
+            return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null];
+        })->values()->all();
     }
 
     /**
@@ -565,6 +521,8 @@ class Main extends Component
                 $targetPartialId
             ));
         } catch (DispatchException $exception) {
+            return ['ok' => false, 'note' => $note->note, 'reason' => $exception->getMessage()];
+        } catch (\DomainException $exception) {
             return ['ok' => false, 'note' => $note->note, 'reason' => $exception->getMessage()];
         }
 

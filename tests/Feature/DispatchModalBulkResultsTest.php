@@ -53,6 +53,25 @@ class DispatchModalBulkResultsTest extends TestCase
         $component->assertDispatchedBrowserEvent('swal');
     }
 
+    public function test_self_assign_mode_dispatches_to_logged_user_through_same_flow(): void
+    {
+        [$service, $company, $actor] = $this->fixture();
+        $item                        = $this->noteWithPassiveD5('5000000004');
+
+        Livewire::actingAs($actor)->test(DispatchModal::class, ['serviceId' => $service->uuid])
+            ->call('openForSelfAssign', [['note_id' => $item[0]->id, 'five_note_id' => $item[1]->id]])
+            ->assertSet('selfAssign', true)
+            ->assertSet('user_s', (string) $actor->id)
+            ->assertSet('company_s', (string) $company->id)
+            ->call('confirmAtt')
+            ->assertSet('confirming', true)
+            ->call('confirmedAtt');
+
+        $production = \App\Models\Production::where('note_id', $item[0]->id)->first();
+        $this->assertNotNull($production);
+        $this->assertSame($actor->id, $production->user_id);
+    }
+
     private function openModal(Service $service, User $actor, Company $company, array $pairs)
     {
         $component = Livewire::actingAs($actor)->test(DispatchModal::class, ['serviceId' => $service->uuid])

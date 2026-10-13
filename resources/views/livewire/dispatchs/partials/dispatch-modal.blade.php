@@ -385,13 +385,13 @@
             <div class="dispatch-modal__processing" wire:loading.flex wire:target="confirmedAtt" role="status" aria-live="polite">
                 <span class="spinner-border" aria-hidden="true"></span>
                 <div>
-                    Processando despacho de {{ $notes ? $notes->count() : 0 }} {{ $this->dispatchItemLabelPlural }}...
+                    Processando {{ $selfAssign ? 'atribuição' : 'despacho' }} de {{ $notes ? $notes->count() : 0 }} {{ $this->dispatchItemLabelPlural }}...
                     <br><small>Nao feche esta janela. Isso pode levar alguns instantes.</small>
                 </div>
             </div>
             <div class="dispatch-modal__header d-flex align-items-start justify-content-between gap-3">
                 <div>
-                    <h1 class="dispatch-modal__title" id="dispatchModalLabel">Despachar {{ $service->service }}</h1>
+                    <h1 class="dispatch-modal__title" id="dispatchModalLabel">{{ $selfAssign ? 'Assumir' : 'Despachar' }} {{ $service->service }}</h1>
                     <div class="dispatch-modal__subtitle">
                         {{ $notes && $notes->count() ? $notes->count() . ' ' . $this->dispatchItemLabelPlural . ' selecionado(s)' : 'Nenhum ' . $this->dispatchItemLabel . ' selecionado' }}
                     </div>
@@ -434,14 +434,14 @@
                     <div class="dispatch-modal__confirm" role="alertdialog">
                         <i class="ri-question-line"></i>
                         <div>
-                            <div class="dispatch-modal__confirm-title">Confirmar despacho</div>
+                            <div class="dispatch-modal__confirm-title">{{ $selfAssign ? 'Confirmar atribuição' : 'Confirmar despacho' }}</div>
                             <div>{{ $confirmSummary }}</div>
-                            <div class="dispatch-modal__hint mt-1">Revise os itens abaixo e clique em "Confirmar despacho".</div>
+                            <div class="dispatch-modal__hint mt-1">Revise os itens abaixo e clique em "{{ $selfAssign ? 'Confirmar atribuição' : 'Confirmar despacho' }}".</div>
                         </div>
                     </div>
                 @endif
                 @if ($notes && $notes->count())
-                    <div class="dispatch-modal__controls @if ($confirming) d-none @endif">
+                    <div class="dispatch-modal__controls @if ($confirming || $selfAssign) d-none @endif">
                         <div class="dispatch-modal__control-card">
                             <label class="form-label">Destino</label>
                             <div class="dispatch-modal__type-group {{ $contractMode ? 'is-single' : '' }}">
@@ -635,10 +635,10 @@
                         wire:loading.attr="disabled" wire:target="confirmedAtt">Voltar</button>
                     <button class="btn btn-primary" wire:click.prevent="confirmedAtt" wire:loading.attr="disabled"
                         wire:target="confirmedAtt">
-                        <span wire:loading.remove wire:target="confirmedAtt">Confirmar despacho</span>
+                        <span wire:loading.remove wire:target="confirmedAtt">{{ $selfAssign ? 'Confirmar atribuição' : 'Confirmar despacho' }}</span>
                         <span wire:loading wire:target="confirmedAtt">
                             <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                            Despachando...
+                            {{ $selfAssign ? 'Assumindo...' : 'Despachando...' }}
                         </span>
                     </button>
                 @else
@@ -646,7 +646,7 @@
                         wire:loading.attr="disabled" wire:target="confirmAtt">Cancelar</button>
                     <button class="btn btn-primary" wire:click.prevent="confirmAtt" wire:loading.attr="disabled"
                         wire:target="confirmAtt" @disabled(!$notes || !$notes->count())>
-                        <span wire:loading.remove wire:target="confirmAtt">Despachar</span>
+                        <span wire:loading.remove wire:target="confirmAtt">{{ $selfAssign ? 'Assumir' : 'Despachar' }}</span>
                         <span wire:loading wire:target="confirmAtt">
                             <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                             Verificando...

@@ -81,6 +81,28 @@ class PaymentD5DispatchTest extends TestCase
         $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
     }
 
+    public function test_payment_dispatch_for_cycle_one_accepts_explicit_pending_d5_of_the_informe(): void
+    {
+        [$note, $report, $service, $company, $actor] = $this->fixture();
+        $five                                        = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'note_d5' => '']);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor,
+            null,
+            [WorkReportFlowProduction::SCOPE_NETWORK],
+            $report->id,
+            null,
+            $five->id
+        );
+
+        $this->assertTrue((bool) $production->fresh()->dfive);
+        $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
+    }
+
     private function fixture(): array
     {
         $company                = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);

@@ -49,6 +49,9 @@ class DispatchModal extends Component
 
     public array $targetPartialIdsByContext = [];
 
+    /** Atribuição para si (telas de Serviço): mesmo fluxo do despacho, destino fixo no usuário logado. */
+    public bool $selfAssign = false;
+
     public bool $confirming = false;
 
     public string $confirmSummary = '';
@@ -71,7 +74,12 @@ class DispatchModal extends Component
         $this->contractMode = (bool) auth()->user()?->contract;
     }
 
-    public function openForNotes(array $noteIds): void
+    public function openForSelfAssign(array $noteIds): void
+    {
+        $this->openForNotes($noteIds, true);
+    }
+
+    public function openForNotes(array $noteIds, bool $selfAssign = false): void
     {
         $contexts = collect($noteIds)
             ->map(function ($value) {
@@ -144,7 +152,8 @@ class DispatchModal extends Component
         }
 
         $this->resetModalState();
-        $loadedNotes = Note::with($this->modalNoteRelations())
+        $this->selfAssign = $selfAssign;
+        $loadedNotes      = Note::with($this->modalNoteRelations())
             ->whereIn('id', $noteIds)
             ->get()
             ->keyBy('id');
@@ -203,6 +212,7 @@ class DispatchModal extends Component
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
+        $this->applySelfAssignDefaults();
         $this->additionalData = [];
         $contextResolver      = app(DispatchContextResolver::class);
         $scopeAwareService    = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
@@ -454,8 +464,10 @@ class DispatchModal extends Component
             : $company?->name;
 
         $this->dispatchResults = [];
-        $this->confirmSummary  = "Você está prestes a despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}.";
-        $this->confirming      = true;
+        $this->confirmSummary  = $this->selfAssign
+            ? "Você está prestes a assumir {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}."
+            : "Você está prestes a despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}.";
+        $this->confirming = true;
     }
 
     public function cancelConfirmation(): void
@@ -524,6 +536,7 @@ class DispatchModal extends Component
 
             $this->dispatchResults = [];
             $failedKeys            = [];
+            $succeededNoteIds      = [];
 
             // Cada item despacha em sua própria transação: o que puder ser
             // despachado segue, e o que falhar fica registrado com o motivo.
@@ -531,6 +544,7 @@ class DispatchModal extends Component
                 try {
                     DB::transaction(fn () => $this->dispatchOne($workflow, $note, $key, $company, $targetUser, $actor));
 
+                    $succeededNoteIds[]      = (int) $note->id;
                     $this->dispatchResults[] = ['label' => $this->resultLabelFor($note), 'ok' => true, 'reason' => null];
                 } catch (DispatchException $e) {
                     $failedKeys[]            = $key;
@@ -540,6 +554,10 @@ class DispatchModal extends Component
                     $failedKeys[]            = $key;
                     $this->dispatchResults[] = ['label' => $this->resultLabelFor($note), 'ok' => false, 'reason' => 'Erro inesperado ao despachar este item.'];
                 }
+            }
+
+            if ($this->selfAssign && $succeededNoteIds) {
+                $this->emitUp('self_assign_processed', $succeededNoteIds);
             }
 
             if ($failedKeys) {
@@ -832,6 +850,7 @@ class DispatchModal extends Component
         $this->targetPartialIdsByContext = [];
         $this->dispatchContextsByIndex   = [];
         $this->dispatchResults           = [];
+        $this->selfAssign                = false;
         $this->confirming                = false;
         $this->confirmSummary            = '';
     }
@@ -873,6 +892,22 @@ class DispatchModal extends Component
         })->values();
 
         $this->notes = new EloquentCollection($rows->all());
+    }
+
+    private function applySelfAssignDefaults(): void
+    {
+        if (!$this->selfAssign) {
+            return;
+        }
+
+        $user = auth()->user();
+
+        // O destino é sempre o usuário logado e a empresa dele; não há escolha na tela.
+        $this->type      = '2';
+        $this->company_s = (string) $user?->company_id;
+        $this->user_s    = (string) $user?->id;
+        $this->company_l = Company::whereKey($user?->company_id)->get();
+        $this->user_l    = User::whereKey($user?->id)->select('id', 'name')->get();
     }
 
     private function applyContractModeDefaults(): void
