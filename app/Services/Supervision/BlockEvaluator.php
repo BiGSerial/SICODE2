@@ -2,10 +2,7 @@
 
 namespace App\Services\Supervision;
 
-use App\Models\Note;
-use App\Models\Service;
-use App\Models\Production;
-use App\Models\WorkReportFlowProduction;
+use App\Models\{Note, Production, Service, WorkReportFlowProduction};
 
 class BlockEvaluator
 {
@@ -24,13 +21,13 @@ class BlockEvaluator
         $prod = $this->latestProductionForService($note, $service->uuid);
 
         // Atalhos
-        $wf           = $note->WorkForm;
-        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-        $partialId = (int) ($note->dispatch_partial_id ?? 0);
-        $five = $workReportId > 0 ? $wf?->FiveNote : $note->FiveNote;
-        $hasWorkForm  = (bool) $wf;
+        $wf                = $note->WorkForm;
+        $workReportId      = (int) ($note->dispatch_work_report_id ?? 0);
+        $partialId         = (int) ($note->dispatch_partial_id ?? 0);
+        $five              = $workReportId > 0 ? $wf?->FiveNote : $note->FiveNote;
+        $hasWorkForm       = (bool) $wf;
         $isPartialFromProd = !$hasWorkForm && (bool) ($prod?->partial);
-        $validPartial = $partialId > 0
+        $validPartial      = $partialId > 0
             ? $note->Partials?->firstWhere("id", $partialId)
             : ((int) ($note->dispatch_five_note_id ?? 0) > 0 ? null : $this->latestValidPartialForSupervision($note));
 
@@ -39,16 +36,20 @@ class BlockEvaluator
             if ($wf && ($wf->rejected ?? false)) {
                 return $this->res(self::HOLD_YELLOW, false, 'workform_rejeitado');
             }
+
             if ($wf) {
                 // WorkForm tem precedência sobre Partial quando não há produção.
                 return $this->res(self::FREE, true, 'workform_sem_producao', null, false);
             }
+
             if ($validPartial) {
                 return $this->res(self::FREE, true, 'partial_valido_sem_producao', null, true);
             }
+
             if ($five && ($five->is_completed) && !($five->is_supervisioned)) {
                 return $this->res(self::FREE, true, 'fivenote_prioritario_sem_producao');
             }
+
             return $this->res(self::FREE, true, 'sem_producao');
         }
 
@@ -57,9 +58,11 @@ class BlockEvaluator
             if (!$prod->completed && $prod->dfive) {
                 return $this->res(self::HOLD_BLUE, false, 'fivenote_prioritario_producao_aberta_dfive', $prod);
             }
+
             if ($prod->completed && $prod->dfive && ($five->completed_at < $prod->created_at)) {
                 return $this->res(self::HOLD_RED, false, 'fivenote_prioritario_antes_da_producao_dfive', $prod);
             }
+
             return $this->res(self::FREE, true, 'fivenote_prioritario_producao_fechada', $prod);
         }
 
@@ -69,6 +72,7 @@ class BlockEvaluator
             if ((int)$prod->status === 1) {
                 return $this->res(self::HOLD_YELLOW, false, 'producao_status_guarda', $prod, $isPartialFromProd);
             }
+
             // Caso contrário, se está aberta (completed false), é sempre Azul
             return $this->res(self::HOLD_BLUE, false, 'producao_em_andamento', $prod, $isPartialFromProd);
         }
@@ -81,7 +85,7 @@ class BlockEvaluator
                 return $this->res(self::HOLD_YELLOW, false, 'workform_rejeitado_producao_concluida', $prod, false);
             }
 
-            $wfMark = $wf->informed_at ?? $wf->created_at;
+            $wfMark   = $wf->informed_at ?? $wf->created_at;
             $prodMark = $prod->completed_at ?? $prod->created_at;
 
             // Se o informe foi reenviado após a última produção finalizada,
@@ -93,12 +97,12 @@ class BlockEvaluator
             if ($wfMark && !$prod->partial) {
                 // Caso específico de OV (tipo 2)
                 if ($prod->dt_note < $note->dt_status && $note->type_note == 2) {
-                    return $this->res(self::HOLD_RED, true, 'workform_ov_concluida_dt_note_antes_dt_status', $prod);
+                    return $this->sapReflectionResult($prod, true, 'workform_ov_concluida_dt_note_antes_dt_status');
                 }
 
                 // Se produção foi criada após o relatório do Workform, indica que não refletiu no SAP
                 if ($prod->created_at > $wfMark) {
-                    return $this->res(self::HOLD_RED, false, 'workform_producao_fechada_posterior_ao_workform', $prod, false);
+                    return $this->sapReflectionResult($prod, false, 'workform_producao_fechada_posterior_ao_workform');
                 }
             }
 
@@ -110,10 +114,12 @@ class BlockEvaluator
         // --- Regras para Partial (se não houver WorkForm) ---
         elseif ($validPartial) {
             $prodMark = $prod->completed_at ?? $prod->created_at;
+
             if ($validPartial->created_at > $prodMark) {
                 return $this->res(self::FREE, true, 'partial_posterior_a_producao_fechada', $prod, true);
             }
-            return $this->res(self::HOLD_RED, false, 'partial_anterior_a_producao_fechada', $prod, true);
+
+            return $this->sapReflectionResult($prod, false, 'partial_anterior_a_producao_fechada', true);
         }
 
         // ===== 4) FALLBACKS PARA PRODUÇÃO CONCLUÍDA =====
@@ -124,23 +130,11 @@ class BlockEvaluator
             $prod->dt_note->equalTo($note->dt_status) &&
             $prod->status_note == $note->nstats
         ) {
-            return $this->res(
-                self::HOLD_RED,
-                true,
-                'sap_nao_refletido_mesma_data_status',
-                $prod,
-                $isPartialFromProd
-            );
+            return $this->sapReflectionResult($prod, true, 'sap_nao_refletido_mesma_data_status', $isPartialFromProd);
         }
 
         if ($prod->confirmed) {
-            return $this->res(
-                self::HOLD_RED,
-                true,
-                'producao_confirmada',
-                $prod,
-                $isPartialFromProd
-            );
+            return $this->sapReflectionResult($prod, true, 'producao_confirmada', $isPartialFromProd);
         }
 
         // Se concluída e passou por todas as travas: Verde
@@ -176,8 +170,8 @@ class BlockEvaluator
                     : $note->Partials()->where('allow', true)->where('deny', false)->where('supervision', false)->where('payment', false)->get();
 
                 if ($validPartials->count() === 1 && (int) $validPartials->first()->id === $partialId) {
-                    $legacyOpen = $productions->filter(fn (Production $production) =>
-                        (bool) $production->partial
+                    $legacyOpen = $productions->filter(
+                        fn (Production $production) => (bool) $production->partial
                         && !$production->completed
                         && !$production->confirmed
                         && $production->partialInforms->isEmpty()
@@ -192,20 +186,22 @@ class BlockEvaluator
             }
 
             if ($fiveNoteId > 0) {
-                $linked = $productions->filter(fn (Production $production) => $production->fiveNotes->contains("id", $fiveNoteId));
+                $linked        = $productions->filter(fn (Production $production) => $production->fiveNotes->contains("id", $fiveNoteId));
                 $legacyD5Count = $note->relationLoaded("FiveNotes")
                     ? $note->FiveNotes->whereNull("work_report_id")->where("is_completed", true)->where("is_supervisioned", false)->where("is_archived", false)->count()
                     : 0;
-                $fallback = $productions->filter(fn (Production $production) =>
-                    $production->dfive && !$production->completed && !$production->confirmed
+                $fallback = $productions->filter(
+                    fn (Production $production) => $production->dfive && !$production->completed && !$production->confirmed
                     && $production->fiveNotes->isEmpty()
                     && $production->WorkReportFlowProductions
                         ->where("stage", WorkReportFlowProduction::STAGE_FISCALIZATION)
                         ->where("is_current", true)->isNotEmpty()
                 );
+
                 if ($legacyD5Count === 1 && $fallback->count() === 1) {
                     return $linked->concat($fallback)->sortByDesc("created_at")->first();
                 }
+
                 return $linked->sortByDesc("created_at")->first();
             }
 
@@ -276,6 +272,21 @@ class BlockEvaluator
             'production' => $prod,
             'isPartial'  => $isPartial,
         ];
+    }
+
+    /**
+     * Uma Production recém-finalizada ainda pode estar aguardando a atualização
+     * do SAP. Nesse período ela é concluída (verde), sem reabrir o despacho.
+     */
+    private function sapReflectionResult(Production $production, bool $commandAfterTimeout, string $reason, bool $isPartial = false): array
+    {
+        $finishedAt = $production->completed_at ?? $production->updated_at ?? $production->created_at;
+
+        if ($finishedAt && $finishedAt->greaterThan(now()->subHours(12))) {
+            return $this->res(self::HOLD_GREEN, false, $reason . '_aguardando_sap', $production, $isPartial);
+        }
+
+        return $this->res(self::HOLD_RED, $commandAfterTimeout, $reason, $production, $isPartial);
     }
 
     private function colorFor(int $block): string

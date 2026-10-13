@@ -47,6 +47,12 @@ class SupervisionDispatchListQuery
             if (empty($companyIds)) {
                 $query->whereRaw("0 = 1");
             } else {
+                // Cada linha precisa estar ligada à Production da própria empresa
+                // parceira. Nunca basta existir outra Production da mesma Nota/OV:
+                // um informe não pode herdar a visibilidade de seu irmão.
+                // As dispatch_rows já representam somente contextos ainda elegíveis
+                // para Fiscalização; por isso uma Production concluída permanece
+                // visível somente enquanto o SAP ainda mantiver esse contexto elegível.
                 $query->where(function ($visible) use ($search, $multiSearch, $rubricaS, $typeNote, $serviceUuid, $filter, $companyIds) {
                     $visible->whereExists(function ($production) use ($search, $multiSearch, $rubricaS, $typeNote, $serviceUuid, $filter, $companyIds) {
                         $production->selectRaw("1")
@@ -56,8 +62,7 @@ class SupervisionDispatchListQuery
                             ->where("wrfp.stage", "fiscalization")
                             ->where("wrfp.is_current", true)
                             ->where("p.service_id", $serviceUuid)
-                            ->whereIn("p.company_id", $companyIds)
-                            ->where("p.completed", false);
+                            ->whereIn("p.company_id", $companyIds);
                     })->orWhereExists(function ($production) use ($search, $multiSearch, $rubricaS, $typeNote, $serviceUuid, $filter, $companyIds) {
                         $production->selectRaw("1")
                             ->from("productionables as pa")
@@ -65,8 +70,7 @@ class SupervisionDispatchListQuery
                             ->whereColumn("pa.productionable_id", "dispatch_rows.partial_id")
                             ->where("pa.productionable_type", (new \App\Models\Partial())->getMorphClass())
                             ->where("p.service_id", $serviceUuid)
-                            ->whereIn("p.company_id", $companyIds)
-                            ->where("p.completed", false);
+                            ->whereIn("p.company_id", $companyIds);
                     })->orWhereExists(function ($production) use ($search, $multiSearch, $rubricaS, $typeNote, $serviceUuid, $filter, $companyIds) {
                         $production->selectRaw("1")
                             ->from("productionables as pa")
@@ -74,8 +78,7 @@ class SupervisionDispatchListQuery
                             ->whereColumn("pa.productionable_id", "dispatch_rows.passive_d5_id")
                             ->where("pa.productionable_type", (new \App\Models\FiveNote())->getMorphClass())
                             ->where("p.service_id", $serviceUuid)
-                            ->whereIn("p.company_id", $companyIds)
-                            ->where("p.completed", false);
+                            ->whereIn("p.company_id", $companyIds);
                     });
                 });
             }
