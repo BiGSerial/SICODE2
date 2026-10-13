@@ -5,8 +5,7 @@ namespace App\Http\Livewire\Partner\FiveNote\Actions;
 use App\Models\{EvidenceFile, FiveNote};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Files\EvidenceFileService;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\{DB, Log};
 use Livewire\Component;
 
 class FinishD5 extends Component
@@ -166,7 +165,7 @@ class FinishD5 extends Component
 
     public function previousEvidencePage(string $group): void
     {
-        $property = $this->evidencePageProperty($group);
+        $property          = $this->evidencePageProperty($group);
         $this->{$property} = max(1, $this->{$property} - 1);
     }
 
@@ -178,7 +177,7 @@ class FinishD5 extends Component
 
     public function nextEvidencePage(string $group, int $lastPage): void
     {
-        $property = $this->evidencePageProperty($group);
+        $property          = $this->evidencePageProperty($group);
         $this->{$property} = min($lastPage, $this->{$property} + 1);
     }
 
@@ -191,6 +190,10 @@ class FinishD5 extends Component
                 throw new \RuntimeException('D5 não encontrada para encerramento.');
             }
 
+            // O nome digitado vive só no estado do componente: capturar antes de
+            // recarregar a D5, senão o reload o descarta e a D5 conclui sem responsável.
+            $responsible = trim((string) $this->five->name);
+
             // Recarrega a D5 dentro do tratamento de erro. Antes, uma alteração de
             // escopo/permissão nesta etapa gerava uma exceção sem retorno visual e
             // mantinha o botão de encerramento bloqueado.
@@ -199,12 +202,13 @@ class FinishD5 extends Component
             DB::beginTransaction();
             $fromStage = app(D5WorkflowService::class)->currentStage($this->five);
 
-            $this->five->done($this->five->name, $this->observations);
+            $this->five->done($responsible !== '' ? $responsible : null, $this->observations);
             app(D5WorkflowService::class)->onPartnerCompleted($this->five, $fromStage, auth()->id());
 
             // A conclusao da parceira libera a D5 para a fila da fiscalizacao.
             // Recalcula o status consolidado do informe imediatamente.
             $statusRefresher = app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class);
+
             if ($this->five->work_report_id) {
                 $statusRefresher->refresh((int) $this->five->work_report_id);
             } else {
@@ -312,6 +316,7 @@ class FinishD5 extends Component
             ]);
 
         $this->applyPartnerCompanyScope($query);
+
         return $query->firstOrFail();
     }
 

@@ -250,6 +250,40 @@
                 padding: 0.3rem 0.45rem;
             }
 
+            .dispatch-modal__results {
+                background: #ffffff;
+                border: 1px solid #dbe3ef;
+                border-radius: 8px;
+                margin-bottom: 0.75rem;
+                padding: 0.85rem;
+            }
+
+            .dispatch-modal__results-title {
+                font-size: 0.8rem;
+                font-weight: 800;
+                margin-bottom: 0.35rem;
+                text-transform: uppercase;
+            }
+
+            .dispatch-modal__results ul {
+                font-size: 0.86rem;
+                list-style: none;
+                margin: 0 0 0.6rem;
+                padding: 0;
+            }
+
+            .dispatch-modal__results li {
+                padding: 0.15rem 0;
+            }
+
+            .dispatch-modal__results-ok {
+                color: #0f766e;
+            }
+
+            .dispatch-modal__results-fail {
+                color: #b91c1c;
+            }
+
             .dispatch-modal__empty {
                 background: #ffffff;
                 border: 1px dashed #cbd5e1;
@@ -317,6 +351,33 @@
             </div>
 
             <div class="dispatch-modal__body">
+                @if (!empty($dispatchResults))
+                    @php($okResults = collect($dispatchResults)->where('ok', true))
+                    @php($failResults = collect($dispatchResults)->where('ok', false))
+                    <div class="dispatch-modal__results" role="alert">
+                        @if ($okResults->isNotEmpty())
+                            <div class="dispatch-modal__results-title dispatch-modal__results-ok">
+                                <i class="ri-checkbox-circle-line"></i> Despachados ({{ $okResults->count() }})
+                            </div>
+                            <ul>
+                                @foreach ($okResults as $result)
+                                    <li>{{ $result['label'] }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                        <div class="dispatch-modal__results-title dispatch-modal__results-fail">
+                            <i class="ri-error-warning-line"></i> Nao despachados ({{ $failResults->count() }})
+                        </div>
+                        <ul class="mb-0">
+                            @foreach ($failResults as $result)
+                                <li><strong>{{ $result['label'] }}</strong> — {{ $result['reason'] }}</li>
+                            @endforeach
+                        </ul>
+                        <div class="dispatch-modal__hint mt-2">
+                            Os itens nao despachados continuam na lista abaixo para nova tentativa.
+                        </div>
+                    </div>
+                @endif
                 @if ($notes && $notes->count())
                     <div class="dispatch-modal__controls">
                         <div class="dispatch-modal__control-card">

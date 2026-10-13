@@ -218,6 +218,32 @@ class DispatchWorkflowService
         });
     }
 
+    /**
+     * Resolve a D5 escolhida na tela respeitando a etapa: a Fiscalização exige D5
+     * concluída ainda não supervisionada; a Medição exige a D5 já supervisionada e
+     * elegível para retorno (D5 passiva/legada sem Informe segue o mesmo critério).
+     */
+    private function explicitFiveNoteForDispatch(Note $note, int $fiveNoteId, string $serviceKey, ?int $workReportId): ?FiveNote
+    {
+        $query = FiveNote::query()
+            ->whereKey($fiveNoteId)
+            ->where('note_id', $note->id);
+
+        if ($serviceKey === 'payment') {
+            return $query
+                ->eligibleForPaymentReturn()
+                ->where(fn ($q) => $q->whereNull('work_report_id')->when($workReportId, fn ($q2) => $q2->orWhere('work_report_id', $workReportId)))
+                ->first();
+        }
+
+        return $query
+            ->whereNull('work_report_id')
+            ->where('is_completed', true)
+            ->where('is_supervisioned', false)
+            ->where('is_archived', false)
+            ->first();
+    }
+
     private function dispatch(Note $note, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd, array $finalScopes, ?int $explicitWorkReportId = null, ?int $partialId = null, ?int $fiveNoteId = null): Production
     {
         return DB::transaction(function () use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $explicitWorkReportId, $partialId, $fiveNoteId) {
@@ -234,14 +260,7 @@ class DispatchWorkflowService
 
             $serviceKey       = $this->contextResolver->serviceKey($service);
             $explicitFiveNote = $fiveNoteId
-                ? FiveNote::query()
-                    ->whereKey($fiveNoteId)
-                    ->where('note_id', $note->id)
-                    ->whereNull('work_report_id')
-                    ->where('is_completed', true)
-                    ->where('is_supervisioned', false)
-                    ->where('is_archived', false)
-                    ->first()
+                ? $this->explicitFiveNoteForDispatch($note, $fiveNoteId, $serviceKey, $explicitWorkReportId)
                 : null;
             $targetWorkReportIds = [];
             $explicitWorkReport  = null;
