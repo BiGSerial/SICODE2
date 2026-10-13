@@ -30,6 +30,7 @@ class Kernel extends ConsoleKernel
         'log-hiring-and-hired-status',
         'log-hiring-and-hired-status-night',
         'sync-ads-requests',
+        'sync-peps',
     ];
 
     /**
@@ -49,7 +50,6 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'partner-users:disable-inactive', 'partner-users-disable-inactive')
             ->dailyAt('00:30');
 
-
         /*
         |--------------------------------------------------------------------------
         | Checagens principais
@@ -64,7 +64,6 @@ class Kernel extends ConsoleKernel
 
         $this->scheduleCommand($schedule, 'sicode:collect-sqlsrv1-health', 'collect-sqlsrv1-health')
             ->cron('5 */2 * * *');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -89,9 +88,11 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:upd_baseov --full --prazos', 'upd-baseov-full-prazos')
             ->dailyAt('12:05');
 
+        $this->scheduleCommand($schedule, 'sicode:sync-peps', 'sync-peps')
+            ->cron('0 6,12 * * *');
+
         $this->scheduleCommand($schedule, 'sicode:upd_baseEP', 'upd-base-ep')
             ->cron('20 9-21 * * *');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -117,7 +118,6 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:sync-log-protest-jobs', 'sync-log-protest-jobs')
             ->hourlyAt(20);
 
-
         /*
         |--------------------------------------------------------------------------
         | Atualizações de custos
@@ -129,7 +129,6 @@ class Kernel extends ConsoleKernel
             'sicode:viab-values',
         ], 'sync-costs-and-viability-values')
             ->cron('10 10,13 * * *');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -185,7 +184,6 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:sync-log-five-notes-report --hours=2 --if-empty', 'sync-five-notes-report')
             ->hourlyAt(19);
 
-
         /*
         |--------------------------------------------------------------------------
         | Produção
@@ -197,7 +195,6 @@ class Kernel extends ConsoleKernel
 
         $this->scheduleCommand($schedule, 'sicode:log_production --yesterday-only', 'log-production-yesterday')
             ->dailyAt('00:30');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -216,7 +213,6 @@ class Kernel extends ConsoleKernel
             'sicode:log_hired_status --full',
         ], 'log-hiring-and-hired-status-night')
             ->dailyAt('01:12');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -239,7 +235,6 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:refresh-work-report-statuses', 'refresh-work-report-statuses')
             ->dailyAt('02:00');
 
-
         /*
         |--------------------------------------------------------------------------
         | Correções
@@ -249,7 +244,6 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:fix-operation-order', 'fix-operation-order')
             ->cron('0 10,17 * * *');
 
-
         /*
         |--------------------------------------------------------------------------
         | Sincronismo ADS
@@ -258,7 +252,6 @@ class Kernel extends ConsoleKernel
 
         $this->scheduleCommand($schedule, 'sicode:sync_ads_requests', 'sync-ads-requests')
             ->everyThirtyMinutes();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -303,7 +296,7 @@ class Kernel extends ConsoleKernel
      */
     protected function scheduleSequentialCommands(Schedule $schedule, array $commands, string $logName)
     {
-        $php = PHP_BINARY;
+        $php     = PHP_BINARY;
         $artisan = base_path('artisan');
 
         $chain = collect($commands)
@@ -343,44 +336,45 @@ class Kernel extends ConsoleKernel
     protected function scheduleDisplayName(string $logName): string
     {
         return [
-            'exports-clear-old' => 'Limpar Exports',
-            'chk-integridade' => 'Base OV',
-            'wpas-log' => 'Log de WPAs',
-            'collect-sqlsrv1-health' => 'Data Lake SQL Server',
-            'sync-base-orders-operations' => 'Base Ordens e Operações',
-            'upd-baseov-full' => 'Base OV Full (05:05)',
-            'upd-baseov-full-prazos' => 'Base OV Full Prazos (12:05)',
-            'upd-base-ep' => 'Base EP',
-            'sync-protests' => 'Sincronizar reclamações',
-            'prune-protest-and-check-sla' => 'Limpar MED e SLA',
-            'check-protest-jobs-sla' => 'Checar SLA reclamações',
-            'sync-log-protest-jobs' => 'Log reclamações SQL',
-            'sync-costs-and-viability-values' => 'Custos e valores viab.',
-            'transfer-log' => 'Log transferências',
-            'notestop-log' => 'Log notas paradas',
-            'log-viability' => 'Log viabilidades',
-            'log-inform' => 'Log Informes Final',
-            'log-rejected-viab' => 'Log viab. rejeitadas',
-            'users-log' => 'Log usuários',
-            'log-inform-return' => 'Log Info. Rejeitados.',
-            'reclaims' => 'Log Retorno Interno',
-            'informs-ads-log' => 'Log ADS Informes',
-            'log-external-entities' => 'Log entidades externas',
-            'external-organ-releases-close' => 'Fechar Obras Liberadas OE',
-            'log-informs-smc' => 'Log informes SMC',
-            'sync-log-partials-informs' => 'Log Informe parciais',
+            'exports-clear-old'                   => 'Limpar Exports',
+            'chk-integridade'                     => 'Base OV',
+            'wpas-log'                            => 'Log de WPAs',
+            'collect-sqlsrv1-health'              => 'Data Lake SQL Server',
+            'sync-base-orders-operations'         => 'Base Ordens e Operações',
+            'upd-baseov-full'                     => 'Base OV Full (05:05)',
+            'upd-baseov-full-prazos'              => 'Base OV Full Prazos (12:05)',
+            'sync-peps'                           => 'Sincronizar PEPs',
+            'upd-base-ep'                         => 'Base EP',
+            'sync-protests'                       => 'Sincronizar reclamações',
+            'prune-protest-and-check-sla'         => 'Limpar MED e SLA',
+            'check-protest-jobs-sla'              => 'Checar SLA reclamações',
+            'sync-log-protest-jobs'               => 'Log reclamações SQL',
+            'sync-costs-and-viability-values'     => 'Custos e valores viab.',
+            'transfer-log'                        => 'Log transferências',
+            'notestop-log'                        => 'Log notas paradas',
+            'log-viability'                       => 'Log viabilidades',
+            'log-inform'                          => 'Log Informes Final',
+            'log-rejected-viab'                   => 'Log viab. rejeitadas',
+            'users-log'                           => 'Log usuários',
+            'log-inform-return'                   => 'Log Info. Rejeitados.',
+            'reclaims'                            => 'Log Retorno Interno',
+            'informs-ads-log'                     => 'Log ADS Informes',
+            'log-external-entities'               => 'Log entidades externas',
+            'external-organ-releases-close'       => 'Fechar Obras Liberadas OE',
+            'log-informs-smc'                     => 'Log informes SMC',
+            'sync-log-partials-informs'           => 'Log Informe parciais',
             'sync-note-inform-flows-to-sqlserver' => 'Atualizar fluxo informes SQL',
-            'sync-five-notes-report' => 'Atualizar relatório D5 SQL',
-            'log-production' => 'Log produção',
-            'log-production-yesterday' => 'Log produção (ontem)',
-            'log-hiring-and-hired-status' => 'Log contratação',
-            'log-hiring-and-hired-status-night' => 'Log contratação full',
-            'check-tacit' => 'Checar tácita',
-            'tacit-in-approval' => 'Tácita em aprovação',
-            'tacit-to-approval' => 'Tácita para aprovação',
-            'ads-generate-tacit' => 'Gerar ADS tácita',
-            'fix-operation-order' => 'Corrigir operação pedido',
-            'sync-ads-requests' => 'Sincronizar ADS',
+            'sync-five-notes-report'              => 'Atualizar relatório D5 SQL',
+            'log-production'                      => 'Log produção',
+            'log-production-yesterday'            => 'Log produção (ontem)',
+            'log-hiring-and-hired-status'         => 'Log contratação',
+            'log-hiring-and-hired-status-night'   => 'Log contratação full',
+            'check-tacit'                         => 'Checar tácita',
+            'tacit-in-approval'                   => 'Tácita em aprovação',
+            'tacit-to-approval'                   => 'Tácita para aprovação',
+            'ads-generate-tacit'                  => 'Gerar ADS tácita',
+            'fix-operation-order'                 => 'Corrigir operação pedido',
+            'sync-ads-requests'                   => 'Sincronizar ADS',
         ][$logName] ?? str($logName)->replace('-', ' ')->headline()->toString();
     }
 

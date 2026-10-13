@@ -76,6 +76,7 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             'WorkReports.Note',
             'WorkReports.Company',
             'WorkReports.Orders.Operations',
+            'WorkReports.Orders.Pep:objeto,disponivel',
             'WorkReports.Adsform',
             'WorkReports.FiveNote',
             'Productions' => fn ($q) => $q->with(['User', 'Company']),
@@ -87,6 +88,7 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
                 ->orderByDesc('created_at'),
             'Partials.Company',
             'Partials.Orders.Operations',
+            'Partials.Orders.Pep:objeto,disponivel',
             'FiveNote',
             'FiveNotes',
         ])->get();
@@ -195,7 +197,13 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             $lastProduction = null;
         }
 
-        $operations    = $orders->first()?->Operations ?? collect();
+        $operations  = $orders->first()?->Operations ?? collect();
+        $pepCodes    = $orders->pluck('pep')->filter()->implode("\n") ?: '---';
+        $pepBalances = $orders
+            ->map(fn ($order) => $order->Pep?->disponivel === null
+                ? '---'
+                : number_format((float) $order->Pep->disponivel, 2, ',', '.'))
+            ->implode("\n") ?: '---';
         $executionDate = $orders
             ->flatMap(fn ($order) => $order->Operations ?? collect())
             ->where('operacao', '0020')
@@ -215,6 +223,8 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             $list->note,
             $type . ($workFormCanceled ? ' (CANCELADO)' : ''),
             $orders->isNotEmpty() ? $orders->pluck('ordem')->implode("\n") : '---',
+            $pepCodes,
+            $pepBalances,
             $orders->sum('moaberto'),
             $operations->where('operacao', '0030')->first()?->status ? explode(' ', $operations->where('operacao', '0030')->first()->status)[0] : '---',
             $operations->where('operacao', '0040')->first()?->status ? explode(' ', $operations->where('operacao', '0040')->first()->status)[0] : '---',
@@ -242,6 +252,8 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             'Nota',
             'Tipo',
             'Ordem',
+            'PEP',
+            'Saldo disponível PEP',
             'MOA',
             'OP30',
             'OP40',
@@ -343,7 +355,7 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
                         ->getNumberFormat()->setFormatCode('#');
                     $sheet->getStyle("C2:C{$highestRow}")
                         ->getNumberFormat()->setFormatCode('#');
-                    $sheet->getStyle("D2:D{$highestRow}")
+                    $sheet->getStyle("F2:F{$highestRow}")
                         ->getNumberFormat()->setFormatCode('#,##0.00');
                 }
             },

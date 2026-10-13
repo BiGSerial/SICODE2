@@ -83,7 +83,18 @@ class NoteFilter
                     $fn->where("is_archived", false)
                         ->where(function (Builder $state) {
                             $state->where(function (Builder $pending) {
-                                $pending->awaitingPaymentCreation()
+                                // Mantém a regra da D5 pendente no próprio filtro. Assim a
+                                // query de exportação não depende do scope dinâmico do model,
+                                // que pode ser resolvido pelo builder errado em workers antigos.
+                                $pending->where('is_archived', false)
+                                    ->where('is_supervisioned', false)
+                                    ->where('is_completed', false)
+                                    ->where('returned', false)
+                                    ->where('visible_partner', false)
+                                    ->where('is_payed', false)
+                                    ->whereNull('dispatch_at')
+                                    ->whereDoesntHave('productions', fn (Builder $production) => $production
+                                        ->whereHas('Service', fn (Builder $service) => $service->where('service', 'Pagamento')))
                                     ->where(function (Builder $ready) {
                                         $ready->whereHas("WorkReport.Orders", fn (Builder $ord) => $this->wherePaymentReadyOrder($ord))
                                             ->orWhere(function (Builder $legacy) {

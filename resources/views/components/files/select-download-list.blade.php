@@ -1,6 +1,8 @@
+@props(['allowTacit' => false])
+
 @if ($files?->isNotEmpty())
 @php
-    $isSuperAdm    = auth()->user()?->superadm ?? false;
+    $canViewTacit  = (bool) $allowTacit || (auth()->user()?->superadm ?? false);
     $adsTacitFileIds = \Illuminate\Support\Facades\DB::table('adsforms_files as af')
         ->join('adsforms as a', 'a.id', '=', 'af.adsform_id')
         ->whereIn('af.file_id', $files->pluck('id')->all())
@@ -79,7 +81,7 @@
                                     $isTacit = isset($adsTacitFileIds[$file->id]);
                                 @endphp
                                 <li class="fdl-item">
-                                    @if ($isTacit && !$isSuperAdm)
+                                    @if ($isTacit && !$canViewTacit)
                                         <span class="fdl-file fdl-file--blocked"
                                             title="Arquivo de ADS tácita. Download bloqueado.">
                                             <i class="{{ $icon }} fdl-file-icon"></i>
@@ -97,7 +99,7 @@
                                             <i class="{{ $icon }} fdl-file-icon"></i>
                                             <span class="fdl-file-name">{{ $file->file_name }}</span>
                                             <span class="fdl-file-ext">{{ strtoupper($file->ext) }}</span>
-                                            @if ($isTacit && $isSuperAdm)
+                                            @if ($isTacit && $canViewTacit)
                                                 <span class="fdl-badge bg-warning text-dark">TÁCITO</span>
                                             @endif
                                         </a>

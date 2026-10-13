@@ -15,6 +15,10 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    // Exportações são privadas e sempre são entregues por rota assinada. Ao
+    // migrar o storage, aponte EXPORTS_DISK para o disco configurado (S3/Azure).
+    'exports_disk' => env('EXPORTS_DISK', env('FILESYSTEM_DISK', 'local')),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -38,8 +42,8 @@ return [
 
         'local' => [
             'driver' => 'local',
-            'root' => storage_path('app'),
-            'throw' => false,
+            'root'   => storage_path('app'),
+            'throw'  => false,
 
             'permissions' => [
                 'file' => [

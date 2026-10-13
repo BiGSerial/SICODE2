@@ -45,6 +45,7 @@
                 <thead>
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
+                        <th scope="col">Escopo</th>
                         <th scope="col">Ordem</th>
                         <th scope="col">Files</th>
                         <th scope="col">Dta Envio</th>
@@ -62,6 +63,7 @@
                             wire:dblclick.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})"
                             wire:key="partial-hist{{ $list->id }}">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
+                            <td><span class="badge text-bg-secondary">{{ $list->scopeLabel() }}</span></td>
                             <td>
                                 @if ($list->Orders)
                                     @foreach ($list->Orders as $order)

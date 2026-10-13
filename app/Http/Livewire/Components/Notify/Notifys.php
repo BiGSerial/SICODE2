@@ -2,12 +2,11 @@
 
 namespace App\Http\Livewire\Components\Notify;
 
+use App\Services\Files\ExportStorage;
 use App\Support\Notifications\UserNotificationData;
 use Illuminate\Notifications\DatabaseNotification;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\{Auth, Storage};
+use Livewire\{Component, WithPagination};
 
 class Notifys extends Component
 {
@@ -75,8 +74,9 @@ class Notifys extends Component
     // Apagar UMA notificação
     public function delete($id)
     {
-        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $id   = trim((string) $id, " \t\n\r\0\x0B\"'");
         $user = Auth::user();
+
         if (!$user || $id === '') {
             return;
         }
@@ -87,7 +87,7 @@ class Notifys extends Component
                 ->where('notifiable_id', $user->getKey())
                 ->where('notifiable_type', $user->getMorphClass())
                 ->first();
-      
+
         if ($notification) {
             $notification->delete();
             $this->resetPage($this->paginationName);
@@ -95,11 +95,12 @@ class Notifys extends Component
             $this->emitTo('components.notify.all-notifies', 'refresh_list');
 
             $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'success',
-                    'title'    => 'NOTIFICAÇÃO APAGADA!',
-                    'timer'    => 5000,
-                ]);
+                'position' => 'center',
+                'icon'     => 'success',
+                'title'    => 'NOTIFICAÇÃO APAGADA!',
+                'timer'    => 5000,
+            ]);
+
             return;
         }
     }
@@ -118,8 +119,9 @@ class Notifys extends Component
     // Marcar como lida e redirecionar/baixar (mantido e levemente robustecido)
     public function readed($id)
     {
-        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $id   = trim((string) $id, " \t\n\r\0\x0B\"'");
         $user = Auth::user();
+
         if (!$user || $id === '') {
             return;
         }
@@ -130,6 +132,7 @@ class Notifys extends Component
                 ->where('notifiable_id', $user->getKey())
                 ->where('notifiable_type', $user->getMorphClass())
                 ->first();
+
         if (!$notification) {
             return;
         }
@@ -140,9 +143,12 @@ class Notifys extends Component
         // ação de download
         if ($payload->isDownloadAction() && $payload->downloadStoragePath()) {
             $filePath = $payload->downloadStoragePath();
+            $disk     = str_starts_with($filePath, 'exports/')
+                ? app(ExportStorage::class)->disk()
+                : Storage::disk('public');
 
-            if (Storage::exists($filePath)) {
-                return Storage::download($filePath, basename($filePath));
+            if ($disk->exists($filePath)) {
+                return $disk->download($filePath, basename($filePath));
             } else {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -150,6 +156,7 @@ class Notifys extends Component
                     'title'    => 'ARQUIVO INEXISTENTE!',
                     'timer'    => 5000,
                 ]);
+
                 return;
             }
         }
@@ -165,8 +172,9 @@ class Notifys extends Component
 
     public function markAsRead($id): void
     {
-        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $id   = trim((string) $id, " \t\n\r\0\x0B\"'");
         $user = Auth::user();
+
         if (!$user || $id === '') {
             return;
         }

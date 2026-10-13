@@ -17,7 +17,7 @@ class DispatchWorkflowService
     ) {
     }
 
-    public function dispatchToCompanyStack(Note $note, Service $service, Company $company, User $actor, ?string $dd = null, array $finalScopes = [], ?int $workReportId = null, ?int $partialId = null): Production
+    public function dispatchToCompanyStack(Note $note, Service $service, Company $company, User $actor, ?string $dd = null, array $finalScopes = [], ?int $workReportId = null, ?int $partialId = null, ?int $fiveNoteId = null): Production
     {
         if ($actor->contract) {
             throw new DispatchException('Usuario com contrato deve atribuir a atividade, nao enviar para pilha.');
@@ -27,12 +27,12 @@ class DispatchWorkflowService
             throw new DispatchException('O envio para pilha da empresa nao esta habilitado para este ambiente.');
         }
 
-        return $this->dispatch($note, $service, $company, null, $actor, $dd, $finalScopes, $workReportId, $partialId);
+        return $this->dispatch($note, $service, $company, null, $actor, $dd, $finalScopes, $workReportId, $partialId, $fiveNoteId);
     }
 
-    public function dispatchToUser(Note $note, Service $service, Company $company, User $targetUser, User $actor, ?string $dd = null, array $finalScopes = [], ?int $workReportId = null, ?int $partialId = null): Production
+    public function dispatchToUser(Note $note, Service $service, Company $company, User $targetUser, User $actor, ?string $dd = null, array $finalScopes = [], ?int $workReportId = null, ?int $partialId = null, ?int $fiveNoteId = null): Production
     {
-        return $this->dispatch($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $workReportId, $partialId);
+        return $this->dispatch($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $workReportId, $partialId, $fiveNoteId);
     }
 
     public function claimFromCompanyStack(Production $production, User $user): Production
@@ -218,9 +218,9 @@ class DispatchWorkflowService
         });
     }
 
-    private function dispatch(Note $note, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd, array $finalScopes, ?int $explicitWorkReportId = null, ?int $partialId = null): Production
+    private function dispatch(Note $note, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd, array $finalScopes, ?int $explicitWorkReportId = null, ?int $partialId = null, ?int $fiveNoteId = null): Production
     {
-        return DB::transaction(function () use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $explicitWorkReportId, $partialId) {
+        return DB::transaction(function () use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $explicitWorkReportId, $partialId, $fiveNoteId) {
             $note = Note::whereKey($note->id)->lockForUpdate()->firstOrFail();
             $note->loadMissing(['FiveNote', 'Partials', 'WorkForm', 'Productions']);
 
@@ -232,9 +232,27 @@ class DispatchWorkflowService
                 throw new DispatchException('Usuario destino nao pertence a empresa selecionada.');
             }
 
-            $serviceKey          = $this->contextResolver->serviceKey($service);
+            $serviceKey       = $this->contextResolver->serviceKey($service);
+            $explicitFiveNote = $fiveNoteId
+                ? FiveNote::query()
+                    ->whereKey($fiveNoteId)
+                    ->where('note_id', $note->id)
+                    ->whereNull('work_report_id')
+                    ->where('is_completed', true)
+                    ->where('is_supervisioned', false)
+                    ->where('is_archived', false)
+                    ->first()
+                : null;
             $targetWorkReportIds = [];
             $explicitWorkReport  = null;
+
+            if ($fiveNoteId && !$explicitFiveNote) {
+                throw new DispatchException('A D5 selecionada não pertence a esta Nota/OV ou não está disponível para Fiscalização.');
+            }
+
+            if ($explicitFiveNote) {
+                $note->setAttribute('dispatch_five_note_id', $explicitFiveNote->id);
+            }
 
             if ($partialId) {
                 $partial            = $note->Partials->firstWhere('id', $partialId);
@@ -298,7 +316,7 @@ class DispatchWorkflowService
             $passiveD5ReturnWithoutReport = $serviceKey === 'payment'
                 && !$partialId
                 && !$explicitWorkReportId
-                && ($legacyFiveNote = app(MeasurementEligibilityService::class)->passiveD5ReturnForNote($note));
+                && ($legacyFiveNote = $explicitFiveNote ?: app(MeasurementEligibilityService::class)->passiveD5ReturnForNote($note));
 
             if ($serviceKey === 'payment' && !$partialId && !$explicitWorkReportId && !$passiveD5ReturnWithoutReport) {
                 throw new DispatchException('Pagamento exige Informe Final ou Informe Parcial explícito.');
@@ -394,7 +412,8 @@ class DispatchWorkflowService
                 'partial'     => (bool) ($partialId || ($context['is_partial'] ?? false)),
                 // Informe com D5 própria que ainda exige a Medição: a produção é da D5 (e será vinculada a ela),
                 // mesmo sendo um despacho por informe/escopo.
-                'dfive' => ($serviceKey === 'payment' && (bool) $paymentFiveNote)
+                'dfive' => (bool) $explicitFiveNote
+                    || ($serviceKey === 'payment' && (bool) $paymentFiveNote)
                     || $isPaymentD5ForInforme
                     || (!$isScopedPaymentDispatch
                         && ($this->isD5Dispatch($note, $serviceKey, $finalScopes, $explicitWorkReportId)
@@ -404,7 +423,7 @@ class DispatchWorkflowService
             $this->attachPartialContext($production, $partialId);
 
             if ($production->dfive) {
-                $fiveNote = $paymentFiveNote ?: $this->fiveNoteForDispatchContext($note, $explicitWorkReportId, $serviceKey);
+                $fiveNote = $explicitFiveNote ?: $paymentFiveNote ?: $this->fiveNoteForDispatchContext($note, $explicitWorkReportId, $serviceKey);
                 $fiveNote?->productions()->syncWithoutDetaching([$production->id]);
             }
 

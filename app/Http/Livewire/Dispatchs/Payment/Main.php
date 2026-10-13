@@ -1192,7 +1192,8 @@ class Main extends Component
             'WorkForm.Note:id,type_note',
             'WorkForm.Company:id,name,deleted_at',
             'WorkForm.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at',
-            'WorkForm.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForm.Orders.Pep:objeto,disponivel',
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForm.Adsform:id,work_report_id,amount,created_at',
             'WorkForms' => fn ($q) => $q->select([
@@ -1211,7 +1212,8 @@ class Main extends Component
             'WorkForms.Note:id,type_note',
             'WorkForms.Company:id,name,deleted_at',
             'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at',
-            'WorkForms.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
+            'WorkForms.Orders.Pep:objeto,disponivel',
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'WorkForms.Adsform:id,work_report_id,amount,created_at',
             'Partials' => fn ($q) => $q->select([
@@ -1232,7 +1234,8 @@ class Main extends Component
                 ->where('payment', false)
                 ->orderByDesc('created_at'),
             'Partials.Company:id,name,deleted_at',
-            'Partials.Orders'            => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto', 'orders.statusSist']),
+            'Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
+            'Partials.Orders.Pep:objeto,disponivel',
             'Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNote:id,note_id,work_report_id,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at',
             'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,completed_at,visible_partner,dispatch_at,created_at',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Components\Notify;
 
+use App\Services\Files\ExportStorage;
 use App\Support\Notifications\UserNotificationData;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\{Auth, Storage};
@@ -218,9 +219,12 @@ class AllNotifies extends Component
 
         if ($payload->isDownloadAction() && $payload->downloadStoragePath()) {
             $filePath = $payload->downloadStoragePath();
+            $disk     = str_starts_with($filePath, 'exports/')
+                ? app(ExportStorage::class)->disk()
+                : Storage::disk('public');
 
-            if (Storage::exists($filePath)) {
-                return Storage::download($filePath, basename($filePath));
+            if ($disk->exists($filePath)) {
+                return $disk->download($filePath, basename($filePath));
             }
 
             $this->dispatchBrowserEvent('swal', [

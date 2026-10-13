@@ -527,9 +527,9 @@ class DispatchModal extends Component
                             $production = $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
                         }
                     } elseif ($targetUser) {
-                        $production = $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
+                        $production = $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null, (int) ($note->dispatch_five_note_id ?? 0) ?: null);
                     } else {
-                        $production = $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
+                        $production = $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null, (int) ($note->dispatch_five_note_id ?? 0) ?: null);
                     }
 
                     if ($note->getAttribute('dispatch_bulk_any_status')) {
@@ -756,8 +756,10 @@ class DispatchModal extends Component
             $row          = clone $note;
             $workReportId = (int) ($context["work_report_id"] ?? 0) ?: null;
             $partialId    = (int) ($context["partial_id"] ?? 0) ?: null;
+            $fiveNoteId   = (int) ($context["five_note_id"] ?? 0) ?: null;
             $row->setAttribute("dispatch_work_report_id", $workReportId);
             $row->setAttribute("dispatch_partial_id", $partialId);
+            $row->setAttribute("dispatch_five_note_id", $fiveNoteId);
             $row->setAttribute("dispatch_bulk_any_status", (bool) ($context["bulk_any_status"] ?? false));
             $row->setAttribute("dispatch_context_key", $this->contextKey((int) $context["note_id"], $workReportId, $partialId));
 

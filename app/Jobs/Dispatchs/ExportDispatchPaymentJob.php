@@ -5,14 +5,16 @@ namespace App\Jobs\Dispatchs;
 use App\Exports\Dispatchs\DispatchPaymentMain;
 use App\Models\{Note, Service, User};
 use App\Notifications\SystemNotification;
+use App\Services\Files\ExportStorage;
 use App\Services\Payment\NoteFilter;
+use App\Support\Notifications\UserNotificationData;
 use App\Support\SicodeRules;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
-use Illuminate\Support\Facades\{DB, Log, Storage};
+use Illuminate\Support\Facades\{DB, Log, URL};
 use Throwable;
 
 class ExportDispatchPaymentJob implements ShouldQueue
@@ -38,7 +40,7 @@ class ExportDispatchPaymentJob implements ShouldQueue
         $this->userId = $userId;
     }
 
-    public function handle(): void
+    public function handle(ExportStorage $exports): void
     {
         $user        = User::find($this->userId);
         $filePath    = null;
@@ -251,7 +253,7 @@ class ExportDispatchPaymentJob implements ShouldQueue
             $serviceSuffix = '_' . preg_replace('/\s+/', '_', mb_strtolower($service->service));
             $filePath      = 'exports/' . now()->format('YmdHis') . "{$serviceSuffix}_dispatch_payment.xlsx";
 
-            // Exporta (armazenando em disco local)
+            // Exporta no disco configurado para relatórios privados.
             (new DispatchPaymentMain(
                 $builder,
                 $service->uuid,
@@ -259,17 +261,20 @@ class ExportDispatchPaymentJob implements ShouldQueue
                 $this->params['selected_partial_ids'] ?? [],
                 $this->params['selected_context_keys'] ?? [],
                 (bool) ($this->params['filter_d5'] ?? false),
-            ))->store($filePath, 'local');
+            ))->store($filePath, $exports->diskName());
 
             // Notifica sucesso
-            if ($user && Storage::disk('local')->exists($filePath)) {
-                $user->notify(new SystemNotification(
-                    'Exportação concluída!',
-                    'Seu relatório de Pagamentos/Despachos está pronto para download.',
-                    Storage::url($filePath),
-                    4,
-                    []
-                ));
+            if ($user && $exports->exists($filePath)) {
+                $user->notify(new SystemNotification(new UserNotificationData(
+                    title: 'Exportação concluída!',
+                    message: 'Seu relatório de Pagamentos/Despachos está pronto para download.',
+                    link: URL::temporarySignedRoute('exports.download', now()->addDays(7), [
+                        'user' => $user->id,
+                        'file' => basename($filePath),
+                    ]),
+                    status: 'download',
+                    extras: ['toast' => true],
+                )));
             } else {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
@@ -282,8 +287,8 @@ class ExportDispatchPaymentJob implements ShouldQueue
                 'error'   => $e->getMessage(),
             ]);
 
-            if ($filePath && Storage::disk('local')->exists($filePath)) {
-                Storage::disk('local')->delete($filePath);
+            if ($filePath && $exports->exists($filePath)) {
+                $exports->delete($filePath);
             }
 
             throw $e;
@@ -298,13 +303,12 @@ class ExportDispatchPaymentJob implements ShouldQueue
         ]);
 
         if ($user = User::find($this->userId)) {
-            $user->notify(new SystemNotification(
-                'Exportação falhou',
-                'A geração do relatório de Pagamentos falhou após novas tentativas.',
-                null,
-                5,
-                []
-            ));
+            $user->notify(new SystemNotification(new UserNotificationData(
+                title: 'Exportação falhou',
+                message: 'A geração do relatório de Pagamentos falhou após novas tentativas.',
+                status: 'error',
+                extras: ['toast' => true],
+            )));
         }
     }
 }
