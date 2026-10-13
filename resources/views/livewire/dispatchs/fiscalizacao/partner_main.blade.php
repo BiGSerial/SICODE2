@@ -563,8 +563,7 @@
                                 $block = $e['block'];
                                 $command = $e['command'];
                                 $production = $e['production'];
-                                $partnerProduction = $list->Productions
-                                    ->where('service_id', $service->uuid)
+                                $partnerProduction = $this->rowScopedProductions($list)
                                     ->filter(fn ($item) => in_array((int) $item->company_id, array_map('intval', $partnerCompanyIds), true))
                                     ->sortByDesc('id')
                                     ->first();
