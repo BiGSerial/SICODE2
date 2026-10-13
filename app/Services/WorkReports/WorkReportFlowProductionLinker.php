@@ -2,9 +2,7 @@
 
 namespace App\Services\WorkReports;
 
-use App\Models\Production;
-use App\Models\WorkReport;
-use App\Models\WorkReportFlowProduction;
+use App\Models\{Production, WorkReport, WorkReportFlowProduction};
 use Illuminate\Support\Facades\DB;
 
 class WorkReportFlowProductionLinker
@@ -53,21 +51,21 @@ class WorkReportFlowProductionLinker
             $link = WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,
-                    'production_id' => $production->id,
-                    'stage' => WorkReportFlowProduction::STAGE_FISCALIZATION,
-                    'final_scope' => WorkReportFlowProduction::SCOPE_NETWORK,
+                    'production_id'  => $production->id,
+                    'stage'          => WorkReportFlowProduction::STAGE_FISCALIZATION,
+                    'final_scope'    => WorkReportFlowProduction::SCOPE_NETWORK,
                 ],
                 [
                     'is_current' => true,
-                    'linked_at' => now(),
-                    'linked_by' => auth()->id(),
-                    'source' => $source ?? 'dispatch_d5_fiscalization',
-                    'metadata' => array_filter([
-                        'note_id' => $production->note_id,
-                        'service_id' => $production->service_id,
-                        'production_status' => $production->status,
+                    'linked_at'  => now(),
+                    'linked_by'  => auth()->id(),
+                    'source'     => $source ?? 'dispatch_d5_fiscalization',
+                    'metadata'   => array_filter([
+                        'note_id'            => $production->note_id,
+                        'service_id'         => $production->service_id,
+                        'production_status'  => $production->status,
                         'production_user_id' => $production->user_id,
-                        'd5_primary_scope' => WorkReportFlowProduction::SCOPE_NETWORK,
+                        'd5_primary_scope'   => WorkReportFlowProduction::SCOPE_NETWORK,
                         ...$metadata,
                     ], fn ($value) => $value !== null),
                 ]
@@ -103,19 +101,19 @@ class WorkReportFlowProductionLinker
             $link = WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,
-                    'production_id' => $production->id,
-                    'stage' => WorkReportFlowProduction::STAGE_PUBLICATION,
-                    'final_scope' => $finalScope,
+                    'production_id'  => $production->id,
+                    'stage'          => WorkReportFlowProduction::STAGE_PUBLICATION,
+                    'final_scope'    => $finalScope,
                 ],
                 [
                     'is_current' => true,
-                    'linked_at' => now(),
-                    'linked_by' => auth()->id(),
-                    'source' => $source ?? 'dispatch_publication',
-                    'metadata' => array_filter([
-                        'note_id' => $production->note_id,
-                        'service_id' => $production->service_id,
-                        'production_status' => $production->status,
+                    'linked_at'  => now(),
+                    'linked_by'  => auth()->id(),
+                    'source'     => $source ?? 'dispatch_publication',
+                    'metadata'   => array_filter([
+                        'note_id'            => $production->note_id,
+                        'service_id'         => $production->service_id,
+                        'production_status'  => $production->status,
                         'production_user_id' => $production->user_id,
                         ...$metadata,
                     ], fn ($value) => $value !== null),
@@ -157,9 +155,11 @@ class WorkReportFlowProductionLinker
 
     public function linkPaymentForWorkReport(Production $production, WorkReport|int $workReport, array $finalScopes, ?string $source = null, array $metadata = []): array
     {
-        $allowD5PaymentLink = $source === 'services_payment_self_assign';
-
-        if ((bool) $production->partial || ((bool) $production->dfive && !$allowD5PaymentLink)) {
+        // `dfive` classifica a produção, mas não elimina o vínculo de Medição
+        // com o Informe. Tanto o Ciclo 1 com D5 quanto o Retorno (Ciclo 2)
+        // precisam de um link de Pagamento para que bloqueio, histórico e
+        // reentrada sejam avaliados na demanda correta.
+        if ((bool) $production->partial) {
             return [];
         }
 
@@ -204,19 +204,19 @@ class WorkReportFlowProductionLinker
                 $created[] = WorkReportFlowProduction::query()->updateOrCreate(
                     [
                         'work_report_id' => $workReport->id,
-                        'production_id' => $production->id,
-                        'stage' => WorkReportFlowProduction::STAGE_PAYMENT,
-                        'final_scope' => $finalScope,
+                        'production_id'  => $production->id,
+                        'stage'          => WorkReportFlowProduction::STAGE_PAYMENT,
+                        'final_scope'    => $finalScope,
                     ],
                     [
                         'is_current' => true,
-                        'linked_at' => now(),
-                        'linked_by' => auth()->id(),
-                        'source' => $source ?? 'dispatch_payment',
-                        'metadata' => array_filter([
-                            'note_id' => $production->note_id,
-                            'service_id' => $production->service_id,
-                            'production_status' => $production->status,
+                        'linked_at'  => now(),
+                        'linked_by'  => auth()->id(),
+                        'source'     => $source ?? 'dispatch_payment',
+                        'metadata'   => array_filter([
+                            'note_id'            => $production->note_id,
+                            'service_id'         => $production->service_id,
+                            'production_status'  => $production->status,
                             'production_user_id' => $production->user_id,
                             ...$metadata,
                         ], fn ($value) => $value !== null),
@@ -239,6 +239,7 @@ class WorkReportFlowProductionLinker
         }
 
         $workReport = $this->resolveCurrentFinalWorkReport((int) $production->note_id, $finalScope);
+
         if (!$workReport) {
             return null;
         }
@@ -256,19 +257,19 @@ class WorkReportFlowProductionLinker
             $link = WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,
-                    'production_id' => $production->id,
-                    'stage' => $stage,
-                    'final_scope' => $finalScope,
+                    'production_id'  => $production->id,
+                    'stage'          => $stage,
+                    'final_scope'    => $finalScope,
                 ],
                 [
                     'is_current' => true,
-                    'linked_at' => now(),
-                    'linked_by' => auth()->id(),
-                    'source' => $source,
-                    'metadata' => array_filter([
-                        'note_id' => $production->note_id,
-                        'service_id' => $production->service_id,
-                        'production_status' => $production->status,
+                    'linked_at'  => now(),
+                    'linked_by'  => auth()->id(),
+                    'source'     => $source,
+                    'metadata'   => array_filter([
+                        'note_id'            => $production->note_id,
+                        'service_id'         => $production->service_id,
+                        'production_status'  => $production->status,
                         'production_user_id' => $production->user_id,
                         ...$metadata,
                     ], fn ($value) => $value !== null),
@@ -308,19 +309,19 @@ class WorkReportFlowProductionLinker
             $link = WorkReportFlowProduction::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReport->id,
-                    'production_id' => $production->id,
-                    'stage' => $stage,
-                    'final_scope' => $finalScope,
+                    'production_id'  => $production->id,
+                    'stage'          => $stage,
+                    'final_scope'    => $finalScope,
                 ],
                 [
                     'is_current' => true,
-                    'linked_at' => now(),
-                    'linked_by' => auth()->id(),
-                    'source' => $source,
-                    'metadata' => array_filter([
-                        'note_id' => $production->note_id,
-                        'service_id' => $production->service_id,
-                        'production_status' => $production->status,
+                    'linked_at'  => now(),
+                    'linked_by'  => auth()->id(),
+                    'source'     => $source,
+                    'metadata'   => array_filter([
+                        'note_id'            => $production->note_id,
+                        'service_id'         => $production->service_id,
+                        'production_status'  => $production->status,
                         'production_user_id' => $production->user_id,
                         ...$metadata,
                     ], fn ($value) => $value !== null),

@@ -111,6 +111,24 @@ class SicodeRules
         return filled($value) ? (string) $value : 'Medição/Pagamento';
     }
 
+    /**
+     * Prazo exibido no Controle de Medição. SP usa dias úteis; ES, dias corridos.
+     * Ambos os valores podem ser sobrescritos em system_settings.
+     */
+    public static function paymentMeasurementDeadlineDays(): int
+    {
+        $default = self::ruleset() === 'sp' ? 8 : 15;
+        $value   = self::databaseRule('payment.measurement_deadline.days')
+            ?? config('sicode.rules.' . self::ruleset() . '.payment.measurement_deadline.days');
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : $default;
+    }
+
+    public static function paymentMeasurementDeadlineUsesBusinessDays(): bool
+    {
+        return self::boolRule('payment.measurement_deadline.business_days', self::ruleset() === 'sp');
+    }
+
     public static function analysisEnvironmentWithoutReason(): bool
     {
         return self::boolRule('analysis.environment_without_reason', false);
@@ -119,9 +137,9 @@ class SicodeRules
     public static function analysisConclusionOptions(): array
     {
         return self::stringOptionsRule('analysis.conclusions', [
-            'ISR - LIBERADO' => 'ISR - LIBERADO',
-            'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
-            'ENVIADO AO DESENHO' => 'ENVIADO AO DESENHO',
+            'ISR - LIBERADO'           => 'ISR - LIBERADO',
+            'ENVIADO A CAMPO'          => 'ENVIADO A CAMPO',
+            'ENVIADO AO DESENHO'       => 'ENVIADO AO DESENHO',
             'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
             'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
             'ENVIADO PARA O STATUS 21' => 'ENVIADO PARA O STATUS 21',
@@ -131,13 +149,13 @@ class SicodeRules
     public static function preAnalysisConclusionOptions(): array
     {
         return self::stringOptionsRule('analysis.pre_analysis_conclusions', [
-            'ISR - LIBERADO' => 'ISR - LIBERADO',
-            'ENVIADO A CAMPO' => 'ENVIADO A CAMPO',
+            'ISR - LIBERADO'               => 'ISR - LIBERADO',
+            'ENVIADO A CAMPO'              => 'ENVIADO A CAMPO',
             'ENVIADO AO DESENHO/ORÇAMENTO' => 'ENVIADO AO DESENHO/ORÇAMENTO',
-            'ENVIADO CARTA AO CLIENTE' => 'ENVIADO CARTA AO CLIENTE',
-            'ENVIADO RESPOSTA EMPRESA' => 'ENVIADO RESPOSTA EMPRESA',
-            'ENVIADO PARA CONSTRUÇÃO' => 'ENVIADO PARA CONSTRUÇÃO',
-            'ARQUIVADO' => 'ARQUIVADO',
+            'ENVIADO CARTA AO CLIENTE'     => 'ENVIADO CARTA AO CLIENTE',
+            'ENVIADO RESPOSTA EMPRESA'     => 'ENVIADO RESPOSTA EMPRESA',
+            'ENVIADO PARA CONSTRUÇÃO'      => 'ENVIADO PARA CONSTRUÇÃO',
+            'ARQUIVADO'                    => 'ARQUIVADO',
         ]);
     }
 
@@ -231,8 +249,13 @@ class SicodeRules
             ->exists();
     }
 
-    public static function applyContractDispatchMainVisibility($query, User $user, string $serviceId, callable $applyStatusRules)
-    {
+    public static function applyContractDispatchMainVisibility(
+        $query,
+        User $user,
+        string $serviceId,
+        callable $applyStatusRules,
+        bool $includeCompletedCompanyActivity = false
+    ) {
         if (!$user->contract) {
             $applyStatusRules($query);
 
@@ -253,10 +276,10 @@ class SicodeRules
                     ->whereIn('company_id', $companyIds)
                     ->where('completed', false);
             });
-        })->whereHas('Productions', function ($production) use ($companyIds, $serviceId) {
+        })->whereHas('Productions', function ($production) use ($companyIds, $serviceId, $includeCompletedCompanyActivity) {
             $production->where('service_id', $serviceId)
                 ->whereIn('company_id', $companyIds)
-                ->where('completed', false);
+                ->when(!$includeCompletedCompanyActivity, fn ($production) => $production->where('completed', false));
         });
     }
 

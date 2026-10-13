@@ -32,6 +32,12 @@ Route::get('/', function () {
 
 Auth::routes();
 
+Route::get('/exports/{user}/{file}', \App\Http\Controllers\ExportDownloadController::class)
+    ->where('user', '[A-Za-z0-9-]+')
+    ->where('file', '[A-Za-z0-9_.-]+')
+    ->middleware(['auth', 'signed'])
+    ->name('exports.download');
+
 // Route::prefix('/login')->controller(CustomAuthController::class)->name('login.')->group(function () {
 //     Route::post('/', 'login')->name('login');
 //     Route::get('/logout', 'logout')->name('logout');
@@ -383,6 +389,7 @@ Route::prefix('/quality')->controller(\App\Http\Controllers\QualityController::c
     Route::get('/n1/{tab?}', 'n1')->middleware('can:quality.access')->where('tab', 'despachar|com-usuarios|analisar|devolvidos|no-n2')->name('n1');
     Route::post('/n1/despachar', 'n1Dispatch')->middleware('can:quality.access')->name('n1.dispatch');
     Route::post('/n1/reatribuir', 'n1Reassign')->middleware('can:quality.access')->name('n1.reassign');
+    Route::post('/n1/exportar-despacho', 'exportN1Dispatch')->middleware('can:quality.access')->name('n1.export-dispatch');
     Route::get('/n2/{tab?}', 'n2')->middleware('can:quality.access')->where('tab', 'decidir|encerrar|com-n1|empresas')->name('n2');
     Route::get('/dashboard', 'dashboard')->middleware('can:quality.access')->name('dashboard');
     Route::get('/pool', 'pool')->middleware('can:quality.pool')->name('pool');

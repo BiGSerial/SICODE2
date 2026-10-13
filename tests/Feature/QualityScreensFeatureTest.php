@@ -82,6 +82,28 @@ class QualityScreensFeatureTest extends TestCase
         $this->actingAs($this->outsider)->get(route('quality.process', $this->process))->assertForbidden();
     }
 
+    public function test_n2_context_hides_n1_return_actions_for_a_member_with_both_roles(): void
+    {
+        QualityMember::create(['user_id' => $this->n2->id, 'company_id' => $this->company->id, 'role' => 'N1']);
+        $this->process->update([
+            'state'            => QualityProcessState::N2_RETURNED,
+            'state_changed_at' => now(),
+        ]);
+
+        $n2Screen = $this->ok($this->actingAs($this->n2)
+            ->withSession(['quality.active_level' => 'N2'])
+            ->get(route('quality.process', $this->process)));
+
+        $n2Screen->assertDontSee('Encaminhar devolução do N2 ao usuário')
+            ->assertDontSee('Questionar o N2');
+
+        $this->ok($this->actingAs($this->n2)
+            ->withSession(['quality.active_level' => 'N1'])
+            ->get(route('quality.process', $this->process)))
+            ->assertSee('Encaminhar devolução do N2 ao usuário')
+            ->assertSee('Questionar o N2');
+    }
+
     public function test_each_level_has_its_own_home_and_menu_and_sees_nothing_of_the_other_levels(): void
     {
         // a entrada da Qualidade leva cada nível à sua própria página
@@ -367,6 +389,19 @@ class QualityScreensFeatureTest extends TestCase
             ->assertDispatchedBrowserEvent('showModal', ['id' => 'quality_closing_form'])
             ->call('goTransferProd', $this->process->fresh()->production_id)
             ->assertDispatchedBrowserEvent('swal');
+    }
+
+    public function test_levantamento_bulk_search_finds_numeric_notes_in_the_n1_dispatch_queue(): void
+    {
+        $service = Service::where('service', 'Levantamento')->firstOrFail();
+
+        // O usuário de produção não precisa ser N1: ele assume a obra disponível na fila N1.
+        Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Services\Levantamento\Main::class, ['service' => $service->uuid])
+            ->set('qualityNotes', $this->note->note)
+            ->call('searchQualityAvailable')
+            ->assertSet('qualityCandidates.0.note', $this->note->note)
+            ->assertSet('qualityCandidates.0.available', true)
+            ->assertSet('selectedQualityProcessIds.0', $this->process->id);
     }
 
     public function test_pagination_is_portuguese_and_uses_the_bootstrap_layout(): void

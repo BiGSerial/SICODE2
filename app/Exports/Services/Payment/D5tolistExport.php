@@ -2,38 +2,31 @@
 
 namespace App\Exports\Services\Payment;
 
-use App\Models\City;
-use App\Models\Production;
+use App\Models\{City, Production};
 use App\Services\D5\ProductionFiveNoteResolver;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromCollection, WithEvents, WithHeadings, WithMapping, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill, NumberFormat};
 
 class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithProperties, WithEvents
 {
     use Exportable;
 
     protected $service;
+
     protected $user_id;
+
     protected Collection $cities;
+
     protected $data;
 
     public function __construct($service, $user_id)
     {
         $this->service = $service;
         $this->user_id = $user_id;
-        $this->cities = collect();
-        $this->data = collect();
+        $this->cities  = collect();
+        $this->data    = collect();
     }
 
     /**
@@ -52,14 +45,14 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
             ->where('status', '!=', 5)
             ->where('dfive', true)
             ->with([
-                'note.WorkForm.Company', 'note.WorkForm.Orders',
-                'note.WorkFormAny.Company', 'note.WorkFormAny.Orders',
+                'note.WorkForm.Company', 'note.WorkForm.Orders', 'note.WorkForm.Orders.Pep:objeto,disponivel',
+                'note.WorkFormAny.Company', 'note.WorkFormAny.Orders', 'note.WorkFormAny.Orders.Pep:objeto,disponivel',
                 'fiveNotes', 'WorkReportFlowProductions',
             ])
             ->get()
             ->each(function (Production $production) use ($resolver) {
                 $five = $resolver->resolve($production);
-                $five?->loadMissing('WorkReport.Company', 'WorkReport.Orders');
+                $five?->loadMissing('WorkReport.Company', 'WorkReport.Orders', 'WorkReport.Orders.Pep:objeto,disponivel');
                 $production->setRelation('resolvedFive', $five);
             })
             ->filter(fn (Production $production) => $production->getRelation('resolvedFive') !== null)
@@ -89,6 +82,7 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
             'Valor da Obra Estimado',   // R
             'Id Informe',               // S
             'Escopo do Informe',        // T
+            'Saldo disponível PEP',     // U
         ];
     }
 
@@ -98,11 +92,12 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
         $five = $row->getRelation('resolvedFive');
         // O informe da D5 é o dono das ordens; D5 legada (sem informe) usa o informe da nota.
         $workForm = $five?->WorkReport ?: $row->note?->WorkForm ?: $row->note?->WorkFormAny;
-        $order = $workForm?->Orders?->sortBy('ordem')->first();
+        $order    = $workForm?->Orders?->sortBy('ordem')->first();
 
         // CORREÇÃO DE PERFORMANCE (N+1): Cacheia a consulta de cidades
         $cityCode = $row->note?->nexp;
-        $city = null;
+        $city     = null;
+
         if ($cityCode) {
             if (!$this->cities->has($cityCode)) {
                 $this->cities->put($cityCode, City::where('rdMunicipio', $cityCode)->first());
@@ -117,7 +112,7 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
         $codifyParts = explode('_', $five?->codify ?? '');
 
         return [
-            $workForm?->Company?->name ? $workForm?->Company?->name.($workForm?->canceled ? ' (CANCELADO)' : '') : null,
+            $workForm?->Company?->name ? $workForm?->Company?->name . ($workForm?->canceled ? ' (CANCELADO)' : '') : null,
             '', // Centro /Resp
             $order?->ordem, // CORREÇÃO: Usar uma propriedade, não o objeto inteiro
             $five?->description,
@@ -137,6 +132,7 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
             $moa,
             $five?->work_report_id ?: ($workForm?->id ?: ''),
             $this->scopeLabel($five, $workForm),
+            $order?->Pep?->disponivel,
         ];
     }
 
@@ -155,6 +151,7 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
     public function properties(): array
     {
         $userName = optional(auth()->user())->name ?? 'SICODE';
+
         return [
             'creator'        => $userName,
             'lastModifiedBy' => $userName,
@@ -178,10 +175,9 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
                 // ------------------------------------------------------------------
 
                 // Pega a maior linha e coluna com dados para aplicar estilos apenas onde for necessário.
-                $highestRow = $sheet->getHighestRow();
+                $highestRow    = $sheet->getHighestRow();
                 $highestColumn = $sheet->getHighestColumn();
-                $headerRange = 'A1:' . $highestColumn . '1';
-
+                $headerRange   = 'A1:' . $highestColumn . '1';
 
                 // ------------------------------------------------------------------
                 // 2. ESTILIZAÇÃO DO CABEÇALHO (CORES DA IMAGEM)
@@ -192,30 +188,29 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
                     'A' => 'FFA500', 'B' => 'FFA500', 'C' => 'FFA500', 'E' => 'FFA500',
                     'G' => 'FFA500', 'I' => 'FFA500', 'J' => 'FFA500', 'K' => 'FFA500',
                     'L' => 'FFA500', 'O' => 'FFA500', 'P' => 'FFA500', 'Q' => 'FFA500',
-                    'R' => 'FFA500', 'S' => 'FFA500', 'T' => 'FFA500', // Laranja
+                    'R' => 'FFA500', 'S' => 'FFA500', 'T' => 'FFA500', 'U' => 'FFA500', // Laranja
                     'D' => 'FFFF00', 'F' => 'FFFF00', 'N' => 'FFFF00', // Amarelo
                     'H' => 'FFDAB9', 'M' => 'FFDAB9', // Pêssego
                 ];
 
                 // Estilo base para todos os cabeçalhos
                 $baseHeaderStyle = [
-                    'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
+                    'font'      => ['bold' => true, 'color' => ['rgb' => '000000']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
+                    'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'FFFFFF']]],
                 ];
 
                 // Aplica o estilo base e a cor de fundo específica para cada coluna
                 foreach (range('A', $highestColumn) as $column) {
-                    $style = $baseHeaderStyle;
+                    $style         = $baseHeaderStyle;
                     $style['fill'] = [
-                        'fillType' => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => $headerColors[$column] ?? 'FFFFFF'] // Cor branca como padrão
+                        'fillType'   => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => $headerColors[$column] ?? 'FFFFFF'], // Cor branca como padrão
                     ];
                     $sheet->getStyle($column . '1')->applyFromArray($style);
                 }
                 // Aumenta a altura da linha do cabeçalho para melhor visualização
                 $sheet->getRowDimension(1)->setRowHeight(22);
-
 
                 // ------------------------------------------------------------------
                 // 3. LARGURA DAS COLUNAS (AUTOSIZE EFICIENTE)
@@ -238,6 +233,7 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
                 $sheet->getColumnDimension('R')->setWidth(20); // Valor da Obra
                 $sheet->getColumnDimension('S')->setWidth(12); // Id Informe
                 $sheet->getColumnDimension('T')->setWidth(22); // Escopo do Informe
+                $sheet->getColumnDimension('U')->setWidth(22); // Saldo disponível PEP
 
                 // Usa AutoSize apenas para colunas com texto longo e imprevisível
                 $sheet->getColumnDimension('D')->setAutoSize(true); // Descricao Texto
@@ -252,13 +248,13 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
                 $sheet->getColumnDimension('N')->setAutoSize(true); // Texto Sintoma
                 $sheet->getStyle('N1:N' . $highestRow)->getAlignment()->setWrapText(true);
 
-
                 // ------------------------------------------------------------------
                 // 4. FORMATAÇÃO DE DADOS (NÚMEROS E MOEDA)
                 // ------------------------------------------------------------------
 
                 // Colunas que devem ser formatadas como números inteiros (sem decimais)
                 $integerColumns = ['C', 'G', 'P', 'Q', 'S']; // Diagrama, Conjunto, GPM, Centro, OV/NOTA
+
                 foreach ($integerColumns as $column) {
                     $sheet->getStyle($column . '2:' . $column . $highestRow)
                         ->getNumberFormat()
@@ -267,6 +263,7 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
 
                 // Colunas que são códigos e devem ser tratadas como texto para evitar formatação automática do Excel
                 $textColumns = ['F', 'L']; // Nota Gerada, Codificacao
+
                 foreach ($textColumns as $column) {
                     $sheet->getStyle($column . '2:' . $column . $highestRow)
                         ->getNumberFormat()
@@ -277,14 +274,17 @@ class D5tolistExport implements FromCollection, WithMapping, WithHeadings, WithP
                 $sheet->getStyle('R2:R' . $highestRow)
                     ->getNumberFormat()
                     ->setFormatCode('R$ #,##0.00');
-
+                $sheet->getStyle('U2:U' . $highestRow)
+                    ->getNumberFormat()
+                    ->setFormatCode('R$ #,##0.00');
 
                 // ------------------------------------------------------------------
                 // 5. ALINHAMENTO DE DADOS
                 // ------------------------------------------------------------------
 
                 // Centraliza o conteúdo de colunas específicas para melhor legibilidade
-                $centerAlignColumns = ['B', 'C', 'E', 'F', 'G', 'K', 'L', 'O', 'P', 'Q', 'R', 'S', 'T'];
+                $centerAlignColumns = ['B', 'C', 'E', 'F', 'G', 'K', 'L', 'O', 'P', 'Q', 'R', 'S', 'T', 'U'];
+
                 foreach ($centerAlignColumns as $column) {
                     $sheet->getStyle($column . '2:' . $column . $highestRow)
                         ->getAlignment()

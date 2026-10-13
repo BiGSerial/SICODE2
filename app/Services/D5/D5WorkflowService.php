@@ -2,15 +2,13 @@
 
 namespace App\Services\D5;
 
-use App\Models\FiveNote;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\TimelineEvent;
+use App\Models\{FiveNote, Production, Service, TimelineEvent};
 use DomainException;
 
 class D5WorkflowService
 {
     protected ?string $fiscalizationServiceId = null;
+
     protected ?string $paymentServiceId = null;
 
     public function currentStage(FiveNote $five): string
@@ -41,40 +39,40 @@ class D5WorkflowService
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_created_manual',
-            'from_stage' => null,
-            'to_stage' => 'created',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_created_manual',
+            'from_stage'    => null,
+            'to_stage'      => 'created',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'PAGAMENTO',
+            'actor_role'    => 'PAGAMENTO',
             'owner_user_id' => $production?->user_id,
-            'owner_role' => $production?->user_id ? 'PAGAMENTO' : null,
-            'service_id' => $production?->service_id,
+            'owner_role'    => $production?->user_id ? 'PAGAMENTO' : null,
+            'service_id'    => $production?->service_id,
             'production_id' => $production?->id,
-            'occurred_at' => $five->created_at ?? now(),
-            'inferred' => false,
-            'metadata' => ['source' => 'manual_create'],
+            'occurred_at'   => $five->created_at ?? now(),
+            'inferred'      => false,
+            'metadata'      => ['source' => 'manual_create'],
         ]);
     }
 
     public function onCreatedFromSupervision(FiveNote $five, ?string $actorUserId = null, ?Production $production = null): void
     {
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_created_from_supervision',
-            'from_stage' => null,
-            'to_stage' => 'created',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_created_from_supervision',
+            'from_stage'    => null,
+            'to_stage'      => 'created',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'FISCALIZACAO',
+            'actor_role'    => 'FISCALIZACAO',
             'owner_user_id' => $production?->user_id,
-            'owner_role' => $production?->user_id ? 'FISCALIZACAO' : null,
-            'service_id' => $production?->service_id,
+            'owner_role'    => $production?->user_id ? 'FISCALIZACAO' : null,
+            'service_id'    => $production?->service_id,
             'production_id' => $production?->id,
-            'occurred_at' => $five->created_at ?? now(),
-            'inferred' => false,
-            'metadata' => ['source' => 'supervision_form'],
+            'occurred_at'   => $five->created_at ?? now(),
+            'inferred'      => false,
+            'metadata'      => ['source' => 'supervision_form'],
         ]);
     }
 
@@ -85,38 +83,38 @@ class D5WorkflowService
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_released_to_partner',
-            'from_stage' => $fromStage,
-            'to_stage' => 'released_to_partner',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_released_to_partner',
+            'from_stage'    => $fromStage,
+            'to_stage'      => 'released_to_partner',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'PAGAMENTO',
-            'owner_role' => 'EMPREITEIRA',
-            'service_id' => $production?->service_id,
+            'actor_role'    => 'PAGAMENTO',
+            'owner_role'    => 'EMPREITEIRA',
+            'service_id'    => $production?->service_id,
             'production_id' => $production?->id,
-            'occurred_at' => $five->dispatch_at ?? now(),
-            'inferred' => false,
+            'occurred_at'   => $five->dispatch_at ?? now(),
+            'inferred'      => false,
         ]);
     }
 
     public function onPartnerCompleted(FiveNote $five, ?string $fromStage, ?string $actorUserId = null): void
     {
-        if (!$five->is_completed) {
-            throw new DomainException('Transicao invalida: D5 precisa estar concluida pela empreiteira.');
+        if (!$five->is_completed || $five->returned) {
+            throw new DomainException('Transicao invalida: conclusao da empreiteira exige D5 concluida e sem devolucao pendente.');
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_partner_completed',
-            'from_stage' => $fromStage,
-            'to_stage' => 'partner_done',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_partner_completed',
+            'from_stage'    => $fromStage,
+            'to_stage'      => 'partner_done',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'EMPREITEIRA',
-            'owner_role' => 'FISCALIZACAO',
-            'occurred_at' => $five->completed_at ?? now(),
-            'inferred' => false,
+            'actor_role'    => 'EMPREITEIRA',
+            'owner_role'    => 'FISCALIZACAO',
+            'occurred_at'   => $five->completed_at ?? now(),
+            'inferred'      => false,
         ]);
 
         // A conclusao da parceira nao cria producao: o D5 concluido (is_completed=true,
@@ -124,82 +122,82 @@ class D5WorkflowService
         // fila de Fiscalizacao (SupervisionRepository/isD5Dispatch). A producao real so
         // nasce quando alguem de fato despachar, com a empresa correta de quem despacha.
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_sent_to_supervision_queue',
-            'from_stage' => 'partner_done',
-            'to_stage' => 'supervision_queue',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_sent_to_supervision_queue',
+            'from_stage'    => 'partner_done',
+            'to_stage'      => 'supervision_queue',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'EMPREITEIRA',
-            'owner_role' => 'FISCALIZACAO',
-            'occurred_at' => $five->completed_at ?? now(),
-            'inferred' => false,
+            'actor_role'    => 'EMPREITEIRA',
+            'owner_role'    => 'FISCALIZACAO',
+            'occurred_at'   => $five->completed_at ?? now(),
+            'inferred'      => false,
         ]);
     }
 
     public function onReturnedWithPending(FiveNote $five, ?string $fromStage, ?string $actorUserId = null, ?Production $production = null): void
     {
-        if (!$five->returned || $five->is_supervisioned) {
-            throw new DomainException('Transicao invalida: retorno com pendencia exige returned=true e sem supervisao aprovada.');
+        if (!$five->returned || $five->is_completed || $five->is_supervisioned || $five->is_archived) {
+            throw new DomainException('Transicao invalida: retorno com pendencia exige devolucao aberta, sem conclusao e sem supervisao aprovada.');
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_returned_with_pending',
-            'from_stage' => $fromStage,
-            'to_stage' => 'returned_to_partner',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_returned_with_pending',
+            'from_stage'    => $fromStage,
+            'to_stage'      => 'returned_to_partner',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'FISCALIZACAO',
-            'owner_role' => 'EMPREITEIRA',
-            'service_id' => $production?->service_id,
+            'actor_role'    => 'FISCALIZACAO',
+            'owner_role'    => 'EMPREITEIRA',
+            'service_id'    => $production?->service_id,
             'production_id' => $production?->id,
-            'occurred_at' => now(),
-            'inferred' => false,
+            'occurred_at'   => now(),
+            'inferred'      => false,
         ]);
     }
 
     public function onSupervisionApproved(FiveNote $five, ?string $fromStage, ?string $actorUserId = null, ?Production $production = null): void
     {
-        if (!$five->is_supervisioned) {
-            throw new DomainException('Transicao invalida: aprovacao da fiscalizacao exige is_supervisioned=true.');
+        if (!$five->isEligibleForPaymentReturn()) {
+            throw new DomainException('Transicao invalida: aprovacao da fiscalizacao exige D5 concluida, fiscalizada, ativa e sem devolucao pendente.');
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_supervision_approved',
-            'from_stage' => $fromStage,
-            'to_stage' => 'supervision_approved',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_supervision_approved',
+            'from_stage'    => $fromStage,
+            'to_stage'      => 'supervision_approved',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'FISCALIZACAO',
-            'owner_role' => 'PAGAMENTO',
-            'service_id' => $production?->service_id,
+            'actor_role'    => 'FISCALIZACAO',
+            'owner_role'    => 'PAGAMENTO',
+            'service_id'    => $production?->service_id,
             'production_id' => $production?->id,
-            'occurred_at' => $five->supervisioned_at ?? now(),
-            'inferred' => false,
+            'occurred_at'   => $five->supervisioned_at ?? now(),
+            'inferred'      => false,
         ]);
     }
 
     public function onArchived(FiveNote $five, ?string $fromStage, ?string $actorUserId = null, ?Production $production = null): void
     {
-        if (!$five->is_archived) {
-            throw new DomainException('Transicao invalida: arquivamento exige is_archived=true.');
+        if (!$five->is_archived || !$five->is_completed || !$five->is_supervisioned || $five->returned) {
+            throw new DomainException('Transicao invalida: arquivamento exige retorno concluido, fiscalizado e sem devolucao pendente.');
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_archived',
-            'from_stage' => $fromStage,
-            'to_stage' => 'archived',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_archived',
+            'from_stage'    => $fromStage,
+            'to_stage'      => 'archived',
             'actor_user_id' => $actorUserId,
-            'actor_role' => 'PAGAMENTO',
-            'owner_role' => 'CLOSED',
-            'service_id' => $production?->service_id,
+            'actor_role'    => 'PAGAMENTO',
+            'owner_role'    => 'CLOSED',
+            'service_id'    => $production?->service_id,
             'production_id' => $production?->id,
-            'occurred_at' => now(),
-            'inferred' => false,
+            'occurred_at'   => now(),
+            'inferred'      => false,
         ]);
     }
 
@@ -210,11 +208,13 @@ class D5WorkflowService
         ?string $previousUserId = null
     ): void {
         $serviceRole = $this->resolveServiceRole($production->service_id);
+
         if (!$serviceRole) {
             return;
         }
 
         $newUserId = $production->user_id ?: null;
+
         if (!$newUserId) {
             return;
         }
@@ -224,22 +224,22 @@ class D5WorkflowService
             : 'd5_user_assigned';
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => $eventType,
-            'from_stage' => $this->currentStage($five),
-            'to_stage' => $serviceRole === 'FISCALIZACAO' ? 'supervision_assigned' : 'payment_review',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => $eventType,
+            'from_stage'    => $this->currentStage($five),
+            'to_stage'      => $serviceRole === 'FISCALIZACAO' ? 'supervision_assigned' : 'payment_review',
             'actor_user_id' => $actorUserId,
-            'actor_role' => $serviceRole,
+            'actor_role'    => $serviceRole,
             'owner_user_id' => $newUserId,
-            'owner_role' => $serviceRole,
-            'service_id' => $production->service_id,
+            'owner_role'    => $serviceRole,
+            'service_id'    => $production->service_id,
             'production_id' => $production->id,
-            'occurred_at' => $production->att_at ?? now(),
-            'inferred' => false,
-            'metadata' => [
+            'occurred_at'   => $production->att_at ?? now(),
+            'inferred'      => false,
+            'metadata'      => [
                 'previous_user_id' => $previousUserId,
-                'new_user_id' => $newUserId,
+                'new_user_id'      => $newUserId,
             ],
         ]);
     }
@@ -251,27 +251,28 @@ class D5WorkflowService
         ?string $previousUserId = null
     ): void {
         $serviceRole = $this->resolveServiceRole($production->service_id);
+
         if (!$serviceRole || !$previousUserId) {
             return;
         }
 
         $this->emitIfMissing([
-            'five_note_id' => $five->id,
-            'note_id' => $five->note_id,
-            'event_type' => 'd5_user_unassigned',
-            'from_stage' => $this->currentStage($five),
-            'to_stage' => $serviceRole === 'FISCALIZACAO' ? 'supervision_queue' : 'payment_review',
+            'five_note_id'  => $five->id,
+            'note_id'       => $five->note_id,
+            'event_type'    => 'd5_user_unassigned',
+            'from_stage'    => $this->currentStage($five),
+            'to_stage'      => $serviceRole === 'FISCALIZACAO' ? 'supervision_queue' : 'payment_review',
             'actor_user_id' => $actorUserId,
-            'actor_role' => $serviceRole,
+            'actor_role'    => $serviceRole,
             'owner_user_id' => null,
-            'owner_role' => $serviceRole,
-            'service_id' => $production->service_id,
+            'owner_role'    => $serviceRole,
+            'service_id'    => $production->service_id,
             'production_id' => $production->id,
-            'occurred_at' => now(),
-            'inferred' => false,
-            'metadata' => [
+            'occurred_at'   => now(),
+            'inferred'      => false,
+            'metadata'      => [
                 'previous_user_id' => $previousUserId,
-                'new_user_id' => null,
+                'new_user_id'      => null,
             ],
         ]);
     }
@@ -302,7 +303,7 @@ class D5WorkflowService
         }
 
         $this->fiscalizationServiceId = Service::whereIn('service', ['Fiscalizacao', 'Fiscalização'])->value('uuid');
-        $this->paymentServiceId = Service::where('service', 'Pagamento')->value('uuid');
+        $this->paymentServiceId       = Service::where('service', 'Pagamento')->value('uuid');
     }
 
     protected function emitIfMissing(array $payload): void

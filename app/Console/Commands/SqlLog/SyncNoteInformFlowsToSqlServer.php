@@ -7,14 +7,13 @@ use App\Models\SicodeSql\LogNoteInformFlows;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\{DB, Log};
 
 class SyncNoteInformFlowsToSqlServer extends Command
 {
     use ShowsProgress;
 
-    private const SQLSERVER_BIND_LIMIT = 2000;
+    private const SQLSERVER_BIND_LIMIT  = 2000;
     private const SQLSERVER_BIND_BUFFER = 50;
 
     private array $columnLimits = [];
@@ -22,6 +21,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
     protected $signature = 'sicode:sync-log-note-inform-flows
         {--hours=2 : Janela de horas olhando updated_at}
         {--all : Sincroniza todos os registros}
+        {--rebase : Limpa o log de destino e o republica integralmente}
         {--yesterday-only : Sincroniza somente updated_at do dia anterior completo}
         {--chunk=500 : Tamanho do lote lido do MySQL}
         {--if-empty : Faz sync completo se a tabela destino estiver vazia}
@@ -39,15 +39,22 @@ class SyncNoteInformFlowsToSqlServer extends Command
             return self::SUCCESS;
         }
 
-        $hours = max(1, (int) $this->option('hours'));
-        $chunk = max(50, (int) $this->option('chunk'));
-        $since = now()->subHours($hours);
-        $yesterdayOnly = (bool) $this->option('yesterday-only');
+        $hours          = max(1, (int) $this->option('hours'));
+        $chunk          = max(50, (int) $this->option('chunk'));
+        $since          = now()->subHours($hours);
+        $yesterdayOnly  = (bool) $this->option('yesterday-only');
         $yesterdayStart = Carbon::yesterday()->startOfDay();
-        $yesterdayEnd = Carbon::yesterday()->endOfDay();
-        $dryRun = (bool) $this->option('dry-run');
+        $yesterdayEnd   = Carbon::yesterday()->endOfDay();
+        $dryRun         = (bool) $this->option('dry-run');
+        $rebase         = (bool) $this->option('rebase');
 
-        $destConn = (new LogNoteInformFlows())->getConnectionName();
+        if ($rebase && $yesterdayOnly) {
+            $this->error('A opcao --rebase exige a republicacao completa, sem --yesterday-only.');
+
+            return self::FAILURE;
+        }
+
+        $destConn    = (new LogNoteInformFlows())->getConnectionName();
         $destIsEmpty = false;
 
         if ($this->option('if-empty')) {
@@ -58,11 +65,28 @@ class SyncNoteInformFlowsToSqlServer extends Command
             }
         }
 
-        $full = (bool) $this->option('all') || $destIsEmpty;
+        $full = (bool) $this->option('all') || $rebase || $destIsEmpty;
 
         $this->info('Sync Note Inform Flows -> SQL Server');
         $this->line("Destino: {$destConn}.dbo.log_note_inform_flows_sync");
         $this->line('Modo: ' . $this->describeMode($full, $yesterdayOnly, $yesterdayStart, $yesterdayEnd, $since));
+
+        if ($rebase) {
+            if ($dryRun) {
+                $this->line('Rebase: SIMULADO (o log de destino será preservado).');
+            } else {
+                try {
+                    $deleted = LogNoteInformFlows::query()->delete();
+                    $this->warn("Rebase: {$deleted} registros removidos do log de destino.");
+                } catch (\Throwable $e) {
+                    $this->error('Não foi possível limpar o log de destino: ' . $e->getMessage());
+                    report($e);
+
+                    return self::FAILURE;
+                }
+            }
+        }
+
         $this->newLine();
 
         $this->loadColumnLimits();
@@ -89,6 +113,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
 
         if ($total === 0) {
             $this->info('Nada para sincronizar.');
+
             return self::SUCCESS;
         }
 
@@ -99,20 +124,20 @@ class SyncNoteInformFlowsToSqlServer extends Command
         $bar->setMessage('Preparando...');
         $bar->start();
 
-        $sent = 0;
+        $sent    = 0;
         $written = 0;
 
         try {
             DB::disableQueryLog();
 
             $query->chunkById($chunk, function (Collection $rows) use (&$sent, &$written, $bar, $dryRun) {
-                $payload = [];
+                $payload       = [];
                 $columnsPerRow = 0;
 
                 foreach ($rows as $row) {
-                    $mapped = $this->mapRow($row);
+                    $mapped        = $this->mapRow($row);
                     $columnsPerRow = $columnsPerRow ?: count($mapped);
-                    $payload[] = $mapped;
+                    $payload[]     = $mapped;
                     $sent++;
 
                     $bar->setMessage("id_local={$row->id}");
@@ -154,52 +179,57 @@ class SyncNoteInformFlowsToSqlServer extends Command
     private function mapRow(object $row): array
     {
         return $this->truncateRow([
-            'id_local' => (int) $row->id,
-            'flow_key' => $row->flow_key,
-            'flow_type' => $row->flow_type,
-            'note_number' => $row->note_number,
-            'ovi' => $row->ovi,
-            'order_number' => $row->order_number,
-            'company_informe_name' => $row->company_informe_name,
-            'informed_at' => $row->informed_at,
-            'inform_type' => $row->inform_type,
-            'is_validated_by_publication' => (bool) $row->is_validated_by_publication,
-            'publication_validated_at' => $row->publication_validated_at,
-            'has_ads' => (bool) $row->has_ads,
-            'ads_sent_at' => $row->ads_sent_at,
-            'ads_type' => $row->ads_type,
-            'ads_is_tacit' => (bool) $row->ads_is_tacit,
-            'fiscalization_entered_at' => $row->fiscalization_entered_at,
-            'fiscalization_type' => $row->fiscalization_type,
-            'fiscal_assigned_at' => $row->fiscal_assigned_at,
-            'fiscal_user_name' => $row->fiscal_user_name,
-            'fiscal_user_company_name' => $row->fiscal_user_company_name,
-            'fiscalization_completed_at' => $row->fiscalization_completed_at,
-            'fiscalization_closed_in_sicode' => (bool) $row->fiscalization_closed_in_sicode,
+            'id_local'                          => (int) $row->id,
+            'flow_key'                          => $row->flow_key,
+            'flow_type'                         => $row->flow_type,
+            'note_number'                       => $row->note_number,
+            'ovi'                               => $row->ovi,
+            'order_number'                      => $row->order_number,
+            'op20_order_number'                 => $row->op20_order_number,
+            'op20_finished_at'                  => $row->op20_finished_at,
+            'company_informe_name'              => $row->company_informe_name,
+            'informed_at'                       => $row->informed_at,
+            'inform_type'                       => $row->inform_type,
+            'is_validated_by_publication'       => (bool) $row->is_validated_by_publication,
+            'publication_validated_at'          => $row->publication_validated_at,
+            'has_ads'                           => (bool) $row->has_ads,
+            'ads_sent_at'                       => $row->ads_sent_at,
+            'ads_type'                          => $row->ads_type,
+            'ads_is_tacit'                      => (bool) $row->ads_is_tacit,
+            'ads_amount'                        => $row->ads_amount,
+            'fiscalization_entered_at'          => $row->fiscalization_entered_at,
+            'fiscalization_type'                => $row->fiscalization_type,
+            'fiscal_assigned_at'                => $row->fiscal_assigned_at,
+            'fiscal_user_name'                  => $row->fiscal_user_name,
+            'fiscal_user_company_name'          => $row->fiscal_user_company_name,
+            'fiscalization_completed_at'        => $row->fiscalization_completed_at,
+            'fiscalization_closed_in_sicode'    => (bool) $row->fiscalization_closed_in_sicode,
             'fiscalization_closed_in_sicode_at' => $row->fiscalization_closed_in_sicode_at,
-            'fiscalization_closed_in_sap' => (bool) $row->fiscalization_closed_in_sap,
-            'fiscalization_closed_in_sap_at' => $row->fiscalization_closed_in_sap_at,
-            'baixa_fiscal_status' => $row->baixa_fiscal_status,
-            'has_d5' => (bool) $row->has_d5,
-            'five_note_number' => $row->five_note_number,
-            'five_note_created_at' => $row->five_note_created_at,
-            'measurement_entered_at' => $row->measurement_entered_at,
-            'measurement_type' => $row->measurement_type,
-            'measurement_completed_at' => $row->measurement_completed_at,
-            'measurement_exited_at' => $row->measurement_exited_at,
-            'baixa_measurement_status' => $row->baixa_measurement_status,
-            'payment_user_name' => $row->payment_user_name,
-            'payment_user_company_name' => $row->payment_user_company_name,
-            'final_cycle_started_at' => $row->final_cycle_started_at,
-            'final_cycle_ended_at' => $row->final_cycle_ended_at,
-            'current_stage' => $row->current_stage,
-            'blocking_reason' => $row->blocking_reason,
-            'active' => (bool) $row->active,
-            'source_created_at' => $row->source_created_at,
-            'source_updated_at' => $row->source_updated_at,
-            'calculated_at' => $row->calculated_at,
-            'resolver_payload' => $row->resolver_payload,
-            'synced_at' => now(),
+            'fiscalization_closed_in_sap'       => (bool) $row->fiscalization_closed_in_sap,
+            'fiscalization_closed_in_sap_at'    => $row->fiscalization_closed_in_sap_at,
+            'baixa_fiscal_status'               => $row->baixa_fiscal_status,
+            'has_d5'                            => (bool) $row->has_d5,
+            'five_note_number'                  => $row->five_note_number,
+            'five_note_created_at'              => $row->five_note_created_at,
+            'measurement_entered_at'            => $row->measurement_entered_at,
+            'measurement_type'                  => $row->measurement_type,
+            'measurement_completed_at'          => $row->measurement_completed_at,
+            'measurement_exited_at'             => $row->measurement_exited_at,
+            'measurement_closed_in_sap'         => (bool) $row->measurement_closed_in_sap,
+            'measurement_closed_in_sap_at'      => $row->measurement_closed_in_sap_at,
+            'baixa_measurement_status'          => $row->baixa_measurement_status,
+            'payment_user_name'                 => $row->payment_user_name,
+            'payment_user_company_name'         => $row->payment_user_company_name,
+            'final_cycle_started_at'            => $row->final_cycle_started_at,
+            'final_cycle_ended_at'              => $row->final_cycle_ended_at,
+            'current_stage'                     => $row->current_stage,
+            'blocking_reason'                   => $row->blocking_reason,
+            'active'                            => (bool) $row->active,
+            'source_created_at'                 => $row->source_created_at,
+            'source_updated_at'                 => $row->source_updated_at,
+            'calculated_at'                     => $row->calculated_at,
+            'resolver_payload'                  => $row->resolver_payload,
+            'synced_at'                         => now(),
         ]);
     }
 
@@ -224,6 +254,8 @@ class SyncNoteInformFlowsToSqlServer extends Command
             'note_number',
             'ovi',
             'order_number',
+            'op20_order_number',
+            'op20_finished_at',
             'company_informe_name',
             'informed_at',
             'inform_type',
@@ -233,6 +265,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
             'ads_sent_at',
             'ads_type',
             'ads_is_tacit',
+            'ads_amount',
             'fiscalization_entered_at',
             'fiscalization_type',
             'fiscal_assigned_at',
@@ -251,6 +284,8 @@ class SyncNoteInformFlowsToSqlServer extends Command
             'measurement_type',
             'measurement_completed_at',
             'measurement_exited_at',
+            'measurement_closed_in_sap',
+            'measurement_closed_in_sap_at',
             'baixa_measurement_status',
             'payment_user_name',
             'payment_user_company_name',
@@ -274,6 +309,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
         }
 
         $maxByBinds = (int) floor((self::SQLSERVER_BIND_LIMIT - self::SQLSERVER_BIND_BUFFER) / $columnsPerRow);
+
         return max(1, $maxByBinds);
     }
 
@@ -292,6 +328,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
 
             foreach ($rows as $row) {
                 $limit = (int) ($row->max_length ?? 0);
+
                 if ($limit > 0) {
                     $this->columnLimits[(string) $row->column] = $limit;
                 }
@@ -315,6 +352,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
             }
 
             $limit = $this->columnLimits[$key];
+
             if ($limit > 0 && mb_strlen($value) > $limit) {
                 $row[$key] = mb_substr($value, 0, $limit);
             }

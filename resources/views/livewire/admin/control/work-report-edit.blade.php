@@ -49,7 +49,7 @@
 
                         @if ($activeTab === 'details')
                         <div class="row g-3">
-                            <div class="col-12 col-xl-7">
+                            <div class="col-12 col-xl-6">
                                 <div class="fivefx-section mb-3">
                                     <div class="fivefx-section-title">
                                         <div>
@@ -195,7 +195,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-12 col-xl-5">
+                            <div class="col-12 col-xl-6">
                                 <div class="fivefx-section mb-3">
                                     <div class="fivefx-section-title">
                                         <div>
@@ -297,6 +297,83 @@
                                     <div class="fivefx-section-title">
                                         <div>
                                             <span class="fivefx-step">C</span>
+                                            <span>Produções da nota</span>
+                                        </div>
+                                        <span class="fivefx-hint">Vínculo ativo por etapa</span>
+                                    </div>
+                                    @if (!empty($noteProductions))
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-dark table-hover border-secondary mb-0 fivefx-production-table">
+                                                <thead>
+                                                    <tr class="text-secondary">
+                                                        <th>ID</th>
+                                                        <th>Atividade</th>
+                                                        <th>Responsável</th>
+                                                        <th>Data</th>
+                                                        <th>Status</th>
+                                                        <th>Informe destino / vínculo</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($noteProductions as $production)
+                                                        <tr wire:key="work-report-production-{{ $production['id'] }}">
+                                                            <td>#{{ $production['id'] }}</td>
+                                                            <td>
+                                                                <span class="badge text-bg-info">{{ $production['stage_label'] }}</span>
+                                                            </td>
+                                                            <td>{{ $production['user_name'] }}</td>
+                                                            <td>{{ $production['production_date'] }}</td>
+                                                            <td>
+                                                                <span class="badge {{ in_array($production['production_status'], ['Confirmada', 'Concluída']) ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                                    {{ $production['production_status'] }}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <select class="form-select form-select-sm fivefx-select mb-1"
+                                                                    wire:model.defer="productionTargetWorkReportIds.{{ $production['id'] }}">
+                                                                    @foreach ($relatedWorkReportOptions as $related)
+                                                                        <option value="{{ $related['id'] }}">Informe #{{ $related['id'] }} · {{ $related['label'] }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                                @if ($production['is_linked_here'])
+                                                                    <small class="text-success">Associada a este informe</small>
+                                                                @elseif ($production['current_report_id'])
+                                                                    <small class="text-warning">Ativa no informe #{{ $production['current_report_id'] }}</small>
+                                                                @else
+                                                                    <small class="text-muted">Ainda não associada</small>
+                                                                @endif
+                                                            </td>
+                                                            <td class="text-end text-nowrap">
+                                                                <button type="button" class="btn btn-outline-primary btn-sm fivefx-btn"
+                                                                    wire:click="requestAssociateProduction({{ $production['id'] }})">
+                                                                    <i class="ri-links-line me-1"></i>Associar
+                                                                </button>
+                                                                @if ($production['is_linked_here'])
+                                                                    <button type="button" class="btn btn-outline-danger btn-sm fivefx-btn ms-1"
+                                                                        wire:click="requestDetachProduction({{ $production['id'] }})">
+                                                                        <i class="ri-link-unlink-m me-1"></i>Desassociar
+                                                                    </button>
+                                                                @endif
+                                                                <button type="button" class="btn btn-danger btn-sm fivefx-btn ms-1"
+                                                                    wire:click="requestDeleteProduction({{ $production['id'] }})">
+                                                                    <i class="ri-delete-bin-line me-1"></i>Excluir
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @else
+                                        <div class="fivefx-empty">Nenhuma produção final disponível para esta nota.</div>
+                                    @endif
+                                </div>
+
+                                <div class="fivefx-section mb-3">
+                                    <div class="fivefx-section-title">
+                                        <div>
+                                            <span class="fivefx-step">D</span>
                                             <span>ADS e solicitações</span>
                                         </div>
                                     </div>
@@ -588,8 +665,16 @@
         }
 
         .finish-five .fivefx-dialog {
-            width: min(96vw, 1480px);
-            max-width: 1480px;
+            width: min(98vw, 1840px);
+            max-width: 1840px;
+        }
+
+        .finish-five .fivefx-production-table {
+            min-width: 900px;
+        }
+
+        .finish-five .fivefx-production-table select {
+            min-width: 210px;
         }
 
         .finish-five .fivefx-card {

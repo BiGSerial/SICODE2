@@ -312,7 +312,7 @@
                             <th class="align-middle text-center">Tipo</th>
                             <th class="align-middle text-center">Note</th>
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">MOA</th>
+                            <th class="align-middle text-center">Valor ADS</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
@@ -321,6 +321,7 @@
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Final OP20</th>
+                            <th class="align-middle text-center">PEP</th>
                             <th class="align-middle text-center">Data Informe</th>
 
                             <th class="align-middle text-center">Ads</th>
@@ -357,8 +358,13 @@
                                 $wf = $workForms->first() ?? $list->WorkForm;
                                 $selectionKey = (string) ($list->payment_context_key ?? $list->id);
                                 $workReportId = (int) ($list->payment_work_report_id ?? 0);
+                                $fiveNoteId = (int) ($list->dispatch_five_note_id ?? 0);
                                 $dispatchPayload = $workReportId
-                                    ? [['note_id' => (int) $list->id, 'work_report_id' => $workReportId]]
+                                    ? [[
+                                        'note_id' => (int) $list->id,
+                                        'work_report_id' => $workReportId,
+                                        'five_note_id' => $fiveNoteId ?: null,
+                                    ]]
                                     : [(int) $list->id];
                                 $partial = !$wf ? ((int) ($list->dispatch_partial_id ?? 0) > 0 ? ($list->Partials->firstWhere('id', (int) $list->dispatch_partial_id) ?? $list->Partials->first()) : $list->Partials->first()) : null;
                                 $orders = $wf
@@ -464,30 +470,20 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
-                                    @if ($wf && $orders->isNotEmpty() && !$partial)
-                                        {{-- @foreach ($list->WorkForm->Orders as $order)
-                                            @php
-                                                $soma += $order->moaberto;
-                                            @endphp
-                                            <p class="my-0 py-0">
-                                                R$ {{ number_format($order->moaberto, 2, ',', '.') }}
-                                            </p>
-                                        @endforeach --}}
-                                        @php
-                                            $soma += $list->total_moaberto;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($list->total_moaberto, 2, ',', '.') }}
-                                        </p>
-                                    @elseif ($partial)
-                                        @php
-                                            $soma += $partial->value;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
-                                        </p>
-                                    @endif
+                                    @php
+                                        $adsAmount = $partial ? $partial->value : $wf?->Adsform?->amount;
+                                    @endphp
 
+                                    @if ($adsAmount !== null)
+                                        @php
+                                            $soma += (float) $adsAmount;
+                                        @endphp
+                                        <p class="my-0 py-0">
+                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                        </p>
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
                                 {{-- <td class="text-center align-middle">
                                     @if ($list->WorkForm->Orders->count())
@@ -545,6 +541,17 @@
 
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $finalOp20 ? Carbon::parse($finalOp20)->format('d/m/Y') : '---' }}
+                                </td>
+                                <td class="text-center {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        @php $available = $order->Pep?->disponivel; @endphp
+                                        <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
+                                            @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
+                                            {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
+                                        </p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
                                 </td>
                                 <td class="fw-light {{ $rowClass }}">
                                     @if ($wf)
@@ -665,7 +672,7 @@
                         <tr class="table-dark align-middle">
                             <td colspan="4" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                                <td colspan="12"></td>
+                                <td colspan="13"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -726,6 +733,7 @@
 
 
     @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-'.$service->uuid))
+    @livewire('components.pep.financial-modal', key('dispatch-payment-pep-financial-modal'))
 
 
     {{-- END MODALS --}}

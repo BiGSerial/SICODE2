@@ -3,18 +3,14 @@
 namespace App\Jobs\Services;
 
 use App\Exports\ProductionServiceExport;
-use App\Models\Production;
-use App\Models\User;
+use App\Models\{Production, User};
 use App\Notifications\SystemNotification;
 use App\Support\SicodeRules;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{DB, Log, Storage, URL};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -29,6 +25,7 @@ class ExportLevantamentoProductionListJob implements ShouldQueue
     public array $params;
 
     public $tries = 2;
+
     public $backoff = [30, 120];
 
     public function __construct(array $params)
@@ -39,7 +36,7 @@ class ExportLevantamentoProductionListJob implements ShouldQueue
 
     public function handle(): void
     {
-        $user = User::find($this->params['user_id'] ?? null);
+        $user     = User::find($this->params['user_id'] ?? null);
         $filePath = null;
 
         try {
@@ -127,18 +124,18 @@ class ExportLevantamentoProductionListJob implements ShouldQueue
                 $user->notify(new SystemNotification(
                     'Exportação concluída!',
                     'Seu relatório de Levantamento está pronto para download.',
-                    Storage::url($filePath),
+                    URL::temporarySignedRoute('exports.download', now()->addDays(7), ['user' => $user->id, 'file' => basename($filePath)]),
                     4,
-                    []
+                    ['toast' => true]
                 ));
             } else {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
         } catch (Throwable $e) {
             Log::error('ExportLevantamentoProductionListJob falhou', [
-                'params' => $this->params,
+                'params'  => $this->params,
                 'attempt' => $this->attempts(),
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ]);
 
             if ($filePath && Storage::disk('local')->exists($filePath)) {
@@ -151,7 +148,7 @@ class ExportLevantamentoProductionListJob implements ShouldQueue
                     'Não foi possível gerar o relatório de Levantamento. Tente novamente.',
                     null,
                     5,
-                    []
+                    ['toast' => true]
                 ));
             }
         }

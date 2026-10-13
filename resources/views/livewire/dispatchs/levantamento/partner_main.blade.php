@@ -619,8 +619,10 @@
 
                             <th scope="col" class="fw-bold text-center">Prazo Real</th>
                             <th scope="col" class="fw-bold text-center">Situação</th>
-                            @if (request()->routeIs('dispatch.partner'))<th class="fw-bold text-center">Despachado Em</th><th class="fw-bold text-center">Atribuído Em</th><th class="fw-bold text-center">Finalizado Em</th>@endif
-                            <th scope="col" class="fw-bold text-center"></th>
+                            @if (request()->routeIs('dispatch.partner'))
+                                <th class="fw-bold text-center">Despachado Em</th>
+                            @endif
+                            <th scope="col" class="fw-bold text-center">Ação</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -816,6 +818,12 @@
                                     @endif
                                 </td>
 
+
+                                @if (request()->routeIs('dispatch.partner'))
+                                    <td class="fw-light text-center {{ $rowClass }}">
+                                        {{ $production?->dispatch_at?->format('d/m/Y H:i') ?? '—' }}
+                                    </td>
+                                @endif
 
                                 <td class="fw-bold text-center {{ $rowClass }}" data-bs-toggle="tooltip"
                                     data-bs-placement="top" data-bs-title="{{ $reason }}">

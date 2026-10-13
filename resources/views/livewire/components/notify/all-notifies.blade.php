@@ -17,7 +17,7 @@
     ];
 @endphp
 
-<div>
+<div wire:poll.5s="pollForToasts">
 <style>
     /* ── Modal ─────────────────────────────────────────────── */
     #notificationsModal .modal-content {

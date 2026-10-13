@@ -3,20 +3,18 @@
 namespace App\Exports\Dispatchs;
 
 use App\Custom\Notestatus;
-use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\{
     Exportable,
     FromQuery,
-    WithMapping,
-    WithHeadings,
-    WithProperties,
-    WithEvents,
+    ShouldAutoSize,
     WithChunkReading,
-    ShouldAutoSize
+    WithEvents,
+    WithHeadings,
+    WithMapping,
+    WithProperties
 };
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Carbon\Carbon;
 
 class DispatchPaymentStack implements
     FromQuery,
@@ -30,11 +28,12 @@ class DispatchPaymentStack implements
     use Exportable;
 
     protected $data;
+
     protected $service;
 
     public function __construct($data, $service)
     {
-        $this->data     = $data;
+        $this->data    = $data;
         $this->service = $service;
     }
 
@@ -44,7 +43,20 @@ class DispatchPaymentStack implements
     public function query()
     {
         return $this->data
-            ->with(['Note.WorkForm.Orders.Operations', 'Note.WorkFormAny.Orders.Operations', 'Note.Partials.Orders.Operations', 'Company', 'User', 'Notetimelines'])
+            ->with([
+                'Note.WorkForm.Orders.Operations',
+                'Note.WorkForm.Adsform:id,work_report_id,note_id,amount',
+                'Note.WorkFormAny.Adsform:id,work_report_id,note_id,amount',
+                'Note.Adsform:id,work_report_id,note_id,amount',
+                'Note.WorkForm.Orders.Pep:objeto,disponivel',
+                'Note.WorkFormAny.Orders.Operations',
+                'Note.WorkFormAny.Orders.Pep:objeto,disponivel',
+                'Note.Partials.Orders.Operations',
+                'Note.Partials.Orders.Pep:objeto,disponivel',
+                'Company',
+                'User',
+                'Notetimelines',
+            ])
             ->where('service_id', $this->service)
             ->orderBy('dispatch_at', 'asc');
     }
@@ -57,27 +69,39 @@ class DispatchPaymentStack implements
         // dd($row);
 
         if ($row->partial && $row->note->partials->isNotEmpty()) {
-            $orders = implode("\n ", $row->note->partials?->last()->orders?->pluck('ordem')->toArray());
-            $soma = $row->note->partials->last()?->value;
-            $company = $row->note->partials->last()->company->name;
+            $orderModels = $row->note->partials?->last()->orders ?? collect();
+            $orders      = $orderModels->pluck('ordem')->implode("\n ");
+            $soma        = $row->note->partials->last()?->value;
+            $company     = $row->note->partials->last()->company->name;
             $lastPaydate = $row->note->partials->last()->supervision_at;
         } else {
             $workForm = $row->note->WorkForm ?: $row->note->WorkFormAny;
+
             if ($workForm) {
-                $orders = implode("\n ", $workForm->orders?->pluck('ordem')->toArray());
-                $soma = $workForm?->orders?->sum('moaberto');
-                $company = $workForm->company->name;
+                $orderModels = $workForm->orders ?? collect();
+                $orders      = $orderModels->pluck('ordem')->implode("\n ");
+                $soma        = ($workForm->Adsform ?? $row->note->Adsform)?->amount;
+                $company     = $workForm->company->name;
                 $lastPaydate = $workForm->informed_at;
+
                 if ($workForm->canceled) {
                     $company .= ' (CANCELADO)';
                 }
             } else {
-                $orders = '';
-                $soma = 0;
-                $company = "";
+                $orderModels = collect();
+                $orders      = '';
+                $soma        = 0;
+                $company     = "";
                 $lastPaydate = null;
             }
         }
+
+        $pepCodes    = $orderModels->pluck('pep')->filter()->implode("\n") ?: '---';
+        $pepBalances = $orderModels
+            ->map(fn ($order) => $order->Pep?->disponivel === null
+                ? '---'
+                : number_format((float) $order->Pep->disponivel, 2, ',', '.'))
+            ->implode("\n") ?: '---';
 
         // dd([
         //     $row->note->note,
@@ -96,11 +120,12 @@ class DispatchPaymentStack implements
 
         // ]);
 
-
         return [
             $row->partial ? "PARCIAL" : "TOTAL",
             $row->note->note,
             $orders,
+            $pepCodes,
+            $pepBalances,
             $soma,
             $company,
             $row->note->rubrica,
@@ -112,7 +137,7 @@ class DispatchPaymentStack implements
             $lastPaydate?->format('Y-m-d'),
             $lastPaydate?->addDays(5)->format('Y-m-d'),
             Notestatus::status($row->status)->status,
-            $row->notetimelines?->where('status', $row->status)?->last()?->info
+            $row->notetimelines?->where('status', $row->status)?->last()?->info,
 
         ];
     }
@@ -126,7 +151,9 @@ class DispatchPaymentStack implements
             'Tipo',
             'Nota',
             'Ordem',
-            'MOA',
+            'PEP',
+            'Saldo disponível PEP',
+            'Valor ADS',
             'Empreiteira',
             'Rubrica',
             'Municipio',
@@ -168,17 +195,17 @@ class DispatchPaymentStack implements
                 $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($this->headings()));
                 $event->sheet->getStyle('A1:' . $lastColumn . '1')->applyFromArray([
                     'font' => [
-                    'bold'  => true,
-                    'color' => ['rgb' => 'FFFFFF'],
+                        'bold'  => true,
+                        'color' => ['rgb' => 'FFFFFF'],
                     ],
                     'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '0000FF'],
+                        'fillType'   => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0000FF'],
                     ],
                 ]);
 
                 // formata colunas numéricas
-                $event->sheet->getStyle('D:D')->getNumberFormat()
+                $event->sheet->getStyle('F:F')->getNumberFormat()
                       ->setFormatCode('#,##0.00');
                 $event->sheet->getStyle('B:C')->getNumberFormat()
                       ->setFormatCode('0');

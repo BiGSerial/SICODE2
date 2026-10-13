@@ -35,3 +35,33 @@ it('valida ordens de orçamento com as regras do encerramento normal', function 
         ->and($rules->orderNumberError('170123456789', '300'))->toContain('200')
         ->and($rules->normalizeNumber('1.234,50'))->toBe(1234.5);
 });
+
+it('normaliza campos monetários vazios e mantém o rateio fechado no total', function () {
+    $rules = new BudgetOrderRules();
+
+    expect($rules->normalizeCosts([
+        'total_cost'   => '100,00',
+        'company_cost' => '',
+        'client_cost'  => '',
+    ]))->toBe([
+        'total_cost'   => 100.0,
+        'company_cost' => 0.0,
+        'client_cost'  => 100.0,
+    ])->and($rules->normalizeCosts([
+        'total_cost'   => '',
+        'company_cost' => '35,50',
+        'client_cost'  => '',
+    ]))->toBe([
+        'total_cost'   => 35.5,
+        'company_cost' => 35.5,
+        'client_cost'  => 0.0,
+    ])->and($rules->normalizeCosts([
+        'total_cost'   => '',
+        'company_cost' => '',
+        'client_cost'  => '',
+    ]))->toBe([
+        'total_cost'   => 0.0,
+        'company_cost' => 0.0,
+        'client_cost'  => 0.0,
+    ]);
+});

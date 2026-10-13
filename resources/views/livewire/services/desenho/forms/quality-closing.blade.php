@@ -210,28 +210,29 @@
                             <div class="card-body">
                                 <p class="small text-muted">Cada ordem tem 12 dígitos, com prefixo 170, 190, 150 ou 200 (200 quando a Nota inicia com dígito 3 ou maior).</p>
                                 @foreach ($orders as $index => $order)
-                                    <div class="row g-2 align-items-end mb-2" wire:key="quality-order-{{ $index }}">
+                                    <div class="row g-2 align-items-end mb-2" wire:key="quality-order-{{ $index }}" data-quality-order-calc>
                                         <div class="col-md-4">
                                             <label class="form-label small mb-0">Número da ordem</label>
                                             <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.order_number" maxlength="12">
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label small mb-0">Total</label>
-                                            <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.total_cost" placeholder="0,00">
+                                            <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.total_cost" placeholder="0,00" inputmode="decimal" data-quality-order-field="total">
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label small mb-0">Empresa</label>
-                                            <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.company_cost" placeholder="0,00">
+                                            <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.company_cost" placeholder="0,00" inputmode="decimal" data-quality-order-field="company">
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label small mb-0">Cliente</label>
-                                            <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.client_cost" placeholder="0,00">
+                                            <input class="form-control form-control-sm" wire:model.defer="orders.{{ $index }}.client_cost" placeholder="0,00" inputmode="decimal" data-quality-order-field="client">
                                         </div>
                                         <div class="col-md-2 text-end">
                                             @if (count($orders) > 1)
                                                 <button type="button" class="btn btn-sm btn-outline-danger" wire:click="removeOrder({{ $index }})"><i class="ri-delete-bin-line"></i></button>
                                             @endif
                                         </div>
+                                        <div class="col-12 small text-muted" data-quality-order-ratio>Proporção: Empresa 0,00% · Cliente 0,00%</div>
                                     </div>
                                 @endforeach
                             </div>
@@ -275,3 +276,108 @@
         </div>
     @endif
 </div>
+
+@once
+    @push('script')
+        <script>
+            (() => {
+                const parseMoney = (value) => {
+                    const raw = String(value ?? '').trim();
+                    if (!raw) return null;
+                    const normalized = raw.includes(',')
+                        ? raw.replace(/\./g, '').replace(',', '.')
+                        : raw;
+                    const number = Number(normalized.replace(/\s/g, ''));
+                    return Number.isFinite(number) ? number : null;
+                };
+                const round = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+                const format = (value) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const calculate = (scope, changedField = null) => {
+                    if (scope.dataset.calculating === '1') return;
+
+                    const totalInput = scope.querySelector('[data-quality-order-field="total"]');
+                    const companyInput = scope.querySelector('[data-quality-order-field="company"]');
+                    const clientInput = scope.querySelector('[data-quality-order-field="client"]');
+                    const ratio = scope.querySelector('[data-quality-order-ratio]');
+                    if (!totalInput || !companyInput || !clientInput) return;
+
+                    let total = parseMoney(totalInput.value);
+                    let company = parseMoney(companyInput.value);
+                    let client = parseMoney(clientInput.value);
+                    const previousRatio = Number(scope.dataset.companyRatio ?? 0);
+
+                    if (total === null && company === null && client === null) {
+                        if (ratio) ratio.textContent = 'Proporção: Empresa 0,00% · Cliente 0,00%';
+                        return;
+                    }
+
+                    if (changedField === 'total' && total !== null && company !== null && client !== null) {
+                        const companyRatio = Number.isFinite(previousRatio) ? previousRatio : (company + client > 0 ? company / (company + client) : 0);
+                        company = round(total * companyRatio);
+                        client = round(total - company);
+                    } else if (total === null) {
+                        company ??= 0;
+                        client ??= 0;
+                        total = round(company + client);
+                    } else if (company === null && client === null) {
+                        company = 0;
+                        client = total;
+                    } else if (company === null) {
+                        client = Math.min(client ?? 0, total);
+                        company = round(total - client);
+                    } else if (client === null) {
+                        company = Math.min(company, total);
+                        client = round(total - company);
+                    } else {
+                        company = Math.min(company, total);
+                        client = round(total - company);
+                    }
+
+                    if (total < 0 || company < 0 || client < 0) return;
+
+                    const ratioBase = company + client;
+                    const companyPct = ratioBase > 0 ? (company / ratioBase) * 100 : 0;
+                    scope.dataset.companyRatio = String(companyPct / 100);
+                    if (ratio) ratio.textContent = `Proporção: Empresa ${format(companyPct)}% · Cliente ${format(100 - companyPct)}%`;
+
+                    scope.dataset.calculating = '1';
+                    totalInput.value = format(total);
+                    companyInput.value = format(company);
+                    clientInput.value = format(client);
+                    [totalInput, companyInput, clientInput].forEach((input) => {
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                    scope.dataset.calculating = '0';
+                };
+
+                const bind = () => document.querySelectorAll('[data-quality-order-calc]').forEach((scope) => {
+                    if (scope.dataset.bound === '1') return;
+                    scope.dataset.bound = '1';
+                    scope.addEventListener('focusin', (event) => {
+                        const field = event.target.dataset.qualityOrderField;
+                        if (!field) return;
+                        scope.dataset.lastField = field;
+                        if (field === 'total') {
+                            const company = parseMoney(scope.querySelector('[data-quality-order-field="company"]')?.value);
+                            const client = parseMoney(scope.querySelector('[data-quality-order-field="client"]')?.value);
+                            if ((company ?? 0) + (client ?? 0) > 0) scope.dataset.companyRatio = String(company / (company + client));
+                        }
+                    });
+                    scope.addEventListener('change', (event) => {
+                        const field = event.target.dataset.qualityOrderField;
+                        if (field) calculate(scope, field);
+                    });
+                    scope.addEventListener('blur', () => calculate(scope, scope.dataset.lastField), true);
+                    calculate(scope);
+                });
+
+                document.addEventListener('livewire:load', () => {
+                    bind();
+                    Livewire.hook('message.processed', bind);
+                });
+            })();
+        </script>
+    @endpush
+@endonce

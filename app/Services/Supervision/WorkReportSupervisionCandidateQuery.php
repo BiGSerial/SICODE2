@@ -91,6 +91,15 @@ class WorkReportSupervisionCandidateQuery
         return $reports->union($d5WorkReports)->unionAll($partials)->unionAll($passiveD5);
     }
 
+    public function dispatchableWorkReportIdsSubquery(): QueryBuilder
+    {
+        return DB::query()
+            ->fromSub($this->dispatchRowsSubquery(), 'dispatch_rows')
+            ->whereNotNull('work_report_id')
+            ->select('work_report_id')
+            ->groupBy('work_report_id');
+    }
+
     private function fastBaseSubquery(bool $excludeOpenProduction = true): QueryBuilder
     {
         $query = DB::table('work_reports as wr')

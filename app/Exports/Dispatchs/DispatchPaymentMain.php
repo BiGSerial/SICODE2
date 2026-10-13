@@ -4,11 +4,19 @@ namespace App\Exports\Dispatchs;
 
 use App\Custom\Notestatus;
 use App\Helpers\DaysLeft;
+use App\Models\Note;
+use App\Services\D5\D5WorkReportAssociationResolver;
+use App\Services\Payment\WorkReportPaymentCandidateQuery;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\{
-    Exportable, FromCollection, WithMapping, WithHeadings, WithProperties,
-    WithEvents, ShouldAutoSize
+    Exportable,
+    FromCollection,
+    ShouldAutoSize,
+    WithEvents,
+    WithHeadings,
+    WithMapping,
+    WithProperties
 };
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -19,19 +27,27 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
 
     /** @var \Illuminate\Database\Eloquent\Builder */
     protected Builder $queryBuilder;
+
     protected string $serviceUuid;
+
     protected array $selectedWorkReportIds;
+
     protected array $selectedPartialIds;
+
+    protected array $selectedContextKeys;
+
+    protected bool $onlyD5;
 
     public function __construct(
         Builder $queryBuilder,
         string $serviceUuid,
         array $selectedWorkReportIds = [],
         array $selectedPartialIds = [],
-    )
-    {
-        $this->queryBuilder = $queryBuilder;
-        $this->serviceUuid  = $serviceUuid;
+        array $selectedContextKeys = [],
+        bool $onlyD5 = false,
+    ) {
+        $this->queryBuilder          = $queryBuilder;
+        $this->serviceUuid           = $serviceUuid;
         $this->selectedWorkReportIds = collect($selectedWorkReportIds)
             ->filter()
             ->map(fn ($id) => (int) $id)
@@ -44,6 +60,13 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             ->unique()
             ->values()
             ->all();
+        $this->selectedContextKeys = collect($selectedContextKeys)
+            ->filter()
+            ->map(fn ($key) => (string) $key)
+            ->unique()
+            ->values()
+            ->all();
+        $this->onlyD5 = $onlyD5;
     }
 
     public function collection()
@@ -53,9 +76,11 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             'WorkReports.Note',
             'WorkReports.Company',
             'WorkReports.Orders.Operations',
+            'WorkReports.Orders.Pep:objeto,disponivel',
             'WorkReports.Adsform',
+            'WorkReports.FiveNote',
             'Productions' => fn ($q) => $q->with(['User', 'Company']),
-            'Partials' => fn ($q) => $q
+            'Partials'    => fn ($q) => $q
                 ->where('allow', true)
                 ->where('deny', false)
                 ->where('supervision', true)
@@ -63,46 +88,75 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
                 ->orderByDesc('created_at'),
             'Partials.Company',
             'Partials.Orders.Operations',
+            'Partials.Orders.Pep:objeto,disponivel',
             'FiveNote',
+            'FiveNotes',
         ])->get();
 
         $rows = $notes->flatMap(function ($note) {
             $workForms = $note->WorkReports ?? collect();
 
             $eligibleWorkReports = $workForms
-                ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
+                ->filter(function ($workForm) use ($note) {
+                    $five = $workForm->FiveNote ?: $this->legacyD5ForWorkReport($note, $workForm);
+
+                    return !$five?->returned && (
+                        $this->workReportEligibleForPayment($workForm)
+                        || $five?->isEligibleForPaymentReturn()
+                    );
+                })
                 ->values();
 
             if ($eligibleWorkReports->isEmpty()) {
-                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
+                // Espelha a fila: D5 de Ciclo 1 ainda pendente também é uma
+                // demanda exibível; não apenas o retorno de Ciclo 2.
+                if ($workForms->isNotEmpty() && !$note->FiveNote?->needsPaymentAction()) {
                     return [];
                 }
 
                 $partial = ($note->Partials ?? collect())->first();
 
                 $row = clone $note;
+
                 if ($partial) {
                     $row->setAttribute('dispatch_partial_id', (int) $partial->id);
+                    $row->setAttribute('payment_context_key', $note->id . ':0:p' . $partial->id);
+                } else {
+                    $row->setAttribute('payment_context_key', (string) $note->id);
                 }
 
                 return [$row];
             }
 
             return $eligibleWorkReports->map(function ($workForm) use ($note) {
-                $row = clone $note;
+                $row  = clone $note;
+                $five = $workForm->FiveNote ?: $this->legacyD5ForWorkReport($note, $workForm);
+                $row->setRelation('FiveNote', $five);
                 $row->setRelation('WorkForm', $workForm);
                 $row->setRelation('WorkReports', collect([$workForm]));
                 $row->setAttribute('payment_work_report_id', (int) $workForm->id);
+                $row->setAttribute('dispatch_five_note_id', $five?->id);
+                $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
 
                 return $row;
             });
         })->values();
 
-        if (empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds)) {
+        if ($this->onlyD5) {
+            // "Somente D5" não exporta os demais Informes da mesma Nota: só
+            // as linhas que efetivamente exibem D5 na fila.
+            $rows = $rows->filter(fn ($row) => (bool) $row->FiveNote)->values();
+        }
+
+        if (empty($this->selectedContextKeys) && empty($this->selectedWorkReportIds) && empty($this->selectedPartialIds)) {
             return $rows;
         }
 
         return $rows->filter(function ($row): bool {
+            if (!empty($this->selectedContextKeys)) {
+                return in_array((string) ($row->payment_context_key ?? $row->id), $this->selectedContextKeys, true);
+            }
+
             return in_array((int) ($row->payment_work_report_id ?? 0), $this->selectedWorkReportIds, true)
                 || in_array((int) ($row->dispatch_partial_id ?? 0), $this->selectedPartialIds, true);
         })->values();
@@ -110,28 +164,28 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
 
     public function map($list): array
     {
-        $workForm = $list->WorkForm;
+        $workForm         = $list->WorkForm;
         $workFormCanceled = (bool) ($workForm?->canceled);
-        $partial = !$workForm ? ($list->Partials?->first()) : null;
+        $partial          = !$workForm ? ($list->Partials?->first()) : null;
 
         if ($workForm) {
-            $type = 'TOTAL';
-            $orders = $workForm->Orders ?? collect();
-            $company = $workForm->Company?->name;
+            $type     = 'TOTAL';
+            $orders   = $workForm->Orders ?? collect();
+            $company  = $workForm->Company?->name;
             $dateInfo = $workForm->informed_at;
-            $adsDate = $workForm->Adsform?->created_at;
+            $adsDate  = $workForm->Adsform?->created_at;
         } elseif ($partial) {
-            $type = 'PARCIAL';
-            $orders = $partial->Orders ?? collect();
-            $company = $partial->Company?->name;
+            $type     = 'PARCIAL';
+            $orders   = $partial->Orders ?? collect();
+            $company  = $partial->Company?->name;
             $dateInfo = $partial->created_at;
-            $adsDate = $dateInfo;
+            $adsDate  = $dateInfo;
         } else {
-            $type = 'DESCONHECIDO';
-            $orders = collect();
-            $company = null;
+            $type     = 'DESCONHECIDO';
+            $orders   = collect();
+            $company  = null;
             $dateInfo = null;
-            $adsDate = null;
+            $adsDate  = null;
         }
 
         $lastProduction = ($list->Productions ?? collect())
@@ -143,7 +197,13 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             $lastProduction = null;
         }
 
-        $operations = $orders->first()?->Operations ?? collect();
+        $operations  = $orders->first()?->Operations ?? collect();
+        $pepCodes    = $orders->pluck('pep')->filter()->implode("\n") ?: '---';
+        $pepBalances = $orders
+            ->map(fn ($order) => $order->Pep?->disponivel === null
+                ? '---'
+                : number_format((float) $order->Pep->disponivel, 2, ',', '.'))
+            ->implode("\n") ?: '---';
         $executionDate = $orders
             ->flatMap(fn ($order) => $order->Operations ?? collect())
             ->where('operacao', '0020')
@@ -152,8 +212,8 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             ->sort()
             ->first();
 
-        $five = $list->FiveNote;
-        $hasD5 = $five ? 'SIM' : 'NÃO';
+        $five     = $list->FiveNote;
+        $hasD5    = $five ? 'SIM' : 'NÃO';
         $numberD5 = $five ? (string) $five->note_d5 : '-';
         $statusD5 = $five
             ? ($five->is_supervisioned ? 'Finalizar D5' : 'Gerar D5')
@@ -163,6 +223,8 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             $list->note,
             $type . ($workFormCanceled ? ' (CANCELADO)' : ''),
             $orders->isNotEmpty() ? $orders->pluck('ordem')->implode("\n") : '---',
+            $pepCodes,
+            $pepBalances,
             $orders->sum('moaberto'),
             $operations->where('operacao', '0030')->first()?->status ? explode(' ', $operations->where('operacao', '0030')->first()->status)[0] : '---',
             $operations->where('operacao', '0040')->first()?->status ? explode(' ', $operations->where('operacao', '0040')->first()->status)[0] : '---',
@@ -190,6 +252,8 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
             'Nota',
             'Tipo',
             'Ordem',
+            'PEP',
+            'Saldo disponível PEP',
             'MOA',
             'OP30',
             'OP40',
@@ -213,44 +277,31 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
 
     private function workReportEligibleForPayment($workForm): bool
     {
-        $orders = $workForm->Orders ?? collect();
-        $normalizedStatus = fn ($status) => strtoupper(strtok((string) $status, ' ') ?: (string) $status);
-
-        return $orders->contains(function ($order) use ($normalizedStatus) {
-            if (!str_starts_with($normalizedStatus($order->statusSist ?? ''), 'LIB')) {
-                return false;
-            }
-
-            $statuses = function (string $operation) use ($order, $normalizedStatus) {
-                return collect($order->Operations ?? [])
-                    ->where('operacao', $operation)
-                    ->pluck('status')
-                    ->map($normalizedStatus);
-            };
-
-            return $statuses('0010')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-                && $statuses('0030')->contains(fn ($status) => str_starts_with($status, 'CONF'))
-                && $statuses('0040')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CONF') || str_starts_with($status, 'CNPA'))
-                && $statuses('0050')->contains(fn ($status) => str_starts_with($status, 'LIB') || str_starts_with($status, 'CNPA') || str_starts_with($status, 'JBFI'));
-        });
+        return ($workForm->Orders ?? collect())
+            ->contains(fn ($order) => app(WorkReportPaymentCandidateQuery::class)->orderIsEligible($order));
     }
 
-    private function isD5ReturnReadyForPayment($note): bool
+    private function legacyD5ForWorkReport(Note $note, $workForm): ?\App\Models\FiveNote
     {
-        $five = $note->FiveNote;
+        if (!$workForm || !$note->relationLoaded('FiveNotes')) {
+            return null;
+        }
 
-        return (bool) (
-            $five
-            && !$five->is_archived
-            && $five->is_completed
-            && $five->is_supervisioned
-        );
+        $matches = $note->FiveNotes
+            ->filter(fn ($five) => !$five->work_report_id
+                && !$five->isPassive
+                && $five->needsPaymentAction()
+                && app(D5WorkReportAssociationResolver::class)->closestFor($five)?->is($workForm))
+            ->values();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     public function properties(): array
     {
         $user = auth()->user();
         $name = $user?->name ?? 'SICODE';
+
         return [
             'creator'        => $name,
             'lastModifiedBy' => $name,
@@ -304,7 +355,7 @@ class DispatchPaymentMain implements FromCollection, WithMapping, WithHeadings, 
                         ->getNumberFormat()->setFormatCode('#');
                     $sheet->getStyle("C2:C{$highestRow}")
                         ->getNumberFormat()->setFormatCode('#');
-                    $sheet->getStyle("D2:D{$highestRow}")
+                    $sheet->getStyle("F2:F{$highestRow}")
                         ->getNumberFormat()->setFormatCode('#,##0.00');
                 }
             },

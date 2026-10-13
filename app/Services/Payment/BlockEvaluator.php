@@ -2,151 +2,89 @@
 
 namespace App\Services\Payment;
 
-use App\Models\Note;
-use App\Models\Service;
-use App\Models\Production;
-use App\Models\WorkReportFlowProduction;
+use App\Models\{MeasurementProductionContext, Note, Production, Service, WorkReportFlowProduction};
 
 class BlockEvaluator
 {
-    public const FREE        = 0; // pode despachar / atribuir
-    public const HOLD_BLUE   = 1; // aberto / em andamento
-    public const HOLD_YELLOW = 2; // “guarda” (status==1) ou pendência leve
-    public const HOLD_GREEN  = 3; // completed
-    public const HOLD_RED    = 4; // confirmado e “não refletiu no SAP”
+    public const FREE        = 0; // sem Production ativa para esta demanda
+    public const HOLD_BLUE   = 1; // atribuída a um usuário
+    public const HOLD_YELLOW = 2; // na pilha da empresa, sem usuário
+    public const HOLD_GREEN  = 3; // concluída há menos de 24 h, SAP pendente
+    public const HOLD_RED    = 4; // concluída há 24 h ou mais, SAP pendente
 
     public function evaluate(Note $note, Service $service): array
     {
-        $prod = $this->latestProductionForService($note, $service->uuid);
-
-        $wf     = $note->WorkForm;
-        $five   = $wf?->FiveNote ?? $note->FiveNote;
-        $validPartial = $note->Partials
+        $workReport = $note->WorkForm;
+        $fiveNote   = $workReport?->FiveNote ?? $note->FiveNote;
+        $production = $this->latestProductionForService($note, $service->uuid, $fiveNote);
+        $partial    = $note->Partials
             ?->where('allow', true)
             ->where('supervision', true)
             ->where('deny', false)
             ->sortByDesc('created_at')
             ->first();
 
-        // ===== 0) Sem produção
-        if (!$prod) {
-            // WF rejeitado sempre vermelho (alinhe o nome do campo: rejected vs reject)
-            if ($wf && ($wf->rejected ?? false)) {
-                return $this->res(self::HOLD_RED, false, 'workform_rejected');
+        if (!$production) {
+            if ($workReport?->rejected) {
+                return $this->res(self::HOLD_RED, false, 'work_report_rejected');
             }
 
-            // FiveNote tem prioridade se: is_completed && is_supervisioned && !is_archived
-            if ($five && ($five->is_completed ?? false) && ($five->is_supervisioned ?? false) && !($five->is_archived ?? false)) {
-                return $this->res(self::FREE, true, 'fivenote_priority_no_production');
-            }
-
-            if ($validPartial) {
-                return $this->res(self::FREE, true, 'partial_valid_without_production');
-            }
-
-            return $this->res(self::FREE, true, 'no_production');
+            return $this->res(self::FREE, true, $partial ? 'partial_without_production' : 'without_production');
         }
 
-
-
-        // ===== 1) PRIORIDADE: FiveNote (is_completed && is_supervisioned && !is_archived)
-        if ($five && ($five->is_completed ?? false) && ($five->is_supervisioned ?? false) && !($five->is_archived ?? false)) {
-
-            if (!$prod->completed) {
-                return $this->res(self::HOLD_BLUE, false, 'fivenote_priority_prod_open', $prod);
-            }
-
-            // produção fechada posterior ao FiveNote com dfive -> vermelho (não refletiu no SAP)
-            if (
-                ($prod->dfive ?? false) &&
-                ($five->completed_at ?? null) &&
-                ($prod->created_at ?? null) &&
-                $five->completed_at < $prod->created_at
-            ) {
-                if ($prod->completed && $prod->confirmed) {
-                    return $this->res(self::HOLD_RED, false, 'fivenote_priority_prod_closed_not_reflected', $prod);
-                } else {
-                    return $this->res(self::HOLD_GREEN, false, 'fivenote_priority_prod_closed_not_reflected_completed', $prod);
-                }
-            }
-
-            return $this->res(self::FREE, true, 'fivenote_priority_prod_closed', $prod);
+        // Aberta: azul para usuário, amarelo para pilha. Ambas impedem uma
+        // segunda Production equivalente da mesma demanda.
+        if (!$production->completed) {
+            return empty($production->user_id)
+                ? $this->res(self::HOLD_YELLOW, false, 'production_in_company_stack', $production)
+                : $this->res(self::HOLD_BLUE, false, 'production_assigned_to_user', $production);
         }
 
-        // ===== 2) WORKFORM prevalece sobre Partial (exceto rejeição)
-        if ($wf) {
-            if ($wf->rejected ?? false) {
-                return $this->res(self::HOLD_RED, false, 'workform_rejected', $prod);
-            }
-
-            $wfMark = $wf->informed_at ?? $wf->created_at;
-            if ($wfMark && ($prod->created_at ?? null) && $prod->created_at > $wfMark) {
-                if ($prod->completed && $prod->confirmed) {
-                    return $this->res(self::HOLD_RED, true, 'workform_after_prod_confirmed', $prod);
-                } elseif ($prod->completed && !$prod->confirmed) {
-                    return $this->res(self::HOLD_GREEN, false, 'workform_after_prod_not_confirmed', $prod);
-                }
-            }
-
-            if ($prod->completed && $prod->partial) {
-                return $this->res(self::FREE, true, 'workform_partial_completed', $prod);
-            }
-        }
-        // ===== 3) PARTIAL (só se não caiu em WF)
-        elseif ($validPartial) {
-            if (!$prod->completed) {
-                return $this->res(self::HOLD_BLUE, false, 'partial_prod_open', $prod);
-            }
-
-            $prodMark = $prod->completed_at ?? $prod->created_at;
-            if ($prodMark && $validPartial->supervision_at > $prodMark) {
-                return $this->res(self::FREE, true, 'partial_newer_than_prod', $prod);
-            }
-
-            if ($prod->completed && $prod->confirmed) {
-                return $this->res(self::HOLD_RED, false, 'partial_prod_closed_confirmed', $prod);
-            } elseif ($prod->completed && !$prod->confirmed) {
-                return $this->res(self::HOLD_GREEN, false, 'partial_prod_closed_not_confirmed', $prod);
-            }
+        if ($workReport?->rejected) {
+            return $this->res(self::HOLD_RED, false, 'work_report_rejected', $production);
         }
 
-        // ===== Produção aberta
-        if (empty($prod->user_id)) {
-            return $this->res(self::HOLD_YELLOW, false, 'production_without_assignment', $prod);
+        // Finalizada com a condição de Medição ainda presente no SAP: verde até
+        // 24 h e vermelho depois. Continua bloqueada para não repetir o ciclo.
+        if ($this->demandStillQualifiesInSap($workReport, $fiveNote, $partial)) {
+            $completedAt = $production->completed_at ?: $production->created_at;
+
+            return $completedAt && $completedAt->lessThanOrEqualTo(now()->subDay())
+                ? $this->res(self::HOLD_RED, false, 'completed_over_24h_sap_not_updated', $production)
+                : $this->res(self::HOLD_GREEN, false, 'completed_under_24h_waiting_sap', $production);
         }
 
-        if (!$prod->completed && !$prod->confirmed) {
-            return $this->res(self::HOLD_BLUE, false, 'prod_open_generic', $prod);
-        }
-
-        // ===== 4) FALLBACK SAP (dt e status iguais => não refletiu)
-        if (
-            ($prod->dt_note ?? null) && ($note->dt_status ?? null) &&
-            $prod->dt_note->equalTo($note->dt_status) &&
-            ($prod->status_note ?? null) !== null &&
-            ($note->nstats ?? null) !== null &&
-            $prod->status_note == $note->nstats
-        ) {
-            return $this->res(self::HOLD_RED, true, 'sap_not_reflected_same_dt_and_status', $prod);
-        }
-
-        // ===== 5) Estados herdados
-        if ($prod->confirmed ?? false) {
-            return $this->res(self::HOLD_RED, true, 'prod_confirmed', $prod);
-        }
-        if ($prod->completed ?? false) {
-            return $this->res(self::HOLD_GREEN, false, 'prod_completed', $prod);
-        }
-        if ((int) ($prod->status ?? 0) === 1) {
-            return $this->res(self::HOLD_YELLOW, false, 'prod_status_guard', $prod);
-        }
-
-        return $this->res(self::HOLD_BLUE, false, 'prod_open_generic', $prod);
+        return $this->res(self::FREE, true, 'completed_and_sap_updated', $production);
     }
 
-    private function latestProductionForService(Note $note, string $serviceUuid): ?Production
+    private function demandStillQualifiesInSap($workReport, $fiveNote, $partial): bool
+    {
+        if ($fiveNote?->isEligibleForPaymentReturn()) {
+            return true;
+        }
+
+        if ($workReport) {
+            $orders = $workReport->relationLoaded('Orders')
+                ? $workReport->Orders
+                : $workReport->Orders()->with('Operations')->get();
+
+            if ($orders->contains(fn ($order) => app(WorkReportPaymentCandidateQuery::class)->orderIsEligible($order))) {
+                return true;
+            }
+        }
+
+        return (bool) $partial;
+    }
+
+    private function latestProductionForService(Note $note, string $serviceUuid, $fiveNote = null): ?Production
     {
         $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
+
+        // Ciclo 2 é uma nova demanda da D5. Uma Production concluída de Ciclo 1
+        // da mesma Nota/D5 não pode bloquear esse retorno.
+        if ($fiveNote?->isEligibleForPaymentReturn()) {
+            return $this->openD5ReturnProduction($note, $serviceUuid, $fiveNote);
+        }
 
         if ($note->relationLoaded('Productions')) {
             $productions = $note->Productions
@@ -167,7 +105,11 @@ class BlockEvaluator
                     return $scopedProduction;
                 }
 
-                return null;
+                // Compatibilidade para Productions criadas antes de o link de
+                // Pagamento ser obrigatório: o contexto ainda identifica o Informe.
+                return $productions->first(
+                    fn (Production $production) => (int) ($production->measurementContext?->work_report_id ?? 0) === $workReportId
+                );
             }
 
             return $productions->first();
@@ -190,10 +132,64 @@ class BlockEvaluator
                 return $scopedProduction;
             }
 
-            return null;
+            return (clone $query)
+                ->whereHas('measurementContext', fn ($context) => $context->where('work_report_id', $workReportId))
+                ->first();
         }
 
         return $query->first();
+    }
+
+    private function openD5ReturnProduction(Note $note, string $serviceUuid, $fiveNote): ?Production
+    {
+        if ($note->relationLoaded('Productions')) {
+            $productions = $note->Productions
+                ->where('service_id', $serviceUuid)
+                ->where('completed', false)
+                ->sortByDesc('created_at');
+
+            $contextProduction = $productions->first(
+                fn (Production $production) => (int) ($production->measurementContext?->five_note_id ?? 0) === (int) $fiveNote->id
+                && $production->measurementContext?->cycle === MeasurementProductionContext::CYCLE_D5_RETURN
+            );
+
+            if ($contextProduction) {
+                return $contextProduction;
+            }
+
+            // Fallback temporário para históricos sem contexto: precisa estar
+            // aberta, vinculada à D5 exata e ser posterior à conclusão da D5.
+            return $productions->first(function (Production $production) use ($fiveNote): bool {
+                if (!$production->dfive || !$fiveNote->completed_at || $production->created_at < $fiveNote->completed_at) {
+                    return false;
+                }
+
+                return $production->fiveNotes()->whereKey($fiveNote->id)->exists();
+            });
+        }
+
+        $query = Production::query()
+            ->where('note_id', $note->id)
+            ->where('service_id', $serviceUuid)
+            ->where('completed', false)
+            ->orderByDesc('created_at');
+
+        $contextProduction = (clone $query)
+            ->whereHas('measurementContext', fn ($context) => $context
+                ->where('five_note_id', $fiveNote->id)
+                ->where('cycle', MeasurementProductionContext::CYCLE_D5_RETURN))
+            ->first();
+
+        if ($contextProduction) {
+            return $contextProduction;
+        }
+
+        return $fiveNote->completed_at
+            ? $query->where('dfive', true)
+                ->where('created_at', '>=', $fiveNote->completed_at)
+                ->whereHas('fiveNotes', fn ($d5) => $d5->whereKey($fiveNote->id))
+                ->first()
+            : null;
     }
 
     private function res(int $block, bool $command, string $reason, ?Production $prod = null): array

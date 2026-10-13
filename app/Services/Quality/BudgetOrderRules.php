@@ -81,12 +81,12 @@ class BudgetOrderRules
             }
             $seen[] = $number;
 
-            $costs = [];
+            $costs = $this->normalizeCosts($row);
 
-            foreach (['total_cost' => 'total', 'company_cost' => 'da empresa', 'client_cost' => 'do cliente'] as $key => $label) {
-                $costs[$key] = $this->normalizeNumber($row[$key] ?? null);
+            foreach ($costs as $key => $value) {
+                if ($value < 0) {
+                    $label = ['total_cost' => 'total', 'company_cost' => 'da empresa', 'client_cost' => 'do cliente'][$key];
 
-                if ($costs[$key] === null || $costs[$key] < 0) {
                     throw new QualityWorkflowException("Ordem {$line}: informe o valor {$label} (número maior ou igual a zero).");
                 }
             }
@@ -95,6 +95,51 @@ class BudgetOrderRules
         }
 
         return $normalized;
+    }
+
+    /**
+     * Aplica a mesma composição do encerramento normal: os custos sempre fecham
+     * em total = empresa + cliente. Campo monetário vazio significa zero quando
+     * não for possível deduzir outro valor; assim o usuário não precisa digitar
+     * "0,00" apenas para satisfazer a validação.
+     *
+     * @param  array<string, mixed>  $order
+     * @return array{total_cost: float, company_cost: float, client_cost: float}
+     */
+    public function normalizeCosts(array $order): array
+    {
+        $total   = $this->normalizeNumber($order['total_cost'] ?? null);
+        $company = $this->normalizeNumber($order['company_cost'] ?? null);
+        $client  = $this->normalizeNumber($order['client_cost'] ?? null);
+
+        if ($total === null) {
+            $company ??= 0.0;
+            $client ??= 0.0;
+            $total = round($company + $client, 2);
+        } elseif ($company === null && $client === null) {
+            // Padrão contratual do encerramento normal: total informado sem
+            // rateio corresponde integralmente ao cliente.
+            $company = 0.0;
+            $client  = $total;
+        } elseif ($company === null) {
+            $client ??= 0.0;
+            $client  = min($client, $total);
+            $company = round($total - $client, 2);
+        } elseif ($client === null) {
+            $company = min($company, $total);
+            $client  = round($total - $company, 2);
+        } else {
+            // Havendo os três valores, o total é a referência e a parcela da
+            // empresa preserva a proporcionalidade informada pelo usuário.
+            $company = min($company, $total);
+            $client  = round($total - $company, 2);
+        }
+
+        return [
+            'total_cost'   => round($total, 2),
+            'company_cost' => round($company, 2),
+            'client_cost'  => round($client, 2),
+        ];
     }
 
     private function requiresPrefix200(?string $noteNumber): bool

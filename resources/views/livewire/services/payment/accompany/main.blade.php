@@ -40,21 +40,34 @@
             vertical-align: middle;
         }
 
+        .payment-accompany-page .payment-accompany-table {
+            font-size: .78rem;
+        }
+
+        .payment-accompany-page .payment-accompany-table th,
+        .payment-accompany-page .payment-accompany-table td {
+            padding: .2rem .35rem;
+        }
+
         .payment-accompany-page .payment-type-scope-cell {
-            min-width: 52px;
+            width: 28px;
         }
 
         .payment-accompany-page .payment-note-cell {
-            min-width: 130px;
+            min-width: 100px;
         }
 
         .payment-accompany-page .payment-company-cell {
-            min-width: 180px;
+            min-width: 140px;
             white-space: normal;
         }
 
+        .payment-accompany-page .payment-pep-cell {
+            min-width: 100px;
+        }
+
         .payment-accompany-page .payment-date-cell {
-            min-width: 124px;
+            min-width: 80px;
         }
 
         .payment-accompany-page .payment-action-cell {
@@ -183,20 +196,18 @@
                         <table class="table table-sm table-striped table-condensed table-hover payment-accompany-table">
                             <thead class="table-dark">
                                 <tr>
-                                    <th class="align-middle text-center">Tipo / Escopo</th>
+                                    <th class="align-middle text-center" title="Tipo / Escopo">T</th>
                                     <th class="align-middle text-center">Nota</th>
                                     <th class="align-middle text-center">Files</th>
                                     <th class="align-middle text-center">Ordem</th>
-                                    <th class="align-middle text-center">MOA</th>
+                                    <th class="align-middle text-center">Valor ADS</th>
                                     {{-- <th class="align-middle text-center">Status</th> --}}
-                                    <th class="align-middle text-center">OP30</th>
-                                    <th class="align-middle text-center">OP40</th>
-                                    <th class="align-middle text-center">OP50</th>
-                                    <th class="align-middle text-center">CentroTrab</th>
-                                    <th class="align-middle text-center">Empresa</th>
+                                    <th class="align-middle text-center" title="Status das operações 0030 / 0040 / 0050 por ordem">OP30 / 40 / 50</th>
+                                    <th class="align-middle text-center">Empresa / Responsável</th>
+                                    <th class="align-middle text-center">PEP</th>
                                     <th class="align-middle text-center">Município</th>
-                                    <th class="align-middle text-center">Data Execução</th>
-                                    <th class="align-middle text-center">Data Informe</th>
+                                    <th class="align-middle text-center">Execução</th>
+                                    <th class="align-middle text-center">Informe</th>
                                     <th class="align-middle text-center">Prazo Medição</th>
                                     <th class="align-middle text-center">Status</th>
                                     <th class="align-middle text-center"></th>
@@ -253,21 +264,22 @@
 
                                         $fiveNote = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
                                         $five = FiveStatus($list, $fiveNote);
-                                        $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
+                                        $adsForm = $workForm?->Adsform ?? $list->Note->Adsform;
                                         $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                         $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
                                     @endphp
 
+                                    <tr wire:key="work-{{ $list->id }}"
+                                        class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
                                     @if ($partial)
-                                        <tr wire:key="work-{{ $list->id }}"
-                                            wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})"
-                                            class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
-                                        @else
-                                        <tr wire:key="work-{{ $list->id }}"
-                                            @if ($workForm) wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm->id }})" @endif
-                                            class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
+                                        <td class="payment-type-scope-cell align-middle" style="cursor: pointer" title="Duplo clique para ver detalhes"
+                                            wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})">
+                                    @elseif ($workForm)
+                                        <td class="payment-type-scope-cell align-middle" style="cursor: pointer" title="Duplo clique para ver detalhes"
+                                            wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm->id }})">
+                                    @else
+                                        <td class="payment-type-scope-cell align-middle">
                                     @endif
-                                    <td class="payment-type-scope-cell align-middle">
                                         @if ($list->partial)
                                             <span class="badge text-bg-warning">P</span>
                                         @else
@@ -324,7 +336,7 @@
                                     </td>
                                     <td class="align-middle">
                                         {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <x-files.select-download-list :files='$list->Note->Files' />
+                                        <x-files.select-download-list :files='$list->Note->Files' :allow-tacit="true" />
 
                                     </td>
                                     <td class="fw-light text-center align-middle">
@@ -335,21 +347,18 @@
                                         @endforelse
                                     </td>
                                     <td class="text-center align-middle fw-bold">
-                                        @if ($workForm && $orders->count() && !$partial)
-                                            @php
-                                                $soma += $orders->sum('moaberto');
-                                            @endphp
-                                            <span class="my-0py-0">
-                                                R$
-                                                {{ number_format($orders->sum('moaberto'), 2, ',', '.') }}
-                                            </span>
-                                        @elseif ($partial && $partial?->Orders->isNotEmpty())
-                                            @php
-                                                $soma += $partial->value;
-                                            @endphp
-                                            R$ {{ number_format($partial->value, 2, ',', '.') }}
-                                        @endif
+                                        @php
+                                            $adsAmount = $partial ? $partial->value : $adsForm?->amount;
+                                        @endphp
 
+                                        @if ($adsAmount !== null)
+                                            @php
+                                                $soma += (float) $adsAmount;
+                                            @endphp
+                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                        @else
+                                            ---
+                                        @endif
                                     </td>
                                     {{--
                                         <td class="text-center align-middle">
@@ -364,53 +373,41 @@
                                         </td> --}}
 
                                     <td class="text-center align-middle">
-                                        @if ($orders->count())
-                                            @foreach ($orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0030')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0030')->first()->status)[0] : '---' }}
-                                                </span>
-                                            @endforeach
+                                        @forelse ($orders as $order)
+                                            @php
+                                                $opStatus = fn ($code) => ($op = $order->Operations->firstWhere('operacao', $code)) && $op->status
+                                                    ? explode(' ', $op->status)[0]
+                                                    : '---';
+                                            @endphp
+                                            <p class="my-0 py-0">{{ $opStatus('0030') }} · {{ $opStatus('0040') }} · {{ $opStatus('0050') }}</p>
+                                        @empty
+                                            <p class="my-0 py-0">---</p>
+                                        @endforelse
+                                    </td>
+                                    <td class="payment-company-cell text-center">
+                                        @php
+                                            $informantFull = trim((string) ($partial ? $partial->responsible : $workForm?->informer));
+                                            $informantParts = $informantFull !== '' ? preg_split('/\s+/', $informantFull) : [];
+                                            $informantName = count($informantParts) > 1
+                                                ? $informantParts[0].' '.end($informantParts)
+                                                : ($informantParts[0] ?? null);
+                                        @endphp
+                                        <div class="fw-semibold">{{ $workForm ? $workForm->Company?->name : ($partial?->Company?->name ?? '---') }}</div>
+                                        @if ($informantName)
+                                            <small class="text-muted">{{ $informantName }}</small>
                                         @endif
                                     </td>
 
-                                    <td class="text-center align-middle">
-                                        @if ($orders->count())
-                                            @foreach ($orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0040')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0040')->first()->status)[0] : '---' }}
-                                                </span>
-                                            @endforeach
-                                        @endif
-
-                                    </td>
-                                    <td class="text-center align-middle">
-                                        @if ($orders->count())
-                                            @foreach ($orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0050')->first()->status) ? explode(' ', $order->Operations->where('operacao', '0050')->first()->status)[0] : '---' }}
-                                                </span>
-                                            @endforeach
-                                        @endif
-
-                                    </td>
-                                    <td class="text-center align-middle">
-                                        @if ($orders->count())
-                                            @foreach ($orders as $order)
-                                                <span class="my-0py-0">
-                                                    {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                                </span>
-                                            @endforeach
-                                        @endif
-
-                                    </td>
-
-
-                                    <td class="payment-company-cell fw-light text-center">
-                                        @if ($workForm)
-                                            {{ $workForm->Company->name ?? '---' }}
-                                        @elseif ($partial)
-                                            {{ $partial->Company->name }}
-                                        @endif
+                                    <td class="payment-pep-cell text-center">
+                                        @forelse ($orders as $order)
+                                            @php $available = $order->Pep?->disponivel; @endphp
+                                            <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
+                                                @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
+                                                {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
+                                            </p>
+                                        @empty
+                                            <p class="my-0 py-0">---</p>
+                                        @endforelse
                                     </td>
 
                                     <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
@@ -422,13 +419,19 @@
                                             ---
                                         @endif
                                     </td>
-                                    <td class="payment-date-cell fw-light">
-                                        @if ($workForm)
-                                            {{ $workForm->informed_at ? date('d/m/Y H:i:s', strToTime($workForm->informed_at)) : '---' }}
-                                        @elseif ($partial)
-                                            {{ $partial->supervision_at->format('d/m/Y H:i:s') }}
+                                    <td class="payment-date-cell fw-light text-center">
+                                        @php
+                                            $informedAt = $workForm ? $workForm->informed_at : $partial?->supervision_at;
+                                            $informedAt = $informedAt ? Carbon::parse($informedAt) : null;
+                                        @endphp
+                                        @if ($informedAt)
+                                            <div class="ads-info">
+                                                <div class="ads-info-date">{{ $informedAt->format('d/m/Y') }}</div>
+                                                <small class="text-muted">{{ $informedAt->format('H:i') }}</small>
+                                            </div>
+                                        @else
+                                            ---
                                         @endif
-
                                     </td>
 
                                     @php
@@ -511,7 +514,7 @@
                                 <tr>
                                     <td colspan="4"></td>
                                     <td class="fw-bold">R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                                    <td colspan="11"></td>
+                                    <td colspan="9"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -621,6 +624,7 @@
     @livewire('partner.show.show-partial-info', key('show_partial_info'))
     @livewire('production.return.reject-inform-partial', key('reject_inform_partial'))
     @livewire('components.d5.d5details', key('d5_details'))
+    @livewire('components.pep.financial-modal', key('payment-accompany-pep-financial-modal'))
 
 
     {{-- <div wire:init="checkOpen"></div> --}}

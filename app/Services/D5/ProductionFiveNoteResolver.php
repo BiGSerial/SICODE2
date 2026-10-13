@@ -2,8 +2,7 @@
 
 namespace App\Services\D5;
 
-use App\Models\FiveNote;
-use App\Models\Production;
+use App\Models\{FiveNote, Production};
 use Illuminate\Support\Collection;
 
 /**
@@ -17,6 +16,16 @@ class ProductionFiveNoteResolver
 {
     public function resolve(Production $production): ?FiveNote
     {
+        // Para as novas Productions de Medição, este é o vínculo autoritativo.
+        // Pivots e links de fluxo abaixo permanecem apenas para o histórico.
+        $contextFive = $production->relationLoaded('measurementContext')
+            ? $production->measurementContext?->fiveNote
+            : $production->measurementContext()->with('fiveNote')->first()?->fiveNote;
+
+        if ($contextFive) {
+            return $contextFive;
+        }
+
         if (!$production->dfive) {
             return null;
         }
@@ -31,6 +40,7 @@ class ProductionFiveNoteResolver
 
         // Sem vínculo direto: vale a D5 do informe ao qual a produção está associada.
         $reportIds = $this->currentReportIds($production);
+
         if ($reportIds->isEmpty()) {
             return null;
         }

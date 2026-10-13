@@ -279,7 +279,7 @@
                             <th class="align-middle text-center">Tipo / Escopo</th>
 
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">MOA</th>
+                            <th class="align-middle text-center">Valor ADS</th>
                             {{-- <th class="align-middle text-center">Status</th> --}}
                             <th class="align-middle text-center">OP30</th>
                             <th class="align-middle text-center">OP40</th>
@@ -288,6 +288,7 @@
                             <th class="align-middle text-center">Empresa</th>
                             <th class="align-middle text-center">Município</th>
                             <th class="align-middle text-center">Final OP20</th>
+                            <th class="align-middle text-center">PEP</th>
                             <th class="align-middle text-center">Data Informe</th>
                             <th class="align-middle text-center">Ads</th>
                             <th class="align-middle text-center">Fiscalizado</th>
@@ -440,20 +441,20 @@
                                     @endforelse
                                 </td>
 
-                                {{-- MOA (usar total_moaberto pra WF; value pra parcial) --}}
+                                {{-- Valor ADS (amount para final; value para parcial) --}}
                                 <td class="text-center align-middle fw-bold {{ $rowClass }}">
                                     @php
-                                        if ($wf && !$partial) {
-                                            $soma += $list->total_moaberto;
-                                            $moa = $list->total_moaberto;
-                                        } elseif ($partial) {
-                                            $soma += $partial->value ?? 0;
-                                            $moa = $partial->value ?? 0;
-                                        } else {
-                                            $moa = 0;
-                                        }
+                                        $adsAmount = $partial ? $partial->value : $wf?->Adsform?->amount;
                                     @endphp
-                                    R$ {{ number_format($moa, 2, ',', '.') }}
+
+                                    @if ($adsAmount !== null)
+                                        @php
+                                            $soma += (float) $adsAmount;
+                                        @endphp
+                                        R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
 
                                 {{-- OP30 / OP40 / OP50 --}}
@@ -502,6 +503,18 @@
                                 {{-- Final OP20 --}}
                                 <td class="fw-light text-center {{ $rowClass }}">
                                     {{ $finalOp20 ? Carbon::parse($finalOp20)->format('d/m/Y') : '---' }}
+                                </td>
+
+                                <td class="text-center {{ $rowClass }}">
+                                    @forelse ($orders as $order)
+                                        @php $available = $order->Pep?->disponivel; @endphp
+                                        <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
+                                            @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
+                                            {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
+                                        </p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
                                 </td>
 
                                 @php
@@ -604,7 +617,7 @@
                         <tr class="table-dark align-middle">
                             <td colspan="4" class="text-end">Total:</td>
                             <td class="fw-bold"> R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                            <td colspan="12"></td>
+                            <td colspan="13"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -664,6 +677,8 @@
             </div>
         </div>
     </div>
+
+    @livewire('components.pep.financial-modal', key('payment-pep-financial-modal'))
 
     @push('script')
         <script>

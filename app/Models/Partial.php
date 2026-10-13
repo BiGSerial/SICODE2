@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\Relations\{HasMany, MorphToMany};
 
 class Partial extends Model
 {
@@ -12,6 +12,7 @@ class Partial extends Model
 
     protected $fillable = [
         'note_id',
+        'scope',
         'company_id',
         'user_id',
         'observation',
@@ -28,21 +29,29 @@ class Partial extends Model
         'supervision_at',
         'complete',
         'responsible',
-        'value'
+        'value',
     ];
-
 
     protected $casts = [
-        'decision_at' => 'datetime',
-        'payment_at' => 'datetime',
+        'decision_at'    => 'datetime',
+        'payment_at'     => 'datetime',
         'supervision_at' => 'datetime',
-        'complete' => 'boolean',
-        'allow' => 'boolean',
-        'deny' => 'boolean',
-        'payment' => 'boolean',
-        'supervision' => 'boolean',
-        'value' => 'decimal:2',
+        'complete'       => 'boolean',
+        'allow'          => 'boolean',
+        'deny'           => 'boolean',
+        'payment'        => 'boolean',
+        'supervision'    => 'boolean',
+        'value'          => 'decimal:2',
     ];
+
+    public function scopeLabel(): string
+    {
+        return match ($this->scope) {
+            'network'    => 'Rede',
+            'connection' => 'Ligação',
+            default      => 'Geral',
+        };
+    }
 
     public function Note()
     {
@@ -100,6 +109,9 @@ class Partial extends Model
         )->withTimestamps();
     }
 
-
+    public function measurementProductionContexts(): HasMany
+    {
+        return $this->hasMany(MeasurementProductionContext::class);
+    }
 
 }

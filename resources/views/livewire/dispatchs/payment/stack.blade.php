@@ -322,6 +322,17 @@
             </div>
         </div>
 
+        <div class="mb-3">
+            <label for="measurement-deadline-status" class="form-label mb-1">Prazo da medição</label>
+            <select id="measurement-deadline-status" class="form-select form-select-sm w-auto d-inline-block"
+                wire:model="measurementDeadlineStatus">
+                <option value="">Todos</option>
+                <option value="no_prazo">No prazo</option>
+                <option value="vencendo">Vencendo</option>
+                <option value="vencido">Vencido</option>
+            </select>
+        </div>
+
     </div>
 
     @if ($lists->count())
@@ -448,14 +459,14 @@
                             <th class="align-middle text-center" style="width:52px;"></th>
                             <th class="align-middle text-center">Nota</th>
                             <th class="align-middle text-center">Ordem</th>
-                            <th class="align-middle text-center">MOA</th>
-                            <th class="align-middle text-center">Emp SAP</th>
+                            <th class="align-middle text-center">Valor ADS</th>
                             <th class="align-middle text-center">Emp Info</th>
 
                             <th scope="col" class="fw-bold text-center">Rubrica</th>
                             <th scope="col" class="fw-bold text-center">Municipio</th>
-                            <th scope="col" class="fw-bold text-center">Empresa</th>
-                            <th scope="col" class="fw-bold text-center">Usuário</th>
+                            <th scope="col" class="fw-bold text-center">Usuário / Empresa</th>
+                            <th scope="col" class="fw-bold text-center">PEP</th>
+                            <th scope="col" class="fw-bold text-center">Data Informe</th>
                             <th scope="col" class="fw-bold text-center">Dias Despachado</th>
                             <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
                             <th scope="col" class="fw-bold text-center">Prazo Medição</th>
@@ -502,7 +513,7 @@
                                     : ($partial
                                         ? $partial->Orders ?? collect()
                                         : collect());
-                                $adsForm = $list->Note->Adsform ?? $workForm?->Adsform;
+                                $adsForm = $workForm?->Adsform ?? $list->Note->Adsform;
                                 $isTacitAds = (bool) ($adsForm?->tacit ?? false);
                                 $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
 
@@ -550,6 +561,10 @@
                                         <x-legal.note-demand-tags :note-id="$list->note_id" :row-key="'dispatchs-payment-'.$list->id" />
                                     @endif
 
+                                    <div class="small text-muted mt-1">
+                                        {{ $workForm ? 'Informe #' . $workForm->id : ($partial ? 'Parcial #' . $partial->id : 'Sem informe') }}
+                                    </div>
+
 
                                     @if ($list->priority)
                                         <i class="ri-alert-fill text-danger align-middle"
@@ -574,37 +589,21 @@
 
                                 </td>
                                 <td class="text-center align-middle fw-bold">
-                                    @if ($workForm && $orders->count())
+                                    @php
+                                        $adsAmount = $partial ? $partial->value : $adsForm?->amount;
+                                    @endphp
+
+                                    @if ($adsAmount !== null)
                                         @php
-                                            $moaberto = $orders->sum('moaberto');
-                                            $soma += $moaberto;
+                                            $soma += (float) $adsAmount;
                                         @endphp
                                         <p class="my-0 py-0">
-                                            R$ {{ number_format($moaberto, 2, ',', '.') }}
+                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
                                         </p>
-                                    @elseif($partial)
-                                        @php
-                                            $moaberto = $partial?->value;
-                                            $soma += $partial?->value;
-                                        @endphp
-                                        <p class="my-0 py-0">
-                                            R$ {{ number_format($moaberto, 2, ',', '.') }}
-                                        </p>
+                                    @else
+                                        ---
                                     @endif
-
                                 </td>
-
-                                <td class="text-center align-middle">
-                                    @if ($orders->count())
-                                        @foreach ($orders as $order)
-                                            <span class="my-0py-0">
-                                                {{ $order->Operations->count() && isset($order->Operations->where('operacao', '0010')->first()->cenTrab) ? explode(' ', $order->Operations->where('operacao', '0010')->first()->cenTrab)[0] : '---' }}
-                                            </span>
-                                        @endforeach
-                                    @endif
-
-                                </td>
-
 
                                 <td class="fw-light text-center">
 
@@ -630,13 +629,29 @@
 
 
 
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-
-                                    {{ $list->Company ? $list->Company->name : '-' }}</td>
-                                <td
-                                    class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                    <x-user.status-name :user="$list->User" />
+                                <td class="text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    <div class="fw-semibold"><x-user.status-name :user="$list->User" /></div>
+                                    <small class="text-muted d-block mt-1">{{ $list->Company?->name ?? '-' }}</small>
+                                </td>
+                                <td class="text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    @forelse ($orders as $order)
+                                        @php $available = $order->Pep?->disponivel; @endphp
+                                        <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
+                                            @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
+                                            {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
+                                        </p>
+                                    @empty
+                                        <p class="my-0 py-0">---</p>
+                                    @endforelse
+                                </td>
+                                <td class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
+                                    @if ($workForm?->informed_at)
+                                        {{ $workForm->informed_at->format('d/m/Y H:i') }}
+                                    @elseif ($partial?->supervision_at)
+                                        {{ $partial->supervision_at->format('d/m/Y H:i') }}
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
                                 <td
                                     class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
@@ -664,27 +679,30 @@
                                         —
                                     @endif
                                 </td>
-                                @php
-                                    $daysLeft = Carbon::parse($list->fimLancado)
-                                        ->startOfDay()
-                                        ->diffInDays(Carbon::now()->startOfDay());
-                                @endphp
+                                @php($measurementDeadline = $this->measurementDeadlineFor($list))
                                 <td scope="col" class="text-center" tabindex="0" data-bs-toggle="popover"
                                     data-bs-trigger="hover focus" data-bs-placement="top"
                                     data-bs-title="Prazo Medição"
-                                    data-bs-content="
-                         <p>A Data Corresponde 40 Parcial</p>
-                         <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
-                         <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
-                         <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
-                         {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                         ">
-                                    <div class="ads-info">
-                                        <div class="ads-info-date">{{ $list->fimLancado ? date('d/m/Y', strToTime($list->fimLancado)) : '' }}</div>
-                                        <span class="badge @if ($daysLeft <= 2) text-bg-success @elseif ($daysLeft > 5) text-bg-danger @else text-bg-warning @endif">
-                                            {{ $daysLeft }}
-                                        </span>
-                                    </div>
+                                    data-bs-content="Verde: mais de 4 dias para vencer. Amarelo: até o vencimento. Vermelho: vencido.">
+                                    @if ($measurementDeadline)
+                                        <div class="ads-info">
+                                            <div class="ads-info-date">{{ $measurementDeadline['due_at']->format('d/m/Y') }}</div>
+                                            <span @class([
+                                                'badge',
+                                                'text-bg-success' => $measurementDeadline['status'] === 'no_prazo',
+                                                'text-bg-warning' => $measurementDeadline['status'] === 'vencendo',
+                                                'text-bg-danger' => $measurementDeadline['status'] === 'vencido',
+                                            ])>
+                                                @if ($measurementDeadline['remaining_days'] < 0)
+                                                    {{ abs($measurementDeadline['remaining_days']) }} {{ abs($measurementDeadline['remaining_days']) === 1 ? 'dia vencido' : 'dias vencidos' }}
+                                                @else
+                                                    {{ $measurementDeadline['remaining_days'] }} {{ $measurementDeadline['remaining_days'] === 1 ? 'dia' : 'dias' }}
+                                                @endif
+                                            </span>
+                                        </div>
+                                    @else
+                                        ---
+                                    @endif
                                 </td>
 
                                 <td class="fw-light text-center">
@@ -831,6 +849,7 @@
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('components.d5.d5details', key('view_d5_note_details'))
     @livewire('dispatchs.common.reclaim-info', key('reclaim-info-payment-stack'))
+    @livewire('components.pep.financial-modal', key('dispatch-payment-stack-pep-financial-modal'))
     @once
         @livewire('production.actions.new-production', key('new_production_payment_stack'))
     @endonce

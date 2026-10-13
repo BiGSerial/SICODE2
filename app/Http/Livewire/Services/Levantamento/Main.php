@@ -3,11 +3,13 @@
 namespace App\Http\Livewire\Services\Levantamento;
 
 use App\Jobs\Services\ExportLevantamentoProductionListJob;
-use App\Models\{File, Production, Service};
+use App\Models\{File, Production, QualityProcess, Service};
 use App\Services\Files\FileStorageService;
+use App\Services\Quality\{QualityBulkSearch, QualityDesignerResolver, QualityWorkflowException, QualityWorkflowService};
 use App\Support\SicodeRules;
-use Illuminate\Support\Facades\{Auth, DB};
+use Illuminate\Support\Facades\{Auth, DB, Log};
 use Livewire\{Component, WithPagination};
+use Throwable;
 
 class Main extends Component
 {
@@ -22,6 +24,18 @@ class Main extends Component
     public $search;
 
     public $analise;
+
+    public string $qualityNotes = '';
+
+    public ?string $exportFeedback = null;
+
+    public bool $exportFailed = false;
+
+    /** @var array<int, array<string, mixed>> */
+    public array $qualityCandidates = [];
+
+    /** @var array<int, int|string> */
+    public array $selectedQualityProcessIds = [];
 
     protected $limit_pause = 50;
 
@@ -64,25 +78,142 @@ class Main extends Component
     /** =====================
      * 🔹 EXPORTAÇÃO
      * ===================== */
-    public function exportToExcel()
+    public function exportToExcel(): void
     {
-        ExportLevantamentoProductionListJob::dispatch([
-            'service_uuid' => $this->service->uuid,
-            'user_id'      => Auth::id(),
-            'search'       => $this->search,
-        ]);
+        try {
+            ExportLevantamentoProductionListJob::dispatch([
+                'service_uuid' => $this->service->uuid,
+                'user_id'      => Auth::id(),
+                'search'       => $this->search,
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Não foi possível enfileirar exportação de Levantamento.', [
+                'service_uuid' => $this->service->uuid,
+                'user_id'      => Auth::id(),
+                'exception'    => $exception,
+            ]);
+
+            $this->exportFailed   = true;
+            $this->exportFeedback = 'Não foi possível iniciar a exportação. Tente novamente.';
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Exportação não iniciada',
+                'text'     => $this->exportFeedback,
+            ]);
+
+            return;
+        }
+
+        $this->exportFailed   = false;
+        $this->exportFeedback = 'Exportação enfileirada. Você será notificado quando o arquivo estiver pronto.';
 
         $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'info',
-            'title'    => 'Exportação iniciada!',
-            'text'     => 'Você será notificado quando o arquivo estiver pronto.',
+            'toast'             => true,
+            'position'          => 'top-end',
+            'icon'              => 'info',
+            'title'             => 'Exportação enfileirada',
+            'text'              => $this->exportFeedback,
+            'showConfirmButton' => false,
+            'timer'             => 4500,
+            'timerProgressBar'  => true,
         ]);
     }
 
     public function export_excel()
     {
         return $this->exportToExcel();
+    }
+
+    /** Busca somente processos da empresa ainda disponíveis na fila inicial do N1; nunca o Pool. */
+    public function searchQualityAvailable(QualityBulkSearch $bulk, QualityDesignerResolver $designers): void
+    {
+        $notes                           = $bulk->parse($this->qualityNotes);
+        $this->selectedQualityProcessIds = [];
+
+        if (!$notes) {
+            $this->qualityCandidates = [];
+
+            return;
+        }
+
+        $user      = Auth::user();
+        $processes = QualityProcess::query()->with(['Note', 'Company', 'CurrentDesigner'])
+            ->whereHas('Note', fn ($q) => $q->where(fn ($w) => $w->whereIn('note', $notes)->orWhereIn('numPedido', $notes)))
+            ->where('company_id', $user->company_id)
+            ->active()->get()->keyBy('note_id');
+
+        $noteModels = \App\Models\Note::query()->where(fn ($q) => $q->whereIn('note', $notes)->orWhereIn('numPedido', $notes))->get();
+        // Notas são números: não use flatMap/mapWithKeys, pois o Collection/PHP renumera chaves numéricas.
+        $byValue = [];
+
+        foreach ($noteModels as $note) {
+            $byValue['note:' . $note->note] = $note;
+
+            if ($note->numPedido) {
+                $byValue['note:' . $note->numPedido] = $note;
+            }
+        }
+
+        $this->qualityCandidates = collect($notes)->unique()->map(function ($value) use ($processes, $byValue, $designers, $user) {
+            $note      = $byValue['note:' . $value] ?? null;
+            $process   = $note ? $processes->get($note->id) : null;
+            $available = $process
+                && $process->state === \App\Enum\QualityProcessState::AWAITING_N1_DISPATCH
+                && $designers->isEligible($process, $user->id);
+
+            $reason = match (true) {
+                !$process                                                               => 'Não encontrada na fila disponível da Qualidade.',
+                $process->state !== \App\Enum\QualityProcessState::AWAITING_N1_DISPATCH => 'Já atribuída a um usuário ou em outra etapa da Qualidade.',
+                !$designers->isEligible($process, $user->id)                            => 'Seu usuário não está habilitado na atividade deste ciclo.',
+                default                                                                 => null,
+            };
+
+            return [
+                'process_id' => $process?->id,
+                'note'       => $note?->note ?? $value,
+                'material'   => $note?->material,
+                'company'    => $process?->Company?->name,
+                'available'  => $available,
+                'reason'     => $reason,
+            ];
+        })->values()->all();
+
+        $this->selectedQualityProcessIds = collect($this->qualityCandidates)->where('available', true)->pluck('process_id')->all();
+    }
+
+    public function claimQualityAvailable(QualityWorkflowService $workflow): void
+    {
+        $allowed  = collect($this->qualityCandidates)->where('available', true)->pluck('process_id')->map(fn ($id) => (int) $id)->all();
+        $selected = collect($this->selectedQualityProcessIds)->map(fn ($id) => (int) $id)->intersect($allowed)->unique();
+
+        if ($selected->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'warning', 'title' => 'NENHUMA OBRA SELECIONADA', 'text' => 'Selecione ao menos uma obra disponível.']);
+
+            return;
+        }
+
+        $done = 0;
+
+        foreach ($selected as $id) {
+            try {
+                $workflow->claimN1Dispatch(QualityProcess::findOrFail($id), Auth::user());
+                $done++;
+            } catch (QualityWorkflowException $e) {
+                foreach ($this->qualityCandidates as &$candidate) {
+                    if ((int) ($candidate['process_id'] ?? 0) === $id) {
+                        $candidate['available'] = false;
+                        $candidate['reason']    = $e->getMessage();
+                    }
+                }
+                unset($candidate);
+            }
+        }
+
+        $this->selectedQualityProcessIds = [];
+        $this->dispatchBrowserEvent('hideModal', ['id' => 'quality_available_modal']);
+        $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => $done ? 'success' : 'warning', 'title' => $done ? 'OBRAS ATRIBUÍDAS' : 'NENHUMA OBRA ATRIBUÍDA', 'text' => $done ? "{$done} obra(s) foram incluídas na sua produção." : 'As obras foram assumidas por outro usuário ou deixaram de estar disponíveis.']);
+        $this->emitSelf('$refresh');
     }
 
     /** =====================

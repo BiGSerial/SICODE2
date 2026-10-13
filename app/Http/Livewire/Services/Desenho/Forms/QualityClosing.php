@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Services\Desenho\Forms;
 use App\Enum\{QualityEventType, QualityProcessState, QualityStageKind, QualityStageType};
 use App\Helpers\SelectOptions;
 use App\Models\{File, QualityProcess, QualityStage};
-use App\Services\Quality\{QualityActivities, QualityWorkflowException, QualityWorkflowService, SurveyInformRules};
+use App\Services\Quality\{BudgetOrderRules, QualityActivities, QualityWorkflowException, QualityWorkflowService, SurveyInformRules};
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -136,7 +136,7 @@ class QualityClosing extends Component
     }
 
     /** Passo 1: valida o informe e manda salvar os arquivos (como no encerramento normal). */
-    public function submit(SurveyInformRules $survey): void
+    public function submit(SurveyInformRules $survey, BudgetOrderRules $budget): void
     {
         $process = $this->process();
 
@@ -152,6 +152,10 @@ class QualityClosing extends Component
         try {
             if ($process->phase === QualityStageType::PROJECT) {
                 $survey->validate($this->surveyPayload());
+            } else {
+                // Normaliza antes de salvar arquivos para que a tela e a rodada
+                // usem exatamente os mesmos valores consistentes.
+                $this->orders = $budget->validate($this->orders, $process->Note?->note);
             }
         } catch (QualityWorkflowException $e) {
             $this->addError('workflow', $e->getMessage());

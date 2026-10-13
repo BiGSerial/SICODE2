@@ -21,31 +21,25 @@
     $dotLabels  = ['Despacho do N1', 'Execução (1º ciclo)', 'Análise N1 (1º ciclo)', 'Decisão N2 (1º ciclo)', 'Execução (2º ciclo)', 'Análise N1 (2º ciclo)', 'Decisão N2 (2º ciclo)'];
     $action     = $action ?? 'Abrir';
 @endphp
-<div class="ob is-{{ $urgency }}" data-href="{{ route('quality.process', $process) }}">
+<tr class="wk-table-row is-{{ $urgency }}" data-href="{{ route('quality.process', $process) }}">
     @if (!empty($selectable))
-        <div class="ob-check" onclick="event.stopPropagation()"><input type="checkbox" class="form-check-input wk-row" name="process_ids[]" value="{{ $process->id }}" aria-label="Selecionar obra {{ $process->Note?->note }}"></div>
+        <td class="text-center wk-col-check" onclick="event.stopPropagation()"><input type="checkbox" class="form-check-input wk-row" name="process_ids[]" value="{{ $process->id }}" aria-label="Selecionar obra {{ $process->Note?->note }}"></td>
     @endif
 
-    <div class="ob-main">
-        <div class="d-flex align-items-baseline gap-2 flex-wrap"><span class="ob-note">{{ $process->Note?->note }}</span><span class="chip chip-cycle">{{ $process->phase->short() }}</span>@if ($process->round_number > 1)<span class="chip chip-loop" title="Rodada {{ $process->round_number }}">↺ rodada {{ $process->round_number }}</span>@endif</div>
-        <div class="ob-material" title="{{ $process->Note?->material }}">{{ $process->Note?->material ?: '—' }}</div>
-        <div class="ob-chips">
-            @if (!empty($showCompany))<span class="chip"><i class="ri-building-line"></i>{{ $process->Company?->name }}</span>@endif
-            @if ($process->Note?->rubrica)<span class="chip">{{ $process->Note->rubrica }}</span>@endif
-            @if ($process->Note?->lexp)<span class="chip chip-where"><i class="ri-map-pin-line"></i>{{ $process->Note->lexp }}</span>@endif
-            @if ($reject)
-                @foreach ($reject->Items->take(2) as $item)<span class="chip chip-reason" title="{{ $reject->level->label() }} devolveu"><i class="ri-arrow-go-back-line"></i>{{ $item->Category?->name }}{{ $item->Subcategory ? ' · ' . $item->Subcategory->name : '' }}</span>@endforeach
-                @if ($reject->Items->count() > 2)<span class="chip chip-reason">+{{ $reject->Items->count() - 2 }}</span>@endif
-            @endif
-        </div>
-    </div>
+    <td class="wk-note text-nowrap"><span class="ob-note">{{ $process->Note?->note }}</span><span class="chip chip-cycle ms-1">{{ $process->phase->short() }}</span>@if ($process->round_number > 1)<span class="chip chip-loop ms-1" title="Rodada {{ $process->round_number }}">↺{{ $process->round_number }}</span>@endif</td>
+    <td class="wk-material" title="{{ $process->Note?->material }}">{{ $process->Note?->material ?: '—' }}</td>
+    <td class="wk-location text-nowrap"><span>{{ $process->Note?->rubrica ?: '—' }}</span>@if ($process->Note?->lexp)<span class="chip chip-where ms-1"><i class="ri-map-pin-line"></i>{{ $process->Note->lexp }}</span>@endif @if ($reject)<span class="chip chip-reason ms-1" title="{{ $reject->Items->pluck('Category.name')->filter()->implode(' · ') }}"><i class="ri-arrow-go-back-line"></i>{{ $reject->Items->count() }}</span>@endif</td>
 
-    <div class="ob-people">
+    @if (!empty($showCompany))<td class="wk-company">{{ $process->Company?->name ?? '—' }}</td>@endif
+
+    <td>
+        <div class="ob-people">
         <div class="ob-avatar {{ $personName ? '' : 'is-empty' }}">{{ $personName ? $initials($personName) : '—' }}</div>
         <div><div class="ob-person">{{ $personName ? \Illuminate\Support\Str::limit($personName, 24) : ($roleLabel === 'N2' ? 'Equipe N2' : 'a definir') }}</div><div class="ob-role">{{ $roleLabel }}</div></div>
-    </div>
+        </div>
+    </td>
 
-    <div class="ob-flow" title="{{ $state->labelFor($seesN2) }}">
+    <td><div class="ob-flow" title="{{ $state->labelFor($seesN2) }}">
         <div class="flow-dots">
             @foreach (range(0, 6) as $i)
                 @if ($i === 4)<span class="flow-sep"></span>@endif
@@ -53,10 +47,10 @@
             @endforeach
         </div>
         <div class="flow-cap">{{ $state === S::COMPLETED ? 'concluída' : $state->labelFor($seesN2) }}</div>
-    </div>
+    </div></td>
 
-    <div class="ob-side" onclick="event.stopPropagation()">
+    <td class="text-end" onclick="event.stopPropagation()"><div class="ob-side">
         <div class="ob-age">@include('quality._age', ['since' => $process->state_changed_at])<small>{{ $ageLabel ?? 'nesta etapa' }}</small></div>
         <a href="{{ route('quality.process', $process) }}" class="btn btn-sm btn-{{ !empty($primary) ? 'primary' : 'outline-primary' }}">{{ $action }}</a>
-    </div>
-</div>
+    </div></td>
+</tr>

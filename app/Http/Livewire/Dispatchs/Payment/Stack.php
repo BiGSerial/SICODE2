@@ -2,17 +2,15 @@
 
 namespace App\Http\Livewire\Dispatchs\Payment;
 
-use App\Exports\DispatchDesenhoStack;
 use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Helpers\TextFormatter;
-use App\Models\City;
-use App\Models\FiveNote;
 use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User, Wpa};
-use App\Models\WorkReportFlowProduction;
+use App\Models\{City, FiveNote, WorkReportFlowProduction};
 use App\Services\D5\D5WorkflowService;
-use App\Services\WorkReports\WorkReportFinalScopeOptions;
-use App\Services\WorkReports\WorkReportFlowProductionLinker;
+use App\Services\Payment\MeasurementDeadlinePolicy;
+use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -29,6 +27,8 @@ class Stack extends Component
     public $last_update;
 
     public $search;
+
+    public $measurementDeadlineStatus = '';
 
     public $rubrica_s = [];
 
@@ -75,7 +75,9 @@ class Stack extends Component
     public $type = '2';
 
     public $additionalData = [];
+
     public array $finalScopeOptions = [];
+
     public array $finalScopeSelections = [];
 
     // Filtros Municípios
@@ -126,6 +128,11 @@ class Stack extends Component
         $this->user_fs = [$user_id];
     }
 
+    public function updatedMeasurementDeadlineStatus(): void
+    {
+        $this->resetPage();
+    }
+
     public function setSelectAll()
     {
         if (!$this->lists) {
@@ -171,11 +178,13 @@ class Stack extends Component
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectAll = false;
+
                 return false;
             }
         }
 
         $this->selectAll = true;
+
         return true;
     }
 
@@ -191,13 +200,16 @@ class Stack extends Component
         // se não há elegíveis na página, não marcar o master
         if (empty($eligiblePage)) {
             $this->selectAll = false;
+
             return;
         }
 
         $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectAll = false;
+
                 return;
             }
         }
@@ -207,7 +219,6 @@ class Stack extends Component
 
     public function export_excel()
     {
-
 
         if (!count($this->selected)) {
             return (new DispatchPaymentStack($this->exports, $this->service->uuid))->download(date('YmdHis-') . 'exportControlPayment.xlsx');
@@ -246,7 +257,9 @@ class Stack extends Component
 
         // session()->put('filtro', $this->rubrica_s);
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
         $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
         $_SESSION['filtro']['city']     = $this->city_s;
@@ -260,18 +273,21 @@ class Stack extends Component
     public function filter_clean()
     {
         $this->gotoPage(1);
-        $this->rubrica_s  = [];
-        $this->city_s     = [];
-        $this->district_s = [];
-        $this->region_s   = [];
-        $this->status_s   = [];
-        $this->company_fs = [];
-        $this->user_fs    = [];
+        $this->rubrica_s                 = [];
+        $this->city_s                    = [];
+        $this->district_s                = [];
+        $this->region_s                  = [];
+        $this->status_s                  = [];
+        $this->company_fs                = [];
+        $this->user_fs                   = [];
+        $this->measurementDeadlineStatus = '';
 
         $this->multiSearch = [];
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filtro'])) {
@@ -533,11 +549,11 @@ class Stack extends Component
                         }
 
                         Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "{$user_info}",
-                            'status'       => $this->user_s ? 2 : 1,
+                            'note_id'       => $production->note_id,
+                            'service_id'    => $production->service_id,
+                            'user_id'       => Auth()->User()->id,
+                            'info'          => "{$user_info}",
+                            'status'        => $this->user_s ? 2 : 1,
                             'production_id' => $production->id,
                         ]);
 
@@ -553,6 +569,7 @@ class Stack extends Component
                         //     'dd' => $this->additionalData[$key]
                         // ]);
                         $five = $note->FiveNote ?? FiveNote::where('note_id', $note->id)->first();
+
                         if ($five) {
                             $five->productions()->syncWithoutDetaching([$production->id]);
 
@@ -705,29 +722,34 @@ class Stack extends Component
 
     public function getListsProperty()
     {
-        return Production::with([
-                'Note.FiveNote',
-                'Note.Files',
-                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                'Note.WorkForm:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
-                'Note.WorkForm.Company:id,name,deleted_at',
-                'Note.WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
-                'Note.WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                'Note.Partials.Company:id,name,deleted_at',
-                'Note.Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
-                'Note.Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-                'WorkReportFlowProductions' => fn ($q) => $q
-                    ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
-                    ->where('is_current', true)
-                    ->with([
-                        'WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
-                        'WorkReport.Company:id,name,deleted_at',
-                        'WorkReport.Orders' => fn ($orders) => $orders->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.moaberto']),
-                        'WorkReport.Orders.Operations' => fn ($orders) => $orders->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-                        'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                    ]),
-            ])
+        $query = Production::with([
+            'User',
+            'Company',
+            'Note.FiveNote',
+            'Note.Files',
+            'Note.Adsform:id,work_report_id,note_id,amount,tacit,tacit_due_at,tacit_delivered_at,created_at',
+            'Note.WorkForm:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+            'Note.WorkForm.Company:id,name,deleted_at',
+            'Note.WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto']),
+            'Note.WorkForm.Orders.Pep:objeto,disponivel',
+            'Note.WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'Note.WorkForm.Adsform:id,work_report_id,note_id,amount,tacit,tacit_due_at,tacit_delivered_at,created_at',
+            'Note.Partials.Company:id,name,deleted_at',
+            'Note.Partials.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto']),
+            'Note.Partials.Orders.Pep:objeto,disponivel',
+            'Note.Partials.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+            'WorkReportFlowProductions'       => fn ($q) => $q
+                ->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+                ->where('is_current', true)
+                ->with([
+                    'WorkReport:id,note_id,company_id,date,informed_at,created_at,rejected,selected_final_scopes',
+                    'WorkReport.Company:id,name,deleted_at',
+                    'WorkReport.Orders' => fn ($orders) => $orders->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto']),
+                    'WorkReport.Orders.Pep:objeto,disponivel',
+                    'WorkReport.Orders.Operations' => fn ($orders) => $orders->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
+                    'WorkReport.Adsform:id,work_report_id,note_id,amount,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                ]),
+        ])
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->leftJoinSub(
                 DB::table('operation_resps')
@@ -795,8 +817,9 @@ class Stack extends Component
             ->orderBy('partial', 'DESC')
             ->orderByRaw('CASE WHEN fimLancado IS NULL OR fimLancado = 0 THEN 1 ELSE 0 END')
             ->orderBy('fimLancado', 'asc')
-            ->orderBy('notes.type_note', 'DESC')
-            ->paginate($this->perPage); // Seleciona a coluna 'dt_created' da tabela 'Note' com um alias 'note_dt_created'
+            ->orderBy('notes.type_note', 'DESC');
+
+        return $this->paginateDeadlineFiltered($query);
 
     }
 
@@ -974,8 +997,8 @@ class Stack extends Component
 
     private function prepareFinalScopeSelection(Note $note): void
     {
-        $options = app(WorkReportFinalScopeOptions::class)->forNote($note);
-        $this->finalScopeOptions[$note->id] = $options;
+        $options                               = app(WorkReportFinalScopeOptions::class)->forNote($note);
+        $this->finalScopeOptions[$note->id]    = $options;
         $this->finalScopeSelections[$note->id] = [];
 
         if (count($options) === 1) {
@@ -1005,14 +1028,14 @@ class Stack extends Component
     {
         $this->dispatchBrowserEvent('hideModal');
 
-        $this->company_s      = '';
-        $this->selected       = [];
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->finalScopeOptions = [];
+        $this->company_s            = '';
+        $this->selected             = [];
+        $this->user_s               = '';
+        $this->type                 = '';
+        $this->additionalData       = [];
+        $this->finalScopeOptions    = [];
         $this->finalScopeSelections = [];
-        $this->advanceSearch  = '';
+        $this->advanceSearch        = '';
         $this->gotoPage(1);
 
         $this->emitSelf('refresh_list');
@@ -1021,14 +1044,14 @@ class Stack extends Component
     public function clean()
     {
 
-        $this->company_s      = '';
-        $this->enter_dd       = '';
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->finalScopeOptions = [];
+        $this->company_s            = '';
+        $this->enter_dd             = '';
+        $this->user_s               = '';
+        $this->type                 = '';
+        $this->additionalData       = [];
+        $this->finalScopeOptions    = [];
         $this->finalScopeSelections = [];
-        $this->multiSearch    = [];
+        $this->multiSearch          = [];
     }
 
     public function buscarMulti()
@@ -1042,7 +1065,7 @@ class Stack extends Component
         }
 
         if (count($this->multiSearch)) {
-            $this->selected = [];
+            $this->selected  = [];
             $this->selectAll = false;
             $this->dispatchBrowserEvent('hideModal');
         }
@@ -1050,7 +1073,7 @@ class Stack extends Component
 
     public function deadline(Note $note)
     {
-        $days = 10;
+        $days       = 10;
         $date_forms = $note->WorkForm ? $note->WorkForm->informed_at : null;
 
         if ($date_forms) {
@@ -1063,9 +1086,50 @@ class Stack extends Component
         }
     }
 
+    public function measurementDeadlineFor(Production $production): ?array
+    {
+        $partial    = $production->partial ? $production->Note?->Partials?->last() : null;
+        $workReport = $production->WorkReportFlowProductions
+            ->firstWhere('stage', WorkReportFlowProduction::STAGE_PAYMENT)
+            ?->WorkReport ?? $production->Note?->WorkForm;
+        $informedAt = $partial?->supervision_at ?? $workReport?->informed_at;
+
+        if (!$informedAt) {
+            return null;
+        }
+
+        $policy        = app(MeasurementDeadlinePolicy::class);
+        $dueAt         = $policy->dueAt(Carbon::parse($informedAt));
+        $remainingDays = $policy->remainingDays($dueAt);
+
+        return [
+            'due_at'         => $dueAt,
+            'remaining_days' => $remainingDays,
+            'status'         => $policy->statusForRemainingDays($remainingDays),
+        ];
+    }
+
+    private function paginateDeadlineFiltered($query): LengthAwarePaginator
+    {
+        if (!$this->measurementDeadlineStatus) {
+            return $query->paginate($this->perPage);
+        }
+
+        $items = $query->get()->filter(function (Production $production): bool {
+            return ($this->measurementDeadlineFor($production)['status'] ?? null) === $this->measurementDeadlineStatus;
+        })->values();
+
+        return new LengthAwarePaginator(
+            $items->forPage($this->page, $this->perPage)->values(),
+            $items->count(),
+            $this->perPage,
+            $this->page,
+            ['path' => request()->url(), 'pageName' => 'page']
+        );
+    }
+
     public function render()
     {
-
 
         // if (!Auth()->User()->contract) {
         //     $this->company_l = Company::orderBy('name', 'ASC')->get();

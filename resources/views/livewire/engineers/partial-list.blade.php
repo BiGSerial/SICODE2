@@ -53,6 +53,7 @@
                 <thead>
                     <tr class="text-center">
                         <th scope="col">Nota/OV</th>
+                        <th scope="col">Escopo</th>
                         <th scope="col">Ordem</th>
                         <th scope="col">Rubrica</th>
                         <th scope="col">Valor</th>
@@ -74,6 +75,7 @@
                             wire:click="$set('selectedRow', {{ $list->id }})"
                             class="{{ $selectedRow === $list->id ? 'table-primary' : '' }}">
                             <td class="fw-bold">{{ $list->Note->note }}</td>
+                            <td><span class="badge text-bg-secondary">{{ $list->scopeLabel() }}</span></td>
                             <td>
                                 @if ($list->Orders)
                                     @foreach ($list->Orders as $order)

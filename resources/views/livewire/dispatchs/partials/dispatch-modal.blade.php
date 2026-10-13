@@ -456,8 +456,10 @@
                                                 #{{ $note->dispatch_work_report_id }}
                                             @elseif ($note->dispatch_partial_id)
                                                 #{{ $note->dispatch_partial_id }}
+                                            @elseif ($note->dispatch_five_note_id)
+                                                D5 #{{ $note->dispatch_five_note_id }} · Ciclo 2 passivo
                                             @else
-                                                Legado
+                                                Sem contexto
                                             @endif
                                         </td>
                                         @if ($requiresFinalScope)

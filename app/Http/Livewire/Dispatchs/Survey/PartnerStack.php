@@ -3,13 +3,11 @@
 namespace App\Http\Livewire\Dispatchs\Survey;
 
 use App\Helpers\TextFormatter;
-use App\Models\Production;
-use App\Models\Service;
+use App\Models\{Production};
 use App\Support\SicodeRules;
 use App\Traits\WildcardFormatter;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class PartnerStack extends Component
 {
@@ -22,30 +20,38 @@ class PartnerStack extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 50;
+
     public $selected = [];
+
     public $statusFilter = null;
+
     public $search = '';
+
     public $advancedSearch;
+
     public $multiSearch = [];
+
     public $note_type = '';
 
     // Filters
     private $filter_group = 'survey';
+
     private $filter;
 
     protected $queryString = [
         'statusFilter' => ['except' => null],
-        'search' => ['except' => ''],
-        'page' => ['except' => 1],
-        'note_type' => ['except' => null || ''],
-        'multiSearch' => ['except' => []],
+        'search'       => ['except' => ''],
+        'page'         => ['except' => 1],
+        'note_type'    => ['except' => null || ''],
+        'multiSearch'  => ['except' => []],
     ];
 
     protected $listeners = [
         'resetFilters',
         'refresh_list' => '$refresh',
-        'filterUser' => 'filterUser',
+        'filterUser'   => 'filterUser',
     ];
 
     public function mount($service)
@@ -57,7 +63,9 @@ class PartnerStack extends Component
     public function filterUser($user_id)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $this->gotoPage(1);
@@ -66,8 +74,6 @@ class PartnerStack extends Component
 
         $this->emit('toUpdate', 'user');
     }
-
-
 
     public function exportToExcel()
     {
@@ -109,7 +115,7 @@ class PartnerStack extends Component
         $this->multiSearch = $this->formatTextToArray($this->advancedSearch);
 
         if (count($this->multiSearch) > 0) {
-            $this->search = null;
+            $this->search         = null;
             $this->advancedSearch = null;
 
             $this->dispatchBrowserEvent('hideModal');
@@ -119,18 +125,21 @@ class PartnerStack extends Component
     public function resetFilters()
     {
         $this->reset('statusFilter', 'search', 'page');
-        $this->multiSearch = [];
+        $this->multiSearch    = [];
         $this->advancedSearch = null;
-        $this->search = null;
+        $this->search         = null;
     }
 
     private function loadFilters(): void
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -197,9 +206,6 @@ class PartnerStack extends Component
     {
         $this->loadFilters();
 
-
-
-
         return $this->baseQuery()
             ->when(trim($this->search), function ($q) {
                 $q->where(function ($q) {
@@ -253,7 +259,6 @@ class PartnerStack extends Component
     {
         $query = $this->filtersQuery()
 
-
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
             ->orderBy('dt_created', 'asc')
@@ -276,8 +281,8 @@ class PartnerStack extends Component
             })
             ->toArray();
 
-        return view('livewire.dispatchs.survey.partner_stack', [
-            'lists' => $this->lists,
+        return view('livewire.dispatchs.levantamento.partner_stack', [
+            'lists'      => $this->lists,
             'statusList' => $statusList,
         ]);
     }

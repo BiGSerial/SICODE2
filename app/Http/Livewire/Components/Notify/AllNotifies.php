@@ -2,22 +2,26 @@
 
 namespace App\Http\Livewire\Components\Notify;
 
+use App\Services\Files\ExportStorage;
 use App\Support\Notifications\UserNotificationData;
 use Illuminate\Notifications\DatabaseNotification;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Illuminate\Support\Facades\{Auth, Storage};
+use Livewire\{Component, WithPagination};
 
 class AllNotifies extends Component
 {
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
+
     protected $pageName = 'notifyPage';
 
     public int $perPage = 12;
+
     public bool $onlyUnread = false;
+
+    /** @var array<int, string> */
+    public array $seenNotificationIds = [];
 
     protected $queryString = [
         'onlyUnread' => ['except' => false],
@@ -26,15 +30,55 @@ class AllNotifies extends Component
 
     protected $listeners = [
         'refresh_list' => '$refresh',
-        'openNotifies' => 'openModal'
+        'openNotifies' => 'openModal',
     ];
 
     public function openModal()
     {
 
         $this->dispatchBrowserEvent('showModal', [
-               'id' => 'notificationsModal',
-           ]);
+            'id' => 'notificationsModal',
+        ]);
+    }
+
+    public function mount(): void
+    {
+        $user                      = Auth::user();
+        $this->seenNotificationIds = $user
+            ? $user->notifications()->latest()->limit(20)->pluck('id')->map(fn ($id) => (string) $id)->all()
+            : [];
+    }
+
+    /** Exibe um toast somente para notificações novas solicitadas como aviso imediato. */
+    public function pollForToasts(): void
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return;
+        }
+
+        $notifications    = $user->notifications()->latest()->limit(20)->get();
+        $newNotifications = $notifications->filter(
+            fn (DatabaseNotification $notification) => !in_array((string) $notification->id, $this->seenNotificationIds, true)
+        )->sortBy('created_at');
+
+        $this->seenNotificationIds = $notifications->pluck('id')->map(fn ($id) => (string) $id)->all();
+
+        foreach ($newNotifications as $notification) {
+            $payload = UserNotificationData::fromArray($notification->data);
+
+            if (!($payload->extras()['toast'] ?? false)) {
+                continue;
+            }
+
+            $this->dispatchBrowserEvent('notification:toast', [
+                'title' => $payload->title(),
+                'text'  => strip_tags($payload->message()),
+                'icon'  => $payload->status() === UserNotificationData::normalizeStatus('error') ? 'error' : 'success',
+                'url'   => $payload->actionUrl(),
+            ]);
+        }
     }
 
     protected function baseQuery()
@@ -43,7 +87,6 @@ class AllNotifies extends Component
         $user = Auth::user();
 
         $query = DatabaseNotification::query();
-
 
         if (!$user) {
             // Evita exceptions se não autenticado
@@ -63,6 +106,7 @@ class AllNotifies extends Component
     public function getUnreadTotalProperty(): int
     {
         $user = Auth::user();
+
         return $user ? $user->unreadNotifications()->count() : 0;
     }
 
@@ -92,8 +136,9 @@ class AllNotifies extends Component
 
     public function delete($id): void
     {
-        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $id   = trim((string) $id, " \t\n\r\0\x0B\"'");
         $user = Auth::user();
+
         if (!$user || $id === '') {
             return;
         }
@@ -126,6 +171,7 @@ class AllNotifies extends Component
     public function delete_all(): void
     {
         $user = Auth::user();
+
         if (!$user) {
             return;
         }
@@ -147,11 +193,11 @@ class AllNotifies extends Component
         $this->emitTo('components.notify.notifys', 'refresh_list');
     }
 
-
     public function open($id)
     {
-        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $id   = trim((string) $id, " \t\n\r\0\x0B\"'");
         $user = Auth::user();
+
         if (!$user || $id === '') {
             return;
         }
@@ -170,11 +216,15 @@ class AllNotifies extends Component
         $notification->markAsRead();
 
         $payload = UserNotificationData::fromArray($notification->data);
+
         if ($payload->isDownloadAction() && $payload->downloadStoragePath()) {
             $filePath = $payload->downloadStoragePath();
+            $disk     = str_starts_with($filePath, 'exports/')
+                ? app(ExportStorage::class)->disk()
+                : Storage::disk('public');
 
-            if (Storage::exists($filePath)) {
-                return Storage::download($filePath, basename($filePath));
+            if ($disk->exists($filePath)) {
+                return $disk->download($filePath, basename($filePath));
             }
 
             $this->dispatchBrowserEvent('swal', [
@@ -183,6 +233,7 @@ class AllNotifies extends Component
                 'title'    => 'Arquivo inexistente.',
                 'timer'    => 2000,
             ]);
+
             return;
         }
 
@@ -196,8 +247,9 @@ class AllNotifies extends Component
 
     public function markAsRead($id): void
     {
-        $id = trim((string) $id, " \t\n\r\0\x0B\"'");
+        $id   = trim((string) $id, " \t\n\r\0\x0B\"'");
         $user = Auth::user();
+
         if (!$user || $id === '') {
             return;
         }

@@ -48,15 +48,17 @@
 
         <div class="table-card" style="overflow: visible;">
             <div class="px-3 pt-3 small text-muted"><strong>{{ $rows->total() }}</strong> obra(s) nesta etapa</div>
-            <div class="ob-list">
+            <div class="table-responsive"><table class="table wk-table mb-0">
+                @include('quality._obra-table-head', ['showCompany' => true])
+                <tbody>
                 @forelse ($rows as $process)
                     @include('quality._obra', ['process' => $process, 'showCompany' => true, 'who' => 'n1', 'showReason' => $tab === 'com-n1', 'primary' => $current['action'], 'ageLabel' => ['decidir' => 'aguardando você', 'encerrar' => 'parado', 'com-n1' => 'com o N1'][$tab], 'action' => ['decidir' => 'Decidir', 'encerrar' => 'Resolver', 'com-n1' => 'Abrir'][$tab]])
                 @empty
-                    <div class="ob-empty"><i class="ri-inbox-2-line"></i><div class="fw-bold">Nada nesta etapa.</div><div class="small">{{ $tab === 'decidir' ? 'Quando o N1 aprovar uma obra, ela cai aqui para a sua decisão.' : 'Acompanhe as outras etapas acima.' }}</div></div>
+                    <tr><td colspan="7" class="ob-empty"><i class="ri-inbox-2-line"></i><div class="fw-bold">Nada nesta etapa.</div><div class="small">{{ $tab === 'decidir' ? 'Quando o N1 aprovar uma obra, ela cai aqui para a sua decisão.' : 'Acompanhe as outras etapas acima.' }}</div></td></tr>
                 @endforelse
-            </div>
+                </tbody>
+            </table></div>
             <div class="p-3">{{ $rows->links('quality._pagination') }}</div>
         </div>
     </div>
 @endsection
-

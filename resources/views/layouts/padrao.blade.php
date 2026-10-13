@@ -325,6 +325,28 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
             Swal.fire(e.detail);
         });
 
+        window.addEventListener('notification:toast', function(event) {
+            const detail = event.detail || {};
+            const hasDownload = Boolean(detail.url);
+
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: detail.icon || 'success',
+                title: detail.title || 'Exportação concluída!',
+                text: detail.text || 'Seu arquivo está pronto para download.',
+                showConfirmButton: hasDownload,
+                confirmButtonText: 'Baixar agora',
+                showCloseButton: true,
+                timer: hasDownload ? 12000 : 5000,
+                timerProgressBar: true,
+            }).then(function(result) {
+                if (result.isConfirmed && hasDownload) {
+                    window.location.assign(detail.url);
+                }
+            });
+        });
+
         window.addEventListener('torrada', function(e) {
 
             showToast(createToast(e.detail.menssage, ' text-bg-' + e.detail.status));

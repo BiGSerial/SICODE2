@@ -115,6 +115,25 @@ class WorkReportSupervisionBlockEvaluatorTest extends TestCase
         $this->assertSame('workreport_producao_confirmada', $result['reason']);
     }
 
+    public function test_recently_completed_confirmed_work_report_stays_green_while_waiting_for_sap(): void
+    {
+        [$workReport, $service, $company, $user] = $this->fixture();
+
+        $this->linkProduction($workReport, $service, $company, [
+            'user_id'      => $user->id,
+            'status'       => 5,
+            'completed'    => true,
+            'confirmed'    => true,
+            'completed_at' => now()->subHours(11),
+        ]);
+
+        $result = app(WorkReportBlockEvaluator::class)->evaluate($workReport->fresh(['Note', 'FlowProductions.Production']), $service);
+
+        $this->assertSame('table-success', $result['color']);
+        $this->assertFalse($result['command']);
+        $this->assertSame('workreport_producao_confirmada_aguardando_sap', $result['reason']);
+    }
+
     public function test_rejected_assigned_work_report_is_yellow_and_blocked(): void
     {
         [$workReport, $service, $company, $user] = $this->fixture([

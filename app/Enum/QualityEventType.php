@@ -6,6 +6,7 @@ enum QualityEventType: string
 {
     case DISPATCHED           = 'DISPATCHED';            // N2 → N1
     case DESIGNER_ASSIGNED    = 'DESIGNER_ASSIGNED';     // N1 → usuário
+    case N1_QUEUE_CLAIMED     = 'N1_QUEUE_CLAIMED';      // usuário assume da fila N1
     case STAGE_STARTED        = 'STAGE_STARTED';         // usuário iniciou
     case STAGE_SUBMITTED      = 'STAGE_SUBMITTED';       // usuário → N1
     case APPROVED             = 'APPROVED';              // N1 ou N2 aprovou
@@ -29,6 +30,7 @@ enum QualityEventType: string
         return match ($this) {
             self::DISPATCHED           => 'Despachado do N2 para o N1',
             self::DESIGNER_ASSIGNED    => 'Despachado do N1 ao usuário',
+            self::N1_QUEUE_CLAIMED     => 'Usuário assumiu da fila do N1',
             self::STAGE_STARTED        => 'Usuário iniciou a atividade',
             self::STAGE_SUBMITTED      => 'Usuário enviou ao N1',
             self::APPROVED             => 'Aprovado',
@@ -54,7 +56,7 @@ enum QualityEventType: string
     {
         return match ($this) {
             self::DISPATCHED => 'ri-send-plane-2-line',
-            self::DESIGNER_ASSIGNED, self::RETURN_FORWARDED => 'ri-user-shared-line',
+            self::DESIGNER_ASSIGNED, self::N1_QUEUE_CLAIMED, self::RETURN_FORWARDED => 'ri-user-shared-line',
             self::REASSIGNED      => 'ri-exchange-line',
             self::STAGE_STARTED   => 'ri-play-circle-line',
             self::STAGE_SUBMITTED => 'ri-upload-cloud-2-line',
@@ -80,7 +82,7 @@ enum QualityEventType: string
             self::REJECTED, self::RETURNED_TO_DESIGNER, self::RETURNED_TO_N1, self::SAP_FAILED => 'danger',
             self::CONTESTED, self::REASSIGNED => 'warning',
             self::STAGE_SUBMITTED, self::FORWARDED_TO_N2 => 'primary',
-            self::DISPATCHED, self::DESIGNER_ASSIGNED, self::RETURN_FORWARDED, self::STAGE_STARTED => 'info',
+            self::DISPATCHED, self::DESIGNER_ASSIGNED, self::N1_QUEUE_CLAIMED, self::RETURN_FORWARDED, self::STAGE_STARTED => 'info',
             default => 'secondary',
         };
     }

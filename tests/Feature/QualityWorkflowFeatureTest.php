@@ -175,6 +175,23 @@ class QualityWorkflowFeatureTest extends TestCase
         $this->workflow->dispatch([$this->note->id], $this->company, $this->manager);
     }
 
+    public function test_eligible_user_can_claim_an_item_from_the_n1_dispatch_queue(): void
+    {
+        $process = $this->dispatchToN1();
+
+        $claimed = $this->workflow->claimN1Dispatch($process, $this->designerA);
+
+        $this->assertSame(QualityProcessState::AWAITING_DESIGNER, $claimed->state);
+        $this->assertSame($this->designerA->id, $claimed->current_designer_id);
+        $this->assertSame($this->designerA->id, Production::findOrFail($claimed->production_id)->user_id);
+        $this->assertDatabaseHas('quality_events', [
+            'quality_process_id' => $claimed->id,
+            'type'               => QualityEventType::N1_QUEUE_CLAIMED->value,
+            'actor_id'           => $this->designerA->id,
+            'actor_role'         => 'USUÁRIO',
+        ]);
+    }
+
     public function test_only_management_can_dispatch_and_company_needs_an_n1(): void
     {
         try {

@@ -66,7 +66,7 @@ Toda decisao desta refatoracao deve priorizar confiabilidade, integridade do dad
 
 ## Registro De Andamento
 
-Atualizado em 2026-09-11.
+Atualizado em 2026-10-06.
 
 ### Concluido / Validado
 
@@ -88,6 +88,41 @@ Atualizado em 2026-09-11.
 - Telas principais ja exibem badges de escopo e status atual do informe em pontos de parceiro, Fiscalizacao, Medicao e Publicacao.
 - Testes especificos de linker, status e selecao de Fiscalizacao passaram no container `sicode2-app`.
 - Testes especificos de Publicacao por WorkReport passaram no container `sicode2-app`.
+
+### Medicao e Pagamento: regra operacional e ciclos D5
+
+Esta secao e a fonte de consulta para manutencoes nas listas, pilhas, despachos, atribuicoes e exportacoes de Medicao/Pagamento.
+
+#### Unidade e fonte de verdade
+
+- A unidade tecnica do final e o `WorkReport`; a Nota e somente o agrupador visual.
+- Uma Ordem so torna um informe elegivel se pertencer a `order_work_report` daquele `WorkReport`. Nunca avaliar todas as Ordens da Nota para liberar outro informe.
+- A regra central esta em `App\\Services\\Payment\\WorkReportPaymentCandidateQuery`. Ela deve ser usada tanto na consulta SQL (`whereEligibleOrder`) quanto em colecoes ja carregadas (`orderIsEligible`). Nao recriar predicados locais nas telas.
+- `App\\Services\\Payment\\NoteFilter` aplica a regra na consulta-base; `App\\Http\\Livewire\\Services\\Payment\\Main` reaplica exatamente a mesma regra ao expandir uma Nota em linhas de informe. As duas etapas precisam permanecer equivalentes para que uma Nota contada pela paginacao nao desapareca ao renderizar.
+
+#### Elegibilidade de uma Ordem para Medicao/Pagamento
+
+Em todos os rulesets, a Ordem precisa ter `statusSist` iniciado por `LIB` e uma operacao `0030` com status iniciado por `CONF`.
+
+| Ruleset | Condicao adicional |
+| --- | --- |
+| ES (padrao) | Operacao `0040` em `CNPA%`, `JBFI LIB%` ou `LIB%` **e** operacao `0050` em `LIB%`. |
+| SP | Apos `0030` confirmada, ignora `0040`; exige `0050` em `LIB%`, `CNPA%` ou `JBFI LIB%`. |
+
+Nao incluir a operacao `0010` como pre-requisito local: ela nao faz parte do criterio central de elegibilidade de Pagamento.
+
+#### D5 e segundo ciclo
+
+- Uma D5 com `work_report_id` pertence exclusivamente a esse informe. A relacao `Note->FiveNote` e legado para D5 sem informe e nao pode decidir o estado de uma D5 vinculada a informe.
+- D5 ativa e vinculada ao informe e tratada como linha propria do contexto desse informe enquanto ainda requer acao de Medicao/Pagamento.
+- Depois que a D5 do primeiro ciclo esta paga (`is_payed = true`), ela deixa de ser uma pendencia D5. Isso nao pode remover o `WorkReport` da pilha quando suas Ordens satisfazem a regra central: ele deve aparecer como proximo ciclo normal de Medicao/Pagamento.
+- Ao coexistirem varios informes ou D5 na mesma Nota, cada linha deve carregar o seu `payment_work_report_id`/`dispatch_work_report_id`; nao reutilizar D5 ou Ordens de outro informe.
+
+#### Falha ja corrigida
+
+O caso observado na Nota `4001810520` tinha a D5 vinculada ao informe `#22927`, fiscalizada e paga. A consulta-base reconhecia a Nota, mas a expansao da tela de Medicao usava uma regra antiga que tambem exigia `0010` confirmada. Ela descartava o informe, causando a divergencia visual de haver registro contado e a mensagem de lista vazia. A expansao agora delega a `WorkReportPaymentCandidateQuery`.
+
+Cobertura de regressao: `PaymentMassSearchTest::test_service_payment_lists_the_second_cycle_after_a_paid_d5`. O cenario cria um informe com `0030 = CONF`, `0040 = LIB`, `0050 = LIB` e D5 do ciclo anterior marcada como paga; a pilha deve manter a linha do informe.
 
 Comando validado:
 

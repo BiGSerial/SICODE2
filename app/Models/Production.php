@@ -7,7 +7,7 @@ use App\Models\SicodeSql\Production as SicodeSqlProduction;
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{MorphToMany};
+use Illuminate\Database\Eloquent\Relations\{HasOne, MorphToMany};
 use Illuminate\Support\Collection;
 
 class Production extends Model
@@ -268,6 +268,12 @@ class Production extends Model
     public function ClosureOrderStates()
     {
         return $this->hasMany(ClosureOrderState::class);
+    }
+
+    /** Contexto obrigatório para novas Productions de Medição/Pagamento. */
+    public function measurementContext(): HasOne
+    {
+        return $this->hasOne(MeasurementProductionContext::class);
     }
 
     public function currentWorkReportsForStage(?string $stage = null): Collection

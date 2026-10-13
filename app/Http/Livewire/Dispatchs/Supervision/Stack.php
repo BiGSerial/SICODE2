@@ -3,14 +3,11 @@
 namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Helpers\TextFormatter;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\WorkReportFlowProduction;
+use App\Models\{Production, WorkReportFlowProduction};
 use App\Support\SicodeRules;
 use App\Traits\WildcardFormatter;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class Stack extends Component
 {
@@ -23,30 +20,38 @@ class Stack extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 50;
+
     public $selected = [];
+
     public $statusFilter = null;
+
     public $search = '';
+
     public $advancedSearch;
+
     public $multiSearch = [];
+
     public $note_type = '';
 
     // Filters
     private $filter_group = 'supervision';
+
     private $filter;
 
     protected $queryString = [
         'statusFilter' => ['except' => null],
-        'search' => ['except' => ''],
-        'page' => ['except' => 1],
-        'note_type' => ['except' => null || ''],
-        'multiSearch' => ['except' => []],
+        'search'       => ['except' => ''],
+        'page'         => ['except' => 1],
+        'note_type'    => ['except' => null || ''],
+        'multiSearch'  => ['except' => []],
     ];
 
     protected $listeners = [
         'resetFilters',
         'refresh_list' => '$refresh',
-        'filterUser' => 'filterUser',
+        'filterUser'   => 'filterUser',
     ];
 
     public function mount($service)
@@ -58,7 +63,9 @@ class Stack extends Component
     public function filterUser($user_id)
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $this->gotoPage(1);
@@ -73,17 +80,17 @@ class Stack extends Component
         $this->loadFilters();
 
         \App\Jobs\Dispatchs\ExportDispatchSupervisionJob::dispatch([
-            'service_id'   => $this->service,
-            'search'       => $this->search,
-            'multiSearch'  => $this->multiSearch,
-            'note_type'    => $this->note_type,
-            'user_fs'      => $this->filter['user'] ?? [],
+            'service_id'  => $this->service,
+            'search'      => $this->search,
+            'multiSearch' => $this->multiSearch,
+            'note_type'   => $this->note_type,
+            'user_fs'     => $this->filter['user'] ?? [],
         ], auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => 'info',
+            'icon'  => 'info',
             'title' => 'Exportação iniciada!',
-            'text' => 'Você será notificado quando o arquivo estiver pronto.',
+            'text'  => 'Você será notificado quando o arquivo estiver pronto.',
         ]);
     }
 
@@ -108,7 +115,7 @@ class Stack extends Component
         $this->multiSearch = $this->formatTextToArray($this->advancedSearch);
 
         if (count($this->multiSearch) > 0) {
-            $this->search = null;
+            $this->search         = null;
             $this->advancedSearch = null;
 
             $this->dispatchBrowserEvent('hideModal');
@@ -118,18 +125,21 @@ class Stack extends Component
     public function resetFilters()
     {
         $this->reset('statusFilter', 'search', 'page');
-        $this->multiSearch = [];
+        $this->multiSearch    = [];
         $this->advancedSearch = null;
-        $this->search = null;
+        $this->search         = null;
     }
 
     private function loadFilters(): void
     {
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         $sessionFilters = session('filter.' . $this->filter_group);
+
         if (is_array($sessionFilters)) {
             $this->filter = $sessionFilters;
         } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
@@ -141,6 +151,8 @@ class Stack extends Component
 
     private function baseQuery()
     {
+        $dispatchableWorkReportIds = app(\App\Services\Supervision\WorkReportSupervisionCandidateQuery::class)
+            ->dispatchableWorkReportIdsSubquery();
 
         $pzoExpr = "
             CASE
@@ -164,7 +176,6 @@ class Stack extends Component
             END
             ";
 
-
         $dtInformExpr = "
             CASE
                 WHEN wr.informed_at IS NOT NULL THEN wr.informed_at
@@ -181,8 +192,6 @@ class Stack extends Component
                 ELSE NULL
             END
         ";
-
-
 
         return Production::Query()
             ->where('service_id', $this->service)
@@ -212,6 +221,10 @@ class Stack extends Component
                     ->where('wr.canceled', false);
             })
             ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
+            ->where(function ($query) use ($dispatchableWorkReportIds) {
+                $query->whereNull('wrfp.work_report_id')
+                    ->orWhereIn('wrfp.work_report_id', $dispatchableWorkReportIds);
+            })
             ->addSelect('productions.*')
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
             ->addSelect(DB::raw("$dtInformExpr AS dt_inform"))
@@ -236,16 +249,12 @@ class Stack extends Component
                     ->where('is_current', true)
                     ->orderByDesc('id')
                     ->with('WorkReport:id'),
-            ])
-        ;
+            ]);
     }
 
     private function filtersQuery()
     {
         $this->loadFilters();
-
-
-
 
         return $this->baseQuery()
             ->when(trim($this->search), function ($q) {
@@ -300,7 +309,6 @@ class Stack extends Component
     {
         $query = $this->filtersQuery()
 
-
             ->orderBy('priority', 'desc')
             ->orderBy('d5', 'desc')
             ->orderBy('partial', 'desc')
@@ -327,10 +335,9 @@ class Stack extends Component
             ->toArray();
 
         return view('livewire.dispatchs.supervision.stack', [
-            'lists' => $this->lists,
+            'lists'      => $this->lists,
             'statusList' => $statusList,
         ]);
     }
-
 
 }

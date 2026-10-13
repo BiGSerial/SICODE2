@@ -3,99 +3,137 @@
 namespace App\Http\Livewire\Admin\Control;
 
 use App\Enum\AdsRequestStatus;
-use App\Models\AdsRequest;
-use App\Models\File;
-use App\Models\Company;
-use App\Models\Order;
-use App\Models\User;
-use App\Models\WorkReport;
-use Illuminate\Support\Facades\DB;
+use App\Models\{AdsRequest, Company, File, Order, Production, User, WorkReport, WorkReportFlowProduction};
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class WorkReportEdit extends Component
 {
     public ?WorkReport $workReport = null;
+
     public ?string $informedAt = null;
+
     public ?string $acceptanceAt = null;
+
     public ?string $acceptanceMetaJson = null;
+
     public $companies = [];
+
     public $users = [];
+
     public $availableOrders = [];
+
     public $linkedOrders = [];
+
+    public array $noteProductions = [];
+
+    public array $productionTargetWorkReportIds = [];
+
+    public ?int $pendingProductionId = null;
+
+    public ?int $pendingTargetWorkReportId = null;
+
+    public ?int $deleteProductionId = null;
+
     public $deleteAdsFormId = null;
+
     public ?array $firstValidAdsRequest = null;
+
     public array $relatedWorkReports = [];
+
     public array $relatedWorkReportOptions = [];
+
     public array $availableFinalScopes = [];
+
     public array $splitScopeSelection = [];
+
     public string $activeTab = 'details';
+
     public array $workReportFiles = [];
+
     public array $selectedFileIds = [];
+
     public array $fileTargetByFile = [];
+
     public $fileTargetWorkReportId = null;
 
     public bool $adsFormEnabled = false;
+
     public ?int $adsFormId = null;
+
     public int $adsFilesCount = 0;
+
     public ?string $adsName = null;
+
     public ?string $adsObs = null;
+
     public ?string $adsContract = null;
+
     public ?string $adsCenter = null;
+
     public ?string $adsDeposit = null;
+
     public ?string $adsAmount = null;
+
     public bool $adsPartial = false;
+
     public bool $adsTacit = false;
+
     public ?string $adsTacitDueAt = null;
+
     public ?string $adsTacitDeliveredAt = null;
 
     protected $listeners = [
         'getInfoResponse',
-        'resetForm' => 'resetForm',
-        'confirmDeleteAdsForm' => 'deleteAdsForm',
+        'resetForm'                  => 'resetForm',
+        'confirmDeleteAdsForm'       => 'deleteAdsForm',
+        'confirmAssociateProduction' => 'associateProduction',
+        'confirmDetachProduction'    => 'detachProduction',
+        'confirmDeleteProduction'    => 'deleteProduction',
     ];
 
     protected function rules(): array
     {
         return [
-            'workReport.note_id' => ['nullable', 'integer'],
-            'workReport.company_id' => ['nullable', 'uuid'],
-            'workReport.user_id' => ['nullable', 'uuid'],
-            'workReport.date' => ['nullable', 'date'],
-            'workReport.dd' => ['nullable', 'string', 'max:191'],
-            'workReport.informer' => ['nullable', 'string', 'max:191'],
-            'workReport.team' => ['nullable', 'string', 'max:191'],
-            'workReport.responsible' => ['nullable', 'string', 'max:191'],
-            'workReport.observation' => ['nullable', 'string'],
-            'workReport.description' => ['nullable', 'string'],
-            'workReport.acceptance_name' => ['nullable', 'string', 'max:191'],
-            'informedAt' => ['nullable', 'date'],
-            'acceptanceAt' => ['nullable', 'date'],
-            'workReport.equipment' => ['boolean'],
-            'workReport.connection' => ['boolean'],
-            'workReport.changes' => ['boolean'],
-            'workReport.damage' => ['boolean'],
-            'workReport.approved' => ['boolean'],
-            'workReport.rejected' => ['boolean'],
-            'workReport.retry' => ['boolean'],
+            'workReport.note_id'             => ['nullable', 'integer'],
+            'workReport.company_id'          => ['nullable', 'uuid'],
+            'workReport.user_id'             => ['nullable', 'uuid'],
+            'workReport.date'                => ['nullable', 'date'],
+            'workReport.dd'                  => ['nullable', 'string', 'max:191'],
+            'workReport.informer'            => ['nullable', 'string', 'max:191'],
+            'workReport.team'                => ['nullable', 'string', 'max:191'],
+            'workReport.responsible'         => ['nullable', 'string', 'max:191'],
+            'workReport.observation'         => ['nullable', 'string'],
+            'workReport.description'         => ['nullable', 'string'],
+            'workReport.acceptance_name'     => ['nullable', 'string', 'max:191'],
+            'informedAt'                     => ['nullable', 'date'],
+            'acceptanceAt'                   => ['nullable', 'date'],
+            'workReport.equipment'           => ['boolean'],
+            'workReport.connection'          => ['boolean'],
+            'workReport.changes'             => ['boolean'],
+            'workReport.damage'              => ['boolean'],
+            'workReport.approved'            => ['boolean'],
+            'workReport.rejected'            => ['boolean'],
+            'workReport.retry'               => ['boolean'],
             'workReport.acceptance_accepted' => ['boolean'],
-            'adsName' => ['nullable', 'string', 'max:191'],
-            'adsObs' => ['nullable', 'string'],
-            'adsContract' => ['nullable', 'string', 'max:191'],
-            'adsCenter' => ['nullable', 'string', 'max:191'],
-            'adsDeposit' => ['nullable', 'string', 'max:191'],
-            'adsAmount' => ['nullable', 'string', 'max:50'],
-            'adsPartial' => ['boolean'],
-            'adsTacit' => ['boolean'],
-            'adsTacitDueAt' => ['nullable', 'date'],
-            'adsTacitDeliveredAt' => ['nullable', 'date'],
+            'adsName'                        => ['nullable', 'string', 'max:191'],
+            'adsObs'                         => ['nullable', 'string'],
+            'adsContract'                    => ['nullable', 'string', 'max:191'],
+            'adsCenter'                      => ['nullable', 'string', 'max:191'],
+            'adsDeposit'                     => ['nullable', 'string', 'max:191'],
+            'adsAmount'                      => ['nullable', 'string', 'max:50'],
+            'adsPartial'                     => ['boolean'],
+            'adsTacit'                       => ['boolean'],
+            'adsTacitDueAt'                  => ['nullable', 'date'],
+            'adsTacitDeliveredAt'            => ['nullable', 'date'],
         ];
     }
 
     public function mount(): void
     {
-        $this->companies = Company::orderBy('name')->get();
-        $this->users = User::orderBy('name')->get();
+        $this->companies            = Company::orderBy('name')->get();
+        $this->users                = User::orderBy('name')->get();
         $this->availableFinalScopes = [
             WorkReportFinalScopeResolver::SCOPE_NETWORK,
             WorkReportFinalScopeResolver::SCOPE_CONNECTION,
@@ -105,9 +143,9 @@ class WorkReportEdit extends Component
     public function getInfoResponse(WorkReport $workReport): void
     {
         $this->resetForm(false);
-        $this->workReport = $workReport->load(['Note', 'Company', 'User', 'Orders', 'Adsform.Files']);
-        $this->informedAt = $this->formatDateTimeLocal($this->workReport->informed_at);
-        $this->acceptanceAt = $this->formatDateTimeLocal($this->workReport->acceptance_at);
+        $this->workReport         = $workReport->load(['Note', 'Company', 'User', 'Orders', 'Adsform.Files']);
+        $this->informedAt         = $this->formatDateTimeLocal($this->workReport->informed_at);
+        $this->acceptanceAt       = $this->formatDateTimeLocal($this->workReport->acceptance_at);
         $this->acceptanceMetaJson = $this->workReport->acceptance_meta
             ? json_encode($this->workReport->acceptance_meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
             : null;
@@ -116,12 +154,13 @@ class WorkReportEdit extends Component
         $this->refreshOrders();
         $this->refreshFirstValidAdsRequest();
         $this->refreshRelatedWorkReports();
+        $this->refreshNoteProductions();
         $this->refreshWorkReportFiles();
-        $this->splitScopeSelection = [];
-        $this->selectedFileIds = [];
-        $this->fileTargetByFile = [];
+        $this->splitScopeSelection    = [];
+        $this->selectedFileIds        = [];
+        $this->fileTargetByFile       = [];
         $this->fileTargetWorkReportId = $this->workReport->id;
-        $this->activeTab = 'details';
+        $this->activeTab              = 'details';
 
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'adminWorkReportModal',
@@ -156,10 +195,10 @@ class WorkReportEdit extends Component
         if ($currentScopes->count() !== 2) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'info',
-                'title' => 'Separação indisponível',
-                'html' => 'A separação só pode ser feita quando o informe possuir os dois escopos: Rede e Ligação.',
-                'timer' => 3000,
+                'icon'     => 'info',
+                'title'    => 'Separação indisponível',
+                'html'     => 'A separação só pode ser feita quando o informe possuir os dois escopos: Rede e Ligação.',
+                'timer'    => 3000,
             ]);
 
             return;
@@ -175,9 +214,9 @@ class WorkReportEdit extends Component
         if (count($scopes) < 1) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione o escopo que será separado',
-                'timer' => 2200,
+                'icon'     => 'warning',
+                'title'    => 'Selecione o escopo que será separado',
+                'timer'    => 2200,
             ]);
 
             return;
@@ -188,8 +227,8 @@ class WorkReportEdit extends Component
             'Orders',
             'FlowProductions',
         ]);
-        $ordersByScope = $this->ordersByScope($source);
-        $sourceOrderIds = $source->Orders->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $ordersByScope    = $this->ordersByScope($source);
+        $sourceOrderIds   = $source->Orders->pluck('id')->map(fn ($id) => (int) $id)->all();
         $selectedOrderIds = collect($scopes)
             ->flatMap(fn ($scope) => $ordersByScope[$scope] ?? [])
             ->map(fn ($id) => (int) $id)
@@ -201,9 +240,9 @@ class WorkReportEdit extends Component
         if (empty($selectedOrderIds) || empty($remainingOrderIds)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Não foi possível separar esse escopo',
-                'html' => empty($selectedOrderIds)
+                'icon'     => 'warning',
+                'title'    => 'Não foi possível separar esse escopo',
+                'html'     => empty($selectedOrderIds)
                     ? 'Não existem ordens identificadas para o escopo selecionado.'
                     : 'O informe original precisa manter ao menos uma ordem.',
                 'timer' => 3000,
@@ -212,12 +251,12 @@ class WorkReportEdit extends Component
             return;
         }
 
-        $now = now();
+        $now     = now();
         $created = [];
 
         DB::transaction(function () use ($source, $scopes, $ordersByScope, $remainingOrderIds, $now, &$created) {
             $sourceAttributes = $source->getAttributes();
-            $remainingScopes = collect($ordersByScope)
+            $remainingScopes  = collect($ordersByScope)
                 ->filter(fn (array $ids, string $scope) => !empty(array_intersect($ids, $remainingOrderIds)))
                 ->keys()
                 ->values()
@@ -243,14 +282,16 @@ class WorkReportEdit extends Component
                 if ($alreadyExists) {
                     $alreadyExists->Orders()->syncWithoutDetaching($orderIds);
                     $created[] = $alreadyExists->id;
+
                     continue;
                 }
 
                 $attributes = $sourceAttributes;
                 unset($attributes['id'], $attributes['created_at'], $attributes['updated_at']);
                 $attributes['selected_final_scopes'] = [$scope];
-                $attributes['date'] = $now->toDateString();
-                $attributes['informed_at'] = $now;
+                $attributes['acceptance_accepted']   = (bool) ($attributes['acceptance_accepted'] ?? false);
+                $attributes['date']                  = $now->toDateString();
+                $attributes['informed_at']           = $now;
 
                 $clone = new WorkReport();
                 $clone->forceFill($attributes);
@@ -272,17 +313,17 @@ class WorkReportEdit extends Component
                     \App\Models\WorkReportFlowProduction::updateOrCreate(
                         [
                             'work_report_id' => $clone->id,
-                            'production_id' => $flow->production_id,
-                            'stage' => $flow->stage,
-                            'final_scope' => $scope,
+                            'production_id'  => $flow->production_id,
+                            'stage'          => $flow->stage,
+                            'final_scope'    => $scope,
                         ],
                         [
                             ...$flowAttributes,
                             'is_current' => $flow->is_current,
-                            'linked_at' => $flow->linked_at,
-                            'linked_by' => $flow->linked_by,
-                            'source' => $flow->source,
-                            'metadata' => $flow->metadata,
+                            'linked_at'  => $flow->linked_at,
+                            'linked_by'  => $flow->linked_by,
+                            'source'     => $flow->source,
+                            'metadata'   => $flow->metadata,
                         ],
                     );
                 }
@@ -292,18 +333,19 @@ class WorkReportEdit extends Component
         });
 
         $this->workReport->refresh()->load(['Note', 'Company', 'User', 'Orders', 'Adsform.Files']);
-        $this->informedAt = $this->formatDateTimeLocal($this->workReport->informed_at);
+        $this->informedAt          = $this->formatDateTimeLocal($this->workReport->informed_at);
         $this->splitScopeSelection = [];
         $this->refreshOrders();
         $this->refreshRelatedWorkReports();
+        $this->refreshNoteProductions();
         $this->refreshWorkReportFiles();
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Escopo separado com sucesso',
-            'html' => 'Novo informe: #' . implode(', #', $created) . '<br>Data da separação: ' . $now->format('d/m/Y H:i'),
-            'timer' => 3500,
+            'icon'     => 'success',
+            'title'    => 'Escopo separado com sucesso',
+            'html'     => 'Novo informe: #' . implode(', #', $created) . '<br>Data da separação: ' . $now->format('d/m/Y H:i'),
+            'timer'    => 3500,
         ]);
     }
 
@@ -329,8 +371,9 @@ class WorkReportEdit extends Component
     private function refreshRelatedWorkReports(): void
     {
         if (!$this->workReport?->note_id) {
-            $this->relatedWorkReports = [];
+            $this->relatedWorkReports       = [];
             $this->relatedWorkReportOptions = [];
+
             return;
         }
 
@@ -340,9 +383,9 @@ class WorkReportEdit extends Component
             ->orderByDesc('id')
             ->get();
 
-        $this->relatedWorkReports = $reports->all();
+        $this->relatedWorkReports       = $reports->all();
         $this->relatedWorkReportOptions = $reports->map(fn (WorkReport $report): array => [
-            'id' => (int) $report->id,
+            'id'    => (int) $report->id,
             'label' => collect($report->finalScopeBadges())->pluck('label')->implode(' / ') ?: 'Geral',
         ])->values()->all();
     }
@@ -366,11 +409,12 @@ class WorkReportEdit extends Component
 
         if ($reportIds->isEmpty()) {
             $this->workReportFiles = [];
+
             return;
         }
 
         $this->fileTargetByFile = [];
-        $this->workReportFiles = File::query()
+        $this->workReportFiles  = File::query()
             ->whereHas('WorkReports', fn ($query) => $query->whereIn('work_reports.id', $reportIds->all()))
             ->with(['WorkReports:id,note_id'])
             ->orderByDesc('created_at')
@@ -386,10 +430,10 @@ class WorkReportEdit extends Component
                 $this->fileTargetByFile[(int) $file->id] = $relatedReportIds[0] ?? $this->workReport?->id;
 
                 return [
-                    'id' => (int) $file->id,
-                    'name' => (string) ($file->original_name ?: $file->file_name ?: 'Arquivo sem nome'),
-                    'type' => strtoupper((string) ($file->ext ?: pathinfo((string) $file->file_name, PATHINFO_EXTENSION) ?: 'ARQ')),
-                    'size' => (int) $file->size,
+                    'id'         => (int) $file->id,
+                    'name'       => (string) ($file->original_name ?: $file->file_name ?: 'Arquivo sem nome'),
+                    'type'       => strtoupper((string) ($file->ext ?: pathinfo((string) $file->file_name, PATHINFO_EXTENSION) ?: 'ARQ')),
+                    'size'       => (int) $file->size,
                     'report_ids' => $relatedReportIds,
                 ];
             })
@@ -411,7 +455,7 @@ class WorkReportEdit extends Component
     private function moveFilesToWorkReport(array $fileIds, int $targetWorkReportId): void
     {
         $reportIds = collect($this->relatedWorkReports)->pluck('id')->filter()->map(fn ($id) => (int) $id)->values();
-        $target = WorkReport::query()
+        $target    = WorkReport::query()
             ->whereKey($targetWorkReportId)
             ->whereIn('id', $reportIds->all())
             ->first();
@@ -421,10 +465,11 @@ class WorkReportEdit extends Component
         if (!$target || $fileIds->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione os arquivos e o informe destino',
-                'timer' => 2200,
+                'icon'     => 'warning',
+                'title'    => 'Selecione os arquivos e o informe destino',
+                'timer'    => 2200,
             ]);
+
             return;
         }
 
@@ -440,18 +485,18 @@ class WorkReportEdit extends Component
             }
         });
 
-        $count = $files->count();
-        $this->selectedFileIds = [];
+        $count                        = $files->count();
+        $this->selectedFileIds        = [];
         $this->fileTargetWorkReportId = $target->id;
         $this->refreshWorkReportFiles();
         $this->activeTab = 'files';
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => $count . ' arquivo(s) atualizado(s)',
-            'html' => 'Associação alterada para o informe #' . $target->id . '.',
-            'timer' => 2500,
+            'icon'     => 'success',
+            'title'    => $count . ' arquivo(s) atualizado(s)',
+            'html'     => 'Associação alterada para o informe #' . $target->id . '.',
+            'timer'    => 2500,
         ]);
     }
 
@@ -465,22 +510,156 @@ class WorkReportEdit extends Component
     {
         if (!$this->workReport?->note_id) {
             $this->availableOrders = [];
-            $this->linkedOrders = [];
+            $this->linkedOrders    = [];
+
             return;
         }
 
-        $orders = Order::where('note_id', $this->workReport->note_id)->orderBy('ordem')->get();
-        $linkedIds = $this->workReport->Orders->pluck('id')->all();
+        $orders               = Order::where('note_id', $this->workReport->note_id)->orderBy('ordem')->get();
+        $linkedIds            = $this->workReport->Orders->pluck('id')->all();
+        $linkedToOtherReports = DB::table('order_work_report as owr')
+            ->join('work_reports as wr', 'wr.id', '=', 'owr.work_report_id')
+            ->where('wr.note_id', $this->workReport->note_id)
+            ->where('owr.work_report_id', '!=', $this->workReport->id)
+            ->pluck('owr.order_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
-        $this->linkedOrders = $orders->whereIn('id', $linkedIds)->values()->all();
-        $this->availableOrders = $orders->whereNotIn('id', $linkedIds)->values()->all();
+        $this->linkedOrders    = $orders->whereIn('id', $linkedIds)->values()->all();
+        $this->availableOrders = $orders
+            ->whereNotIn('id', [...$linkedIds, ...$linkedToOtherReports])
+            ->values()
+            ->all();
+    }
+
+    private function refreshNoteProductions(): void
+    {
+        if (!$this->workReport?->note_id) {
+            $this->noteProductions               = [];
+            $this->productionTargetWorkReportIds = [];
+
+            return;
+        }
+
+        $this->productionTargetWorkReportIds = [];
+        $this->noteProductions               = Production::query()
+            ->with([
+                // A Production referencia services.uuid, nao services.id.
+                'service:uuid,service',
+                'user:id,name',
+                'WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current,linked_at',
+            ])
+            ->where('note_id', $this->workReport->note_id)
+            ->where(function ($query): void {
+                $query->whereNull('partial')->orWhere('partial', false);
+            })
+            ->orderByDesc('att_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (Production $production): array {
+                $stage       = $this->stageForProduction($production);
+                $currentLink = $production->WorkReportFlowProductions
+                    ->where('stage', $stage)
+                    ->where('is_current', true)
+                    ->sortByDesc('linked_at')
+                    ->first();
+                $isLinkedHere                                               = (int) ($currentLink?->work_report_id ?? 0) === (int) $this->workReport?->id;
+                $this->productionTargetWorkReportIds[(int) $production->id] = $currentLink?->work_report_id
+                    ? (int) $currentLink->work_report_id
+                    : (int) $this->workReport?->id;
+
+                return [
+                    'id'                => (int) $production->id,
+                    'user_name'         => (string) ($production->user?->name ?? 'Não informado'),
+                    'stage'             => $stage,
+                    'stage_label'       => $this->stageLabel($stage),
+                    'production_status' => $this->productionStatusLabel($production),
+                    'production_date'   => $this->formatProductionDate($production->att_at ?? $production->created_at),
+                    'current_report_id' => $currentLink?->work_report_id ? (int) $currentLink->work_report_id : null,
+                    'is_linked_here'    => $isLinkedHere,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function findEligibleProduction(int $productionId): ?Production
+    {
+        if (!$this->workReport?->note_id || $productionId < 1) {
+            return null;
+        }
+
+        return Production::query()
+            ->with('service')
+            ->whereKey($productionId)
+            ->where('note_id', $this->workReport->note_id)
+            ->where(function ($query): void {
+                $query->whereNull('partial')->orWhere('partial', false);
+            })
+            ->first();
+    }
+
+    private function findEligibleTargetWorkReport(int $workReportId): ?WorkReport
+    {
+        if (!$this->workReport?->note_id || $workReportId < 1) {
+            return null;
+        }
+
+        return WorkReport::query()
+            ->whereKey($workReportId)
+            ->where('note_id', $this->workReport->note_id)
+            ->where('canceled', false)
+            ->first();
+    }
+
+    private function stageForProduction(Production $production): string
+    {
+        $service = \Illuminate\Support\Str::lower(\Illuminate\Support\Str::ascii((string) ($production->service?->service ?? '')));
+
+        return str_contains($service, 'fiscal')
+            ? WorkReportFlowProduction::STAGE_FISCALIZATION
+            : (str_contains($service, 'public') ? WorkReportFlowProduction::STAGE_PUBLICATION : WorkReportFlowProduction::STAGE_PAYMENT);
+    }
+
+    private function stageLabel(string $stage): string
+    {
+        return match ($stage) {
+            WorkReportFlowProduction::STAGE_FISCALIZATION => 'Fiscalização',
+            WorkReportFlowProduction::STAGE_PUBLICATION   => 'Publicação',
+            default                                       => 'Medição',
+        };
+    }
+
+    private function productionStatusLabel(Production $production): string
+    {
+        if ($production->confirmed) {
+            return 'Confirmada';
+        }
+
+        if ($production->completed) {
+            return 'Concluída';
+        }
+
+        return $production->att_at ? 'Em andamento' : 'Pendente';
+    }
+
+    private function formatProductionDate($value): string
+    {
+        return $value ? \Carbon\Carbon::parse($value)->format('d/m/Y H:i') : '---';
+    }
+
+    private function refreshWorkReportStatuses(array $workReportIds): void
+    {
+        foreach (collect($workReportIds)->filter()->unique() as $workReportId) {
+            app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)->refresh((int) $workReportId);
+        }
     }
 
     private function refreshFirstValidAdsRequest(): void
     {
         $this->firstValidAdsRequest = null;
-        $this->relatedWorkReports = [];
-        $this->splitScopeSelection = [];
+        $this->relatedWorkReports   = [];
+        $this->splitScopeSelection  = [];
 
         if (!$this->workReport?->note_id) {
             return;
@@ -500,18 +679,18 @@ class WorkReportEdit extends Component
             return;
         }
 
-        $deliveredAt = $request->delivered_at ?? $request->completed_at;
-        $createdAt = $request->created_at;
-        $deadlineAt = $createdAt?->copy()->addDay()->endOfDay();
+        $deliveredAt    = $request->delivered_at ?? $request->completed_at;
+        $createdAt      = $request->created_at;
+        $deadlineAt     = $createdAt?->copy()->addDay()->endOfDay();
         $withinDeadline = $deliveredAt && $deadlineAt ? $deliveredAt->lte($deadlineAt) : null;
 
         $this->firstValidAdsRequest = [
-            'id' => $request->id,
-            'status' => $request->status instanceof AdsRequestStatus ? $request->status->value : (string) $request->status,
-            'url' => (string) $request->url,
-            'delivered_at' => $deliveredAt?->format('d/m/Y H:i:s'),
-            'elapsed' => $this->formatElapsedTime($createdAt, $deliveredAt),
-            'within_deadline' => $withinDeadline,
+            'id'                => $request->id,
+            'status'            => $request->status instanceof AdsRequestStatus ? $request->status->value : (string) $request->status,
+            'url'               => (string) $request->url,
+            'delivered_at'      => $deliveredAt?->format('d/m/Y H:i:s'),
+            'elapsed'           => $this->formatElapsedTime($createdAt, $deliveredAt),
+            'within_deadline'   => $withinDeadline,
             'requested_by_name' => $request->requestedBy?->name,
         ];
     }
@@ -523,12 +702,13 @@ class WorkReportEdit extends Component
         }
 
         $seconds = $from->diffInSeconds($to, false);
+
         if ($seconds < 0) {
             return '0m';
         }
 
-        $days = intdiv($seconds, 86400);
-        $hours = intdiv($seconds % 86400, 3600);
+        $days    = intdiv($seconds, 86400);
+        $hours   = intdiv($seconds % 86400, 3600);
         $minutes = intdiv($seconds % 3600, 60);
 
         if ($days > 0) {
@@ -548,9 +728,60 @@ class WorkReportEdit extends Component
             return;
         }
 
-        $this->workReport->Orders()->syncWithoutDetaching([$orderId]);
+        $this->workReport->loadMissing('Note', 'Orders');
+        $order = Order::query()
+            ->whereKey($orderId)
+            ->where('note_id', $this->workReport->note_id)
+            ->first();
+
+        if (!$order) {
+            return;
+        }
+
+        $alreadyLinked = DB::table('order_work_report')
+            ->where('order_id', $order->id)
+            ->where('work_report_id', '!=', $this->workReport->id)
+            ->exists();
+
+        if ($alreadyLinked) {
+            $this->refreshOrders();
+
+            return;
+        }
+
+        $scope = collect(app(WorkReportFinalScopeResolver::class)->resolve(
+            $this->workReport->Note?->type_note,
+            collect([$order]),
+        ))->value('scope');
+        $currentScopes = $this->workReport->selectedFinalScopesOrNull();
+
+        // A edição não cria informes: a tela de Informe de Obra é a fonte de
+        // verdade. Depois de separado, cada escopo deve permanecer em seu
+        // próprio informe final.
+        if ($currentScopes && $scope && !in_array($scope, $currentScopes, true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Ordem pertence a outro escopo',
+                'html'     => "A ordem {$order->ordem} pertence ao escopo {$this->scopeLabel((string) $scope)}. Vincule-a ao informe final desse escopo; esta tela não cria nem mescla informes.",
+                'timer'    => 4000,
+            ]);
+
+            return;
+        }
+
+        $this->workReport->Orders()->syncWithoutDetaching([$order->id]);
         $this->workReport->load('Orders');
         $this->refreshOrders();
+    }
+
+    private function scopeLabel(string $scope): string
+    {
+        return match ($scope) {
+            WorkReportFinalScopeResolver::SCOPE_NETWORK    => 'Rede',
+            WorkReportFinalScopeResolver::SCOPE_CONNECTION => 'Ligação',
+            default                                        => 'Geral',
+        };
     }
 
     public function removeOrder(int $orderId): void
@@ -564,6 +795,239 @@ class WorkReportEdit extends Component
         $this->refreshOrders();
     }
 
+    public function requestAssociateProduction(int $productionId): void
+    {
+        $production         = $this->findEligibleProduction($productionId);
+        $targetWorkReportId = (int) ($this->productionTargetWorkReportIds[$productionId] ?? 0);
+        $target             = $this->findEligibleTargetWorkReport($targetWorkReportId);
+
+        if (!$production || !$target || !$this->workReport) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione um informe válido desta nota',
+                'timer'    => 2200,
+            ]);
+
+            return;
+        }
+
+        $this->pendingProductionId       = $production->id;
+        $this->pendingTargetWorkReportId = $target->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Associar Production #{$production->id}",
+            'msg'           => "A Production será vinculada ao informe #{$target->id}. Se ela estiver ativa em outro informe, o vínculo ativo anterior será substituído.",
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, associar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmAssociateProduction',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production não foi alterada.',
+        ]);
+    }
+
+    public function associateProduction(): void
+    {
+        $production = $this->findEligibleProduction((int) $this->pendingProductionId);
+        $target     = $this->findEligibleTargetWorkReport((int) $this->pendingTargetWorkReportId);
+
+        if (!$production || !$target || !$this->workReport) {
+            $this->pendingProductionId       = null;
+            $this->pendingTargetWorkReportId = null;
+
+            return;
+        }
+
+        $stage                 = $this->stageForProduction($production);
+        $previousWorkReportIds = [];
+
+        DB::transaction(function () use ($production, $stage, $target, &$previousWorkReportIds): void {
+            $previousWorkReportIds = WorkReportFlowProduction::query()
+                ->where('production_id', $production->id)
+                ->where('stage', $stage)
+                ->where('is_current', true)
+                ->pluck('work_report_id')
+                ->all();
+
+            WorkReportFlowProduction::query()
+                ->where('production_id', $production->id)
+                ->where('stage', $stage)
+                ->where('is_current', true)
+                ->where('work_report_id', '!=', $target->id)
+                ->update(['is_current' => false]);
+
+            // Um informe pode ter varias Productions ativas da mesma etapa.
+            // Ao vincular esta Production, nao desative as demais do informe.
+            WorkReportFlowProduction::query()->updateOrCreate(
+                [
+                    'work_report_id' => $target->id,
+                    'production_id'  => $production->id,
+                    'stage'          => $stage,
+                    'final_scope'    => WorkReportFlowProduction::SCOPE_GENERAL,
+                ],
+                [
+                    'is_current' => true,
+                    'linked_at'  => now(),
+                    'linked_by'  => auth()->id(),
+                    'source'     => 'admin_work_report_control',
+                    'metadata'   => ['note_id' => $production->note_id],
+                ],
+            );
+        });
+
+        $this->refreshWorkReportStatuses(array_merge($previousWorkReportIds, [$target->id]));
+        $this->pendingProductionId       = null;
+        $this->pendingTargetWorkReportId = null;
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "Production #{$production->id} associada ao informe #{$target->id}",
+            'timer'    => 2400,
+        ]);
+    }
+
+    public function requestDetachProduction(int $productionId): void
+    {
+        $production = $this->findEligibleProduction($productionId);
+
+        if (!$production || !$this->workReport) {
+            return;
+        }
+
+        $linked = WorkReportFlowProduction::query()
+            ->where('work_report_id', $this->workReport->id)
+            ->where('production_id', $production->id)
+            ->where('stage', $this->stageForProduction($production))
+            ->where('is_current', true)
+            ->exists();
+
+        if (!$linked) {
+            return;
+        }
+
+        $this->pendingProductionId = $production->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Desassociar Production #{$production->id}",
+            'msg'           => 'A Production continuará existindo, mas deixará de ser a Production ativa deste informe.',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, desassociar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmDetachProduction',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production foi mantida associada.',
+        ]);
+    }
+
+    public function detachProduction(): void
+    {
+        $production = $this->findEligibleProduction((int) $this->pendingProductionId);
+
+        if (!$production || !$this->workReport) {
+            $this->pendingProductionId = null;
+
+            return;
+        }
+
+        WorkReportFlowProduction::query()
+            ->where('work_report_id', $this->workReport->id)
+            ->where('production_id', $production->id)
+            ->where('stage', $this->stageForProduction($production))
+            ->where('is_current', true)
+            ->update([
+                'is_current'     => false,
+                'reversed_at'    => now(),
+                'reversed_by'    => auth()->id(),
+                'reverse_reason' => 'Desassociado pelo controle administrativo do informe.',
+            ]);
+
+        $this->refreshWorkReportStatuses([$this->workReport->id]);
+        $this->pendingProductionId = null;
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "Production #{$production->id} desassociada",
+            'timer'    => 2200,
+        ]);
+    }
+
+    public function requestDeleteProduction(int $productionId): void
+    {
+        $production = $this->findEligibleProduction($productionId);
+
+        if (!$production || !$this->workReport) {
+            return;
+        }
+
+        $this->deleteProductionId = $production->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Excluir Production #{$production->id}",
+            'msg'           => 'A Production e todos os vínculos dela com informes serão apagados definitivamente. Esta ação não pode ser desfeita.',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, excluir',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmDeleteProduction',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production foi mantida.',
+        ]);
+    }
+
+    public function deleteProduction(): void
+    {
+        if (!$this->deleteProductionId || !$this->workReport) {
+            return;
+        }
+
+        $production = $this->findEligibleProduction($this->deleteProductionId);
+
+        if (!$production) {
+            $this->deleteProductionId = null;
+
+            return;
+        }
+
+        try {
+            $linkedWorkReportIds = DB::transaction(function () use ($production): array {
+                $linkedWorkReportIds = WorkReportFlowProduction::query()
+                    ->where('production_id', $production->id)
+                    ->pluck('work_report_id')
+                    ->all();
+
+                WorkReportFlowProduction::query()
+                    ->where('production_id', $production->id)
+                    ->delete();
+
+                $production->delete();
+
+                return $linkedWorkReportIds;
+            });
+        } catch (\Throwable $exception) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'Não foi possível excluir a Production',
+                'text'     => $exception->getMessage(),
+            ]);
+
+            return;
+        } finally {
+            $this->deleteProductionId = null;
+        }
+
+        $this->refreshWorkReportStatuses($linkedWorkReportIds);
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Production excluída',
+            'timer'    => 2200,
+        ]);
+    }
+
     public function save(): void
     {
         if (!$this->workReport) {
@@ -573,8 +1037,10 @@ class WorkReportEdit extends Component
         $this->validate();
 
         $meta = null;
+
         if (filled($this->acceptanceMetaJson)) {
             $meta = json_decode((string) $this->acceptanceMetaJson, true);
+
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -582,12 +1048,13 @@ class WorkReportEdit extends Component
                     'title'    => 'JSON invalido em acceptance_meta',
                     'text'     => json_last_error_msg(),
                 ]);
+
                 return;
             }
         }
 
-        $this->workReport->informed_at = $this->normalizeDateTime($this->informedAt);
-        $this->workReport->acceptance_at = $this->normalizeDateTime($this->acceptanceAt);
+        $this->workReport->informed_at     = $this->normalizeDateTime($this->informedAt);
+        $this->workReport->acceptance_at   = $this->normalizeDateTime($this->acceptanceAt);
         $this->workReport->acceptance_meta = $meta;
         DB::transaction(function () {
             $this->workReport->save();
@@ -609,19 +1076,24 @@ class WorkReportEdit extends Component
     public function resetForm(bool $refresh = true): void
     {
         $this->resetErrorBag();
-        $this->workReport = null;
-        $this->informedAt = null;
-        $this->acceptanceAt = null;
-        $this->acceptanceMetaJson = null;
-        $this->availableOrders = [];
-        $this->linkedOrders = [];
-        $this->firstValidAdsRequest = null;
-        $this->workReportFiles = [];
-        $this->selectedFileIds = [];
-        $this->fileTargetByFile = [];
-        $this->fileTargetWorkReportId = null;
-        $this->activeTab = 'details';
-        $this->deleteAdsFormId = null;
+        $this->workReport                    = null;
+        $this->informedAt                    = null;
+        $this->acceptanceAt                  = null;
+        $this->acceptanceMetaJson            = null;
+        $this->availableOrders               = [];
+        $this->linkedOrders                  = [];
+        $this->noteProductions               = [];
+        $this->productionTargetWorkReportIds = [];
+        $this->pendingProductionId           = null;
+        $this->pendingTargetWorkReportId     = null;
+        $this->deleteProductionId            = null;
+        $this->firstValidAdsRequest          = null;
+        $this->workReportFiles               = [];
+        $this->selectedFileIds               = [];
+        $this->fileTargetByFile              = [];
+        $this->fileTargetWorkReportId        = null;
+        $this->activeTab                     = 'details';
+        $this->deleteAdsFormId               = null;
         $this->resetAdsFormState();
 
         if ($refresh) {
@@ -632,6 +1104,7 @@ class WorkReportEdit extends Component
     public function enableAdsForm(): void
     {
         $this->adsFormEnabled = true;
+
         if (!$this->adsName && $this->workReport?->responsible) {
             $this->adsName = $this->workReport->responsible;
         }
@@ -664,8 +1137,10 @@ class WorkReportEdit extends Component
         }
 
         $adsForm = $this->workReport->Adsform()->whereKey($this->deleteAdsFormId)->first();
+
         if (!$adsForm) {
             $this->deleteAdsFormId = null;
+
             return;
         }
 
@@ -711,6 +1186,7 @@ class WorkReportEdit extends Component
 
         try {
             $date = \Carbon\Carbon::make($value);
+
             return $date ? $date->format('Y-m-d H:i:s') : null;
         } catch (\Throwable $e) {
             return null;
@@ -719,41 +1195,43 @@ class WorkReportEdit extends Component
 
     private function resetAdsFormState(): void
     {
-        $this->adsFormEnabled = false;
-        $this->adsFormId = null;
-        $this->adsFilesCount = 0;
-        $this->adsName = null;
-        $this->adsObs = null;
-        $this->adsContract = null;
-        $this->adsCenter = null;
-        $this->adsDeposit = null;
-        $this->adsAmount = null;
-        $this->adsPartial = false;
-        $this->adsTacit = false;
-        $this->adsTacitDueAt = null;
+        $this->adsFormEnabled      = false;
+        $this->adsFormId           = null;
+        $this->adsFilesCount       = 0;
+        $this->adsName             = null;
+        $this->adsObs              = null;
+        $this->adsContract         = null;
+        $this->adsCenter           = null;
+        $this->adsDeposit          = null;
+        $this->adsAmount           = null;
+        $this->adsPartial          = false;
+        $this->adsTacit            = false;
+        $this->adsTacitDueAt       = null;
         $this->adsTacitDeliveredAt = null;
     }
 
     private function syncAdsFormState(): void
     {
         $ads = $this->workReport?->Adsform;
+
         if (!$ads) {
             $this->resetAdsFormState();
+
             return;
         }
 
-        $this->adsFormEnabled = true;
-        $this->adsFormId = $ads->id;
-        $this->adsFilesCount = $ads->Files->count();
-        $this->adsName = $ads->name;
-        $this->adsObs = $ads->obs;
-        $this->adsContract = $ads->contract;
-        $this->adsCenter = $ads->center;
-        $this->adsDeposit = $ads->deposit;
-        $this->adsAmount = $ads->amount !== null ? (string) $ads->amount : null;
-        $this->adsPartial = (bool) $ads->partial;
-        $this->adsTacit = (bool) $ads->tacit;
-        $this->adsTacitDueAt = $this->formatDateTimeLocal($ads->tacit_due_at);
+        $this->adsFormEnabled      = true;
+        $this->adsFormId           = $ads->id;
+        $this->adsFilesCount       = $ads->Files->count();
+        $this->adsName             = $ads->name;
+        $this->adsObs              = $ads->obs;
+        $this->adsContract         = $ads->contract;
+        $this->adsCenter           = $ads->center;
+        $this->adsDeposit          = $ads->deposit;
+        $this->adsAmount           = $ads->amount !== null ? (string) $ads->amount : null;
+        $this->adsPartial          = (bool) $ads->partial;
+        $this->adsTacit            = (bool) $ads->tacit;
+        $this->adsTacitDueAt       = $this->formatDateTimeLocal($ads->tacit_due_at);
         $this->adsTacitDeliveredAt = $this->formatDateTimeLocal($ads->tacit_delivered_at);
     }
 
@@ -763,30 +1241,31 @@ class WorkReportEdit extends Component
             return;
         }
 
-        $tacitDueAt = $this->normalizeDateTime($this->adsTacitDueAt);
+        $tacitDueAt       = $this->normalizeDateTime($this->adsTacitDueAt);
         $tacitDeliveredAt = $this->normalizeDateTime($this->adsTacitDeliveredAt);
 
         if (!$this->adsTacit) {
-            $tacitDueAt = null;
+            $tacitDueAt       = null;
             $tacitDeliveredAt = null;
         }
 
         $payload = [
-            'note_id' => $this->workReport->note_id,
-            'user_id' => $this->workReport->user_id,
-            'name' => $this->normalizeNullableString($this->adsName),
-            'obs' => $this->normalizeNullableString($this->adsObs),
-            'contract' => $this->normalizeNullableString($this->adsContract),
-            'center' => $this->normalizeNullableString($this->adsCenter),
-            'deposit' => $this->normalizeNullableString($this->adsDeposit),
-            'amount' => $this->normalizeAmount($this->adsAmount),
-            'partial' => $this->adsPartial,
-            'tacit' => $this->adsTacit,
-            'tacit_due_at' => $tacitDueAt,
+            'note_id'            => $this->workReport->note_id,
+            'user_id'            => $this->workReport->user_id,
+            'name'               => $this->normalizeNullableString($this->adsName),
+            'obs'                => $this->normalizeNullableString($this->adsObs),
+            'contract'           => $this->normalizeNullableString($this->adsContract),
+            'center'             => $this->normalizeNullableString($this->adsCenter),
+            'deposit'            => $this->normalizeNullableString($this->adsDeposit),
+            'amount'             => $this->normalizeAmount($this->adsAmount),
+            'partial'            => $this->adsPartial,
+            'tacit'              => $this->adsTacit,
+            'tacit_due_at'       => $tacitDueAt,
             'tacit_delivered_at' => $tacitDeliveredAt,
         ];
 
         $ads = $this->workReport->Adsform()->first();
+
         if ($ads) {
             $ads->update($payload);
         } else {
@@ -800,12 +1279,14 @@ class WorkReportEdit extends Component
     private function normalizeNullableString(?string $value): ?string
     {
         $value = trim((string) $value);
+
         return $value === '' ? null : $value;
     }
 
     private function normalizeAmount(?string $value): ?float
     {
         $raw = trim((string) $value);
+
         if ($raw === '') {
             return null;
         }
