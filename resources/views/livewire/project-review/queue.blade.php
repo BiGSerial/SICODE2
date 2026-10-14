@@ -369,6 +369,10 @@
                             Exportar
                         </button>
                         <span class="small text-muted">{{ count($selectedProductionIds) }} selecionada(s)</span>
+                        <button type="button" class="btn btn-sm btn-outline-dark" onclick="confirmFinalizeSelected({{ count($selectedProductionIds) }})"
+                            @disabled(!count($selectedProductionIds))>
+                            Finalizar em massa
+                        </button>
                         <button class="btn btn-sm btn-success" wire:click="approveSelected"
                             @disabled(!count($selectedProductionIds))>
                             Aprovar em massa
@@ -1350,6 +1354,23 @@
     </div>
 
     <script>
+        function confirmFinalizeSelected(total) {
+            Swal.fire({
+                title: 'Finalizar ' + total + ' análise(s) em massa?',
+                html: 'As análises selecionadas serão <strong>concluídas sem aprovação nem reprovação</strong>, e as produções seguirão como finalizadas, sem liberação no SAP. Deseja continuar?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, finalizar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#212529',
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.call('finalizeSelected');
+                }
+            });
+        }
+
         function confirmFinalizeReview() {
             Swal.fire({
                 title: 'Finalizar a análise?',
