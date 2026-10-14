@@ -103,6 +103,11 @@ class Production extends Model
             }
         });
 
+        // Delete fisico remove o vinculo com o informe/D5: recalcula o consolidado da nota.
+        static::deleted(function (Production $production) {
+            \App\Jobs\ResyncNoteInformFlowsJob::dispatchForNotes([$production->note_id]);
+        });
+
         static::updated(function (Production $production) {
             if (!$production->wasChanged(['completed', 'confirmed', 'completed_at', 'confirmed_at', 'status', 'att_at'])) {
                 return;
