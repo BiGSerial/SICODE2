@@ -4,16 +4,13 @@ namespace App\Jobs\Reports;
 
 use App\Custom\Notestatus;
 use App\Exports\ProjectReview\HistoryListExport;
-use App\Models\Production;
-use App\Models\User;
+use App\Models\{Production, User};
 use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{Log, Storage};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -26,36 +23,39 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
 
     /** @var array<string,mixed> */
     public array $filters;
+
     public string $userId;
 
     public $tries = 2;
+
     public $backoff = [30, 120];
+
     public int $timeout = 1200;
 
     public function __construct(array $filters, string $userId)
     {
         $this->onQueue('exports');
         $this->filters = $filters;
-        $this->userId = $userId;
+        $this->userId  = $userId;
     }
 
     public function handle(): void
     {
-        $user = User::find($this->userId);
+        $user     = User::find($this->userId);
         $filePath = null;
 
         try {
-            $productions = $this->buildProductions();
-            $summaryRows = $this->buildSummaryRows($productions);
+            $productions  = $this->buildProductions();
+            $summaryRows  = $this->buildSummaryRows($productions);
             $detailedRows = $this->buildDetailedRows($productions);
             $commentsRows = $this->buildCommentsRows($productions);
-            $auditRows = [
+            $auditRows    = [
                 ['Usuário solicitante', $user?->name ?? '---'],
                 ['Email', $user?->email ?? '---'],
                 ['Data/Hora da solicitação', now()->format('d/m/Y H:i:s')],
                 ['Tipo de exportação', 'Análise de Projeto - Histórico'],
             ];
-            $stamp = now()->format('YmdHis');
+            $stamp    = now()->format('YmdHis');
             $filePath = "exports/project_review_history_list_{$stamp}.xlsx";
 
             Storage::disk('local')->makeDirectory('exports');
@@ -77,9 +77,9 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
         } catch (Throwable $exception) {
             Log::error('ExportProjectReviewHistoryListJob falhou', [
                 'error_message' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString(),
-                'filters' => $this->filters,
-                'attempt' => $this->attempts(),
+                'trace'         => $exception->getTraceAsString(),
+                'filters'       => $this->filters,
+                'attempt'       => $this->attempts(),
             ]);
 
             if ($filePath && Storage::disk('local')->exists($filePath)) {
@@ -108,11 +108,11 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
      */
     private function buildProductions()
     {
-        $search = trim((string) ($this->filters['search'] ?? ''));
-        $companyId = (string) ($this->filters['company_id'] ?? '');
+        $search     = trim((string) ($this->filters['search'] ?? ''));
+        $companyId  = (string) ($this->filters['company_id'] ?? '');
         $companyIds = collect($this->filters['company_ids'] ?? [])->filter()->values();
-        $from = (string) ($this->filters['from'] ?? '');
-        $to = (string) ($this->filters['to'] ?? '');
+        $from       = (string) ($this->filters['from'] ?? '');
+        $to         = (string) ($this->filters['to'] ?? '');
 
         return Production::query()
             ->with([
@@ -126,7 +126,7 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
             ])
             ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
             ->whereHas('ProjectReviewCycles', function ($q) {
-                $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
+                $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED', 'FINALIZED']);
             })
             ->when($search !== '', function ($q) use ($search) {
                 $term = '%' . $search . '%';
@@ -136,13 +136,13 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
                         ->orWhere('material', 'like', $term);
                 });
             })
-            ->when($companyId !== '', fn($q) => $q->where('company_id', $companyId))
-            ->when($companyIds->isNotEmpty(), fn($q) => $q->whereIn('company_id', $companyIds->all()))
+            ->when($companyId !== '', fn ($q) => $q->where('company_id', $companyId))
+            ->when($companyIds->isNotEmpty(), fn ($q) => $q->whereIn('company_id', $companyIds->all()))
             ->when($from !== '', function ($q) use ($from) {
-                $q->whereHas('ProjectReviewCycles', fn($cq) => $cq->whereDate('submitted_at', '>=', $from));
+                $q->whereHas('ProjectReviewCycles', fn ($cq) => $cq->whereDate('submitted_at', '>=', $from));
             })
             ->when($to !== '', function ($q) use ($to) {
-                $q->whereHas('ProjectReviewCycles', fn($cq) => $cq->whereDate('submitted_at', '<=', $to));
+                $q->whereHas('ProjectReviewCycles', fn ($cq) => $cq->whereDate('submitted_at', '<=', $to));
             })
             ->orderByDesc('id')
             ->get();
@@ -157,8 +157,8 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
         $rows = [];
 
         foreach ($productions as $production) {
-            $note = $production->Note->note ?? '---';
-            $company = $production->Company->name ?? '---';
+            $note     = $production->Note->note ?? '---';
+            $company  = $production->Company->name ?? '---';
             $designer = $production->User->name ?? '---';
 
             $messages = collect($production->ProjectReviewMessages ?? collect())
@@ -170,11 +170,11 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
                 ->values();
 
             foreach ($messages as $message) {
-                $author = $message->User->name ?? '---';
+                $author     = $message->User->name ?? '---';
                 $authorRole = $this->resolveAuthorRole($message->User);
-                $cycle = collect($production->ProjectReviewCycles ?? collect())
+                $cycle      = collect($production->ProjectReviewCycles ?? collect())
                     ->firstWhere('id', $message->cycle_id);
-                $round = $cycle?->round_number ? 'R' . $cycle->round_number : '---';
+                $round    = $cycle?->round_number ? 'R' . $cycle->round_number : '---';
                 $decision = $this->decisionLabel($cycle?->decision);
 
                 $rows[] = [
@@ -197,11 +197,12 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
     private function decisionLabel(?string $decision): string
     {
         return match ((string) $decision) {
-            'PENDING' => 'Pendente',
-            'APPROVED' => 'Aprovado',
+            'PENDING'               => 'Pendente',
+            'APPROVED'              => 'Aprovado',
             'APPROVED_WITH_REMARKS' => 'Aprovado com ressalvas',
-            'REJECTED' => 'Reprovado',
-            default => '---',
+            'REJECTED'              => 'Reprovado',
+            'FINALIZED'             => 'Finalizada',
+            default                 => '---',
         };
     }
 
@@ -246,10 +247,11 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
     {
         return $productions->map(function ($production) {
             $cyclesDesc = collect($production->ProjectReviewCycles)->sortByDesc('round_number')->values();
-            $cycle = $cyclesDesc->first();
-            $cyclesAsc = collect($production->ProjectReviewCycles)->sortBy('round_number')->values();
+            $cycle      = $cyclesDesc->first();
+            $cyclesAsc  = collect($production->ProjectReviewCycles)->sortBy('round_number')->values();
 
             $orders = $cycle?->Orders ?? collect();
+
             if ($orders->isEmpty()) {
                 $orders = $production->ProjectReviewCycles->first(function ($c) {
                     return $c->Orders->count() > 0;
@@ -257,35 +259,36 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
             }
 
             $orders = collect($orders)
-                ->sortBy(fn($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
+                ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
                 ->values();
 
-            $ordersText = $orders->pluck('order_number')->filter()->implode(' | ');
-            $totalsText = $orders->map(fn($o) => number_format((float) $o->total_cost, 2, ',', '.'))->implode(' | ');
-            $companyCostsText = $orders->map(fn($o) => number_format((float) $o->company_cost, 2, ',', '.'))->implode(' | ');
-            $clientCostsText = $orders->map(fn($o) => number_format((float) $o->client_cost, 2, ',', '.'))->implode(' | ');
+            $ordersText       = $orders->pluck('order_number')->filter()->implode(' | ');
+            $totalsText       = $orders->map(fn ($o) => number_format((float) $o->total_cost, 2, ',', '.'))->implode(' | ');
+            $companyCostsText = $orders->map(fn ($o) => number_format((float) $o->company_cost, 2, ',', '.'))->implode(' | ');
+            $clientCostsText  = $orders->map(fn ($o) => number_format((float) $o->client_cost, 2, ',', '.'))->implode(' | ');
 
-            $plannedTotal = 0.0;
-            $revisedTotal = 0.0;
-            $prefixSeries = $this->buildPrefixSeriesFromCycles($cyclesAsc);
+            $plannedTotal  = 0.0;
+            $revisedTotal  = 0.0;
+            $prefixSeries  = $this->buildPrefixSeriesFromCycles($cyclesAsc);
             $hasPrefixData = false;
 
             foreach (['170', '190', '150', '200'] as $prefix) {
                 $series = collect($prefixSeries[$prefix] ?? [])->values();
+
                 if ($series->isEmpty()) {
                     continue;
                 }
 
                 $hasPrefixData = true;
-                $first = (array) $series->first();
-                $last = (array) $series->last();
+                $first         = (array) $series->first();
+                $last          = (array) $series->last();
                 $plannedTotal += (float) ($first['total'] ?? 0);
                 $revisedTotal += (float) ($last['total'] ?? 0);
             }
 
             if (!$hasPrefixData) {
-                $firstCycle = $cyclesAsc->first();
-                $lastCycle = $cyclesAsc->last();
+                $firstCycle   = $cyclesAsc->first();
+                $lastCycle    = $cyclesAsc->last();
                 $plannedCosts = $this->sumCycleCostsByPrefixRule(collect($firstCycle?->Orders ?? collect()));
                 $revisedCosts = $this->sumCycleCostsByPrefixRule(collect($lastCycle?->Orders ?? collect()));
                 $plannedTotal = (float) ($plannedCosts['total'] ?? 0);
@@ -294,6 +297,7 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
 
             if ($plannedTotal > 0) {
                 $variationPercent = (($revisedTotal - $plannedTotal) / $plannedTotal) * 100;
+
                 if (abs($variationPercent) < 0.00001) {
                     $variationText = 'Sem mudança';
                 } else {
@@ -338,18 +342,19 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
 
             foreach ($cycles as $cycle) {
                 $orders = collect($cycle->Orders ?? collect())
-                    ->sortBy(fn($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
+                    ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
                     ->values();
 
                 foreach ($orders as $order) {
                     $orderNumber = trim((string) ($order->order_number ?? ''));
+
                     if ($orderNumber === '') {
                         continue;
                     }
 
-                    $currentTotal = (float) ($order->total_cost ?? 0);
+                    $currentTotal   = (float) ($order->total_cost ?? 0);
                     $currentCompany = (float) ($order->company_cost ?? 0);
-                    $currentClient = (float) ($order->client_cost ?? 0);
+                    $currentClient  = (float) ($order->client_cost ?? 0);
 
                     $previous = $previousByOrder[$orderNumber] ?? null;
 
@@ -383,9 +388,9 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
                     ];
 
                     $previousByOrder[$orderNumber] = [
-                        'total' => $currentTotal,
+                        'total'   => $currentTotal,
                         'company' => $currentCompany,
-                        'client' => $currentClient,
+                        'client'  => $currentClient,
                     ];
                 }
             }
@@ -411,29 +416,30 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
 
     private function sumCycleCostsByPrefixRule($orders): array
     {
-        $orders = collect($orders);
+        $orders         = collect($orders);
         $latestByPrefix = [];
-        $fallback = [
-            'total' => 0.0,
+        $fallback       = [
+            'total'   => 0.0,
             'company' => 0.0,
-            'client' => 0.0,
+            'client'  => 0.0,
         ];
 
         foreach ($orders as $order) {
-            $total = (float) ($order->total_cost ?? 0);
+            $total   = (float) ($order->total_cost ?? 0);
             $company = (float) ($order->company_cost ?? 0);
-            $client = (float) ($order->client_cost ?? 0);
+            $client  = (float) ($order->client_cost ?? 0);
 
             $fallback['total'] += $total;
             $fallback['company'] += $company;
             $fallback['client'] += $client;
 
             $prefix = $this->extractOrderPrefix((string) ($order->order_number ?? ''));
+
             if (!is_null($prefix)) {
                 $latestByPrefix[$prefix] = [
-                    'total' => $total,
+                    'total'   => $total,
                     'company' => $company,
-                    'client' => $client,
+                    'client'  => $client,
                 ];
             }
         }
@@ -443,9 +449,9 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
         }
 
         return [
-            'total' => (float) collect($latestByPrefix)->sum('total'),
+            'total'   => (float) collect($latestByPrefix)->sum('total'),
             'company' => (float) collect($latestByPrefix)->sum('company'),
-            'client' => (float) collect($latestByPrefix)->sum('client'),
+            'client'  => (float) collect($latestByPrefix)->sum('client'),
         ];
     }
 
@@ -460,14 +466,15 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
 
             foreach (collect($cycle->Orders ?? collect()) as $order) {
                 $prefix = $this->extractOrderPrefix((string) ($order->order_number ?? ''));
+
                 if (is_null($prefix)) {
                     continue;
                 }
 
                 $latestByPrefix[$prefix] = [
-                    'total' => (float) ($order->total_cost ?? 0),
+                    'total'   => (float) ($order->total_cost ?? 0),
                     'company' => (float) ($order->company_cost ?? 0),
-                    'client' => (float) ($order->client_cost ?? 0),
+                    'client'  => (float) ($order->client_cost ?? 0),
                 ];
             }
 
@@ -484,11 +491,13 @@ class ExportProjectReviewHistoryListJob implements ShouldQueue
     private function extractOrderPrefix(string $orderNumber): ?string
     {
         $digits = preg_replace('/\D+/', '', $orderNumber);
+
         if (!$digits || strlen($digits) < 3) {
             return null;
         }
 
         $prefix = substr($digits, 0, 3);
+
         return in_array($prefix, ['170', '190', '150', '200'], true) ? $prefix : null;
     }
 }

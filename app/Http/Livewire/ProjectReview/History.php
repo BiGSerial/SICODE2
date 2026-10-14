@@ -74,7 +74,7 @@ class History extends Component
             ])
             ->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
             ->whereHas('ProjectReviewCycles', function ($q) {
-                $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
+                $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED', 'FINALIZED']);
             });
 
         $this->applyContractScopeToProductions($query);
@@ -248,7 +248,7 @@ class History extends Component
             return false;
         }
 
-        return !in_array((string) $this->selectedCycle->decision, ['APPROVED', 'APPROVED_WITH_REMARKS'], true)
+        return !in_array((string) $this->selectedCycle->decision, ['APPROVED', 'APPROVED_WITH_REMARKS', 'FINALIZED'], true)
             && auth()->user()->can('analyst');
     }
 
@@ -489,7 +489,7 @@ class History extends Component
                     throw new \RuntimeException('Rodada não encontrada para edição.');
                 }
 
-                if (in_array((string) $cycle->decision, ['APPROVED', 'APPROVED_WITH_REMARKS'], true)) {
+                if (in_array((string) $cycle->decision, ['APPROVED', 'APPROVED_WITH_REMARKS', 'FINALIZED'], true)) {
                     throw new \RuntimeException('A rodada aprovada não pode ser alterada.');
                 }
 

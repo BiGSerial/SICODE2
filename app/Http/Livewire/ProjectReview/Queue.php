@@ -6,6 +6,8 @@ use App\Jobs\Reports\ExportProjectReviewQueueListJob;
 use App\Models\{Company, File, Notetimeline, Production, ProjectReviewCategory, ProjectReviewCycle, ProjectReviewDraft, ProjectReviewItem, ProjectReviewMessage, ProjectReviewSubcategory, User};
 use App\Notifications\SystemNotification;
 use App\Services\Files\FileStorageService;
+use App\Support\Notifications\UserNotificationData;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\{DB, Log, Schema};
 use Livewire\{Component, WithPagination};
 
@@ -28,6 +30,10 @@ class Queue extends Component
     public string $cost_operator = '>';
 
     public ?string $cost_value = null;
+
+    public ?string $sent_from = null;
+
+    public ?string $sent_to = null;
 
     public string $note_type_filter = '';
 
@@ -139,6 +145,18 @@ class Queue extends Component
     }
 
     public function updatingCostValue(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingSentFrom(): void
+    {
+        $this->clearBulkSelection();
+        $this->resetPage();
+    }
+
+    public function updatingSentTo(): void
     {
         $this->clearBulkSelection();
         $this->resetPage();
@@ -264,7 +282,7 @@ class Queue extends Component
         } else {
             $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
                 ->whereHas('ProjectReviewCycles', function ($q) {
-                    $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
+                    $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED', 'FINALIZED']);
                 });
         }
 
@@ -276,6 +294,8 @@ class Queue extends Component
                     ->orWhere('material', 'like', $term);
             });
         }
+
+        $this->applySentDateFilter($query);
 
         $massTokens = collect(preg_split('/[\s,;\n\r\t]+/', trim($this->mass_search)) ?: [])
             ->map(fn ($token) => trim((string) $token))
@@ -356,6 +376,30 @@ class Queue extends Component
         return $query;
     }
 
+    /** Filtra pela data de envio da rodada mais recente (coluna "Enviado em" da lista). */
+    private function applySentDateFilter($query): void
+    {
+        $from = $this->sent_from ? Carbon::parse($this->sent_from)->startOfDay() : null;
+        $to   = $this->sent_to ? Carbon::parse($this->sent_to)->endOfDay() : null;
+
+        if (!$from && !$to) {
+            return;
+        }
+
+        $query->whereHas('ProjectReviewCycles', function ($cycleQuery) use ($from, $to) {
+            $cycleQuery
+                ->whereRaw('project_review_cycles.id = (
+                    SELECT prc2.id
+                    FROM project_review_cycles prc2
+                    WHERE prc2.production_id = project_review_cycles.production_id
+                    ORDER BY prc2.round_number DESC, prc2.id DESC
+                    LIMIT 1
+                )')
+                ->when($from, fn ($q) => $q->where('project_review_cycles.submitted_at', '>=', $from))
+                ->when($to, fn ($q) => $q->where('project_review_cycles.submitted_at', '<=', $to));
+        });
+    }
+
     private function applyLatestCycleOrdersFilter($query, \Closure $orderFilter): void
     {
         $query->whereHas('ProjectReviewCycles', function ($cycleQuery) use ($orderFilter) {
@@ -382,6 +426,8 @@ class Queue extends Component
             'cost_operator'     => $this->cost_operator,
             'cost_value'        => $this->cost_value,
             'note_type_filter'  => $this->note_type_filter,
+            'sent_from'         => $this->sent_from,
+            'sent_to'           => $this->sent_to,
             'tab'               => $this->tab,
         ];
     }
@@ -1551,6 +1597,81 @@ class Queue extends Component
                 ? 'Projeto liberado para finalização no SAP com sucesso.'
                 : 'Projeto aprovado com sucesso.'
         );
+    }
+
+    /**
+     * Conclui a análise sem aprovar nem reprovar: a produção segue como finalizada (sem liberação no SAP),
+     * igual ao fim do fluxo normal da atividade.
+     */
+    public function finalizeReview(): void
+    {
+        if (!$this->selectedCycle || !$this->selectedProduction) {
+            return;
+        }
+
+        $this->resetValidation();
+        $this->validate(['analystNote' => 'nullable|string|max:5000']);
+
+        $finalized = DB::transaction(function () {
+            $production = Production::query()->with(['Note', 'User'])->lockForUpdate()->find($this->selectedProduction->id);
+            $cycle      = ProjectReviewCycle::query()->lockForUpdate()->find($this->selectedCycle->id);
+
+            // Já decidida por outra sessão (ou fora da fila): não finaliza de novo.
+            if (!$production || !$cycle
+                || (int) $production->status !== Production::STATUS_IN_PROJECT_REVIEW
+                || $cycle->decision !== 'PENDING') {
+                return false;
+            }
+
+            $cycle->update([
+                'decision'     => 'FINALIZED',
+                'decided_by'   => auth()->id(),
+                'decided_at'   => now(),
+                'analyst_note' => trim($this->analystNote) ?: null,
+            ]);
+
+            $production->update([
+                'status'       => 5,
+                'completed'    => true,
+                'completed_at' => $production->completed_at ?? now(),
+            ]);
+
+            Notetimeline::create([
+                'note_id'       => $production->note_id,
+                'service_id'    => $production->service_id,
+                'production_id' => $production->id,
+                'user_id'       => auth()->id(),
+                'info'          => 'Análise de Projeto finalizada pelo analista (sem aprovação ou reprovação).',
+                'status'        => 5,
+            ]);
+
+            if ($production->User) {
+                $production->User->notify(new SystemNotification(new UserNotificationData(
+                    title: 'Análise de Projeto Finalizada',
+                    message: 'A análise da nota <strong>' . ($production->Note->note ?? '-') . '</strong> foi finalizada pelo analista.',
+                    link: $this->buildProjectReviewLinkForRecipient($production->User, $production),
+                    status: 1,
+                )));
+            }
+
+            $this->clearDraft();
+
+            return true;
+        });
+
+        if (!$finalized) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Esta análise não está mais pendente',
+                'html'     => 'Ela já foi decidida ou saiu da fila. Atualize a lista.',
+                'timer'    => 3500,
+            ]);
+
+            return;
+        }
+
+        $this->closeModalSuccess('Análise finalizada com sucesso.');
     }
 
     private function closeModalSuccess(string $message): void
