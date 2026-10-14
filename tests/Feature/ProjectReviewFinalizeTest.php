@@ -109,4 +109,43 @@ class ProjectReviewFinalizeTest extends TestCase
             ->assertSee($outOfRange->note)
             ->assertDontSee($inRange->note);
     }
+
+    public function test_bulk_finalize_closes_selected_pending_reviews_and_skips_the_rest(): void
+    {
+        [$analyst, $first, $firstCycle]   = $this->pendingReview();
+        [, $second, $secondCycle]         = $this->pendingReview();
+        [, $decided, $decidedCycle]       = $this->pendingReview();
+        [, $unselected, $unselectedCycle] = $this->pendingReview();
+        $this->actingAs($analyst);
+
+        $decidedCycle->update(['decision' => 'REJECTED']);
+        $decided->update(['status' => Production::STATUS_REJECTED_PROJECT_REVIEW]);
+
+        Livewire::test(Queue::class)
+            ->set('selectedProductionIds', [$first->id, $second->id, $decided->id])
+            ->call('finalizeSelected')
+            ->assertSet('selectedProductionIds', []);
+
+        foreach ([[$first, $firstCycle], [$second, $secondCycle]] as [$production, $cycle]) {
+            $this->assertSame('FINALIZED', $cycle->fresh()->decision);
+            $this->assertSame(5, (int) $production->fresh()->status);
+            $this->assertTrue((bool) $production->fresh()->completed);
+            $this->assertDatabaseHas('notetimelines', ['production_id' => $production->id, 'status' => 5]);
+        }
+
+        $this->assertSame('REJECTED', $decidedCycle->fresh()->decision);
+        $this->assertSame('PENDING', $unselectedCycle->fresh()->decision);
+        $this->assertSame(Production::STATUS_IN_PROJECT_REVIEW, (int) $unselected->fresh()->status);
+    }
+
+    public function test_bulk_finalize_without_selection_changes_nothing(): void
+    {
+        [$analyst, $production, $cycle] = $this->pendingReview();
+        $this->actingAs($analyst);
+
+        Livewire::test(Queue::class)->call('finalizeSelected');
+
+        $this->assertSame('PENDING', $cycle->fresh()->decision);
+        $this->assertSame(Production::STATUS_IN_PROJECT_REVIEW, (int) $production->fresh()->status);
+    }
 }

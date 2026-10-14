@@ -1612,9 +1612,76 @@ class Queue extends Component
         $this->resetValidation();
         $this->validate(['analystNote' => 'nullable|string|max:5000']);
 
-        $finalized = DB::transaction(function () {
-            $production = Production::query()->with(['Note', 'User'])->lockForUpdate()->find($this->selectedProduction->id);
-            $cycle      = ProjectReviewCycle::query()->lockForUpdate()->find($this->selectedCycle->id);
+        $finalized = $this->finalizeCycle(
+            $this->selectedProduction->id,
+            $this->selectedCycle->id,
+            trim($this->analystNote) ?: null
+        );
+
+        if (!$finalized) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Esta análise não está mais pendente',
+                'html'     => 'Ela já foi decidida ou saiu da fila. Atualize a lista.',
+                'timer'    => 3500,
+            ]);
+
+            return;
+        }
+
+        $this->closeModalSuccess('Análise finalizada com sucesso.');
+    }
+
+    /** Finaliza em massa as análises selecionadas (mesma regra da finalização individual, sem observação). */
+    public function finalizeSelected(): void
+    {
+        $ids = collect($this->selectedProductionIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma produção',
+                'timer'    => 2200,
+            ]);
+
+            return;
+        }
+
+        $finalized = $ids->filter(fn (int $id) => $this->finalizeCycle($id, null, null))->count();
+        $skipped   = $ids->count() - $finalized;
+
+        $this->clearBulkSelection();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => $finalized > 0 ? 'success' : 'warning',
+            'title'    => $finalized > 0
+                ? $finalized . ' análise(s) finalizada(s) em massa.'
+                : 'Nenhuma análise pendente elegível para finalizar.',
+            'html'  => $skipped > 0 && $finalized > 0 ? $skipped . ' selecionada(s) não estavam mais pendentes e foram ignoradas.' : null,
+            'timer' => 3200,
+        ]);
+    }
+
+    /**
+     * Finaliza uma análise pendente: fecha o ciclo como FINALIZED e conclui a produção (status 5).
+     * Sem $cycleId usa a rodada pendente mais recente. Retorna false se não estiver mais pendente.
+     */
+    private function finalizeCycle(int $productionId, ?int $cycleId, ?string $analystNote): bool
+    {
+        return DB::transaction(function () use ($productionId, $cycleId, $analystNote) {
+            $production = Production::query()->with(['Note', 'User'])->lockForUpdate()->find($productionId);
+
+            $cycleQuery = ProjectReviewCycle::query()->where('production_id', $productionId)->lockForUpdate();
+            $cycle      = $cycleId
+                ? $cycleQuery->whereKey($cycleId)->first()
+                : $cycleQuery->where('decision', 'PENDING')->orderByDesc('round_number')->first();
 
             // Já decidida por outra sessão (ou fora da fila): não finaliza de novo.
             if (!$production || !$cycle
@@ -1627,7 +1694,7 @@ class Queue extends Component
                 'decision'     => 'FINALIZED',
                 'decided_by'   => auth()->id(),
                 'decided_at'   => now(),
-                'analyst_note' => trim($this->analystNote) ?: null,
+                'analyst_note' => $analystNote,
             ]);
 
             $production->update([
@@ -1654,24 +1721,14 @@ class Queue extends Component
                 )));
             }
 
-            $this->clearDraft();
+            ProjectReviewDraft::query()
+                ->where('production_id', $production->id)
+                ->where('cycle_id', $cycle->id)
+                ->where('user_id', auth()->id())
+                ->delete();
 
             return true;
         });
-
-        if (!$finalized) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Esta análise não está mais pendente',
-                'html'     => 'Ela já foi decidida ou saiu da fila. Atualize a lista.',
-                'timer'    => 3500,
-            ]);
-
-            return;
-        }
-
-        $this->closeModalSuccess('Análise finalizada com sucesso.');
     }
 
     private function closeModalSuccess(string $message): void
