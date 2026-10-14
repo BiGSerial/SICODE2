@@ -4,17 +4,11 @@ namespace App\Exports\Reports;
 
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
-use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\{FromArray, WithColumnWidths, WithEvents, WithStrictNullComparison, WithTitle};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill};
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 /**
@@ -25,7 +19,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
 {
     private const DATE_FORMAT = 'dd/mm/yyyy hh:mm';
 
-    private const HEADER_ROW = 3;
+    private const HEADER_ROW     = 3;
     private const FIRST_DATA_ROW = 4;
 
     /** @var array<int, array{group: string, color: string, title: string, width: int, kind: string}> */
@@ -42,6 +36,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
         'late'      => ['fill' => 'FEE2E2', 'font' => '991B1B', 'bold' => true, 'italic' => false],
         'open_late' => ['fill' => 'FEF3C7', 'font' => '92400E', 'bold' => true, 'italic' => true],
         'open'      => ['fill' => 'DBEAFE', 'font' => '1E40AF', 'bold' => false, 'italic' => true],
+        'pending'   => ['fill' => 'F1F5F9', 'font' => '64748B', 'bold' => false, 'italic' => false],
     ];
 
     private const OVERALL_LABEL = ['on_time' => 'No prazo', 'late' => 'Estourado', 'open' => 'Em andamento'];
@@ -90,6 +85,8 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
             $c(...$prz, ...['title' => "Total\n(prazo {$limits['total']})", 'width' => 12, 'kind' => 'days:total']),
             $c(...$prz, ...['title' => 'Situação geral', 'width' => 15, 'kind' => 'overall']),
             $c(...$prz, ...['title' => 'Etapas estouradas', 'width' => 30, 'kind' => 'wrap']),
+            $c(...$prz, ...['title' => "Despacho da medição\n(sem prazo)", 'width' => 17, 'kind' => 'center']),
+            $c(...$prz, ...['title' => 'Inconsistências', 'width' => 40, 'kind' => 'wrap']),
 
             $c(...$mar, ...['title' => 'Aprovação do engenheiro', 'width' => 17, 'kind' => 'date']),
             $c(...$mar, ...['title' => 'Engenheiro', 'width' => 22]),
@@ -110,6 +107,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
     public function columnWidths(): array
     {
         $widths = [];
+
         foreach ($this->columns as $i => $col) {
             $widths[Coordinate::stringFromColumnIndex($i + 1)] = $col['width'];
         }
@@ -119,7 +117,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
 
     public function array(): array
     {
-        $n = count($this->columns);
+        $n     = count($this->columns);
         $blank = array_fill(0, $n, null);
 
         $out = [
@@ -171,6 +169,8 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
             $s['total']['days'],
             self::OVERALL_LABEL[$r['overall']],
             $r['late_stages'] ? implode(', ', $r['late_stages']) : null,
+            $r['dispatch_gap']['days'] ?? null,
+            $r['issues'] ? implode('; ', $r['issues']) : null,
 
             $this->date($r['decision_at'] ?? null),
             $r['engineer'] ?? null,
@@ -187,12 +187,12 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $sheet = $event->sheet->getDelegate();
-                $n = count($this->columns);
-                $last = Coordinate::stringFromColumnIndex($n);
+                $sheet   = $event->sheet->getDelegate();
+                $n       = count($this->columns);
+                $last    = Coordinate::stringFromColumnIndex($n);
                 $lastRow = max(self::HEADER_ROW, self::HEADER_ROW + $this->rows->count());
-                $head = self::HEADER_ROW;
-                $first = self::FIRST_DATA_ROW;
+                $head    = self::HEADER_ROW;
+                $first   = self::FIRST_DATA_ROW;
 
                 // Título
                 $sheet->mergeCells("A1:{$last}1");
@@ -207,9 +207,11 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
 
                 // Faixas de grupo (linha 2) e cabeçalhos (linha 3)
                 $groupStart = 1;
+
                 for ($i = 1; $i <= $n; $i++) {
-                    $col = $this->columns[$i - 1];
+                    $col   = $this->columns[$i - 1];
                     $isEnd = $i === $n || $this->columns[$i]['group'] !== $col['group'];
+
                     if ($isEnd) {
                         $a = Coordinate::stringFromColumnIndex($groupStart);
                         $b = Coordinate::stringFromColumnIndex($i);
@@ -240,6 +242,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
                     'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                     'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E2E8F0']]],
                 ]);
+
                 for ($row = $first; $row <= $lastRow; $row++) {
                     if (($row - $first) % 2 === 1) {
                         $sheet->getStyle("A{$row}:{$last}{$row}")->getFill()
@@ -250,28 +253,33 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
                 // Formato por coluna
                 foreach ($this->columns as $i => $col) {
                     $letter = Coordinate::stringFromColumnIndex($i + 1);
-                    $range = "{$letter}{$first}:{$letter}{$lastRow}";
-                    $style = $sheet->getStyle($range);
+                    $range  = "{$letter}{$first}:{$letter}{$lastRow}";
+                    $style  = $sheet->getStyle($range);
 
                     switch (true) {
                         case $col['kind'] === 'date':
                             $style->getNumberFormat()->setFormatCode(self::DATE_FORMAT);
                             $style->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
                             break;
                         case $col['kind'] === 'money':
                             $style->getNumberFormat()->setFormatCode('#,##0.00');
                             $style->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
                             break;
                         case $col['kind'] === 'id':
                             $style->getNumberFormat()->setFormatCode('"#"0');
                             $style->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                             $style->getFont()->setBold(true);
+
                             break;
                         case $col['kind'] === 'center' || $col['kind'] === 'overall' || str_starts_with($col['kind'], 'days:'):
                             $style->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
                             break;
                         case $col['kind'] === 'wrap':
                             $style->getAlignment()->setWrapText(true);
+
                             break;
                     }
 
@@ -282,6 +290,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
 
                 // Cores por linha: tipo, prazos e situação geral
                 $stageKeys = array_flip(['fiscal_dispatch', 'fiscalization', 'measurement', 'total']);
+
                 foreach ($this->rows->values() as $offset => $r) {
                     $row = $first + $offset;
 
@@ -320,6 +329,7 @@ class PostWorkProcessDetailSheet implements FromArray, WithTitle, WithColumnWidt
     private function paintStatus($sheet, string $cell, string $status): void
     {
         $st = self::STATUS_STYLE[$status] ?? null;
+
         if (!$st) {
             return;
         }
