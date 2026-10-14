@@ -26,6 +26,9 @@
                                 <td>
                                     <span class="ppr-type ppr-type-{{ $row['type'] }}">{{ $row['type_label'] }}</span>
                                     <span class="ppr-id">#{{ $row['id'] }}</span>
+                                    @if ($row['issues'])
+                                        <span class="text-warning ms-1" title="{{ implode(' · ', $row['issues']) }}"><i class="ri-error-warning-line"></i></span>
+                                    @endif
                                     @foreach ($row['scopes'] as $scope)
                                         <span class="badge {{ $scope['class'] }} ms-1">{{ $scope['label'] }}</span>
                                     @endforeach
@@ -46,7 +49,7 @@
                                     @endphp
                                     <td>
                                         <div class="ppr-stage ppr-{{ $st['status'] }}"
-                                            title="{{ ['on_time' => 'Concluída no prazo', 'late' => 'Concluída fora do prazo', 'open_late' => 'Em aberto e estourada', 'open' => 'Em aberto, dentro do prazo', 'pending' => 'Sem dados'][$st['status']] }}">
+                                            title="{{ ['on_time' => 'Concluída no prazo', 'late' => 'Concluída fora do prazo', 'open_late' => 'Em aberto e estourada', 'open' => 'Em aberto, dentro do prazo', 'pending' => 'Sem dados (data ausente ou etapa ainda não iniciada)'][$st['status']] }}">
                                             @if ($st['days'] === null)
                                                 <span class="days">—</span>
                                             @else
@@ -96,6 +99,9 @@
                                             <h6>Marcos do informe</h6>
                                             <dl>
                                                 <dt>Informante</dt><dd>{{ $row['informer'] ?? '—' }}</dd>
+                                                @if ($row['dispatch_gap'])
+                                                    <dt>Despacho da medição</dt><dd>{{ $row['dispatch_gap']['days'] }}d úteis <span class="text-muted">(sem prazo próprio)</span></dd>
+                                                @endif
                                                 @if ($row['type'] === 'partial')
                                                     <dt>Aprovação eng.</dt><dd>{{ $fmt($row['decision_at'] ?? null) }} <span class="text-muted">{{ $row['engineer'] ?? '' }}</span></dd>
                                                 @endif
@@ -112,6 +118,9 @@
                                                             sem ADS
                                                         @endif
                                                     </dd>
+                                                @endif
+                                                @if ($row['issues'])
+                                                    <dt class="text-warning">Atenção</dt><dd class="text-warning">{{ implode(' · ', $row['issues']) }}</dd>
                                                 @endif
                                                 @if ($row['late_stages'])
                                                     <dt>Estourou em</dt><dd class="text-danger fw-semibold">{{ implode(', ', $row['late_stages']) }}</dd>

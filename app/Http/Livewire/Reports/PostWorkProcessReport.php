@@ -5,8 +5,7 @@ namespace App\Http\Livewire\Reports;
 use App\Jobs\Reports\ExportPostWorkProcessReportJob;
 use App\Models\Company;
 use App\Services\Reports\PostWorkProcessReportService;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class PostWorkProcessReport extends Component
 {
@@ -15,21 +14,31 @@ class PostWorkProcessReport extends Component
     protected $paginationTheme = 'bootstrap';
 
     public string $type = 'all';
+
     public ?string $from = null;
+
     public ?string $to = null;
+
     public ?string $company_id = null;
+
     public ?string $search = null;
+
     public bool $only_late = false;
+
     public bool $only_open = false;
+
     public int $perPage = 30;
+
     public string $view = 'table';
+
     public ?string $cell_stage = null;
+
     public ?int $cell_day = null;
 
     public function mount(): void
     {
         $this->from = $this->from ?: now()->startOfMonth()->format('Y-m-d');
-        $this->to = $this->to ?: now()->format('Y-m-d');
+        $this->to   = $this->to ?: now()->format('Y-m-d');
     }
 
     public function updating($name): void
@@ -49,14 +58,14 @@ class PostWorkProcessReport extends Component
         }
 
         $this->cell_stage = $stage;
-        $this->cell_day = $day;
+        $this->cell_day   = $day;
         $this->resetPage();
     }
 
     public function clearCell(): void
     {
         $this->cell_stage = null;
-        $this->cell_day = null;
+        $this->cell_day   = null;
         $this->resetPage();
     }
 
@@ -89,11 +98,11 @@ class PostWorkProcessReport extends Component
     public function render()
     {
         $service = app(PostWorkProcessReportService::class);
-        $all = $service->rows($this->filters());
+        $all     = $service->rows($this->filters());
 
         // A matriz sempre conta o conjunto filtrado por tipo/período/empresa; a célula só filtra a lista abaixo.
         $matrix = $service->matrix($all);
-        $list = $service->filterByCell($all, $this->cell_stage, $this->cell_day);
+        $list   = $service->filterByCell($all, $this->cell_stage, $this->cell_day);
 
         $page = $this->page ?? 1;
         $rows = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -112,6 +121,7 @@ class PostWorkProcessReport extends Component
         return view('livewire.reports.post-work-process-report', [
             'rows'        => $rows,
             'summary'     => $service->summarize($all),
+            'syncedAt'    => $service->lastSyncedAt(),
             'matrix'      => $matrix,
             'limits'      => $service->limits(),
             'stageLabels' => $service->stageLabels(),

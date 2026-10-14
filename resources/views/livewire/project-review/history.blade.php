@@ -417,6 +417,9 @@
                                                 @case('REJECTED')
                                                     Reprovado
                                                     @break
+                                                @case('FINALIZED')
+                                                    Finalizada
+                                                    @break
                                                 @default
                                                     {{ $selectedCycle->decision ?? '---' }}
                                             @endswitch
@@ -450,6 +453,9 @@
                                                                 @break
                                                             @case('REJECTED')
                                                                 Reprovado
+                                                                @break
+                                                            @case('FINALIZED')
+                                                                Finalizada
                                                                 @break
                                                             @default
                                                                 {{ $laudoCycle->decision ?? '---' }}
